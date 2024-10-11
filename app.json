@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.etengenesis.langquest"
     },
     "web": {
       "bundler": "metro",
@@ -31,6 +32,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fafd03a9-a42c-44c7-849c-b0f84fbffe93"
+      }
+    },
+    "owner": "eten-genesis"
   }
 }
