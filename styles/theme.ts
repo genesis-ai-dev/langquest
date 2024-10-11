@@ -55,6 +55,7 @@ export const spacing = {
   large: 24,
   xlarge: 32,
   xxlarge: 48,
+  xxxlarge: 54,
 };
 
 export const borderRadius = {

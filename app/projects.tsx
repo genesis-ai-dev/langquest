@@ -102,14 +102,14 @@ export default function Projects() {
       case 'waiting':
         filtered = filtered.filter(project => project.isWaiting);
         break;
-      case 'leader':
-        filtered = filtered.filter(project => project.isLeader);
-        break;
       case 'search':
         filtered = filtered.filter(project => 
           (sourceFilter === 'All' || project.sourceLanguage === sourceFilter) &&
           (targetFilter === 'All' || project.targetLanguage === targetFilter)
         );
+        break;
+      case 'leader':
+        filtered = filtered.filter(project => project.isLeader);
         break;
     }
 
@@ -166,7 +166,7 @@ export default function Projects() {
           </View>
           
           {showLanguageFilters && (
-            <View style={[sharedStyles.filtersContainer, { marginBottom: spacing.xxlarge }]}>
+            <View style={[sharedStyles.filtersContainer, { marginBottom: spacing.xxxlarge }]}>
                 <View style={{ flex: 1, marginRight: spacing.small }}>
                 <LanguageDropdown 
                     label="Source" 
