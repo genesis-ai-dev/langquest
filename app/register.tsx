@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
 
 export default function Register() {
   const router = useRouter();
@@ -19,43 +21,14 @@ export default function Register() {
           <Text style={sharedStyles.title}>LangQuest</Text>
           <Text style={sharedStyles.subtitle}>New User Registration</Text>
           
-          <View style={{ width: '100%', marginBottom: spacing.medium }}>
-            <Text style={{ color: colors.text, marginBottom: spacing.small }}>App Language:</Text>
-            <TouchableOpacity 
-              style={sharedStyles.dropdown}
-              onPress={() => setShowLanguages(!showLanguages)}
-            >
-              <Text style={sharedStyles.dropdownText}>{selectedLanguage}</Text>
-              <Ionicons name="chevron-down-outline" size={20} color={colors.text} />
-            </TouchableOpacity>
-            {showLanguages && (
-              <View style={{ 
-                backgroundColor: colors.inputBackground, 
-                borderRadius: borderRadius.large,
-                borderWidth: 1,
-                borderColor: colors.inputBorder,
-                marginTop: -spacing.medium,
-                marginBottom: spacing.medium,
-              }}>
-                {languages.map((lang, index) => (
-                  <TouchableOpacity 
-                    key={index}
-                    style={{ 
-                      padding: spacing.medium,
-                      borderBottomWidth: index < languages.length - 1 ? 1 : 0,
-                      borderBottomColor: colors.inputBorder,
-                    }}
-                    onPress={() => {
-                      setSelectedLanguage(lang);
-                      setShowLanguages(false);
-                    }}
-                  >
-                    <Text style={sharedStyles.dropdownText}>{lang}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
+          <CustomDropdown
+            label="App Language"
+            value={selectedLanguage}
+            options={languages}
+            onSelect={setSelectedLanguage}
+            isOpen={showLanguages}
+            onToggle={() => setShowLanguages(!showLanguages)}
+          />
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
@@ -103,6 +76,7 @@ export default function Register() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <BreadcrumbBanner language={selectedLanguage} />
     </SafeAreaView>
   );
 }

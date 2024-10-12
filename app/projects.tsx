@@ -4,18 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
-
-interface Project {
-  id: string;
-  name: string;
-  members: number;
-  isPublic: boolean;
-  isLeader: boolean;
-  sourceLanguage: string;
-  targetLanguage: string;
-  isMember: boolean;
-  isWaiting: boolean;
-}
+import { Project } from '@/types/project';
+import { ProjectDetails } from '@/components/ProjectDetails';
+import { CustomDropdown } from '@/components/CustomDropdown';
 
 type FilterType = 'member' | 'waiting' | 'search' | 'leader';
 
@@ -42,43 +33,6 @@ const ProjectCard: React.FC<{ project: Project }> = ({ project }) => (
   </View>
 );
 
-const LanguageDropdown: React.FC<{ 
-  label: string, 
-  value: string, 
-  options: string[], 
-  onSelect: (lang: string) => void,
-  isOpen: boolean,
-  onToggle: () => void
-}> = ({ label, value, options, onSelect, isOpen, onToggle }) => {
-  return (
-    <View style={sharedStyles.dropdownContainer}>
-      <Text style={sharedStyles.dropdownLabel}>{label}:</Text>
-      <TouchableOpacity 
-        style={sharedStyles.dropdown}
-        onPress={onToggle}
-      >
-        <Text style={sharedStyles.dropdownText}>{value}</Text>
-        <Ionicons name="chevron-down-outline" size={20} color={colors.text} />
-      </TouchableOpacity>
-      {isOpen && (
-        <View style={sharedStyles.optionsContainer}>
-          {options.map((option, index) => (
-            <TouchableOpacity 
-              key={index}
-              style={sharedStyles.option}
-              onPress={() => {
-                onSelect(option);
-                onToggle();
-              }}
-            >
-              <Text style={sharedStyles.optionText}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
 
 export default function Projects() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('member');
@@ -87,6 +41,7 @@ export default function Projects() {
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(null);
   const [filteredProjects, setFilteredProjects] = useState(mockProjects);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     filterProjects();
@@ -129,6 +84,20 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
+  const handleProjectPress = (project: Project) => {
+    setSelectedProject(project);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedProject(null);
+  };
+
+  const handleExplore = () => {
+    // TODO: Implement navigation to project exploration screen
+    console.log('Exploring project:', selectedProject?.name);
+    setSelectedProject(null);
+  };
+
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
@@ -166,38 +135,47 @@ export default function Projects() {
           </View>
           
           {showLanguageFilters && (
-            <View style={[sharedStyles.filtersContainer, { marginBottom: spacing.xxxlarge }]}>
-                <View style={{ flex: 1, marginRight: spacing.small }}>
-                <LanguageDropdown 
-                    label="Source" 
-                    value={sourceFilter} 
-                    options={['All', ...languages]} 
-                    onSelect={setSourceFilter}
-                    isOpen={openDropdown === 'source'}
-                    onToggle={() => toggleDropdown('source')}
-                />
-                </View>
-                <View style={{ flex: 1 }}>
-                <LanguageDropdown 
-                    label="Target" 
-                    value={targetFilter} 
-                    options={['All', ...languages]} 
-                    onSelect={setTargetFilter}
-                    isOpen={openDropdown === 'target'}
-                    onToggle={() => toggleDropdown('target')}
-                />
-                </View>
+            <View style={sharedStyles.filtersContainer}>
+              <CustomDropdown
+                label="Source"
+                value={sourceFilter}
+                options={['All', ...languages]}
+                onSelect={setSourceFilter}
+                isOpen={openDropdown === 'source'}
+                onToggle={() => toggleDropdown('source')}
+                fullWidth={false}
+              />
+              <CustomDropdown
+                label="Target"
+                value={targetFilter}
+                options={['All', ...languages]}
+                onSelect={setTargetFilter}
+                isOpen={openDropdown === 'target'}
+                onToggle={() => toggleDropdown('target')}
+                fullWidth={false}
+              />
             </View>
             )}
           
           <FlatList
             data={filteredProjects}
-            renderItem={({ item }) => <ProjectCard project={item} />}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleProjectPress(item)}>
+                <ProjectCard project={item} />
+              </TouchableOpacity>
+            )}
             keyExtractor={item => item.id}
             style={sharedStyles.list}
           />
         </View>
       </SafeAreaView>
+      {selectedProject && (
+        <ProjectDetails
+          project={selectedProject}
+          onClose={handleCloseDetails}
+          onExplore={handleExplore}
+        />
+      )}
     </LinearGradient>
   );
 }
