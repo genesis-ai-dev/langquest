@@ -103,6 +103,12 @@ export const sharedStyles = StyleSheet.create({
     minHeight: 48,
     fontSize: fontSizes.medium,
   },
+  backButton: {
+    position: 'absolute',
+    top: spacing.medium,
+    left: spacing.medium,
+    zIndex: 1,
+  },
   button: {
     backgroundColor: colors.buttonBackground,
     borderRadius: borderRadius.large,
@@ -134,6 +140,11 @@ export const sharedStyles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: spacing.small,
   },
+  cardDescription: {
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    marginBottom: spacing.small,
+  },
   cardInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,6 +167,23 @@ export const sharedStyles = StyleSheet.create({
   iconButton: {
     padding: spacing.small,
     borderRadius: borderRadius.medium,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    paddingHorizontal: spacing.medium,
+    marginBottom: spacing.medium,
+  },
+  searchIcon: {
+    marginRight: spacing.small,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    paddingVertical: spacing.medium,
   },
   selectedIconButton: {
     borderWidth: 2,

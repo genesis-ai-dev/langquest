@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { Project } from '@/types/project';
 import { ProjectDetails } from '@/components/ProjectDetails';
@@ -35,6 +36,7 @@ const ProjectCard: React.FC<{ project: Project }> = ({ project }) => (
 
 
 export default function Projects() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterType>('member');
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
@@ -93,9 +95,12 @@ export default function Projects() {
   };
 
   const handleExplore = () => {
-    // TODO: Implement navigation to project exploration screen
-    console.log('Exploring project:', selectedProject?.name);
-    setSelectedProject(null);
+    if (selectedProject) {
+      router.push({
+        pathname: "/quests",
+        params: { projectId: selectedProject.id, projectName: selectedProject.name }
+      });
+    }
   };
 
   return (

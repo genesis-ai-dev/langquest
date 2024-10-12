@@ -76,7 +76,7 @@ export default function Register() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      <BreadcrumbBanner language={selectedLanguage} />
+      {/* <BreadcrumbBanner language={selectedLanguage} /> */}
     </SafeAreaView>
   );
 }
