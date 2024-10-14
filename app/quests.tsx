@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { QuestFilterModal } from '@/components/QuestFilterModal';
 
 interface Quest {
   id: string;
@@ -56,6 +57,7 @@ export default function Quests() {
   const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredQuests, setFilteredQuests] = useState(mockQuests);
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
   useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -65,6 +67,11 @@ export default function Quests() {
     );
     setFilteredQuests(filtered);
   }, [searchQuery]);
+
+  const handleApplyFilters = (filters: any) => {
+    // Apply filters logic here
+    console.log('Filters applied:', filters);
+  };
 
   return (
     <LinearGradient
@@ -78,15 +85,18 @@ export default function Quests() {
           </TouchableOpacity>
           <Text style={sharedStyles.title}>{projectName} Quests</Text>
           
-          <View style={sharedStyles.searchContainer}>
-            <Ionicons name="search" size={20} color={colors.text} style={sharedStyles.searchIcon} />
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
-              style={sharedStyles.searchInput}
+              style={styles.searchInput}
               placeholder="Search quests..."
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
+            <TouchableOpacity onPress={() => setIsFilterModalVisible(true)} style={styles.filterIcon}>
+              <Ionicons name="filter" size={20} color={colors.text} />
+            </TouchableOpacity>
           </View>
           
           <FlatList
@@ -97,7 +107,36 @@ export default function Quests() {
           />
         </View>
       </SafeAreaView>
+      {isFilterModalVisible && (
+        <QuestFilterModal
+          onClose={() => setIsFilterModalVisible(false)}
+          onApplyFilters={handleApplyFilters}
+        />
+      )}
     </LinearGradient>
   );
 }
 
+const styles = StyleSheet.create({
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    paddingHorizontal: spacing.medium,
+    marginBottom: spacing.medium,
+  },
+  searchIcon: {
+    marginRight: spacing.small,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    paddingVertical: spacing.medium,
+  },
+  filterIcon: {
+    marginLeft: spacing.small,
+    padding: spacing.small,
+  },
+});
