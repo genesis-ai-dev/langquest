@@ -11,16 +11,17 @@ interface Quest {
   id: string;
   title: string;
   description: string;
+  tags: string[];
   difficulty: 'Easy' | 'Medium' | 'Hard';
   status: 'Not Started' | 'In Progress' | 'Completed';
 }
 
 const mockQuests: Quest[] = [
-  { id: '1', title: 'Translate Chapter 1', description: 'Translate the first chapter of the book', difficulty: 'Easy', status: 'Not Started' },
-  { id: '2', title: 'Review Translations', description: 'Review and edit recent translations', difficulty: 'Medium', status: 'In Progress' },
-  { id: '3', title: 'Localize UI Elements', description: 'Translate and adapt UI elements for the target language', difficulty: 'Hard', status: 'Completed' },
-  { id: '4', title: 'Create Glossary', description: 'Compile a glossary of project-specific terms', difficulty: 'Medium', status: 'Not Started' },
-  { id: '5', title: 'Proofread Documentation', description: 'Proofread and finalize translated documentation', difficulty: 'Easy', status: 'In Progress' },
+  { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
+  { id: '2', title: '2st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
+  { id: '3', title: '3rd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:3', 'Author:Paul'], difficulty: 'Hard', status: 'Completed' },
+  { id: '4', title: '4th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:4', 'Author:Paul'], difficulty: 'Medium', status: 'Not Started' },
+  { id: '5', title: '5th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:5', 'Author:Paul'], difficulty: 'Easy', status: 'In Progress' },
 ];
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => (
