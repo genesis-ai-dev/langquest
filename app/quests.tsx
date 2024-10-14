@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
-
-interface Quest {
-  id: string;
-  title: string;
-  description: string;
-  tags: string[];
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  status: 'Not Started' | 'In Progress' | 'Completed';
-}
+import { Quest } from '@/types/quest';
 
 const mockQuests: Quest[] = [
   { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
@@ -69,7 +61,7 @@ export default function Quests() {
     setFilteredQuests(filtered);
   }, [searchQuery]);
 
-  const handleApplyFilters = (filters: any) => {
+  const handleApplyFilters = (filters: Record<string, string[]>) => {
     // Apply filters logic here
     console.log('Filters applied:', filters);
   };
@@ -108,12 +100,15 @@ export default function Quests() {
           />
         </View>
       </SafeAreaView>
-      {isFilterModalVisible && (
+      <Modal
+        visible={isFilterModalVisible}
+        transparent={true}
+        animationType="fade"
+      >
         <QuestFilterModal
           onClose={() => setIsFilterModalVisible(false)}
-          onApplyFilters={handleApplyFilters}
         />
-      )}
+      </Modal>
     </LinearGradient>
   );
 }

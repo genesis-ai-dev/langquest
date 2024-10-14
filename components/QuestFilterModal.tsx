@@ -1,29 +1,101 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 interface QuestFilterModalProps {
   onClose: () => void;
-  onApplyFilters: (filters: any) => void; // Replace 'any' with a proper filter type when defined
 }
 
-export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose, onApplyFilters }) => {
-  // Placeholder for filter options
-  const applyFilters = () => {
-    // Logic to apply filters
-    onApplyFilters({});
-    onClose();
+interface FilterOption {
+  id: string;
+  label: string;
+}
+
+interface FilterSection {
+  id: string;
+  heading: string;
+  options: FilterOption[];
+}
+
+const filterData: FilterSection[] = [
+  {
+    id: 'book',
+    heading: 'Book',
+    options: [
+      { id: 'genesis', label: 'Genesis' },
+      { id: 'exodus', label: 'Exodus' },
+    ],
+  },
+  {
+    id: 'chapter',
+    heading: 'Chapter',
+    options: [
+      { id: 'chapter1', label: 'Chapter 1' },
+      { id: 'chapter2', label: 'Chapter 2' },
+    ],
+  },
+];
+
+export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose }) => {
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionId)
+        ? prev.filter(id => id !== sectionId)
+        : [...prev, sectionId]
+    );
+  };
+
+  const toggleOption = (optionId: string) => {
+    setSelectedOptions(prev =>
+      prev.includes(optionId)
+        ? prev.filter(id => id !== optionId)
+        : [...prev, optionId]
+    );
   };
 
   return (
     <View style={styles.overlay}>
-      <TouchableOpacity style={styles.closeArea} onPress={onClose} />
       <View style={styles.modal}>
-        <Text style={styles.title}>Filter & Sort</Text>
-        {/* Add filter and sort options here */}
-        <Text style={styles.optionText}>Filter and sort options will go here</Text>
-        <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+        <Text style={styles.title}>Filter Quests</Text>
+        <ScrollView style={styles.content}>
+          {filterData.map((section) => (
+            <View key={section.id}>
+              <TouchableOpacity 
+                style={styles.heading}
+                onPress={() => toggleSection(section.id)}
+              >
+                <Text style={styles.headingText}>{section.heading}</Text>
+                <Ionicons 
+                  name={expandedSections.includes(section.id) ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color={colors.text} 
+                />
+              </TouchableOpacity>
+              
+              {expandedSections.includes(section.id) && section.options.map((option) => (
+                <TouchableOpacity 
+                  key={option.id}
+                  style={styles.option} 
+                  onPress={() => toggleOption(option.id)}
+                >
+                  <Text style={styles.optionText}>{option.label}</Text>
+                  <View style={styles.checkboxContainer}>
+                    {selectedOptions.includes(option.id) ? (
+                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                    ) : (
+                      <View style={styles.emptyCheckbox} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+        <TouchableOpacity style={styles.applyButton} onPress={onClose}>
           <Text style={styles.applyButtonText}>Apply</Text>
         </TouchableOpacity>
       </View>
@@ -38,8 +110,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeArea: {
-    ...StyleSheet.absoluteFillObject,
+  content: {
+    flexGrow: 1,
+    marginBottom: spacing.medium,
+  },
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modal: {
     backgroundColor: colors.background,
@@ -49,15 +128,41 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   title: {
-    fontSize: fontSizes.xlarge,
+    fontSize: fontSizes.large,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: spacing.medium,
   },
-  optionText: {
+  heading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder,
+  },
+  headingText: {
     fontSize: fontSizes.medium,
+    fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
+  },
+  option: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+  },
+  optionText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+  },
+  emptyCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: colors.inputBorder,
+    borderRadius: 10,
   },
   applyButton: {
     backgroundColor: colors.primary,
