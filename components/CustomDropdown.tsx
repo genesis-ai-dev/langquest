@@ -9,8 +9,8 @@ interface CustomDropdownProps {
   value: string;
   options: string[];
   onSelect: (option: string) => void;
-  isOpen: boolean;
-  onToggle: () => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
   fullWidth?: boolean;
   search?: boolean;
 }
@@ -20,6 +20,8 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   value,
   options,
   onSelect,
+  isOpen,
+  onToggle,
   fullWidth = true,
   search = true,
 }) => {
@@ -46,6 +48,8 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         onChange={item => {
           onSelect(item.value);
         }}
+        onFocus={onToggle}
+        onBlur={onToggle}
         renderLeftIcon={() => (
           <Ionicons name="chevron-down-outline" size={20} color={colors.text} style={styles.icon} />
         )}

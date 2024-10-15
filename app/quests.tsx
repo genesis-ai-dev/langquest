@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -122,6 +122,18 @@ export default function Quests() {
     setActiveSorting(sorting);
   };
 
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isFilterModalVisible) {
+        setIsFilterModalVisible(false);
+        return true; // Prevent default behavior
+      }
+      return false; // Let default behavior happen (exit the screen)
+    });
+
+    return () => backHandler.remove();
+  }, [isFilterModalVisible]);
+
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
@@ -157,18 +169,22 @@ export default function Quests() {
         </View>
       </SafeAreaView>
       <Modal
-      visible={isFilterModalVisible}
-      transparent={true}
-      animationType="fade"
-    >
-      <QuestFilterModal
-        onClose={() => setIsFilterModalVisible(false)}
-        quests={mockQuests}
-        onApplyFilters={handleApplyFilters}
-        onApplySorting={handleApplySorting}
-        initialFilters={activeFilters}
-        initialSorting={activeSorting}
-      />
+        visible={isFilterModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsFilterModalVisible(false)}
+      >
+      <View style={{ flex: 1 }}>
+        <QuestFilterModal
+          visible={isFilterModalVisible}
+          onClose={() => setIsFilterModalVisible(false)}
+          quests={mockQuests}
+          onApplyFilters={handleApplyFilters}
+          onApplySorting={handleApplySorting}
+          initialFilters={activeFilters}
+          initialSorting={activeSorting}
+        />
+      </View>
     </Modal>
     </LinearGradient>
   );

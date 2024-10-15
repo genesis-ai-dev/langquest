@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Quest } from '@/types/quest';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface QuestFilterModalProps {
+  visible: boolean; 
   onClose: () => void;
   quests: Quest[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
@@ -20,6 +21,7 @@ interface SortingOption {
 }
 
 export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
+  visible,
   onClose,
   quests,
   onApplyFilters,
@@ -56,7 +58,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   }, [quests]);
 
   const sortingFields = useMemo(() => {
-    return ['title', 'difficulty', 'status', ...new Set(quests.flatMap(quest => quest.tags.map(tag => tag.split(':')[0])))];
+    return [...new Set(quests.flatMap(quest => quest.tags.map(tag => tag.split(':')[0])))];
   }, [quests]);
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
     setSortingOptions(prev => {
       const newOptions = [...prev];
       if (field) {
-        newOptions[index] = { field, order };
+        newOptions[index] = { field, order: order || 'asc' };
       } else {
         newOptions.splice(index, 1);
       }
@@ -105,7 +107,9 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   };
 
   return (
+      <TouchableWithoutFeedback onPress={onClose}> 
     <View style={styles.overlay}>
+    <TouchableWithoutFeedback> 
       <View style={styles.modal}>
         <Text style={styles.title}>Quest Options</Text>
         <View style={styles.tabContainer}>
@@ -190,8 +194,10 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
         <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
           <Text style={styles.applyButtonText}>Apply</Text>
         </TouchableOpacity>
-      </View>
-    </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
   );
 };
 
