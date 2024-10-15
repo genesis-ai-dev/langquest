@@ -8,6 +8,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { Quest } from '@/types/quest';
 
+interface SortingOption {
+  field: string;
+  order: 'asc' | 'desc';
+}
+
 const mockQuests: Quest[] = [
   { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
   { id: '2', title: '2st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
@@ -52,6 +57,7 @@ export default function Quests() {
   const [filteredQuests, setFilteredQuests] = useState(mockQuests);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
 
   const applyFilters = useCallback((quests: Quest[], filters: Record<string, string[]>, search: string) => {
     return quests.filter(quest => {
@@ -71,6 +77,28 @@ export default function Quests() {
     });
   }, []);
 
+  const applySorting = useCallback((quests: Quest[], sorting: SortingOption[]) => {
+    return [...quests].sort((a, b) => {
+      for (const { field, order } of sorting) {
+        let valueA: string, valueB: string;
+
+        if (field === 'title' || field === 'difficulty' || field === 'status') {
+          valueA = a[field].toLowerCase();
+          valueB = b[field].toLowerCase();
+        } else {
+          const tagA = a.tags.find(tag => tag.startsWith(`${field}:`));
+          const tagB = b.tags.find(tag => tag.startsWith(`${field}:`));
+          valueA = tagA ? tagA.split(':')[1].toLowerCase() : '';
+          valueB = tagB ? tagB.split(':')[1].toLowerCase() : '';
+        }
+
+        if (valueA < valueB) return order === 'asc' ? -1 : 1;
+        if (valueA > valueB) return order === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, []);
+
   useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
     const filtered = mockQuests.filter(quest =>
@@ -81,12 +109,17 @@ export default function Quests() {
   }, [searchQuery]);
 
   useEffect(() => {
-    const filtered = applyFilters(mockQuests, activeFilters, searchQuery);
+    let filtered = applyFilters(mockQuests, activeFilters, searchQuery);
+    filtered = applySorting(filtered, activeSorting);
     setFilteredQuests(filtered);
-  }, [searchQuery, activeFilters, applyFilters]);
+  }, [searchQuery, activeFilters, activeSorting, applyFilters, applySorting]);
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
+  };
+
+  const handleApplySorting = (sorting: SortingOption[]) => {
+    setActiveSorting(sorting);
   };
 
   return (
@@ -124,17 +157,19 @@ export default function Quests() {
         </View>
       </SafeAreaView>
       <Modal
-        visible={isFilterModalVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <QuestFilterModal
-          onClose={() => setIsFilterModalVisible(false)}
-          quests={mockQuests}
-          onApplyFilters={handleApplyFilters}
-          initialFilters={activeFilters}
-        />
-      </Modal>
+      visible={isFilterModalVisible}
+      transparent={true}
+      animationType="fade"
+    >
+      <QuestFilterModal
+        onClose={() => setIsFilterModalVisible(false)}
+        quests={mockQuests}
+        onApplyFilters={handleApplyFilters}
+        onApplySorting={handleApplySorting}
+        initialFilters={activeFilters}
+        initialSorting={activeSorting}
+      />
+    </Modal>
     </LinearGradient>
   );
 }

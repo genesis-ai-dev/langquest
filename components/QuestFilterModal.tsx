@@ -3,17 +3,34 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Quest } from '@/types/quest';
+import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface QuestFilterModalProps {
   onClose: () => void;
   quests: Quest[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
+  onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
+  initialSorting: SortingOption[];
 }
 
-export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose, quests, onApplyFilters, initialFilters }) => {
+interface SortingOption {
+  field: string;
+  order: 'asc' | 'desc';
+}
+
+export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
+  onClose,
+  quests,
+  onApplyFilters,
+  onApplySorting,
+  initialFilters,
+  initialSorting,
+}) => {
+  const [activeTab, setActiveTab] = useState<'filter' | 'sort'>('filter');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
+  const [sortingOptions, setSortingOptions] = useState<SortingOption[]>(initialSorting);
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
@@ -38,9 +55,14 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose, que
     }));
   }, [quests]);
 
+  const sortingFields = useMemo(() => {
+    return ['title', 'difficulty', 'status', ...new Set(quests.flatMap(quest => quest.tags.map(tag => tag.split(':')[0])))];
+  }, [quests]);
+
   useEffect(() => {
     setSelectedOptions(initialFilters);
-  }, [initialFilters]);
+    setSortingOptions(initialSorting);
+  }, [initialFilters, initialSorting]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev =>
@@ -64,48 +86,106 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose, que
     });
   };
 
+  const handleSortingChange = (index: number, field: string | null, order: 'asc' | 'desc') => {
+    setSortingOptions(prev => {
+      const newOptions = [...prev];
+      if (field) {
+        newOptions[index] = { field, order };
+      } else {
+        newOptions.splice(index, 1);
+      }
+      return newOptions.filter(option => option.field);
+    });
+  };
+
   const handleApply = () => {
     onApplyFilters(selectedOptions);
+    onApplySorting(sortingOptions);
     onClose();
   };
 
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
-        <Text style={styles.title}>Filter Quests</Text>
+        <Text style={styles.title}>Quest Options</Text>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'filter' && styles.activeTab]}
+            onPress={() => setActiveTab('filter')}
+          >
+            <Ionicons name="filter" size={24} color={activeTab === 'filter' ? colors.primary : colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'sort' && styles.activeTab]}
+            onPress={() => setActiveTab('sort')}
+          >
+            <Ionicons name="swap-vertical" size={24} color={activeTab === 'sort' ? colors.primary : colors.text} />
+          </TouchableOpacity>
+        </View>
         <ScrollView style={styles.content}>
-          {filterData.map((section) => (
-            <View key={section.id}>
-              <TouchableOpacity 
-                style={styles.heading}
-                onPress={() => toggleSection(section.id)}
-              >
-                <Text style={styles.headingText}>{section.heading}</Text>
-                <Ionicons 
-                  name={expandedSections.includes(section.id) ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color={colors.text} 
-                />
-              </TouchableOpacity>
-              
-              {expandedSections.includes(section.id) && section.options.map((option) => (
+            
+          {activeTab === 'filter' ? (
+            
+            filterData.map((section) => (
+              <View key={section.id}>
                 <TouchableOpacity 
-                  key={option.id}
-                  style={styles.option} 
-                  onPress={() => toggleOption(section.id, option.id)}
+                  style={styles.heading}
+                  onPress={() => toggleSection(section.id)}
                 >
-                  <Text style={styles.optionText}>{option.label}</Text>
-                  <View style={styles.checkboxContainer}>
-                    {selectedOptions[section.id]?.includes(option.id) ? (
-                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                    ) : (
-                      <View style={styles.emptyCheckbox} />
-                    )}
-                  </View>
+                  <Text style={styles.headingText}>{section.heading}</Text>
+                  <Ionicons 
+                    name={expandedSections.includes(section.id) ? "chevron-up" : "chevron-down"} 
+                    size={24} 
+                    color={colors.text} 
+                  />
                 </TouchableOpacity>
-              ))}
-            </View>
-          ))}
+                
+                {expandedSections.includes(section.id) && section.options.map((option) => (
+                  <TouchableOpacity 
+                    key={option.id}
+                    style={styles.option} 
+                    onPress={() => toggleOption(section.id, option.id)}
+                  >
+                    <Text style={styles.optionText}>{option.label}</Text>
+                    <View style={styles.checkboxContainer}>
+                      {selectedOptions[section.id]?.includes(option.id) ? (
+                        <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                      ) : (
+                        <View style={styles.emptyCheckbox} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))
+          ) : (
+            // Sorting content
+            [0, 1, 2].map((index) => (
+              <View key={index} style={styles.sortingRow}>
+                <CustomDropdown
+                  label={`Sort ${index + 1}`}
+                  value={sortingOptions[index]?.field || ''}
+                  options={sortingFields}
+                  onSelect={(field) => handleSortingChange(index, field, sortingOptions[index]?.order || 'asc')}
+                  fullWidth={false}
+                  search={false}
+                />
+                <TouchableOpacity
+                  style={styles.orderToggle}
+                  onPress={() => handleSortingChange(index, sortingOptions[index]?.field, sortingOptions[index]?.order === 'asc' ? 'desc' : 'asc')}
+                >
+                  <Ionicons
+                    name={sortingOptions[index]?.order === 'asc' ? 'arrow-up' : 'arrow-down'}
+                    size={24}
+                    color={colors.text}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+
+
         </ScrollView>
         <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
           <Text style={styles.applyButtonText}>Apply</Text>
@@ -187,5 +267,37 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: spacing.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+  },
+  sortingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.medium,
+  },
+  orderToggle: {
+    marginLeft: spacing.small,
+    padding: spacing.small,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.small,
   },
 });

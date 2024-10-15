@@ -28,6 +28,7 @@ export default function Register() {
             onSelect={setSelectedLanguage}
             isOpen={showLanguages}
             onToggle={() => setShowLanguages(!showLanguages)}
+            search={true}
           />
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>

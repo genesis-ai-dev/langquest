@@ -149,6 +149,7 @@ export default function Projects() {
                 isOpen={openDropdown === 'source'}
                 onToggle={() => toggleDropdown('source')}
                 fullWidth={false}
+                search={true}
               />
               <CustomDropdown
                 label="Target"
@@ -158,6 +159,7 @@ export default function Projects() {
                 isOpen={openDropdown === 'target'}
                 onToggle={() => toggleDropdown('target')}
                 fullWidth={false}
+                search={true}
               />
             </View>
             )}

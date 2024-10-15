@@ -12,6 +12,7 @@ interface CustomDropdownProps {
   isOpen: boolean;
   onToggle: () => void;
   fullWidth?: boolean;
+  search?: boolean;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
@@ -20,6 +21,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   options,
   onSelect,
   fullWidth = true,
+  search = true,
 }) => {
   const data = options.map((option, index) => ({ label: option, value: option }));
 
@@ -34,7 +36,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         inputSearchStyle={styles.inputSearchStyle}
         iconStyle={styles.iconStyle}
         data={data}
-        search
+        search={search}
         maxHeight={300}
         labelField="label"
         valueField="value"
