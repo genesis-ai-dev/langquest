@@ -1,45 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { Quest } from '@/types/quest';
 
 interface QuestFilterModalProps {
   onClose: () => void;
+  quests: Quest[];
+  onApplyFilters: (filters: Record<string, string[]>) => void;
+  initialFilters: Record<string, string[]>;
 }
 
-interface FilterOption {
-  id: string;
-  label: string;
-}
-
-interface FilterSection {
-  id: string;
-  heading: string;
-  options: FilterOption[];
-}
-
-const filterData: FilterSection[] = [
-  {
-    id: 'book',
-    heading: 'Book',
-    options: [
-      { id: 'genesis', label: 'Genesis' },
-      { id: 'exodus', label: 'Exodus' },
-    ],
-  },
-  {
-    id: 'chapter',
-    heading: 'Chapter',
-    options: [
-      { id: 'chapter1', label: 'Chapter 1' },
-      { id: 'chapter2', label: 'Chapter 2' },
-    ],
-  },
-];
-
-export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose }) => {
+export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose, quests, onApplyFilters, initialFilters }) => {
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
+
+  const filterData = useMemo(() => {
+    const sections: Record<string, Set<string>> = {};
+    
+    quests.forEach(quest => {
+      quest.tags.forEach(tag => {
+        const [heading, option] = tag.split(':');
+        if (!sections[heading]) {
+          sections[heading] = new Set();
+        }
+        sections[heading].add(option);
+      });
+    });
+
+    return Object.entries(sections).map(([heading, options]) => ({
+      id: heading.toLowerCase(),
+      heading,
+      options: Array.from(options).map(option => ({
+        id: `${heading.toLowerCase()}:${option.toLowerCase()}`,
+        label: option
+      }))
+    }));
+  }, [quests]);
+
+  useEffect(() => {
+    setSelectedOptions(initialFilters);
+  }, [initialFilters]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev =>
@@ -49,12 +50,23 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose }) =
     );
   };
 
-  const toggleOption = (optionId: string) => {
-    setSelectedOptions(prev =>
-      prev.includes(optionId)
-        ? prev.filter(id => id !== optionId)
-        : [...prev, optionId]
-    );
+  const toggleOption = (sectionId: string, optionId: string) => {
+    setSelectedOptions(prev => {
+      const updatedSection = prev[sectionId] || [];
+      const updatedOptions = updatedSection.includes(optionId)
+        ? updatedSection.filter(id => id !== optionId)
+        : [...updatedSection, optionId];
+      
+      return {
+        ...prev,
+        [sectionId]: updatedOptions
+      };
+    });
+  };
+
+  const handleApply = () => {
+    onApplyFilters(selectedOptions);
+    onClose();
   };
 
   return (
@@ -80,11 +92,11 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose }) =
                 <TouchableOpacity 
                   key={option.id}
                   style={styles.option} 
-                  onPress={() => toggleOption(option.id)}
+                  onPress={() => toggleOption(section.id, option.id)}
                 >
                   <Text style={styles.optionText}>{option.label}</Text>
                   <View style={styles.checkboxContainer}>
-                    {selectedOptions.includes(option.id) ? (
+                    {selectedOptions[section.id]?.includes(option.id) ? (
                       <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                     ) : (
                       <View style={styles.emptyCheckbox} />
@@ -95,7 +107,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({ onClose }) =
             </View>
           ))}
         </ScrollView>
-        <TouchableOpacity style={styles.applyButton} onPress={onClose}>
+        <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
           <Text style={styles.applyButtonText}>Apply</Text>
         </TouchableOpacity>
       </View>

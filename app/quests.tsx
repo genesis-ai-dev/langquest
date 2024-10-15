@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +51,25 @@ export default function Quests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredQuests, setFilteredQuests] = useState(mockQuests);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+
+  const applyFilters = useCallback((quests: Quest[], filters: Record<string, string[]>, search: string) => {
+    return quests.filter(quest => {
+      const matchesSearch = quest.title.toLowerCase().includes(search.toLowerCase()) ||
+                            quest.description.toLowerCase().includes(search.toLowerCase());
+      
+      const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
+        if (selectedOptions.length === 0) return true;
+        return quest.tags.some(tag => {
+          const [tagCategory, tagValue] = tag.split(':');
+          return tagCategory.toLowerCase() === category.toLowerCase() && 
+                 selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
+        });
+      });
+  
+      return matchesSearch && matchesFilters;
+    });
+  }, []);
 
   useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -61,9 +80,13 @@ export default function Quests() {
     setFilteredQuests(filtered);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const filtered = applyFilters(mockQuests, activeFilters, searchQuery);
+    setFilteredQuests(filtered);
+  }, [searchQuery, activeFilters, applyFilters]);
+
   const handleApplyFilters = (filters: Record<string, string[]>) => {
-    // Apply filters logic here
-    console.log('Filters applied:', filters);
+    setActiveFilters(filters);
   };
 
   return (
@@ -107,6 +130,9 @@ export default function Quests() {
       >
         <QuestFilterModal
           onClose={() => setIsFilterModalVisible(false)}
+          quests={mockQuests}
+          onApplyFilters={handleApplyFilters}
+          initialFilters={activeFilters}
         />
       </Modal>
     </LinearGradient>
