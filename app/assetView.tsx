@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { Audio } from 'expo-av';
-import Carousel from 'react-native-snap-carousel';
+import PagerView from 'react-native-pager-view';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 
@@ -52,25 +52,20 @@ const AssetView = () => {
     </View>
   );
 
-//   const renderImageCarousel = () => {
-//     if (!images || images.length === 0) {
-//       return <Text>No images available</Text>;
-//     }
-//     return (
-//       <Carousel
-//         data={images}
-//         renderItem={({ item }) => (
-//           item && item.uri ? (
-//             <View style={styles.carouselItem}>
-//               <Image source={item.uri} style={styles.carouselImage} />
-//             </View>
-//           ) : null
-//         )}
-//         sliderWidth={Dimensions.get('window').width}
-//         itemWidth={Dimensions.get('window').width - 60}
-//       />
-//     );
-//   };
+  const renderImageCarousel = () => {
+    if (!images || images.length === 0) {
+      return <Text>No images available</Text>;
+    }
+    return (
+      <PagerView style={styles.pagerView} initialPage={0}>
+        {images.map((item, index) => (
+          <View key={index} style={styles.carouselItem}>
+            <Image source={item.uri} style={styles.carouselImage} />
+          </View>
+        ))}
+      </PagerView>
+    );
+  };
 
   const renderTranslationCard = ({ item }: { item: { id: string; text: string } }) => (
     <View style={styles.translationCard}>
@@ -115,7 +110,7 @@ const AssetView = () => {
           </View>
           <View style={styles.tabContent}>
             {activeTab === 'audio' && renderAudioPlayer()}
-            {activeTab === 'image' }
+            {activeTab === 'image' && renderImageCarousel()}
             {activeTab === 'other' && <Text>Other Content Placeholder</Text>}
           </View>
         </View>
@@ -211,8 +206,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
   },
+  pagerView: {
+    flex: 1,
+    width: '100%',
+  },
   carouselItem: {
-    width: Dimensions.get('window').width - 60,
+    width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
