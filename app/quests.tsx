@@ -7,6 +7,7 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { Quest } from '@/types/quest';
+import { QuestDetails } from '@/components/QuestDetails';
 
 interface SortingOption {
   field: string;
@@ -15,7 +16,7 @@ interface SortingOption {
 
 const mockQuests: Quest[] = [
   { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
-  { id: '2', title: '2st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
+  { id: '2', title: '2nd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
   { id: '3', title: '3rd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:3', 'Author:Paul'], difficulty: 'Hard', status: 'Completed' },
   { id: '4', title: '4th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:4', 'Author:Paul'], difficulty: 'Medium', status: 'Not Started' },
   { id: '5', title: '5th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:5', 'Author:Paul'], difficulty: 'Easy', status: 'In Progress' },
@@ -58,6 +59,7 @@ export default function Quests() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
+  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   const applyFilters = useCallback((quests: Quest[], filters: Record<string, string[]>, search: string) => {
     return quests.filter(quest => {
@@ -98,6 +100,26 @@ export default function Quests() {
       return 0;
     });
   }, []);
+
+  const getActiveOptionsCount = () => {
+    const filterCount = Object.values(activeFilters).flat().length;
+    const sortCount = activeSorting.length;
+    return filterCount + sortCount;
+  };
+
+  const handleQuestPress = (quest: Quest) => {
+    setSelectedQuest(quest);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedQuest(null);
+  };
+
+  const handleStartQuest = () => {
+    // Implement the logic to start the quest
+    console.log('Starting quest:', selectedQuest?.title);
+    setSelectedQuest(null);
+  };
 
   useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -157,12 +179,21 @@ export default function Quests() {
             />
             <TouchableOpacity onPress={() => setIsFilterModalVisible(true)} style={styles.filterIcon}>
               <Ionicons name="filter" size={20} color={colors.text} />
+              {getActiveOptionsCount() > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{getActiveOptionsCount()}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
           
           <FlatList
             data={filteredQuests}
-            renderItem={({ item }) => <QuestCard quest={item} />}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleQuestPress(item)}>
+                <QuestCard quest={item} />
+              </TouchableOpacity>
+            )}
             keyExtractor={item => item.id}
             style={sharedStyles.list}
           />
@@ -186,6 +217,13 @@ export default function Quests() {
         />
       </View>
     </Modal>
+    {selectedQuest && (
+      <QuestDetails
+        quest={selectedQuest}
+        onClose={handleCloseDetails}
+        onStart={handleStartQuest}
+      />
+    )}
     </LinearGradient>
   );
 }
@@ -211,5 +249,22 @@ const styles = StyleSheet.create({
   filterIcon: {
     marginLeft: spacing.small,
     padding: spacing.small,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.small,
+    fontWeight: 'bold',
   },
 });

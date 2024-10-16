@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
+import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Quest } from '@/types/quest';
 import { CustomDropdown } from '@/components/CustomDropdown';
@@ -74,6 +74,14 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
     );
   };
 
+  const getActiveFiltersCount = () => {
+    return Object.values(selectedOptions).flat().length;
+  };
+
+  const getActiveSortingCount = () => {
+    return sortingOptions.length;
+  };
+
   const toggleOption = (sectionId: string, optionId: string) => {
     setSelectedOptions(prev => {
       const updatedSection = prev[sectionId] || [];
@@ -107,26 +115,40 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   };
 
   return (
-      <TouchableWithoutFeedback onPress={onClose}> 
-    <View style={styles.overlay}>
+    <TouchableWithoutFeedback onPress={onClose}> 
+    <View style={sharedStyles.modalOverlay}>
     <TouchableWithoutFeedback> 
-      <View style={styles.modal}>
-        <Text style={styles.title}>Quest Options</Text>
+      <View style={sharedStyles.modal}>
+        <Text style={sharedStyles.modalTitle}>Quest Options</Text>
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'filter' && styles.activeTab]}
             onPress={() => setActiveTab('filter')}
           >
-            <Ionicons name="filter" size={24} color={activeTab === 'filter' ? colors.primary : colors.text} />
+            <View style={styles.tabIconContainer}>
+              <Ionicons name="filter" size={24} color={activeTab === 'filter' ? colors.primary : colors.text} />
+              {getActiveFiltersCount() > 0 && (
+                <View style={sharedStyles.badge}>
+                  <Text style={sharedStyles.badgeText}>{getActiveFiltersCount()}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'sort' && styles.activeTab]}
             onPress={() => setActiveTab('sort')}
           >
-            <Ionicons name="swap-vertical" size={24} color={activeTab === 'sort' ? colors.primary : colors.text} />
+            <View style={styles.tabIconContainer}>
+              <Ionicons name="swap-vertical" size={24} color={activeTab === 'sort' ? colors.primary : colors.text} />
+              {getActiveSortingCount() > 0 && (
+                <View style={sharedStyles.badge}>
+                  <Text style={sharedStyles.badgeText}>{getActiveSortingCount()}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
-        <ScrollView style={styles.content}>
+        <ScrollView style={sharedStyles.modalContent}>
             
           {activeTab === 'filter' ? (
             
@@ -151,7 +173,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                     onPress={() => toggleOption(section.id, option.id)}
                   >
                     <Text style={styles.optionText}>{option.label}</Text>
-                    <View style={styles.checkboxContainer}>
+                    <View style={sharedStyles.checkboxContainer}>
                       {selectedOptions[section.id]?.includes(option.id) ? (
                         <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                       ) : (
@@ -191,8 +213,8 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
 
 
         </ScrollView>
-        <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-          <Text style={styles.applyButtonText}>Apply</Text>
+        <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
+          <Text style={sharedStyles.modalButtonText}>Apply</Text>
         </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
@@ -202,35 +224,6 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flexGrow: 1,
-    marginBottom: spacing.medium,
-  },
-  checkboxContainer: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modal: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '80%',
-    maxHeight: '80%',
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium,
-  },
   heading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -261,18 +254,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.inputBorder,
     borderRadius: 10,
-  },
-  applyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    alignItems: 'center',
-    marginTop: spacing.large,
-  },
-  applyButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -305,5 +286,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: borderRadius.small,
+  },
+  tabIconContainer: {
+    position: 'relative',
   },
 });

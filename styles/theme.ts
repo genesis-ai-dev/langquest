@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { adjustColor } from '@/utils/colorUtils';
 
-const themeColor = 'green'; // Change this to 'green', 'yellow', or any other color
+const themeColor = 'purple'; // Change this to 'green', 'yellow', or any other color
 
 const getColorHex = (color: string) => {
   const colorMap: { [key: string]: string } = {
@@ -40,6 +40,7 @@ export const colors = {
   
 
 export const fontSizes = {
+  xsmall: 10,
   small: 12,
   medium: 14,
   large: 16,
@@ -192,14 +193,7 @@ export const sharedStyles = StyleSheet.create({
   list: {
     width: '100%',
   },
-  // Filter styles
-//   filtersContainer: {
-//     marginBottom: spacing.medium,
-//     backgroundColor: colors.background,
-//     borderRadius: borderRadius.medium,
-//     padding: spacing.medium,
-//   },
-filtersContainer: {
+  filtersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: spacing.medium,
@@ -209,5 +203,63 @@ filtersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: colors.background,
+  },
+  modal: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.large,
+    padding: spacing.large,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: fontSizes.large,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: spacing.medium,
+  },
+  modalContent: {
+    flexGrow: 1,
+    marginBottom: spacing.medium,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.medium,
+    padding: spacing.medium,
+    alignItems: 'center',
+    marginTop: spacing.large,
+  },
+  modalButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.xsmall,
+    fontWeight: 'bold',
+  },
+  
+  checkboxContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
