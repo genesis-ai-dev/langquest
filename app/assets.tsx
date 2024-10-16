@@ -1,74 +1,58 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { Quest } from '@/types/quest';
-import { QuestDetails } from '@/components/QuestDetails';
+import { Asset } from '@/types/asset';
+import { AssetFilterModal } from '@/components/AssetFilterModal';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const mockQuests: Quest[] = [
-  { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
-  { id: '2', title: '2nd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
-  { id: '3', title: '3rd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:3', 'Author:Paul'], difficulty: 'Hard', status: 'Completed' },
-  { id: '4', title: '4th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:4', 'Author:Paul'], difficulty: 'Medium', status: 'Not Started' },
-  { id: '5', title: '5th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:5', 'Author:Paul'], difficulty: 'Easy', status: 'In Progress' },
+const mockAssets: Asset[] = [
+  { id: '1', title: 'Asset 1', description: 'Description for Asset 1', tags: ['Type:Image', 'Category:Background', 'Style:Modern'], fileType: 'PNG' },
+  { id: '2', title: 'Asset 2', description: 'Description for Asset 2', tags: ['Type:Audio', 'Category:SoundEffect', 'Style:Retro'], fileType: 'MP3' },
+  { id: '3', title: 'Asset 3', description: 'Description for Asset 3', tags: ['Type:Model', 'Category:Character', 'Style:Fantasy'], fileType: 'FBX' },
+  { id: '4', title: 'Asset 4', description: 'Description for Asset 4', tags: ['Type:Texture', 'Category:Environment', 'Style:Realistic'], fileType: 'JPG' },
+  { id: '5', title: 'Asset 5', description: 'Description for Asset 5', tags: ['Type:Script', 'Category:AI', 'Style:Procedural'], fileType: 'JS' },
 ];
 
-const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{quest.title}</Text>
-    <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
-    <View style={sharedStyles.cardInfo}>
-      <Text style={[sharedStyles.cardInfoText, { color: getDifficultyColor(quest.difficulty) }]}>{quest.difficulty}</Text>
-      <Text style={[sharedStyles.cardInfoText, { color: getStatusColor(quest.status) }]}>{quest.status}</Text>
-    </View>
-  </View>
-);
+const AssetCard: React.FC<{ asset: Asset; onPress: () => void }> = ({ asset, onPress }) => (
+    <TouchableOpacity onPress={onPress}>
+      <View style={sharedStyles.card}>
+        <Text style={sharedStyles.cardTitle}>{asset.title}</Text>
+        <Text style={sharedStyles.cardDescription}>{asset.description}</Text>
+        <View style={sharedStyles.cardInfo}>
+          <Text style={sharedStyles.cardInfoText}>{asset.fileType}</Text>
+          {asset.tags.map((tag, index) => (
+            <Text key={index} style={[sharedStyles.cardInfoText, styles.tag]}>{tag}</Text>
+          ))}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
-const getDifficultyColor = (difficulty: Quest['difficulty']) => {
-  switch (difficulty) {
-    case 'Easy': return colors.text;
-    case 'Medium': return colors.text;
-    case 'Hard': return colors.text;
-    default: return colors.text;
-  }
-};
-
-const getStatusColor = (status: Quest['status']) => {
-  switch (status) {
-    case 'Not Started': return colors.text;
-    case 'In Progress': return colors.text;
-    case 'Completed': return colors.text;
-    default: return colors.text;
-  }
-};
-
-export default function Quests() {
+export default function Assets() {
   const router = useRouter();
-  const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
+  const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredQuests, setFilteredQuests] = useState(mockQuests);
+  const [filteredAssets, setFilteredAssets] = useState(mockAssets);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
-  const applyFilters = useCallback((quests: Quest[], filters: Record<string, string[]>, search: string) => {
-    return quests.filter(quest => {
-      const matchesSearch = quest.title.toLowerCase().includes(search.toLowerCase()) ||
-                            quest.description.toLowerCase().includes(search.toLowerCase());
+  const applyFilters = useCallback((assets: Asset[], filters: Record<string, string[]>, search: string) => {
+    return assets.filter(asset => {
+      const matchesSearch = asset.title.toLowerCase().includes(search.toLowerCase()) ||
+                            asset.description.toLowerCase().includes(search.toLowerCase());
       
       const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
         if (selectedOptions.length === 0) return true;
-        return quest.tags.some(tag => {
+        return asset.tags.some(tag => {
           const [tagCategory, tagValue] = tag.split(':');
           return tagCategory.toLowerCase() === category.toLowerCase() && 
                  selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
@@ -79,12 +63,12 @@ export default function Quests() {
     });
   }, []);
 
-  const applySorting = useCallback((quests: Quest[], sorting: SortingOption[]) => {
-    return [...quests].sort((a, b) => {
+  const applySorting = useCallback((assets: Asset[], sorting: SortingOption[]) => {
+    return [...assets].sort((a, b) => {
       for (const { field, order } of sorting) {
         let valueA: string, valueB: string;
 
-        if (field === 'title' || field === 'difficulty' || field === 'status') {
+        if (field === 'title' || field === 'fileType') {
           valueA = a[field].toLowerCase();
           valueB = b[field].toLowerCase();
         } else {
@@ -107,33 +91,10 @@ export default function Quests() {
     return filterCount + sortCount;
   };
 
-  const handleQuestPress = (quest: Quest) => {
-    setSelectedQuest(quest);
-  };
-
-  const handleCloseDetails = () => {
-    setSelectedQuest(null);
-  };
-
-  const handleStartQuest = () => {
-    // Implement the logic to start the quest
-    console.log('Starting quest:', selectedQuest?.title);
-    setSelectedQuest(null);
-  };
-
   useEffect(() => {
-    const lowercasedQuery = searchQuery.toLowerCase();
-    const filtered = mockQuests.filter(quest =>
-      quest.title.toLowerCase().includes(lowercasedQuery) ||
-      quest.description.toLowerCase().includes(lowercasedQuery)
-    );
-    setFilteredQuests(filtered);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    let filtered = applyFilters(mockQuests, activeFilters, searchQuery);
+    let filtered = applyFilters(mockAssets, activeFilters, searchQuery);
     filtered = applySorting(filtered, activeSorting);
-    setFilteredQuests(filtered);
+    setFilteredAssets(filtered);
   }, [searchQuery, activeFilters, activeSorting, applyFilters, applySorting]);
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
@@ -144,17 +105,12 @@ export default function Quests() {
     setActiveSorting(sorting);
   };
 
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isFilterModalVisible) {
-        setIsFilterModalVisible(false);
-        return true; // Prevent default behavior
-      }
-      return false; // Let default behavior happen (exit the screen)
+  const handleAssetPress = (asset: Asset) => {
+    router.push({
+      pathname: "/assetView",
+      params: { assetId: asset.id, assetName: asset.title }
     });
-
-    return () => backHandler.remove();
-  }, [isFilterModalVisible]);
+  };
 
   return (
     <LinearGradient
@@ -166,13 +122,13 @@ export default function Quests() {
           <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={sharedStyles.title}>{projectName} Quests</Text>
+          <Text style={sharedStyles.title}>{questName} Assets</Text>
           
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search quests..."
+              placeholder="Search assets..."
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -188,11 +144,12 @@ export default function Quests() {
           </View>
           
           <FlatList
-            data={filteredQuests}
+            data={filteredAssets}
             renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => handleQuestPress(item)}>
-                <QuestCard quest={item} />
-              </TouchableOpacity>
+                <AssetCard 
+                asset={item} 
+                onPress={() => handleAssetPress(item)}
+                />
             )}
             keyExtractor={item => item.id}
             style={sharedStyles.list}
@@ -205,24 +162,18 @@ export default function Quests() {
         animationType="fade"
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
-      <View style={{ flex: 1 }}>
-        <QuestFilterModal
-          visible={isFilterModalVisible}
-          onClose={() => setIsFilterModalVisible(false)}
-          quests={mockQuests}
-          onApplyFilters={handleApplyFilters}
-          onApplySorting={handleApplySorting}
-          initialFilters={activeFilters}
-          initialSorting={activeSorting}
-        />
-      </View>
-    </Modal>
-    {selectedQuest && (
-      <QuestDetails
-        quest={selectedQuest}
-        onClose={handleCloseDetails}
-      />
-    )}
+        <View style={{ flex: 1 }}>
+          <AssetFilterModal
+            visible={isFilterModalVisible}
+            onClose={() => setIsFilterModalVisible(false)}
+            assets={mockAssets}
+            onApplyFilters={handleApplyFilters}
+            onApplySorting={handleApplySorting}
+            initialFilters={activeFilters}
+            initialSorting={activeSorting}
+          />
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -265,5 +216,11 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.small,
     fontWeight: 'bold',
+  },
+  tag: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.small,
+    paddingHorizontal: spacing.small,
+    marginRight: spacing.small,
   },
 });

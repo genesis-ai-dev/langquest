@@ -10,6 +10,8 @@ export default function RootLayout() {
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="projects" options={{ headerShown: false }} />
         <Stack.Screen name="quests" options={{ headerShown: false }} />
+        <Stack.Screen name="assets" options={{ headerShown: false }} />
+        <Stack.Screen name="assetView" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

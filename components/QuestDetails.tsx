@@ -3,14 +3,24 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Quest } from '@/types/quest';
+import { useRouter } from 'expo-router';
 
 interface QuestDetailsProps {
   quest: Quest;
   onClose: () => void;
-  onStart: () => void;
 }
 
-export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose, onStart }) => {
+export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose}) => {
+    const router = useRouter();
+  
+    const handleStartQuest = () => {
+      router.push({
+        pathname: "/assets",
+        params: { questId: quest.id, questName: quest.title }
+      });
+      onClose();
+    };
+    
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
@@ -29,7 +39,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose, onSt
           <Text style={styles.infoText}>Tags: {quest.tags.join(', ')}</Text>
         </View>
         <Text style={styles.description}>{quest.description}</Text>
-        <TouchableOpacity style={styles.startButton} onPress={onStart}>
+        <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
           <Text style={styles.startButtonText}>Start Quest</Text>
         </TouchableOpacity>
       </View>
