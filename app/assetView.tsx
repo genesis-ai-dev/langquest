@@ -11,6 +11,7 @@ import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import AudioPlayer from '@/components/AudioPlayer';
 import ImageCarousel from '@/components/ImageCarousel';
 import Carousel from '@/components/Carousel';
+import { TranslationModal } from '@/components/TranslationModal';
 
 
 // Mock data for audio files and images
@@ -25,9 +26,9 @@ const images = [
 ];
 
 const translations = [
-  { id: '1', text: 'Translation 1' },
-  { id: '2', text: 'Translation 2' },
-  { id: '3', text: 'Translation 3' },
+  { id: '1', text: 'Translation 1', fullText: 'This is t\nhe full text\n for Tra\nnslation \n1. It pr\novides m\nore cont\next and d\netails ab\nout the tra\nnslat\nion.' },
+  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2. It includes additional information and explanations.' },
+  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here. It offers a comprehensive view of the translated material.' },
 ];
 
 // Mock data for text snippets
@@ -37,11 +38,12 @@ const textSnippets = [
   { id: '3', content: 'And this is a third snippet. You can add as many as needed to fully describe or explain the asset.' },
 ];
 
-type TabType = 'text' | 'audio' | 'image' | 'other';
+type TabType = 'text' | 'audio' | 'image';
 
 const AssetView = () => {
   const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('text');
+  const [selectedTranslation, setSelectedTranslation] = useState<typeof translations[0] | null>(null);
 
   const renderTextContent = (item: { id: string; content: string }) => (
     <View style={styles.textSnippetContainer}>
@@ -49,10 +51,13 @@ const AssetView = () => {
     </View>
   );
 
-  const renderTranslationCard = ({ item }: { item: { id: string; text: string } }) => (
-    <View style={styles.translationCard}>
+  const renderTranslationCard = ({ item }: { item: typeof translations[0] }) => (
+    <TouchableOpacity
+      style={styles.translationCard}
+      onPress={() => setSelectedTranslation(item)}
+    >
       <Text style={styles.translationText}>{item.text}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -84,19 +89,12 @@ const AssetView = () => {
               >
                 <Ionicons name="image" size={24} color={colors.text} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'other' && styles.activeTab]}
-                onPress={() => setActiveTab('other')}
-              >
-                <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
-              </TouchableOpacity>
             </View>
 
             <View style={styles.assetViewer}>
               {activeTab === 'text' && <Carousel items={textSnippets} renderItem={renderTextContent} />}
               {activeTab === 'audio' && <AudioPlayer audioFiles={audioFiles} />}
               {activeTab === 'image' && <ImageCarousel images={images} />}
-              {activeTab === 'other' && <Text>Other Content Placeholder</Text>}
             </View>
 
             <View style={styles.horizontalLine} />
@@ -106,8 +104,15 @@ const AssetView = () => {
                 data={translations}
                 renderItem={renderTranslationCard}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.translationsList}
+                contentContainerStyle={styles.translationsList} 
               />
+              {selectedTranslation && (
+                <TranslationModal
+                  isVisible={!!selectedTranslation}
+                  onClose={() => setSelectedTranslation(null)}
+                  translation={selectedTranslation}
+                />
+              )}
             </View>
           </View>
         </SafeAreaView>
