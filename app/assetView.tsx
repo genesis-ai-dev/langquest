@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
-import { Audio, AVPlaybackStatus } from 'expo-av';
-import PagerView from 'react-native-pager-view';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import AudioPlayer from '@/components/AudioPlayer';
 import ImageCarousel from '@/components/ImageCarousel';
 import Carousel from '@/components/Carousel';
 import { TranslationModal } from '@/components/TranslationModal';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import { formatRelativeDate } from '@/utils/dateUtils';
 
 
 // Mock data for audio files and images
@@ -26,9 +26,9 @@ const images = [
 ];
 
 const translations = [
-  { id: '1', text: 'Translation 1', fullText: 'This is t\nhe full text\n for Tra\nnslation \n1. It pr\novides m\nore cont\next and d\netails ab\nout the tra\nnslat\nion.' },
-  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2. It includes additional information and explanations.' },
-  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here. It offers a comprehensive view of the translated material.' },
+  { id: '1', text: 'Translation 1', fullText: 'This is the full text for Translation 1...', audioUri: require('@/sample_assets/audio1.mp3'), voteRank: 5, dateSubmitted: '2024-04-01' },
+  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2...', audioUri: require('@/sample_assets/audio2.mp3'), voteRank: 3, dateSubmitted: '2023-04-05' },
+  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here...', audioUri: require('@/sample_assets/audio1.mp3'), voteRank: 7, dateSubmitted: '2023-03-28' },
 ];
 
 // Mock data for text snippets
@@ -39,11 +39,20 @@ const textSnippets = [
 ];
 
 type TabType = 'text' | 'audio' | 'image';
+type SortOption = 'voteRank' | 'dateSubmitted';
+
+const ASSET_VIEWER_PROPORTION = 0.4;
 
 const AssetView = () => {
   const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const [selectedTranslation, setSelectedTranslation] = useState<typeof translations[0] | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>('voteRank');
+  const [sortedTranslations, setSortedTranslations] = useState(translations);
+
+  const screenHeight = Dimensions.get('window').height;
+  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
+  const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
   const renderTextContent = (item: { id: string; content: string }) => (
     <View style={styles.textSnippetContainer}>
@@ -51,14 +60,48 @@ const AssetView = () => {
     </View>
   );
 
+  const getPreviewText = (fullText: string, maxLength: number = 50) => {
+    if (fullText.length <= maxLength) return fullText;
+    return fullText.substring(0, maxLength).trim() + '...';
+  };
+
   const renderTranslationCard = ({ item }: { item: typeof translations[0] }) => (
     <TouchableOpacity
       style={styles.translationCard}
       onPress={() => setSelectedTranslation(item)}
     >
-      <Text style={styles.translationText}>{item.text}</Text>
+      <View style={styles.translationCardContent}>
+        <View style={styles.translationCardLeft}>
+          <Text style={styles.translationPreview} numberOfLines={2}>
+            {getPreviewText(item.fullText)}
+          </Text>
+        </View>
+        <View style={styles.translationCardRight}>
+          <View style={styles.voteContainer}>
+            <Ionicons name="thumbs-up" size={16} color={colors.text} />
+            <Text style={styles.voteCount}>{item.voteRank}</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.cardFooter}>
+        <Text style={styles.dateSubmitted}>{formatRelativeDate(item.dateSubmitted)}</Text>
+        {item.audioUri && (
+          <Ionicons name="volume-medium" size={20} color={colors.text} style={styles.audioIndicator} />
+        )}
+      </View>
     </TouchableOpacity>
   );
+
+  useEffect(() => {
+    const sorted = [...translations].sort((a, b) => {
+      if (sortOption === 'voteRank') {
+        return b.voteRank - a.voteRank;
+      } else {
+        return new Date(b.dateSubmitted).getTime() - new Date(a.dateSubmitted).getTime();
+      }
+    });
+    setSortedTranslations(sorted);
+  }, [sortOption]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -71,7 +114,7 @@ const AssetView = () => {
             <Text style={styles.title}>{assetName}</Text>
             
             <View style={styles.tabBar}>
-            <TouchableOpacity
+              <TouchableOpacity
                 style={[styles.tab, activeTab === 'text' && styles.activeTab]}
                 onPress={() => setActiveTab('text')}
               >
@@ -81,7 +124,7 @@ const AssetView = () => {
                 style={[styles.tab, activeTab === 'audio' && styles.activeTab]}
                 onPress={() => setActiveTab('audio')}
               >
-                <Ionicons name="musical-note" size={24} color={colors.text} />
+                <Ionicons name="volume-high" size={24} color={colors.text} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.tab, activeTab === 'image' && styles.activeTab]}
@@ -91,17 +134,37 @@ const AssetView = () => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.assetViewer}>
+            <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
               {activeTab === 'text' && <Carousel items={textSnippets} renderItem={renderTextContent} />}
-              {activeTab === 'audio' && <AudioPlayer audioFiles={audioFiles} />}
+              {activeTab === 'audio' && <AudioPlayer audioFiles={audioFiles} useCarousel={true} />}
               {activeTab === 'image' && <ImageCarousel images={images} />}
             </View>
 
             <View style={styles.horizontalLine} />
 
-            <View style={styles.translationsContainer}>
+            <View style={[styles.translationsContainer, { height: translationsContainerHeight }]}>
+              <View style={styles.translationHeader}>
+              <Text style={styles.sortByLabel}>Sort by:</Text>
+                <View style={styles.alignmentContainer}>
+                  <CustomDropdown
+                    value={sortOption}
+                    options={[
+                      { label: 'Vote Rank', value: 'voteRank' },
+                      { label: 'Date Submitted', value: 'dateSubmitted' },
+                    ]}
+                    onSelect={(value) => setSortOption(value as SortOption)}
+                    fullWidth={false}
+                    search={false}
+                    containerStyle={styles.dropdownContainer}  // Add this line
+                  />
+                  <TouchableOpacity style={styles.newTranslationButton} onPress={() => console.log('New Translation')}>
+                    <Ionicons name="add-circle-outline" size={24} color={colors.buttonText} />
+                    <Text style={styles.newTranslationButtonText}>New</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               <FlatList
-                data={translations}
+                data={sortedTranslations}
                 renderItem={renderTranslationCard}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.translationsList} 
@@ -149,7 +212,7 @@ const styles = StyleSheet.create({
   },
   assetViewer: {
     flex: 1,
-    maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
+    // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
   },
   assetSnippetContainer: {
     padding: spacing.medium,
@@ -206,26 +269,103 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   translationsContainer: {
-    flex: 1,
-    maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
+    // flex: 1,
+    // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
   },
   translationsList: {
     padding: spacing.medium,
+  },
+  translationText: {
+    color: colors.text,
+    fontSize: fontSizes.medium,
+  },
+  translationHeader: {
+    paddingHorizontal: spacing.medium,
+    marginBottom: spacing.medium,
+  },
+  sortByLabel: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    marginBottom: spacing.small,
+  },
+  alignmentContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',  // Change this to 'center'
+  },
+  dropdownContainer: {
+    flex: 1,
+    marginRight: spacing.medium,
+  },
+  newTranslationButton: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.medium,
+    height: 50,
+    borderRadius: borderRadius.medium,
+  },
+  newTranslationButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold',
+    marginLeft: spacing.small,
+  },
+  horizontalLine: {
+    height: 1,
+    backgroundColor: colors.inputBorder,
+    marginVertical: spacing.medium,
   },
   translationCard: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     marginBottom: spacing.medium,
+    minHeight: 85,
   },
-  translationText: {
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: spacing.small,
+    left: spacing.medium,
+    right: spacing.medium,
+  },
+  dateSubmitted: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
+  },
+  translationCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.small, // Add space between content and date
+  },
+  translationCardLeft: {
+    flex: 1,
+    marginRight: spacing.small,
+  },
+  translationCardRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  translationPreview: {
     color: colors.text,
     fontSize: fontSizes.medium,
   },
-  horizontalLine: {
-    height: 1,
-    backgroundColor: colors.inputBorder,
-    marginVertical: spacing.medium,
+  voteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.small,
+  },
+  voteCount: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    marginLeft: spacing.small,
+  },
+  audioIndicator: {
+    // marginTop: spacing.medium,
   },
 });
 

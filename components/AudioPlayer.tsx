@@ -14,9 +14,11 @@ interface AudioFile {
 
 interface AudioPlayerProps {
   audioFiles: AudioFile[];
+  useCarousel?: boolean;
+  mini?: boolean;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = true, mini = false }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -81,19 +83,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles }) => {
   };
 
   const renderAudioItem = (item: AudioFile, index: number) => (
-    <View style={styles.audioItem}>
+    <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
       <TouchableOpacity
-        style={styles.audioPlayButton}
+        style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
         onPress={() => playPauseSound(item.uri)}
       >
         <Ionicons
           name={isPlaying ? "pause" : "play"}
-          size={48}
+          size={mini ? 24 : 48}
           color={colors.text}
         />
       </TouchableOpacity>
-      <Text style={styles.audioFileName}>{item.title}</Text>
-      <View style={styles.audioProgressContainer}>
+      {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
+      <View style={[styles.audioProgressContainer, mini && styles.miniAudioProgressContainer]}>
         <Slider
           style={styles.audioProgressBar}
           minimumValue={0}
@@ -116,7 +118,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles }) => {
     </View>
   );
 
-  return <Carousel items={audioFiles} renderItem={renderAudioItem} />;
+  if (useCarousel) {
+    return <Carousel items={audioFiles} renderItem={renderAudioItem} />;
+  } else {
+    return renderAudioItem(audioFiles[0], 0);
+  }
 };
 
 const styles = StyleSheet.create({
@@ -153,6 +159,19 @@ const styles = StyleSheet.create({
   audioTimeText: {
     color: colors.text,
     fontSize: fontSizes.small,
+  },
+  miniAudioItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  miniAudioPlayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  miniAudioProgressContainer: {
+    flex: 1,
+    marginLeft: spacing.small,
   },
 });
 

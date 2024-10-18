@@ -2,16 +2,19 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import AudioPlayer from './AudioPlayer';
 
 interface TranslationModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  translation: {
-    id: string;
-    text: string;
-    fullText: string;
-  };
-}
+    isVisible: boolean;
+    onClose: () => void;
+    translation: {
+      id: string;
+      text: string;
+      fullText: string;
+      audioUri: any; 
+      voteRank: number;
+    };
+  }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({ isVisible, onClose, translation }) => {
   if (!isVisible) return null;
@@ -20,15 +23,28 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({ isVisible, o
     <View style={styles.container}>
       <TouchableOpacity style={styles.overlay} onPress={onClose} />
       <View style={styles.modal}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Translation {translation.id}</Text>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Ionicons name="close" size={20} color={colors.text} />
+        </TouchableOpacity>
         <ScrollView style={styles.scrollView}>
           <Text style={styles.text}>{translation.fullText}</Text>
         </ScrollView>
+        <View style={styles.audioPlayerContainer}>
+          <AudioPlayer 
+            audioFiles={[{ id: translation.id, title: `Translation ${translation.id}`, uri: translation.audioUri }]}
+            useCarousel={false}
+            mini={true}
+          />
+        </View>
+        <View style={styles.feedbackContainer}>
+          <TouchableOpacity style={styles.feedbackButton}>
+            <Ionicons name="thumbs-up-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.voteRank}>{translation.voteRank}</Text>
+          <TouchableOpacity style={styles.feedbackButton}>
+            <Ionicons name="thumbs-down-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -54,6 +70,8 @@ const styles = StyleSheet.create({
     padding: spacing.large,
     width: '90%',
     maxHeight: '80%',
+    paddingTop: spacing.xlarge,
+    paddingBottom: spacing.small,
   },
   header: {
     flexDirection: 'row',
@@ -62,7 +80,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium,
   },
   closeButton: {
-    alignSelf: 'flex-end',
+    position: 'absolute',
+    top: spacing.small,
+    right: spacing.small,
     padding: spacing.small,
   },
   title: {
@@ -72,7 +92,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium,
   },
   scrollView: {
-    maxHeight: '80%',
+    maxHeight: '70%', 
+  },
+  audioPlayerContainer: {
+    marginTop: spacing.medium, // Add space above the audio player
+  },
+  feedbackContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.medium,
+    paddingHorizontal: spacing.large,
+  },
+  voteRank: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    fontWeight: 'bold',
+  },
+  feedbackButton: {
+    padding: spacing.medium,
+    marginHorizontal: spacing.large,
   },
   text: {
     fontSize: fontSizes.medium,

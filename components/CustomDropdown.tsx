@@ -4,15 +4,21 @@ import { Dropdown } from 'react-native-element-dropdown';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 
-interface CustomDropdownProps {
+interface DropdownOption {
   label: string;
   value: string;
-  options: string[];
+}
+
+interface CustomDropdownProps {
+  label?: string;
+  value: string;
+  options: string[] | DropdownOption[];
   onSelect: (option: string) => void;
   isOpen?: boolean;
   onToggle?: () => void;
   fullWidth?: boolean;
   search?: boolean;
+  containerStyle?: object;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
@@ -24,12 +30,18 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   onToggle,
   fullWidth = true,
   search = true,
+  containerStyle, 
 }) => {
-  const data = options.map((option, index) => ({ label: option, value: option }));
+  const data: DropdownOption[] = options.map((option) => {
+    if (typeof option === 'string') {
+      return { label: option, value: option };
+    }
+    return option;
+  });
 
   return (
-    <View style={[styles.container, fullWidth ? styles.fullWidth : styles.halfWidth]}>
-      <Text style={styles.label}>{label}:</Text>
+    <View style={[styles.container, fullWidth ? styles.fullWidth : styles.halfWidth, containerStyle]}>
+      {label && <Text style={styles.label}>{label}:</Text>}
       <Dropdown
         style={styles.dropdown}
         containerStyle={styles.dropdownContainer}
@@ -65,7 +77,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.medium,
+    // marginBottom: spacing.medium,
   },
   fullWidth: {
     width: '100%',

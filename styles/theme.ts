@@ -28,6 +28,7 @@ export const colors = {
     primary: getColorHex(themeColor),
     background: '#1E1E1E', // Dark background
     text: '#FFFFFF',
+    textSecondary: '#CCCCCC', // Light gray
     inputBackground: 'rgba(255, 255, 255, 0.1)', // Slightly transparent white
     inputText: '#FFFFFF',
     buttonBackground: getColorHex(themeColor),
