@@ -12,7 +12,7 @@ import Carousel from '@/components/Carousel';
 import { TranslationModal } from '@/components/TranslationModal';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { formatRelativeDate } from '@/utils/dateUtils';
-
+import { NewTranslationModal } from '@/components/NewTranslationModal';
 
 // Mock data for audio files and images
 const audioFiles = [
@@ -49,6 +49,7 @@ const AssetView = () => {
   const [selectedTranslation, setSelectedTranslation] = useState<typeof translations[0] | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteRank');
   const [sortedTranslations, setSortedTranslations] = useState(translations);
+  const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] = useState(false);
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -91,6 +92,21 @@ const AssetView = () => {
       </View>
     </TouchableOpacity>
   );
+
+  const handleNewTranslation = (text: string, audioUri: string | null) => {
+    // Here you would typically send this data to your backend
+    console.log('New translation:', { text, audioUri });
+    // For now, let's just add it to our local state
+    const newTranslation = {
+      id: (translations.length + 1).toString(),
+      text: text.substring(0, 50), // Preview text
+      fullText: text,
+      audioUri: audioUri,
+      voteRank: 0,
+      dateSubmitted: new Date().toISOString(),
+    };
+    setSortedTranslations([newTranslation, ...sortedTranslations]);
+  };
 
   useEffect(() => {
     const sorted = [...translations].sort((a, b) => {
@@ -157,7 +173,10 @@ const AssetView = () => {
                     search={false}
                     containerStyle={styles.dropdownContainer}  // Add this line
                   />
-                  <TouchableOpacity style={styles.newTranslationButton} onPress={() => console.log('New Translation')}>
+                  <TouchableOpacity 
+                    style={styles.newTranslationButton} 
+                    onPress={() => setIsNewTranslationModalVisible(true)}
+                  >
                     <Ionicons name="add-circle-outline" size={24} color={colors.buttonText} />
                     <Text style={styles.newTranslationButtonText}>New</Text>
                   </TouchableOpacity>
@@ -176,6 +195,11 @@ const AssetView = () => {
                   translation={selectedTranslation}
                 />
               )}
+              <NewTranslationModal
+                isVisible={isNewTranslationModalVisible}
+                onClose={() => setIsNewTranslationModalVisible(false)}
+                onSubmit={handleNewTranslation}
+              />
             </View>
           </View>
         </SafeAreaView>
