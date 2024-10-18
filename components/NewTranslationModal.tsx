@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import AudioRecorder from './AudioRecorder'; // We'll create this component next
+import AudioRecorder from './AudioRecorder';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -22,27 +22,36 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ isVisi
   };
 
   return (
-    <Modal visible={isVisible} transparent animationType="slide">
-      <View style={styles.container}>
-        <View style={styles.modal}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.title}>New Translation</Text>
-          <TextInput
-            style={styles.textInput}
-            multiline
-            placeholder="Enter your translation here"
-            placeholderTextColor={colors.textSecondary}
-            value={translationText}
-            onChangeText={setTranslationText}
-          />
-          <AudioRecorder onRecordingComplete={setAudioUri} />
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
+    <Modal
+      visible={isVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.container}>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modal}>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.title}>New Translation</Text>
+              <TextInput
+                style={styles.textInput}
+                multiline
+                placeholder="Enter your translation here"
+                placeholderTextColor={colors.textSecondary}
+                value={translationText}
+                onChangeText={setTranslationText}
+              />
+              <AudioRecorder onRecordingComplete={setAudioUri} />
+              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };

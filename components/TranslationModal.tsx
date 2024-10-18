@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from './AudioPlayer';
+import { VoteCommentModal } from './VoteCommentModal';
 
 interface TranslationModalProps {
     isVisible: boolean;
@@ -17,7 +18,22 @@ interface TranslationModalProps {
   }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({ isVisible, onClose, translation }) => {
+  const [showVoteModal, setShowVoteModal] = useState(false);
+  const [currentVote, setCurrentVote] = useState<'up' | 'down' | null>(null);
+  const [voteComment, setVoteComment] = useState('');
+
   if (!isVisible) return null;
+
+  const handleVote = (voteType: 'up' | 'down') => {
+    setCurrentVote(voteType);
+    setShowVoteModal(true);
+  };
+
+  const handleVoteSubmit = (comment: string) => {
+    setVoteComment(comment);
+    // Send the vote and comment to a backend later
+    // For now, just store it in the component's state
+  };
 
   return (
     <View style={styles.container}>
@@ -36,16 +52,31 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({ isVisible, o
             mini={true}
           />
         </View>
+
         <View style={styles.feedbackContainer}>
-          <TouchableOpacity style={styles.feedbackButton}>
-            <Ionicons name="thumbs-up-outline" size={24} color={colors.text} />
+          <TouchableOpacity style={styles.feedbackButton} onPress={() => handleVote('up')}>
+            <Ionicons
+              name={currentVote === 'up' ? "thumbs-up" : "thumbs-up-outline"}
+              size={24}
+              color={colors.text}
+            />
           </TouchableOpacity>
           <Text style={styles.voteRank}>{translation.voteRank}</Text>
-          <TouchableOpacity style={styles.feedbackButton}>
-            <Ionicons name="thumbs-down-outline" size={24} color={colors.text} />
+          <TouchableOpacity style={styles.feedbackButton} onPress={() => handleVote('down')}>
+            <Ionicons
+              name={currentVote === 'down' ? "thumbs-down" : "thumbs-down-outline"}
+              size={24}
+              color={colors.text}
+            />
           </TouchableOpacity>
         </View>
       </View>
+      <VoteCommentModal
+        isVisible={showVoteModal}
+        onClose={() => setShowVoteModal(false)}
+        onSubmit={handleVoteSubmit}
+        voteType={currentVote || 'up'}
+      />
     </View>
   );
 };

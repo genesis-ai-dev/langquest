@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -118,6 +118,19 @@ const AssetView = () => {
     });
     setSortedTranslations(sorted);
   }, [sortOption]);
+
+  // Manage back button press to close translation modal if open
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedTranslation) {
+        setSelectedTranslation(null);
+        return true; // Prevent default behavior
+      }
+      return false; // Let default behavior happen (exit the app)
+    });
+
+    return () => backHandler.remove(); // Clean up the event listener
+  }, [selectedTranslation]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
