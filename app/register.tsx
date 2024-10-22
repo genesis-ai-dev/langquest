@@ -23,7 +23,12 @@ export default function Register() {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-
+  
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+  
     try {
       const userId = await addUser(username, password, selectedLanguage);
       if (userId) {
@@ -38,11 +43,11 @@ export default function Register() {
         
         router.push("/");
       } else {
-        Alert.alert('Error', 'Failed to register user');
+        Alert.alert('Error', 'Username already exists. Please choose a different username.');
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      Alert.alert('Error', 'An error occurred while registering');
+      Alert.alert('Error', 'An unexpected error occurred while registering');
     }
   };
 

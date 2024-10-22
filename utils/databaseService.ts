@@ -75,9 +75,20 @@ export async function initDatabase(): Promise<void> {
 
 
 export async function addUser(username: string, password: string, uiLanguage: string): Promise<string | null> {
+  let db: SQLite.SQLiteDatabase | null = null;
   try {
-    const db = await SQLite.openDatabaseAsync(DB_NAME);
+    db = await SQLite.openDatabaseAsync(DB_NAME);
     
+    // Check if user already exists
+    const existingUser = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM User WHERE username = ?',
+      [username]
+    );
+
+    if (existingUser && existingUser.count > 0) {
+      return null; // User already exists, return null instead of throwing an error
+    }
+
     // Hash the password using SHA-256
     const hashedPassword = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
@@ -86,10 +97,8 @@ export async function addUser(username: string, password: string, uiLanguage: st
     
     const result = await db.runAsync(
       'INSERT INTO User (rev, username, password, versionNum, uiLanguage) VALUES (?, ?, ?, ?, ?)',
-      1, username, hashedPassword, 1, uiLanguage
+      [1, username, hashedPassword, 1, uiLanguage]
     );
-
-    await db.closeAsync();
 
     if (result.lastInsertRowId) {
       return result.lastInsertRowId.toString();
@@ -98,6 +107,10 @@ export async function addUser(username: string, password: string, uiLanguage: st
   } catch (error) {
     console.error('Error adding user:', error);
     throw error;
+  } finally {
+    if (db) {
+      await db.closeAsync();
+    }
   }
 }
 
