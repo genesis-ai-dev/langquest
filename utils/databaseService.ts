@@ -1,7 +1,9 @@
 import * as SQLite from 'expo-sqlite';
 import { schemaSQL } from './schema';
+import * as Crypto from 'expo-crypto';
 
 const DB_NAME = 'langquest.db';
+const SALT_ROUNDS = 10; // Adjust this for stronger hashing
 
 export async function initDatabase(): Promise<void> {
   try {
@@ -76,9 +78,15 @@ export async function addUser(username: string, password: string, uiLanguage: st
   try {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     
+    // Hash the password using SHA-256
+    const hashedPassword = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      password
+    );
+    
     const result = await db.runAsync(
       'INSERT INTO User (rev, username, password, versionNum, uiLanguage) VALUES (?, ?, ?, ?, ?)',
-      1, username, password, 1, uiLanguage
+      1, username, hashedPassword, 1, uiLanguage
     );
 
     await db.closeAsync();
@@ -114,15 +122,23 @@ export async function validateUser(username: string, password: string): Promise<
   try {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     
-    const result = await db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM User WHERE username = ? AND password = ?',
-      [username, password]
+    const result = await db.getFirstAsync<{ password: string }>(
+      'SELECT password FROM User WHERE username = ?',
+      [username]
     );
 
     await db.closeAsync();
 
-    // Check if result is null before accessing the count property
-    return result ? result.count > 0 : false;
+    if (!result) {
+      return false;
+    }
+
+    // Hash the provided password and compare with stored hash
+    const hashedPassword = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      password
+    );
+    return hashedPassword === result.password;
   } catch (error) {
     console.error('Error validating user:', error);
     throw error;
