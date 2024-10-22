@@ -20,3 +20,7 @@ llm_supporting_files/
 
 expo-env.d.ts
 # @end expo-cli
+app/sqlite_in_expo.md
+*.db
+package-lock.json
+package-lock.json
