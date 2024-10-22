@@ -5,45 +5,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { initDatabase, authenticateUser } from '@/utils/database';
+import { initDatabase } from '@/utils/databaseService';
 
 export default function Index() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState('Initializing...');
 
   useEffect(() => {
-    initDatabase()
-      .then(() => setDbStatus('Database initialized successfully'))
-      .catch((error) => {
+    let isMounted = true;
+
+    const initDb = async () => {
+      try {
+        await initDatabase();
+        if (isMounted) {
+          setDbStatus('Database initialized successfully');
+        }
+      } catch (error) {
         console.error('Error initializing database:', error);
-        setDbStatus(`Error initializing database: ${error.message}`);
-        Alert.alert('Error', 'Failed to initialize the database.');
-      });
-  }, []);
-
-  const handleSignIn = async () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const isAuthenticated = await authenticateUser(username, password);
-      if (isAuthenticated) {
-        router.push("/projects");
-      } else {
-        Alert.alert('Error', 'Invalid username or password.');
+        if (isMounted) {
+          setDbStatus(`Error initializing database: ${error}`);
+          Alert.alert('Error', 'Failed to initialize the database.');
+        }
       }
-    } catch (error) {
-      console.error('Authentication error:', error);
-      Alert.alert('Error', 'An error occurred during sign in.');
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    initDb();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []); 
+
+  const handleSignIn = () => {
+    router.push("/projects");
   };
 
   return (
@@ -65,8 +59,8 @@ export default function Index() {
               style={{ flex: 1, color: colors.text }}
               placeholder="Username"
               placeholderTextColor={colors.text}
-              value={username}
-              onChangeText={setUsername}
+              // value={username}
+              // onChangeText={setUsername}
             />
           </View>
           
@@ -77,8 +71,8 @@ export default function Index() {
               placeholder="Password"
               placeholderTextColor={colors.text}
               secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+              // value={password}
+              // onChangeText={setPassword}
             />
           </View>
           
@@ -87,13 +81,10 @@ export default function Index() {
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[sharedStyles.button, isLoading && { opacity: 0.7 }]} 
+            style={sharedStyles.button} 
             onPress={handleSignIn}
-            disabled={isLoading}
           >
-            <Text style={sharedStyles.buttonText}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Text>
+            <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
           
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>

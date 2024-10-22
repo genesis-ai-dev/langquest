@@ -19,3 +19,6 @@ android/
 
 expo-env.d.ts
 # @end expo-cli
+app/sqlite_in_expo.md
+*.db
+package-lock.json

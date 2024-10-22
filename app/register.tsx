@@ -14,6 +14,10 @@ export default function Register() {
 
   const languages = ['English', 'Spanish', 'French', 'German', 'Italian'];
 
+  const handleRegister = () => {
+    router.push("/");
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       <ScrollView style={sharedStyles.container}>
@@ -30,6 +34,7 @@ export default function Register() {
             onToggle={() => setShowLanguages(!showLanguages)}
             search={true}
           />
+          <View style={{ height: spacing.medium }} />
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
@@ -68,7 +73,7 @@ export default function Register() {
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={sharedStyles.button}>
+          <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
             <Text style={sharedStyles.buttonText}>Become a Hero</Text>
           </TouchableOpacity>
           
