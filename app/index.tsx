@@ -5,11 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { initDatabase } from '@/utils/databaseService';
+import { initDatabase, validateUser } from '@/utils/databaseService';
 
 export default function Index() {
   const router = useRouter();
   const [dbStatus, setDbStatus] = useState('Initializing...');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -34,10 +36,20 @@ export default function Index() {
     return () => {
       isMounted = false;
     };
-  }, []); 
+  }, []);
 
-  const handleSignIn = () => {
-    router.push("/projects");
+  const handleSignIn = async () => {
+    try {
+      const isValid = await validateUser(username, password);
+      if (isValid) {
+        router.push("/projects");
+      } else {
+        Alert.alert('Error', 'Invalid username or password');
+      }
+    } catch (error) {
+      console.error('Error during sign in:', error);
+      Alert.alert('Error', 'An error occurred during sign in');
+    }
   };
 
   return (
@@ -59,8 +71,8 @@ export default function Index() {
               style={{ flex: 1, color: colors.text }}
               placeholder="Username"
               placeholderTextColor={colors.text}
-              // value={username}
-              // onChangeText={setUsername}
+              value={username}
+              onChangeText={setUsername}
             />
           </View>
           
@@ -71,8 +83,8 @@ export default function Index() {
               placeholder="Password"
               placeholderTextColor={colors.text}
               secureTextEntry
-              // value={password}
-              // onChangeText={setPassword}
+              value={password}
+              onChangeText={setPassword}
             />
           </View>
           
@@ -80,10 +92,7 @@ export default function Index() {
             <Text style={[sharedStyles.link, { marginBottom: spacing.medium }]}>I forgot my password</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={sharedStyles.button} 
-            onPress={handleSignIn}
-          >
+          <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
             <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
           

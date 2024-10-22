@@ -1,21 +1,49 @@
 import React, { useState } from 'react';
-import { Text, View, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
+import { addUser, getAllUsers } from '@/utils/databaseService';
 
 export default function Register() {
   const router = useRouter();
   const [showLanguages, setShowLanguages] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const languages = ['English', 'Spanish', 'French', 'German', 'Italian'];
+  const languages = ['English', 'Spanish'];
 
-  const handleRegister = () => {
-    router.push("/");
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    try {
+      const userId = await addUser(username, password, selectedLanguage);
+      if (userId) {
+        Alert.alert('Success', 'User registered successfully');
+        
+        // Log all registered users
+        const allUsers = await getAllUsers();
+        console.log('All registered users:');
+        allUsers.forEach(user => {
+          console.log(`Username: ${user.username}, Password: ${user.password}`);
+        });
+        
+        router.push("/");
+      } else {
+        Alert.alert('Error', 'Failed to register user');
+      }
+    } catch (error) {
+      console.error('Error registering user:', error);
+      Alert.alert('Error', 'An error occurred while registering');
+    }
   };
 
   return (
@@ -33,8 +61,9 @@ export default function Register() {
             isOpen={showLanguages}
             onToggle={() => setShowLanguages(!showLanguages)}
             search={true}
+            fullWidth={true}
+            containerStyle={{ marginBottom: spacing.medium }}
           />
-          <View style={{ height: spacing.medium }} />
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
@@ -42,6 +71,8 @@ export default function Register() {
               style={{ flex: 1, color: colors.text }}
               placeholder="Username"
               placeholderTextColor={colors.text}
+              value={username}
+              onChangeText={setUsername}
             />
           </View>
           
@@ -52,6 +83,8 @@ export default function Register() {
               placeholder="Password"
               placeholderTextColor={colors.text}
               secureTextEntry
+              value={password}
+              onChangeText={setPassword}
             />
           </View>
           
@@ -62,6 +95,8 @@ export default function Register() {
               placeholder="Confirm Password"
               placeholderTextColor={colors.text}
               secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
             />
           </View>
           
@@ -82,7 +117,6 @@ export default function Register() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      {/* <BreadcrumbBanner language={selectedLanguage} /> */}
     </SafeAreaView>
   );
 }

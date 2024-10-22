@@ -7,6 +7,7 @@ CREATE TABLE User (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
     username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
     icon BLOB,
     versionNum INTEGER NOT NULL,
     lastVersion TEXT,
