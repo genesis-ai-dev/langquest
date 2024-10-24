@@ -12,6 +12,8 @@ export default function RootLayout() {
         <Stack.Screen name="quests" options={{ headerShown: false }} />
         <Stack.Screen name="assets" options={{ headerShown: false }} />
         <Stack.Screen name="assetView" options={{ headerShown: false }} />
+        <Stack.Screen name="dbdev" options={{ headerShown: false }} 
+        />
       </Stack>
     </SafeAreaProvider>
   );

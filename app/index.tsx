@@ -52,6 +52,32 @@ export default function Index() {
     }
   };
 
+  const handleResetDatabase = async () => {
+    Alert.alert(
+      'Reset Database',
+      'Are you sure you want to reset the entire database? This will delete all data.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await initDatabase(true);
+              setDbStatus('Database reset successfully');
+            } catch (error) {
+              console.error('Error resetting database:', error);
+              setDbStatus(`Error resetting database: ${error}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
@@ -95,6 +121,22 @@ export default function Index() {
           <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
             <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => router.push("/dbdev")}
+            style={{ position: 'absolute', top: 10, right: 10, padding: 10 }}
+          >
+            <Ionicons name="construct-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={handleResetDatabase}
+            style={{ position: 'absolute', top: 10, right: 50, padding: 10 }}
+          >
+            <Ionicons name="refresh-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <Text>{dbStatus}</Text>
           
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
             <Text style={{ color: colors.text, marginRight: spacing.small }}>New user?</Text>
