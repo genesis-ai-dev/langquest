@@ -18,7 +18,8 @@ CREATE TABLE User (
     FOREIGN KEY (uiLanguage) REFERENCES Language(id)
 );
 
--- Create a trigger to enforce username uniqueness across different version chains
+-- Rule: Usernames must be unique across different version chains
+-- (i.e., two different users can't have the same username)
 CREATE TRIGGER enforce_username_uniqueness
 BEFORE INSERT ON User
 BEGIN
@@ -32,6 +33,7 @@ BEGIN
         THEN RAISE(ABORT, 'Username must be unique across different version chains')
     END;
 END;
+
 
 -- Project table
 CREATE TABLE Project (
@@ -55,6 +57,43 @@ CREATE TABLE Project (
     FOREIGN KEY (targetLanguage) REFERENCES Language(id),
     FOREIGN KEY (creator) REFERENCES User(id)
 );
+
+-- Rule: Projects with same source and target languages must have unique names
+-- (unless they're versions of the same project)
+CREATE TRIGGER enforce_project_name_uniqueness
+BEFORE INSERT ON Project
+BEGIN
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM Project 
+            WHERE name = NEW.name 
+            AND sourceLanguage = NEW.sourceLanguage 
+            AND targetLanguage = NEW.targetLanguage 
+            AND versionChainId != NEW.versionChainId
+        )
+        THEN RAISE(ABORT, 'Project name must be unique for the same language pair')
+    END;
+END;
+
+-- Rule: Public projects must be visible (split into two triggers)
+CREATE TRIGGER enforce_project_visibility_insert
+BEFORE INSERT ON Project
+BEGIN
+    SELECT CASE 
+        WHEN NEW.publiclyAccessible = 1 AND NEW.publiclyVisible = 0
+        THEN RAISE(ABORT, 'Public projects must also be visible')
+    END;
+END;
+
+CREATE TRIGGER enforce_project_visibility_update
+BEFORE UPDATE ON Project
+BEGIN
+    SELECT CASE 
+        WHEN NEW.publiclyAccessible = 1 AND NEW.publiclyVisible = 0
+        THEN RAISE(ABORT, 'Public projects must also be visible')
+    END;
+END;
+
 
 -- ProjectMember table (for many-to-many relationship between User and Project)
 CREATE TABLE ProjectMember (
@@ -83,7 +122,8 @@ CREATE TABLE Quest (
     FOREIGN KEY (creator) REFERENCES User(id)
 );
 
--- Create a trigger to enforce our business rules
+-- Rule: Quest names must be unique within a project
+-- (unless they're versions of the same quest)
 CREATE TRIGGER enforce_quest_uniqueness
 BEFORE INSERT ON Quest
 BEGIN
@@ -118,6 +158,26 @@ CREATE TABLE Asset (
     FOREIGN KEY (creator) REFERENCES User(id)
 );
 
+-- Rule: Asset names must be unique within a quest
+-- (unless they're versions of the same asset)
+CREATE TRIGGER enforce_asset_uniqueness
+BEFORE INSERT ON Asset
+BEGIN
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM Asset a
+            JOIN QuestAsset qa ON a.id = qa.assetId
+            WHERE a.name = NEW.name 
+            AND qa.questId IN (
+                SELECT questId FROM QuestAsset WHERE assetId = NEW.id
+            )
+            AND a.versionChainId != NEW.versionChainId
+        )
+        THEN RAISE(ABORT, 'Asset name must be unique within quest across different version chains')
+    END;
+END;
+
+
 -- QuestAsset table (for many-to-many relationship between Quest and Asset)
 CREATE TABLE QuestAsset (
     questId TEXT NOT NULL,
@@ -126,6 +186,7 @@ CREATE TABLE QuestAsset (
     FOREIGN KEY (questId) REFERENCES Quest(id),
     FOREIGN KEY (assetId) REFERENCES Asset(id)
 );
+
 
 -- Translation table
 CREATE TABLE Translation (
@@ -143,6 +204,36 @@ CREATE TABLE Translation (
     FOREIGN KEY (creator) REFERENCES User(id)
 );
 
+-- Rule: Translations must be unique per asset (split into two triggers)
+CREATE TRIGGER enforce_translation_uniqueness_insert
+BEFORE INSERT ON Translation
+BEGIN
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1 FROM Translation
+            WHERE asset = NEW.asset
+            AND text = NEW.text
+            AND id != NEW.id
+        )
+        THEN RAISE(ABORT, 'Translation text must be unique for the same asset')
+    END;
+END;
+
+CREATE TRIGGER enforce_translation_uniqueness_update
+BEFORE UPDATE ON Translation
+BEGIN
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1 FROM Translation
+            WHERE asset = NEW.asset
+            AND text = NEW.text
+            AND id != NEW.id
+        )
+        THEN RAISE(ABORT, 'Translation text must be unique for the same asset')
+    END;
+END;
+
+
 -- Vote table
 CREATE TABLE Vote (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -155,6 +246,19 @@ CREATE TABLE Vote (
     FOREIGN KEY (translation) REFERENCES Translation(id),
     FOREIGN KEY (creator) REFERENCES User(id)
 );
+
+-- Rule: Only one vote per user per translation
+-- If multiple votes are attempted, keep only the newest one
+CREATE TRIGGER enforce_vote_uniqueness
+BEFORE INSERT ON Vote
+BEGIN
+    -- Delete any existing vote from this user for this translation
+    DELETE FROM Vote 
+    WHERE translation = NEW.translation 
+    AND creator = NEW.creator
+    AND createdAt < NEW.createdAt;
+END;
+
 
 -- Language table
 CREATE TABLE Language (

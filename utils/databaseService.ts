@@ -45,31 +45,17 @@ export async function initDatabase(forceReset: boolean = false): Promise<void> {
         console.log(`Dropped ${obj.type}: ${obj.name}`);
       }
       
-      // Split the schema into statements, properly handling comments and empty lines
+      // Execute each statement separately instead of all at once
       const statements = schemaSQL
-        .split(';')
+        .split(/;\s*(?=CREATE)/i)  // Split on semicolon followed by CREATE
         .map(stmt => stmt.trim())
-        .filter(stmt => {
-          // Remove comments and empty lines
-          const lines = stmt
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('--'));
-          return lines.length > 0;
-        })
-        .map(stmt => {
-          // Remove any inline comments and ensure proper formatting
-          return stmt
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('--'))
-            .join('\n');
-        });
+        .filter(stmt => stmt.length > 0);
     
-      // Execute each valid statement
       for (const stmt of statements) {
         try {
+          // Add semicolon back and execute each statement individually
           await db.execAsync(stmt + ';');
+          console.log('Executed statement:', stmt.split('\n')[0]); // Log first line for debugging
         } catch (error) {
           console.error('Failed statement:', stmt);
           throw error;
@@ -360,29 +346,52 @@ export async function getLanguageByEnglishName(englishName: string): Promise<Lan
 // ---------------------------------------
 
 export async function validateUser(username: string, password: string): Promise<boolean> {
+  let db;
   try {
-    const db = await SQLite.openDatabaseAsync(DB_NAME);
+    db = await SQLite.openDatabaseAsync(DB_NAME);
     
-    const result = await db.getFirstAsync<{ password: string }>(
-      'SELECT password FROM User WHERE username = ?',
+    // First find any user with this username and get their chain ID
+    const userRecord = await db.getFirstAsync<{ 
+      versionChainId: string, 
+      versionNum: number,
+      password: string 
+    }>(
+      `SELECT versionChainId, versionNum, password 
+       FROM User 
+       WHERE username = ?`,
       [username]
     );
 
-    await db.closeAsync();
-
-    if (!result) {
+    if (!userRecord) {
       return false;
     }
 
-    // Hash the provided password and compare with stored hash
+    // Check if this is the latest version in the chain
+    const latestVersion = await db.getFirstAsync<{ maxVersion: number }>(
+      `SELECT MAX(versionNum) as maxVersion 
+       FROM User 
+       WHERE versionChainId = ?`,
+      [userRecord.versionChainId]
+    );
+
+    if (!latestVersion || userRecord.versionNum < latestVersion.maxVersion) {
+      return false; // Not the latest version
+    }
+
+    // Verify password
     const hashedPassword = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
       password
     );
-    return hashedPassword === result.password;
+    return hashedPassword === userRecord.password;
+
   } catch (error) {
     console.error('Error validating user:', error);
     throw error;
+  } finally {
+    if (db) {
+      await db.closeAsync();
+    }
   }
 }
 
