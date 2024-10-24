@@ -121,35 +121,10 @@ export async function initDatabase(forceReset: boolean = false): Promise<void> {
   }
 }
 
+// ---------------------------------------
+// -------------  Languages  -------------
+// ---------------------------------------
 
-export async function validateUser(username: string, password: string): Promise<boolean> {
-  try {
-    const db = await SQLite.openDatabaseAsync(DB_NAME);
-    
-    const result = await db.getFirstAsync<{ password: string }>(
-      'SELECT password FROM User WHERE username = ?',
-      [username]
-    );
-
-    await db.closeAsync();
-
-    if (!result) {
-      return false;
-    }
-
-    // Hash the provided password and compare with stored hash
-    const hashedPassword = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      password
-    );
-    return hashedPassword === result.password;
-  } catch (error) {
-    console.error('Error validating user:', error);
-    throw error;
-  }
-}
-
-// Add these functions after the existing ones
 export async function getAllLanguages(): Promise<Language[]> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   const statement = await db.prepareAsync(
@@ -192,6 +167,8 @@ export async function getAllLatestLanguages(): Promise<Language[]> {
 
 export async function addLanguage(language: Omit<Language, 'id' | 'rev' | 'versionNum' | 'versionChainId'>): Promise<string> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
+  
+  // Insert the language and get the ID
   const statement = await db.prepareAsync(
     `INSERT INTO Language (
       rev, 
@@ -264,21 +241,19 @@ export async function getLanguageVersions(versionChainId: string): Promise<Langu
 export async function updateLanguage(language: Language): Promise<void> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
-  // Start a transaction for updating
-  await db.withTransactionAsync(async () => {
-    const statement = await db.prepareAsync(
-      `UPDATE Language SET 
-        rev = rev + 1,
-        nativeName = $nativeName,
-        englishName = $englishName,
-        iso639_3 = $iso639_3,
-        uiReady = $uiReady,
-        creator = $creator
-      WHERE id = $id`  // Add creator to the UPDATE statement
-    );
-
-    try {
-      await statement.executeAsync({
+  try {
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      // According to docs, runAsync is preferred for simple UPDATE operations
+      await txn.runAsync(`
+        UPDATE Language SET 
+          rev = rev + 1,
+          nativeName = $nativeName,
+          englishName = $englishName,
+          iso639_3 = $iso639_3,
+          uiReady = $uiReady,
+          creator = $creator
+        WHERE id = $id
+      `, {
         $id: language.id,
         $nativeName: language.nativeName,
         $englishName: language.englishName,
@@ -286,12 +261,10 @@ export async function updateLanguage(language: Language): Promise<void> {
         $uiReady: language.uiReady ? 1 : 0,
         $creator: language.creator
       });
-    } finally {
-      await statement.finalizeAsync();
-    }
-  });
-
-  await db.closeAsync();
+    });
+  } finally {
+    await db.closeAsync();
+  }
 }
 
 export async function addLanguageVersion(
@@ -300,42 +273,38 @@ export async function addLanguageVersion(
 ): Promise<string> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
-  const insertStatement = await db.prepareAsync(`
-    INSERT INTO Language (
-      rev, 
-      nativeName, 
-      englishName, 
-      iso639_3, 
-      uiReady, 
-      creator,
-      versionNum, 
-      versionChainId
-    ) VALUES (
-      1, 
-      $nativeName, 
-      $englishName, 
-      $iso639_3, 
-      $uiReady, 
-      $creator,
-      $versionNum, 
-      $versionChainId
-    )
-    RETURNING id
-  `);
-
   try {
-    const result = await insertStatement.executeAsync({
-      $nativeName: updates.nativeName || baseLanguage.nativeName,
-      $englishName: updates.englishName || baseLanguage.englishName,
-      $iso639_3: updates.iso639_3 ?? baseLanguage.iso639_3,
-      $uiReady: (updates.uiReady ?? baseLanguage.uiReady) ? 1 : 0,
-      $creator: baseLanguage.creator,
-      $versionNum: baseLanguage.versionNum + 1,
-      $versionChainId: baseLanguage.versionChainId
+    let newId = '';
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      const insertStatement = await txn.prepareAsync(`
+        INSERT INTO Language (
+          rev, nativeName, englishName, iso639_3, uiReady, creator,
+          versionNum, versionChainId
+        ) VALUES (
+          1, $nativeName, $englishName, $iso639_3, $uiReady, $creator,
+          $versionNum, $versionChainId
+        )
+        RETURNING id
+      `);
+
+      try {
+        const result = await insertStatement.executeAsync({
+          $nativeName: updates.nativeName ?? baseLanguage.nativeName,
+          $englishName: updates.englishName ?? baseLanguage.englishName,
+          $iso639_3: updates.iso639_3 ?? baseLanguage.iso639_3,
+          $uiReady: (updates.uiReady ?? baseLanguage.uiReady) ? 1 : 0,
+          $creator: baseLanguage.creator,
+          $versionNum: baseLanguage.versionNum + 1,
+          $versionChainId: baseLanguage.versionChainId
+        });
+        const row = await result.getFirstAsync() as { id: string };
+        newId = row?.id || '';
+      } finally {
+        await insertStatement.finalizeAsync();
+      }
     });
-    return (await result.getFirstAsync() as { id: string })?.id || '';
+    return newId;
   } finally {
-    await insertStatement.finalizeAsync();
     await db.closeAsync();
   }
 }
@@ -343,36 +312,31 @@ export async function addLanguageVersion(
 export async function deleteLanguage(id: string): Promise<void> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
-  await db.withTransactionAsync(async () => {
-    const checkStatement = await db.prepareAsync(
-      `SELECT COUNT(*) as count FROM User WHERE uiLanguage = $id
-       UNION ALL
-       SELECT COUNT(*) FROM Project WHERE sourceLanguage = $id OR targetLanguage = $id`
-    );
-
-    try {
-      const result = await checkStatement.executeAsync({ $id: id });
-      const counts = await result.getAllAsync() as Array<{ count: number }>;
+  try {
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      // Check dependencies with a single query
+      const result = await txn.getFirstAsync<{ count: number }>(`
+        SELECT COUNT(*) as count 
+        FROM (
+          SELECT uiLanguage FROM User WHERE uiLanguage = $id
+          UNION ALL
+          SELECT sourceLanguage FROM Project WHERE sourceLanguage = $id
+          UNION ALL
+          SELECT targetLanguage FROM Project WHERE targetLanguage = $id
+        )
+      `, { $id: id });
       
-      if (counts.some(c => (c as { count: number }).count > 0)) {
+      const count = result?.count ?? 0; // Handle both null and undefined
+      if (count > 0) {
         throw new Error('Language is in use and cannot be deleted');
       }
-    } finally {
-      await checkStatement.finalizeAsync();
-    }
 
-    const deleteStatement = await db.prepareAsync(
-      'DELETE FROM Language WHERE id = $id'
-    );
-
-    try {
-      await deleteStatement.executeAsync({ $id: id });
-    } finally {
-      await deleteStatement.finalizeAsync();
-    }
-  });
-
-  await db.closeAsync();
+      // Delete the language
+      await txn.runAsync('DELETE FROM Language WHERE id = $id', { $id: id });
+    });
+  } finally {
+    await db.closeAsync();
+  }
 }
 
 export async function getLanguageByEnglishName(englishName: string): Promise<Language | null> {
@@ -391,6 +355,36 @@ export async function getLanguageByEnglishName(englishName: string): Promise<Lan
   }
 }
 
+// ---------------------------------------
+// ---------------  Users  ---------------
+// ---------------------------------------
+
+export async function validateUser(username: string, password: string): Promise<boolean> {
+  try {
+    const db = await SQLite.openDatabaseAsync(DB_NAME);
+    
+    const result = await db.getFirstAsync<{ password: string }>(
+      'SELECT password FROM User WHERE username = ?',
+      [username]
+    );
+
+    await db.closeAsync();
+
+    if (!result) {
+      return false;
+    }
+
+    // Hash the provided password and compare with stored hash
+    const hashedPassword = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      password
+    );
+    return hashedPassword === result.password;
+  } catch (error) {
+    console.error('Error validating user:', error);
+    throw error;
+  }
+}
 
 export async function getAllUsers(): Promise<User[]> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
@@ -432,54 +426,12 @@ export async function getAllLatestUsers(): Promise<User[]> {
   }
 }
 
-export type UserWithDetails = User & { uiLanguageName: string };
-
-export async function getAllLatestUsersWithDetails(): Promise<UserWithDetails[]> {
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
-  try {
-    const statement = await db.prepareAsync(`
-      SELECT 
-        u.*,
-        l.englishName as uiLanguageName
-      FROM User u
-      LEFT JOIN Language l ON u.uiLanguage = l.id
-      WHERE u.id IN (
-        SELECT id FROM User u2 
-        WHERE u2.versionChainId = u.versionChainId 
-        GROUP BY u2.versionChainId 
-        HAVING u2.versionNum = MAX(u2.versionNum)
-      )
-    `);
-    
-    const result = await statement.executeAsync();
-    return await result.getAllAsync() as UserWithDetails[];
-  } finally {
-    await db.closeAsync();
-  }
-}
-
 export async function addUser(
   username: string, 
   password: string, 
   uiLanguage: string
 ): Promise<string> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
-  
-  // Check if username already exists
-  const checkStatement = await db.prepareAsync(
-    'SELECT COUNT(*) as count FROM User WHERE username = $username'
-  );
-
-  try {
-    const result = await checkStatement.executeAsync({ $username: username });
-    const count = await result.getFirstAsync() as { count: number };
-    
-    if (count.count > 0) {
-      throw new Error('Username already exists');
-    }
-  } finally {
-    await checkStatement.finalizeAsync();
-  }
 
   // Hash the password
   const hashedPassword = await Crypto.digestStringAsync(
@@ -487,7 +439,7 @@ export async function addUser(
     password
   );
 
-  // First insert the user and get the ID
+  // Insert the user and get the ID
   const insertStatement = await db.prepareAsync(
     `INSERT INTO User (
       rev, 
@@ -536,37 +488,40 @@ export async function addUser(
 
 export async function getUserVersions(versionChainId: string): Promise<User[]> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
-  const statement = await db.prepareAsync(
-    'SELECT * FROM User WHERE versionChainId = $chainId ORDER BY versionNum DESC'
-  );
-  
+  let statement;
   try {
+    statement = await db.prepareAsync(
+      'SELECT id, rev, username, uiLanguage, versionNum, versionChainId, createdAt, lastUpdated FROM User WHERE versionChainId = $chainId ORDER BY versionNum DESC'
+    );
     const result = await statement.executeAsync({ $chainId: versionChainId });
     return await result.getAllAsync() as User[];
   } finally {
-    await statement.finalizeAsync();
+    if (statement) {
+      await statement.finalizeAsync();
+    }
     await db.closeAsync();
   }
 }
 
 export async function updateUser(user: User): Promise<void> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
-  const statement = await db.prepareAsync(
-    `UPDATE User SET 
-      rev = rev + 1,
-      username = $username,
-      uiLanguage = $uiLanguage
-    WHERE id = $id`
-  );
-
+  
   try {
-    await statement.executeAsync({
-      $id: user.id,
-      $username: user.username,
-      $uiLanguage: user.uiLanguage
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      // According to docs, runAsync is preferred for simple UPDATE operations
+      await txn.runAsync(`
+        UPDATE User SET 
+          rev = rev + 1,
+          username = $username,
+          uiLanguage = $uiLanguage
+        WHERE id = $id
+      `, {
+        $id: user.id,
+        $username: user.username,
+        $uiLanguage: user.uiLanguage
+      });
     });
   } finally {
-    await statement.finalizeAsync();
     await db.closeAsync();
   }
 }
@@ -577,40 +532,36 @@ export async function addUserVersion(
 ): Promise<string> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
-  const insertStatement = await db.prepareAsync(`
-    INSERT INTO User (
-      rev, 
-      username, 
-      password, 
-      uiLanguage,
-      versionNum, 
-      versionChainId
-    ) VALUES (
-      1,
-      $username,
-      $password,
-      $uiLanguage,
-      $versionNum,
-      $versionChainId
-    )
-    RETURNING id
-  `);
-
   try {
-    // Ensure all values are defined before passing to executeAsync
-    const params = {
-      $username: updates.username || baseUser.username,
-      $password: baseUser.password || '', // Provide default empty string
-      $uiLanguage: updates.uiLanguage || baseUser.uiLanguage,
-      $versionNum: (baseUser.versionNum + 1) as number,
-      $versionChainId: baseUser.versionChainId
-    } as const; // Use const assertion to ensure type safety
+    let newId = '';
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      const insertStatement = await txn.prepareAsync(`
+        INSERT INTO User (
+          rev, username, password, uiLanguage,
+          versionNum, versionChainId
+        ) VALUES (
+          1, $username, $password, $uiLanguage,
+          $versionNum, $versionChainId
+        )
+        RETURNING id
+      `);
 
-    const result = await insertStatement.executeAsync(params);
-    const newUser = await result.getFirstAsync() as { id: string };
-    return newUser?.id || '';
+      try {
+        const result = await insertStatement.executeAsync({
+          $username: updates.username ?? baseUser.username,
+          $password: baseUser.password ?? '',
+          $uiLanguage: updates.uiLanguage ?? baseUser.uiLanguage,
+          $versionNum: baseUser.versionNum + 1,
+          $versionChainId: baseUser.versionChainId
+        });
+        const row = await result.getFirstAsync() as { id: string };
+        newId = row?.id || '';
+      } finally {
+        await insertStatement.finalizeAsync();
+      }
+    });
+    return newId;
   } finally {
-    await insertStatement.finalizeAsync();
     await db.closeAsync();
   }
 }
@@ -618,35 +569,24 @@ export async function addUserVersion(
 export async function deleteUser(id: string): Promise<void> {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
-  await db.withTransactionAsync(async () => {
-    // Check if user has any dependencies before deletion
-    const checkStatement = await db.prepareAsync(
-      `SELECT COUNT(*) as count FROM Language WHERE creator = (
-        SELECT username FROM User WHERE id = $id
-      )`
-    );
-
-    try {
-      const result = await checkStatement.executeAsync({ $id: id });
-      const count = await result.getFirstAsync() as { count: number };
+  try {
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      // Check dependencies
+      const result = await txn.getFirstAsync<{ count: number }>(`
+        SELECT COUNT(*) as count 
+        FROM Language 
+        WHERE creator = (SELECT username FROM User WHERE id = $id)
+      `, { $id: id });
       
-      if (count.count > 0) {
+      const count = result?.count ?? 0; // Handle both null and undefined
+      if (count > 0) {
         throw new Error('User has created languages and cannot be deleted');
       }
-    } finally {
-      await checkStatement.finalizeAsync();
-    }
 
-    const deleteStatement = await db.prepareAsync(
-      'DELETE FROM User WHERE id = $id'
-    );
-
-    try {
-      await deleteStatement.executeAsync({ $id: id });
-    } finally {
-      await deleteStatement.finalizeAsync();
-    }
-  });
-
-  await db.closeAsync();
+      // Delete the user
+      await txn.runAsync('DELETE FROM User WHERE id = $id', { $id: id });
+    });
+  } finally {
+    await db.closeAsync();
+  }
 }

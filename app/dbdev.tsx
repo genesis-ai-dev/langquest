@@ -8,14 +8,13 @@ import { DevLanguageDetails } from '@/components/DevLanguageDetails';
 import { DevUserDetails } from '@/components/DevUserDetails';
 import { 
   getAllLatestLanguages, 
-  getAllLatestUsersWithDetails, 
+  getAllLatestUsers, 
   Language, 
-  User,
-  type UserWithDetails // Add this
+  User
 } from '@/utils/databaseService';
 import { Ionicons } from '@expo/vector-icons';
 
-type ListItem = Language | UserWithDetails;
+type ListItem = Language | User;
 
 const tables = ['Language', 'User'];
 
@@ -30,20 +29,23 @@ const LanguageCard: React.FC<{ language: Language }> = ({ language }) => (
   </View>
 );
 
-const UserCard: React.FC<{ user: UserWithDetails }> = ({ user }) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{user.username}</Text>
-    <Text style={sharedStyles.cardDescription}>
-      UI Language: {user.uiLanguageName || 'Unknown'}
-    </Text>
-    <Text style={sharedStyles.cardLanguageText}>Version: {user.versionNum || 1}</Text>
-  </View>
-);
+const UserCard: React.FC<{ user: User; languages: Language[] }> = ({ user, languages }) => {
+  const uiLanguage = languages.find(l => l.id === user.uiLanguage);
+  return (
+    <View style={sharedStyles.card}>
+      <Text style={sharedStyles.cardTitle}>{user.username}</Text>
+      <Text style={sharedStyles.cardDescription}>
+        UI Language: {uiLanguage?.englishName || 'Unknown'}
+      </Text>
+      <Text style={sharedStyles.cardLanguageText}>Version: {user.versionNum || 1}</Text>
+    </View>
+  );
+};
 
 export default function DbDev() {
   const [selectedTable, setSelectedTable] = useState('Language');
   const [languages, setLanguages] = useState<Language[]>([]);
-  const [users, setUsers] = useState<UserWithDetails[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -59,7 +61,7 @@ export default function DbDev() {
         console.log('Loaded languages:', loadedLanguages);
         setLanguages(loadedLanguages);
       } else {
-        const loadedUsers = await getAllLatestUsersWithDetails();
+        const loadedUsers = await getAllLatestUsers();
         console.log('Loaded users with details:', loadedUsers);
         setUsers(loadedUsers);
       }
@@ -119,7 +121,7 @@ export default function DbDev() {
               >
                 {'nativeName' in item 
                   ? <LanguageCard language={item as Language} />
-                  : <UserCard user={item as UserWithDetails} />
+                  : <UserCard user={item as User} languages={languages} />
                 }
               </TouchableOpacity>
             )}

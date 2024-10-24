@@ -110,11 +110,11 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
   const handleDelete = async () => {
     Alert.alert(
       'Confirm Delete',
-      'Are you sure you want to delete this user?',
+      'Are you sure you want to delete this version of the user?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete version',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -122,11 +122,11 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
                 throw new Error('User ID is required for deletion');
               }
               await deleteUser(user.id);
-              Alert.alert('Success', 'User deleted successfully');
+              Alert.alert('Success', 'User version deleted successfully');
               onUpdate();
               onClose();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete user');
+              Alert.alert('Error', 'Failed to delete user version');
             }
           }
         }
@@ -256,7 +256,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
                 style={[sharedStyles.modalButton, { backgroundColor: 'red', flex: 1 }]}
                 onPress={handleDelete}
               >
-                <Text style={sharedStyles.modalButtonText}>Delete</Text>
+                <Text style={sharedStyles.modalButtonText}>Delete Version</Text>
               </TouchableOpacity>
             )}
           </View>

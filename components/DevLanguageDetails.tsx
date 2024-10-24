@@ -143,11 +143,11 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
   const handleDelete = async () => {
     Alert.alert(
       'Confirm Delete',
-      'Are you sure you want to delete this language?',
+      'Are you sure you want to delete this versino of the language?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete version',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -155,12 +155,12 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
                 throw new Error('Language ID is required for deletion');
               }
               await deleteLanguage(language.id);
-              Alert.alert('Success', 'Language deleted successfully');
+              Alert.alert('Success', 'Language version deleted successfully');
               onUpdate();
               onClose();
             } catch (error) {
-              console.error('Error deleting language:', error);
-              Alert.alert('Error', 'Failed to delete language');
+              console.error('Error deleting language version:', error);
+              Alert.alert('Error', 'Failed to delete language version');
             }
           }
         }
@@ -268,7 +268,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
                 style={[sharedStyles.modalButton, { backgroundColor: 'red', flex: 1 }]}
                 onPress={handleDelete}
               >
-                <Text style={sharedStyles.modalButtonText}>Delete</Text>
+                <Text style={sharedStyles.modalButtonText}>Delete Version</Text>
               </TouchableOpacity>
             )}
           </View>
