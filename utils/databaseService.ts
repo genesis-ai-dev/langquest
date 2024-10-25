@@ -341,6 +341,31 @@ export async function getLanguageByEnglishName(englishName: string): Promise<Lan
   }
 }
 
+export async function getAllUiReadyLanguages(): Promise<Language[]> {
+  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const statement = await db.prepareAsync(`
+    SELECT l1.* 
+    FROM Language l1
+    INNER JOIN (
+      SELECT versionChainId, MAX(versionNum) as maxVersion
+      FROM Language
+      GROUP BY versionChainId
+    ) l2 
+    ON l1.versionChainId = l2.versionChainId 
+    AND l1.versionNum = l2.maxVersion
+    WHERE l1.uiReady = 1
+    ORDER BY l1.nativeName
+  `);
+  
+  try {
+    const result = await statement.executeAsync();
+    return await result.getAllAsync() as Language[];
+  } finally {
+    await statement.finalizeAsync();
+    await db.closeAsync();
+  }
+}
+
 // ---------------------------------------
 // ---------------  Users  ---------------
 // ---------------------------------------
@@ -350,32 +375,24 @@ export async function validateUser(username: string, password: string): Promise<
   try {
     db = await SQLite.openDatabaseAsync(DB_NAME);
     
-    // First find any user with this username and get their chain ID
+    // Get the latest version of the user with this username
     const userRecord = await db.getFirstAsync<{ 
-      versionChainId: string, 
-      versionNum: number,
       password: string 
-    }>(
-      `SELECT versionChainId, versionNum, password 
-       FROM User 
-       WHERE username = ?`,
-      [username]
-    );
+    }>(`
+      SELECT u1.password
+      FROM User u1
+      INNER JOIN (
+        SELECT versionChainId, MAX(versionNum) as maxVersion
+        FROM User
+        WHERE username = ?
+        GROUP BY versionChainId
+      ) u2 
+      ON u1.versionChainId = u2.versionChainId 
+      AND u1.versionNum = u2.maxVersion
+    `, [username]);
 
     if (!userRecord) {
       return false;
-    }
-
-    // Check if this is the latest version in the chain
-    const latestVersion = await db.getFirstAsync<{ maxVersion: number }>(
-      `SELECT MAX(versionNum) as maxVersion 
-       FROM User 
-       WHERE versionChainId = ?`,
-      [userRecord.versionChainId]
-    );
-
-    if (!latestVersion || userRecord.versionNum < latestVersion.maxVersion) {
-      return false; // Not the latest version
     }
 
     // Verify password
@@ -385,9 +402,6 @@ export async function validateUser(username: string, password: string): Promise<
     );
     return hashedPassword === userRecord.password;
 
-  } catch (error) {
-    console.error('Error validating user:', error);
-    throw error;
   } finally {
     if (db) {
       await db.closeAsync();
@@ -537,38 +551,106 @@ export async function updateUser(user: User): Promise<void> {
 
 export async function addUserVersion(
   baseUser: User,
-  updates: Partial<User>
+  updates: Partial<User>,
+  newPassword?: string,
+  requireOldPassword: boolean = true,
+  oldPassword?: string
 ): Promise<string> {
+  console.log('Starting addUserVersion with newPassword:', newPassword ? '[PROVIDED]' : '[NOT PROVIDED]');
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
   try {
     let newId = '';
     await db.withExclusiveTransactionAsync(async (txn) => {
-      const insertStatement = await txn.prepareAsync(`
-        INSERT INTO User (
-          rev, username, password, uiLanguage,
-          versionNum, versionChainId
-        ) VALUES (
-          1, $username, $password, $uiLanguage,
-          $versionNum, $versionChainId
-        )
-        RETURNING id
+      // Get the previous version's password
+      const statement = await txn.prepareAsync(`
+        SELECT password 
+        FROM User 
+        WHERE versionChainId = $chainId 
+        ORDER BY versionNum DESC
+        LIMIT 1
       `);
-
+      
+      let existingPassword: string;
       try {
-        const result = await insertStatement.executeAsync({
-          $username: updates.username ?? baseUser.username,
-          $password: baseUser.password ?? '',
-          $uiLanguage: updates.uiLanguage ?? baseUser.uiLanguage,
-          $versionNum: baseUser.versionNum + 1,
-          $versionChainId: baseUser.versionChainId
+        const result = await statement.executeAsync({ 
+          $chainId: baseUser.versionChainId as string
         });
-        const row = await result.getFirstAsync() as { id: string };
-        newId = row?.id || '';
+        const user = await result.getFirstAsync() as { password: string } | null;
+
+        if (!user?.password) {
+          throw new Error('Previous version password not found');
+        }
+        existingPassword = user.password;
+
+        // If new password provided and verification required, verify old password
+        if (newPassword && requireOldPassword) {
+          if (!oldPassword) {
+            throw new Error('Old password required for password change');
+          }
+          const hashedOldPassword = await Crypto.digestStringAsync(
+            Crypto.CryptoDigestAlgorithm.SHA256,
+            oldPassword
+          );
+          if (hashedOldPassword !== existingPassword) {
+            throw new Error('Invalid old password');
+          }
+        }
+
+        // Get the next version number
+        const versionStatement = await txn.prepareAsync(
+          'SELECT MAX(versionNum) as maxVersion FROM User WHERE versionChainId = $chainId'
+        );
+        try {
+          const result = await versionStatement.executeAsync({ 
+            $chainId: baseUser.versionChainId as string 
+          });
+          const versionRow = await result.getFirstAsync() as { maxVersion: number };
+          const nextVersion = (versionRow?.maxVersion || 0) + 1;
+
+          // Insert the new version
+          const insertStatement = await txn.prepareAsync(`
+            INSERT INTO User (
+              rev, username, password, uiLanguage,
+              versionNum, versionChainId
+            ) VALUES (
+              1, $username, $password, $uiLanguage,
+              $versionNum, $versionChainId
+            )
+            RETURNING id
+          `);
+
+          try {
+            // If new password provided, hash it. Otherwise use existing password
+            const passwordToUse = newPassword 
+              ? await Crypto.digestStringAsync(
+                  Crypto.CryptoDigestAlgorithm.SHA256,
+                  newPassword
+                )
+              : existingPassword;
+
+              console.log('Using password:', passwordToUse ? '[HASHED VALUE EXISTS]' : '[NO PASSWORD]');
+
+            const insertResult = await insertStatement.executeAsync({
+              $username: (updates.username || baseUser.username) as string,
+              $password: passwordToUse,
+              $uiLanguage: (updates.uiLanguage || baseUser.uiLanguage) as string,
+              $versionNum: nextVersion as number,
+              $versionChainId: baseUser.versionChainId as string
+            });
+            const newRow = await insertResult.getFirstAsync() as { id: string };
+            newId = newRow?.id || '';
+          } finally {
+            await insertStatement.finalizeAsync();
+          }
+        } finally {
+          await versionStatement.finalizeAsync();
+        }
       } finally {
-        await insertStatement.finalizeAsync();
+        await statement.finalizeAsync();
       }
     });
+    
     return newId;
   } finally {
     await db.closeAsync();

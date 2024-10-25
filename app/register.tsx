@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,19 +7,50 @@ import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
-import { addUser, getAllUsers } from '@/utils/databaseService';
+import { Language, getAllUiReadyLanguages, addUser } from '@/utils/databaseService';
 
 export default function Register() {
   const router = useRouter();
-  const [showLanguages, setShowLanguages] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showLanguages, setShowLanguages] = useState(false);
 
-  const languages = ['English', 'Spanish'];
+  useFocusEffect(
+    useCallback(() => {
+      loadLanguages();
+    }, [])
+  );
+
+  const loadLanguages = async () => {
+    try {
+      const loadedLanguages = await getAllUiReadyLanguages();
+      setLanguages(loadedLanguages);
+      // Set default language if available
+      if (!selectedLanguageId && loadedLanguages.length > 0) {
+        const englishLang = loadedLanguages.find(l => l.englishName.toLowerCase() === 'english');
+        setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading languages:', error);
+      Alert.alert('Error', 'Failed to load available languages');
+    }
+  };
+
 
   const handleRegister = async () => {
+    if (!selectedLanguageId) {
+      Alert.alert('Error', 'Please select a language');
+      return;
+    }
+
+    if (!username.trim()) {
+      Alert.alert('Error', 'Username is required');
+      return;
+    }
+
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
@@ -30,20 +62,10 @@ export default function Register() {
     }
   
     try {
-      const userId = await addUser(username, password, selectedLanguage);
+      const userId = await addUser(username, password, selectedLanguageId);
       if (userId) {
         Alert.alert('Success', 'User registered successfully');
-        
-        // Log all registered users
-        const allUsers = await getAllUsers();
-        console.log('All registered users:');
-        allUsers.forEach(user => {
-          console.log(`Username: ${user.username}, Password: ${user.password}`);
-        });
-        
         router.push("/");
-      } else {
-        Alert.alert('Error', 'Username already exists. Please choose a different username.');
       }
     } catch (error) {
       console.error('Error registering user:', error);
@@ -60,9 +82,14 @@ export default function Register() {
           
           <CustomDropdown
             label="App Language"
-            value={selectedLanguage}
-            options={languages}
-            onSelect={setSelectedLanguage}
+            value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
+            options={languages.map(l => l.nativeName)}
+            onSelect={(langName) => {
+              const lang = languages.find(l => l.nativeName === langName);
+              if (lang) {
+                setSelectedLanguageId(lang.id);
+              }
+            }}
             isOpen={showLanguages}
             onToggle={() => setShowLanguages(!showLanguages)}
             search={true}

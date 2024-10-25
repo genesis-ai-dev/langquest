@@ -23,6 +23,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
   const [users, setUsers] = useState<Array<{ username: string }>>([]);
   const [versions, setVersions] = useState<Language[]>([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+  const [isAddingVersion, setIsAddingVersion] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -57,10 +58,10 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
   
   const handleAddVersion = async () => {
     try {
-      if (!language.id) {
+      if (!formData.id) {
         throw new Error('Language ID is required for versioning');
       }
-      const newId = await addLanguageVersion(language as Language, formData);
+      const newId = await addLanguageVersion(formData as Language, formData);
       Alert.alert('Success', 'New version created successfully');
       onUpdate();
       onClose();
@@ -68,6 +69,11 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
       console.error('Error creating version:', error);
       Alert.alert('Error', 'Failed to create new version');
     }
+  };
+  
+  const handleAddVersionClick = () => {
+    setIsAddingVersion(true);
+    setEditing(true);
   };
   
   const renderVersionControls = () => {
@@ -218,7 +224,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
     <View style={sharedStyles.modalOverlay}>
       <View style={sharedStyles.modal}>
         <Text style={sharedStyles.modalTitle}>
-          {isNew ? 'New Language' : editing ? 'Edit Version' : 'Language Details'}
+          {isNew ? 'New Language' : isAddingVersion ? 'Add Version' : editing ? 'Edit Version' : 'Language Details'}
         </Text>
   
         {!isNew && renderVersionControls()}
@@ -236,7 +242,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
         )}
   
         <View style={{ gap: 10 }}>
-          {!isNew && (
+          {!isNew && !isAddingVersion && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity 
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1, marginRight: 5 }]}
@@ -248,7 +254,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1, marginLeft: 5 }]}
-                onPress={handleAddVersion}
+                onPress={handleAddVersionClick}
               >
                 <Text style={sharedStyles.modalButtonText}>Add Version</Text>
               </TouchableOpacity>
@@ -256,10 +262,10 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
           )}
           
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {(editing || isNew) ? (
+            {(editing || isNew || isAddingVersion) ? (
               <TouchableOpacity
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1 }]}
-                onPress={handleSave}
+                onPress={isAddingVersion ? handleAddVersion : handleSave}
               >
                 <Text style={sharedStyles.modalButtonText}>Save</Text>
               </TouchableOpacity>
@@ -275,7 +281,11 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
           
           <TouchableOpacity
             style={[sharedStyles.modalButton, { backgroundColor: colors.primary }]}
-            onPress={onClose}
+            onPress={() => {
+              setIsAddingVersion(false);
+              setEditing(false);
+              onClose();
+            }}
           >
             <Text style={sharedStyles.modalButtonText}>Close</Text>
           </TouchableOpacity>

@@ -24,6 +24,10 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
   const [password, setPassword] = useState('');
   const [versions, setVersions] = useState<User[]>([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+  const [newPassword, setNewPassword] = useState('');
+  const [requireOldPassword, setRequireOldPassword] = useState(true);
+  const [isAddingVersion, setIsAddingVersion] = useState(false);
+  const [versionPassword, setVersionPassword] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -97,7 +101,29 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
       if (!formData.id) {
         throw new Error('User ID is required for versioning');
       }
-      const newId = await addUserVersion(formData as User, formData);
+      console.log('Adding version with password:', versionPassword ? '[PROVIDED]' : '[NOT PROVIDED]');
+      
+      const newId = await addUserVersion(
+        formData as User, 
+        formData,
+        versionPassword || undefined,
+        false
+      );
+      
+      // More detailed verification
+      const versions = await getUserVersions(formData.versionChainId as string);
+      const newVersion = versions.find(v => v.id === newId);
+      console.log('New version details:', {
+        id: newId,
+        versionNum: newVersion?.versionNum,
+        hasPassword: newVersion?.password ? 'Yes' : 'No',
+        passwordLength: newVersion?.password?.length || 0
+      });
+  
+      if (!newVersion?.password) {
+        console.warn('Warning: New version created without password!');
+      }
+  
       Alert.alert('Success', 'New version created successfully');
       onUpdate();
       onClose();
@@ -105,6 +131,11 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
       console.error('Error creating version:', error);
       Alert.alert('Error', 'Failed to create new version');
     }
+  };
+
+  const handleAddVersionClick = () => {
+    setIsAddingVersion(true);
+    setEditing(true);
   };
 
   const handleDelete = async () => {
@@ -177,17 +208,17 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
         placeholderTextColor={colors.textSecondary}
       />
       
-      {isNew && (
+      {isAddingVersion && (
         <TextInput
           style={sharedStyles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
+          value={versionPassword}
+          onChangeText={setVersionPassword}
+          placeholder="Leave password unchanged"
           placeholderTextColor={colors.textSecondary}
           secureTextEntry
         />
       )}
-
+      
       <CustomDropdown
         label="UI Language"
         value={languages.find(l => l.id === formData.uiLanguage)?.englishName || ''}
@@ -202,17 +233,18 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
       />
     </View>
   );
+  
 
   return (
     <View style={sharedStyles.modalOverlay}>
       <View style={sharedStyles.modal}>
         <Text style={sharedStyles.modalTitle}>
-          {isNew ? 'New User' : editing ? 'Edit Version' : 'User Details'}
+          {isNew ? 'New User' : isAddingVersion ? 'Add Version' : editing ? 'Edit Version' : 'User Details'}
         </Text>
   
         {!isNew && renderVersionControls()}
         
-        {editing || isNew ? renderForm() : (
+        {(editing || isNew || isAddingVersion) ? renderForm() : (
           <View style={sharedStyles.modalContent}>
             <Text style={{ color: colors.text }}>Username: {formData.username}</Text>
             <Text style={{ color: colors.text }}>
@@ -224,7 +256,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
         )}
   
         <View style={{ gap: 10 }}>
-          {!isNew && (
+          {!isNew && !isAddingVersion && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity 
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1, marginRight: 5 }]}
@@ -236,7 +268,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1, marginLeft: 5 }]}
-                onPress={handleAddVersion}
+                onPress={handleAddVersionClick}
               >
                 <Text style={sharedStyles.modalButtonText}>Add Version</Text>
               </TouchableOpacity>
@@ -244,10 +276,10 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
           )}
           
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {(editing || isNew) ? (
+            {(editing || isNew || isAddingVersion) ? (
               <TouchableOpacity
                 style={[sharedStyles.modalButton, { backgroundColor: colors.primary, flex: 1 }]}
-                onPress={handleSave}
+                onPress={isAddingVersion ? handleAddVersion : handleSave}
               >
                 <Text style={sharedStyles.modalButtonText}>Save</Text>
               </TouchableOpacity>
@@ -263,7 +295,11 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
           
           <TouchableOpacity
             style={[sharedStyles.modalButton, { backgroundColor: colors.primary }]}
-            onPress={onClose}
+            onPress={() => {
+              setIsAddingVersion(false);
+              setEditing(false);
+              onClose();
+            }}
           >
             <Text style={sharedStyles.modalButtonText}>Close</Text>
           </TouchableOpacity>
