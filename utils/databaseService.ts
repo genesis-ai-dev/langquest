@@ -1,6 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 import { schemaSQL } from './schema';
 import * as Crypto from 'expo-crypto';
+import { UserRepository } from '@/database_components/UserRepository'
+import { LanguageRepository } from '@/database_components/LanguageRepository';
 
 export interface Language {
   id: string;
@@ -25,6 +27,9 @@ export interface User {
 }
 
 const DB_NAME = 'langquest.db';
+
+export const userRepository = new UserRepository();
+export const languageRepository = new LanguageRepository();
 
 export async function initDatabase(forceReset: boolean = false): Promise<void> {
   try {

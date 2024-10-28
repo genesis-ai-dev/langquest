@@ -4,6 +4,7 @@ import { colors, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Language, addLanguage, updateLanguage, deleteLanguage, getAllLatestUsers, addLanguageVersion, getLanguageVersions } from '@/utils/databaseService';
 import { CustomDropdown } from './CustomDropdown';
+import { userRepository } from '@/utils/databaseService'
 
 interface LanguageDetailsProps {
   language: Partial<Language>;
@@ -110,7 +111,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
 
   const loadUsers = async () => {
     try {
-      const loadedUsers = await getAllLatestUsers();
+      const loadedUsers = await userRepository.getLatestUsers();
       setUsers(loadedUsers);
     } catch (error) {
       console.error('Error loading users:', error);

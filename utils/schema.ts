@@ -34,8 +34,24 @@ BEGIN
     END;
 END;
 
+CREATE TRIGGER update_user_timestamp
+AFTER UPDATE ON User
+BEGIN
+    UPDATE User 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
 
--- Project table
+CREATE TRIGGER update_user_timestamp
+AFTER UPDATE ON User
+BEGIN
+    UPDATE User 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
+
 CREATE TABLE Project (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
@@ -94,6 +110,15 @@ BEGIN
     END;
 END;
 
+CREATE TRIGGER update_project_timestamp
+AFTER UPDATE ON Project
+BEGIN
+    UPDATE Project 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
 
 -- ProjectMember table (for many-to-many relationship between User and Project)
 CREATE TABLE ProjectMember (
@@ -104,6 +129,8 @@ CREATE TABLE ProjectMember (
     FOREIGN KEY (userId) REFERENCES User(id),
     FOREIGN KEY (projectId) REFERENCES Project(id)
 );
+
+------------------------------------------------------------
 
 -- Quest table
 CREATE TABLE Quest (
@@ -139,6 +166,15 @@ BEGIN
     END;
 END;
 
+CREATE TRIGGER update_quest_timestamp
+AFTER UPDATE ON Quest
+BEGIN
+    UPDATE Quest 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
 
 -- Asset table
 CREATE TABLE Asset (
@@ -177,6 +213,15 @@ BEGIN
     END;
 END;
 
+CREATE TRIGGER update_asset_timestamp
+AFTER UPDATE ON Asset
+BEGIN
+    UPDATE Asset 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
 
 -- QuestAsset table (for many-to-many relationship between Quest and Asset)
 CREATE TABLE QuestAsset (
@@ -187,6 +232,7 @@ CREATE TABLE QuestAsset (
     FOREIGN KEY (assetId) REFERENCES Asset(id)
 );
 
+------------------------------------------------------------
 
 -- Translation table
 CREATE TABLE Translation (
@@ -233,6 +279,15 @@ BEGIN
     END;
 END;
 
+CREATE TRIGGER update_translation_timestamp
+AFTER UPDATE ON Translation
+BEGIN
+    UPDATE Translation 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
 
 -- Vote table
 CREATE TABLE Vote (
@@ -259,6 +314,15 @@ BEGIN
     AND createdAt < NEW.createdAt;
 END;
 
+CREATE TRIGGER update_vote_timestamp
+AFTER UPDATE ON Vote
+BEGIN
+    UPDATE Vote 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
 
 -- Language table
 CREATE TABLE Language (
@@ -295,7 +359,16 @@ BEGIN
     END;
 END;
 
--- AccessCode table
+CREATE TRIGGER update_language_timestamp
+AFTER UPDATE ON Language
+BEGIN
+    UPDATE Language 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
+
 CREATE TABLE AccessCode (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     code TEXT NOT NULL UNIQUE,
@@ -309,7 +382,8 @@ CREATE TABLE AccessCode (
     FOREIGN KEY (recipient) REFERENCES User(id)
 );
 
--- LanguageRequest table
+------------------------------------------------------------
+
 CREATE TABLE LanguageRequest (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
@@ -318,7 +392,8 @@ CREATE TABLE LanguageRequest (
     FOREIGN KEY (language) REFERENCES Language(id)
 );
 
--- FlagAssignment table
+------------------------------------------------------------
+
 CREATE TABLE FlagAssignment (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
@@ -332,56 +407,138 @@ CREATE TABLE FlagAssignment (
     FOREIGN KEY (assigner) REFERENCES User(id)
 );
 
--- TagName table
-CREATE TABLE TagName (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    rev INTEGER NOT NULL,
-    name TEXT NOT NULL UNIQUE,
-    creator TEXT NOT NULL,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (creator) REFERENCES User(id)
-);
+CREATE TRIGGER update_flag_assignment_timestamp
+AFTER UPDATE ON FlagAssignment
+BEGIN
+    UPDATE FlagAssignment 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
 
--- TagAssignment table
-CREATE TABLE TagAssignment (
+------------------------------------------------------------
+
+CREATE TABLE Tag (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
     name TEXT NOT NULL,
-    quest TEXT,
-    asset TEXT,
-    project TEXT NOT NULL,
-    assigner TEXT NOT NULL,
+    creator TEXT NOT NULL,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (name) REFERENCES TagName(id),
-    FOREIGN KEY (quest) REFERENCES Quest(id),
-    FOREIGN KEY (asset) REFERENCES Asset(id),
-    FOREIGN KEY (project) REFERENCES Project(id),
-    FOREIGN KEY (assigner) REFERENCES User(id),
-    CHECK ((quest IS NULL AND asset IS NOT NULL) OR (quest IS NOT NULL AND asset IS NULL))
+    lastUpdated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator) REFERENCES User(id)
 );
 
--- ProjectTag table (for many-to-many relationship between Project and TagName)
-CREATE TABLE ProjectTag (
-    projectId TEXT NOT NULL,
-    tagNameId TEXT NOT NULL,
-    PRIMARY KEY (projectId, tagNameId),
-    FOREIGN KEY (projectId) REFERENCES Project(id),
-    FOREIGN KEY (tagNameId) REFERENCES TagName(id)
+CREATE TRIGGER enforce_tag_name_uniqueness
+BEFORE INSERT ON Tag
+BEGIN
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM Tag 
+            WHERE name = NEW.name
+            AND id != NEW.id
+        )
+        THEN RAISE(ABORT, 'Tag name must be unique')
+    END;
+END;
+
+CREATE TRIGGER update_tag_timestamp
+AFTER UPDATE ON Tag
+BEGIN
+    UPDATE Tag 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
+
+CREATE TABLE QuestTag (
+    questId TEXT NOT NULL,
+    tagId TEXT NOT NULL,
+    PRIMARY KEY (questId, tagId),
+    FOREIGN KEY (questId) REFERENCES Quest(id),
+    FOREIGN KEY (tagId) REFERENCES Tag(id)
 );
 
--- InviteRequest table
+CREATE TABLE AssetTag (
+    assetId TEXT NOT NULL,
+    tagId TEXT NOT NULL,
+    PRIMARY KEY (assetId, tagId),
+    FOREIGN KEY (assetId) REFERENCES Asset(id),
+    FOREIGN KEY (tagId) REFERENCES Tag(id)
+);
+
+------------------------------------------------------------
+
 CREATE TABLE InviteRequest (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     rev INTEGER NOT NULL,
     sender TEXT NOT NULL,
-    receiver TEXT NOT NULL,
     project TEXT NOT NULL,
     status TEXT CHECK(status IN ('waiting', 'approved', 'rejected', 'passed')) NOT NULL,
     versionChainId TEXT NOT NULL,
     versionNum INTEGER NOT NULL,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    lastUpdated DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sender) REFERENCES User(id),
-    FOREIGN KEY (receiver) REFERENCES User(id),
     FOREIGN KEY (project) REFERENCES Project(id)
 );
+
+CREATE TRIGGER update_invite_request_timestamp
+AFTER UPDATE ON InviteRequest
+BEGIN
+    UPDATE InviteRequest 
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+END;
+
+------------------------------------------------------------
+
+CREATE TABLE InviteRequestReceiver (
+    inviteRequestId TEXT NOT NULL,
+    receiverId TEXT NOT NULL,
+    PRIMARY KEY (inviteRequestId, receiverId),
+    FOREIGN KEY (inviteRequestId) REFERENCES InviteRequest(id),
+    FOREIGN KEY (receiverId) REFERENCES User(id)
+);
+
+CREATE TRIGGER enforce_invite_request_status_update
+BEFORE UPDATE ON InviteRequest
+BEGIN
+    SELECT CASE
+        -- Can't change from final states
+        WHEN OLD.status IN ('approved', 'rejected') 
+        AND NEW.status != OLD.status
+        THEN RAISE(ABORT, 'Cannot change status of finalized invite request')
+        
+        -- Can't skip waiting state
+        WHEN OLD.status = 'passed' 
+        AND NEW.status NOT IN ('waiting', OLD.status)
+        THEN RAISE(ABORT, 'New invite requests must go through waiting state')
+    END;
+END;
+
+CREATE TRIGGER enforce_invite_receiver_rules
+BEFORE INSERT ON InviteRequestReceiver
+BEGIN
+    SELECT CASE
+        -- Prevent self-invite
+        WHEN EXISTS (
+            SELECT 1 FROM InviteRequest 
+            WHERE id = NEW.inviteRequestId 
+            AND sender = NEW.receiverId
+        )
+        THEN RAISE(ABORT, 'Cannot invite yourself')
+        
+        -- Prevent inviting existing project members
+        WHEN EXISTS (
+            SELECT 1 
+            FROM InviteRequest ir
+            JOIN ProjectMember pm 
+            ON pm.projectId = ir.project
+            WHERE ir.id = NEW.inviteRequestId 
+            AND pm.userId = NEW.receiverId
+        )
+        THEN RAISE(ABORT, 'User is already a project member')
+    END;
+END;
+
 `;
