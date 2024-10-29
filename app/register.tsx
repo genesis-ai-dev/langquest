@@ -7,7 +7,12 @@ import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
-import { Language, getAllUiReadyLanguages, addUser } from '@/utils/databaseService';
+import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
+import { UserRepository } from '@/database_components/UserRepository';
+
+// Repository instances
+const languageRepository = new LanguageRepository();
+const userRepository = new UserRepository();
 
 export default function Register() {
   const router = useRouter();
@@ -26,7 +31,7 @@ export default function Register() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await getAllUiReadyLanguages();
+      const loadedLanguages = await languageRepository.getUiReady();
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {
@@ -41,35 +46,25 @@ export default function Register() {
 
 
   const handleRegister = async () => {
-    if (!selectedLanguageId) {
-      Alert.alert('Error', 'Please select a language');
-      return;
-    }
-
-    if (!username.trim()) {
-      Alert.alert('Error', 'Username is required');
-      return;
-    }
-
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
   
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
-      return;
-    }
-  
     try {
-      const userId = await addUser(username, password, selectedLanguageId);
+      const userData = {
+        username: username.trim(),
+        password: password,
+        uiLanguage: selectedLanguageId
+      };
+      const userId = await userRepository.createNew(userData);
       if (userId) {
         Alert.alert('Success', 'User registered successfully');
         router.push("/");
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      Alert.alert('Error', 'An unexpected error occurred while registering');
+      Alert.alert('Error', error instanceof Error ? error.message : 'An unexpected error occurred while registering');
     }
   };
 

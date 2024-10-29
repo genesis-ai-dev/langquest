@@ -5,7 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { initDatabase, validateUser } from '@/utils/databaseService';
+import { UserRepository } from '@/database_components/UserRepository';
+import { initDatabase } from '@/database_components/dbInit';
+
+const userRepository = new UserRepository();
 
 export default function Index() {
   const router = useRouter();
@@ -40,8 +43,8 @@ export default function Index() {
 
   const handleSignIn = async () => {
     try {
-      const isValid = await validateUser(username, password);
-      if (isValid) {
+      const user = await userRepository.validateCredentials(username, password);
+      if (user) {
         router.push("/projects");
       } else {
         Alert.alert('Error', 'Invalid username or password');

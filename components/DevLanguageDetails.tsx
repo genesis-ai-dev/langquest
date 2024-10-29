@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
 import { colors, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Language, addLanguage, updateLanguage, deleteLanguage, getAllLatestUsers, addLanguageVersion, getLanguageVersions } from '@/utils/databaseService';
 import { CustomDropdown } from './CustomDropdown';
-import { userRepository } from '@/utils/databaseService'
+import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
+import { UserRepository } from '@/database_components/UserRepository';
+
+const languageRepository = new LanguageRepository();
+const userRepository = new UserRepository();
 
 interface LanguageDetailsProps {
   language: Partial<Language>;
@@ -30,7 +33,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
     const loadData = async () => {
       await loadUsers();
       if (!isNew && language.versionChainId) {
-        const loadedVersions = await getLanguageVersions(language.versionChainId);
+        const loadedVersions = await languageRepository.getVersions(language.versionChainId);
         setVersions(loadedVersions);
         const currentIndex = loadedVersions.findIndex(v => v.id === language.id);
         const currentVersion = loadedVersions[currentIndex !== -1 ? currentIndex : 0] || language;
@@ -62,7 +65,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
       if (!formData.id) {
         throw new Error('Language ID is required for versioning');
       }
-      const newId = await addLanguageVersion(formData as Language, formData);
+      const newId = await languageRepository.addVersion(formData as Language, formData);
       Alert.alert('Success', 'New version created successfully');
       onUpdate();
       onClose();
@@ -111,8 +114,8 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
 
   const loadUsers = async () => {
     try {
-      const loadedUsers = await userRepository.getLatestUsers();
-      setUsers(loadedUsers);
+      const users = await userRepository.getLatestOfAll();
+      setUsers(users);
     } catch (error) {
       console.error('Error loading users:', error);
     }
@@ -126,17 +129,18 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
       }
   
       const saveData = {
-        ...formData,
-        uiReady: formData.uiReady || false,
+        nativeName: formData.nativeName,
+        englishName: formData.englishName,
         iso639_3: formData.iso639_3 || null,
+        uiReady: formData.uiReady || false,
         creator: formData.creator || ''
       };
   
       if (isNew) {
-        await addLanguage(saveData as Omit<Language, 'id' | 'rev'>);
+        await languageRepository.createNew(saveData);
         Alert.alert('Success', 'Language created successfully');
       } else {
-        await updateLanguage(saveData as Language);
+        await languageRepository.addVersion(saveData as Language, saveData);
         Alert.alert('Success', 'Language updated successfully');
       }
       onUpdate();
@@ -150,7 +154,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
   const handleDelete = async () => {
     Alert.alert(
       'Confirm Delete',
-      'Are you sure you want to delete this versino of the language?',
+      'Are you sure you want to delete this version of the language?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -161,7 +165,7 @@ export const DevLanguageDetails: React.FC<LanguageDetailsProps> = ({
               if (!language.id) {
                 throw new Error('Language ID is required for deletion');
               }
-              await deleteLanguage(language.id);
+              await languageRepository.delete(language.id);
               Alert.alert('Success', 'Language version deleted successfully');
               onUpdate();
               onClose();

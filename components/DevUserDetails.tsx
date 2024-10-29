@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, sharedStyles } from '@/styles/theme';
-import { User, Language, addUser, updateUser, deleteUser, getAllLatestLanguages, addUserVersion, getUserVersions } from '@/utils/databaseService';
 import { CustomDropdown } from './CustomDropdown';
+import { User, UserRepository } from '@/database_components/UserRepository';
+import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
 
 interface UserDetailsProps {
   user: Partial<User>;
@@ -11,6 +12,10 @@ interface UserDetailsProps {
   onUpdate: () => void;
   isNew?: boolean;
 }
+
+// Add repository instances
+const userRepository = new UserRepository();
+const languageRepository = new LanguageRepository();
 
 export const DevUserDetails: React.FC<UserDetailsProps> = ({ 
   user, 
@@ -33,7 +38,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
     const loadData = async () => {
       await loadLanguages();
       if (!isNew && user.versionChainId) {
-        const loadedVersions = await getUserVersions(user.versionChainId);
+        const loadedVersions = await userRepository.getVersions(user.versionChainId);
         setVersions(loadedVersions);
         const currentIndex = loadedVersions.findIndex(v => v.id === user.id);
         const currentVersion = loadedVersions[currentIndex !== -1 ? currentIndex : 0] || user;
@@ -41,7 +46,6 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
         setFormData(currentVersion);
       }
     };
-    
     loadData();
   }, []);
   
@@ -62,7 +66,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await getAllLatestLanguages();
+      const loadedLanguages = await languageRepository.getLatestOfAll();
       setLanguages(loadedLanguages);
     } catch (error) {
       console.error('Error loading languages:', error);
@@ -81,11 +85,17 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
         return;
       }
 
+      const saveData = {
+        username: formData.username,
+        uiLanguage: formData.uiLanguage,
+        password: isNew ? password : formData.password
+      };
+
       if (isNew) {
-        await addUser(formData.username, password, formData.uiLanguage);
+        await userRepository.createNew(saveData);
         Alert.alert('Success', 'User created successfully');
       } else {
-        await updateUser(formData as User);
+        await userRepository.addVersion(formData as User, saveData);
         Alert.alert('Success', 'User updated successfully');
       }
       onUpdate();
@@ -101,28 +111,13 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
       if (!formData.id) {
         throw new Error('User ID is required for versioning');
       }
-      console.log('Adding version with password:', versionPassword ? '[PROVIDED]' : '[NOT PROVIDED]');
+
+      const versionData = {
+        ...formData,
+        password: versionPassword ? versionPassword : formData.password
+      };
       
-      const newId = await addUserVersion(
-        formData as User, 
-        formData,
-        versionPassword || undefined,
-        false
-      );
-      
-      // More detailed verification
-      const versions = await getUserVersions(formData.versionChainId as string);
-      const newVersion = versions.find(v => v.id === newId);
-      console.log('New version details:', {
-        id: newId,
-        versionNum: newVersion?.versionNum,
-        hasPassword: newVersion?.password ? 'Yes' : 'No',
-        passwordLength: newVersion?.password?.length || 0
-      });
-  
-      if (!newVersion?.password) {
-        console.warn('Warning: New version created without password!');
-      }
+      await userRepository.addVersion(formData as User, versionData);
   
       Alert.alert('Success', 'New version created successfully');
       onUpdate();
@@ -152,7 +147,7 @@ export const DevUserDetails: React.FC<UserDetailsProps> = ({
               if (!user.id) {
                 throw new Error('User ID is required for deletion');
               }
-              await deleteUser(user.id);
+              await userRepository.delete(user.id);
               Alert.alert('Success', 'User version deleted successfully');
               onUpdate();
               onClose();
