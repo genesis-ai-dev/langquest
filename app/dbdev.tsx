@@ -6,12 +6,9 @@ import { colors, sharedStyles } from '@/styles/theme';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DevLanguageDetails } from '@/components/DevLanguageDetails';
 import { DevUserDetails } from '@/components/DevUserDetails';
-import { 
-  getAllLatestLanguages, 
-  getAllLatestUsers, 
-  Language, 
-  User
-} from '@/utils/databaseService';
+import { userRepository, languageRepository } from '@/database_components/repositories';
+import { Language } from '@/database_components/LanguageRepository';
+import { User } from '@/database_components/UserRepository';
 import { Ionicons } from '@expo/vector-icons';
 
 type ListItem = Language | User;
@@ -57,11 +54,11 @@ export default function DbDev() {
   const loadData = async () => {
     try {
       if (selectedTable === 'Language') {
-        const loadedLanguages = await getAllLatestLanguages();
+        const loadedLanguages = await languageRepository.getLatestOfAll();
         console.log('Loaded languages:', loadedLanguages);
         setLanguages(loadedLanguages);
       } else {
-        const loadedUsers = await getAllLatestUsers();
+        const loadedUsers = await userRepository.getLatestOfAll();
         console.log('Loaded users with details:', loadedUsers);
         setUsers(loadedUsers);
       }
