@@ -63,7 +63,7 @@ export default function DbDev() {
         setUsers(loadedUsers);
       }
     } catch (error) {
-      console.error(`Error loading ${selectedTable}s:`, error);
+      console.error(`Error loading ${selectedTable}s in loadData (dbdev):`, error);
       Alert.alert('Error', `Failed to load ${selectedTable}s`);
     }
   };

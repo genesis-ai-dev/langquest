@@ -12,8 +12,7 @@ export class UserRepository extends VersionedRepository<User> {
   protected columns = ['username', 'uiLanguage', 'password'];
 
   async validateCredentials(username: string, password: string): Promise<User | null> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
         SELECT u1.* 
         FROM ${this.tableName} u1
@@ -38,9 +37,7 @@ export class UserRepository extends VersionedRepository<User> {
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   async updatePassword(userId: string, newPassword: string, oldPassword?: string): Promise<void> {

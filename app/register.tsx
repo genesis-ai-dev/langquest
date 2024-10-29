@@ -39,7 +39,7 @@ export default function Register() {
         setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
       }
     } catch (error) {
-      console.error('Error loading languages:', error);
+      console.error('Error loading languages in loadLanguages (register):', error);
       Alert.alert('Error', 'Failed to load available languages');
     }
   };

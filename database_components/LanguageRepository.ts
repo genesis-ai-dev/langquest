@@ -15,8 +15,7 @@ export class LanguageRepository extends VersionedRepository<Language> {
 
   // Additional language-specific method using new base class methods
   async getUiReady(): Promise<Language[]> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
         SELECT l1.* 
         FROM ${this.tableName} l1
@@ -37,9 +36,7 @@ export class LanguageRepository extends VersionedRepository<Language> {
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   protected async validateForInsert(lang: Partial<Language>): Promise<void> {

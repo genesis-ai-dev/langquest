@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { DB_CONFIG } from './config';
+import { DatabaseManager } from './DatabaseManager';
 
 export interface BaseEntity {
   id: string;
@@ -17,13 +18,22 @@ export abstract class BaseRepository<T extends BaseEntity> {
   protected abstract tableName: string;
   protected abstract columns: string[];
 
-  protected async getDatabase() {
-    return await SQLite.openDatabaseAsync(DB_CONFIG.name, DB_CONFIG.options);
+  // protected async getDatabase() {
+  //   return await SQLite.openDatabaseAsync(DB_CONFIG.name, DB_CONFIG.options);
+  // }
+
+  protected async withConnection<T>(operation: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
+    const dbManager = DatabaseManager.getInstance();
+    const db = await dbManager.getConnection();
+    try {
+      return await operation(db);
+    } finally {
+      await dbManager.releaseConnection();
+    }
   }
 
   async getById(id: string): Promise<T | null> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(
         `SELECT * FROM ${this.tableName} WHERE id = $id`
       );
@@ -33,15 +43,12 @@ export abstract class BaseRepository<T extends BaseEntity> {
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   // Get every version (if applicable) of every record for a given table
   async getAll(): Promise<T[]> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(
         `SELECT * FROM ${this.tableName}`
       );
@@ -51,14 +58,11 @@ export abstract class BaseRepository<T extends BaseEntity> {
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   async delete(id: string): Promise<void> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       await db.withExclusiveTransactionAsync(async (txn) => {
         // Check all dependencies
         const dependencyChecks = this.getDependencyChecks(id);
@@ -74,9 +78,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
           { $id: id }
         );
       });
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   protected async createRecord(entity: Omit<T, 'id' | 'rev'>): Promise<string> {
@@ -84,8 +86,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
     const preparedEntity = await this.prepareForInsert(entity);
     await this.validateForInsert(preparedEntity as Partial<T>);
     
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       let newId = '';
       await db.withExclusiveTransactionAsync(async (txn) => {
         // Get all columns including any added by child classes
@@ -126,9 +127,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
       });
       
       return newId;
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   // Methods that can be overridden by child classes
@@ -146,8 +145,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
   // Get time of last activity for this entity
   async getTimeLastActivity(id: string): Promise<string | null> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(
         `SELECT lastUpdated FROM ${this.tableName} WHERE id = $id`
       );
@@ -158,9 +156,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   // Methods that must be implemented by specific repositories

@@ -15,8 +15,7 @@ export abstract class VersionedRepository<T extends VersionedEntity> extends Bas
 
     // Get all latest versions of entities
   async getLatestOfAll(): Promise<T[]> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
         SELECT t1.* 
         FROM ${this.tableName} t1
@@ -36,15 +35,12 @@ export abstract class VersionedRepository<T extends VersionedEntity> extends Bas
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   // Get current version of a chain
   async getLatestOfOne(chainId: string): Promise<T | null> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
         SELECT t1.* 
         FROM ${this.tableName} t1
@@ -63,15 +59,12 @@ export abstract class VersionedRepository<T extends VersionedEntity> extends Bas
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   // Get all versions of a specific chain
   async getVersions(chainId: string): Promise<T[]> {
-    const db = await this.getDatabase();
-    try {
+    return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
         SELECT * FROM ${this.tableName}
         WHERE versionChainId = $chainId
@@ -84,9 +77,7 @@ export abstract class VersionedRepository<T extends VersionedEntity> extends Bas
       } finally {
         await statement.finalizeAsync();
       }
-    } finally {
-      await db.closeAsync();
-    }
+    });
   }
 
   protected override async prepareForInsert(entity: Omit<T, 'id' | 'rev'>): Promise<Omit<T, 'id' | 'rev'>> {

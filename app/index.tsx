@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserRepository } from '@/database_components/UserRepository';
+import { userRepository } from '@/database_components/repositories';
 import { initDatabase } from '@/database_components/dbInit';
 
-const userRepository = new UserRepository();
+// const userRepository = new UserRepository();
 
 export default function Index() {
   const router = useRouter();
