@@ -1,18 +1,78 @@
 import { VersionedEntity } from '@/database_components/VersionedRepository';
+import { VersionedRepository } from '@/database_components/VersionedRepository';
 
-export interface DevEntityProps<T extends VersionedEntity> {
-  entity: Partial<T>;
-  onClose: () => void;
-  onUpdate: () => void;
-  isNew?: boolean;
+// Field Types
+export type DevFieldType = 'text' | 'password' | 'dropdown' | 'switch' | 'relationList';
+
+// Card Configuration
+export interface CardConfig {
+  title: string;
+  subtitle: string;
+  properties: string[];
 }
 
-export interface DevFormField {
-  key: string;
-  type: 'text' | 'password' | 'dropdown' | 'switch';
-  label: string;
+// Details Section Configuration
+export interface DetailsSectionConfig {
+  title: string;
+  fields: string[];
+}
+
+// Details Configuration
+export interface DetailsConfig {
+  sections: DetailsSectionConfig[];
+}
+
+// Field Configuration for Edit View
+export interface EditFieldConfig {
+  type: DevFieldType;
+  required?: boolean;
+  label?: string;
   placeholder?: string;
-  options?: Array<any>;  // For dropdowns
-  getOptionLabel?: (option: any) => string;  // For dropdowns
-  getOptionValue?: (option: any) => string;  // For dropdowns
+  source?: string; // For dropdowns, references a repository
+  relationConfig?: {
+    repository: VersionedRepository<any>;
+    foreignKey: string;
+    displayField: string;
+  };
+  validation?: (value: unknown, context?: { isNew?: boolean }) => string | null; // Returns error message or null if valid
+}
+
+// Edit Configuration
+export interface EditConfig {
+  fields: Record<string, EditFieldConfig>;
+}
+
+// Complete Table Configuration
+export interface TableConfig {
+  repository: VersionedRepository<any>;
+  card: CardConfig;
+  details: DetailsConfig;
+  edit: EditConfig;
+}
+
+// Complete Configuration for all tables
+export interface DevTableConfigs {
+  [tableName: string]: TableConfig;
+}
+
+// Props for shared components
+export interface DevCardProps<T extends VersionedEntity> {
+  entity: T;
+  config: CardConfig;
+  onSelect: (entity: T) => void;
+}
+
+export interface DevDetailsProps<T extends VersionedEntity> {
+  entity: T;
+  config: TableConfig;
+  onClose: () => void;
+  onUpdate: () => void;
+}
+
+export interface DevEditProps<T extends VersionedEntity> {
+  entity: Partial<T>;
+  config: TableConfig;
+  isNew?: boolean;
+  onSave: () => void;
+  onClose: () => void;
 }

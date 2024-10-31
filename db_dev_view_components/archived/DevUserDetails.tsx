@@ -3,8 +3,8 @@ import { Alert } from 'react-native';
 import { User } from '@/database_components/UserRepository';
 import { Language } from '@/database_components/LanguageRepository';
 import { userRepository, languageRepository } from '@/database_components/repositories';
-import { DevEntityDetails } from '@/db_dev_view_components/DevEntityDetails';
-import { userFields } from '@/db_dev_view_components/entityFields';
+import { DevEntityDetails } from './DevEntityDetails';
+import { userFields } from './entityFields';
 
 interface UserDetailsProps {
   user: Partial<User>;

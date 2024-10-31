@@ -1,4 +1,5 @@
 import { VersionedRepository, VersionedEntity } from './VersionedRepository';
+import { User } from './UserRepository';
 
 // Move interface to separate types file later
 export interface Language extends VersionedEntity {
@@ -33,6 +34,45 @@ export class LanguageRepository extends VersionedRepository<Language> {
       try {
         const result = await statement.executeAsync();
         return await result.getAllAsync() as Language[];
+      } finally {
+        await statement.finalizeAsync();
+      }
+    });
+  }
+
+  async getRelatedUsers(languageId: string): Promise<User[]> {
+    console.log('Getting related users for language:', languageId);
+    
+    return this.withConnection(async (db) => {
+      const statement = await db.prepareAsync(`
+        SELECT u1.* 
+        FROM User u1
+        INNER JOIN (
+          SELECT versionChainId, MAX(versionNum) as maxVersion
+          FROM User
+          GROUP BY versionChainId
+        ) u2 
+        ON u1.versionChainId = u2.versionChainId 
+        AND u1.versionNum = u2.maxVersion
+        WHERE u1.uiLanguage = $languageId
+      `);
+  
+      try {
+        console.log('Executing query with params:', { $languageId: languageId });
+        const result = await statement.executeAsync({ $languageId: languageId });
+        const users = await result.getAllAsync() as User[];
+        console.log('Found related users:', users);
+        
+        // Log each user's relevant fields
+        users.forEach(user => {
+          console.log('User details:', {
+            id: user.id,
+            username: user.username,
+            uiLanguage: user.uiLanguage
+          });
+        });
+  
+        return users;
       } finally {
         await statement.finalizeAsync();
       }

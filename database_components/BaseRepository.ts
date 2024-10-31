@@ -139,6 +139,78 @@ export abstract class BaseRepository<T extends BaseEntity> {
     // No-op by default
   }
 
+  async update(id: string, updates: Partial<T>): Promise<void> {
+    // Let child classes prepare the entity before update
+    const preparedUpdates = await this.prepareForUpdate(updates);
+    await this.validateForUpdate(id, preparedUpdates);
+    
+    return this.withConnection(async (db) => {
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        // Get current record to check rev
+        const current = await this.getById(id);
+        if (!current) {
+          throw new Error('Record not found');
+        }
+
+        // Get all columns that are being updated
+        const updateColumns = Object.keys(preparedUpdates).filter(
+          col => this.columns.includes(col)
+        );
+
+        if (updateColumns.length === 0) {
+          return; // Nothing to update
+        }
+
+        const updateStatement = await txn.prepareAsync(`
+          UPDATE ${this.tableName} 
+          SET 
+            rev = $newRev,
+            lastUpdated = CURRENT_TIMESTAMP,
+            ${updateColumns.map(col => `${col} = $${col}`).join(', ')}
+          WHERE id = $id AND rev = $currentRev
+        `);
+
+        try {
+          const params = {
+            $id: id,
+            $currentRev: current.rev,
+            $newRev: current.rev + 1,
+            ...updateColumns.reduce((acc, col) => ({
+              ...acc,
+              [`$${col}`]: preparedUpdates[col as keyof typeof preparedUpdates]
+            }), {})
+          };
+
+          const result = await updateStatement.executeAsync(params);
+          
+          // Check if update was successful
+          if (result.changes === 0) {
+            throw new Error('Record was modified by another process');
+          }
+
+          // Call afterUpdate hook
+          await this.afterUpdate(id, preparedUpdates);
+        } finally {
+          await updateStatement.finalizeAsync();
+        }
+      });
+    });
+  }
+
+  // Methods that can be overridden by child classes
+  protected async prepareForUpdate(updates: Partial<T>): Promise<Partial<T>> {
+    return updates;
+  }
+
+  protected async validateForUpdate(id: string, updates: Partial<T>): Promise<void> {
+    // By default, use the same validation as insert
+    await this.validateForInsert(updates);
+  }
+
+  protected async afterUpdate(id: string, updates: Partial<T>): Promise<void> {
+    // No-op by default
+  }
+
   protected getAllColumns(entity: any): string[] {
     return this.columns;
   }

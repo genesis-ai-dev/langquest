@@ -1,6 +1,7 @@
 import { DevFormField } from './DevTypes';
 import { Language } from '@/database_components/LanguageRepository';
 import { User } from '@/database_components/UserRepository';
+import { userRepository } from '@/database_components/repositories';
 
 export const languageFields: DevFormField[] = [
   {
@@ -20,6 +21,16 @@ export const languageFields: DevFormField[] = [
     type: 'text',
     label: 'ISO 639-3',
     placeholder: 'Enter ISO code'
+  },
+  {
+    key: 'uiUsers',
+    type: 'relationList',
+    label: 'UI Users',
+    relationConfig: {
+      repository: userRepository,
+      foreignKey: 'uiLanguage',
+      displayField: 'username'
+    }
   },
   {
     key: 'creator',

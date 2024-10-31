@@ -37,6 +37,8 @@ export const colors = {
     gradientStart: '#000000',
     gradientEnd: adjustColor(getColorHex(themeColor), -70), // Darken by 50%
     appTitle: adjustColor(getColorHex(themeColor), 130), // Lighten by 30%
+    backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
+    accent: adjustColor(getColorHex(themeColor), 30),
   };
   
 
@@ -262,5 +264,19 @@ export const sharedStyles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  cardSubtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.medium,
+    marginBottom: spacing.small,
+  },
+  cardProperty: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary,
+    backgroundColor: colors.backgroundSecondary,
+    paddingHorizontal: spacing.small,
+    paddingVertical: spacing.xsmall,
+    borderRadius: borderRadius.small,
+    overflow: 'hidden',
   },
 });
