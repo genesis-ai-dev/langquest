@@ -1,5 +1,5 @@
 import { languageRepository, userRepository } from '@/database_components/repositories';
-import { DevTableConfigs } from './devTypes';
+import { DevTableConfigs } from './DevTypes';
 
 export const tableConfig: DevTableConfigs = {
   Language: {

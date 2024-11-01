@@ -8,7 +8,7 @@ import {
   Alert 
 } from 'react-native';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { DevDetailsProps } from './devTypes';
+import { DevDetailsProps } from './DevTypes';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
 import { useVersionManagement } from './useVersionManagement';
 import { DevVersionControls } from './DevVersionControls';

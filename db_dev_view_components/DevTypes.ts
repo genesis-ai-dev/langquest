@@ -40,7 +40,8 @@ export interface EditFieldConfig {
     relationName: string;
     displayField: string;
   };
-  validation?: (value: unknown, context?: { isNew?: boolean }) => string | null; // Returns error message or null if valid
+  // Returns error message or null if valid
+  validation?: (value: unknown, context?: { isNew?: boolean }) => string | null; 
 }
 
 // Edit Configuration

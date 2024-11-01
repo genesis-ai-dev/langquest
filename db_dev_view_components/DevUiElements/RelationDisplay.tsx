@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text } from 'react-native';
-import { EditFieldConfig } from '../devTypes';
+import { EditFieldConfig } from '../DevTypes';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
 
 interface RelationDisplayProps {

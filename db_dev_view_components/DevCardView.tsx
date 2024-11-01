@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { colors, sharedStyles } from '@/styles/theme';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
-import { DevCardProps } from './devTypes';
+import { DevCardProps } from './DevTypes';
 
 export function DevCardView<T extends VersionedEntity>({ 
   entity, 
