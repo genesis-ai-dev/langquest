@@ -28,10 +28,16 @@ export interface EditFieldConfig {
   required?: boolean;
   label?: string;
   placeholder?: string;
-  source?: string; // For dropdowns, references a repository
+  source?: string; 
+  // For dropdowns and other linked entity fields
+  linkedEntity?: {
+    repository: VersionedRepository<any>;
+    displayField: string;
+  };
+  // For relation lists
   relationConfig?: {
     repository: VersionedRepository<any>;
-    foreignKey: string;
+    relationName: string;
     displayField: string;
   };
   validation?: (value: unknown, context?: { isNew?: boolean }) => string | null; // Returns error message or null if valid

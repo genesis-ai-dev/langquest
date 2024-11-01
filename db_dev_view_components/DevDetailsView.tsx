@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -13,6 +13,7 @@ import { VersionedEntity } from '@/database_components/VersionedRepository';
 import { useVersionManagement } from './useVersionManagement';
 import { DevVersionControls } from './DevVersionControls';
 import { DevEditView } from './DevEditView';
+import { RelationDisplay } from './DevUiElements/RelationDisplay';
 
 export function DevDetailsView<T extends VersionedEntity>({ 
   entity, 
@@ -20,6 +21,9 @@ export function DevDetailsView<T extends VersionedEntity>({
   onClose, 
   onUpdate 
 }: DevDetailsProps<T>) {
+
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+
   const {
     editing,
     setEditing,
@@ -28,9 +32,21 @@ export function DevDetailsView<T extends VersionedEntity>({
     currentVersionIndex,
     setCurrentVersionIndex,
     isAddingVersion,
-    setIsAddingVersion
+    setIsAddingVersion,
+    reloadVersions
   } = useVersionManagement(config.repository, entity, false);
 
+  useEffect(() => {
+    const loadFieldValues = async () => {
+      const values: Record<string, string> = {};
+      for (const [key, value] of Object.entries(formData)) {
+        values[key] = await renderFieldValue(key, value);
+      }
+      setFieldValues(values);
+    };
+    loadFieldValues();
+  }, [formData]);
+  
   const handleDelete = async () => {
     Alert.alert(
       'Delete Version',
@@ -56,17 +72,35 @@ export function DevDetailsView<T extends VersionedEntity>({
   };
 
   // Helper function to render a field value based on its type
-  const renderFieldValue = (key: string, value: any) => {
+  const renderFieldValue = async (key: string, value: any) => {
     const fieldConfig = config.edit.fields[key];
     if (!fieldConfig) return String(value || 'N/A');
-
+  
     switch (fieldConfig.type) {
       case 'switch':
         return value ? 'Yes' : 'No';
       case 'password':
         return '••••••••';
-      case 'dropdown':
-        return value || 'None';
+        case 'dropdown':
+          if (fieldConfig.linkedEntity && value) {
+            try {
+              const linkedEntity = await fieldConfig.linkedEntity.repository.getById(value);
+              return linkedEntity ? String(linkedEntity[fieldConfig.linkedEntity.displayField]) : 'N/A';
+            } catch (error) {
+              console.error(`Error loading linked entity for ${key}:`, error);
+              return 'Error loading';
+            }
+          }
+          return value || 'None';
+      case 'relationList':
+        return (
+          <RelationDisplay
+            entityId={entity.id}
+            fieldKey={key}
+            fieldConfig={fieldConfig}
+            repository={config.repository}
+          />
+        );
       default:
         return String(value || 'N/A');
     }
@@ -79,9 +113,10 @@ export function DevDetailsView<T extends VersionedEntity>({
         config={config}
         isNew={false}
         isAddingVersion={isAddingVersion}
-        onSave={() => {
+        onSave={async () => {
           setEditing(false);
           setIsAddingVersion(false);
+          await reloadVersions(entity.id);
           onUpdate();
         }}
         onClose={() => {
@@ -130,7 +165,7 @@ export function DevDetailsView<T extends VersionedEntity>({
                       {config.edit.fields[fieldKey]?.label || fieldKey}
                     </Text>
                     <Text style={{ color: colors.text }}>
-                      {renderFieldValue(fieldKey, formData[fieldKey as keyof T])}
+                      {fieldValues[fieldKey] || 'Loading...'}
                     </Text>
                   </View>
                 ))}

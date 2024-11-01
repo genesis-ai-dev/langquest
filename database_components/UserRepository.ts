@@ -1,4 +1,5 @@
 import { VersionedRepository, VersionedEntity } from './VersionedRepository';
+import { Relationship } from './BaseRepository';
 import * as Crypto from 'expo-crypto';
 
 export interface User extends VersionedEntity {
@@ -10,6 +11,58 @@ export interface User extends VersionedEntity {
 export class UserRepository extends VersionedRepository<User> {
   protected tableName = 'User';
   protected columns = ['username', 'uiLanguage', 'password'];
+  protected relationships: Record<string, Relationship<any>> = {
+    // leadProjects: {
+    //   name: 'leadProjects',
+    //   type: 'manyToMany',
+    //   query: `
+    //     SELECT p1.* 
+    //     FROM Project p1
+    //     INNER JOIN (
+    //       SELECT versionChainId, MAX(versionNum) as maxVersion
+    //       FROM Project
+    //       GROUP BY versionChainId
+    //     ) p2 
+    //     ON p1.versionChainId = p2.versionChainId 
+    //     AND p1.versionNum = p2.maxVersion
+    //     INNER JOIN ProjectMember pm ON p1.id = pm.projectId
+    //     WHERE pm.userId = $id AND pm.isLead = 1
+    //   `
+    // },
+    // memberProjects: {
+    //   name: 'memberProjects',
+    //   type: 'manyToMany',
+    //   query: `
+    //     SELECT p1.* 
+    //     FROM Project p1
+    //     INNER JOIN (
+    //       SELECT versionChainId, MAX(versionNum) as maxVersion
+    //       FROM Project
+    //       GROUP BY versionChainId
+    //     ) p2 
+    //     ON p1.versionChainId = p2.versionChainId 
+    //     AND p1.versionNum = p2.maxVersion
+    //     INNER JOIN ProjectMember pm ON p1.id = pm.projectId
+    //     WHERE pm.userId = $id AND pm.isLead = 0
+    //   `
+    // },
+    createdLanguages: {
+      name: 'createdLanguages',
+      type: 'oneToMany',
+      query: `
+        SELECT l1.* 
+        FROM Language l1
+        INNER JOIN (
+          SELECT versionChainId, MAX(versionNum) as maxVersion
+          FROM Language
+          GROUP BY versionChainId
+        ) l2 
+        ON l1.versionChainId = l2.versionChainId 
+        AND l1.versionNum = l2.maxVersion
+        WHERE l1.creator = $id
+      `
+    }
+  };
 
   async validateCredentials(username: string, password: string): Promise<User | null> {
     return this.withConnection(async (db) => {

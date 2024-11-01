@@ -13,17 +13,19 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
 
 interface RelationListProps<T extends VersionedEntity> {
+  entityId: string; 
   value: string[];
   onChange: (value: string[]) => void;
   relationConfig: {
     repository: any;
-    foreignKey: string;
+    relationName: string;
     displayField: keyof T;
   };
   error?: string | null;
 }
 
 export function RelationList<T extends VersionedEntity>({
+  entityId,
   value = [],
   onChange,
   relationConfig,
@@ -31,36 +33,41 @@ export function RelationList<T extends VersionedEntity>({
 }: RelationListProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [allOptions, setAllOptions] = useState<T[]>([]);
-  const [selectedItems, setSelectedItems] = useState<T[]>([]);
+  const [relatedItems, setRelatedItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Helper function to safely convert field value to string
+
+  // Load both all possible options and current relations
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Load all possible options
+        const options = await relationConfig.repository.getLatestOfAll();
+        setAllOptions(options);
+
+        // Load current relations if we have an entityId
+        if (entityId) {
+          const related = await relationConfig.repository.getRelated(
+            entityId, 
+            relationConfig.relationName
+          );
+          setRelatedItems(related);
+        }
+      } catch (error) {
+        console.error('Error loading relation data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [entityId, relationConfig.repository, relationConfig.relationName]);
+
   const getDisplayValue = (item: T): string => {
     const value = item[relationConfig.displayField];
     return String(value ?? '');
   };
 
-  // Load options only once when component mounts
-  useEffect(() => {
-    const loadOptions = async () => {
-      setIsLoading(true);
-      try {
-        const items = await relationConfig.repository.getLatestOfAll();
-        setAllOptions(items);
-      } catch (error) {
-        console.error('Error loading relation options:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadOptions();
-  }, [relationConfig.repository]);
-
-  // Update selected items when value or options change
-  // useEffect(() => {
-  //   const items = allOptions.filter(item => value.includes(item.id));
-  //   setSelectedItems(items);
-  // }, [value, allOptions]);
 
   const toggleItem = (item: VersionedEntity) => {
     const newValue = value.includes(item.id)
@@ -103,11 +110,11 @@ export function RelationList<T extends VersionedEntity>({
         styles.container,
         error ? styles.containerError : undefined
       ]}>
-        {selectedItems.length === 0 ? (
+        {relatedItems.length === 0 ? (
           <Text style={styles.placeholder}>None selected</Text>
         ) : (
           <View style={styles.chipContainer}>
-            {selectedItems.map(item => (
+            {relatedItems.map(item => (
               <View key={item.id} style={styles.chip}>
                 <Text style={styles.chipText}>
                 {getDisplayValue(item)}

@@ -1,5 +1,6 @@
 import { VersionedRepository, VersionedEntity } from './VersionedRepository';
 import { User } from './UserRepository';
+import { Relationship } from './BaseRepository';
 
 // Move interface to separate types file later
 export interface Language extends VersionedEntity {
@@ -13,6 +14,57 @@ export interface Language extends VersionedEntity {
 export class LanguageRepository extends VersionedRepository<Language> {
   protected tableName = 'Language';
   protected columns = ['nativeName', 'englishName', 'iso639_3', 'uiReady', 'creator'];
+
+  protected relationships: Record<string, Relationship<any>> = {
+    uiUsers: {
+      name: 'uiUsers',
+      type: 'oneToMany',
+      query: `
+        SELECT u1.* 
+        FROM User u1
+        INNER JOIN (
+          SELECT versionChainId, MAX(versionNum) as maxVersion
+          FROM User
+          GROUP BY versionChainId
+        ) u2 
+        ON u1.versionChainId = u2.versionChainId 
+        AND u1.versionNum = u2.maxVersion
+        WHERE u1.uiLanguage = $id
+      `
+    },
+    sourceProjects: {
+      name: 'sourceProjects',
+      type: 'oneToMany',
+      query: `
+        SELECT p1.* 
+        FROM Project p1
+        INNER JOIN (
+          SELECT versionChainId, MAX(versionNum) as maxVersion
+          FROM Project
+          GROUP BY versionChainId
+        ) p2 
+        ON p1.versionChainId = p2.versionChainId 
+        AND p1.versionNum = p2.maxVersion
+        WHERE p1.sourceLanguage = $id
+      `
+    },
+    targetProjects: {
+      name: 'targetProjects',
+      type: 'oneToMany',
+      query: `
+        SELECT p1.* 
+        FROM Project p1
+        INNER JOIN (
+          SELECT versionChainId, MAX(versionNum) as maxVersion
+          FROM Project
+          GROUP BY versionChainId
+        ) p2 
+        ON p1.versionChainId = p2.versionChainId 
+        AND p1.versionNum = p2.maxVersion
+        WHERE p1.targetLanguage = $id
+      `
+    }
+  };
 
   // Additional language-specific method using new base class methods
   async getUiReady(): Promise<Language[]> {

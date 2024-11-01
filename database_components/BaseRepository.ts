@@ -14,6 +14,13 @@ export interface VersionedEntity extends BaseEntity {
   versionChainId: string;
 }
 
+export interface Relationship<T> {
+  name: string;
+  type: 'oneToMany' | 'manyToOne' | 'manyToMany';
+  query: string;
+  transform?: (rows: any[]) => T[];
+}
+
 export abstract class BaseRepository<T extends BaseEntity> {
   protected abstract tableName: string;
   protected abstract columns: string[];
@@ -210,6 +217,27 @@ export abstract class BaseRepository<T extends BaseEntity> {
   protected async afterUpdate(id: string, updates: Partial<T>): Promise<void> {
     // No-op by default
   }
+
+  protected abstract relationships: Record<string, Relationship<any>>;
+
+  async getRelated<R>(id: string, relationshipName: string): Promise<R[]> {
+    const relationship = this.relationships[relationshipName];
+    if (!relationship) {
+      throw new Error(`Unknown relationship: ${relationshipName}`);
+    }
+
+    return this.withConnection(async (db) => {
+      const statement = await db.prepareAsync(relationship.query);
+      try {
+        const result = await statement.executeAsync({ $id: id });
+        const rows = await result.getAllAsync();
+        return relationship.transform ? relationship.transform(rows) : rows as R[];
+      } finally {
+        await statement.finalizeAsync();
+      }
+    });
+  }
+
 
   protected getAllColumns(entity: any): string[] {
     return this.columns;

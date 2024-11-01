@@ -55,17 +55,39 @@ export const tableConfig: DevTableConfigs = {
         creator: {
           type: 'dropdown',
           label: 'Creator',
-          source: 'users'
+          source: 'users',
+          linkedEntity: {
+            repository: userRepository,
+            displayField: 'username'
+          }
         },
         uiUsers: {
           type: 'relationList',
           label: 'UI Users',
           relationConfig: {
             repository: userRepository,
-            foreignKey: 'uiLanguage',
+            relationName: 'uiUsers',
             displayField: 'username'
           }
-        }
+        },
+        // sourceProjects: {
+        //   type: 'relationList',
+        //   label: 'Source Language Projects',
+        //   relationConfig: {
+        //     repository: projectRepository,
+        //     relationName: *****************************
+        //     displayField: 'name'
+        //   }
+        // },
+        // targetProjects: {
+        //   type: 'relationList',
+        //   label: 'Target Language Projects',
+        //   relationConfig: {
+        //     repository: projectRepository,
+        //     relationName: *******************************
+        //     displayField: 'name'
+        //   }
+        // }
       }
     }
   },
@@ -87,6 +109,10 @@ export const tableConfig: DevTableConfigs = {
         {
           title: 'Security',
           fields: ['password']
+        },
+        {
+          title: 'Relations',
+          fields: ['createdLanguages'] //'leadProjects', 'memberProjects'
         }
       ]
     },
@@ -128,8 +154,39 @@ export const tableConfig: DevTableConfigs = {
           required: true,
           label: 'UI Language',
           source: 'languages',
+          linkedEntity: {
+            repository: languageRepository,
+            displayField: 'nativeName'
+          },
           validation: (value: unknown) => 
             !value ? 'UI Language is required' : null
+        },
+        // leadProjects: {
+        //   type: 'relationList',
+        //   label: 'Projects (as Leader)',
+        //   relationConfig: {
+        //     repository: projectRepository,
+        //     relationName: *******************************
+        //     displayField: 'name'
+        //   }
+        // },
+        // memberProjects: {
+        //   type: 'relationList',
+        //   label: 'Projects (as Member)',
+        //   relationConfig: {
+        //     repository: projectRepository,
+        //     relationName: *******************************
+        //     displayField: 'name'
+        //   }
+        // },
+        createdLanguages: {
+          type: 'relationList',
+          label: 'Created Languages',
+          relationConfig: {
+            repository: languageRepository,
+            relationName: 'createdLanguages',
+            displayField: 'nativeName'
+          }
         }
       }
     }

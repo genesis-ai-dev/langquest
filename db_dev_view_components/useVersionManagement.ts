@@ -52,6 +52,22 @@ export function useVersionManagement<T extends VersionedEntity>(
     }
   }, [currentVersionIndex]);
 
+  const reloadVersions = async (entityId: string) => {
+    try {
+      const updatedEntity = await repository.getById(entityId) as T;
+      if (updatedEntity && updatedEntity.versionChainId) {
+        const loadedVersions = await repository.getVersions(updatedEntity.versionChainId);
+        setVersions(loadedVersions);
+        
+        const currentIndex = loadedVersions.findIndex(v => v.id === updatedEntity.id);
+        setCurrentVersionIndex(currentIndex !== -1 ? currentIndex : 0);
+        setFormData(cleanEntityData(updatedEntity));
+      }
+    } catch (error) {
+      console.error('Error reloading versions:', error);
+    }
+  };
+
   return {
     editing,
     setEditing,
@@ -61,6 +77,7 @@ export function useVersionManagement<T extends VersionedEntity>(
     currentVersionIndex,
     setCurrentVersionIndex,
     isAddingVersion,
-    setIsAddingVersion
+    setIsAddingVersion,
+    reloadVersions
   };
 }

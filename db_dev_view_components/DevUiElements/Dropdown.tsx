@@ -8,6 +8,10 @@ interface DropdownProps {
   value: string;
   onChange: (value: string) => void;
   source: string;
+  linkedEntity?: {  // Add this from EditFieldConfig
+    repository: any;
+    displayField: string;
+  };
   error?: string | null;
 }
 
@@ -15,6 +19,7 @@ export function Dropdown({
   value, 
   onChange, 
   source, 
+  linkedEntity, 
   error 
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,14 +61,8 @@ export function Dropdown({
   };
 
   const getOptionLabel = (option: any): string => {
-    switch (source) {
-      case 'languages':
-        return option.englishName;
-      case 'users':
-        return option.username;
-      default:
-        return String(option);
-    }
+    if (!linkedEntity) return String(option);
+    return String(option[linkedEntity.displayField] || '');
   };
 
   return (
