@@ -67,7 +67,7 @@ export function DevTableView() {
           renderItem={({ item }) => (
             <DevCardView
               entity={item}
-              config={tableConfig[selectedTable].card}
+              config={tableConfig[selectedTable]}
               onSelect={setSelectedEntity}
             />
           )}

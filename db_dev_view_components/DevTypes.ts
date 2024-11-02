@@ -1,26 +1,41 @@
-import { VersionedEntity } from '@/database_components/VersionedRepository';
-import { VersionedRepository } from '@/database_components/VersionedRepository';
+import { BaseEntity, BaseRepository } from '@/database_components/BaseRepository';
+import { VersionedEntity, VersionedRepository } from '@/database_components/VersionedRepository';
 
-// Field Types
-export type DevFieldType = 'text' | 'password' | 'dropdown' | 'switch' | 'relationList';
+// Repository type to handle both versioned and non-versioned repositories
+export type EntityRepository<T extends BaseEntity> = BaseRepository<T> | VersionedRepository<T & VersionedEntity>;
 
-// Card Configuration
-export interface CardConfig {
-  title: string;
-  subtitle: string;
-  properties: string[];
-}
+// Relationship types
+export type RelationType = 'toOne' | 'toMany' | 'manyToMany';
 
-// Details Section Configuration
-export interface DetailsSectionConfig {
-  title: string;
-  fields: string[];
-}
+// Field path configuration for accessing and displaying entity data
+export type FieldPath = {
+  field: string;
+  through?: {
+    repository: EntityRepository<any>;
+    displayField: string;
+    relationship?: {
+      type: RelationType;
+      relationName: string;
+      via?: {
+        repository: EntityRepository<any>;
+        fromField: string;
+        toField: string;
+        conditions?: Record<string, any>;
+        extraFields?: string[];
+        displayTemplate?: (entity: any, extraData: Record<string, any>) => string;
+      };
+      next?: FieldPath;
+    };
+  };
+};
 
-// Details Configuration
-export interface DetailsConfig {
-  sections: DetailsSectionConfig[];
-}
+// UI Component Types for Edit View
+export type DevFieldType = 
+  | 'text' 
+  | 'password' 
+  | 'switch' 
+  | 'entitySelect'  // Replaces 'dropdown'
+  | 'relationList';
 
 // Field Configuration for Edit View
 export interface EditFieldConfig {
@@ -28,20 +43,26 @@ export interface EditFieldConfig {
   required?: boolean;
   label?: string;
   placeholder?: string;
-  source?: string; 
-  // For dropdowns and other linked entity fields
-  linkedEntity?: {
-    repository: VersionedRepository<any>;
-    displayField: string;
-  };
-  // For relation lists
-  relationConfig?: {
-    repository: VersionedRepository<any>;
-    relationName: string;
-    displayField: string;
-  };
-  // Returns error message or null if valid
-  validation?: (value: unknown, context?: { isNew?: boolean }) => string | null; 
+  fieldPath: FieldPath;
+  validation?: (value: unknown, context?: { isNew?: boolean }) => string | null;
+}
+
+// Card Configuration
+export interface CardConfig {
+  title: FieldPath;
+  subtitle: FieldPath;
+  properties: FieldPath[];
+}
+
+// Details Section Configuration
+export interface DetailsSectionConfig {
+  title: string;
+  fields: FieldPath[];
+}
+
+// Details Configuration
+export interface DetailsConfig {
+  sections: DetailsSectionConfig[];
 }
 
 // Edit Configuration
@@ -51,7 +72,7 @@ export interface EditConfig {
 
 // Complete Table Configuration
 export interface TableConfig {
-  repository: VersionedRepository<any>;
+  repository: VersionedRepository<any>;  // Keep this as VersionedRepository for now
   card: CardConfig;
   details: DetailsConfig;
   edit: EditConfig;
@@ -65,7 +86,7 @@ export interface DevTableConfigs {
 // Props for shared components
 export interface DevCardProps<T extends VersionedEntity> {
   entity: T;
-  config: CardConfig;
+  config: TableConfig;
   onSelect: (entity: T) => void;
 }
 
@@ -80,6 +101,10 @@ export interface DevEditProps<T extends VersionedEntity> {
   entity: Partial<T>;
   config: TableConfig;
   isNew?: boolean;
+  isAddingVersion?: boolean;  // Added this as it seems to be used in the codebase
   onSave: () => void;
   onClose: () => void;
 }
+
+// Helper type to extract the entity type from a repository
+export type EntityType<T> = T extends EntityRepository<infer E> ? E : never;
