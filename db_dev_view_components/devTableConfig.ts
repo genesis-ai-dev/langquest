@@ -20,6 +20,7 @@ const languageFields = {
   },
   uiUsers: {
     field: 'uiUsers',
+    isVirtual: true,
     through: {
       repository: userRepository,
       displayField: 'username',
@@ -48,6 +49,7 @@ const userFields = {
   },
   createdLanguages: {
     field: 'createdLanguages',
+    isVirtual: true,
     through: {
       repository: languageRepository,
       displayField: 'nativeName',

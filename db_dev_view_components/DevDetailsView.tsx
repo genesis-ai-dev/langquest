@@ -14,6 +14,7 @@ import { useVersionManagement } from './useVersionManagement';
 import { DevVersionControls } from './DevVersionControls';
 import { DevEditView } from './DevEditView';
 import { RelationDisplay } from './DevUiElements/RelationDisplay';
+import { FieldResolver } from '@/database_components/fieldResolver';
 
 export function DevDetailsView<T extends VersionedEntity>({ 
   entity, 
@@ -21,8 +22,8 @@ export function DevDetailsView<T extends VersionedEntity>({
   onClose, 
   onUpdate 
 }: DevDetailsProps<T>) {
-
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [fieldValues, setFieldValues] = useState<Record<string, string | React.ReactNode>>({});
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
 
   const {
     editing,
@@ -38,15 +39,53 @@ export function DevDetailsView<T extends VersionedEntity>({
 
   useEffect(() => {
     const loadFieldValues = async () => {
-      const values: Record<string, string> = {};
-      for (const [key, value] of Object.entries(formData)) {
-        values[key] = await renderFieldValue(key, value);
+      const newValues: Record<string, string | React.ReactNode> = {};
+      const loadingStates: Record<string, boolean> = {};
+
+      for (const section of config.details.sections) {
+        for (const fieldPath of section.fields) {
+          const fieldKey = fieldPath.field;
+          loadingStates[fieldKey] = true;
+          setIsLoading(loadingStates);
+
+          try {
+            const fieldConfig = config.edit.fields[fieldKey];
+            if (fieldConfig?.type === 'relationList') {
+              newValues[fieldKey] = (
+                <RelationDisplay
+                  entity={formData}
+                  fieldPath={fieldPath}
+                  repository={config.repository}
+                />
+              );
+            } else {
+              // Ensure formData has required BaseEntity properties
+              if (!formData.id || !formData.rev) {
+                throw new Error('Invalid entity data');
+              }
+              
+              const value = await FieldResolver.resolveFieldValue(
+                formData as T,
+                fieldPath,
+                config.repository
+              );
+              newValues[fieldKey] = value;
+            }
+          } catch (error) {
+            console.error(`Error loading field ${fieldKey}:`, error);
+            newValues[fieldKey] = 'Error loading';
+          } finally {
+            loadingStates[fieldKey] = false;
+            setIsLoading(loadingStates);
+          }
+        }
       }
-      setFieldValues(values);
+      setFieldValues(newValues);
     };
+
     loadFieldValues();
-  }, [formData]);
-  
+  }, [formData, config]);
+
   const handleDelete = async () => {
     Alert.alert(
       'Delete Version',
@@ -69,41 +108,6 @@ export function DevDetailsView<T extends VersionedEntity>({
         }
       ]
     );
-  };
-
-  // Helper function to render a field value based on its type
-  const renderFieldValue = async (key: string, value: any) => {
-    const fieldConfig = config.edit.fields[key];
-    if (!fieldConfig) return String(value || 'N/A');
-  
-    switch (fieldConfig.type) {
-      case 'switch':
-        return value ? 'Yes' : 'No';
-      case 'password':
-        return '••••••••';
-        case 'dropdown':
-          if (fieldConfig.linkedEntity && value) {
-            try {
-              const linkedEntity = await fieldConfig.linkedEntity.repository.getById(value);
-              return linkedEntity ? String(linkedEntity[fieldConfig.linkedEntity.displayField]) : 'N/A';
-            } catch (error) {
-              console.error(`Error loading linked entity for ${key}:`, error);
-              return 'Error loading';
-            }
-          }
-          return value || 'None';
-      case 'relationList':
-        return (
-          <RelationDisplay
-            entityId={entity.id}
-            fieldKey={key}
-            fieldConfig={fieldConfig}
-            repository={config.repository}
-          />
-        );
-      default:
-        return String(value || 'N/A');
-    }
   };
 
   if (editing || isAddingVersion) {
@@ -156,19 +160,25 @@ export function DevDetailsView<T extends VersionedEntity>({
                 ]}>
                   {section.title}
                 </Text>
-                {section.fields.map((fieldKey, fieldIndex) => (
-                  <View key={fieldIndex} style={{ marginBottom: spacing.small }}>
-                    <Text style={{ 
-                      color: colors.textSecondary,
-                      marginBottom: spacing.xsmall 
-                    }}>
-                      {config.edit.fields[fieldKey]?.label || fieldKey}
-                    </Text>
-                    <Text style={{ color: colors.text }}>
-                      {fieldValues[fieldKey] || 'Loading...'}
-                    </Text>
-                  </View>
-                ))}
+                {section.fields.map((fieldPath, fieldIndex) => {
+                  const fieldKey = fieldPath.field;
+                  return (
+                    <View key={fieldIndex} style={{ marginBottom: spacing.small }}>
+                      <Text style={{ 
+                        color: colors.textSecondary,
+                        marginBottom: spacing.xsmall 
+                      }}>
+                        {config.edit.fields[fieldKey]?.label || fieldKey}
+                      </Text>
+                      <Text style={{ 
+                        color: colors.text,
+                        opacity: isLoading[fieldKey] ? 0.5 : 1 
+                      }}>
+                        {isLoading[fieldKey] ? 'Loading...' : fieldValues[fieldKey]}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             ))}
           </ScrollView>
@@ -194,7 +204,7 @@ export function DevDetailsView<T extends VersionedEntity>({
           <TouchableOpacity
             style={[
               sharedStyles.modalButton,
-              { backgroundColor: 'red', marginTop: spacing.small }
+              { backgroundColor: colors.error, marginTop: spacing.small }
             ]}
             onPress={handleDelete}
           >

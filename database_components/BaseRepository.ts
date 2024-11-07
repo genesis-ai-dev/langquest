@@ -16,9 +16,18 @@ export interface VersionedEntity extends BaseEntity {
 
 export interface Relationship<T> {
   name: string;
-  type: 'oneToMany' | 'manyToOne' | 'manyToMany';
+  type: 'toOne' | 'toMany' | 'manyToMany';
   query: string;
   transform?: (rows: any[]) => T[];
+  updateQuery?: {
+    clear: string;
+    add: string;
+  };
+  via?: {
+    tableName: string;
+    fromField: string;
+    toField: string;
+  };
 }
 
 export abstract class BaseRepository<T extends BaseEntity> {
@@ -66,6 +75,11 @@ export abstract class BaseRepository<T extends BaseEntity> {
         await statement.finalizeAsync();
       }
     });
+  }
+
+  async getLatestOfAll(): Promise<T[]> {
+    // For non-versioned entities, latest = all
+    return this.getAll();
   }
 
   async delete(id: string): Promise<void> {
@@ -222,6 +236,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
   async getRelated<R>(id: string, relationshipName: string): Promise<R[]> {
     const relationship = this.relationships[relationshipName];
+    console.log('relationship', relationship);
     if (!relationship) {
       throw new Error(`Unknown relationship: ${relationshipName}`);
     }
@@ -238,6 +253,95 @@ export abstract class BaseRepository<T extends BaseEntity> {
     });
   }
 
+  async updateRelation(
+    entityId: string,
+    relationshipName: string,
+    relatedIds: string[]
+  ): Promise<void> {
+    const relationship = this.relationships[relationshipName];
+    if (!relationship) {
+      throw new Error(`Unknown relationship: ${relationshipName}`);
+    }
+
+    return this.withConnection(async (db) => {
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        switch (relationship.type) {
+          case 'toMany':
+            // For toMany relationships, we update the foreign key in the related table
+            await this.updateToManyRelation(
+              txn,
+              entityId,
+              relationshipName,
+              relatedIds
+            );
+            break;
+
+          case 'manyToMany':
+            // For manyToMany relationships, we update the junction table
+            await this.updateManyToManyRelation(
+              txn,
+              entityId,
+              relationshipName,
+              relatedIds
+            );
+            break;
+
+          case 'toOne':
+            throw new Error('Cannot update toOne relationships through updateRelation');
+        }
+      });
+    });
+  }
+
+  protected async updateToManyRelation(
+    txn: SQLite.SQLiteDatabase,
+    entityId: string,
+    relationshipName: string,
+    relatedIds: string[]
+  ): Promise<void> {
+    const relationship = this.relationships[relationshipName];
+    if (!relationship.updateQuery) {
+      throw new Error(`No update query defined for relationship: ${relationshipName}`);
+    }
+
+    // Clear existing relations
+    await txn.runAsync(relationship.updateQuery.clear, { $id: entityId });
+
+    // Add new relations
+    for (const relatedId of relatedIds) {
+      await txn.runAsync(relationship.updateQuery.add, {
+        $id: entityId,
+        $relatedId: relatedId
+      });
+    }
+  }
+
+  protected async updateManyToManyRelation(
+    txn: SQLite.SQLiteDatabase,
+    entityId: string,
+    relationshipName: string,
+    relatedIds: string[]
+  ): Promise<void> {
+    const relationship = this.relationships[relationshipName];
+    if (!relationship.via) {
+      throw new Error(`No junction table configuration for relationship: ${relationshipName}`);
+    }
+
+    // Clear existing relations
+    await txn.runAsync(
+      `DELETE FROM ${relationship.via.tableName} WHERE ${relationship.via.fromField} = $id`,
+      { $id: entityId }
+    );
+
+    // Add new relations
+    for (const relatedId of relatedIds) {
+      await txn.runAsync(
+        `INSERT INTO ${relationship.via.tableName} (${relationship.via.fromField}, ${relationship.via.toField}) 
+         VALUES ($id, $relatedId)`,
+        { $id: entityId, $relatedId: relatedId }
+      );
+    }
+  }
 
   protected getAllColumns(entity: any): string[] {
     return this.columns;

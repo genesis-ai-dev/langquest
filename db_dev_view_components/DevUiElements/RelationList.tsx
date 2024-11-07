@@ -11,16 +11,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
+import { FieldPath } from '@/db_dev_view_components/DevTypes';
 
 interface RelationListProps<T extends VersionedEntity> {
   entityId: string; 
   value: string[];
   onChange: (value: string[]) => void;
-  relationConfig: {
-    repository: any;
-    relationName: string;
-    displayField: keyof T;
-  };
+  fieldPath: FieldPath;  // Changed from relationConfig to fieldPath
   error?: string | null;
 }
 
@@ -28,7 +25,7 @@ export function RelationList<T extends VersionedEntity>({
   entityId,
   value = [],
   onChange,
-  relationConfig,
+  fieldPath,
   error
 }: RelationListProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,17 +37,22 @@ export function RelationList<T extends VersionedEntity>({
   // Load both all possible options and current relations
   useEffect(() => {
     const loadData = async () => {
+      if (!fieldPath.through?.repository || !fieldPath.through.relationship) {
+        console.error('Invalid field configuration for RelationList');
+        return;
+      }
+
       setIsLoading(true);
       try {
         // Load all possible options
-        const options = await relationConfig.repository.getLatestOfAll();
-        setAllOptions(options);
+        const options = await fieldPath.through.repository.getLatestOfAll();
+        setAllOptions(options as T[]);
 
         // Load current relations if we have an entityId
         if (entityId) {
-          const related = await relationConfig.repository.getRelated(
+          const related = await fieldPath.through.repository.getRelated<T>(
             entityId, 
-            relationConfig.relationName
+            fieldPath.through.relationship.relationName
           );
           setRelatedItems(related);
         }
@@ -61,10 +63,11 @@ export function RelationList<T extends VersionedEntity>({
       }
     };
     loadData();
-  }, [entityId, relationConfig.repository, relationConfig.relationName]);
+  }, [entityId, fieldPath]);
 
   const getDisplayValue = (item: T): string => {
-    const value = item[relationConfig.displayField];
+    if (!fieldPath.through?.displayField) return String(item.id);
+    const value = item[fieldPath.through.displayField as keyof T];
     return String(value ?? '');
   };
 
@@ -102,6 +105,7 @@ export function RelationList<T extends VersionedEntity>({
       </TouchableOpacity>
     );
   };
+
 
   return (
     <View>

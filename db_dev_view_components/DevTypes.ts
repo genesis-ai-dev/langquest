@@ -10,10 +10,11 @@ export type RelationType = 'toOne' | 'toMany' | 'manyToMany';
 // Field path configuration for accessing and displaying entity data
 export type FieldPath = {
   field: string;
+  isVirtual?: boolean;  // Marks fields that don't exist in the database schema (defined by lookup in respective repository)
   through?: {
     repository: EntityRepository<any>;
     displayField: string;
-    relationship?: {
+    relationship: { // required when isVirtual is true
       type: RelationType;
       relationName: string;
       via?: {
@@ -28,6 +29,13 @@ export type FieldPath = {
     };
   };
 };
+
+// Type guard for virtual fields
+export function isVirtualField(fieldPath: FieldPath): boolean {
+  return !!fieldPath.isVirtual && 
+         !!fieldPath.through?.relationship &&
+         ['toMany', 'manyToMany'].includes(fieldPath.through.relationship.type);
+}
 
 // UI Component Types for Edit View
 export type DevFieldType = 

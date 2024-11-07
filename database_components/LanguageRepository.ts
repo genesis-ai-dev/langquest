@@ -18,7 +18,7 @@ export class LanguageRepository extends VersionedRepository<Language> {
   protected relationships: Record<string, Relationship<any>> = {
     uiUsers: {
       name: 'uiUsers',
-      type: 'oneToMany',
+      type: 'toMany',
       query: `
         SELECT u1.* 
         FROM User u1
@@ -30,11 +30,15 @@ export class LanguageRepository extends VersionedRepository<Language> {
         ON u1.versionChainId = u2.versionChainId 
         AND u1.versionNum = u2.maxVersion
         WHERE u1.uiLanguage = $id
-      `
+      `,
+      updateQuery: {
+        clear: `UPDATE User SET uiLanguage = NULL WHERE uiLanguage = $id`,
+        add: `UPDATE User SET uiLanguage = $id WHERE id = $relatedId`
+      }
     },
     sourceProjects: {
       name: 'sourceProjects',
-      type: 'oneToMany',
+      type: 'toMany',
       query: `
         SELECT p1.* 
         FROM Project p1
@@ -46,11 +50,15 @@ export class LanguageRepository extends VersionedRepository<Language> {
         ON p1.versionChainId = p2.versionChainId 
         AND p1.versionNum = p2.maxVersion
         WHERE p1.sourceLanguage = $id
-      `
+      `,
+      updateQuery: {
+        clear: `UPDATE Project SET sourceLanguage = NULL WHERE sourceLanguage = $id`,
+        add: `UPDATE Project SET sourceLanguage = $id WHERE id = $relatedId`
+      }
     },
     targetProjects: {
       name: 'targetProjects',
-      type: 'oneToMany',
+      type: 'toMany',
       query: `
         SELECT p1.* 
         FROM Project p1
@@ -62,11 +70,16 @@ export class LanguageRepository extends VersionedRepository<Language> {
         ON p1.versionChainId = p2.versionChainId 
         AND p1.versionNum = p2.maxVersion
         WHERE p1.targetLanguage = $id
-      `
+      `,
+      updateQuery: {
+        clear: `UPDATE Project SET targetLanguage = NULL WHERE targetLanguage = $id`,
+        add: `UPDATE Project SET targetLanguage = $id WHERE id = $relatedId`
+      }
     }
   };
 
   // Additional language-specific method using new base class methods
+  // Outdated approach - updated register.tsx to use updated method
   async getUiReady(): Promise<Language[]> {
     return this.withConnection(async (db) => {
       const statement = await db.prepareAsync(`
@@ -86,45 +99,6 @@ export class LanguageRepository extends VersionedRepository<Language> {
       try {
         const result = await statement.executeAsync();
         return await result.getAllAsync() as Language[];
-      } finally {
-        await statement.finalizeAsync();
-      }
-    });
-  }
-
-  async getRelatedUsers(languageId: string): Promise<User[]> {
-    console.log('Getting related users for language:', languageId);
-    
-    return this.withConnection(async (db) => {
-      const statement = await db.prepareAsync(`
-        SELECT u1.* 
-        FROM User u1
-        INNER JOIN (
-          SELECT versionChainId, MAX(versionNum) as maxVersion
-          FROM User
-          GROUP BY versionChainId
-        ) u2 
-        ON u1.versionChainId = u2.versionChainId 
-        AND u1.versionNum = u2.maxVersion
-        WHERE u1.uiLanguage = $languageId
-      `);
-  
-      try {
-        console.log('Executing query with params:', { $languageId: languageId });
-        const result = await statement.executeAsync({ $languageId: languageId });
-        const users = await result.getAllAsync() as User[];
-        console.log('Found related users:', users);
-        
-        // Log each user's relevant fields
-        users.forEach(user => {
-          console.log('User details:', {
-            id: user.id,
-            username: user.username,
-            uiLanguage: user.uiLanguage
-          });
-        });
-  
-        return users;
       } finally {
         await statement.finalizeAsync();
       }

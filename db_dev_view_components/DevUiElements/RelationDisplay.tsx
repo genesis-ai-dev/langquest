@@ -1,50 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { Text } from 'react-native';
-import { EditFieldConfig } from '../DevTypes';
+import { EditFieldConfig, FieldPath } from '../DevTypes';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
+import { FieldResolver } from '@/database_components/fieldResolver';
+import { EntityRepository } from '../DevTypes';
 
 interface RelationDisplayProps {
-  entityId: string;
-  fieldKey: string;
-  fieldConfig: EditFieldConfig;
-  repository: any;
+  entity: Partial<VersionedEntity>;
+  fieldPath: FieldPath;
+  repository: EntityRepository<any>;
 }
 
 export function RelationDisplay({ 
-  entityId, 
-  fieldKey, 
-  fieldConfig, 
+  entity,
+  fieldPath,
   repository 
 }: RelationDisplayProps) {
-  const [relatedItems, setRelatedItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [displayValue, setDisplayValue] = useState<string>('Loading...');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadRelated = async () => {
-      setIsLoading(true);
+    const resolveRelation = async () => {
+      if (!entity || !entity.id) {
+        setDisplayValue('No entity selected');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const items = await repository.getRelated(entityId, fieldKey);
-        setRelatedItems(items);
+        const value = await FieldResolver.resolveFieldValue(
+          entity,
+          fieldPath,
+          repository
+        );
+        setDisplayValue(value);
       } catch (error) {
-        console.error(`Error loading related ${fieldKey}:`, error);
+        console.error('Error resolving relation:', error);
+        setDisplayValue('Error loading relation');
       } finally {
         setIsLoading(false);
       }
     };
-    loadRelated();
-  }, [entityId, fieldKey, repository]);
+
+    resolveRelation();
+  }, [entity, fieldPath, repository]);
 
   if (isLoading) return <Text>Loading...</Text>;
   
-  return (
-    <Text>
-      {relatedItems.length ? 
-        relatedItems.map(item => 
-          fieldConfig.relationConfig?.displayField ? 
-            String(item[fieldConfig.relationConfig.displayField]) 
-            : String(item)
-        ).join(', ') 
-        : 'None'}
-    </Text>
-  );
+  return <Text>{displayValue}</Text>;
 }

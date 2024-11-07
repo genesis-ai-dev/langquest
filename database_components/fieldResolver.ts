@@ -1,6 +1,6 @@
 import { BaseEntity, BaseRepository } from '@/database_components/BaseRepository';
 import { VersionedEntity, VersionedRepository } from '@/database_components/VersionedRepository';
-import { EntityRepository, FieldPath } from '@/db_dev_view_components/DevTypes';
+import { EntityRepository, FieldPath, isVirtualField } from '@/db_dev_view_components/DevTypes';
 
 interface JunctionRecord extends BaseEntity {
   [key: string]: any;  // For dynamic fields like fromField and toField
@@ -18,47 +18,61 @@ export class FieldResolver {
     sourceRepository: EntityRepository<T>
   ): Promise<string> {
     try {
-      const value = entity[fieldPath.field as keyof T];
-
-      if (!fieldPath.through) {
-        return this.formatValue(value);
-      }
-
-      if (value === null || value === undefined) {
-        return 'N/A';
-      }
-
-      const { through } = fieldPath;
-
-      if (through.relationship) {
-        switch (through.relationship.type) {
-          case 'toOne':
-            return await this.resolveToOneRelationship(value, through);
-
-          case 'toMany':
-            return await this.resolveToManyRelationship(
-              entity.id,
-              through,
-              sourceRepository
-            );
-
-          case 'manyToMany':
-            return await this.resolveManyToManyRelationship(
-              entity.id,
-              through,
-              sourceRepository
-            );
-
-          default:
-            throw new Error(`Unknown relationship type: ${through.relationship.type}`);
+      // First, determine if this is a relationship field
+      if (fieldPath.through) {
+        // Handle virtual fields (toMany/manyToMany)
+        if (isVirtualField(fieldPath)) {
+          console.log('Resolving virtual field:', fieldPath.field);
+          return await this.resolveVirtualField(
+            entity.id,
+            fieldPath.through,
+            sourceRepository
+          );
         }
+  
+        // Handle toOne relationships
+        const value = entity[fieldPath.field as keyof T];
+        if (value === null || value === undefined) {
+          return 'N/A';
+        }
+        return await this.resolveToOneRelationship(value, fieldPath.through);
       }
-
-      return await this.resolveToOneRelationship(value, through);
-
+  
+      // Handle regular (non-relationship) fields
+      const value = entity[fieldPath.field as keyof T];
+      return this.formatValue(value);
+  
     } catch (error) {
       console.error('Error resolving field value:', error);
       return 'Error';
+    }
+  }
+
+  private static async resolveVirtualField<T extends BaseEntity>(
+    entityId: string,
+    through: NonNullable<FieldPath['through']>,
+    sourceRepository: EntityRepository<T>
+  ): Promise<string> {
+    const { type } = through.relationship;
+    
+    switch (type) {
+      case 'toMany':
+        console.log('Resolving toMany relationship:', through.repository);
+        return await this.resolveToManyRelationship(
+          entityId,
+          through,
+          sourceRepository
+        );
+
+      case 'manyToMany':
+        return await this.resolveManyToManyRelationship(
+          entityId,
+          through,
+          sourceRepository
+        );
+
+      default:
+        throw new Error(`Invalid relationship type for virtual field: ${type}`);
     }
   }
 
@@ -79,6 +93,8 @@ export class FieldResolver {
       entityId,
       through.relationship!.relationName
     );
+
+    console.log('Related entities for toMany:', relatedEntities);
 
     return relatedEntities
       .map((entity) => this.formatValue(entity[through.displayField as keyof T]))

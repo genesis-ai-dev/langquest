@@ -11,6 +11,7 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { DevEditProps } from './DevTypes';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
 import { UiElements } from './DevUiElements';
+import { FieldPath, isVirtualField } from '@/db_dev_view_components/DevTypes';
 
 interface FormErrors {
   [key: string]: string | null;
@@ -56,11 +57,31 @@ export function DevEditView<T extends VersionedEntity>({
     return isValid;
   };
 
-  const handleFieldChange = (key: keyof T, value: any) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
+  const handleFieldChange = (key: string, value: any) => {
+    const fieldConfig = config.edit.fields[key];
+    if (!fieldConfig) {
+      console.error('Invalid field:', key);
+      return;
+    }
+
+    // Create proper FieldPath from config
+    const fieldPath: FieldPath = {
+      field: key,
+      isVirtual: fieldConfig.fieldPath.isVirtual,
+      through: fieldConfig.fieldPath.through
+    };
+
+    // Now use the proper fieldPath
+    if (isVirtualField(fieldPath)) {
+      setFormData(prev => ({
+        ...prev,
+        [`_virtual_${fieldPath.field}`]: value
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [fieldPath.field]: value }));
+    }
     
-    // Clear error when field is modified
-    if (errors[key as string]) {
+    if (errors[key]) {
       setErrors(prev => ({ ...prev, [key]: null }));
     }
   };
@@ -70,22 +91,58 @@ export function DevEditView<T extends VersionedEntity>({
       Alert.alert('Validation Error', 'Please fix the errors before saving.');
       return;
     }
+    
+    if (!isNew && !entity.id) {
+      Alert.alert('Error', 'Cannot update entity without id');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      // Extract virtual field values
+      const virtualFields = Object.entries(formData)
+        .filter(([key]) => key.startsWith('_virtual_'))
+        .reduce((acc, [key, value]) => ({
+          ...acc,
+          [key.replace('_virtual_', '')]: value
+        }), {});
+
+      // Regular entity data
+      const entityData = Object.entries(formData)
+        .filter(([key]) => !key.startsWith('_virtual_'))
+        .reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: value
+        }), {});
+
       if (isNew) {
-        await config.repository.createNew(formData as T);
+        await config.repository.createNew(entityData as T);
       } else if (isAddingVersion) {
         if (!entity.id || !entity.versionNum || !entity.versionChainId) {
           throw new Error('Invalid entity for versioning');
         }
-        await config.repository.addVersion(entity as T, formData);
+        await config.repository.addVersion(entity as T, entityData);
       } else {
         if (!entity.id) {
           throw new Error('Cannot update entity without id');
         }
-        await config.repository.update(entity.id, formData);
+        await config.repository.update(entity.id, entityData);
       }
+
+      // Handle virtual field updates separately
+      if (!isNew && entity.id) {
+        for (const [field, value] of Object.entries(virtualFields)) {
+          const fieldConfig = config.edit.fields[field];
+          if (fieldConfig?.fieldPath.through?.relationship) {
+            await config.repository.updateRelation(
+              entity.id,
+              fieldConfig.fieldPath.through.relationship.relationName,
+              value as string[]  // Type assertion since we know virtual fields store string arrays
+            );
+          }
+        }
+      }
+
       onSave();
     } catch (error) {
       console.error('Error saving entity:', error);
@@ -115,6 +172,7 @@ export function DevEditView<T extends VersionedEntity>({
             {Object.entries(config.edit.fields).map(([key, field]) => {
               const Component = UiElements[field.type];
               const error = errors[key];
+              const { fieldPath, ...otherFieldProps } = field;
 
               return (
                 <View key={key} style={{ marginBottom: spacing.medium }}>
@@ -125,12 +183,14 @@ export function DevEditView<T extends VersionedEntity>({
                     {field.label || key}
                     {field.required && <Text style={{ color: 'red' }}> *</Text>}
                   </Text>
-                  
+      
                   <Component
                     value={formData[key as keyof T]}
-                    onChange={(value: any) => handleFieldChange(key as keyof T, value)}
+                    onChange={(value: any) => handleFieldChange(key, value)}
                     error={error}
-                    {...field}
+                    entityId={entity.id || ''}
+                    fieldPath={fieldPath}
+                    {...otherFieldProps}
                   />
 
                   {error && (

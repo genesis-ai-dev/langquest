@@ -27,7 +27,12 @@ export class UserRepository extends VersionedRepository<User> {
     //     AND p1.versionNum = p2.maxVersion
     //     INNER JOIN ProjectMember pm ON p1.id = pm.projectId
     //     WHERE pm.userId = $id AND pm.isLead = 1
-    //   `
+    //   `,
+    // via: {
+    //   tableName: 'ProjectMember',
+    //   fromField: 'userId',
+    //   toField: 'projectId'
+    // }
     // },
     // memberProjects: {
     //   name: 'memberProjects',
@@ -44,11 +49,16 @@ export class UserRepository extends VersionedRepository<User> {
     //     AND p1.versionNum = p2.maxVersion
     //     INNER JOIN ProjectMember pm ON p1.id = pm.projectId
     //     WHERE pm.userId = $id AND pm.isLead = 0
-    //   `
+    //   `,
+    // via: {
+    //   tableName: 'ProjectMember',
+    //   fromField: 'userId',
+    //   toField: 'projectId'
+    // }
     // },
     createdLanguages: {
       name: 'createdLanguages',
-      type: 'oneToMany',
+      type: 'toMany',
       query: `
         SELECT l1.* 
         FROM Language l1
@@ -60,7 +70,11 @@ export class UserRepository extends VersionedRepository<User> {
         ON l1.versionChainId = l2.versionChainId 
         AND l1.versionNum = l2.maxVersion
         WHERE l1.creator = $id
-      `
+      `,
+      updateQuery: {
+        clear: `UPDATE Language SET creator = NULL WHERE creator = $id`,
+        add: `UPDATE Language SET creator = $id WHERE id = $relatedId`
+      }
     }
   };
 

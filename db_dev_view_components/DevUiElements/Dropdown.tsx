@@ -7,19 +7,21 @@ import { languageRepository, userRepository } from '@/database_components/reposi
 interface DropdownProps {
   value: string;
   onChange: (value: string) => void;
-  source: string;
-  linkedEntity?: {  // Add this from EditFieldConfig
+  error?: string | null;
+  entityId?: string;
+  source?: string;
+  linkedEntity?: {
     repository: any;
     displayField: string;
   };
-  error?: string | null;
 }
 
 export function Dropdown({ 
   value, 
   onChange, 
   source, 
-  linkedEntity, 
+  linkedEntity,
+  entityId,  // Add this
   error 
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
