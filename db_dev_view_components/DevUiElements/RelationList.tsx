@@ -13,21 +13,22 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { VersionedEntity } from '@/database_components/VersionedRepository';
 import { FieldPath } from '@/db_dev_view_components/DevTypes';
 
-interface RelationListProps<T extends VersionedEntity> {
-  entityId: string; 
+interface RelationListProps {
+  entityId: string;
   value: string[];
   onChange: (value: string[]) => void;
-  fieldPath: FieldPath;  // Changed from relationConfig to fieldPath
+  fieldPath: FieldPath;
   error?: string | null;
 }
 
-export function RelationList<T extends VersionedEntity>({
+
+export function RelationList({
   entityId,
   value = [],
   onChange,
   fieldPath,
   error
-}: RelationListProps<T>) {
+}: RelationListProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [allOptions, setAllOptions] = useState<T[]>([]);
   const [relatedItems, setRelatedItems] = useState<T[]>([]);
