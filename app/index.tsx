@@ -8,6 +8,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { userRepository } from '@/database_components/repositories';
 import { initDatabase } from '@/database_components/dbInit';
 
+import * as SQLite from 'expo-sqlite';
+import { usersTable } from '../db/drizzleSchema';
+import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import migrations from '../drizzle/migrations';
+import { drizzle } from 'drizzle-orm/expo-sqlite';
+
+const expo = SQLite.openDatabaseSync('db.db');
+const db = drizzle(expo);
+
 // const userRepository = new UserRepository();
 
 export default function Index() {
@@ -15,6 +24,9 @@ export default function Index() {
   const [dbStatus, setDbStatus] = useState('Initializing...');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  const { success, error } = useMigrations(db, migrations);
+  const [items, setItems] = useState<typeof usersTable.$inferSelect[] | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,6 +52,51 @@ export default function Index() {
       isMounted = false;
     };
   }, []);
+
+
+  useEffect(() => {
+    if (!success) return;
+
+    (async () => {
+      await db.delete(usersTable);
+
+      await db.insert(usersTable).values([
+        {
+            name: 'John',
+            age: 30,
+            email: 'john@example.com',
+        },
+      ]);
+
+      const users = await db.select().from(usersTable);
+      setItems(users);
+    })();
+  }, [success]);
+
+  if (error) {
+    return (
+      <View>
+        <Text>Migration error: {error.message}</Text>
+      </View>
+    );
+  }
+
+  if (!success) {
+    return (
+      <View>
+        <Text>Migration is in progress...</Text>
+      </View>
+    );
+  }
+
+  if (items === null || items.length === 0) {
+    return (
+      <View>
+        <Text>Empty</Text>
+      </View>
+    );
+  }
+
 
   const handleSignIn = async () => {
     try {
@@ -140,6 +197,10 @@ export default function Index() {
           </TouchableOpacity>
 
           <Text>{dbStatus}</Text>
+
+          {items.map((item) => (
+            <Text key={item.id}>{item.email}</Text>
+          ))}
           
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
             <Text style={{ color: colors.text, marginRight: spacing.small }}>New user?</Text>
