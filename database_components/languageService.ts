@@ -1,13 +1,17 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db/database';
 import { language } from '../db/drizzleSchema';
+import type { Language } from '../types/schema';
+
+export type { Language };
 
 export class LanguageService {
-  static async getUiReady() {
+  static async getUiReadyLanguages() {
     return await db
       .select()
       .from(language)
-      .where(eq(language.uiReady, true));
+      .where(eq(language.uiReady, true))
+      .orderBy(language.nativeName);
   }
 
   static async create(languageData: {

@@ -7,12 +7,16 @@ import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
-import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
+// import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
 import { UserRepository } from '@/database_components/UserRepository';
+import { UserService } from '@/database_components/userService';
+import { Language, LanguageService } from '@/database_components/languageService';
+import * as Crypto from 'expo-crypto';
+
 
 // Repository instances
-const languageRepository = new LanguageRepository();
-const userRepository = new UserRepository();
+// const languageRepository = new LanguageRepository();
+// const userRepository = new UserRepository();
 
 export default function Register() {
   const router = useRouter();
@@ -31,15 +35,18 @@ export default function Register() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageRepository.getUiReady();
+      const loadedLanguages = await LanguageService.getUiReadyLanguages();
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {
-        const englishLang = loadedLanguages.find(l => l.englishName.toLowerCase() === 'english');
+        const englishLang = loadedLanguages.find(l => 
+          l.englishName?.toLowerCase() === 'english' || 
+          l.nativeName?.toLowerCase() === 'english'
+        );
         setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
       }
     } catch (error) {
-      console.error('Error loading languages in loadLanguages (register):', error);
+      console.error('Error loading languages:', error);
       Alert.alert('Error', 'Failed to load available languages');
     }
   };
@@ -51,20 +58,30 @@ export default function Register() {
       return;
     }
   
+    if (!selectedLanguageId) {
+      Alert.alert('Error', 'Please select a language');
+      return;
+    }
+  
     try {
       const userData = {
         username: username.trim(),
-        password: password,
+        password,
+        rev: 1,
+        versionChainId: Crypto.randomUUID(), // Generate a new UUID
+        versionNum: 1,
         uiLanguage: selectedLanguageId
       };
-      const userId = await userRepository.createNew(userData);
-      if (userId) {
-        Alert.alert('Success', 'User registered successfully');
-        router.push("/");
+      
+      const newUser = await UserService.createUser(userData);
+      if (newUser) {
+        Alert.alert('Success', 'Registration successful!', [
+          { text: 'OK', onPress: () => router.push("/") }
+        ]);
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'An unexpected error occurred while registering');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Registration failed');
     }
   };
 
@@ -78,7 +95,7 @@ export default function Register() {
           <CustomDropdown
             label="App Language"
             value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-            options={languages.map(l => l.nativeName)}
+            options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
             onSelect={(langName) => {
               const lang = languages.find(l => l.nativeName === langName);
               if (lang) {
