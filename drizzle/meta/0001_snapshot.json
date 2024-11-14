@@ -1,11 +1,11 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7b85ffbf-0cc5-4b72-b5ad-c28a650d7d0e",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "7022ed0c-3d7a-41c4-9fd5-a7e38a881a5a",
+  "prevId": "7b85ffbf-0cc5-4b72-b5ad-c28a650d7d0e",
   "tables": {
-    "languaged": {
-      "name": "languaged",
+    "Language": {
+      "name": "Language",
       "columns": {
         "id": {
           "name": "id",
@@ -93,8 +93,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "userd": {
-      "name": "userd",
+    "User": {
+      "name": "User",
       "columns": {
         "id": {
           "name": "id",
@@ -180,7 +180,10 @@
   "enums": {},
   "_meta": {
     "schemas": {},
-    "tables": {},
+    "tables": {
+      "\"languaged\"": "\"Language\"",
+      "\"userd\"": "\"User\""
+    },
     "columns": {}
   },
   "internal": {

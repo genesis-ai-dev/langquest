@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "generate-icon-types": "ts-node ./scripts/generate-icon-types.ts",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -59,6 +60,7 @@
     "jest-expo": "~51.0.3",
     "metro-react-native-babel-transformer": "^0.77.0",
     "react-test-renderer": "18.2.0",
+    "ts-node": "^10.9.2",
     "typescript": "~5.3.3"
   },
   "private": true

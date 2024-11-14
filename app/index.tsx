@@ -5,17 +5,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { userRepository } from '@/database_components/repositories';
-import { initDatabase } from '@/database_components/dbInit';
+// import { userRepository } from '@/database_components/repositories';
+// import { initDatabase } from '@/database_components/dbInit';
 
 import * as SQLite from 'expo-sqlite';
-import { usersTable } from '../db/drizzleSchema';
+// import { userd, languaged } from '../db/drizzleSchema';
+import * as schema from '../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import migrations from '../drizzle/migrations';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 
-const expo = SQLite.openDatabaseSync('db.db');
-const db = drizzle(expo);
+const { user, language } = schema;
+
+// const expo = SQLite.openDatabaseSync('db.db');
+// const db = drizzle(expo, { 
+//   schema: { 
+//     userd, 
+//     languaged
+//   }
+// });
+const expo = SQLite.openDatabaseSync('db.db', {
+  enableChangeListener: true
+});
+const db = drizzle(expo, { schema });
 
 // const userRepository = new UserRepository();
 
@@ -26,54 +38,87 @@ export default function Index() {
   const [password, setPassword] = useState('');
   
   const { success, error } = useMigrations(db, migrations);
-  const [items, setItems] = useState<typeof usersTable.$inferSelect[] | null>(null);
+  const [items, setItems] = useState<typeof language.$inferSelect[] | null>(null);
+
+  // useEffect(() => {
+  //   let isMounted = true;
+
+  //   const initDb = async () => {
+  //     try {
+  //       await initDatabase();
+  //       if (isMounted) {
+  //         setDbStatus('Database initialized successfully');
+  //       }
+  //     } catch (error) {
+  //       console.error('Error initializing database:', error);
+  //       if (isMounted) {
+  //         setDbStatus(`Error initializing database: ${error}`);
+  //         Alert.alert('Error', 'Failed to initialize the database.');
+  //       }
+  //     }
+  //   };
+
+  //   initDb();
+
+  //   return () => {
+  //     isMounted = false;
+  //   };
+  // }, []);
+
 
   useEffect(() => {
-    let isMounted = true;
-
-    const initDb = async () => {
-      try {
-        await initDatabase();
-        if (isMounted) {
-          setDbStatus('Database initialized successfully');
-        }
-      } catch (error) {
-        console.error('Error initializing database:', error);
-        if (isMounted) {
-          setDbStatus(`Error initializing database: ${error}`);
-          Alert.alert('Error', 'Failed to initialize the database.');
-        }
-      }
-    };
-
-    initDb();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-
-  useEffect(() => {
+    console.log('Migration success:', success);
     if (!success) return;
-
+  
     (async () => {
-      await db.delete(usersTable);
+      // Clear existing data
+      await db.delete(language);
+      await db.delete(user);
+  
+      console.log('Creating test data...');
 
-      await db.insert(usersTable).values([
+      // Create a test user first
+      const [newUser] = await db.insert(user).values({
+        rev: 1,
+        username: 'testuser',
+        password: 'password123',
+        versionChainId: 'user_chain_1',
+        versionNum: 1,
+      }).returning();
+  
+      console.log('New user', newUser);
+
+      // Create languages linked to the user
+      const [newLanguage] = await db.insert(language).values(
         {
-            name: 'John',
-            age: 30,
-            email: 'john@example.com',
-        },
-      ]);
+          rev: 1,
+          nativeName: 'Español',
+          englishName: 'Spanish',
+          iso639_3: 'spa',
+          versionChainId: 'lang_chain_1',
+          versionNum: 1,
+          uiReady: true,
+          creatorId: newUser.id,  // Link to the user
+        }
+      ).returning();
+  
+      console.log('New language:', newLanguage);
 
-      const users = await db.select().from(usersTable);
-      setItems(users);
+      // Query user with their created languages
+      const userWithLanguages = await db.query.user.findFirst({
+        with: {
+          createdLanguages: true
+        }
+      });
+
+      console.log('User with languages:', userWithLanguages);
+  
+      setItems([newLanguage]);
     })();
   }, [success]);
 
   if (error) {
+    console.log('Migration error:', error);
     return (
       <View>
         <Text>Migration error: {error.message}</Text>
@@ -82,6 +127,7 @@ export default function Index() {
   }
 
   if (!success) {
+    console.log('Migration in progress...');
     return (
       <View>
         <Text>Migration is in progress...</Text>
@@ -98,45 +144,45 @@ export default function Index() {
   }
 
 
-  const handleSignIn = async () => {
-    try {
-      const user = await userRepository.validateCredentials(username, password);
-      if (user) {
-        router.push("/projects");
-      } else {
-        Alert.alert('Error', 'Invalid username or password');
-      }
-    } catch (error) {
-      console.error('Error during sign in:', error);
-      Alert.alert('Error', 'An error occurred during sign in');
-    }
-  };
+  // const handleSignIn = async () => {
+  //   try {
+  //     const user = await userRepository.validateCredentials(username, password);
+  //     if (user) {
+  //       router.push("/projects");
+  //     } else {
+  //       Alert.alert('Error', 'Invalid username or password');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error during sign in:', error);
+  //     Alert.alert('Error', 'An error occurred during sign in');
+  //   }
+  // };
 
-  const handleResetDatabase = async () => {
-    Alert.alert(
-      'Reset Database',
-      'Are you sure you want to reset the entire database? This will delete all data.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await initDatabase(true);
-              setDbStatus('Database reset successfully');
-            } catch (error) {
-              console.error('Error resetting database:', error);
-              setDbStatus(`Error resetting database: ${error}`);
-            }
-          },
-        },
-      ]
-    );
-  };
+  // const handleResetDatabase = async () => {
+  //   Alert.alert(
+  //     'Reset Database',
+  //     'Are you sure you want to reset the entire database? This will delete all data.',
+  //     [
+  //       {
+  //         text: 'Cancel',
+  //         style: 'cancel',
+  //       },
+  //       {
+  //         text: 'Reset',
+  //         style: 'destructive',
+  //         onPress: async () => {
+  //           try {
+  //             await initDatabase(true);
+  //             setDbStatus('Database reset successfully');
+  //           } catch (error) {
+  //             console.error('Error resetting database:', error);
+  //             setDbStatus(`Error resetting database: ${error}`);
+  //           }
+  //         },
+  //       },
+  //     ]
+  //   );
+  // };
 
   return (
     <LinearGradient
@@ -178,7 +224,7 @@ export default function Index() {
             <Text style={[sharedStyles.link, { marginBottom: spacing.medium }]}>I forgot my password</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
+          <TouchableOpacity style={sharedStyles.button}>
             <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
 
@@ -190,7 +236,6 @@ export default function Index() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={handleResetDatabase}
             style={{ position: 'absolute', top: 10, right: 50, padding: 10 }}
           >
             <Ionicons name="refresh-outline" size={24} color={colors.text} />
@@ -199,7 +244,10 @@ export default function Index() {
           <Text>{dbStatus}</Text>
 
           {items.map((item) => (
-            <Text key={item.id}>{item.email}</Text>
+            <Text key={item.id}>
+              {item.englishName} ({item.nativeName}) - Created by ID: {item.creatorId}
+              {item.uiReady ? ' - UI Ready' : ' - Not UI Ready'}
+            </Text>
           ))}
           
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
