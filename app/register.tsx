@@ -10,7 +10,8 @@ import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
 // import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
 import { UserRepository } from '@/database_components/UserRepository';
 import { UserService } from '@/database_components/userService';
-import { Language, LanguageService } from '@/database_components/languageService';
+import { languageService } from '@/database_components/languageService';
+import { LanguageSelect } from '../database_components/types'; 
 import * as Crypto from 'expo-crypto';
 
 
@@ -20,7 +21,7 @@ import * as Crypto from 'expo-crypto';
 
 export default function Register() {
   const router = useRouter();
-  const [languages, setLanguages] = useState<Language[]>([]);
+  const [languages, setLanguages] = useState<LanguageSelect[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +36,7 @@ export default function Register() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await LanguageService.getUiReadyLanguages();
+      const loadedLanguages = await languageService.getUiReadyLanguages();
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {

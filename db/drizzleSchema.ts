@@ -7,42 +7,53 @@ type IconName = `${string}.png`;  // Matches any .png filename
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`CURRENT_TIMESTAMP`;
 
-export const user = sqliteTable("User", {
+// Base columns that all tables will have
+const baseColumns = {
   id: text().primaryKey().$defaultFn(() => uuidDefault),
   rev: int().notNull(),
+  createdAt: text().default(timestampDefault),
+  lastUpdated: text().default(timestampDefault)
+};
+
+// Additional columns for versioned tables
+const versionedColumns = {
+  versionChainId: text().notNull(),
+  versionNum: int().notNull()
+};
+
+export const user = sqliteTable("User", {
+  ...baseColumns,
+  ...versionedColumns,
   username: text().notNull(),
   password: text().notNull(),
   icon: text().$type<IconName>(),
-  versionChainId: text().notNull(),
-  versionNum: int().notNull(),
-  //createdLanguages
   achievements: text(),
-  createdAt: text().default(timestampDefault),
-  lastUpdated: text().default(timestampDefault)
+  uiLanguageId: text()
 });
 
-export const userRelations = relations(user, ({ many }) => ({
-  createdLanguages: many(language)  // Simplified version
+export const userRelations = relations(user, ({ many, one }) => ({
+  createdLanguages: many(language),
+  uiLanguage: one(language, {  
+    fields: [user.uiLanguageId],
+    references: [language.id],
+  })
 }));
 
 export const language = sqliteTable("Language", {
-  id: text().primaryKey().$defaultFn(() => uuidDefault),
-  rev: int().notNull(),
+  ...baseColumns,
+  ...versionedColumns,
   // Enforce the existence of either nativeName or englishName in the app
   nativeName: text(), // Enforce uniqueness across chains in the app
   englishName: text(), // Enforce uniqueness across chains in the app
   iso639_3: text(), // Enforce uniqueness across chains in the app
-  versionChainId: text().notNull(),
-  versionNum: int().notNull(), // Ensure version num unique within chain in the app
   uiReady: int({ mode: 'boolean' }).notNull(),
-  creatorId: text(),
-  createdAt: text().default(timestampDefault),
-  lastUpdated: text().default(timestampDefault)
+  creatorId: text()
 });
 
-export const languageRelations = relations(language, ({ one }) => ({
+export const languageRelations = relations(language, ({ one, many }) => ({
   creator: one(user, {
     fields: [language.creatorId],
     references: [user.id],
-  })
+  }),
+  uiUsers: many(user)
 }));

@@ -15,6 +15,13 @@
       "when": 1731548047857,
       "tag": "0001_rich_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1731643200902,
+      "tag": "0002_productive_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

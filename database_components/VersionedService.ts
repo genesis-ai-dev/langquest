@@ -1,101 +1,99 @@
 import { eq, and, desc, SQL, max } from 'drizzle-orm';
-import { SQLiteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { db } from '../db/database';
-import { BaseService, BaseEntity, BaseTable } from './BaseService';
-
-export interface VersionedEntity extends BaseEntity {
-  versionChainId: string;
-  versionNum: number;
-}
-
-export interface VersionedTable extends BaseTable {
-  versionChainId: ReturnType<typeof text>;
-  versionNum: ReturnType<typeof integer>;
-}
+import { BaseService } from './BaseService';
+import { DrizzleTable, VersionedTableColumns } from './tableTypes';
+import { VersionedSelect, VersionedInsert } from './types';
 
 export abstract class VersionedService<
-  TTable extends VersionedTable,
-  TEntity extends VersionedEntity
-> extends BaseService<TTable, TEntity> {
+  TTable extends DrizzleTable<VersionedTableColumns>,
+  TSelect extends VersionedSelect,
+  TInsert extends VersionedInsert
+> extends BaseService<TTable, TSelect, TInsert> {
   
-  async getLatestOfAll(): Promise<TEntity[]> {
+  async getLatestOfAll(): Promise<TSelect[]> {
     const subquery = db
       .select({
-      versionChainId: this.table.versionChainId,
-      maxVersion: max(this.table.versionNum as any)
+        versionChainId: this.table.versionChainId,
+        maxVersion: max(this.table.versionNum as any).as('maxVersion')
       })
       .from(this.table)
-      .groupBy(this.table.versionChainId as any)
+      .groupBy(this.table.versionChainId)
       .as('latest');
 
-    const records = await db
-      .select()
-      .from(this.table)
-      .innerJoin(
-      subquery,
-      and(
-        eq(this.table.versionChainId as any, subquery.versionChainId),
-        eq(this.table.versionNum as any, subquery.maxVersion)
-      )
-      )
-      .orderBy(this.getDefaultOrderBy());
-
-    // Fixed line: access the record directly since Drizzle already formats it correctly
-    return records.map(r => ({...r})) as TEntity[];
-    }
-
-  async getLatestVersion(chainId: string): Promise<TEntity | undefined> {
-    const [record] = await db
-      .select()
-      .from(this.table)
-      .where(eq(this.table.versionChainId as any, chainId))
-      .orderBy(desc(this.table.versionNum as any))
-      .limit(1);
-    
-    return record as TEntity;
-  }
-
-  async getVersions(chainId: string): Promise<TEntity[]> {
     return await db
       .select()
       .from(this.table)
-      .where(eq(this.table.versionChainId as any, chainId))
-      .orderBy(desc(this.table.versionNum as any)) as TEntity[];
+      .innerJoin(
+        subquery,
+        and(
+          eq(this.table.versionChainId, subquery.versionChainId),
+          eq(this.table.versionNum as any, subquery.maxVersion)
+        )
+      )
+      .orderBy(this.getDefaultOrderBy()) as TSelect[];
   }
 
-  async createNew(data: Omit<TEntity, keyof VersionedEntity>): Promise<TEntity> {
+  protected getLatestVersionsSubquery() {
+    return db
+      .select({
+        versionChainId: this.table.versionChainId,
+        maxVersion: max(this.table.versionNum as any).as('maxVersion')
+      })
+      .from(this.table)
+      .groupBy(this.table.versionChainId)
+      .as('latest');
+  }
+
+  async getLatestVersion(chainId: string): Promise<TSelect | undefined> {
+    const [record] = await db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.versionChainId, chainId))
+      .orderBy(desc(this.table.versionNum as any))
+      .limit(1);
+    
+    return record as TSelect;
+  }
+
+  async getVersions(chainId: string): Promise<TSelect[]> {
+    return await db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.versionChainId, chainId))
+      .orderBy(desc(this.table.versionNum as any)) as TSelect[];
+  }
+
+  async createNew(data: Omit<TInsert, keyof VersionedInsert>): Promise<TSelect> {
     return await this.create({
       ...data,
       versionNum: 1,
-      versionChainId: ''  // Will be updated to match id after creation
-    } as any);
+      versionChainId: '',  // Will be updated to match id after creation
+      rev: 1
+    } as TInsert);
   }
 
   async addVersion(
-    baseVersion: TEntity,
-    updates: Partial<Omit<TEntity, keyof VersionedEntity>>
-  ): Promise<TEntity> {
+    baseVersion: TSelect,
+    updates: Partial<Omit<TInsert, keyof VersionedInsert>>
+  ): Promise<TSelect> {
     return await this.create({
       ...baseVersion,
       ...updates,
       versionNum: baseVersion.versionNum + 1,
-      versionChainId: baseVersion.versionChainId
-    } as any);
+      versionChainId: baseVersion.versionChainId,
+      rev: 1
+    } as TInsert);
   }
 
   protected abstract getDefaultOrderBy(): SQL<unknown>;
 
-  // Override create to handle versionChainId
-  protected override async create(
-    data: Omit<TEntity, keyof BaseEntity>
-  ): Promise<TEntity> {
+  protected override async create(data: TInsert): Promise<TSelect> {
     const record = await super.create(data);
     
-    // If this is a new chain (versionNum === 1), set versionChainId to match id
-    if ((data as any).versionNum === 1) {
+    if (data.versionNum === 1) {
       return await this.update(record.id, {
         versionChainId: record.id
-      } as any);
+      } as Partial<TInsert>);
     }
     
     return record;
