@@ -11,8 +11,8 @@ const timestampDefault = sql`CURRENT_TIMESTAMP`;
 const baseColumns = {
   id: text().primaryKey().$defaultFn(() => uuidDefault),
   rev: int().notNull(),
-  createdAt: text().default(timestampDefault),
-  lastUpdated: text().default(timestampDefault)
+  createdAt: text().notNull().default(timestampDefault),
+  lastUpdated: text().notNull().default(timestampDefault)
 };
 
 // Additional columns for versioned tables
@@ -26,9 +26,9 @@ export const user = sqliteTable("User", {
   ...versionedColumns,
   username: text().notNull(),
   password: text().notNull(),
-  icon: text().$type<IconName>(),
-  achievements: text(),
-  uiLanguageId: text()
+  // icon: text().$type<IconName>(),
+  // achievements: text(),
+  uiLanguageId: text().notNull(),
 });
 
 export const userRelations = relations(user, ({ many, one }) => ({
@@ -47,7 +47,7 @@ export const language = sqliteTable("Language", {
   englishName: text(), // Enforce uniqueness across chains in the app
   iso639_3: text(), // Enforce uniqueness across chains in the app
   uiReady: int({ mode: 'boolean' }).notNull(),
-  creatorId: text()
+  creatorId: text(),
 });
 
 export const languageRelations = relations(language, ({ one, many }) => ({

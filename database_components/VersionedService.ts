@@ -1,6 +1,6 @@
 import { eq, and, desc, SQL, max } from 'drizzle-orm';
 import { db } from '../db/database';
-import { BaseService } from './BaseService';
+import { BaseService, DisplayField } from './BaseService';
 import { DrizzleTable, VersionedTableColumns } from './tableTypes';
 import { VersionedSelect, VersionedInsert } from './types';
 
@@ -33,6 +33,8 @@ export abstract class VersionedService<
       .orderBy(this.getDefaultOrderBy()) as TSelect[];
   }
 
+  protected abstract getDefaultOrderBy(): SQL<unknown>;
+
   protected getLatestVersionsSubquery() {
     return db
       .select({
@@ -63,7 +65,7 @@ export abstract class VersionedService<
       .orderBy(desc(this.table.versionNum as any)) as TSelect[];
   }
 
-  async createNew(data: Omit<TInsert, keyof VersionedInsert>): Promise<TSelect> {
+  async createNew(data: Omit<TInsert, keyof VersionedInsert | 'rev'>): Promise<TSelect> {
     return await this.create({
       ...data,
       versionNum: 1,
@@ -74,7 +76,7 @@ export abstract class VersionedService<
 
   async addVersion(
     baseVersion: TSelect,
-    updates: Partial<Omit<TInsert, keyof VersionedInsert>>
+    updates: Partial<Omit<TInsert, keyof VersionedInsert | 'rev'>>
   ): Promise<TSelect> {
     return await this.create({
       ...baseVersion,
@@ -85,17 +87,77 @@ export abstract class VersionedService<
     } as TInsert);
   }
 
-  protected abstract getDefaultOrderBy(): SQL<unknown>;
+  async updateVersion(
+    id: string,
+    updates: Partial<Omit<TInsert, keyof VersionedInsert | 'rev'>>
+  ): Promise<TSelect> {
+    return await this.update(id, updates as Partial<TInsert>);
+  }
 
-  protected override async create(data: TInsert): Promise<TSelect> {
-    const record = await super.create(data);
-    
-    if (data.versionNum === 1) {
-      return await this.update(record.id, {
-        versionChainId: record.id
-      } as Partial<TInsert>);
-    }
-    
-    return record;
+
+  abstract override getDisplayConfig(): {
+    card: {
+      title: (record: TSelect) => React.ReactNode;
+      subtitle?: (record: TSelect) => React.ReactNode;
+      content: (record: TSelect) => React.ReactNode[];
+    };
+    details: {
+      sections: Array<{
+        title: string;
+        content: (record: TSelect) => React.ReactNode[];
+      }>;
+      versionControls: {
+        onPreviousVersion?: (record: TSelect) => Promise<TSelect | undefined>;
+        onNextVersion?: (record: TSelect) => Promise<TSelect | undefined>;
+        getVersionInfo: (record: TSelect) => Promise<{
+          current: number;
+          total: number;
+          isLatest: boolean;
+        }>;
+      };
+    };
+    create: {
+      fields: (record?: TSelect) => Record<keyof Omit<TInsert, 'rev'>, DisplayField<any>>;
+    };
+    edit: {
+      fields: (record: TSelect) => Record<keyof Omit<TInsert, 'rev'>, DisplayField<any>>;
+    };
+  };
+
+  protected async getVersionInfo(record: TSelect) {
+    const versions = await this.getVersions(record.versionChainId);
+    return {
+      current: record.versionNum,
+      total: versions.length,
+      isLatest: record.versionNum === versions[0].versionNum
+    };
+  }
+
+  protected async getAdjacentVersion(
+    record: TSelect,
+    direction: 'previous' | 'next'
+  ): Promise<TSelect | undefined> {
+    const targetVersion = direction === 'previous' 
+      ? record.versionNum - 1 
+      : record.versionNum + 1;
+
+    return await db
+      .select()
+      .from(this.table)
+      .where(
+        and(
+          eq(this.table.versionChainId, record.versionChainId),
+          eq(this.table.versionNum as any, targetVersion)
+        )
+      )
+      .then(records => records[0] as TSelect | undefined);
+  }
+
+  protected async getPreviousVersion(record: TSelect): Promise<TSelect | undefined> {
+    return this.getAdjacentVersion(record, 'previous');
+  }
+  
+  protected async getNextVersion(record: TSelect): Promise<TSelect | undefined> {
+    return this.getAdjacentVersion(record, 'next');
   }
 }

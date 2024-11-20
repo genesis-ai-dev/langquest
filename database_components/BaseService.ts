@@ -4,6 +4,12 @@ import { db } from '../db/database';
 import { SQLiteTable, TableConfig } from 'drizzle-orm/sqlite-core';
 import { BaseSelect, BaseInsert } from './types';
 import { DrizzleTable, BaseTableColumns } from './tableTypes';
+import { ReactNode } from 'react';
+
+export interface DisplayField<T> {
+  component: React.ComponentType<any>;
+  props: Partial<T>;
+}
 
 export abstract class BaseService<
   TTable extends DrizzleTable<BaseTableColumns>,
@@ -70,4 +76,24 @@ export abstract class BaseService<
       .where(where);
     return record as TSelect;
   }
+
+  abstract getDisplayConfig(): {
+    card: {
+      title: (record: TSelect) => React.ReactNode;
+      subtitle?: (record: TSelect) => React.ReactNode;
+      content: (record: TSelect) => React.ReactNode[];
+    };
+    details: {
+      sections: Array<{
+        title: string;
+        content: (record: TSelect) => React.ReactNode[];
+      }>;
+    };
+    create: {
+      fields: (record?: TSelect) => Record<keyof Omit<TInsert, 'rev'>, DisplayField<any>>;
+    };
+    edit: {
+      fields: (record: TSelect) => Record<keyof Omit<TInsert, 'rev'>, DisplayField<any>>;
+    };
+  };
 }

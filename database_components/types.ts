@@ -5,8 +5,8 @@ import { language, user } from '../db/drizzleSchema';
 export type BaseSelect = {
   id: string;
   rev: number;
-  createdAt: string | null;
-  lastUpdated: string | null;
+  createdAt: string;
+  lastUpdated: string;
 };
 
 export type BaseInsert = Omit<BaseSelect, 'id' | 'createdAt' | 'lastUpdated'>;

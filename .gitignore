@@ -24,3 +24,5 @@ app/sqlite_in_expo.md
 *.db
 package-lock.json
 package-lock.json
+~$langquest types.xlsx
+langquest types.xlsx
