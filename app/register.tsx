@@ -9,7 +9,7 @@ import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
 // import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
 import { UserRepository } from '@/database_components/UserRepository';
-import { UserService } from '@/database_components/userService';
+import { userService } from '@/database_components/userService';
 import { languageService } from '@/database_components/languageService';
 import { LanguageSelect } from '../database_components/types'; 
 import * as Crypto from 'expo-crypto';
@@ -68,13 +68,13 @@ export default function Register() {
       const userData = {
         username: username.trim(),
         password,
-        rev: 1,
-        versionChainId: Crypto.randomUUID(), // Generate a new UUID
-        versionNum: 1,
-        uiLanguage: selectedLanguageId
+        // rev: 1,
+        // versionChainId: Crypto.randomUUID(), // Generate a new UUID
+        // versionNum: 1,
+        uiLanguageId: selectedLanguageId
       };
       
-      const newUser = await UserService.createUser(userData);
+      const newUser = await userService.createNew(userData);
       if (newUser) {
         Alert.alert('Success', 'Registration successful!', [
           { text: 'OK', onPress: () => router.push("/") }

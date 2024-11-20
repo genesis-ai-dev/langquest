@@ -88,8 +88,8 @@ export class UserService extends VersionedService<typeof user, UserSelect, UserI
           }
         ],
         versionControls: {
-          onPreviousVersion: this.getAdjacentVersion.bind(this),
-          onNextVersion: this.getAdjacentVersion.bind(this),
+          onPreviousVersion: this.getPreviousVersion.bind(this),
+          onNextVersion: this.getNextVersion.bind(this),
           getVersionInfo: this.getVersionInfo.bind(this)
         }
       },
@@ -115,7 +115,27 @@ export class UserService extends VersionedService<typeof user, UserSelect, UserI
               source: 'languages',
               placeholder: 'Select UI language'
             }
-          }
+          },
+          id:{
+            component: () => null,
+            props: {}            
+          },
+          createdAt:{
+            component: () => null,
+            props: {}
+          },
+          lastUpdated:{
+            component: () => null,
+            props: {}
+          },
+          versionChainId:{
+            component: () => null,
+            props: {}
+          },
+          versionNum:{
+            component: () => null,
+            props: {}
+          },
         })
       },
       edit: {
@@ -140,7 +160,28 @@ export class UserService extends VersionedService<typeof user, UserSelect, UserI
               source: 'languages',
               placeholder: 'Select UI language'
             }
-          }
+          },
+          //create null fields for versioned fields
+          id:{
+            component: () => null,
+            props: {}            
+          },
+          createdAt:{
+            component: () => null,
+            props: {}
+          },
+          lastUpdated:{
+            component: () => null,
+            props: {}
+          },
+          versionChainId:{
+            component: () => null,
+            props: {}
+          },
+          versionNum:{
+            component: () => null,
+            props: {}
+          },
         })
       }
     };
