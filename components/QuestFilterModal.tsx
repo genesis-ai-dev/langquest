@@ -155,9 +155,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
           </TouchableOpacity>
         </View>
         <ScrollView style={sharedStyles.modalContent}>
-            
           {activeTab === 'filter' ? (
-            
             filterData.map((section) => (
               <View key={section.id}>
                 <TouchableOpacity 
@@ -215,17 +213,14 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
               </View>
             ))
           )}
-
-
-
         </ScrollView>
         <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
           <Text style={sharedStyles.modalButtonText}>Apply</Text>
         </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 

@@ -2,13 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Asset } from '@/types/asset';
+import { AssetWithRelations } from '@/database_components/assetService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface AssetFilterModalProps {
   visible: boolean;
   onClose: () => void;
-  assets: Asset[];
+  assets: AssetWithRelations[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -39,7 +39,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
     
     assets.forEach(asset => {
       asset.tags.forEach(tag => {
-        const [heading, option] = tag.split(':');
+        const [heading, option] = tag.name.split(':');
         if (!sections[heading]) {
           sections[heading] = new Set();
         }
@@ -58,7 +58,13 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   }, [assets]);
 
   const sortingFields = useMemo(() => {
-    return ['title', 'fileType', ...new Set(assets.flatMap(asset => asset.tags.map(tag => tag.split(':')[0])))];
+    const fields = new Set(['name']);
+    assets.forEach(asset => {
+      asset.tags.forEach(tag => {
+        fields.add(tag.name.split(':')[0]);
+      });
+    });
+    return Array.from(fields);
   }, [assets]);
 
   useEffect(() => {
