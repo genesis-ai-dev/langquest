@@ -5,6 +5,8 @@ import m0000 from './0000_fixed_blade.sql';
 import m0001 from './0001_rich_white_tiger.sql';
 import m0002 from './0002_productive_king_bedlam.sql';
 import m0003 from './0003_dry_gargoyle.sql';
+import m0004 from './0004_free_madripoor.sql';
+import m0005 from './0005_normal_wraith.sql';
 
   export default {
     journal,
@@ -12,7 +14,9 @@ import m0003 from './0003_dry_gargoyle.sql';
       m0000,
 m0001,
 m0002,
-m0003
+m0003,
+m0004,
+m0005
     }
   }
   

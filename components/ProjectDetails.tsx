@@ -2,10 +2,16 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { Project } from '@/types/project';
+import { project, language } from '@/db/drizzleSchema';
+
+// Match the type from projectService
+type ProjectWithRelations = typeof project.$inferSelect & {
+  sourceLanguage: typeof language.$inferSelect;
+  targetLanguage: typeof language.$inferSelect;
+};
 
 interface ProjectDetailsProps {
-  project: Project;
+  project: ProjectWithRelations;
   onClose: () => void;
   onExplore: () => void;
 }
@@ -16,22 +22,22 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project, onClose
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
       <View style={styles.modal}>
         <Text style={styles.title}>{project.name}</Text>
-        <View style={styles.infoRow}>
-          <Ionicons name="people-outline" size={20} color={colors.text} />
-          <Text style={styles.infoText}>Members: {project.members}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Ionicons name={project.isPublic ? "globe-outline" : "lock-closed-outline"} size={20} color={colors.text} />
-          <Text style={styles.infoText}>{project.isPublic ? "Public" : "Private"}</Text>
-        </View>
+        
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
-          <Text style={styles.infoText}>{project.sourceLanguage} → {project.targetLanguage}</Text>
+          <Text style={styles.infoText}>
+            {project.sourceLanguage.nativeName || project.sourceLanguage.englishName} → 
+            {project.targetLanguage.nativeName || project.targetLanguage.englishName}
+          </Text>
         </View>
-        <View style={styles.infoRow}>
-          <Ionicons name={project.isLeader ? "ribbon" : "person"} size={20} color={colors.text} />
-          <Text style={styles.infoText}>{project.isLeader ? "You are the leader" : "You are a member"}</Text>
-        </View>
+
+        {project.description && (
+          <View style={styles.infoRow}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.text} />
+            <Text style={styles.infoText}>{project.description}</Text>
+          </View>
+        )}
+
         <TouchableOpacity style={styles.exploreButton} onPress={onExplore}>
           <Text style={styles.exploreButtonText}>Explore</Text>
         </TouchableOpacity>

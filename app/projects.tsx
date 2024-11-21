@@ -1,92 +1,115 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
-import { Project } from '@/types/project';
+import { colors, spacing, sharedStyles } from '@/styles/theme';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { projectService, ProjectWithRelations } from '@/database_components/projectService';
+import { languageService } from '@/database_components/languageService';
+import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import { project, language } from '@/db/drizzleSchema';
 
-type FilterType = 'member' | 'waiting' | 'search' | 'leader';
 
-const languages = ['English', 'Spanish', 'French', 'German', 'Italian', 'Japanese', 'Chinese'];
+type Project = typeof project.$inferSelect;
 
-const mockProjects: Project[] = [
-  { id: '1', name: 'Project 1', members: 3, isPublic: true, isLeader: false, sourceLanguage: 'English', targetLanguage: 'Spanish', isMember: true, isWaiting: false },
-  { id: '2', name: 'Project 2', members: 5, isPublic: false, isLeader: true, sourceLanguage: 'French', targetLanguage: 'German', isMember: true, isWaiting: false },
-  { id: '3', name: 'Project 3', members: 2, isPublic: true, isLeader: false, sourceLanguage: 'Spanish', targetLanguage: 'English', isMember: false, isWaiting: true },
-  { id: '4', name: 'Project 4', members: 4, isPublic: true, isLeader: true, sourceLanguage: 'German', targetLanguage: 'French', isMember: true, isWaiting: false },
-  { id: '5', name: 'Project 5', members: 6, isPublic: false, isLeader: false, sourceLanguage: 'Italian', targetLanguage: 'Japanese', isMember: false, isWaiting: false },
-];
+// type ProjectWithRelations = typeof project.$inferSelect & {
+//   sourceLanguage: typeof language.$inferSelect;
+//   targetLanguage: typeof language.$inferSelect;
+// };
 
-const ProjectCard: React.FC<{ project: Project }> = ({ project }) => (
+
+const ProjectCard: React.FC<{ project: ProjectWithRelations }> = ({ project }) => (
   <View style={sharedStyles.card}>
     <Text style={sharedStyles.cardTitle}>{project.name}</Text>
-    <View style={sharedStyles.cardInfo}>
-      <Ionicons name="people-outline" size={16} color={colors.text} />
-      <Text style={sharedStyles.cardInfoText}>{project.members}</Text>
-      <Ionicons name={project.isPublic ? "globe-outline" : "lock-closed-outline"} size={16} color={colors.text} />
-      {project.isLeader && <Ionicons name="ribbon-outline" size={16} color={colors.text} />}
-    </View>
-    <Text style={sharedStyles.cardLanguageText}>{project.sourceLanguage} → {project.targetLanguage}</Text>
+    <Text style={sharedStyles.cardLanguageText}>
+      {project.sourceLanguage.nativeName || project.sourceLanguage.englishName} → 
+      {project.targetLanguage.nativeName || project.targetLanguage.englishName}
+    </Text>
+    {project.description && (
+      <Text style={sharedStyles.cardDescription}>{project.description}</Text>
+    )}
   </View>
 );
 
-
 export default function Projects() {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<FilterType>('member');
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(null);
-  const [filteredProjects, setFilteredProjects] = useState(mockProjects);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<ProjectWithRelations[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<ProjectWithRelations[]>([]);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithRelations | null>(null);
+  const [languages, setLanguages] = useState<string[]>([]);
 
+  // Load projects and languages on mount
+  useEffect(() => {
+    loadProjects();
+    loadLanguages();
+  }, []);
+
+  // Filter projects when filters change
   useEffect(() => {
     filterProjects();
-  }, [activeFilter, sourceFilter, targetFilter]);
+  }, [sourceFilter, targetFilter, projects]);
+
+  const loadProjects = async () => {
+    try {
+      const loadedProjects = await projectService.getAllProjects();
+      setProjects(loadedProjects);
+      setFilteredProjects(loadedProjects);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      Alert.alert('Error', 'Failed to load projects');
+    }
+  };
+
+  const loadLanguages = async () => {
+    try {
+      const loadedLanguages = await languageService.getUiReadyLanguages();
+      const languageNames = loadedLanguages
+        .map(lang => lang.nativeName || lang.englishName)
+        .filter((name): name is string => name !== null);
+      setLanguages(languageNames);
+    } catch (error) {
+      console.error('Error loading languages:', error);
+    }
+  };
 
   const filterProjects = () => {
-    let filtered = mockProjects;
-
-    switch (activeFilter) {
-      case 'member':
-        filtered = filtered.filter(project => project.isMember);
-        break;
-      case 'waiting':
-        filtered = filtered.filter(project => project.isWaiting);
-        break;
-      case 'search':
-        filtered = filtered.filter(project => 
-          (sourceFilter === 'All' || project.sourceLanguage === sourceFilter) &&
-          (targetFilter === 'All' || project.targetLanguage === targetFilter)
-        );
-        break;
-      case 'leader':
-        filtered = filtered.filter(project => project.isLeader);
-        break;
+    let filtered = projects;
+    
+    if (showLanguageFilters) {
+      filtered = filtered.filter(project => {
+        const sourceMatch = sourceFilter === 'All' || 
+          project.sourceLanguage.nativeName === sourceFilter || 
+          project.sourceLanguage.englishName === sourceFilter;
+        const targetMatch = targetFilter === 'All' || 
+          project.targetLanguage.nativeName === targetFilter || 
+          project.targetLanguage.englishName === targetFilter;
+        return sourceMatch && targetMatch;
+      });
     }
 
     setFilteredProjects(filtered);
   };
 
-  const toggleFilter = (filter: FilterType) => {
-    if (activeFilter === filter) {
-      setActiveFilter('member');
-    } else {
-      setActiveFilter(filter);
+  const toggleSearch = () => {
+    setShowLanguageFilters(!showLanguageFilters);
+    if (!showLanguageFilters) {
+      setSourceFilter('All');
+      setTargetFilter('All');
     }
-    setShowLanguageFilters(filter === 'search');
   };
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleProjectPress = (project: Project) => {
+  const handleProjectPress = (project: ProjectWithRelations) => {
     setSelectedProject(project);
   };
 
@@ -114,28 +137,16 @@ export default function Projects() {
           
           <View style={sharedStyles.iconBar}>
             <TouchableOpacity 
-              style={[sharedStyles.iconButton, activeFilter === 'member' && sharedStyles.selectedIconButton]}
-              onPress={() => toggleFilter('member')}
+              style={[sharedStyles.iconButton, !showLanguageFilters && sharedStyles.selectedIconButton]}
+              onPress={() => setShowLanguageFilters(false)}
             >
               <Ionicons name="star-outline" size={24} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[sharedStyles.iconButton, activeFilter === 'waiting' && sharedStyles.selectedIconButton]}
-              onPress={() => toggleFilter('waiting')}
-            >
-              <Ionicons name="time-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[sharedStyles.iconButton, activeFilter === 'search' && sharedStyles.selectedIconButton]}
-              onPress={() => toggleFilter('search')}
+              style={[sharedStyles.iconButton, showLanguageFilters && sharedStyles.selectedIconButton]}
+              onPress={toggleSearch}
             >
               <Ionicons name="search-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[sharedStyles.iconButton, activeFilter === 'leader' && sharedStyles.selectedIconButton]}
-              onPress={() => toggleFilter('leader')}
-            >
-              <Ionicons name="ribbon-outline" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           
@@ -162,7 +173,7 @@ export default function Projects() {
                 search={true}
               />
             </View>
-            )}
+          )}
           
           <FlatList
             data={filteredProjects}

@@ -12,18 +12,12 @@ const baseColumns = {
   id: text().primaryKey().$defaultFn(() => uuidDefault),
   rev: int().notNull(),
   createdAt: text().notNull().default(timestampDefault),
-  lastUpdated: text().notNull().default(timestampDefault)
-};
-
-// Additional columns for versioned tables
-const versionedColumns = {
+  lastUpdated: text().notNull().default(timestampDefault),
   versionChainId: text().notNull(),
-  versionNum: int().notNull()
 };
 
 export const user = sqliteTable("User", {
   ...baseColumns,
-  ...versionedColumns,
   username: text().notNull(),
   password: text().notNull(),
   // icon: text().$type<IconName>(),
@@ -32,16 +26,17 @@ export const user = sqliteTable("User", {
 });
 
 export const userRelations = relations(user, ({ many, one }) => ({
-  createdLanguages: many(language),
+  createdLanguages: many(language, { relationName: 'creator' }),
   uiLanguage: one(language, {  
     fields: [user.uiLanguageId],
     references: [language.id],
-  })
+  }),
+  sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
+  targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
 export const language = sqliteTable("Language", {
   ...baseColumns,
-  ...versionedColumns,
   // Enforce the existence of either nativeName or englishName in the app
   nativeName: text(), // Enforce uniqueness across chains in the app
   englishName: text(), // Enforce uniqueness across chains in the app
@@ -55,5 +50,24 @@ export const languageRelations = relations(language, ({ one, many }) => ({
     fields: [language.creatorId],
     references: [user.id],
   }),
-  uiUsers: many(user)
+  uiUsers: many(user, { relationName: 'uiLanguage' }),
+}));
+
+export const project = sqliteTable("Project", {
+  ...baseColumns,
+  name: text().notNull(),
+  description: text(),
+  sourceLanguageId: text().notNull(),
+  targetLanguageId: text().notNull(),
+});
+
+export const projectRelations = relations(project, ({ one }) => ({
+  sourceLanguage: one(language, {
+    fields: [project.sourceLanguageId],
+    references: [language.id],
+  }),
+  targetLanguage: one(language, {
+    fields: [project.targetLanguageId],
+    references: [language.id],
+  }),
 }));

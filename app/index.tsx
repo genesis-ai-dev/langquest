@@ -17,7 +17,7 @@ import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { db } from '../db/database';
 import { userService } from '@/database_components/userService';
 import { handleMigrations } from '@/db/migrationHandler';
-import { seedEnglish } from '../db/seedDatabase';
+import { seedDatabase } from '../db/seedDatabase';
 
 const { user, language } = schema;
 
@@ -34,10 +34,6 @@ export default function Index() {
   const [items, setItems] = useState<typeof language.$inferSelect[] | null>(null);
 
   useEffect(() => {
-    seedEnglish();
-  }, []);
-
-  useEffect(() => {
     (async () => {
       const { success, error } = await handleMigrations();
       if (success) {
@@ -47,6 +43,7 @@ export default function Index() {
         console.error('Migration error:', error);
       }
     })();
+    seedDatabase();
   }, []);
 
 
