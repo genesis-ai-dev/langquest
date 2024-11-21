@@ -8,6 +8,7 @@ import m0003 from './0003_dry_gargoyle.sql';
 import m0004 from './0004_free_madripoor.sql';
 import m0005 from './0005_normal_wraith.sql';
 import m0006 from './0006_noisy_wrecker.sql';
+import m0007 from './0007_worried_randall_flagg.sql';
 
   export default {
     journal,
@@ -18,7 +19,8 @@ m0002,
 m0003,
 m0004,
 m0005,
-m0006
+m0006,
+m0007
     }
   }
   

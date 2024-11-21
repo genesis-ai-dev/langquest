@@ -1,7 +1,10 @@
 import { db } from './database';
-import { language, project, quest, tag, questToTags } from './drizzleSchema';
+import { user, language, project, quest, tag, questToTags, asset, assetToTags, questToAssets } from './drizzleSchema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
+global.Buffer = require('buffer').Buffer;
+
+const wipeFirst: boolean = false;
 
 async function seedTags() {
   const tagData = [
@@ -83,7 +86,7 @@ async function seedQuests() {
     const existingQuest = await db
       .select()
       .from(quest)
-      .where(eq(quest.versionChainId, data.versionChainId))
+      .where(eq(quest.name, data.name))
       .get();
 
     if (!existingQuest && data.projectId) {
@@ -110,8 +113,115 @@ async function seedQuests() {
   }
 }
 
+async function seedAssets() {
+  const [english] = await db
+    .select()
+    .from(language)
+    .where(eq(language.englishName, 'English'))
+    .limit(1);
+
+  const [spanish] = await db
+    .select()
+    .from(language)
+    .where(eq(language.englishName, 'Spanish'))
+    .limit(1);
+
+  // Get all quests
+  const quests = await db.select().from(quest);
+  
+  const assetData = [
+    {
+      name: 'Romans 1 English Text',
+      sourceLanguageId: english.id,
+      text: 'Paul, a servant of Christ Jesus, called to be an apostle...',
+      questId: quests[0].id,
+      versionChainId: randomUUID(),
+      tags: ['Book:Romans', 'Chapter:1', 'Type:Text']
+    },
+    {
+      name: 'Romans 2 English Text',
+      sourceLanguageId: english.id,
+      text: 'You, therefore, have no excuse, you who pass judgment on someone else...',
+      questId: quests[1].id,
+      versionChainId: randomUUID(),
+      tags: ['Book:Romans', 'Chapter:2', 'Type:Text']
+    },
+    {
+      name: 'Romanos 1 Spanish Text',
+      sourceLanguageId: spanish.id,
+      text: 'Pablo, siervo de Jesucristo, llamado a ser apóstol...',
+      questId: quests[2].id,
+      versionChainId: randomUUID(),
+      tags: ['Book:Romans', 'Chapter:1', 'Type:Text']
+    },
+    {
+      name: 'Romanos 2 Spanish Text',
+      sourceLanguageId: spanish.id,
+      text: 'Por lo tanto, no tienes excusa tú que juzgas a otros...',
+      questId: quests[3].id,
+      versionChainId: randomUUID(),
+      tags: ['Book:Romans', 'Chapter:2', 'Type:Text']
+    }
+  ];
+
+  // Get all tags
+  const tags = await db.select().from(tag);
+
+  for (const data of assetData) {
+    const existingAsset = await db
+      .select()
+      .from(asset)
+      .where(eq(asset.name, data.name))
+      .get();
+
+    if (!existingAsset) {
+      const [newAsset] = await db.insert(asset).values({
+        rev: 1,
+        name: data.name,
+        sourceLanguageId: data.sourceLanguageId,
+        text: data.text,
+        images: [],
+        audio: [],
+        versionChainId: data.versionChainId,
+      }).returning();
+
+      // Add asset-tag relationships
+      for (const tagName of data.tags) {
+        const relatedTag = tags.find(t => t.name === tagName);
+        if (relatedTag) {
+          await db.insert(assetToTags).values({
+            assetId: newAsset.id,
+            tagId: relatedTag.id,
+          });
+        }
+      }
+
+      // Add quest-asset relationship
+      await db.insert(questToAssets).values({
+        questId: data.questId,
+        assetId: newAsset.id,
+      });
+
+      console.log(`Asset ${data.name} seeded successfully`);
+    }
+  }
+}
+
 export async function seedDatabase() {
   try {
+    if (wipeFirst) {
+      // Delete all data in reverse order of dependencies
+      await db.delete(questToAssets);
+      await db.delete(assetToTags);
+      await db.delete(questToTags);
+      await db.delete(asset);
+      await db.delete(quest);
+      await db.delete(tag);
+      await db.delete(project);
+      await db.delete(language);
+      await db.delete(user);
+      console.log('Database wiped successfully');
+    }
     // Check if English already exists
     const existingEnglish = await db
       .select()
@@ -197,6 +307,7 @@ export async function seedDatabase() {
 
     await seedTags();
     await seedQuests();
+    await seedAssets();
   } catch (error) {
     console.error('Error seeding database:', error);
   }

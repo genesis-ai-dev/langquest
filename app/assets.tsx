@@ -1,59 +1,72 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Asset } from '@/types/asset';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { assetService, AssetWithRelations } from '@/database_components/assetService';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const mockAssets: Asset[] = [
-  { id: '1', title: 'Asset 1', description: 'Description for Asset 1', tags: ['Type:Image', 'Category:Background', 'Style:Modern'], fileType: 'PNG' },
-  { id: '2', title: 'Asset 2', description: 'Description for Asset 2', tags: ['Type:Audio', 'Category:SoundEffect', 'Style:Retro'], fileType: 'MP3' },
-  { id: '3', title: 'Asset 3', description: 'Description for Asset 3', tags: ['Type:Model', 'Category:Character', 'Style:Fantasy'], fileType: 'FBX' },
-  { id: '4', title: 'Asset 4', description: 'Description for Asset 4', tags: ['Type:Texture', 'Category:Environment', 'Style:Realistic'], fileType: 'JPG' },
-  { id: '5', title: 'Asset 5', description: 'Description for Asset 5', tags: ['Type:Script', 'Category:AI', 'Style:Procedural'], fileType: 'JS' },
-];
-
-const AssetCard: React.FC<{ asset: Asset; onPress: () => void }> = ({ asset, onPress }) => (
-    <TouchableOpacity onPress={onPress}>
-      <View style={sharedStyles.card}>
-        <Text style={sharedStyles.cardTitle}>{asset.title}</Text>
-        <Text style={sharedStyles.cardDescription}>{asset.description}</Text>
-        <View style={sharedStyles.cardInfo}>
-          <Text style={sharedStyles.cardInfoText}>{asset.fileType}</Text>
-          {asset.tags.map((tag, index) => (
-            <Text key={index} style={[sharedStyles.cardInfoText, styles.tag]}>{tag}</Text>
-          ))}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => (
+  <View style={sharedStyles.card}>
+    <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
+    {asset.text && (
+      <Text style={sharedStyles.cardDescription}>{asset.text}</Text>
+    )}
+    <View style={sharedStyles.cardInfo}>
+      <Text style={sharedStyles.cardInfoText}>
+        {asset.sourceLanguage.nativeName || asset.sourceLanguage.englishName}
+      </Text>
+      {asset.tags.map((tag) => (
+        <Text key={tag.id} style={[sharedStyles.cardInfoText, styles.tag]}>
+          {tag.name}
+        </Text>
+      ))}
+    </View>
+  </View>
+);
 
 export default function Assets() {
   const router = useRouter();
   const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredAssets, setFilteredAssets] = useState(mockAssets);
+  const [assets, setAssets] = useState<AssetWithRelations[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<AssetWithRelations[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
 
-  const applyFilters = useCallback((assets: Asset[], filters: Record<string, string[]>, search: string) => {
+  useEffect(() => {
+    loadAssets();
+  }, [questId]);
+
+  const loadAssets = async () => {
+    try {
+      if (!questId) return;
+      const loadedAssets = await assetService.getAssetsByQuestId(questId);
+      setAssets(loadedAssets);
+      setFilteredAssets(loadedAssets);
+    } catch (error) {
+      console.error('Error loading assets:', error);
+      Alert.alert('Error', 'Failed to load assets');
+    }
+  };
+
+  const applyFilters = useCallback((assets: AssetWithRelations[], filters: Record<string, string[]>, search: string) => {
     return assets.filter(asset => {
-      const matchesSearch = asset.title.toLowerCase().includes(search.toLowerCase()) ||
-                            asset.description.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = asset.name.toLowerCase().includes(search.toLowerCase()) ||
+                          asset.text.toLowerCase().includes(search.toLowerCase());
       
       const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
         if (selectedOptions.length === 0) return true;
         return asset.tags.some(tag => {
-          const [tagCategory, tagValue] = tag.split(':');
+          const [tagCategory, tagValue] = tag.name.split(':');
           return tagCategory.toLowerCase() === category.toLowerCase() && 
                  selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
         });
@@ -63,19 +76,25 @@ export default function Assets() {
     });
   }, []);
 
-  const applySorting = useCallback((assets: Asset[], sorting: SortingOption[]) => {
+  const applySorting = useCallback((assets: AssetWithRelations[], sorting: SortingOption[]) => {
     return [...assets].sort((a, b) => {
       for (const { field, order } of sorting) {
         let valueA: string, valueB: string;
 
-        if (field === 'title' || field === 'fileType') {
-          valueA = a[field].toLowerCase();
-          valueB = b[field].toLowerCase();
-        } else {
-          const tagA = a.tags.find(tag => tag.startsWith(`${field}:`));
-          const tagB = b.tags.find(tag => tag.startsWith(`${field}:`));
-          valueA = tagA ? tagA.split(':')[1].toLowerCase() : '';
-          valueB = tagB ? tagB.split(':')[1].toLowerCase() : '';
+        switch (field) {
+          case 'name':
+            valueA = a.name.toLowerCase();
+            valueB = b.name.toLowerCase();
+            break;
+          case 'language':
+            valueA = (a.sourceLanguage.nativeName || a.sourceLanguage.englishName)!.toLowerCase();
+            valueB = (b.sourceLanguage.nativeName || b.sourceLanguage.englishName)!.toLowerCase();
+            break;
+          default:
+            const tagA = a.tags.find(tag => tag.name.startsWith(`${field}:`));
+            const tagB = b.tags.find(tag => tag.name.startsWith(`${field}:`));
+            valueA = tagA ? tagA.name.split(':')[1].toLowerCase() : '';
+            valueB = tagB ? tagB.name.split(':')[1].toLowerCase() : '';
         }
 
         if (valueA < valueB) return order === 'asc' ? -1 : 1;
@@ -92,10 +111,10 @@ export default function Assets() {
   };
 
   useEffect(() => {
-    let filtered = applyFilters(mockAssets, activeFilters, searchQuery);
+    let filtered = applyFilters(assets, activeFilters, searchQuery);
     filtered = applySorting(filtered, activeSorting);
     setFilteredAssets(filtered);
-  }, [searchQuery, activeFilters, activeSorting, applyFilters, applySorting]);
+  }, [searchQuery, activeFilters, activeSorting, assets, applyFilters, applySorting]);
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
@@ -103,13 +122,6 @@ export default function Assets() {
 
   const handleApplySorting = (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
-  };
-
-  const handleAssetPress = (asset: Asset) => {
-    router.push({
-      pathname: "/assetView",
-      params: { assetId: asset.id, assetName: asset.title }
-    });
   };
 
   return (
@@ -122,8 +134,6 @@ export default function Assets() {
           <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={sharedStyles.title}>{questName} Assets</Text>
-          
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
@@ -146,10 +156,7 @@ export default function Assets() {
           <FlatList
             data={filteredAssets}
             renderItem={({ item }) => (
-                <AssetCard 
-                asset={item} 
-                onPress={() => handleAssetPress(item)}
-                />
+              <AssetCard asset={item} />
             )}
             keyExtractor={item => item.id}
             style={sharedStyles.list}
@@ -166,7 +173,7 @@ export default function Assets() {
           <AssetFilterModal
             visible={isFilterModalVisible}
             onClose={() => setIsFilterModalVisible(false)}
-            assets={mockAssets}
+            assets={assets}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}

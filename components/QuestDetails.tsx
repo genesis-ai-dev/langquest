@@ -1,44 +1,53 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { Quest } from '@/types/quest';
+import { quest, tag } from '@/db/drizzleSchema';
 import { useRouter } from 'expo-router';
 
+type QuestWithRelations = typeof quest.$inferSelect & {
+  tags: (typeof tag.$inferSelect)[];
+};
+
 interface QuestDetailsProps {
-  quest: Quest;
+  quest: QuestWithRelations;
   onClose: () => void;
 }
 
-export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose}) => {
-    const router = useRouter();
+export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
+  const router = useRouter();
   
-    const handleStartQuest = () => {
-      router.push({
-        pathname: "/assets",
-        params: { questId: quest.id, questName: quest.title }
-      });
-      onClose();
-    };
+  const handleStartQuest = () => {
+    router.push({
+      pathname: "/assets",
+      params: { questId: quest.id, questName: quest.name }
+    });
+    onClose();
+  };
     
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
       <View style={styles.modal}>
-        <Text style={styles.title}>{quest.title}</Text>
-        <View style={styles.infoRow}>
-          <Ionicons name="bookmark-outline" size={20} color={colors.text} />
-          <Text style={styles.infoText}>Difficulty: {quest.difficulty}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Ionicons name="time-outline" size={20} color={colors.text} />
-          <Text style={styles.infoText}>Status: {quest.status}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Ionicons name="pricetag-outline" size={20} color={colors.text} />
-          <Text style={styles.infoText}>Tags: {quest.tags.join(', ')}</Text>
-        </View>
-        <Text style={styles.description}>{quest.description}</Text>
+        <Text style={styles.title}>{quest.name}</Text>
+        
+        {quest.description && (
+          <Text style={styles.description}>{quest.description}</Text>
+        )}
+
+        {quest.tags.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {quest.tags.map((tag, index) => {
+              const [category, value] = tag.name.split(':');
+              return (
+                <View key={tag.id} style={styles.tagItem}>
+                  <Text style={styles.tagCategory}>{category}:</Text>
+                  <Text style={styles.tagValue}>{value}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
           <Text style={styles.startButtonText}>Start Quest</Text>
         </TouchableOpacity>
@@ -70,20 +79,27 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.medium,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.medium,
-  },
-  infoText: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginLeft: spacing.small,
-  },
   description: {
     fontSize: fontSizes.medium,
     color: colors.text,
     marginBottom: spacing.large,
+  },
+  tagsContainer: {
+    marginBottom: spacing.large,
+  },
+  tagItem: {
+    flexDirection: 'row',
+    marginBottom: spacing.small,
+  },
+  tagCategory: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    fontWeight: 'bold',
+    marginRight: spacing.small,
+  },
+  tagValue: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
   },
   startButton: {
     backgroundColor: colors.primary,

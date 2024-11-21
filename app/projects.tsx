@@ -9,11 +9,8 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { projectService, ProjectWithRelations } from '@/database_components/projectService';
 import { languageService } from '@/database_components/languageService';
-import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { project, language } from '@/db/drizzleSchema';
 
-
-type Project = typeof project.$inferSelect;
 
 // type ProjectWithRelations = typeof project.$inferSelect & {
 //   sourceLanguage: typeof language.$inferSelect;
