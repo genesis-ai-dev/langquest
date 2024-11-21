@@ -1,75 +1,74 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, Alert, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { Quest } from '@/types/quest';
 import { QuestDetails } from '@/components/QuestDetails';
+import { questService, QuestWithRelations } from '@/database_components/questService';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const mockQuests: Quest[] = [
-  { id: '1', title: '1st chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:1', 'Author:Paul'], difficulty: 'Easy', status: 'Not Started' },
-  { id: '2', title: '2nd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:2', 'Author:Paul'], difficulty: 'Medium', status: 'In Progress' },
-  { id: '3', title: '3rd chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:3', 'Author:Paul'], difficulty: 'Hard', status: 'Completed' },
-  { id: '4', title: '4th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:4', 'Author:Paul'], difficulty: 'Medium', status: 'Not Started' },
-  { id: '5', title: '5th chapter of Romans', description: '', tags: ['Book:Romans', 'Chapter:5', 'Author:Paul'], difficulty: 'Easy', status: 'In Progress' },
-];
-
-const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{quest.title}</Text>
-    <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
-    <View style={sharedStyles.cardInfo}>
-      <Text style={[sharedStyles.cardInfoText, { color: getDifficultyColor(quest.difficulty) }]}>{quest.difficulty}</Text>
-      <Text style={[sharedStyles.cardInfoText, { color: getStatusColor(quest.status) }]}>{quest.status}</Text>
+const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
+  const difficulty = quest.tags.find(tag => tag.name.startsWith('Difficulty:'))?.name.split(':')[1];
+  
+  return (
+    <View style={sharedStyles.card}>
+      <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
+      {quest.description && (
+        <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
+      )}
+      {difficulty && (
+        <View style={sharedStyles.cardInfo}>
+          <Text style={sharedStyles.cardInfoText}>{difficulty}</Text>
+        </View>
+      )}
     </View>
-  </View>
-);
-
-const getDifficultyColor = (difficulty: Quest['difficulty']) => {
-  switch (difficulty) {
-    case 'Easy': return colors.text;
-    case 'Medium': return colors.text;
-    case 'Hard': return colors.text;
-    default: return colors.text;
-  }
+  );
 };
 
-const getStatusColor = (status: Quest['status']) => {
-  switch (status) {
-    case 'Not Started': return colors.text;
-    case 'In Progress': return colors.text;
-    case 'Completed': return colors.text;
-    default: return colors.text;
-  }
-};
 
 export default function Quests() {
   const router = useRouter();
   const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredQuests, setFilteredQuests] = useState(mockQuests);
+  const [quests, setQuests] = useState<QuestWithRelations[]>([]);
+  const [filteredQuests, setFilteredQuests] = useState<QuestWithRelations[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+  const [selectedQuest, setSelectedQuest] = useState<QuestWithRelations | null>(null);
 
-  const applyFilters = useCallback((quests: Quest[], filters: Record<string, string[]>, search: string) => {
+  useEffect(() => {
+    loadQuests();
+  }, [projectId]);
+
+  const loadQuests = async () => {
+    try {
+      if (!projectId) return;
+      const loadedQuests = await questService.getQuestsByProjectId(projectId);
+      setQuests(loadedQuests);
+      setFilteredQuests(loadedQuests);
+    } catch (error) {
+      console.error('Error loading quests:', error);
+      Alert.alert('Error', 'Failed to load quests');
+    }
+  };
+
+  const applyFilters = useCallback((quests: QuestWithRelations[], filters: Record<string, string[]>, search: string) => {
     return quests.filter(quest => {
-      const matchesSearch = quest.title.toLowerCase().includes(search.toLowerCase()) ||
-                            quest.description.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = quest.name.toLowerCase().includes(search.toLowerCase()) ||
+                          (quest.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
       
       const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
         if (selectedOptions.length === 0) return true;
         return quest.tags.some(tag => {
-          const [tagCategory, tagValue] = tag.split(':');
+          const [tagCategory, tagValue] = tag.name.split(':');
           return tagCategory.toLowerCase() === category.toLowerCase() && 
                  selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
         });
@@ -79,23 +78,18 @@ export default function Quests() {
     });
   }, []);
 
-  const applySorting = useCallback((quests: Quest[], sorting: SortingOption[]) => {
+  const applySorting = useCallback((quests: QuestWithRelations[], sorting: SortingOption[]) => {
     return [...quests].sort((a, b) => {
       for (const { field, order } of sorting) {
-        let valueA: string, valueB: string;
-
-        if (field === 'title' || field === 'difficulty' || field === 'status') {
-          valueA = a[field].toLowerCase();
-          valueB = b[field].toLowerCase();
+        if (field === 'name') {
+          const comparison = a.name.localeCompare(b.name);
+          return order === 'asc' ? comparison : -comparison;
         } else {
-          const tagA = a.tags.find(tag => tag.startsWith(`${field}:`));
-          const tagB = b.tags.find(tag => tag.startsWith(`${field}:`));
-          valueA = tagA ? tagA.split(':')[1].toLowerCase() : '';
-          valueB = tagB ? tagB.split(':')[1].toLowerCase() : '';
+          const tagA = a.tags.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
+          const tagB = b.tags.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
+          const comparison = tagA.localeCompare(tagB);
+          if (comparison !== 0) return order === 'asc' ? comparison : -comparison;
         }
-
-        if (valueA < valueB) return order === 'asc' ? -1 : 1;
-        if (valueA > valueB) return order === 'asc' ? 1 : -1;
       }
       return 0;
     });
@@ -107,7 +101,7 @@ export default function Quests() {
     return filterCount + sortCount;
   };
 
-  const handleQuestPress = (quest: Quest) => {
+  const handleQuestPress = (quest: QuestWithRelations) => {
     setSelectedQuest(quest);
   };
 
@@ -115,46 +109,44 @@ export default function Quests() {
     setSelectedQuest(null);
   };
 
-  const handleStartQuest = () => {
-    // Implement the logic to start the quest
-    console.log('Starting quest:', selectedQuest?.title);
-    setSelectedQuest(null);
-  };
-
-  useEffect(() => {
-    const lowercasedQuery = searchQuery.toLowerCase();
-    const filtered = mockQuests.filter(quest =>
-      quest.title.toLowerCase().includes(lowercasedQuery) ||
-      quest.description.toLowerCase().includes(lowercasedQuery)
-    );
-    setFilteredQuests(filtered);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    let filtered = applyFilters(mockQuests, activeFilters, searchQuery);
-    filtered = applySorting(filtered, activeSorting);
-    setFilteredQuests(filtered);
-  }, [searchQuery, activeFilters, activeSorting, applyFilters, applySorting]);
-
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
+    const filtered = applyFilters(quests, filters, searchQuery);
+    const sorted = applySorting(filtered, activeSorting);
+    setFilteredQuests(sorted);
+    setIsFilterModalVisible(false);
   };
 
   const handleApplySorting = (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
+    const filtered = applyFilters(quests, activeFilters, searchQuery);
+    const sorted = applySorting(filtered, sorting);
+    setFilteredQuests(sorted);
   };
 
+  // Update filtered quests when search query changes
+  useEffect(() => {
+    const filtered = applyFilters(quests, activeFilters, searchQuery);
+    const sorted = applySorting(filtered, activeSorting);
+    setFilteredQuests(sorted);
+  }, [searchQuery, quests, applyFilters, applySorting]);
+
+  // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isFilterModalVisible) {
         setIsFilterModalVisible(false);
-        return true; // Prevent default behavior
+        return true;
       }
-      return false; // Let default behavior happen (exit the screen)
+      if (selectedQuest) {
+        setSelectedQuest(null);
+        return true;
+      }
+      return false;
     });
 
     return () => backHandler.remove();
-  }, [isFilterModalVisible]);
+  }, [isFilterModalVisible, selectedQuest]);
 
   return (
     <LinearGradient
@@ -205,24 +197,24 @@ export default function Quests() {
         animationType="fade"
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
-      <View style={{ flex: 1 }}>
-        <QuestFilterModal
-          visible={isFilterModalVisible}
-          onClose={() => setIsFilterModalVisible(false)}
-          quests={mockQuests}
-          onApplyFilters={handleApplyFilters}
-          onApplySorting={handleApplySorting}
-          initialFilters={activeFilters}
-          initialSorting={activeSorting}
+        <View style={{ flex: 1 }}>
+          <QuestFilterModal
+            visible={isFilterModalVisible}
+            onClose={() => setIsFilterModalVisible(false)}
+            quests={quests}
+            onApplyFilters={handleApplyFilters}
+            onApplySorting={handleApplySorting}
+            initialFilters={activeFilters}
+            initialSorting={activeSorting}
+          />
+        </View>
+      </Modal>
+      {selectedQuest && (
+        <QuestDetails
+          quest={selectedQuest}
+          onClose={handleCloseDetails}
         />
-      </View>
-    </Modal>
-    {selectedQuest && (
-      <QuestDetails
-        quest={selectedQuest}
-        onClose={handleCloseDetails}
-      />
-    )}
+      )}
     </LinearGradient>
   );
 }

@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Quest } from '@/types/quest';
+import { QuestWithRelations } from '@/database_components/questService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface QuestFilterModalProps {
-  visible: boolean; 
+  visible: boolean;
   onClose: () => void;
-  quests: Quest[];
+  quests: QuestWithRelations[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -39,7 +39,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
     
     quests.forEach(quest => {
       quest.tags.forEach(tag => {
-        const [heading, option] = tag.split(':');
+        const [heading, option] = tag.name.split(':');
         if (!sections[heading]) {
           sections[heading] = new Set();
         }
@@ -58,7 +58,13 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   }, [quests]);
 
   const sortingFields = useMemo(() => {
-    return [...new Set(quests.flatMap(quest => quest.tags.map(tag => tag.split(':')[0])))];
+    const fields = new Set(['name']);
+    quests.forEach(quest => {
+      quest.tags.forEach(tag => {
+        fields.add(tag.name.split(':')[0]);
+      });
+    });
+    return Array.from(fields);
   }, [quests]);
 
   useEffect(() => {

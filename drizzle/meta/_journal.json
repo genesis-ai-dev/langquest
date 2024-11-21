@@ -43,6 +43,13 @@
       "when": 1732145583762,
       "tag": "0005_normal_wraith",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1732158765713,
+      "tag": "0006_noisy_wrecker",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { int, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { int, sqliteTable, text, primaryKey, blob } from "drizzle-orm/sqlite-core";
 import { sql, relations } from "drizzle-orm";
 
 // Create a type from your actual icon files
@@ -69,5 +69,127 @@ export const projectRelations = relations(project, ({ one }) => ({
   targetLanguage: one(language, {
     fields: [project.targetLanguageId],
     references: [language.id],
+  }),
+}));
+
+export const quest = sqliteTable("Quest", {
+  ...baseColumns,
+  name: text().notNull(),
+  description: text(),
+  projectId: text().notNull(),
+});
+
+export const questRelations = relations(quest, ({ one, many }) => ({
+  project: one(project, {
+    fields: [quest.projectId],
+    references: [project.id],
+  }),
+  tags: many(questToTags),
+  assets: many(questToAssets),
+}));
+
+export const tag = sqliteTable("Tag", {
+  ...baseColumns,
+  name: text().notNull(),
+});
+
+export const tagRelations = relations(tag, ({ many }) => ({
+  quests: many(questToTags),
+  assets: many(assetToTags),
+}));
+
+export const questToTags = sqliteTable(
+  "QuestToTags",
+  {
+    questId: text("quest_id")
+      .notNull()
+      .references(() => quest.id),
+    tagId: text("tag_id")
+      .notNull() 
+      .references(() => tag.id),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.questId, t.tagId] }),
+  })
+);
+
+export const questToTagsRelations = relations(questToTags, ({ one }) => ({
+  quest: one(quest, {
+    fields: [questToTags.questId],
+    references: [quest.id],
+  }),
+  tag: one(tag, {
+    fields: [questToTags.tagId], 
+    references: [tag.id],
+  }),
+}));
+
+export const asset = sqliteTable("Asset", {
+  ...baseColumns,
+  name: text().notNull(),
+  sourceLanguageId: text().notNull(),
+  text: text().notNull(),
+  images: blob({ mode: 'json' }).$type<string[]>(),
+  audio: blob({ mode: 'json' }).$type<string[]>(),
+});
+
+export const assetRelations = relations(asset, ({ one, many }) => ({
+  sourceLanguage: one(language, {
+    fields: [asset.sourceLanguageId],
+    references: [language.id],
+  }),
+  tags: many(assetToTags),
+  quests: many(questToAssets),
+}));
+
+export const assetToTags = sqliteTable(
+  "AssetToTags",
+  {
+    assetId: text("asset_id")
+      .notNull()
+      .references(() => asset.id),
+    tagId: text("tag_id")
+      .notNull()
+      .references(() => tag.id),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.assetId, t.tagId] }),
+  })
+);
+
+export const assetToTagsRelations = relations(assetToTags, ({ one }) => ({
+  asset: one(asset, {
+    fields: [assetToTags.assetId],
+    references: [asset.id],
+  }),
+  tag: one(tag, {
+    fields: [assetToTags.tagId],
+    references: [tag.id],
+  }),
+}));
+
+export const questToAssets = sqliteTable(
+  "QuestToAssets",
+  {
+    questId: text("quest_id")
+      .notNull()
+      .references(() => quest.id),
+    assetId: text("asset_id")
+      .notNull()
+      .references(() => asset.id),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.questId, t.assetId] }),
+  })
+);
+
+export const questToAssetsRelations = relations(questToAssets, ({ one }) => ({
+  quest: one(quest, {
+    fields: [questToAssets.questId],
+    references: [quest.id],
+  }),
+  asset: one(asset, {
+    fields: [questToAssets.assetId],
+    references: [asset.id],
   }),
 }));
