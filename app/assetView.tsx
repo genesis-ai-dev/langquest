@@ -213,15 +213,16 @@ export default function AssetView() {
           </View>
         </SafeAreaView>
 
-        {/* {selectedTranslation && (
-          <TranslationModal
-            translation={selectedTranslation}
-            onClose={() => setSelectedTranslation(null)}
-            onVote={handleVote}
-          />
-        )}
+        {selectedTranslation && (
+      <TranslationModal
+        translation={selectedTranslation}
+        onClose={() => setSelectedTranslation(null)}
+        onVoteSubmitted={loadAssetAndTranslations}
+        userId="current-user-id" // TODO: Get from auth context
+      />
+    )}
         
-        <NewTranslationModal
+        {/* <NewTranslationModal
           visible={isNewTranslationModalVisible}
           onClose={() => setIsNewTranslationModalVisible(false)}
           onSubmit={handleNewTranslation}

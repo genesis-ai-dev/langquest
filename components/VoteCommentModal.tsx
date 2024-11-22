@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -13,15 +14,24 @@ interface VoteCommentModalProps {
 export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({ isVisible, onClose, onSubmit, voteType }) => {
   const [comment, setComment] = useState('');
 
-  const handleSubmit = () => {
-    onSubmit(comment);
-    setComment('');
-    onClose();
+  const handleSubmit = async () => {
+    try {
+      await onSubmit(comment);
+      setComment('');
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+      Alert.alert('Error', 'Failed to submit vote');
+    }
   };
 
-  const handleNoComment = () => {
-    onSubmit('');
-    onClose();
+  const handleNoComment = async () => {
+    try {
+      await onSubmit('');
+      setComment('');
+    } catch (error) {
+      console.error('Error in handleNoComment:', error);
+      Alert.alert('Error', 'Failed to submit vote');
+    }
   };
 
   return (

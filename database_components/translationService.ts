@@ -100,14 +100,14 @@ export class TranslationService {
     targetLanguageId: string;
     assetId: string;
     creatorId: string;
-    audio?: string[];
+    // audio?: string[];
   }) {
     const [newTranslation] = await db
       .insert(translation)
       .values({
         rev: 1,
         text: data.text,
-        audio: data.audio || [],
+        audio: [], // Empty array for now
         assetId: data.assetId,
         targetLanguageId: data.targetLanguageId,
         creatorId: data.creatorId,
