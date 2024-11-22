@@ -16,19 +16,19 @@ import { NewTranslationModal } from '@/components/NewTranslationModal';
 
 // Mock data for audio files and images
 const audioFiles = [
-  { id: '1', title: 'Audio 1', uri: require('@/sample_assets/audio1.mp3') },
-  { id: '2', title: 'Audio 2', uri: require('@/sample_assets/audio2.mp3') },
+  { id: '1', title: 'Audio 1', uri: require('@/sample_assets/audio/audio1.mp3') },
+  { id: '2', title: 'Audio 2', uri: require('@/sample_assets/audio/audio2.mp3') },
 ];
 
 const images = [
-  { id: '1', uri: require('@/sample_assets/asset_1_poohbear.png') },
-  { id: '2', uri: require('@/sample_assets/asset_2_hedgehog.png') },
+  { id: '1', uri: require('@/sample_assets/images/asset_1.png') },
+  { id: '2', uri: require('@/sample_assets/images/asset_2.png') },
 ];
 
 const translations = [
-  { id: '1', text: 'Translation 1', fullText: 'This is the full text for Translation 1...', audioUri: require('@/sample_assets/audio1.mp3'), voteRank: 5, dateSubmitted: '2024-04-01' },
-  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2...', audioUri: require('@/sample_assets/audio2.mp3'), voteRank: 3, dateSubmitted: '2023-04-05' },
-  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here...', audioUri: require('@/sample_assets/audio1.mp3'), voteRank: 7, dateSubmitted: '2023-03-28' },
+  { id: '1', text: 'Translation 1', fullText: 'This is the full text for Translation 1...', audioUri: require('@/sample_assets/audio/audio1.mp3'), voteRank: 5, dateSubmitted: '2024-04-01' },
+  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2...', audioUri: require('@/sample_assets/audio/audio2.mp3'), voteRank: 3, dateSubmitted: '2023-04-05' },
+  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here...', audioUri: require('@/sample_assets/audio/audio1.mp3'), voteRank: 7, dateSubmitted: '2023-03-28' },
 ];
 
 // Mock data for text snippets

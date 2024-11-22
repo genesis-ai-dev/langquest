@@ -1,5 +1,5 @@
 import { db } from './database';
-import { user, language, project, quest, tag, questToTags, asset, assetToTags, questToAssets } from './drizzleSchema';
+import { user, language, project, quest, tag, questToTags, asset, assetToTags, questToAssets, vote, translation } from './drizzleSchema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 global.Buffer = require('buffer').Buffer;
@@ -207,10 +207,132 @@ async function seedAssets() {
   }
 }
 
+async function seedTranslations() {
+  // Get assets first
+  const assets = await db.select().from(asset);
+  
+  // Get languages
+  const [english] = await db
+    .select()
+    .from(language)
+    .where(eq(language.englishName, 'English'))
+    .limit(1);
+
+  const [spanish] = await db
+    .select()
+    .from(language)
+    .where(eq(language.englishName, 'Spanish'))
+    .limit(1);
+
+  // Get a user for creator
+  const [sampleUser] = await db.select().from(user).limit(1);
+  if (!sampleUser) return;
+
+  const translationData = [
+    {
+      assetId: assets.find(a => a.name === 'Romans 1 English Text')?.id,
+      targetLanguageId: spanish.id,
+      text: 'Pablo, un siervo de Jesucristo, llamado a ser apóstol...',
+      audio: [],
+      creatorId: sampleUser.id,
+      versionChainId: randomUUID(),
+    },
+    {
+      assetId: assets.find(a => a.name === 'Romans 2 English Text')?.id,
+      targetLanguageId: spanish.id,
+      text: 'Por lo tanto, no tienes excusa, oh hombre...',
+      audio: [],
+      creatorId: sampleUser.id,
+      versionChainId: randomUUID(),
+    },
+    {
+      assetId: assets.find(a => a.name === 'Romans 1 Spanish Text')?.id,
+      targetLanguageId: english.id,
+      text: 'Paul, a servant of Christ Jesus, called to be an apostle...',
+      audio: [],
+      creatorId: sampleUser.id,
+      versionChainId: randomUUID(),
+    },
+    {
+      assetId: assets.find(a => a.name === 'Romans 2 Spanish Text')?.id,
+      targetLanguageId: english.id,
+      text: 'Therefore you have no excuse, O man...',
+      audio: [],
+      creatorId: sampleUser.id,
+      versionChainId: randomUUID(),
+    },
+  ];
+
+  for (const data of translationData) {
+    if (!data.assetId) continue;
+
+    const existingTranslation = await db
+      .select()
+      .from(translation)
+      .where(eq(translation.assetId, data.assetId))
+      .get();
+
+      if (!existingTranslation && data.assetId) {  // Add this check
+        const [newTranslation] = await db.insert(translation).values({
+          rev: 1,
+          assetId: data.assetId,  // Now guaranteed to be defined
+          targetLanguageId: data.targetLanguageId,
+          text: data.text,
+          audio: data.audio,
+          creatorId: data.creatorId,
+          versionChainId: data.versionChainId,
+        }).returning();
+
+      console.log(`Translation for asset ${data.assetId} seeded successfully`);
+
+      // Add some sample votes for each translation
+      await seedVotesForTranslation(newTranslation.id, sampleUser.id);
+    }
+  }
+}
+
+async function seedVotesForTranslation(translationId: string, userId: string) {
+  const voteData = [
+    {
+      translationId,
+      polarity: 'up',
+      comment: 'Great translation!',
+      creatorId: userId,
+      versionChainId: randomUUID(),
+    },
+    {
+      translationId,
+      polarity: 'down',
+      comment: 'Could be improved',
+      creatorId: userId,
+      versionChainId: randomUUID(),
+    },
+  ];
+
+  for (const data of voteData) {
+    const existingVote = await db
+      .select()
+      .from(vote)
+      .where(eq(vote.translationId, data.translationId))
+      .get();
+
+    if (!existingVote) {
+      await db.insert(vote).values({
+        rev: 1,
+        ...data,
+      });
+      console.log(`Vote for translation ${data.translationId} seeded successfully`);
+    }
+  }
+}
+
 export async function seedDatabase() {
   try {
     if (wipeFirst) {
       // Delete all data in reverse order of dependencies
+      await db.delete(vote);
+      await db.delete(translation);
+      await db.delete(assetToTags);
       await db.delete(questToAssets);
       await db.delete(assetToTags);
       await db.delete(questToTags);
@@ -308,6 +430,7 @@ export async function seedDatabase() {
     await seedTags();
     await seedQuests();
     await seedAssets();
+    await seedTranslations();
   } catch (error) {
     console.error('Error seeding database:', error);
   }

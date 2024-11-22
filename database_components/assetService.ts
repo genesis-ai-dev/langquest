@@ -9,6 +9,42 @@ export type AssetWithRelations = typeof asset.$inferSelect & {
 };
 
 export class AssetService {
+
+  async getAssetById(id: string) {
+    const sourceLanguage = aliasedTable(language, 'sourceLanguage');
+    const [foundAsset] = await db
+      .select({
+        id: asset.id,
+        rev: asset.rev,
+        createdAt: asset.createdAt,
+        lastUpdated: asset.lastUpdated,
+        versionChainId: asset.versionChainId,
+        name: asset.name,
+        text: asset.text,
+        images: asset.images,
+        audio: asset.audio,
+        sourceLanguageId: asset.sourceLanguageId,
+        sourceLanguage: {
+          id: sourceLanguage.id,
+          rev: sourceLanguage.rev,
+          createdAt: sourceLanguage.createdAt,
+          lastUpdated: sourceLanguage.lastUpdated,
+          versionChainId: sourceLanguage.versionChainId,
+          nativeName: sourceLanguage.nativeName,
+          englishName: sourceLanguage.englishName,
+          iso639_3: sourceLanguage.iso639_3,
+          uiReady: sourceLanguage.uiReady,
+          creatorId: sourceLanguage.creatorId,
+        },
+        tags: tag,
+      })
+      .from(asset)
+      .leftJoin(language, eq(asset.sourceLanguageId, language.id))
+      .where(eq(asset.id, id)) as AssetWithRelations[];
+    
+    return foundAsset;
+  }
+
   async getAssetsByQuestId(questId: string): Promise<AssetWithRelations[]> {
     const sourceLanguage = aliasedTable(language, 'sourceLanguage');
 
