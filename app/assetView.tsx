@@ -1,72 +1,101 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, BackHandler } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import { formatRelativeDate } from '@/utils/dateUtils';
+import { assetService, AssetWithRelations } from '@/database_components/assetService';
+import { translationService, TranslationWithRelations } from '@/database_components/translationService';
+import { voteService } from '@/database_components/voteService';
+import { TranslationModal } from '@/components/TranslationModal';
+import { NewTranslationModal } from '@/components/NewTranslationModal';
 import AudioPlayer from '@/components/AudioPlayer';
 import ImageCarousel from '@/components/ImageCarousel';
 import Carousel from '@/components/Carousel';
-import { TranslationModal } from '@/components/TranslationModal';
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { formatRelativeDate } from '@/utils/dateUtils';
-import { NewTranslationModal } from '@/components/NewTranslationModal';
 
-// Mock data for audio files and images
-const audioFiles = [
-  { id: '1', title: 'Audio 1', uri: require('@/sample_assets/audio/audio1.mp3') },
-  { id: '2', title: 'Audio 2', uri: require('@/sample_assets/audio/audio2.mp3') },
-];
-
-const images = [
-  { id: '1', uri: require('@/sample_assets/images/asset_1.png') },
-  { id: '2', uri: require('@/sample_assets/images/asset_2.png') },
-];
-
-const translations = [
-  { id: '1', text: 'Translation 1', fullText: 'This is the full text for Translation 1...', audioUri: require('@/sample_assets/audio/audio1.mp3'), voteRank: 5, dateSubmitted: '2024-04-01' },
-  { id: '2', text: 'Translation 2', fullText: 'Here is the complete version of Translation 2...', audioUri: require('@/sample_assets/audio/audio2.mp3'), voteRank: 3, dateSubmitted: '2023-04-05' },
-  { id: '3', text: 'Translation 3', fullText: 'The extended content for Translation 3 goes here...', audioUri: require('@/sample_assets/audio/audio1.mp3'), voteRank: 7, dateSubmitted: '2023-03-28' },
-];
-
-// Mock data for text snippets
-const textSnippets = [
-  { id: '1', content: 'This is the first sample text snippet for the asset. It provides a brief description or context about the asset being viewed.' },
-  { id: '2', content: 'Here\'s a second text snippet. It might contain additional information or details about the asset.' },
-  { id: '3', content: 'And this is a third snippet. You can add as many as needed to fully describe or explain the asset.' },
-];
+const ASSET_VIEWER_PROPORTION = 0.38;
 
 type TabType = 'text' | 'audio' | 'image';
-type SortOption = 'voteRank' | 'dateSubmitted';
+type SortOption = 'voteCount' | 'dateSubmitted';
 
-const ASSET_VIEWER_PROPORTION = 0.4;
 
-const AssetView = () => {
-  const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
+export default function AssetView() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const [selectedTranslation, setSelectedTranslation] = useState<typeof translations[0] | null>(null);
-  const [sortOption, setSortOption] = useState<SortOption>('voteRank');
-  const [sortedTranslations, setSortedTranslations] = useState(translations);
+  const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
+  const [asset, setAsset] = useState<AssetWithRelations | null>(null);
+  const [translations, setTranslations] = useState<TranslationWithRelations[]>([]);
+  const [sortOption, setSortOption] = useState<SortOption>('voteCount');
+  const [selectedTranslation, setSelectedTranslation] = useState<TranslationWithRelations | null>(null);
   const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
-  const renderTextContent = (item: { id: string; content: string }) => (
-    <View style={styles.textSnippetContainer}>
-      <Text style={styles.textSnippet}>{item.content}</Text>
-    </View>
-  );
+  useEffect(() => {
+    loadAssetAndTranslations();
+  }, [assetId]);
+
+  const loadAssetAndTranslations = async () => {
+    try {
+      if (!assetId) return;
+      const loadedAsset = await assetService.getAssetById(assetId);
+      if (loadedAsset) {
+        setAsset(loadedAsset);
+        const loadedTranslations = await translationService.getTranslationsByAssetId(assetId);
+        setTranslations(loadedTranslations);
+      }
+    } catch (error) {
+      console.error('Error loading asset and translations:', error);
+      Alert.alert('Error', 'Failed to load asset data');
+    }
+  };
+
+  const handleVote = async (translationId: string, polarity: 'up' | 'down') => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user-id';
+      await voteService.addVote({
+        translationId,
+        creatorId: userId,
+        polarity,
+      });
+      await loadAssetAndTranslations(); // Reload to get updated vote counts
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to submit vote');
+    }
+  };
+
+  const handleNewTranslation = async (data: { text: string; targetLanguageId: string }) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user-id';
+      await translationService.createTranslation({
+        ...data,
+        assetId: assetId!,
+        creatorId: userId,
+      });
+      setIsNewTranslationModalVisible(false);
+      await loadAssetAndTranslations();
+    } catch (error) {
+      console.error('Error creating translation:', error);
+      Alert.alert('Error', 'Failed to create translation');
+    }
+  };
 
   const getPreviewText = (fullText: string, maxLength: number = 50) => {
     if (fullText.length <= maxLength) return fullText;
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
-  const renderTranslationCard = ({ item }: { item: typeof translations[0] }) => (
+  const renderTranslationCard = ({ item }: { item: TranslationWithRelations }) => (
     <TouchableOpacity
       style={styles.translationCard}
       onPress={() => setSelectedTranslation(item)}
@@ -74,73 +103,39 @@ const AssetView = () => {
       <View style={styles.translationCardContent}>
         <View style={styles.translationCardLeft}>
           <Text style={styles.translationPreview} numberOfLines={2}>
-            {getPreviewText(item.fullText)}
+            {getPreviewText(item.text)}
+          </Text>
+          <Text style={styles.translatorInfo}>
+            by {item.creator.username} in {item.targetLanguage.nativeName || item.targetLanguage.englishName}
           </Text>
         </View>
         <View style={styles.translationCardRight}>
           <View style={styles.voteContainer}>
-            <Ionicons name="thumbs-up" size={16} color={colors.text} />
-            <Text style={styles.voteCount}>{item.voteRank}</Text>
+            <TouchableOpacity onPress={() => handleVote(item.id, 'up')}>
+              <Ionicons name="thumbs-up" size={16} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.voteCount}>{item.voteCount}</Text>
+            <TouchableOpacity onPress={() => handleVote(item.id, 'down')}>
+              <Ionicons name="thumbs-down" size={16} color={colors.text} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
       <View style={styles.cardFooter}>
-        <Text style={styles.dateSubmitted}>{formatRelativeDate(item.dateSubmitted)}</Text>
-        {item.audioUri && (
+        {/* <Text style={styles.dateSubmitted}>{formatRelativeDate(item.createdAt)}</Text>
+        {item.audio?.length > 0 && (
           <Ionicons name="volume-medium" size={20} color={colors.text} style={styles.audioIndicator} />
-        )}
+        )} */}
       </View>
     </TouchableOpacity>
   );
 
-  const handleNewTranslation = (text: string, audioUri: string | null) => {
-    // Here you would typically send this data to your backend
-    console.log('New translation:', { text, audioUri });
-    // For now, let's just add it to our local state
-    const newTranslation = {
-      id: (translations.length + 1).toString(),
-      text: text.substring(0, 50), // Preview text
-      fullText: text,
-      audioUri: audioUri,
-      voteRank: 0,
-      dateSubmitted: new Date().toISOString(),
-    };
-    setSortedTranslations([newTranslation, ...sortedTranslations]);
-  };
-
-  useEffect(() => {
-    const sorted = [...translations].sort((a, b) => {
-      if (sortOption === 'voteRank') {
-        return b.voteRank - a.voteRank;
-      } else {
-        return new Date(b.dateSubmitted).getTime() - new Date(a.dateSubmitted).getTime();
-      }
-    });
-    setSortedTranslations(sorted);
-  }, [sortOption]);
-
-  // Manage back button press to close translation modal if open
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (selectedTranslation) {
-        setSelectedTranslation(null);
-        return true; // Prevent default behavior
-      }
-      return false; // Let default behavior happen (exit the app)
-    });
-
-    return () => backHandler.remove(); // Clean up the event listener
-  }, [selectedTranslation]);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={styles.container}
-      >
+      <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={{ flex: 1 }}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.content}>
-            <Text style={styles.title}>{assetName}</Text>
+            <Text style={styles.title}>{asset?.name}</Text>
             
             <View style={styles.tabBar}>
               <TouchableOpacity
@@ -164,105 +159,125 @@ const AssetView = () => {
             </View>
 
             <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-              {activeTab === 'text' && <Carousel items={textSnippets} renderItem={renderTextContent} />}
-              {activeTab === 'audio' && <AudioPlayer audioFiles={audioFiles} useCarousel={true} />}
-              {activeTab === 'image' && <ImageCarousel images={images} />}
+              {activeTab === 'text' && (
+                <View style={styles.sourceTextContainer}>
+                  <Text style={styles.sourceLanguageLabel}>
+                    {asset?.sourceLanguage.nativeName || asset?.sourceLanguage.englishName}:
+                  </Text>
+                  <Text style={styles.sourceText}>{asset?.text}</Text>
+                </View>
+              )}
+              {/* {activeTab === 'audio' && <AudioPlayer audioFiles={asset?.audio || []} useCarousel={true} />}
+              {activeTab === 'image' && <ImageCarousel images={asset?.images || []} />} */}
             </View>
 
             <View style={styles.horizontalLine} />
 
             <View style={[styles.translationsContainer, { height: translationsContainerHeight }]}>
               <View style={styles.translationHeader}>
-              <Text style={styles.sortByLabel}>Sort by:</Text>
                 <View style={styles.alignmentContainer}>
-                  <CustomDropdown
-                    value={sortOption}
-                    options={[
-                      { label: 'Vote Rank', value: 'voteRank' },
-                      { label: 'Date Submitted', value: 'dateSubmitted' },
-                    ]}
-                    onSelect={(value) => setSortOption(value as SortOption)}
-                    fullWidth={false}
-                    search={false}
-                    containerStyle={styles.dropdownContainer}  // Add this line
-                  />
-                  <TouchableOpacity 
-                    style={styles.newTranslationButton} 
+                  <View style={styles.dropdownContainer}>
+                    <CustomDropdown
+                      label="Sort by"
+                      value={sortOption}
+                      options={[
+                        { label: 'Votes', value: 'voteCount' },
+                        { label: 'Date', value: 'dateSubmitted' }
+                      ]}
+                      onSelect={(value) => setSortOption(value as SortOption)}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.newTranslationButton}
                     onPress={() => setIsNewTranslationModalVisible(true)}
                   >
-                    <Ionicons name="add-circle-outline" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>New</Text>
+                    <Ionicons name="add" size={24} color={colors.buttonText} />
+                    <Text style={styles.newTranslationButtonText}>New Translation</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-              <FlatList
-                data={sortedTranslations}
-                renderItem={renderTranslationCard}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.translationsList} 
-              />
-              {selectedTranslation && (
-                <TranslationModal
-                  isVisible={!!selectedTranslation}
-                  onClose={() => setSelectedTranslation(null)}
-                  translation={selectedTranslation}
+
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <FlatList
+                  data={translations.sort((a, b) => 
+                    sortOption === 'voteCount' 
+                      ? b.voteCount - a.voteCount
+                      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                  )}
+                  renderItem={renderTranslationCard}
+                  keyExtractor={item => item.id}
+                  style={styles.translationsList}
                 />
-              )}
-              <NewTranslationModal
-                isVisible={isNewTranslationModalVisible}
-                onClose={() => setIsNewTranslationModalVisible(false)}
-                onSubmit={handleNewTranslation}
-              />
+              </GestureHandlerRootView>
             </View>
           </View>
         </SafeAreaView>
+
+        {/* {selectedTranslation && (
+          <TranslationModal
+            translation={selectedTranslation}
+            onClose={() => setSelectedTranslation(null)}
+            onVote={handleVote}
+          />
+        )}
+        
+        <NewTranslationModal
+          visible={isNewTranslationModalVisible}
+          onClose={() => setIsNewTranslationModalVisible(false)}
+          onSubmit={handleNewTranslation}
+          assetId={assetId}
+        /> */}
       </LinearGradient>
     </GestureHandlerRootView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.medium,
   },
   safeArea: {
     flex: 1,
+  },
+  title: {
+    fontSize: fontSizes.large,
+    color: colors.text,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginHorizontal: spacing.small,
   },
   content: {
     flex: 1,
     paddingTop: spacing.medium, // Add padding to the top
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sourceTextContainer: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
     padding: spacing.medium,
+    marginHorizontal: spacing.medium,
+    marginBottom: spacing.medium,
   },
-  backButton: {
-    marginRight: spacing.medium,
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
+  sourceLanguageLabel: {
+    fontSize: fontSizes.medium,
     color: colors.text,
-    textAlign: 'center',
+    fontWeight: 'bold',
     marginBottom: spacing.small,
+  },
+  sourceText: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
   },
   assetViewer: {
     flex: 1,
     // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
   },
-  assetSnippetContainer: {
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    marginHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
-  },
-  assetSnippet: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    padding: spacing.medium,
+  horizontalLine: {
+    height: 1,
+    backgroundColor: colors.inputBorder,
+    marginVertical: spacing.medium,
   },
   tabBar: {
     flexDirection: 'row',
@@ -283,52 +298,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textSnippetContainer: {
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    marginHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
-    width: '90%', // Adjust as needed
-  },
-  textSnippet: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-  },
-  divider: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 20,
-    backgroundColor: colors.inputBorder,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   translationsContainer: {
     // flex: 1,
-    // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
   },
   translationsList: {
     padding: spacing.medium,
-  },
-  translationText: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
   },
   translationHeader: {
     paddingHorizontal: spacing.medium,
     marginBottom: spacing.medium,
   },
-  sortByLabel: {
-    color: colors.text,
-    fontSize: fontSizes.small,
-    marginBottom: spacing.small,
-  },
   alignmentContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',  // Change this to 'center'
+    alignItems: 'flex-end',
   },
   dropdownContainer: {
     flex: 1,
@@ -349,35 +332,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: spacing.small,
   },
-  horizontalLine: {
-    height: 1,
-    backgroundColor: colors.inputBorder,
-    marginVertical: spacing.medium,
-  },
   translationCard: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     marginBottom: spacing.medium,
-    minHeight: 85,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: spacing.small,
-    left: spacing.medium,
-    right: spacing.medium,
-  },
-  dateSubmitted: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small,
   },
   translationCardContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.small, // Add space between content and date
   },
   translationCardLeft: {
     flex: 1,
@@ -385,25 +348,37 @@ const styles = StyleSheet.create({
   },
   translationCardRight: {
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
   },
   translationPreview: {
     color: colors.text,
     fontSize: fontSizes.medium,
+    marginBottom: spacing.small,
+  },
+  translatorInfo: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
+    marginBottom: spacing.xsmall,
+  },
+  dateSubmitted: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
   },
   voteContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.small,
+    gap: spacing.small,
   },
   voteCount: {
     color: colors.text,
     fontSize: fontSizes.small,
-    marginLeft: spacing.small,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.small,
   },
   audioIndicator: {
     // marginTop: spacing.medium,
   },
 });
-
-export default AssetView;

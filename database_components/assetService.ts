@@ -39,10 +39,21 @@ export class AssetService {
         tags: tag,
       })
       .from(asset)
-      .leftJoin(language, eq(asset.sourceLanguageId, language.id))
-      .where(eq(asset.id, id)) as AssetWithRelations[];
+      .leftJoin(sourceLanguage, eq(asset.sourceLanguageId, sourceLanguage.id)) // Fix: use sourceLanguage alias
+      .leftJoin(assetToTags, eq(assetToTags.assetId, asset.id))
+      .leftJoin(tag, eq(tag.id, assetToTags.tagId))
+      .where(eq(asset.id, id));
     
-    return foundAsset;
+    // Group tags like in getAssetsByQuestId
+    if (!foundAsset || !foundAsset.sourceLanguage) return null;
+
+    const assetWithTags: AssetWithRelations = {
+      ...foundAsset,
+      sourceLanguage: foundAsset.sourceLanguage,
+      tags: foundAsset.tags ? [foundAsset.tags] : [],
+    };
+
+    return assetWithTags;
   }
 
   async getAssetsByQuestId(questId: string): Promise<AssetWithRelations[]> {

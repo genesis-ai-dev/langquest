@@ -13,25 +13,37 @@ interface SortingOption {
   order: 'asc' | 'desc';
 }
 
-const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
-    {asset.text && (
-      <Text style={sharedStyles.cardDescription}>{asset.text}</Text>
-    )}
-    <View style={sharedStyles.cardInfo}>
-      <Text style={sharedStyles.cardInfoText}>
-        {asset.sourceLanguage.nativeName || asset.sourceLanguage.englishName}
-      </Text>
-      {asset.tags.map((tag) => (
-        <Text key={tag.id} style={[sharedStyles.cardInfoText, styles.tag]}>
-          {tag.name}
+const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
+  const router = useRouter();
+  
+  return (
+    <TouchableOpacity 
+      style={sharedStyles.card}
+      onPress={() => router.push({
+        pathname: "/assetView",
+        params: { 
+          assetId: asset.id,
+          assetName: asset.name
+        }
+      })}
+    >
+      <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
+      {asset.text && (
+        <Text style={sharedStyles.cardDescription}>{asset.text}</Text>
+      )}
+      <View style={sharedStyles.cardInfo}>
+        <Text style={sharedStyles.cardInfoText}>
+          {asset.sourceLanguage.nativeName || asset.sourceLanguage.englishName}
         </Text>
-      ))}
-    </View>
-  </View>
-);
-
+        {asset.tags.map((tag) => (
+          <Text key={tag.id} style={[sharedStyles.cardInfoText, styles.tag]}>
+            {tag.name}
+          </Text>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+};
 export default function Assets() {
   const router = useRouter();
   const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
