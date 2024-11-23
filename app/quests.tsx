@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
 import { questService, QuestWithRelations } from '@/database_components/questService';
+import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface SortingOption {
   field: string;
@@ -35,6 +36,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 
 export default function Quests() {
   const router = useRouter();
+  const { setActiveQuest } = useProjectContext();
   const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [quests, setQuests] = useState<QuestWithRelations[]>([]);
@@ -102,6 +104,7 @@ export default function Quests() {
   };
 
   const handleQuestPress = (quest: QuestWithRelations) => {
+    setActiveQuest(quest);
     setSelectedQuest(quest);
   };
 

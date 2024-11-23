@@ -7,6 +7,7 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { assetService, AssetWithRelations } from '@/database_components/assetService';
+import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface SortingOption {
   field: string;
@@ -14,19 +15,8 @@ interface SortingOption {
 }
 
 const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
-  const router = useRouter();
-  
   return (
-    <TouchableOpacity 
-      style={sharedStyles.card}
-      onPress={() => router.push({
-        pathname: "/assetView",
-        params: { 
-          assetId: asset.id,
-          assetName: asset.name
-        }
-      })}
-    >
+    <View style={sharedStyles.card}>
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
       {asset.text && (
         <Text style={sharedStyles.cardDescription}>{asset.text}</Text>
@@ -41,11 +31,12 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
           </Text>
         ))}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 export default function Assets() {
   const router = useRouter();
+  const { setActiveAsset } = useProjectContext();
   const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [assets, setAssets] = useState<AssetWithRelations[]>([]);
@@ -136,6 +127,17 @@ export default function Assets() {
     setActiveSorting(sorting);
   };
 
+  const handleAssetPress = (asset: AssetWithRelations) => {
+    setActiveAsset(asset);
+    router.push({
+      pathname: "/assetView",
+      params: { 
+        assetId: asset.id,
+        assetName: asset.name
+      }
+    });
+  };
+
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
@@ -168,7 +170,9 @@ export default function Assets() {
           <FlatList
             data={filteredAssets}
             renderItem={({ item }) => (
-              <AssetCard asset={item} />
+              <TouchableOpacity onPress={() => handleAssetPress(item)}>
+                <AssetCard asset={item} />
+              </TouchableOpacity>
             )}
             keyExtractor={item => item.id}
             style={sharedStyles.list}

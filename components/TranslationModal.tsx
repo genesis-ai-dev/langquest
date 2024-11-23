@@ -9,24 +9,30 @@ import { voteService } from '@/database_components/voteService';
 import { translationService } from '@/database_components/translationService';
 import { vote } from '@/db/drizzleSchema';
 import { Alert } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TranslationModalProps {
   translation: TranslationWithRelations;
   onClose: () => void;
   onVoteSubmitted: () => void;
-  userId: string; // TODO: Get from auth context
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({ 
   translation: initialTranslation, 
   onClose, 
   onVoteSubmitted,
-  userId 
 }) => {
+  const { currentUser } = useAuth();
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUserVote();
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     loadUserVote();
@@ -38,7 +44,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const loadUserVote = async () => {
     try {
-      const vote = await voteService.getUserVoteForTranslation(translation.id, userId);
+      const vote = await voteService.getUserVoteForTranslation(translation.id, currentUser!.id);
       setUserVote(vote);
     } catch (error) {
       console.error('Error loading user vote:', error);
@@ -46,12 +52,16 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   };
 
   const handleVote = async (voteType: 'up' | 'down') => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to vote');
+      return;
+    }
     // If clicking the same vote type, remove the vote without showing modal
     if (userVote?.polarity === voteType) {
       try {
         await voteService.addVote({
           translationId: translation.id,
-          creatorId: userId,
+          creatorId: currentUser.id,
           polarity: voteType,
         });
         
@@ -80,7 +90,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     try {
       await voteService.addVote({
         translationId: translation.id,
-        creatorId: userId,
+        creatorId: currentUser!.id,
         polarity: currentVoteType,
         comment: comment || undefined,
       });

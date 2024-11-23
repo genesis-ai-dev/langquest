@@ -10,6 +10,8 @@ import { CustomDropdown } from '@/components/CustomDropdown';
 import { projectService, ProjectWithRelations } from '@/database_components/projectService';
 import { languageService } from '@/database_components/languageService';
 import { project, language } from '@/db/drizzleSchema';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { AuthGuard } from '@/guards/AuthGuard';
 
 
 // type ProjectWithRelations = typeof project.$inferSelect & {
@@ -41,6 +43,7 @@ export default function Projects() {
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithRelations[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithRelations | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
+  const { setActiveProject } = useProjectContext();
 
   // Load projects and languages on mount
   useEffect(() => {
@@ -107,6 +110,7 @@ export default function Projects() {
   };
 
   const handleProjectPress = (project: ProjectWithRelations) => {
+    setActiveProject(project);
     setSelectedProject(project);
   };
 
@@ -124,6 +128,7 @@ export default function Projects() {
   };
 
   return (
+    <AuthGuard>
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={{ flex: 1 }}
@@ -192,5 +197,6 @@ export default function Projects() {
         />
       )}
     </LinearGradient>
+    </AuthGuard>
   );
 }

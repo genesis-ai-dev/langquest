@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWi
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -11,10 +12,21 @@ interface VoteCommentModalProps {
   voteType: 'up' | 'down';
 }
 
-export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({ isVisible, onClose, onSubmit, voteType }) => {
+export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({ 
+  isVisible, 
+  onClose, 
+  onSubmit, 
+  voteType 
+}) => {
+  const { currentUser } = useAuth();
   const [comment, setComment] = useState('');
 
   const handleSubmit = async () => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to vote');
+      return;
+    }
+
     try {
       await onSubmit(comment);
       setComment('');

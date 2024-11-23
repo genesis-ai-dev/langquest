@@ -73,16 +73,8 @@ export default function AssetView() {
     }
   };
 
-  const handleNewTranslation = async (data: { text: string; targetLanguageId: string }) => {
+  const handleNewTranslation = async () => {
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user-id';
-      await translationService.createTranslation({
-        ...data,
-        assetId: assetId!,
-        creatorId: userId,
-      });
-      setIsNewTranslationModalVisible(false);
       await loadAssetAndTranslations();
     } catch (error) {
       console.error('Error creating translation:', error);
@@ -214,20 +206,19 @@ export default function AssetView() {
         </SafeAreaView>
 
         {selectedTranslation && (
-      <TranslationModal
-        translation={selectedTranslation}
-        onClose={() => setSelectedTranslation(null)}
-        onVoteSubmitted={loadAssetAndTranslations}
-        userId="current-user-id" // TODO: Get from auth context
-      />
-    )}
+          <TranslationModal
+            translation={selectedTranslation}
+            onClose={() => setSelectedTranslation(null)}
+            onVoteSubmitted={loadAssetAndTranslations}
+          />
+        )}
         
-        {/* <NewTranslationModal
-          visible={isNewTranslationModalVisible}
-          onClose={() => setIsNewTranslationModalVisible(false)}
-          onSubmit={handleNewTranslation}
-          assetId={assetId}
-        /> */}
+        <NewTranslationModal
+        isVisible={isNewTranslationModalVisible}
+        onClose={() => setIsNewTranslationModalVisible(false)}
+        onSubmit={handleNewTranslation}
+        assetId={assetId!}
+      />
       </LinearGradient>
     </GestureHandlerRootView>
   );

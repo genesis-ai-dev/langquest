@@ -1,24 +1,62 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioRecorder from './AudioRecorder';
+import { translationService } from '@/database_components/translationService';
+import { CustomDropdown } from './CustomDropdown';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (text: string, audioUri: string | null) => void;
+  onSubmit: () => void;
+  assetId: string;
 }
 
-export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ isVisible, onClose, onSubmit }) => {
+export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ 
+  isVisible, 
+  onClose, 
+  onSubmit,
+  assetId,
+}) => {
+  const { currentUser } = useAuth();
+  const { activeProject } = useProjectContext();
   const [translationText, setTranslationText] = useState('');
-  const [audioUri, setAudioUri] = useState<string | null>(null);
+  // const [selectedLanguageId, setSelectedLanguageId] = useState('');
 
-  const handleSubmit = () => {
-    onSubmit(translationText, audioUri);
-    setTranslationText('');
-    setAudioUri(null);
-    onClose();
+  const handleSubmit = async () => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to submit translations');
+      return;
+    }
+
+    if (!activeProject) {
+      Alert.alert('Error', 'No active project found');
+      return;
+    }
+    
+    if (!translationText.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await translationService.createTranslation({
+        text: translationText.trim(),
+        targetLanguageId: activeProject.targetLanguageId,
+        assetId,
+        creatorId: currentUser.id,
+      });
+      
+      setTranslationText('');
+      onSubmit();
+      onClose();
+    } catch (error) {
+      console.error('Error creating translation:', error);
+      Alert.alert('Error', 'Failed to create translation');
+    }
   };
 
   return (
@@ -35,7 +73,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ isVisi
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
+              
               <Text style={styles.title}>New Translation</Text>
+              
+
               <TextInput
                 style={styles.textInput}
                 multiline
@@ -44,8 +85,17 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ isVisi
                 value={translationText}
                 onChangeText={setTranslationText}
               />
-              <AudioRecorder onRecordingComplete={setAudioUri} />
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+
+              <AudioRecorder onRecordingComplete={() => {}} />
+
+              <TouchableOpacity 
+                style={[
+                  styles.submitButton,
+                  (!translationText.trim()) && styles.submitButtonDisabled
+                ]} 
+                onPress={handleSubmit}
+                disabled={!translationText.trim()}
+              >
                 <Text style={styles.submitButtonText}>Submit</Text>
               </TouchableOpacity>
             </View>
@@ -100,5 +150,8 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold',
+  },
+  submitButtonDisabled: {
+    backgroundColor: colors.backgroundSecondary,
   },
 });

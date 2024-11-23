@@ -18,6 +18,7 @@ import { db } from '../db/database';
 import { userService } from '@/database_components/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import { seedDatabase } from '../db/seedDatabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { user, language } = schema;
 
@@ -26,6 +27,7 @@ const { user, language } = schema;
 
 export default function Index() {
   const router = useRouter();
+  const { setCurrentUser } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -49,8 +51,9 @@ export default function Index() {
 
   const handleSignIn = async () => {
     try {
-      const user = await userService.validateCredentials(username, password);
-      if (user) {
+      const authenticatedUser = await userService.validateCredentials(username, password);
+      if (authenticatedUser) {
+        setCurrentUser(authenticatedUser);
         router.push("/projects");
       } else {
         Alert.alert('Error', 'Invalid username or password');
