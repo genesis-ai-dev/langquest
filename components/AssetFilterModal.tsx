@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   sortingRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: spacing.medium,
   },
   orderToggle: {

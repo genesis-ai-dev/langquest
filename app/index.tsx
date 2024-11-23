@@ -109,13 +109,6 @@ export default function Index() {
             <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={() => router.push("/dbdev")}
-            style={{ position: 'absolute', top: 10, right: 10, padding: 10 }}
-          >
-            <Ionicons name="construct-outline" size={24} color={colors.text} />
-          </TouchableOpacity>
-
           <Text>{dbStatus}</Text>
           
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
