@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
-import { assetService, AssetWithRelations } from '@/database_components/assetService';
+import { assetService, AssetWithRelations } from '@/database_services/assetService';
 import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface SortingOption {

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { AssetWithRelations } from '@/database_components/assetService';
+import { AssetWithRelations } from '@/database_services/assetService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface AssetFilterModalProps {

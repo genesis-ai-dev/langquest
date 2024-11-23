@@ -4,9 +4,9 @@ import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from './AudioPlayer';
 import { VoteCommentModal } from './VoteCommentModal';
-import { TranslationWithRelations } from '@/database_components/translationService';
-import { voteService } from '@/database_components/voteService';
-import { translationService } from '@/database_components/translationService';
+import { TranslationWithRelations } from '@/database_services/translationService';
+import { voteService } from '@/database_services/voteService';
+import { translationService } from '@/database_services/translationService';
 import { vote } from '@/db/drizzleSchema';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,8 +51,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     }
   };
 
+  const isOwnTranslation = currentUser?.id === translation.creatorId;
+
   const handleVote = async (voteType: 'up' | 'down') => {
-    if (!currentUser) {
+    if (!currentUser || isOwnTranslation) {
       Alert.alert('Error', 'You must be logged in to vote');
       return;
     }
@@ -136,7 +138,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         </View>
 
         <View style={styles.feedbackContainer}>
-        <TouchableOpacity style={styles.feedbackButton} onPress={() => handleVote('up')}>
+        <TouchableOpacity 
+          style={[
+            styles.feedbackButton,
+            isOwnTranslation && styles.feedbackButtonDisabled
+          ]} 
+          onPress={() => handleVote('up')}
+          disabled={isOwnTranslation}
+        >
           <Ionicons
             name={userVote?.polarity === 'up' ? "thumbs-up" : "thumbs-up-outline"}
             size={24}
@@ -144,7 +153,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           />
         </TouchableOpacity>
         <Text style={styles.voteRank}>{translation.voteCount}</Text>
-        <TouchableOpacity style={styles.feedbackButton} onPress={() => handleVote('down')}>
+        <TouchableOpacity 
+          style={[
+            styles.feedbackButton,
+            isOwnTranslation && styles.feedbackButtonDisabled
+          ]} 
+          onPress={() => handleVote('down')}
+          disabled={isOwnTranslation}
+        >
           <Ionicons
             name={userVote?.polarity === 'down' ? "thumbs-down" : "thumbs-down-outline"}
             size={24}
@@ -226,6 +242,9 @@ const styles = StyleSheet.create({
   feedbackButton: {
     padding: spacing.medium,
     marginHorizontal: spacing.large,
+  },
+  feedbackButtonDisabled: {
+    opacity: 0.5,
   },
   text: {
     fontSize: fontSizes.medium,

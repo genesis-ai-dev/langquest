@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
-import { ProjectWithRelations } from '@/database_components/projectService';
-import { QuestWithRelations } from '@/database_components/questService';
-import { AssetWithRelations } from '@/database_components/assetService';
+import { ProjectWithRelations } from '@/database_services/projectService';
+import { QuestWithRelations } from '@/database_services/questService';
+import { AssetWithRelations } from '@/database_services/assetService';
 
 interface ProjectContextType {
   activeProject: ProjectWithRelations | null;

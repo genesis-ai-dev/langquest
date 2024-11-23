@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWi
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioRecorder from './AudioRecorder';
-import { translationService } from '@/database_components/translationService';
+import { translationService } from '@/database_services/translationService';
 import { CustomDropdown } from './CustomDropdown';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';

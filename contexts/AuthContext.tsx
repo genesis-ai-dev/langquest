@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserWithRelations, userService } from '@/database_components/userService';
+import { UserWithRelations, userService } from '@/database_services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 

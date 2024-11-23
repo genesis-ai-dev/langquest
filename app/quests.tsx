@@ -7,7 +7,7 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
-import { questService, QuestWithRelations } from '@/database_components/questService';
+import { questService, QuestWithRelations } from '@/database_services/questService';
 import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface SortingOption {

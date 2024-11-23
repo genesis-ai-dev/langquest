@@ -8,11 +8,12 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { formatRelativeDate } from '@/utils/dateUtils';
-import { assetService, AssetWithRelations } from '@/database_components/assetService';
-import { translationService, TranslationWithRelations } from '@/database_components/translationService';
-import { voteService } from '@/database_components/voteService';
+import { assetService, AssetWithRelations } from '@/database_services/assetService';
+import { translationService, TranslationWithRelations } from '@/database_services/translationService';
+import { voteService } from '@/database_services/voteService';
 import { TranslationModal } from '@/components/TranslationModal';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
+import { useAuth } from '@/contexts/AuthContext';
 import AudioPlayer from '@/components/AudioPlayer';
 import ImageCarousel from '@/components/ImageCarousel';
 import Carousel from '@/components/Carousel';
@@ -25,6 +26,7 @@ type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
   const router = useRouter();
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
   const [asset, setAsset] = useState<AssetWithRelations | null>(null);
@@ -58,12 +60,15 @@ export default function AssetView() {
   };
 
   const handleVote = async (translationId: string, polarity: 'up' | 'down') => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to vote');
+      return;
+    }
+
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user-id';
       await voteService.addVote({
         translationId,
-        creatorId: userId,
+        creatorId: currentUser.id,
         polarity,
       });
       await loadAssetAndTranslations(); // Reload to get updated vote counts
@@ -87,6 +92,25 @@ export default function AssetView() {
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
+  type VoteIconName = 
+  | 'thumbs-up'
+  | 'thumbs-up-outline'
+  | 'thumbs-down'
+  | 'thumbs-down-outline';
+
+  const getVoteIconName = (translation: TranslationWithRelations, voteType: 'up' | 'down'): VoteIconName => {
+    if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
+    
+    const userVote = translation.votes.find(vote => 
+      vote.creatorId === currentUser.id
+    );
+  
+    if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
+    return userVote.polarity === voteType 
+      ? `thumbs-${voteType}` as VoteIconName 
+      : `thumbs-${voteType}-outline` as VoteIconName;
+  };
+
   const renderTranslationCard = ({ item }: { item: TranslationWithRelations }) => (
     <TouchableOpacity
       style={styles.translationCard}
@@ -104,11 +128,19 @@ export default function AssetView() {
         <View style={styles.translationCardRight}>
           <View style={styles.voteContainer}>
             <TouchableOpacity onPress={() => handleVote(item.id, 'up')}>
-              <Ionicons name="thumbs-up" size={16} color={colors.text} />
+              <Ionicons 
+                name={getVoteIconName(item, 'up')} 
+                size={16} 
+                color={colors.text} 
+              />
             </TouchableOpacity>
             <Text style={styles.voteCount}>{item.voteCount}</Text>
             <TouchableOpacity onPress={() => handleVote(item.id, 'down')}>
-              <Ionicons name="thumbs-down" size={16} color={colors.text} />
+              <Ionicons 
+                name={getVoteIconName(item, 'down')} 
+                size={16} 
+                color={colors.text} 
+              />
             </TouchableOpacity>
           </View>
         </View>

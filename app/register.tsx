@@ -7,12 +7,12 @@ import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
-// import { Language, LanguageRepository } from '@/database_components/LanguageRepository';
-import { UserRepository } from '@/database_components/UserRepository';
-import { userService } from '@/database_components/userService';
-import { languageService } from '@/database_components/languageService';
-import { LanguageSelect } from '../database_components/types'; 
-import * as Crypto from 'expo-crypto';
+import { userService } from '@/database_services/userService';
+import { languageService } from '@/database_services/languageService';
+import { language } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
+
+type Language = typeof language.$inferSelect;
 
 
 // Repository instances
@@ -21,7 +21,8 @@ import * as Crypto from 'expo-crypto';
 
 export default function Register() {
   const router = useRouter();
-  const [languages, setLanguages] = useState<LanguageSelect[]>([]);
+  const { setCurrentUser } = useAuth();
+  const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -68,16 +69,15 @@ export default function Register() {
       const userData = {
         username: username.trim(),
         password,
-        // rev: 1,
-        // versionChainId: Crypto.randomUUID(), // Generate a new UUID
-        // versionNum: 1,
         uiLanguageId: selectedLanguageId
       };
       
       const newUser = await userService.createNew(userData);
+      const authenticatedUser = await userService.validateCredentials(username, password);
       if (newUser) {
+        setCurrentUser(authenticatedUser); // Set the newly created user as current user
         Alert.alert('Success', 'Registration successful!', [
-          { text: 'OK', onPress: () => router.push("/") }
+          { text: 'OK', onPress: () => router.push("/projects") } // Go directly to projects
         ]);
       }
     } catch (error) {

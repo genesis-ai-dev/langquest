@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { QuestWithRelations } from '@/database_components/questService';
+import { QuestWithRelations } from '@/database_services/questService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface QuestFilterModalProps {
