@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1731541556234,
-      "tag": "0000_fixed_blade",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1731548047857,
-      "tag": "0001_rich_white_tiger",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1731643200902,
-      "tag": "0002_productive_king_bedlam",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1732126015395,
-      "tag": "0003_dry_gargoyle",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1732141748404,
-      "tag": "0004_free_madripoor",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1732145583762,
-      "tag": "0005_normal_wraith",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1732158765713,
-      "tag": "0006_noisy_wrecker",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1732168163997,
-      "tag": "0007_worried_randall_flagg",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1732235168333,
-      "tag": "0008_wooden_mephistopheles",
+      "when": 1732334037672,
+      "tag": "0000_true_dracula",
       "breakpoints": true
     }
   ]

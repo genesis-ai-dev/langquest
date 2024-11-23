@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useRouter } from "expo-router";
@@ -28,6 +28,14 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showLanguages, setShowLanguages] = useState(false);
+
+  // Clear passwords when component unmounts
+  useEffect(() => {
+    return () => {
+      setPassword('');
+      setConfirmPassword('');
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -75,6 +83,8 @@ export default function Register() {
       const newUser = await userService.createNew(userData);
       const authenticatedUser = await userService.validateCredentials(username, password);
       if (newUser) {
+        setPassword('');
+        setConfirmPassword('');
         setCurrentUser(authenticatedUser); // Set the newly created user as current user
         Alert.alert('Success', 'Registration successful!', [
           { text: 'OK', onPress: () => router.push("/projects") } // Go directly to projects

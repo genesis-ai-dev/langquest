@@ -31,28 +31,54 @@ export default function Index() {
   const [dbStatus, setDbStatus] = useState('Initializing...');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isDbReady, setIsDbReady] = useState(false);
   
   const { success, error } = useMigrations(db, migrations);
-  const [items, setItems] = useState<typeof language.$inferSelect[] | null>(null);
+
+  // Clear passwords when component unmounts
+  useEffect(() => {
+    return () => {
+      setPassword('');
+    };
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      const { success, error } = await handleMigrations();
-      if (success) {
+    const initializeDatabase = async () => {
+      try {
+        setDbStatus('Running migrations...');
+        const { success, error } = await handleMigrations();
+        
+        if (!success) {
+          setDbStatus(`Migration error: ${error}`);
+          console.error('Migration error:', error);
+          return;
+        }
+
+        setDbStatus('Seeding database...');
+        await seedDatabase();
+        
         setDbStatus('Database initialized successfully');
-      } else {
-        setDbStatus(`Migration error: ${error}`);
-        console.error('Migration error:', error);
+        setIsDbReady(true);
+      } catch (error) {
+        console.error('Database initialization error:', error);
+        setDbStatus(`Database initialization failed: ${error}`);
       }
-    })();
-    seedDatabase();
+    };
+
+    initializeDatabase();
   }, []);
 
 
   const handleSignIn = async () => {
+    if (!isDbReady) {
+      Alert.alert('Error', 'Database is not ready yet. Please wait.');
+      return;
+    }
+
     try {
       const authenticatedUser = await userService.validateCredentials(username, password);
       if (authenticatedUser) {
+        setPassword('');
         setCurrentUser(authenticatedUser);
         router.push("/projects");
       } else {
@@ -108,9 +134,6 @@ export default function Index() {
           <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
             <Text style={sharedStyles.buttonText}>Sign In</Text>
           </TouchableOpacity>
-
-          <Text>{dbStatus}</Text>
-          
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
             <Text style={{ color: colors.text, marginRight: spacing.small }}>New user?</Text>
             <TouchableOpacity onPress={() => router.push("/register")}>
