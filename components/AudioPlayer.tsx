@@ -9,7 +9,7 @@ import Carousel from './Carousel';
 interface AudioFile {
   id: string;
   title: string;
-  uri: any;
+  moduleId: number;
 }
 
 interface AudioPlayerProps {
@@ -23,15 +23,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
+  const [activeModuleId, setActiveModuleId] = useState<number | null>(null);
+
+  const cleanupSound = async () => {
+    if (sound) {
+      await sound.unloadAsync();
+      setSound(null);
+    }
+    setIsPlaying(false);
+    setPosition(0);
+    setDuration(0);
+    setActiveModuleId(null);
+  };
 
   useEffect(() => {
-    return sound
-      ? () => {
-          console.log('Unloading Sound');
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
 
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -40,26 +51,28 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const playPauseSound = async (uri: any) => {
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
+  const playPauseSound = async (moduleId: number) => {
+    if (moduleId !== activeModuleId) {
+      await cleanupSound();
+      await loadSound(moduleId);
+      setActiveModuleId(moduleId);
     } else {
-      await loadSound(uri);
+      if (sound) {
+        if (isPlaying) {
+          await sound.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await sound.playAsync();
+          setIsPlaying(true);
+        }
+      }
     }
   };
 
-  const loadSound = async (uri: any) => {
-    console.log('Loading Sound', uri);
+  const loadSound = async (moduleId: number) => {
     try {
-      const source = typeof uri === 'number' ? uri : { uri };
       const { sound: newSound } = await Audio.Sound.createAsync(
-        source,
+        moduleId,
         { shouldPlay: true },
         onPlaybackStatusUpdate
       );
@@ -82,14 +95,18 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
     }
   };
 
+  const handlePageChange = async () => {
+    await cleanupSound();
+  };
+
   const renderAudioItem = (item: AudioFile, index: number) => (
     <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
       <TouchableOpacity
         style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-        onPress={() => playPauseSound(item.uri)}
+        onPress={() => playPauseSound(item.moduleId)}
       >
         <Ionicons
-          name={isPlaying ? "pause" : "play"}
+          name={isPlaying && activeModuleId === item.moduleId ? "pause" : "play"}
           size={mini ? 24 : 48}
           color={colors.text}
         />
@@ -119,7 +136,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
   );
 
   if (useCarousel) {
-    return <Carousel items={audioFiles} renderItem={renderAudioItem} />;
+    return <Carousel 
+      items={audioFiles} 
+      renderItem={renderAudioItem}
+      onPageChange={handlePageChange}
+    />;
   } else {
     return renderAudioItem(audioFiles[0], 0);
   }

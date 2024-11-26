@@ -5,7 +5,7 @@ import { randomUUID } from 'expo-crypto';
 import { getAssetId } from '../utils/assetUtils';
 global.Buffer = require('buffer').Buffer;
 
-const wipeFirst: boolean = true;
+const wipeFirst: boolean = false;
 
 async function seedTags() {
   const tagData = [
@@ -142,6 +142,10 @@ async function seedAssets() {
         getAssetId('asset_1'),
         getAssetId('asset_2'),
       ],
+      audio: [
+        getAssetId('audio_1'),
+        getAssetId('audio_2'),
+      ],
     },
     {
       name: 'Romans 2 English Text',
@@ -153,6 +157,10 @@ async function seedAssets() {
       images: [
         getAssetId('asset_3'),
         getAssetId('asset_4'),
+      ],
+      audio: [
+        getAssetId('audio_2'),
+        getAssetId('audio_3'),
       ],
     },
     {
@@ -166,6 +174,10 @@ async function seedAssets() {
         getAssetId('asset_4'),
         getAssetId('asset_5'),
       ],
+      audio: [
+        getAssetId('audio_3'),
+        getAssetId('audio_4'),
+      ],
     },
     {
       name: 'Romanos 2 Spanish Text',
@@ -177,6 +189,10 @@ async function seedAssets() {
       images: [
         getAssetId('asset_2'),
         getAssetId('asset_6'),
+      ],
+      audio: [
+        getAssetId('audio_5'),
+        getAssetId('audio_1'),
       ],
     }
   ];
@@ -198,7 +214,7 @@ async function seedAssets() {
         sourceLanguageId: data.sourceLanguageId,
         text: data.text,
         images: data.images,
-        audio: [],
+        audio: data.audio,
         versionChainId: data.versionChainId,
       }).returning();
 

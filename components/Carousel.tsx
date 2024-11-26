@@ -7,9 +7,10 @@ import { colors, spacing } from '@/styles/theme';
 interface CarouselProps {
   items: any[];
   renderItem: (item: any, index: number) => ReactNode;
+  onPageChange?: () => void;
 }
 
-const Carousel: React.FC<CarouselProps> = ({ items, renderItem }) => {
+const Carousel: React.FC<CarouselProps> = ({ items, renderItem, onPageChange }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const pagerRef = useRef<PagerView>(null);
 
@@ -17,13 +18,22 @@ const Carousel: React.FC<CarouselProps> = ({ items, renderItem }) => {
     return null;
   }
 
+  const handlePageChange = (e: any) => {
+    const newPage = e.nativeEvent.position;
+    setCurrentPage(newPage);
+    if (onPageChange) {
+      onPageChange();
+    }
+  };
+
+
   return (
     <View style={styles.carouselContainer}>
       <PagerView
         ref={pagerRef}
         style={styles.pagerView}
         initialPage={0}
-        onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
+        onPageSelected={handlePageChange}
       >
         {items.map((item, index) => (
           <View key={index} style={styles.carouselItem}>
