@@ -9,16 +9,22 @@ import Carousel from './Carousel';
 interface AudioFile {
   id: string;
   title: string;
-  moduleId: number;
+  moduleId: number | string;
 }
 
 interface AudioPlayerProps {
-  audioFiles: AudioFile[];
+  audioFiles?: AudioFile[];
+  audioUri?: string;
   useCarousel?: boolean;
   mini?: boolean;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = true, mini = false }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ 
+  audioFiles = [], 
+  audioUri,
+  useCarousel = true, 
+  mini = false 
+}) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -51,11 +57,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const playPauseSound = async (moduleId: number) => {
+  const playPauseSound = async (moduleId: number | string) => {
     if (moduleId !== activeModuleId) {
       await cleanupSound();
       await loadSound(moduleId);
-      setActiveModuleId(moduleId);
+      setActiveModuleId(moduleId as number);
     } else {
       if (sound) {
         if (isPlaying) {
@@ -69,10 +75,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
     }
   };
 
-  const loadSound = async (moduleId: number) => {
+  const loadSound = async (moduleIdOrUri: number | string) => {
     try {
+      const source = typeof moduleIdOrUri === 'string' 
+        ? { uri: moduleIdOrUri }  // Use URI directly
+        : moduleIdOrUri;          // Use moduleId as before
+      
       const { sound: newSound } = await Audio.Sound.createAsync(
-        moduleId,
+        source,
         { shouldPlay: true },
         onPlaybackStatusUpdate
       );
@@ -82,6 +92,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
       console.error('Error loading sound:', error);
     }
   };
+
 
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
@@ -142,7 +153,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioFiles, useCarousel = tru
       onPageChange={handlePageChange}
     />;
   } else {
-    return renderAudioItem(audioFiles[0], 0);
+    // Use audioFilesOrSingle instead of audioFiles[0]
+    const audioFilesOrSingle = audioUri 
+      ? [{ id: 'single', title: 'Recording', moduleId: audioUri }]
+      : audioFiles;
+
+    // Only render if we have files to play
+    if (audioFilesOrSingle.length === 0) return null;
+    
+    return renderAudioItem(audioFilesOrSingle[0], 0);
   }
 };
 

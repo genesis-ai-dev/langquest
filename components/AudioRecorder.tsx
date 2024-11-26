@@ -1,187 +1,246 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
-import AudioRecorderPlayer, {
-  AVEncoderAudioQualityIOSType,
-  AVEncodingOption,
-  AudioEncoderAndroidType,
-  AudioSourceAndroidType,
-} from 'react-native-audio-recorder-player';
+import React, { useState, useEffect } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Audio, AVPlaybackStatus } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
+import { colors, fontSizes, spacing } from '@/styles/theme';
+
+type IconName = 'mic' | 'mic-outline' | 'stop' | 'stop-outline' | 'play' | 'play-outline' | 'pause' | 'pause-outline';
+type RecorderState = 'RECORD_STOP' | 'PAUSE_STOP' | 'RECORD_PLAY' | 'RECORD_PAUSE';
+
+interface ButtonConfig {
+  icon: IconName;
+  onPress: (() => Promise<void>) | undefined;
+  disabled?: boolean;
+}
 
 interface AudioRecorderProps {
   onRecordingComplete: (uri: string) => void;
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [recordTime, setRecordTime] = useState('00:00:00');
-  const [playTime, setPlayTime] = useState('00:00:00');
-  const [duration, setDuration] = useState('00:00:00');
-  const [totalRecordTime, setTotalRecordTime] = useState(0);
-  const [recordingComplete, setRecordingComplete] = useState(false);
-
-  const audioRecorderPlayer = useRef(new AudioRecorderPlayer());
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [state, setState] = useState<RecorderState>('RECORD_STOP');
+  const [duration, setDuration] = useState<string>('00:00');
+  const [isRecordingInProgress, setIsRecordingInProgress] = useState(false);
 
   useEffect(() => {
-    audioRecorderPlayer.current.setSubscriptionDuration(0.1);
+    setupAudio();
     return () => {
-      audioRecorderPlayer.current.removeRecordBackListener();
-      audioRecorderPlayer.current.removePlayBackListener();
-      if (pulseAnimRef.current) {
-        pulseAnimRef.current.stop();
-      }
+      if (recording) recording.stopAndUnloadAsync();
+      if (sound) sound.unloadAsync();
     };
   }, []);
 
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      pulseAnimRef.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        ])
-      );
-      pulseAnimRef.current.start();
-    } else {
-      if (pulseAnimRef.current) {
-        pulseAnimRef.current.stop();
+  const setupAudio = async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        console.error('Permission to record was denied');
+        return;
       }
-      pulseAnim.setValue(1);
-    }
-  }, [isRecording, isPaused]);
-
-  const onStartRecord = async () => {
-    if (recordingComplete) {
-      // Reset the recorder if a recording was completed
-      await resetRecorder();
-    }
-    try {
-      await audioRecorderPlayer.current.startRecorder(undefined, {
-        AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
-        AudioSourceAndroid: AudioSourceAndroidType.MIC,
-        AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
-        AVNumberOfChannelsKeyIOS: 2,
-        AVFormatIDKeyIOS: AVEncodingOption.aac,
+      
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
       });
-      audioRecorderPlayer.current.addRecordBackListener((e) => {
-        setRecordTime(audioRecorderPlayer.current.mmssss(Math.floor(e.currentPosition)));
-        setTotalRecordTime(e.currentPosition);
-      });
-      setIsRecording(true);
-      setRecordingComplete(false);
     } catch (error) {
-      console.error('Failed to start recording', error);
+      console.error('Failed to setup audio:', error);
     }
   };
 
-  const onPauseRecord = async () => {
+  const startRecording = async () => {
     try {
-      await audioRecorderPlayer.current.pauseRecorder();
-      setIsPaused(true);
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(newRecording);
+      setIsRecordingInProgress(true);
+      setState('PAUSE_STOP');
     } catch (error) {
-      console.error('Failed to pause recording', error);
+      console.error('Failed to start recording:', error);
     }
   };
 
-  const onResumeRecord = async () => {
+  const resumeRecording = async () => {
     try {
-      await audioRecorderPlayer.current.resumeRecorder();
-      setIsPaused(false);
+      if (recording) {
+        await recording.startAsync();
+        setIsRecordingInProgress(true);
+        setState('PAUSE_STOP');
+      }
     } catch (error) {
-      console.error('Failed to resume recording', error);
+      console.error('Failed to resume recording:', error);
+      // If we fail to resume, we should clean up and allow starting a new recording
+      if (recording) {
+        await recording.stopAndUnloadAsync();
+        setRecording(null);
+        setIsRecordingInProgress(false);
+      }
     }
   };
 
-  const onStopRecord = async () => {
+  const pauseRecording = async () => {
     try {
-      const result = await audioRecorderPlayer.current.stopRecorder();
-      audioRecorderPlayer.current.removeRecordBackListener();
-      setIsRecording(false);
-      setIsPaused(false);
-      setRecordingComplete(true);
-      onRecordingComplete(result);
-      setDuration(audioRecorderPlayer.current.mmssss(Math.floor(totalRecordTime)));
+      if (recording) {
+        await recording.pauseAsync
+        setIsRecordingInProgress(false);
+        setState('RECORD_STOP');
+      }
     } catch (error) {
-      console.error('Failed to stop recording', error);
+      console.error('Failed to pause recording:', error);
     }
   };
 
-  const onStartPlay = async () => {
+  const stopRecording = async () => {
     try {
-      await audioRecorderPlayer.current.startPlayer();
-      audioRecorderPlayer.current.addPlayBackListener((e) => {
-        setPlayTime(audioRecorderPlayer.current.mmssss(Math.floor(e.currentPosition)));
-        setDuration(audioRecorderPlayer.current.mmssss(Math.floor(e.duration)));
-        if (e.currentPosition === e.duration) {
-          audioRecorderPlayer.current.stopPlayer();
-          setIsPlaying(false);
+      if (recording) {
+        await recording.stopAndUnloadAsync();
+        const uri = recording.getURI();
+        setRecordingUri(uri || null);
+        setRecording(null);
+        setIsRecordingInProgress(false);
+        setState('RECORD_PLAY');
+        if (uri) {
+          onRecordingComplete(uri);
         }
-      });
-      setIsPlaying(true);
+      }
     } catch (error) {
-      console.error('Failed to start playback', error);
+      console.error('Failed to stop recording:', error);
     }
   };
 
-  const onStopPlay = async () => {
+  const playRecording = async () => {
     try {
-      await audioRecorderPlayer.current.stopPlayer();
-      audioRecorderPlayer.current.removePlayBackListener();
-      setIsPlaying(false);
+      if (recordingUri) {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: recordingUri },
+          { shouldPlay: true },
+          onPlaybackStatusUpdate
+        );
+        setSound(newSound);
+        setState('RECORD_PAUSE');
+      }
     } catch (error) {
-      console.error('Failed to stop playback', error);
+      console.error('Failed to play recording:', error);
     }
   };
 
-  const resetRecorder = async () => {
+  const pausePlayback = async () => {
     try {
-      await audioRecorderPlayer.current.stopRecorder();
-      audioRecorderPlayer.current.removeRecordBackListener();
-      setIsRecording(false);
-      setIsPaused(false);
-      setRecordTime('00:00:00');
-      setTotalRecordTime(0);
-      setRecordingComplete(false);
+      if (sound) {
+        await sound.pauseAsync();
+        setState('RECORD_PLAY');
+      }
     } catch (error) {
-      console.error('Failed to reset recorder', error);
+      console.error('Failed to pause playback:', error);
     }
   };
+
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      if (status.didJustFinish) {
+        setState('RECORD_PLAY');
+      }
+    }
+  };
+
+  const handleRecordPress = async () => {
+    switch (state) {
+      case 'RECORD_STOP':
+        if (isRecordingInProgress && recording) {
+          await resumeRecording();
+        } else {
+          await startRecording();
+        }
+        break;
+      case 'RECORD_PLAY':
+      case 'RECORD_PAUSE':
+        if (sound) {
+          await sound.unloadAsync();
+          setSound(null);
+        }
+        // Clear the existing recording before starting a new one
+        if (recording) {
+          await recording.stopAndUnloadAsync();
+          setRecording(null);
+        }
+        await startRecording();
+        break;
+    }
+  };
+
+  const handleSecondaryPress = async () => {
+    switch (state) {
+      case 'RECORD_STOP':
+        if (isRecordingInProgress) {
+          await stopRecording();
+        }
+        break;
+      case 'PAUSE_STOP':
+        await stopRecording();
+        break;
+      case 'RECORD_PLAY':
+        await playRecording();
+        break;
+      case 'RECORD_PAUSE':
+        await pausePlayback();
+        break;
+    }
+  };
+
+  const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {
+    switch (state) {
+      case 'RECORD_STOP':
+        return [
+          { icon: 'mic', onPress: handleRecordPress },
+          { 
+            icon: 'stop', 
+            onPress: handleSecondaryPress,
+            disabled: !isRecordingInProgress 
+          },
+        ];
+      case 'PAUSE_STOP':
+        return [
+          { icon: 'pause', onPress: pauseRecording },
+          { icon: 'stop', onPress: handleSecondaryPress },
+        ];
+      case 'RECORD_PLAY':
+        return [
+          { icon: 'mic', onPress: handleRecordPress },
+          { icon: 'play', onPress: handleSecondaryPress },
+        ];
+      case 'RECORD_PAUSE':
+        return [
+          { icon: 'mic', onPress: handleRecordPress },
+          { icon: 'pause', onPress: handleSecondaryPress },
+        ];
+    }
+  };
+
+  const buttons = getButtonConfig();
 
   return (
     <View style={styles.container}>
-      <View style={styles.timeContainer}>
-        <Text style={styles.timeText}>
-          {isRecording || isPaused ? recordTime : isPlaying ? playTime : duration}
-        </Text>
-      </View>
+      <Text style={styles.duration}>{duration}</Text>
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.roundButton}
-          onPress={isRecording ? (isPaused ? onResumeRecord : onPauseRecord) : onStartRecord}
-        >
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <Ionicons
-              name={isRecording ? (isPaused ? "play" : "pause") : "mic"}
-              size={24}
-              color={colors.buttonText}
-            />
-          </Animated.View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.roundButton}
-          onPress={isRecording ? onStopRecord : isPlaying ? onStopPlay : onStartPlay}
-        >
-          <Ionicons
-            name={isRecording ? "stop" : isPlaying ? "stop" : "play"}
-            size={24}
-            color={colors.buttonText}
-          />
-        </TouchableOpacity>
+        {buttons.map((button, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.button, button.disabled && styles.buttonDisabled]}
+            onPress={button.onPress}
+            disabled={button.disabled}
+          >
+            <Ionicons name={button.icon} size={24} color={colors.buttonText} />
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -189,27 +248,29 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.medium,
-  },
-  timeContainer: {
     alignItems: 'center',
-    marginBottom: spacing.small,
-  },
-  timeText: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
+    padding: spacing.medium,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    width: '100%',
   },
-  roundButton: {
+  button: {
     backgroundColor: colors.primary,
     width: 60,
     height: 60,
     borderRadius: 30,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  duration: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    marginBottom: spacing.small,
   },
 });
 

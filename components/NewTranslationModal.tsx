@@ -24,7 +24,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
   const [translationText, setTranslationText] = useState('');
-  // const [selectedLanguageId, setSelectedLanguageId] = useState('');
+  const [audioUri, setAudioUri] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!currentUser) {
@@ -48,15 +48,21 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         targetLanguageId: activeProject.targetLanguageId,
         assetId,
         creatorId: currentUser.id,
+        audio: audioUri || undefined,
       });
       
       setTranslationText('');
+      setAudioUri(null);
       onSubmit();
       onClose();
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', 'Failed to create translation');
     }
+  };
+
+  const handleRecordingComplete = (uri: string) => {
+    setAudioUri(uri);
   };
 
   return (
@@ -75,7 +81,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
               </TouchableOpacity>
               
               <Text style={styles.title}>New Translation</Text>
-              
 
               <TextInput
                 style={styles.textInput}
@@ -86,7 +91,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                 onChangeText={setTranslationText}
               />
 
-              <AudioRecorder onRecordingComplete={() => {}} />
+              <AudioRecorder onRecordingComplete={handleRecordingComplete} />
 
               <TouchableOpacity 
                 style={[

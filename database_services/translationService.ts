@@ -100,14 +100,14 @@ export class TranslationService {
     targetLanguageId: string;
     assetId: string;
     creatorId: string;
-    // audio?: string[];
+    audio?: string;
   }) {
     const [newTranslation] = await db
       .insert(translation)
       .values({
         rev: 1,
         text: data.text,
-        audio: [], // Empty array for now
+        audio: data.audio, // Empty array for now
         assetId: data.assetId,
         targetLanguageId: data.targetLanguageId,
         creatorId: data.creatorId,
@@ -118,6 +118,15 @@ export class TranslationService {
     return newTranslation;
   }
 
+  async updateTranslationAudio(translationId: string, audioUri: string) {
+    const [updatedTranslation] = await db
+      .update(translation)
+      .set({ audio: audioUri })
+      .where(eq(translation.id, translationId))
+      .returning();
+    
+    return updatedTranslation;
+  }
 }
 
 export const translationService = new TranslationService();

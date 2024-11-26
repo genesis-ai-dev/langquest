@@ -198,7 +198,7 @@ export const translation = sqliteTable("Translation", {
   assetId: text().notNull().references(() => asset.id),
   targetLanguageId: text().notNull().references(() => language.id),
   text: text().notNull(),
-  audio: text({ mode: 'json' }).$type<string[]>(),
+  audio: text(),
   creatorId: text().notNull().references(() => user.id),
 });
 
