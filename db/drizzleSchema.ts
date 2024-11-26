@@ -127,8 +127,8 @@ export const asset = sqliteTable("Asset", {
   name: text().notNull(),
   sourceLanguageId: text().notNull(),
   text: text().notNull(),
-  images: text({ mode: 'json' }).$type<string[]>(),
-  audio: text({ mode: 'json' }).$type<string[]>(),
+  images: text({ mode: 'json' }).$type<number[]>(),
+  audio: text({ mode: 'json' }).$type<number[]>(),
 });
 
 export const assetRelations = relations(asset, ({ one, many }) => ({

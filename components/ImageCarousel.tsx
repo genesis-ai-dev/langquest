@@ -1,22 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Carousel from './Carousel';
-
-interface ImageFile {
-  id: string;
-  uri: any;
-}
+import { loadAsset } from '../utils/assetUtils';
+import { Asset } from 'expo-asset';
 
 interface ImageCarouselProps {
-  images: ImageFile[];
+  imageModuleIds: number[];
 }
 
-const ImageCarousel: React.FC<ImageCarouselProps> = ({ images }) => {
-  const renderImage = (item: ImageFile) => (
-    <Image source={item.uri} style={styles.carouselImage} />
+const ImageCarousel: React.FC<ImageCarouselProps> = ({ imageModuleIds }) => {
+  const [loadedAssets, setLoadedAssets] = useState<Asset[]>([]);
+
+  useEffect(() => {
+    const loadAssets = async () => {
+      try {
+        const assets = await Promise.all(
+          imageModuleIds.map(id => {
+            if (typeof id !== 'number') {
+              throw new Error(`Invalid module ID: ${id}`);
+            }
+            return loadAsset(id);
+          })
+        );
+        setLoadedAssets(assets);
+      } catch (error) {
+        console.error('Error loading assets:', error);
+      }
+    };
+    loadAssets();
+  }, [imageModuleIds]);
+
+  const renderImage = (asset: Asset) => (
+    <Image source={{ uri: asset.uri }} style={styles.carouselImage} />
   );
 
-  return <Carousel items={images} renderItem={renderImage} />;
+  return <Carousel items={loadedAssets} renderItem={renderImage} />;
 };
 
 const styles = StyleSheet.create({

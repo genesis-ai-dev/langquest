@@ -2,9 +2,10 @@ import { db } from './database';
 import { user, language, project, quest, tag, questToTags, asset, assetToTags, questToAssets, vote, translation } from './drizzleSchema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
+import { getAssetId } from '../utils/assetUtils';
 global.Buffer = require('buffer').Buffer;
 
-const wipeFirst: boolean = false;
+const wipeFirst: boolean = true;
 
 async function seedTags() {
   const tagData = [
@@ -136,7 +137,11 @@ async function seedAssets() {
       text: 'Paul, a servant of Christ Jesus, called to be an apostle...',
       questId: quests[0].id,
       versionChainId: randomUUID(),
-      tags: ['Book:Romans', 'Chapter:1', 'Type:Text']
+      tags: ['Book:Romans', 'Chapter:1', 'Type:Text'],
+      images: [
+        getAssetId('asset_1'),
+        getAssetId('asset_2'),
+      ],
     },
     {
       name: 'Romans 2 English Text',
@@ -144,7 +149,11 @@ async function seedAssets() {
       text: 'You, therefore, have no excuse, you who pass judgment on someone else...',
       questId: quests[1].id,
       versionChainId: randomUUID(),
-      tags: ['Book:Romans', 'Chapter:2', 'Type:Text']
+      tags: ['Book:Romans', 'Chapter:2', 'Type:Text'],
+      images: [
+        getAssetId('asset_3'),
+        getAssetId('asset_4'),
+      ],
     },
     {
       name: 'Romanos 1 Spanish Text',
@@ -152,7 +161,11 @@ async function seedAssets() {
       text: 'Pablo, siervo de Jesucristo, llamado a ser apóstol...',
       questId: quests[2].id,
       versionChainId: randomUUID(),
-      tags: ['Book:Romans', 'Chapter:1', 'Type:Text']
+      tags: ['Book:Romans', 'Chapter:1', 'Type:Text'],
+      images: [
+        getAssetId('asset_4'),
+        getAssetId('asset_5'),
+      ],
     },
     {
       name: 'Romanos 2 Spanish Text',
@@ -160,7 +173,11 @@ async function seedAssets() {
       text: 'Por lo tanto, no tienes excusa tú que juzgas a otros...',
       questId: quests[3].id,
       versionChainId: randomUUID(),
-      tags: ['Book:Romans', 'Chapter:2', 'Type:Text']
+      tags: ['Book:Romans', 'Chapter:2', 'Type:Text'],
+      images: [
+        getAssetId('asset_2'),
+        getAssetId('asset_6'),
+      ],
     }
   ];
 
@@ -180,7 +197,7 @@ async function seedAssets() {
         name: data.name,
         sourceLanguageId: data.sourceLanguageId,
         text: data.text,
-        images: [],
+        images: data.images,
         audio: [],
         versionChainId: data.versionChainId,
       }).returning();

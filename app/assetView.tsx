@@ -191,8 +191,10 @@ export default function AssetView() {
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
               )}
-              {/* {activeTab === 'audio' && <AudioPlayer audioFiles={asset?.audio || []} useCarousel={true} />}
-              {activeTab === 'image' && <ImageCarousel images={asset?.images || []} />} */}
+              {/* {activeTab === 'audio' && <AudioPlayer audioFiles={asset?.audio || []} useCarousel={true} />}*/}
+              {activeTab === 'image' && asset?.images && Array.isArray(asset.images) && 
+                <ImageCarousel imageModuleIds={asset.images} />
+              }
             </View>
 
             <View style={styles.horizontalLine} />
