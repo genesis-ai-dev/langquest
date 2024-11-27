@@ -4,6 +4,7 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { FFmpegKit, FFmpegKitConfig } from 'ffmpeg-kit-react-native';
 
 type IconName = 'mic' | 'mic-outline' | 'stop' | 'stop-outline' | 'play' | 'play-outline' | 'pause' | 'pause-outline';
 type RecorderState = 'RECORD_STOP' | 'PAUSE_STOP' | 'RECORD_PLAY' | 'RECORD_PAUSE';
@@ -21,7 +22,8 @@ interface AudioRecorderProps {
 const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) => {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [recordingUris, setRecordingUris] = useState<string[]>([]);
+  const [finalRecordingUri, setFinalRecordingUri] = useState<string | null>(null);
   const [state, setState] = useState<RecorderState>('RECORD_STOP');
   const [duration, setDuration] = useState<string>('00:00');
   const [isRecordingInProgress, setIsRecordingInProgress] = useState(false);
@@ -31,6 +33,30 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
     return () => {
       if (recording) recording.stopAndUnloadAsync();
       if (sound) sound.unloadAsync();
+    };
+  }, []);
+
+  useEffect(() => {
+    setupAudio();
+    return () => {
+      const cleanup = async () => {
+        if (recording) {
+          await recording.stopAndUnloadAsync();
+        }
+        if (sound) {
+          await sound.unloadAsync();
+        }
+        // Clean up temp files
+        const tempDir = `${FileSystem.cacheDirectory}temp_audio/`;
+        const finalRecordingPath = `${FileSystem.cacheDirectory}final_recording.m4a`;
+        try {
+          await FileSystem.deleteAsync(tempDir, { idempotent: true });
+          await FileSystem.deleteAsync(finalRecordingPath, { idempotent: true });
+        } catch (error) {
+          console.error('Error cleaning up files:', error);
+        }
+      };
+      cleanup();
     };
   }, []);
 
@@ -90,12 +116,60 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   const pauseRecording = async () => {
     try {
       if (recording) {
-        await recording.pauseAsync
-        setIsRecordingInProgress(false);
+        await recording.stopAndUnloadAsync();
+        const uri = recording.getURI();
+        if (uri) {
+          setRecordingUris(prev => [...prev, uri]);
+        }
+        setRecording(null);
+        // Don't set isRecordingInProgress to false since we have cached recordings
         setState('RECORD_STOP');
       }
     } catch (error) {
       console.error('Failed to pause recording:', error);
+    }
+  };
+
+  const concatenateAudioFiles = async (uris: string[]): Promise<string> => {
+    try {
+      if (uris.length === 0) return '';
+      if (uris.length === 1) return uris[0];
+  
+      // Create a temporary directory for our files
+      const tempDir = `${FileSystem.cacheDirectory}temp_audio/`;
+      const outputPath = `${FileSystem.cacheDirectory}final_recording.m4a`;
+  
+      // Clean up existing files first
+      await FileSystem.deleteAsync(tempDir, { idempotent: true });
+      await FileSystem.deleteAsync(outputPath, { idempotent: true });
+      
+      await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+  
+      // Create a list file for FFmpeg
+      let listContent = '';
+      for (let i = 0; i < uris.length; i++) {
+        const fileName = `segment_${i}.m4a`;
+        const destUri = `${tempDir}${fileName}`;
+        await FileSystem.copyAsync({
+          from: uris[i],
+          to: destUri
+        });
+        listContent += `file '${fileName}'\n`;
+      }
+  
+      const listPath = `${tempDir}list.txt`;
+      await FileSystem.writeAsStringAsync(listPath, listContent);
+  
+      
+      // Execute FFmpeg command to concatenate files
+      await FFmpegKit.execute(
+        `-f concat -safe 0 -i ${listPath} -c copy -y ${outputPath}`
+      );
+  
+      return outputPath;
+    } catch (error) {
+      console.error('Error concatenating audio files:', error);
+      return uris[uris.length - 1];
     }
   };
 
@@ -104,13 +178,16 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
       if (recording) {
         await recording.stopAndUnloadAsync();
         const uri = recording.getURI();
-        setRecordingUri(uri || null);
-        setRecording(null);
-        setIsRecordingInProgress(false);
-        setState('RECORD_PLAY');
         if (uri) {
-          onRecordingComplete(uri);
+          const allUris = [...recordingUris, uri];
+          const finalUri = await concatenateAudioFiles(allUris);
+          setFinalRecordingUri(finalUri);
+          setRecordingUris([]);
+          onRecordingComplete(finalUri);
         }
+        setRecording(null);
+        setIsRecordingInProgress(false); // Now safe to set false since we've processed all recordings
+        setState('RECORD_PLAY');
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -119,9 +196,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
 
   const playRecording = async () => {
     try {
-      if (recordingUri) {
+      if (finalRecordingUri) {
         const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: recordingUri },
+          { uri: finalRecordingUri },
           { shouldPlay: true },
           onPlaybackStatusUpdate
         );
@@ -155,22 +232,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   const handleRecordPress = async () => {
     switch (state) {
       case 'RECORD_STOP':
-        if (isRecordingInProgress && recording) {
-          await resumeRecording();
-        } else {
-          await startRecording();
-        }
+        await startRecording();
         break;
       case 'RECORD_PLAY':
       case 'RECORD_PAUSE':
+        // Clear everything before starting new recording
+        setRecordingUris([]);
+        setFinalRecordingUri(null);
+        setIsRecordingInProgress(false);
         if (sound) {
           await sound.unloadAsync();
           setSound(null);
-        }
-        // Clear the existing recording before starting a new one
-        if (recording) {
-          await recording.stopAndUnloadAsync();
-          setRecording(null);
         }
         await startRecording();
         break;
@@ -180,8 +252,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   const handleSecondaryPress = async () => {
     switch (state) {
       case 'RECORD_STOP':
-        if (isRecordingInProgress) {
-          await stopRecording();
+        // If we have recordings in cache, finalize them
+        if (recordingUris.length > 0) {
+          const finalUri = await concatenateAudioFiles(recordingUris);
+          setFinalRecordingUri(finalUri);
+          setRecordingUris([]); // Empty the cache
+          onRecordingComplete(finalUri);
+          setState('RECORD_PLAY');
         }
         break;
       case 'PAUSE_STOP':
@@ -204,7 +281,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
           { 
             icon: 'stop', 
             onPress: handleSecondaryPress,
-            disabled: !isRecordingInProgress 
+            // Enable stop if either actively recording or have cached recordings
+            disabled: !isRecordingInProgress && recordingUris.length === 0
           },
         ];
       case 'PAUSE_STOP':
@@ -215,7 +293,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
       case 'RECORD_PLAY':
         return [
           { icon: 'mic', onPress: handleRecordPress },
-          { icon: 'play', onPress: handleSecondaryPress },
+          { 
+            icon: 'play', 
+            onPress: handleSecondaryPress,
+            disabled: !finalRecordingUri
+          },
         ];
       case 'RECORD_PAUSE':
         return [

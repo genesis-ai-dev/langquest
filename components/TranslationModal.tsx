@@ -130,7 +130,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         </ScrollView>
 
         <View style={styles.audioPlayerContainer}>
-          {translation.audio && translation.audio.length > 0 && (
+          {translation.audio && (
             <AudioPlayer 
               audioUri={translation.audio}
               useCarousel={false}

@@ -37,14 +37,14 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       return;
     }
     
-    if (!translationText.trim()) {
+    if (!translationText.trim() && !audioUri) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
     try {
       await translationService.createTranslation({
-        text: translationText.trim(),
+        text: translationText.trim() || '',
         targetLanguageId: activeProject.targetLanguageId,
         assetId,
         creatorId: currentUser.id,
@@ -96,10 +96,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
               <TouchableOpacity 
                 style={[
                   styles.submitButton,
-                  (!translationText.trim()) && styles.submitButtonDisabled
+                  (!translationText.trim() && !audioUri) && styles.submitButtonDisabled
                 ]} 
                 onPress={handleSubmit}
-                disabled={!translationText.trim()}
+                disabled={!translationText.trim() && !audioUri}
               >
                 <Text style={styles.submitButtonText}>Submit</Text>
               </TouchableOpacity>
