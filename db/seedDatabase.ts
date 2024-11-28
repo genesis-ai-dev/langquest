@@ -3,7 +3,10 @@ import { user, language, project, quest, tag, questToTags, asset, assetToTags, q
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 import { getAssetId } from '../utils/assetUtils';
+import * as FileSystem from 'expo-file-system';
 global.Buffer = require('buffer').Buffer;
+
+const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 
 const wipeFirst: boolean = false;
 
@@ -362,6 +365,14 @@ async function seedVotesForTranslation(translationId: string, userId: string) {
 export async function seedDatabase() {
   try {
     if (wipeFirst) {
+      // Delete all recordings in permanent storage
+      try {
+        await FileSystem.deleteAsync(RECORDINGS_DIR, { idempotent: true });
+        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, { intermediates: true });
+        console.log('Permanent recordings directory cleaned successfully');
+      } catch (error) {
+        console.error('Error cleaning recordings directory:', error);
+      }
       // Delete all data in reverse order of dependencies
       await db.delete(vote);
       await db.delete(translation);

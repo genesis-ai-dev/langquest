@@ -50,6 +50,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const setupSound = async () => {
+      await cleanupSound();
+      if (audioUri) {
+        setActiveModuleId(null); // Reset active module
+        setPosition(0);          // Reset position
+      }
+    };
+    setupSound();
+  }, [audioUri]);
+
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -68,9 +79,35 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           await sound.pauseAsync();
           setIsPlaying(false);
         } else {
-          await sound.playAsync();
-          setIsPlaying(true);
+          try {
+            const status = await sound.getStatusAsync();
+            if (status.isLoaded) {
+              // If at the end, reset position
+              if (status.positionMillis >= status.durationMillis!) {
+                await sound.setPositionAsync(0);
+                setPosition(0);
+              }
+              await sound.playAsync();
+              setIsPlaying(true);
+            }
+          } catch (error) {
+            console.error('Error playing sound:', error);
+          }
         }
+      }
+    }
+  };
+
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setDuration(status.durationMillis || 0);
+      setPosition(status.positionMillis || 0);
+      
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        // Don't reset position here - let playPauseSound handle it
+      } else {
+        setIsPlaying(status.isPlaying);
       }
     }
   };
@@ -78,31 +115,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const loadSound = async (moduleIdOrUri: number | string) => {
     try {
       const source = typeof moduleIdOrUri === 'string' 
-        ? { uri: moduleIdOrUri }  // Use URI directly
-        : moduleIdOrUri;          // Use moduleId as before
+        ? { uri: moduleIdOrUri }
+        : moduleIdOrUri;
       
       const { sound: newSound } = await Audio.Sound.createAsync(
         source,
-        { shouldPlay: true },
+        { shouldPlay: true, positionMillis: 0 }, // Explicitly start at beginning
         onPlaybackStatusUpdate
       );
       setSound(newSound);
       setIsPlaying(true);
+      setPosition(0); // Ensure UI starts at beginning
     } catch (error) {
       console.error('Error loading sound:', error);
-    }
-  };
-
-
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setDuration(status.durationMillis || 0);
-      setPosition(status.positionMillis || 0);
-      setIsPlaying(status.isPlaying);
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
-      }
     }
   };
 

@@ -7,6 +7,8 @@ import { translationService } from '@/database_services/translationService';
 import { CustomDropdown } from './CustomDropdown';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
+import * as FileSystem from 'expo-file-system';
+import { randomUUID } from 'expo-crypto';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -14,6 +16,8 @@ interface NewTranslationModalProps {
   onSubmit: () => void;
   assetId: string;
 }
+
+const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ 
   isVisible, 
@@ -43,12 +47,24 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
+      let permanentAudioUri: string | undefined;
+      
+      if (audioUri) {
+        // Move audio to permanent storage with unique filename
+        const fileName = `${Date.now()}_${randomUUID()}.m4a`;
+        permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
+        await FileSystem.moveAsync({
+          from: audioUri,
+          to: permanentAudioUri
+        });
+      }
+
       await translationService.createTranslation({
         text: translationText.trim() || '',
         targetLanguageId: activeProject.targetLanguageId,
         assetId,
         creatorId: currentUser.id,
-        audio: audioUri || undefined,
+        audio: permanentAudioUri,
       });
       
       setTranslationText('');
