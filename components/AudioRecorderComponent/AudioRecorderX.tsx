@@ -7,6 +7,7 @@ import { colors, fontSizes, spacing } from '@/styles/theme';
 import { FFmpegKit, FFmpegKitConfig } from 'ffmpeg-kit-react-native';
 import { createActor } from 'xstate';
 import { audioRecorderMachine } from './audioRecorderMachine';
+import { AudioManager } from './AudioManager';
 
 interface ButtonConfig {
   icon: 'mic' | 'pause' | 'play' | 'checkmark';
@@ -19,14 +20,24 @@ interface AudioRecorderProps {
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) => {
-    const [actor, setActor] = useState(() => createActor(audioRecorderMachine));
+  const [audioManager] = useState(() => new AudioManager());
+  const [actor, setActor] = useState(() => 
+    createActor(audioRecorderMachine, {
+      input: {
+        audioManager
+      }
+    })
+  );
     const [snapshot, setSnapshot] = useState(() => actor.getSnapshot());
   
     useEffect(() => {
       const subscription = actor.subscribe(setSnapshot);
       actor.start();
-      return () => subscription.unsubscribe();
-    }, [actor]);
+      return () => {
+        subscription.unsubscribe();
+        audioManager.cleanup();
+      };
+    }, [actor, audioManager]);
   
     const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {
       switch (snapshot.value) {

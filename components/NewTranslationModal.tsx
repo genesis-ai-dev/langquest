@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import AudioRecorder from './AudioRecorderComponent/AudioRecorder';
+import AudioRecorder from './AudioRecorderComponent/AudioRecorderX';
 import { translationService } from '@/database_services/translationService';
 import { CustomDropdown } from './CustomDropdown';
 import { useProjectContext } from '@/contexts/ProjectContext';

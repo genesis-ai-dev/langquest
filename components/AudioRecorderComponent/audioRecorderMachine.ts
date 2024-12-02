@@ -1,8 +1,27 @@
 import { createMachine } from 'xstate';
+import { AudioManager } from './AudioManager';
+
+// Define types for the machine
+type AudioMachineContext = {
+  audioManager: AudioManager;
+};
+
+type AudioMachineEvents = 
+  | { type: 'PRESS_MIC' }
+  | { type: 'PRESS_PAUSE' }
+  | { type: 'PRESS_CHECK' }
+  | { type: 'PRESS_PLAY' };
 
 export const audioRecorderMachine = createMachine({
   id: 'audioRecorder',
   initial: 'idle',
+  types: {} as {
+    context: AudioMachineContext;
+    events: AudioMachineEvents;
+  },
+  context: ({ input }: { input: { audioManager: AudioManager } }) => ({
+    audioManager: input.audioManager,
+  }),
   states: {
     idle: {
       entry: () => {
@@ -11,12 +30,13 @@ export const audioRecorderMachine = createMachine({
       on: {
         PRESS_MIC: {
           target: 'recording',
-          guard: ({ context, event }) => {
+          guard: ({ context }) => {
             console.log('Checking if can start recording...');
             return true; // Will be replaced with actual permission/hardware check
           },
-          actions: () => {
+          actions: ({ context }) => {
             console.log('Starting new recording session');
+            context.audioManager.startRecording();
           },
         },
       },
@@ -28,8 +48,9 @@ export const audioRecorderMachine = createMachine({
       on: {
         PRESS_PAUSE: {
           target: 'recordingPaused',
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Pausing recording');
+            await context.audioManager.pauseRecording();
           },
         },
         PRESS_CHECK: {
@@ -38,8 +59,9 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Finalizing recording');
+            await context.audioManager.stopRecording();
           },
         },
       },
@@ -51,8 +73,9 @@ export const audioRecorderMachine = createMachine({
       on: {
         PRESS_MIC: {
           target: 'recording',
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Resuming recording');
+            await context.audioManager.resumeRecording();
           },
         },
         PRESS_CHECK: {
@@ -61,8 +84,9 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Finalizing recording');
+            await context.audioManager.stopRecording();
           },
         },
       },
@@ -78,8 +102,10 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if can start new recording...');
             return true; // Will be replaced with actual check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Starting new recording session');
+            await context.audioManager.discardRecording();
+            await context.audioManager.startRecording();
           },
         },
         PRESS_PLAY: {
@@ -88,8 +114,9 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if audio file exists...');
             return true; // Will be replaced with actual file check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Starting playback');
+            await context.audioManager.playRecording();
           },
         },
       },
@@ -105,14 +132,18 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if can start new recording...');
             return true; // Will be replaced with actual check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Starting new recording session');
+            await context.audioManager.pausePlayback();
+            await context.audioManager.discardRecording();
+            await context.audioManager.startRecording();
           },
         },
         PRESS_PAUSE: {
           target: 'playbackPaused',
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Pausing playback');
+            await context.audioManager.pausePlayback();
           },
         },
       },
@@ -128,14 +159,18 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if can start new recording...');
             return true; // Will be replaced with actual check
           },
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Starting new recording session');
+            await context.audioManager.pausePlayback();
+            await context.audioManager.discardRecording();
+            await context.audioManager.startRecording();
           },
         },
         PRESS_PLAY: {
           target: 'playing',
-          actions: () => {
+          actions: async ({ context }) => {
             console.log('Resuming playback');
+            await context.audioManager.playRecording();
           },
         },
       },
