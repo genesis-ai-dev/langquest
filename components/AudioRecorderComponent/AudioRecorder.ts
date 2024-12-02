@@ -78,9 +78,17 @@ export class AudioRecorder {
     private async concatenateSegments(): Promise<string | null> {
       try {
         if (this.segments.length === 0) return null;
-        if (this.segments.length === 1) return this.segments[0];
-    
+
         const outputUri = `${FileSystem.cacheDirectory}temp_concatenated_${Date.now()}.m4a`;
+        
+        if (this.segments.length === 1) {
+          // Copy the single segment instead of just returning its URI
+          await FileSystem.copyAsync({
+            from: this.segments[0],
+            to: outputUri
+          });
+          return outputUri;
+        }
         
         // Create a list file for FFmpeg
         const listPath = `${FileSystem.cacheDirectory}list.txt`;
