@@ -1,5 +1,6 @@
 import { AudioRecorder } from './AudioRecorder';
 import { AudioPlayer } from './AudioPlayer';
+import { AVPlaybackStatus } from 'expo-av';
 
 export class AudioManager {
   private recorder: AudioRecorder;
@@ -60,6 +61,22 @@ export class AudioManager {
 
   async pausePlayback() {
     return this.player.pause();
+  }
+
+  async getPlaybackStatus() {
+    return this.player.getStatusAsync();
+  }
+
+  async playFromPosition(positionMillis: number) {
+    if (this.currentAudioUri) {
+      await this.player.loadAudio(this.currentAudioUri);
+      return this.player.playFromPosition(positionMillis);
+    }
+    return false;
+  }
+
+  setPlaybackStatusCallback(callback: (status: AVPlaybackStatus) => void) {
+    this.player.setOnPlaybackStatusUpdate(callback);
   }
 
   async cleanup() {

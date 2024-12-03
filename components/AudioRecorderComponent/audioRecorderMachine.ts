@@ -4,13 +4,15 @@ import { AudioManager } from './AudioManager';
 // Define types for the machine
 type AudioMachineContext = {
   audioManager: AudioManager;
+  lastPlaybackPosition: number; 
 };
 
 type AudioMachineEvents = 
   | { type: 'PRESS_MIC' }
   | { type: 'PRESS_PAUSE' }
   | { type: 'PRESS_CHECK' }
-  | { type: 'PRESS_PLAY' };
+  | { type: 'PRESS_PLAY' }
+  | { type: 'PLAYBACK_COMPLETE'};
 
 export const audioRecorderMachine = createMachine({
   id: 'audioRecorder',
@@ -21,6 +23,7 @@ export const audioRecorderMachine = createMachine({
   },
   context: ({ input }: { input: { audioManager: AudioManager } }) => ({
     audioManager: input.audioManager,
+    lastPlaybackPosition: 0,
   }),
   states: {
     idle: {
@@ -143,7 +146,19 @@ export const audioRecorderMachine = createMachine({
           target: 'playbackPaused',
           actions: async ({ context }) => {
             console.log('Pausing playback');
+            // Get current position before pausing
+            const status = await context.audioManager.getPlaybackStatus();
+            if (status?.isLoaded) {
+              context.lastPlaybackPosition = status.positionMillis;
+            }
             await context.audioManager.pausePlayback();
+          },
+        },
+        PLAYBACK_COMPLETE: {
+          target: 'playbackEnded',
+          actions: ({ context }) => {
+            console.log('Playback finished');
+            context.lastPlaybackPosition = 0; // Reset position
           },
         },
       },
@@ -169,8 +184,34 @@ export const audioRecorderMachine = createMachine({
         PRESS_PLAY: {
           target: 'playing',
           actions: async ({ context }) => {
-            console.log('Resuming playback');
-            await context.audioManager.playRecording();
+            console.log('Resuming playback from position:', context.lastPlaybackPosition);
+            await context.audioManager.playFromPosition(context.lastPlaybackPosition);
+          },
+        },
+      },
+    },
+    playbackEnded: {
+      entry: () => {
+        console.log('Entered playback ended state');
+      },
+      on: {
+        PRESS_MIC: {
+          target: 'recording',
+          guard: ({ context }) => {
+            console.log('Checking if can start new recording...');
+            return true;
+          },
+          actions: async ({ context }) => {
+            console.log('Starting new recording session');
+            await context.audioManager.discardRecording();
+            await context.audioManager.startRecording();
+          },
+        },
+        PRESS_PLAY: {
+          target: 'playing',
+          actions: async ({ context }) => {
+            console.log('Starting playback from beginning');
+            await context.audioManager.playFromPosition(0);
           },
         },
       },

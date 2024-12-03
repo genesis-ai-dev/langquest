@@ -31,6 +31,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
     const [snapshot, setSnapshot] = useState(() => actor.getSnapshot());
   
     useEffect(() => {
+      // Set up playback status listener
+      audioManager.setPlaybackStatusCallback((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          actor.send({ type: 'PLAYBACK_COMPLETE' });
+        }
+      });
+  
       const subscription = actor.subscribe(setSnapshot);
       actor.start();
       return () => {
@@ -98,6 +105,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
             },
           ];
         case 'playbackPaused':
+          return [
+            { 
+              icon: 'mic', 
+              onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+            },
+            { 
+              icon: 'play', 
+              onPress: async () => actor.send({ type: 'PRESS_PLAY' }) 
+            },
+          ];
+        case 'playbackEnded':
           return [
             { 
               icon: 'mic', 
