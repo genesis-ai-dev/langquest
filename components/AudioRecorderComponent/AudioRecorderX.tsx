@@ -29,15 +29,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
     })
   );
     const [snapshot, setSnapshot] = useState(() => actor.getSnapshot());
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const [playbackPosition, setPlaybackPosition] = useState(0);
+    const flashingInterval = useRef<NodeJS.Timeout>();
   
+    // Effect for actor initialization
     useEffect(() => {
-      // Set up playback status listener
-      audioManager.setPlaybackStatusCallback((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          actor.send({ type: 'PLAYBACK_COMPLETE' });
-        }
-      });
-  
       const subscription = actor.subscribe(setSnapshot);
       actor.start();
       return () => {
@@ -45,6 +42,86 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
         audioManager.cleanup();
       };
     }, [actor, audioManager]);
+
+    // Separate effect for recording status
+    useEffect(() => {
+      let recordingStatusInterval: NodeJS.Timeout | null = null;
+
+      if (snapshot.value === 'recording') {
+        // Reset playback position when starting to record
+        setPlaybackPosition(0);
+
+        recordingStatusInterval = setInterval(async () => {
+          const status = await audioManager.getRecordingStatus();
+          if (status?.isRecording) {
+            setRecordingDuration(status.durationMillis || 0);
+          }
+        }, 100);
+      }
+
+      return () => {
+        if (recordingStatusInterval) {
+          clearInterval(recordingStatusInterval);
+        }
+      };
+    }, [snapshot.value, audioManager]);
+
+    // Separate effect for playback status
+    useEffect(() => {
+      audioManager.setPlaybackStatusCallback((status) => {
+        if (status.isLoaded) {
+          setPlaybackPosition(status.positionMillis);
+          if (status.didJustFinish) {
+          setPlaybackPosition(0); // Reset position when playback ends
+            actor.send({ type: 'PLAYBACK_COMPLETE' });
+          }
+        }
+      });
+    }, [audioManager, actor]);
+
+    // Separate effect for flashing state
+    useEffect(() => {
+      if (snapshot.value === 'recordingPaused') {
+        flashingInterval.current = setInterval(() => {
+          setSnapshot(prev => ({
+            ...prev,
+            context: { ...prev.context, isFlashing: !prev.context.isFlashing }
+          }));
+        }, 500);
+      }
+
+      return () => {
+        if (flashingInterval.current) {
+          clearInterval(flashingInterval.current);
+        }
+      };
+    }, [snapshot.value]);
+
+    // Reset playback position when entering certain states
+    useEffect(() => {
+      const currentState = typeof snapshot.value === 'string' ? snapshot.value : Object.keys(snapshot.value)[0];
+      if (['idle', 'recording', 'recordingStopped'].includes(currentState)) {
+        setPlaybackPosition(0);
+      }
+    }, [snapshot.value]);
+
+    const formatTime = (milliseconds: number): string => {
+      const totalSeconds = Math.floor(milliseconds / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+  
+    const getDurationDisplay = (): string => {
+      const playbackTime = formatTime(playbackPosition);
+      const totalTime = formatTime(recordingDuration);
+      
+      if (snapshot.value === 'recordingPaused' && snapshot.context.isFlashing) {
+        return `${playbackTime}/--:--`;
+      }
+      
+      return `${playbackTime}/${totalTime}`;
+    };
   
     const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {
       switch (snapshot.value) {
@@ -138,7 +215,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   
     return (
       <View style={styles.container}>
-        <Text style={styles.duration}>00:00/00:00</Text>
+        <Text style={[
+          styles.duration,
+          snapshot.value === 'recordingPaused' && styles.flashingDuration
+        ]}>
+          {getDurationDisplay()}
+        </Text>
         <View style={styles.buttonContainer}>
           {buttons.map((button, index) => (
             <TouchableOpacity

@@ -7,6 +7,7 @@ export class AudioRecorder {
     private segments: string[] = []; // URIs of recording segments
     private isRecording: boolean = false;
     private concatenatedUri: string | null = null;
+    private totalDuration: number = 0;
 
     async startRecording() {
       try {
@@ -35,11 +36,17 @@ export class AudioRecorder {
       try {
         if (!this.recording || !this.isRecording) return false;
   
-        await this.recording.stopAndUnloadAsync();
+        const status = await this.recording.getStatusAsync();
+        if (status.isRecording) {
+          this.totalDuration += status.durationMillis || 0;
+        }
+  
         const uri = this.recording.getURI();
         if (uri) {
           this.segments.push(uri);
         }
+
+        await this.recording.stopAndUnloadAsync();
         this.recording = null;
         this.isRecording = false;
         return true;
@@ -51,6 +58,22 @@ export class AudioRecorder {
   
     async resumeRecording() {
       return this.startRecording();
+    }
+
+    async getRecordingStatus(): Promise<Audio.RecordingStatus | null> {
+      try {
+        if (this.recording && this.isRecording) {
+          const status = await this.recording.getStatusAsync();
+          return {
+            ...status,
+            durationMillis: (status.durationMillis || 0) + this.totalDuration
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error('Failed to get recording status:', error);
+        return null;
+      }
     }
   
     async stopRecording() {
@@ -155,6 +178,7 @@ export class AudioRecorder {
         }
         
         this.isRecording = false;
+        this.totalDuration = 0; 
       } catch (error) {
         console.error('Failed to discard recording:', error);
       }

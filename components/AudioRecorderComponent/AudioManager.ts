@@ -37,6 +37,10 @@ export class AudioManager {
     return this.recorder.getIsRecording();
   }
 
+  async getRecordingStatus() {
+    return this.recorder.getRecordingStatus();
+  }
+
   async saveRecording(filename: string) {
     const uri = await this.recorder.saveRecording(filename);
     if (uri) {

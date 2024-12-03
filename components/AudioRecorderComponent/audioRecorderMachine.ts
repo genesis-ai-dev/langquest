@@ -5,6 +5,9 @@ import { AudioManager } from './AudioManager';
 type AudioMachineContext = {
   audioManager: AudioManager;
   lastPlaybackPosition: number; 
+  recordingDuration: number;
+  playbackPosition: number;
+  isFlashing: boolean;
 };
 
 type AudioMachineEvents = 
@@ -24,11 +27,16 @@ export const audioRecorderMachine = createMachine({
   context: ({ input }: { input: { audioManager: AudioManager } }) => ({
     audioManager: input.audioManager,
     lastPlaybackPosition: 0,
+    recordingDuration: 0,
+    playbackPosition: 0,
+    isFlashing: false,
   }),
   states: {
     idle: {
-      entry: () => {
-        console.log('Entered idle state');
+      entry: ({ context }) => {
+        context.recordingDuration = 0;
+        context.playbackPosition = 0;
+        context.isFlashing = false;
       },
       on: {
         PRESS_MIC: {
@@ -45,8 +53,9 @@ export const audioRecorderMachine = createMachine({
       },
     },
     recording: {
-      entry: () => {
-        console.log('Entered recording state');
+      entry: ({ context }) => {
+        context.playbackPosition = 0;
+        context.isFlashing = false;
       },
       on: {
         PRESS_PAUSE: {
@@ -70,8 +79,8 @@ export const audioRecorderMachine = createMachine({
       },
     },
     recordingPaused: {
-      entry: () => {
-        console.log('Entered paused state');
+      entry: ({ context }) => {
+        context.isFlashing = true;
       },
       on: {
         PRESS_MIC: {
@@ -95,8 +104,8 @@ export const audioRecorderMachine = createMachine({
       },
     },
     recordingStopped: {
-      entry: () => {
-        console.log('Entered stopped state');
+      entry: ({ context }) => {
+        context.isFlashing = false;
       },
       on: {
         PRESS_MIC: {
@@ -125,8 +134,8 @@ export const audioRecorderMachine = createMachine({
       },
     },
     playing: {
-      entry: () => {
-        console.log('Entered playing state');
+      entry: ({ context }) => {
+        context.isFlashing = false;
       },
       on: {
         PRESS_MIC: {
@@ -164,8 +173,8 @@ export const audioRecorderMachine = createMachine({
       },
     },
     playbackPaused: {
-      entry: () => {
-        console.log('Entered playback paused state');
+      entry: ({ context }) => {
+        context.isFlashing = false;
       },
       on: {
         PRESS_MIC: {
@@ -191,8 +200,9 @@ export const audioRecorderMachine = createMachine({
       },
     },
     playbackEnded: {
-      entry: () => {
-        console.log('Entered playback ended state');
+      entry: ({ context }) => {
+        context.isFlashing = false;
+        context.playbackPosition = 0;
       },
       on: {
         PRESS_MIC: {
