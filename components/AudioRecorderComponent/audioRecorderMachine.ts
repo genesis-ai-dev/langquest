@@ -8,6 +8,7 @@ type AudioMachineContext = {
   recordingDuration: number;
   playbackPosition: number;
   isFlashing: boolean;
+  onRecordingComplete: (uri: string) => void;
 };
 
 type AudioMachineEvents = 
@@ -24,8 +25,14 @@ export const audioRecorderMachine = createMachine({
     context: AudioMachineContext;
     events: AudioMachineEvents;
   },
-  context: ({ input }: { input: { audioManager: AudioManager } }) => ({
+  context: ({ input }: { 
+    input: { 
+      audioManager: AudioManager;
+      onRecordingComplete: (uri: string) => void;
+    } 
+  }) => ({
     audioManager: input.audioManager,
+    onRecordingComplete: input.onRecordingComplete,
     lastPlaybackPosition: 0,
     recordingDuration: 0,
     playbackPosition: 0,
@@ -56,6 +63,7 @@ export const audioRecorderMachine = createMachine({
       entry: ({ context }) => {
         context.playbackPosition = 0;
         context.isFlashing = false;
+        context.onRecordingComplete('');
       },
       on: {
         PRESS_PAUSE: {
@@ -71,10 +79,10 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
           },
-          actions: async ({ context }) => {
-            console.log('Finalizing recording');
-            await context.audioManager.stopRecording();
-          },
+          // actions: async ({ context }) => {
+          //   console.log('Finalizing recording');
+          //   await context.audioManager.stopRecording();
+          // },
         },
       },
     },
@@ -96,17 +104,25 @@ export const audioRecorderMachine = createMachine({
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
           },
-          actions: async ({ context }) => {
-            console.log('Finalizing recording');
-            await context.audioManager.stopRecording();
-          },
+          // actions: async ({ context }) => {
+          //   console.log('Finalizing recording');
+          //   await context.audioManager.stopRecording();
+          // },
         },
       },
     },
     recordingStopped: {
-      entry: ({ context }) => {
-        context.isFlashing = false;
-      },
+      entry: [
+        ({ context }) => {
+          context.isFlashing = false;
+        },
+        async ({ context }) => {
+          const uri = await context.audioManager.stopRecording();
+          if (uri) {
+            context.onRecordingComplete(uri);
+          }
+        }
+      ],
       on: {
         PRESS_MIC: {
           target: 'recording',

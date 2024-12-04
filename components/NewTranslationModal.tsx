@@ -50,6 +50,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       let permanentAudioUri: string | undefined;
       
       if (audioUri) {
+        // Ensure recordings directory exists
+        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, { intermediates: true });
+        
         // Move audio to permanent storage with unique filename
         const fileName = `${Date.now()}_${randomUUID()}.m4a`;
         permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;

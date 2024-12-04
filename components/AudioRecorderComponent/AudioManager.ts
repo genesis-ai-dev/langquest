@@ -29,6 +29,7 @@ export class AudioManager {
     const uri = await this.recorder.stopRecording();
     if (uri) {
       this.currentAudioUri = uri;
+      console.log('this.currentAudioUri set in stopRecording');
     }
     return uri;
   }
@@ -39,6 +40,14 @@ export class AudioManager {
 
   async getRecordingStatus() {
     return this.recorder.getRecordingStatus();
+  }
+
+  getCurrentAudioUri(): string | null {
+    return this.currentAudioUri;
+  }
+
+  isRecordingReady(): boolean {
+    return this.currentAudioUri !== null;
   }
 
   async saveRecording(filename: string) {
