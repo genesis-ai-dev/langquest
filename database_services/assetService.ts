@@ -1,7 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { asset, tag, assetToTags, language, questToAssets } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
+import { system } from '../db/powersync/system';
+
+
+const { db } = system;
 
 export type AssetWithRelations = typeof asset.$inferSelect & {
   sourceLanguage: typeof language.$inferSelect;

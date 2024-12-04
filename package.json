@@ -16,18 +16,26 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@expo/vector-icons": "^14.0.2",
+    "@journeyapps/react-native-quick-sqlite": "^2.2.0",
+    "@powersync/drizzle-driver": "^0.1.0",
+    "@powersync/react-native": "^1.16.0",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/slider": "4.5.4",
     "@react-navigation/native": "^6.0.2",
+    "@supabase/supabase-js": "^2.46.1",
     "drizzle-orm": "^0.36.1",
     "expo": "~51.0.28",
     "expo-av": "14.0.7",
+    "expo-build-properties": "~0.12.5",
     "expo-constants": "~16.0.2",
     "expo-crypto": "~13.0.2",
     "expo-font": "~12.0.9",
     "expo-linear-gradient": "13.0.2",
     "expo-linking": "~6.3.1",
     "expo-router": "~3.5.23",
+    "expo-secure-store": "~13.0.2",
     "expo-splash-screen": "~0.27.5",
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
@@ -45,8 +53,7 @@
     "react-native-safe-area-context": "4.10.5",
     "react-native-screens": "3.31.1",
     "react-native-web": "~0.19.10",
-    "tailwindcss": "^3.4.13",
-    "@react-native-async-storage/async-storage": "1.23.1"
+    "tailwindcss": "^3.4.13"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

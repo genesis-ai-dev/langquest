@@ -1,8 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { translation, vote, language, user } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
+import { system,  } from '../db/powersync/system';
+
+const { db } = system;
 
 export type TranslationWithRelations = typeof translation.$inferSelect & {
   targetLanguage: typeof language.$inferSelect;

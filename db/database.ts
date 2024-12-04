@@ -17,4 +17,4 @@ class Database {
   }
 }
 
-export const db = Database.getInstance();
+export const db__ = Database.getInstance();

@@ -14,14 +14,14 @@ import * as schema from '../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import migrations from '../drizzle/migrations';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { db } from '../db/database';
+import { system } from '../db/powersync/system';
 import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { user, language } = schema;
-
+const { supabaseConnector } = system;
 
 // const userRepository = new UserRepository();
 
@@ -33,7 +33,7 @@ export default function Index() {
   const [password, setPassword] = useState('');
   const [isDbReady, setIsDbReady] = useState(false);
   
-  const { success, error } = useMigrations(db, migrations);
+  // const { success, error } = useMigrations(db, migrations);
 
   // Clear passwords when component unmounts
   useEffect(() => {
@@ -45,20 +45,31 @@ export default function Index() {
   useEffect(() => {
     const initializeDatabase = async () => {
       try {
-        setDbStatus('Running migrations...');
-        const { success, error } = await handleMigrations();
+        supabaseConnector.client.auth.getSession()
+          .then(({ data }) => {
+            if (data.session) {
+              router.push("/projects");
+            } else { 
+              throw new Error('No session found');
+            }
+          })
+          .catch(() => {
+            router.replace("/register");
+          });
+      //   setDbStatus('Running migrations...');
+      //   const { success, error } = await handleMigrations();
         
-        if (!success) {
-          setDbStatus(`Migration error: ${error}`);
-          console.error('Migration error:', error);
-          return;
-        }
+      //   if (!success) {
+      //     setDbStatus(`Migration error: ${error}`);
+      //     console.error('Migration error:', error);
+      //     return;
+      //   }
 
-        setDbStatus('Seeding database...');
-        await seedDatabase();
+      //   setDbStatus('Seeding database...');
+      //   await seedDatabase();
         
-        setDbStatus('Database initialized successfully');
-        setIsDbReady(true);
+      //   setDbStatus('Database initialized successfully');
+      //   setIsDbReady(true);
       } catch (error) {
         console.error('Database initialization error:', error);
         setDbStatus(`Database initialization failed: ${error}`);
@@ -76,7 +87,7 @@ export default function Index() {
     }
 
     try {
-      const authenticatedUser = await userService.validateCredentials(username, password);
+      const authenticatedUser = await userService.validateCredentials({username, password});
       if (authenticatedUser) {
         setPassword('');
         setCurrentUser(authenticatedUser);

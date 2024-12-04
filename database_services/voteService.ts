@@ -1,7 +1,10 @@
 import { eq, and } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { vote } from '../db/drizzleSchema';
 import { randomUUID } from 'expo-crypto';
+import { system } from '../db/powersync/system';
+
+const { db } = system;
 
 export class VoteService {
   async addVote(data: {

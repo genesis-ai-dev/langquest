@@ -1,15 +1,20 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { user, language, translation, vote } from '../db/drizzleSchema';
 import { hashPassword } from '../utils/passwordUtils';
 import { randomUUID } from 'expo-crypto';
 import { aliasedTable } from 'drizzle-orm';
+import { system } from '../db/powersync/system';
+import { Session } from '@supabase/supabase-js';
+
 
 export type UserWithRelations = typeof user.$inferSelect & {
   uiLanguage: typeof language.$inferSelect;
   translations: (typeof translation.$inferSelect)[];
   votes: (typeof vote.$inferSelect)[];
 };
+
+const{ supabaseConnector, db}  = system;
 
 export class UserService {
   async getUserById(userId: string): Promise<UserWithRelations | null> {
@@ -80,14 +85,19 @@ export class UserService {
     return userWithRelations;
   }
 
-  async validateCredentials(username: string, password: string): Promise<UserWithRelations | null> {
-    const hashedPassword = await hashPassword(password);
+  async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
+    const hashedPassword = await hashPassword(credentials.password);
     const foundUser = await db
       .select()
       .from(user)
-      .where(eq(user.username, username))
+      .where(eq(user.username, credentials.username))
       .get();
-    
+    try {
+      await supabaseConnector.login(credentials.username, credentials.password);
+    } catch (ex: any) {
+      console.log(ex);
+      return null;
+    }
     if (foundUser?.password === hashedPassword) {
       // Return full user object with relations
       return this.getUserById(foundUser.id);
@@ -95,24 +105,38 @@ export class UserService {
     return null;
   }
 
-  async createNew(data: {
-    username: string;
-    password: string;
+  async createNew(input: {
+    credentials: {
+      username: string;
+      password: string;
+    };
     uiLanguageId: string;
   }) {
-    const hashedPassword = await hashPassword(data.password);
+    const hashedPassword = await hashPassword(input.credentials.password);
     const [newUser] = await db
       .insert(user)
       .values({
         versionChainId: randomUUID(),
-        username: data.username,
+        username: input.credentials.username,
         password: hashedPassword,
-        uiLanguageId: data.uiLanguageId,
+        uiLanguageId: input.uiLanguageId,
         rev: 1,
       })
       .returning();
     
-    return newUser;
+    const { data, error } = await supabaseConnector.client.auth.signUp({
+      email: input.credentials.username,
+      password: hashedPassword
+    });
+    if (error) {
+      throw error;
+    }
+    const session = data.session;
+    if (data.session) {
+      supabaseConnector.client.auth.setSession(data.session);
+    } 
+    
+    return {newUser, session};
   }
 }
 

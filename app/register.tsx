@@ -11,6 +11,7 @@ import { userService } from '@/database_services/userService';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSystem } from '@/db/powersync/system';
 
 type Language = typeof language.$inferSelect;
 
@@ -28,6 +29,8 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showLanguages, setShowLanguages] = useState(false);
+  const { supabaseConnector } = useSystem();
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
 
   // Clear passwords when component unmounts
   useEffect(() => {
@@ -63,7 +66,7 @@ export default function Register() {
 
 
   const handleRegister = async () => {
-    if (password !== confirmPassword) {
+    if (credentials.password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
@@ -75,13 +78,12 @@ export default function Register() {
   
     try {
       const userData = {
-        username: username.trim(),
-        password,
+        credentials,
         uiLanguageId: selectedLanguageId
       };
       
       const newUser = await userService.createNew(userData);
-      const authenticatedUser = await userService.validateCredentials(username, password);
+      const authenticatedUser = await userService.validateCredentials(credentials);
       if (newUser) {
         setPassword('');
         setConfirmPassword('');
@@ -127,7 +129,7 @@ export default function Register() {
               placeholder="Username"
               placeholderTextColor={colors.text}
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(text) => setCredentials({ ...credentials, username: text.toLowerCase().trim() })}
             />
           </View>
           
@@ -139,7 +141,7 @@ export default function Register() {
               placeholderTextColor={colors.text}
               secureTextEntry
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(password) => setCredentials({ ...credentials, password })}
             />
           </View>
           

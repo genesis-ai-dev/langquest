@@ -1,7 +1,10 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { project, language } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
+import { system } from '../db/powersync/system';
+
+const { db } = system;
 
 export type ProjectWithRelations = typeof project.$inferSelect & {
   sourceLanguage: typeof language.$inferSelect;

@@ -1,6 +1,9 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { quest, tag, questToTags } from '../db/drizzleSchema';
+import { system } from '../db/powersync/system';
+
+const { db } = system;
 
 export type QuestWithRelations = typeof quest.$inferSelect & {
   tags: (typeof tag.$inferSelect)[];

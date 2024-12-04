@@ -236,3 +236,28 @@ export const voteRelations = relations(vote, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const drizzleSchema = {
+  user,
+  language,
+  project,
+  quest,
+  tag,
+  questToTags,
+  asset,
+  assetToTags,
+  questToAssets,
+  translation,
+  vote,
+  userRelations,
+  languageRelations,
+  projectRelations,
+  questRelations,
+  tagRelations,
+  questToTagsRelations,
+  assetRelations,
+  assetToTagsRelations,
+  questToAssetsRelations,
+  translationRelations,
+  voteRelations,
+};

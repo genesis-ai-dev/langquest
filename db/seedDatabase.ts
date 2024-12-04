@@ -1,10 +1,12 @@
-import { db } from './database';
+// import { db } from './database';
 import { user, language, project, quest, tag, questToTags, asset, assetToTags, questToAssets, vote, translation } from './drizzleSchema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
+import { system } from './powersync/system';
 global.Buffer = require('buffer').Buffer;
 
 const wipeFirst: boolean = false;
+const db = system.db;
 
 async function seedTags() {
   const tagData = [
