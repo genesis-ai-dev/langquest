@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { assetService, AssetWithRelations } from '@/database_services/assetService';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SortingOption {
   field: string;
@@ -35,6 +36,7 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
   );
 };
 export default function Assets() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setActiveAsset } = useProjectContext();
   const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
@@ -152,7 +154,7 @@ export default function Assets() {
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search assets..."
+              placeholder={t('searchAssets')}
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}
