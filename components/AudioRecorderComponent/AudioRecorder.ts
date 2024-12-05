@@ -173,7 +173,10 @@ export class AudioRecorder {
         await this.clearSegments();
         
         if (this.concatenatedUri) {
-          await FileSystem.deleteAsync(this.concatenatedUri);
+          const fileInfo = await FileSystem.getInfoAsync(this.concatenatedUri);
+          if (fileInfo.exists) {
+            await FileSystem.deleteAsync(this.concatenatedUri);
+          }
           this.concatenatedUri = null;
         }
         
