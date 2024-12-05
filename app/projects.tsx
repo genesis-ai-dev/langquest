@@ -12,6 +12,7 @@ import { languageService } from '@/database_services/languageService';
 import { project, language } from '@/db/drizzleSchema';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { AuthGuard } from '@/guards/AuthGuard';
+import { useTranslation } from '@/hooks/useTranslation';
 
 
 // type ProjectWithRelations = typeof project.$inferSelect & {
@@ -34,6 +35,7 @@ const ProjectCard: React.FC<{ project: ProjectWithRelations }> = ({ project }) =
 );
 
 export default function Projects() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
@@ -63,7 +65,7 @@ export default function Projects() {
       setFilteredProjects(loadedProjects);
     } catch (error) {
       console.error('Error loading projects:', error);
-      Alert.alert('Error', 'Failed to load projects');
+      Alert.alert('Error', t('failedLoadProjects'));
     }
   };
 
@@ -84,10 +86,10 @@ export default function Projects() {
     
     if (showLanguageFilters) {
       filtered = filtered.filter(project => {
-        const sourceMatch = sourceFilter === 'All' || 
+        const sourceMatch = sourceFilter === t('all') || 
           project.sourceLanguage.nativeName === sourceFilter || 
           project.sourceLanguage.englishName === sourceFilter;
-        const targetMatch = targetFilter === 'All' || 
+        const targetMatch = targetFilter === t('all') || 
           project.targetLanguage.nativeName === targetFilter || 
           project.targetLanguage.englishName === targetFilter;
         return sourceMatch && targetMatch;
@@ -135,7 +137,7 @@ export default function Projects() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-          <Text style={sharedStyles.title}>Projects</Text>
+          <Text style={sharedStyles.title}>{t('projects')}</Text>
           
           <View style={sharedStyles.iconBar}>
             <TouchableOpacity 
@@ -155,9 +157,9 @@ export default function Projects() {
           {showLanguageFilters && (
             <View style={sharedStyles.filtersContainer}>
               <CustomDropdown
-                label="Source"
+                label={t('source')}
                 value={sourceFilter}
-                options={['All', ...languages]}
+                options={[t('all'), ...languages]}
                 onSelect={setSourceFilter}
                 isOpen={openDropdown === 'source'}
                 onToggle={() => toggleDropdown('source')}
@@ -165,9 +167,9 @@ export default function Projects() {
                 search={true}
               />
               <CustomDropdown
-                label="Target"
+                label={t('target')}
                 value={targetFilter}
-                options={['All', ...languages]}
+                options={[t('all'), ...languages]}
                 onSelect={setTargetFilter}
                 isOpen={openDropdown === 'target'}
                 onToggle={() => toggleDropdown('target')}

@@ -19,6 +19,7 @@ import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const { user, language } = schema;
 
@@ -26,6 +27,7 @@ const { user, language } = schema;
 // const userRepository = new UserRepository();
 
 export default function Index() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
@@ -71,7 +73,7 @@ export default function Index() {
 
   const handleSignIn = async () => {
     if (!isDbReady) {
-      Alert.alert('Error', 'Database is not ready yet. Please wait.');
+      Alert.alert('Error', t('databaseNotReady'));
       return;
     }
 
@@ -82,11 +84,11 @@ export default function Index() {
         setCurrentUser(authenticatedUser);
         router.push("/projects");
       } else {
-        Alert.alert('Error', 'Invalid username or password');
+        Alert.alert('Error', t('invalidAuth'));
       }
     } catch (error) {
       console.error('Error during sign in:', error);
-      Alert.alert('Error', 'An error occurred during sign in');
+      Alert.alert('Error', t('signInError'));
     }
   };
 
@@ -101,14 +103,14 @@ export default function Index() {
         <Text>{dbStatus}</Text>
           <View style={{ alignItems: 'center', width: '100%' }}>
             <Text style={sharedStyles.appTitle}>LangQuest</Text>
-            <Text style={sharedStyles.subtitle}>Welcome back, hero!</Text>
+            <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
           </View>
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
             <TextInput
               style={{ flex: 1, color: colors.text }}
-              placeholder="Username"
+              placeholder={t('username')}
               placeholderTextColor={colors.text}
               value={username}
               onChangeText={setUsername}
@@ -119,7 +121,7 @@ export default function Index() {
             <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
             <TextInput
               style={{ flex: 1, color: colors.text }}
-              placeholder="Password"
+              placeholder={t('password')}
               placeholderTextColor={colors.text}
               secureTextEntry
               value={password}
@@ -128,16 +130,16 @@ export default function Index() {
           </View>
           
           <TouchableOpacity>
-            <Text style={[sharedStyles.link, { marginBottom: spacing.medium }]}>I forgot my password</Text>
+            <Text style={[sharedStyles.link, { marginBottom: spacing.medium }]}>{t('forgotPassword')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
-            <Text style={sharedStyles.buttonText}>Sign In</Text>
+            <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-            <Text style={{ color: colors.text, marginRight: spacing.small }}>New user?</Text>
+            <Text style={{ color: colors.text, marginRight: spacing.small }}>{t('newUser')}</Text>
             <TouchableOpacity onPress={() => router.push("/register")}>
-              <Text style={sharedStyles.link}>Register</Text>
+              <Text style={sharedStyles.link}>{t('register')}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -9,6 +9,7 @@ import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
 import { questService, QuestWithRelations } from '@/database_services/questService';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SortingOption {
   field: string;
@@ -16,7 +17,7 @@ interface SortingOption {
 }
 
 const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
-  const difficulty = quest.tags.find(tag => tag.name.startsWith('Difficulty:'))?.name.split(':')[1];
+  const difficulty = quest.tags.find(tag => tag.name.startsWith('Difficulty:'))?.name.split(':')[1]; // ****Needs attention****
   
   return (
     <View style={sharedStyles.card}>
@@ -35,6 +36,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 
 
 export default function Quests() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setActiveQuest } = useProjectContext();
   const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
@@ -58,7 +60,7 @@ export default function Quests() {
       setFilteredQuests(loadedQuests);
     } catch (error) {
       console.error('Error loading quests:', error);
-      Alert.alert('Error', 'Failed to load quests');
+      Alert.alert('Error', t('failedLoadQuests'));
     }
   };
 
@@ -161,13 +163,13 @@ export default function Quests() {
           <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={sharedStyles.title}>{projectName} Quests</Text>
+          <Text style={sharedStyles.title}>{projectName} {t('quests')}</Text>
           
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search quests..."
+              placeholder={t('searchQuests')}
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}

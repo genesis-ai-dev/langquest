@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AudioPlayer from '@/components/AudioPlayer';
 import ImageCarousel from '@/components/ImageCarousel';
 import Carousel from '@/components/Carousel';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
@@ -25,6 +26,7 @@ type SortOption = 'voteCount' | 'dateSubmitted';
 
 
 export default function AssetView() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -55,13 +57,13 @@ export default function AssetView() {
       }
     } catch (error) {
       console.error('Error loading asset and translations:', error);
-      Alert.alert('Error', 'Failed to load asset data');
+      Alert.alert('Error', t('failedLoadAsset'));
     }
   };
 
   const handleVote = async (translationId: string, polarity: 'up' | 'down') => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to vote');
+      Alert.alert('Error', t('logInToVote'));
       return;
     }
 
@@ -74,7 +76,7 @@ export default function AssetView() {
       await loadAssetAndTranslations(); // Reload to get updated vote counts
     } catch (error) {
       console.error('Error voting:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -83,7 +85,7 @@ export default function AssetView() {
       await loadAssetAndTranslations();
     } catch (error) {
       console.error('Error creating translation:', error);
-      Alert.alert('Error', 'Failed to create translation');
+      Alert.alert('Error', t('failedCreateTranslation'));
     }
   };
 
@@ -195,7 +197,7 @@ export default function AssetView() {
                 <AudioPlayer 
                   audioFiles={asset.audio.map((moduleId, index) => ({
                     id: `audio-${index}`,
-                    title: `Audio ${index + 1}`,
+                    title: `${t('audio')} ${index + 1}`,
                     moduleId: moduleId
                   }))} 
                 />
@@ -212,11 +214,11 @@ export default function AssetView() {
                 <View style={styles.alignmentContainer}>
                   <View style={styles.dropdownContainer}>
                     <CustomDropdown
-                      label="Sort by"
+                      label={t('sortBy')}
                       value={sortOption}
                       options={[
-                        { label: 'Votes', value: 'voteCount' },
-                        { label: 'Date', value: 'dateSubmitted' }
+                        { label: t('votes'), value: 'voteCount' },
+                        { label: t('date'), value: 'dateSubmitted' }
                       ]}
                       onSelect={(value) => setSortOption(value as SortOption)}
                     />
@@ -226,7 +228,7 @@ export default function AssetView() {
                     onPress={() => setIsNewTranslationModalVisible(true)}
                   >
                     <Ionicons name="add" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>New Translation</Text>
+                    <Text style={styles.newTranslationButtonText}>{t('newTranslation')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

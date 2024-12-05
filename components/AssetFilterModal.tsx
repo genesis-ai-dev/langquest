@@ -4,6 +4,7 @@ import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles
 import { Ionicons } from '@expo/vector-icons';
 import { AssetWithRelations } from '@/database_services/assetService';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface AssetFilterModalProps {
   visible: boolean;
@@ -33,6 +34,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
   const [sortingOptions, setSortingOptions] = useState<SortingOption[]>(initialSorting);
+  const { t } = useTranslation();
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
@@ -215,7 +217,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
               )}
             </ScrollView>
             <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
-              <Text style={sharedStyles.modalButtonText}>Apply</Text>
+              <Text style={sharedStyles.modalButtonText}>t('apply')</Text>
             </TouchableOpacity>
           </View>
         </TouchableWithoutFeedback>

@@ -5,6 +5,7 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import Slider from '@react-native-community/slider';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import Carousel from './Carousel';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface AudioFile {
   id: string;
@@ -30,6 +31,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [activeModuleId, setActiveModuleId] = useState<number | null>(null);
+  const { t } = useTranslation();
 
   const cleanupSound = async () => {
     if (sound) {
@@ -180,7 +182,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   } else {
     // Use audioFilesOrSingle instead of audioFiles[0]
     const audioFilesOrSingle = audioUri 
-      ? [{ id: 'single', title: 'Recording', moduleId: audioUri }]
+      ? [{ id: 'single', title: t('recording'), moduleId: audioUri }]
       : audioFiles;
 
     // Only render if we have files to play

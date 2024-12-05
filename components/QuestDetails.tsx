@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { quest, tag } from '@/db/drizzleSchema';
 import { useRouter } from 'expo-router';
+import { useTranslation } from '@/hooks/useTranslation';
 
 type QuestWithRelations = typeof quest.$inferSelect & {
   tags: (typeof tag.$inferSelect)[];
@@ -14,6 +15,7 @@ interface QuestDetailsProps {
 }
 
 export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
+  const { t } = useTranslation();
   const router = useRouter();
   
   const handleStartQuest = () => {
@@ -49,7 +51,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) =>
         )}
 
         <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
-          <Text style={styles.startButtonText}>Start Quest</Text>
+          <Text style={styles.startButtonText}>{t('startQuest')}</Text>
         </TouchableOpacity>
       </View>
     </View>

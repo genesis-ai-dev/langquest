@@ -10,6 +10,7 @@ import { translationService } from '@/database_services/translationService';
 import { vote } from '@/db/drizzleSchema';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface TranslationModalProps {
   translation: TranslationWithRelations;
@@ -22,6 +23,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   onClose, 
   onVoteSubmitted,
 }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
@@ -55,7 +57,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
-      Alert.alert('Error', 'You must be logged in to vote');
+      Alert.alert('Error', t('logInToVote'));
       return;
     }
     // If clicking the same vote type, remove the vote without showing modal
@@ -78,7 +80,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         await loadUserVote();
       } catch (error) {
         console.error('Error removing vote:', error);
-        Alert.alert('Error', 'Failed to remove vote');
+        Alert.alert('Error', t('failedRemoveVote'));
       }
       return;
     }
@@ -109,7 +111,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       setShowVoteModal(false);
     } catch (error) {
       console.error('Error submitting vote:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 

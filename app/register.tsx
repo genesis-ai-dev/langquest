@@ -10,6 +10,7 @@ import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
 import { userService } from '@/database_services/userService';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
 
 type Language = typeof language.$inferSelect;
@@ -20,6 +21,7 @@ type Language = typeof language.$inferSelect;
 // const userRepository = new UserRepository();
 
 export default function Register() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -57,19 +59,19 @@ export default function Register() {
       }
     } catch (error) {
       console.error('Error loading languages:', error);
-      Alert.alert('Error', 'Failed to load available languages');
+      Alert.alert('Error', t('failedLoadLanguages'));
     }
   };
 
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Error', t('passwordsNoMatch'));
       return;
     }
   
     if (!selectedLanguageId) {
-      Alert.alert('Error', 'Please select a language');
+      Alert.alert('Error', t('selectLanguage'));
       return;
     }
   
@@ -86,13 +88,13 @@ export default function Register() {
         setPassword('');
         setConfirmPassword('');
         setCurrentUser(authenticatedUser); // Set the newly created user as current user
-        Alert.alert('Success', 'Registration successful!', [
-          { text: 'OK', onPress: () => router.push("/projects") } // Go directly to projects
+        Alert.alert('Success', t('registrationSuccess'), [
+          { text: t('ok'), onPress: () => router.push("/projects") } // Go directly to projects
         ]);
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Registration failed');
+      Alert.alert('Error', error instanceof Error ? error.message : t('registrationFail'));
     }
   };
 
@@ -101,10 +103,10 @@ export default function Register() {
       <ScrollView style={sharedStyles.container}>
         <View style={{ alignItems: 'center' }}>
           <Text style={sharedStyles.title}>LangQuest</Text>
-          <Text style={sharedStyles.subtitle}>New User Registration</Text>
+          <Text style={sharedStyles.subtitle}>{t('neewUserRegistration')}</Text>
           
           <CustomDropdown
-            label="App Language"
+            label={t('appLanguage')}
             value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
             options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
             onSelect={(langName) => {
@@ -124,7 +126,7 @@ export default function Register() {
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
             <TextInput
               style={{ flex: 1, color: colors.text }}
-              placeholder="Username"
+              placeholder={t('username')}
               placeholderTextColor={colors.text}
               value={username}
               onChangeText={setUsername}
@@ -135,7 +137,7 @@ export default function Register() {
             <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
             <TextInput
               style={{ flex: 1, color: colors.text }}
-              placeholder="Password"
+              placeholder={t('password')}
               placeholderTextColor={colors.text}
               secureTextEntry
               value={password}
@@ -147,7 +149,7 @@ export default function Register() {
             <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
             <TextInput
               style={{ flex: 1, color: colors.text }}
-              placeholder="Confirm Password"
+              placeholder={t('confirmPassword')}
               placeholderTextColor={colors.text}
               secureTextEntry
               value={confirmPassword}
@@ -156,19 +158,19 @@ export default function Register() {
           </View>
           
           <View style={{ width: '100%', marginBottom: spacing.medium }}>
-            <Text style={{ color: colors.text, marginBottom: spacing.small }}>Avatar:</Text>
+            <Text style={{ color: colors.text, marginBottom: spacing.small }}>{t('avatar')}:</Text>
             <TouchableOpacity style={[sharedStyles.button, { backgroundColor: colors.inputBackground }]}>
               <Ionicons name="camera-outline" size={24} color={colors.text} />
-              <Text style={[sharedStyles.buttonText, { color: colors.text }]}>Select</Text>
+              <Text style={[sharedStyles.buttonText, { color: colors.text }]}>{t('select')}</Text>
             </TouchableOpacity>
           </View>
           
           <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
-            <Text style={sharedStyles.buttonText}>Become a Hero</Text>
+            <Text style={sharedStyles.buttonText}>{t('becomeHero')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => router.push("/")}>
-            <Text style={sharedStyles.link}>Returning hero? Sign In</Text>
+            <Text style={sharedStyles.link}>{t('returningHero')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

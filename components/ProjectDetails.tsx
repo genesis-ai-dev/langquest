@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { project, language } from '@/db/drizzleSchema';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Match the type from projectService
 type ProjectWithRelations = typeof project.$inferSelect & {
@@ -17,6 +18,7 @@ interface ProjectDetailsProps {
 }
 
 export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project, onClose, onExplore }) => {
+  const { t } = useTranslation();
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
@@ -39,7 +41,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project, onClose
         )}
 
         <TouchableOpacity style={styles.exploreButton} onPress={onExplore}>
-          <Text style={styles.exploreButtonText}>Explore</Text>
+          <Text style={styles.exploreButtonText}>{t('explore')}</Text>
         </TouchableOpacity>
       </View>
     </View>

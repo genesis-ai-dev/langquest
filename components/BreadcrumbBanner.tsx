@@ -19,7 +19,6 @@ export const BreadcrumbBanner: React.FC<BreadcrumbBannerProps> = ({ language }) 
         color: colors.text, 
         fontSize: fontSizes.medium 
       }}>
-        Selected UI Language: {language}
       </Text>
     </View>
   );

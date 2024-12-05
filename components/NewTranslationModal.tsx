@@ -9,6 +9,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import { randomUUID } from 'expo-crypto';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -25,6 +26,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   onSubmit,
   assetId,
 }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
   const [translationText, setTranslationText] = useState('');
@@ -32,17 +34,17 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
   const handleSubmit = async () => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to submit translations');
+      Alert.alert('Error', t('logInToTranslate'));
       return;
     }
 
     if (!activeProject) {
-      Alert.alert('Error', 'No active project found');
+      Alert.alert('Error', t('noProject'));
       return;
     }
     
     if (!translationText.trim() && !audioUri) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Error', t('fillFields'));
       return;
     }
 
@@ -76,7 +78,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error creating translation:', error);
-      Alert.alert('Error', 'Failed to create translation');
+      Alert.alert('Error', t('failedCreateTranslation'));
     }
   };
 
@@ -99,12 +101,12 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
               
-              <Text style={styles.title}>New Translation</Text>
+              <Text style={styles.title}>{t('newTranslation')}</Text>
 
               <TextInput
                 style={styles.textInput}
                 multiline
-                placeholder="Enter your translation here"
+                placeholder={t('enterTranslation')}
                 placeholderTextColor={colors.textSecondary}
                 value={translationText}
                 onChangeText={setTranslationText}
@@ -120,7 +122,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                 onPress={handleSubmit}
                 disabled={!translationText.trim() && !audioUri}
               >
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text style={styles.submitButtonText}>{t('submit')}</Text>
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
