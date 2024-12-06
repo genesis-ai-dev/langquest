@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, TextInput, TouchableOpacity, Alert } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView  } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
@@ -155,6 +155,14 @@ export default function Index() {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
         <Text>{dbStatus}</Text>
           <View style={{ alignItems: 'center', width: '100%' }}>
@@ -235,6 +243,8 @@ export default function Index() {
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
   );

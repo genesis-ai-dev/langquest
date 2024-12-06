@@ -111,7 +111,7 @@ export const translations = {
     english: 'New user?',
     spanish: '¿Usuario nuevo?',
   },
-  neewUserRegistration: {
+  newUserRegistration: {
     english: 'New User Registration',
     spanish: 'Registro de nuevo usuario',
   },

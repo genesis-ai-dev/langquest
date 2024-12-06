@@ -217,7 +217,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
           )}
         </ScrollView>
         <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
-          <Text style={sharedStyles.modalButtonText}>Apply</Text>
+          <Text style={sharedStyles.modalButtonText}>{t('apply')}</Text>
         </TouchableOpacity>
           </View>
         </TouchableWithoutFeedback>

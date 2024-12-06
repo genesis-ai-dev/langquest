@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
 import { userService } from '@/database_services/userService';
@@ -15,11 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Language = typeof language.$inferSelect;
-
-
-// Repository instances
-// const languageRepository = new LanguageRepository();
-// const userRepository = new UserRepository();
 
 export default function Register() {
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -130,81 +126,117 @@ export default function Register() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
-      <ScrollView style={sharedStyles.container}>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={sharedStyles.title}>LangQuest</Text>
-          <Text style={sharedStyles.subtitle}>{t('neewUserRegistration')}</Text>
-          
-          <CustomDropdown
-            value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-            options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
-            onSelect={(langName) => {
-              const lang = languages.find(l => l.nativeName === langName);
-              if (lang) {
-                setSelectedLanguageId(lang.id);
-              }
-            }}
-            isOpen={showLanguages}
-            onToggle={() => setShowLanguages(!showLanguages)}
-            search={true}
-            searchPlaceholder={t('search')}
-            fullWidth={true}
-            containerStyle={{ marginBottom: spacing.medium }}
-          />
-          
-          <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-            <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-            <TextInput
-              style={{ flex: 1, color: colors.text }}
-              placeholder={t('username')}
-              placeholderTextColor={colors.text}
-              value={username}
-              onChangeText={setUsername}
-            />
-          </View>
-          
-          <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-            <TextInput
-              style={{ flex: 1, color: colors.text }}
-              placeholder={t('password')}
-              placeholderTextColor={colors.text}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-          
-          <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-            <TextInput
-              style={{ flex: 1, color: colors.text }}
-              placeholder={t('confirmPassword')}
-              placeholderTextColor={colors.text}
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-          </View>
-          
-          <View style={{ width: '100%', marginBottom: spacing.medium }}>
-            <Text style={{ color: colors.text, marginBottom: spacing.small }}>{t('avatar')}:</Text>
-            <TouchableOpacity style={[sharedStyles.button, { backgroundColor: colors.inputBackground }]}>
-              <Ionicons name="camera-outline" size={24} color={colors.text} />
-              <Text style={[sharedStyles.buttonText, { color: colors.text }]}>{t('select')}</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
-            <Text style={sharedStyles.buttonText}>{t('becomeHero')}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={() => router.push("/")}>
-            <Text style={sharedStyles.link}>{t('returningHero')}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <ScrollView 
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
+              <View style={{ alignItems: 'center', width: '100%' }}>
+                <Text style={sharedStyles.appTitle}>LangQuest</Text>
+                <Text style={sharedStyles.subtitle}>{t('newUserRegistration')}</Text>
+              </View>
+              
+              {/* Language section */}
+              <View style={{ alignItems: 'center', marginBottom: spacing.medium, width: '100%' }}>
+                <Ionicons 
+                  name="language" 
+                  size={32} 
+                  color={colors.text} 
+                  style={{ marginBottom: spacing.small }}
+                />
+                <CustomDropdown
+                  value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
+                  options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+                  onSelect={(langName) => {
+                    const lang = languages.find(l => l.nativeName === langName);
+                    if (lang) {
+                      setSelectedLanguageId(lang.id);
+                    }
+                  }}
+                  isOpen={showLanguages}
+                  onToggle={() => setShowLanguages(!showLanguages)}
+                  search={true}
+                  searchPlaceholder={t('search')}
+                  fullWidth={true}
+                  containerStyle={{ marginBottom: spacing.medium }}
+                />
+              </View>
+              
+              {/* User section */}
+              <View style={{ alignItems: 'center', marginBottom: spacing.medium, width: '100%' }}>
+                <Ionicons 
+                  name="person-outline" 
+                  size={32} 
+                  color={colors.text} 
+                  style={{ marginBottom: spacing.small }}
+                />
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('username')}
+                    placeholderTextColor={colors.text}
+                    value={username}
+                    onChangeText={setUsername}
+                  />
+                </View>
+                
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('password')}
+                    placeholderTextColor={colors.text}
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                </View>
+                
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('confirmPassword')}
+                    placeholderTextColor={colors.text}
+                    secureTextEntry
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                  />
+                </View>
+              </View>
+              
+              {/* Avatar section */}
+              <View style={{ width: '100%', marginBottom: spacing.medium }}>
+                <Text style={{ color: colors.text, marginBottom: spacing.small }}>{t('avatar')}:</Text>
+                <TouchableOpacity style={[sharedStyles.button, { backgroundColor: colors.inputBackground }]}>
+                  <Ionicons name="camera-outline" size={24} color={colors.text} />
+                  <Text style={[sharedStyles.buttonText, { color: colors.text }]}>{t('select')}</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
+                <Text style={sharedStyles.buttonText}>{t('becomeHero')}</Text>
+              </TouchableOpacity>
+              
+              <View style={{ alignItems: 'center', width: '100%' }}>
+                <TouchableOpacity onPress={() => router.push("/")}>
+                  <Text style={sharedStyles.link}>{t('returningHero')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
