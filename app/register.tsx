@@ -12,6 +12,7 @@ import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Language = typeof language.$inferSelect;
 
@@ -45,6 +46,35 @@ export default function Register() {
       loadLanguages();
     }, [])
   );
+
+  // Load saved language on mount
+  useEffect(() => {
+    const loadSavedLanguage = async () => {
+      try {
+        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
+        if (savedLanguageId) {
+          setSelectedLanguageId(savedLanguageId);
+        }
+      } catch (error) {
+        console.error('Error loading saved language:', error);
+      }
+    };
+    loadSavedLanguage();
+  }, []);
+
+  // Save language when it changes
+  useEffect(() => {
+    const saveLanguage = async () => {
+      try {
+        if (selectedLanguageId) {
+          await AsyncStorage.setItem('selectedLanguageId', selectedLanguageId);
+        }
+      } catch (error) {
+        console.error('Error saving language:', error);
+      }
+    };
+    saveLanguage();
+  }, [selectedLanguageId]);
 
   const loadLanguages = async () => {
     try {
@@ -107,7 +137,6 @@ export default function Register() {
           <Text style={sharedStyles.subtitle}>{t('neewUserRegistration')}</Text>
           
           <CustomDropdown
-            label={t('appLanguage')}
             value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
             options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
             onSelect={(langName) => {

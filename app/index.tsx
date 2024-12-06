@@ -22,6 +22,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Language = typeof language.$inferSelect;
 
@@ -97,6 +98,35 @@ export default function Index() {
     loadLanguages();
   }, []);
 
+  // Load saved language on mount
+  useEffect(() => {
+    const loadSavedLanguage = async () => {
+      try {
+        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
+        if (savedLanguageId) {
+          setSelectedLanguageId(savedLanguageId);
+        }
+      } catch (error) {
+        console.error('Error loading saved language:', error);
+      }
+    };
+    loadSavedLanguage();
+  }, []);
+
+  // Save language when it changes
+  useEffect(() => {
+    const saveLanguage = async () => {
+      try {
+        if (selectedLanguageId) {
+          await AsyncStorage.setItem('selectedLanguageId', selectedLanguageId);
+        }
+      } catch (error) {
+        console.error('Error saving language:', error);
+      }
+    };
+    saveLanguage();
+  }, [selectedLanguageId]);
+
   const handleSignIn = async () => {
     if (!isDbReady) {
       Alert.alert('Error', t('databaseNotReady'));
@@ -132,45 +162,63 @@ export default function Index() {
             <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
           </View>
           
-          <CustomDropdown
-            label={t('appLanguage')}
-            value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-            options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
-            onSelect={(langName) => {
-              const lang = languages.find(l => l.nativeName === langName);
-              if (lang) {
-                setSelectedLanguageId(lang.id);
-              }
-            }}
-            isOpen={showLanguages}
-            onToggle={() => setShowLanguages(!showLanguages)}
-            search={true}
-            searchPlaceholder={t('search')}
-            fullWidth={true}
-            containerStyle={{ marginBottom: spacing.medium }}
-          />
-          
-          <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-            <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-            <TextInput
-              style={{ flex: 1, color: colors.text }}
-              placeholder={t('username')}
-              placeholderTextColor={colors.text}
-              value={username}
-              onChangeText={setUsername}
+          {/* Language section */}
+          <View style={{ alignItems: 'center', marginBottom: spacing.medium }}>
+            <Ionicons 
+              name="language" 
+              size={32} 
+              color={colors.text} 
+              style={{ marginBottom: spacing.small }}
+            />
+            <CustomDropdown
+              value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
+              options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+              onSelect={(langName) => {
+                const lang = languages.find(l => l.nativeName === langName);
+                if (lang) {
+                  setSelectedLanguageId(lang.id);
+                }
+              }}
+              isOpen={showLanguages}
+              onToggle={() => setShowLanguages(!showLanguages)}
+              search={true}
+              searchPlaceholder={t('search')}
+              fullWidth={true}
+              containerStyle={{ marginBottom: spacing.medium }}
             />
           </View>
-          
-          <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-            <TextInput
-              style={{ flex: 1, color: colors.text }}
-              placeholder={t('password')}
-              placeholderTextColor={colors.text}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+
+          {/* User section */}
+          <View style={{ alignItems: 'center', marginBottom: spacing.medium }}>
+            <Ionicons 
+              name="person-outline" 
+              size={32} 
+              color={colors.text} 
+              style={{ marginBottom: spacing.small }}
             />
+          
+            <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
+              <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+              <TextInput
+                style={{ flex: 1, color: colors.text }}
+                placeholder={t('username')}
+                placeholderTextColor={colors.text}
+                value={username}
+                onChangeText={setUsername}
+              />
+            </View>
+            
+            <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+              <TextInput
+                style={{ flex: 1, color: colors.text }}
+                placeholder={t('password')}
+                placeholderTextColor={colors.text}
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
           </View>
           
           <TouchableOpacity>
