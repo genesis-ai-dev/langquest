@@ -13,21 +13,25 @@ import * as SQLite from 'expo-sqlite';
 import * as schema from '../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import migrations from '../drizzle/migrations';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { db } from '../db/database';
 import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import { languageService } from '@/database_services/languageService';
+import { language } from '@/db/drizzleSchema';
+import { CustomDropdown } from '@/components/CustomDropdown';
 
-const { user, language } = schema;
-
-
-// const userRepository = new UserRepository();
+type Language = typeof language.$inferSelect;
 
 export default function Index() {
-  const { t } = useTranslation();
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
+  const [showLanguages, setShowLanguages] = useState(false);
+  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
@@ -70,6 +74,28 @@ export default function Index() {
     initializeDatabase();
   }, []);
 
+  // Language loading
+  useEffect(() => {
+    const loadLanguages = async () => {
+      try {
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+        // Set default language if available
+        if (!selectedLanguageId && loadedLanguages.length > 0) {
+          const englishLang = loadedLanguages.find(l => 
+            l.englishName?.toLowerCase() === 'english' || 
+            l.nativeName?.toLowerCase() === 'english'
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
+      }
+    };
+
+    loadLanguages();
+  }, []);
 
   const handleSignIn = async () => {
     if (!isDbReady) {
@@ -105,6 +131,24 @@ export default function Index() {
             <Text style={sharedStyles.appTitle}>LangQuest</Text>
             <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
           </View>
+          
+          <CustomDropdown
+            label={t('appLanguage')}
+            value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
+            options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+            onSelect={(langName) => {
+              const lang = languages.find(l => l.nativeName === langName);
+              if (lang) {
+                setSelectedLanguageId(lang.id);
+              }
+            }}
+            isOpen={showLanguages}
+            onToggle={() => setShowLanguages(!showLanguages)}
+            search={true}
+            searchPlaceholder={t('search')}
+            fullWidth={true}
+            containerStyle={{ marginBottom: spacing.medium }}
+          />
           
           <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
             <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />

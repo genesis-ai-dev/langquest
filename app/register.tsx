@@ -21,11 +21,12 @@ type Language = typeof language.$inferSelect;
 // const userRepository = new UserRepository();
 
 export default function Register() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const { setCurrentUser } = useAuth();
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
+  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+  const router = useRouter();
+  const { setCurrentUser } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -118,6 +119,7 @@ export default function Register() {
             isOpen={showLanguages}
             onToggle={() => setShowLanguages(!showLanguages)}
             search={true}
+            searchPlaceholder={t('search')}
             fullWidth={true}
             containerStyle={{ marginBottom: spacing.medium }}
           />

@@ -19,6 +19,7 @@ interface CustomDropdownProps {
   onToggle?: () => void;
   fullWidth?: boolean;
   search?: boolean;
+  searchPlaceholder?: string;
   containerStyle?: object;
 }
 
@@ -31,6 +32,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   onToggle,
   fullWidth = true,
   search = true,
+  searchPlaceholder,
   containerStyle, 
 }) => {
   const { t } = useTranslation();
@@ -57,7 +59,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         labelField="label"
         valueField="value"
         placeholder={t('selectItem')}
-        searchPlaceholder={t('search')}
+        searchPlaceholder={searchPlaceholder || t('search')}
         value={value}
         onChange={item => {
           onSelect(item.value);
