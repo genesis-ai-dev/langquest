@@ -51,6 +51,10 @@ export const translations = {
     english: 'Enter your translation here',
     spanish: 'Ingrese su traducción aquí',
   },
+  error: {
+    english: 'Error',
+    spanish: 'Error',
+  },
   explore: {
     english: 'Explore',
     spanish: 'Explorar',
@@ -218,6 +222,10 @@ export const translations = {
   submitTranslation: {
     english: 'Submit Translation',
     spanish: 'Enviar Traducción',
+  },
+  success: {
+    english: 'Success',
+    spanish: 'Éxito',
   },
   target: {
     english: 'Target',

@@ -217,7 +217,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
               )}
             </ScrollView>
             <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
-              <Text style={sharedStyles.modalButtonText}>t('apply')</Text>
+              <Text style={sharedStyles.modalButtonText}>{t('apply')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableWithoutFeedback>

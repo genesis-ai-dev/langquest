@@ -115,7 +115,7 @@ export default function Register() {
         setPassword('');
         setConfirmPassword('');
         setCurrentUser(authenticatedUser); // Set the newly created user as current user
-        Alert.alert('Success', t('registrationSuccess'), [
+        Alert.alert(t('success'), t('registrationSuccess'), [
           { text: t('ok'), onPress: () => router.push("/projects") } // Go directly to projects
         ]);
       }

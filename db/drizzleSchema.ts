@@ -31,8 +31,6 @@ export const userRelations = relations(user, ({ many, one }) => ({
     fields: [user.uiLanguageId],
     references: [language.id],
   }),
-  sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
-  targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
 export const language = sqliteTable("Language", {
@@ -51,6 +49,8 @@ export const languageRelations = relations(language, ({ one, many }) => ({
     references: [user.id],
   }),
   uiUsers: many(user, { relationName: 'uiLanguage' }),
+  sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
+  targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
 export const project = sqliteTable("Project", {
@@ -127,6 +127,7 @@ export const asset = sqliteTable("Asset", {
   name: text().notNull(),
   sourceLanguageId: text().notNull(),
   text: text().notNull(),
+  // text: text({ mode: 'json' }).$type<string[]>().notNull(),
   images: text({ mode: 'json' }).$type<number[]>(),
   audio: text({ mode: 'json' }).$type<number[]>(),
 });
