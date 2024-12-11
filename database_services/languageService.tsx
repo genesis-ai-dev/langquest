@@ -9,6 +9,13 @@ export class LanguageService {
       .from(language)
       .where(eq(language.uiReady, true));
   }
+
+  
+  async getAllLanguages() {
+    return await db
+      .select()
+      .from(language);
+  }
 }
 
 export const languageService = new LanguageService();

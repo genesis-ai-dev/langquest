@@ -62,7 +62,7 @@ export default function Index() {
         }
 
         setDbStatus('Seeding database...');
-        await seedDatabase();
+        await seedDatabase(true);
         
         setDbStatus('Database initialized successfully');
         setIsDbReady(true);

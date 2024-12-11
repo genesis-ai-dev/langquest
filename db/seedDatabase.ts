@@ -55,8 +55,23 @@ function processAssetData(assetData: any) {
   };
 }
 
-export async function seedDatabase() {
+export async function seedDatabase(clearExisting: boolean = false) {
   try {
+    if (clearExisting) {
+      // Clear all tables in reverse order of dependencies
+      console.log('Clearing existing data...');
+      await db.delete(vote);
+      await db.delete(translation);
+      await db.delete(questToAssets);
+      await db.delete(assetToTags);
+      await db.delete(questToTags);
+      await db.delete(asset);
+      await db.delete(quest);
+      await db.delete(tag);
+      await db.delete(project);
+      await db.delete(user);
+      await db.delete(language);
+    }
     // Seed tables in order of dependencies
     for (const langData of seedData.languages) {
       await upsertData(language, langData);

@@ -21,6 +21,14 @@ import { useTranslation } from '@/hooks/useTranslation';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
+const getFirstAvailableTab = (asset: AssetWithRelations | null): TabType => {
+  if (!asset) return 'text';
+  if (asset.text) return 'text';
+  if (asset.audio?.length) return 'audio';
+  if (asset.images?.length) return 'image';
+  return 'text'; // fallback
+};
+
 type TabType = 'text' | 'audio' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
@@ -45,6 +53,12 @@ export default function AssetView() {
   useEffect(() => {
     loadAssetAndTranslations();
   }, [assetId]);
+
+  useEffect(() => {
+    if (asset) {
+      setActiveTab(getFirstAvailableTab(asset));
+    }
+  }, [asset]);
 
   const loadAssetAndTranslations = async () => {
     try {
@@ -165,22 +179,49 @@ export default function AssetView() {
             
             <View style={styles.tabBar}>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'text' && styles.activeTab]}
-                onPress={() => setActiveTab('text')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'text' && styles.activeTab,
+                  !asset?.text && styles.disabledTab
+                ]}
+                onPress={() => asset?.text && setActiveTab('text')}
+                disabled={!asset?.text}
               >
-                <Ionicons name="text" size={24} color={colors.text} />
+                <Ionicons 
+                  name="text" 
+                  size={24} 
+                  color={asset?.text ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'audio' && styles.activeTab]}
-                onPress={() => setActiveTab('audio')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'audio' && styles.activeTab,
+                  !asset?.audio?.length && styles.disabledTab
+                ]}
+                onPress={() => asset?.audio?.length && setActiveTab('audio')}
+                disabled={!asset?.audio?.length}
               >
-                <Ionicons name="volume-high" size={24} color={colors.text} />
+                <Ionicons 
+                  name="volume-high" 
+                  size={24} 
+                  color={asset?.audio?.length ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'image' && styles.activeTab]}
-                onPress={() => setActiveTab('image')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'image' && styles.activeTab,
+                  !asset?.images?.length && styles.disabledTab
+                ]}
+                onPress={() => asset?.images?.length && setActiveTab('image')}
+                disabled={!asset?.images?.length}
               >
-                <Ionicons name="image" size={24} color={colors.text} />
+                <Ionicons 
+                  name="image" 
+                  size={24} 
+                  color={asset?.images?.length ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
             </View>
 
@@ -284,6 +325,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginHorizontal: spacing.small,
+  },
+  disabledTab: {
+    opacity: 0.5,
   },
   content: {
     flex: 1,

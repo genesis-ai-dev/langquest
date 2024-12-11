@@ -126,7 +126,7 @@ export const asset = sqliteTable("Asset", {
   ...baseColumns,
   name: text().notNull(),
   sourceLanguageId: text().notNull(),
-  text: text().notNull(),
+  text: text(),
   // text: text({ mode: 'json' }).$type<string[]>().notNull(),
   images: text({ mode: 'json' }).$type<number[]>(),
   audio: text({ mode: 'json' }).$type<number[]>(),

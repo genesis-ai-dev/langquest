@@ -135,9 +135,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end', // Change from 'center' to 'flex-end'
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingBottom: spacing.large, // Add some padding from bottom
   },
   modal: {
     backgroundColor: colors.background,

@@ -854,7 +854,7 @@
       "versionChainId": "asset-sun-chain",
       "name": "Sol",
       "sourceLanguageId": "lang-spa",
-      "text": "sol",
+      "text": "",
       "images": ["sun.jpg"],
       "audio": []
     },
@@ -866,7 +866,7 @@
       "versionChainId": "asset-moon-chain",
       "name": "Luna",
       "sourceLanguageId": "lang-spa",
-      "text": "luna",
+      "text": "",
       "images": ["moon.jpg"],
       "audio": []
     },
@@ -878,7 +878,7 @@
       "versionChainId": "asset-stars-chain",
       "name": "Estrellas",
       "sourceLanguageId": "lang-spa",
-      "text": "estrellas",
+      "text": "",
       "images": ["stars.jpg"],
       "audio": []
     }
