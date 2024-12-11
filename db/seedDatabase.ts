@@ -55,7 +55,7 @@ function processAssetData(assetData: any) {
   };
 }
 
-export async function seedDatabase(clearExisting: boolean = false) {
+export async function seedDatabase(clearExisting: boolean = false): Promise<boolean> {
   try {
     if (clearExisting) {
       // Clear all tables in reverse order of dependencies
@@ -120,6 +120,7 @@ export async function seedDatabase(clearExisting: boolean = false) {
     }
 
     console.log('Database seeded successfully');
+    return true;
   } catch (error) {
     console.error('Error seeding database:', error);
     throw error;

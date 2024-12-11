@@ -62,10 +62,28 @@ export default function Index() {
         }
 
         setDbStatus('Seeding database...');
-        await seedDatabase(true);
+        const seedSuccess = await seedDatabase();
         
-        setDbStatus('Database initialized successfully');
-        setIsDbReady(true);
+        if (seedSuccess) {
+          setDbStatus('Database initialized successfully');
+          setIsDbReady(true);
+          
+          // Load languages only after database is ready
+          try {
+            const loadedLanguages = await languageService.getUiReadyLanguages();
+            setLanguages(loadedLanguages);
+            if (loadedLanguages.length > 0) {
+              const englishLang = loadedLanguages.find(l => 
+                l.englishName?.toLowerCase() === 'english' || 
+                l.nativeName?.toLowerCase() === 'english'
+              );
+              setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
+            }
+          } catch (error) {
+            console.error('Error loading languages:', error);
+            Alert.alert('Error', t('failedLoadLanguages'));
+          }
+        }
       } catch (error) {
         console.error('Database initialization error:', error);
         setDbStatus(`Database initialization failed: ${error}`);
@@ -73,29 +91,6 @@ export default function Index() {
     };
 
     initializeDatabase();
-  }, []);
-
-  // Language loading
-  useEffect(() => {
-    const loadLanguages = async () => {
-      try {
-        const loadedLanguages = await languageService.getUiReadyLanguages();
-        setLanguages(loadedLanguages);
-        // Set default language if available
-        if (!selectedLanguageId && loadedLanguages.length > 0) {
-          const englishLang = loadedLanguages.find(l => 
-            l.englishName?.toLowerCase() === 'english' || 
-            l.nativeName?.toLowerCase() === 'english'
-          );
-          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
-        }
-      } catch (error) {
-        console.error('Error loading languages:', error);
-        Alert.alert('Error', t('failedLoadLanguages'));
-      }
-    };
-
-    loadLanguages();
   }, []);
 
   // Load saved language on mount
