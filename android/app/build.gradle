@@ -112,7 +112,7 @@ android {
     namespace 'com.etengenesis.langquest'
     defaultConfig {
         applicationId 'com.etengenesis.langquest'
-        minSdkVersion 24 //rootProject.ext.minSdkVersion
+        minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
