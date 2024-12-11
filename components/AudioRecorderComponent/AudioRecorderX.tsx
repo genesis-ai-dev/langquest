@@ -4,7 +4,6 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { FFmpegKit, FFmpegKitConfig } from 'ffmpeg-kit-react-native';
 import { createActor } from 'xstate';
 import { audioRecorderMachine } from './audioRecorderMachine';
 import { AudioManager } from './AudioManager';
