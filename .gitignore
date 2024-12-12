@@ -10,6 +10,7 @@ npm-debug.*
 *.orig.*
 web-build/
 llm_supporting_files/
+android/
 
 # macOS
 .DS_Store
