@@ -32,7 +32,8 @@
       "favicon": "./assets/images/langquest_icon_v1.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "./plugins/withAndroidConfig"
     ],
     "experiments": {
       "typedRoutes": true

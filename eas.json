@@ -11,8 +11,12 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
-      }
+        "buildType": "apk",
+        "cache": {
+          "key": "android-native-v1"
+        }
+      },
+      "prebuildCommand": "npx expo prebuild --platform android --clean"
     },
     "preview2": {
       "android": {
