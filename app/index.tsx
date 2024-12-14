@@ -17,6 +17,7 @@ import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { system } from '../db/powersync/system';
 import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -32,8 +33,6 @@ export default function Index() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isDbReady, setIsDbReady] = useState(false);
-  
-  // const { success, error } = useMigrations(db, migrations);
 
   // Clear passwords when component unmounts
   useEffect(() => {
@@ -44,51 +43,73 @@ export default function Index() {
 
   useEffect(() => {
     const initializeDatabase = async () => {
-      try {
-        supabaseConnector.client.auth.getSession()
-          .then(({ data }) => {
-            if (data.session) {
-              router.push("/projects");
-            } else { 
-              throw new Error('No session found');
-            }
-          })
-          .catch(() => {
-            router.replace("/register");
-          });
-      //   setDbStatus('Running migrations...');
-      //   const { success, error } = await handleMigrations();
-        
-      //   if (!success) {
-      //     setDbStatus(`Migration error: ${error}`);
-      //     console.error('Migration error:', error);
-      //     return;
-      //   }
+      // Sign in anonymously and wait for it to complete
+      const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
 
-      //   setDbStatus('Seeding database...');
-      //   await seedDatabase();
+      if (signInError) {
+          console.error('Error signing in anonymously:', signInError);
+          return;
+      }
+
+      console.log('Anonymous user signed in:', data.user);
+      
+      // try {
+      //   const { data, error } = await supabaseConnector.client.auth.signUp({
+      //     email: 'caleb.koster@gmail.com',
+      //     password: 'password1!'
+      //   });
         
-      //   setDbStatus('Database initialized successfully');
-      //   setIsDbReady(true);
+      //   if (error) {
+      //     console.error('Error signing up:', error.message);
+      //   } else {
+      //     console.log('User signed up successfully:', data.user);
+      //   }
+      // } catch (err) {
+      //   console.error('Error during signup:', err);
+      // }
+
+      // try {
+      //   const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
+      //     email: 'caleb.koster@gmail.com',
+      //     password: 'password1!'
+      //   });
+        
+      //   if (error) {
+      //     console.error('Error signing in:', error.message);
+      //   } else {
+      //     console.log('User signed in successfully:', data.user);
+      //     console.log('Session:', data.session);
+      //   }
+      // } catch (err) {
+      //   console.error('Error during sign in:', err);
+      // }
+
+
+      try {
+        const { data } = await supabaseConnector.client.auth.getSession();
+        console.log('Checking for session data:', data);
+        console.log('Checking for session:', data.session);
+        if (data.session) {
+          console.log('Session found');
+          await system.init(); // Initialize PowerSync after we confirm we have a session          
+          router.push("/projects");
+        } else {
+          console.log('No session found');
+        }
       } catch (error) {
-        console.error('Database initialization error:', error);
-        setDbStatus(`Database initialization failed: ${error}`);
+        console.error('Session check error:', error);
+        router.replace("/register");
       }
     };
-
+  
     initializeDatabase();
   }, []);
-
-
+  
   const handleSignIn = async () => {
-    if (!isDbReady) {
-      Alert.alert('Error', 'Database is not ready yet. Please wait.');
-      return;
-    }
-
     try {
       const authenticatedUser = await userService.validateCredentials({username, password});
       if (authenticatedUser) {
+        await system.init(); // Initialize PowerSync after successful login
         setPassword('');
         setCurrentUser(authenticatedUser);
         router.push("/projects");

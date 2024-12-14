@@ -13,9 +13,9 @@ export default function RootLayout() {
     return system.powersync;
   }, []);
 
-  useEffect(() => {
-    system.init();
-  }, []);
+  // useEffect(() => {
+  //   system.init();
+  // }, []);
 
   return (
     <PowerSyncContext.Provider value={db}>

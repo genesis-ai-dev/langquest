@@ -23,7 +23,8 @@ const Language = new Table({
     englishName: column.text,
     iso639_3: column.text,
     uiReady: column.integer,
-    creatorId: column.text
+    creatorId: column.text,
+    versionChainId: column.text
 });
 
 const Project = new Table({
@@ -99,7 +100,7 @@ const Vote = new Table({
     creatorId: column.text,
 });
 
-export const AppSchema = new Schema([
+export const AppSchema = new Schema({
     User, 
     Language, 
     Project, 
@@ -111,4 +112,4 @@ export const AppSchema = new Schema([
     QuestToAssets,
     Translations,
     Vote
-]);
+});
