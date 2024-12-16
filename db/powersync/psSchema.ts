@@ -10,7 +10,7 @@ const baseColumns = {
 };
 
 
-const user = new Table({
+const profile = new Table({
     ...baseColumns,
     username: column.text,
     password: column.text,
@@ -102,7 +102,7 @@ const vote = new Table({
 });
 
 export const AppSchema = new Schema({
-    user, 
+    profile, 
     language, 
     project, 
     quest, 

@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-const { user, language } = schema;
+const { profile, language } = schema;
 const { supabaseConnector } = system;
 
 // const userRepository = new UserRepository();

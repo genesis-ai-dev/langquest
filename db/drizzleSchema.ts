@@ -16,7 +16,7 @@ const baseColumns = {
   version_chain_id: text().notNull(),
 };
 
-export const user = sqliteTable("user", {
+export const profile = sqliteTable("profile", {
   ...baseColumns,
   username: text().notNull(),
   password: text().notNull(),
@@ -25,10 +25,10 @@ export const user = sqliteTable("user", {
   ui_language_id: text().notNull(),
 });
 
-export const userRelations = relations(user, ({ many, one }) => ({
+export const userRelations = relations(profile, ({ many, one }) => ({
   created_languages: many(language, { relationName: 'creator' }),
   ui_language: one(language, {  
-    fields: [user.ui_language_id],
+    fields: [profile.ui_language_id],
     references: [language.id],
   }),
   source_language_projects: many(project, { relationName: 'source_language' }),
@@ -46,11 +46,11 @@ export const language = sqliteTable("language", {
 });
 
 export const languageRelations = relations(language, ({ one, many }) => ({
-  creator: one(user, {
+  creator: one(profile, {
     fields: [language.creator_id],
-    references: [user.id],
+    references: [profile.id],
   }),
-  ui_users: many(user, { relationName: 'ui_language' }),
+  ui_users: many(profile, { relationName: 'ui_language' }),
 }));
 
 export const project = sqliteTable("project", {
@@ -199,7 +199,7 @@ export const translation = sqliteTable("translation", {
   target_language_id: text().notNull().references(() => language.id),
   text: text().notNull(),
   audio: text({ mode: 'json' }).$type<string[]>(),
-  creator_id: text().notNull().references(() => user.id),
+  creator_id: text().notNull().references(() => profile.id),
 });
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
@@ -211,9 +211,9 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
     fields: [translation.target_language_id],
     references: [language.id],
   }),
-  creator: one(user, {
+  creator: one(profile, {
     fields: [translation.creator_id],
-    references: [user.id],
+    references: [profile.id],
   }),
   votes: many(vote),
 }));
@@ -223,7 +223,7 @@ export const vote = sqliteTable("vote", {
   translation_id: text().notNull().references(() => translation.id),
   polarity: text().notNull(), // "up" or "down"
   comment: text(),
-  creator_id: text().notNull().references(() => user.id),
+  creator_id: text().notNull().references(() => profile.id),
 });
 
 export const voteRelations = relations(vote, ({ one }) => ({
@@ -231,14 +231,14 @@ export const voteRelations = relations(vote, ({ one }) => ({
     fields: [vote.translation_id],
     references: [translation.id],
   }),
-  creator: one(user, {
+  creator: one(profile, {
     fields: [vote.creator_id],
-    references: [user.id],
+    references: [profile.id],
   }),
 }));
 
 export const drizzleSchema = {
-  user,
+  profile,
   language,
   project,
   quest,

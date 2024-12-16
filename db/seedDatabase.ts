@@ -1,5 +1,5 @@
 // import { db } from './database';
-import { user, language, project, quest, tag, quest_tag_link, asset, asset_tag_link, quest_asset_link, vote, translation } from './drizzleSchema';
+import { profile, language, project, quest, tag, quest_tag_link, asset, asset_tag_link, quest_asset_link, vote, translation } from './drizzleSchema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 import { system } from './powersync/system';
@@ -226,8 +226,8 @@ async function seedTranslations() {
     .where(eq(language.english_name, 'Spanish'))
     .limit(1);
 
-  // Get a user for creator
-  const [sampleUser] = await db.select().from(user).limit(1);
+  // Get a profile for creator
+  const [sampleUser] = await db.select().from(profile).limit(1);
   if (!sampleUser) return;
 
   const translationData = [
@@ -343,7 +343,7 @@ export async function seedDatabase() {
       await db.delete(tag);
       await db.delete(project);
       await db.delete(language);
-      await db.delete(user);
+      await db.delete(profile);
       console.log('Database wiped successfully');
     }
     // Check if English already exists

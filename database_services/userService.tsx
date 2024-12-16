@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { user, language, translation, vote } from '../db/drizzleSchema';
+import { profile, language, translation, vote } from '../db/drizzleSchema';
 import { hashPassword } from '../utils/passwordUtils';
 import { randomUUID } from 'expo-crypto';
 import { aliasedTable } from 'drizzle-orm';
@@ -8,7 +8,7 @@ import { system } from '../db/powersync/system';
 import { Session } from '@supabase/supabase-js';
 
 
-export type UserWithRelations = typeof user.$inferSelect & {
+export type UserWithRelations = typeof profile.$inferSelect & {
   ui_language: typeof language.$inferSelect;
   translations: (typeof translation.$inferSelect)[];
   votes: (typeof vote.$inferSelect)[];
@@ -23,14 +23,14 @@ export class UserService {
     const result = await db
       .select({
         // User fields
-        id: user.id,
-        rev: user.rev,
-        created_at: user.created_at,
-        last_updated: user.last_updated,
-        version_chain_id: user.version_chain_id,
-        username: user.username,
-        password: user.password,
-        ui_language_id: user.ui_language_id,
+        id: profile.id,
+        rev: profile.rev,
+        created_at: profile.created_at,
+        last_updated: profile.last_updated,
+        version_chain_id: profile.version_chain_id,
+        username: profile.username,
+        password: profile.password,
+        ui_language_id: profile.ui_language_id,
         // Related fields
         ui_language: {
           id: ui_language.id,
@@ -47,11 +47,11 @@ export class UserService {
         translations: translation,
         votes: vote,
       })
-      .from(user)
-      .leftJoin(ui_language, eq(ui_language.id, user.ui_language_id))
-      .leftJoin(translation, eq(translation.creator_id, user.id))
-      .leftJoin(vote, eq(vote.creator_id, user.id))
-      .where(eq(user.id, userId))
+      .from(profile)
+      .leftJoin(ui_language, eq(ui_language.id, profile.ui_language_id))
+      .leftJoin(translation, eq(translation.creator_id, profile.id))
+      .leftJoin(vote, eq(vote.creator_id, profile.id))
+      .where(eq(profile.id, userId))
       .get();
   
     if (!result) return null;
@@ -91,14 +91,14 @@ export class UserService {
     const hashedPassword = await hashPassword(credentials.password);
     console.log('Password hashed successfully');
     
-    console.log('Querying local database for user');
+    console.log('Querying local database for profile');
     const foundUser = await db
       .select()
-      .from(user)
-      .where(eq(user.username, credentials.username))
+      .from(profile)
+      .where(eq(profile.username, credentials.username))
       .get();
       
-    console.log('Local user found:', !!foundUser);
+    console.log('Local profile found:', !!foundUser);
     
     try {
       console.log('Attempting Supabase login');
@@ -130,7 +130,7 @@ export class UserService {
   }) {
     const hashedPassword = await hashPassword(input.credentials.password);
     const [newUser] = await db
-      .insert(user)
+      .insert(profile)
       .values({
         version_chain_id: randomUUID(),
         username: input.credentials.username,

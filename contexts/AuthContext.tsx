@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 
 interface AuthContextType {
   currentUser: UserWithRelations | null;
-  setCurrentUser: (user: UserWithRelations | null) => void;
+  setCurrentUser: (profile: UserWithRelations | null) => void;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
   isLoading: boolean;
@@ -24,9 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const storedUserId = await AsyncStorage.getItem('userId');
         if (storedUserId) {
-          const user = await userService.getUserById(storedUserId);
-          if (user) {
-            setCurrentUser(user);
+          const profile = await userService.getUserById(storedUserId);
+          if (profile) {
+            setCurrentUser(profile);
           }
         }
       } catch (error) {

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { translation, vote, language, user } from '../db/drizzleSchema';
+import { translation, vote, language, profile } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 import { system,  } from '../db/powersync/system';
@@ -9,7 +9,7 @@ const { db } = system;
 
 export type TranslationWithRelations = typeof translation.$inferSelect & {
   target_language: typeof language.$inferSelect;
-  creator: typeof user.$inferSelect;
+  creator: typeof profile.$inferSelect;
   votes: (typeof vote.$inferSelect)[];
   voteCount: number;
 };
@@ -17,7 +17,7 @@ export type TranslationWithRelations = typeof translation.$inferSelect & {
 export class TranslationService {
   async getTranslationsByAsset_id(asset_id: string): Promise<TranslationWithRelations[]> {
     const target_language = aliasedTable(language, 'target_language');
-    const creator = aliasedTable(user, 'creator');
+    const creator = aliasedTable(profile, 'creator');
 
     const results = await db
       .select({
