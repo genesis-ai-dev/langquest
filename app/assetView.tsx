@@ -28,7 +28,7 @@ export default function AssetView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { assetId, assetName } = useLocalSearchParams<{ assetId: string; assetName: string }>();
+  const { asset_id, assetName } = useLocalSearchParams<{ asset_id: string; assetName: string }>();
   const [asset, setAsset] = useState<AssetWithRelations | null>(null);
   const [translations, setTranslations] = useState<TranslationWithRelations[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
@@ -42,15 +42,15 @@ export default function AssetView() {
 
   useEffect(() => {
     loadAssetAndTranslations();
-  }, [assetId]);
+  }, [asset_id]);
 
   const loadAssetAndTranslations = async () => {
     try {
-      if (!assetId) return;
-      const loadedAsset = await assetService.getAssetById(assetId);
+      if (!asset_id) return;
+      const loadedAsset = await assetService.getAssetById(asset_id);
       if (loadedAsset) {
         setAsset(loadedAsset);
-        const loadedTranslations = await translationService.getTranslationsByAssetId(assetId);
+        const loadedTranslations = await translationService.getTranslationsByAsset_id(asset_id);
         setTranslations(loadedTranslations);
       }
     } catch (error) {
@@ -59,7 +59,7 @@ export default function AssetView() {
     }
   };
 
-  const handleVote = async (translationId: string, polarity: 'up' | 'down') => {
+  const handleVote = async (translation_id: string, polarity: 'up' | 'down') => {
     if (!currentUser) {
       Alert.alert('Error', 'You must be logged in to vote');
       return;
@@ -67,8 +67,8 @@ export default function AssetView() {
 
     try {
       await voteService.addVote({
-        translationId,
-        creatorId: currentUser.id,
+        translation_id,
+        creator_id: currentUser.id,
         polarity,
       });
       await loadAssetAndTranslations(); // Reload to get updated vote counts
@@ -102,7 +102,7 @@ export default function AssetView() {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
     
     const userVote = translation.votes.find(vote => 
-      vote.creatorId === currentUser.id
+      vote.creator_id === currentUser.id
     );
   
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
@@ -122,7 +122,7 @@ export default function AssetView() {
             {getPreviewText(item.text)}
           </Text>
           <Text style={styles.translatorInfo}>
-            by {item.creator.username} in {item.targetLanguage.nativeName || item.targetLanguage.englishName}
+            by {item.creator.username} in {item.target_language.native_name || item.target_language.english_name}
           </Text>
         </View>
         <View style={styles.translationCardRight}>
@@ -146,7 +146,7 @@ export default function AssetView() {
         </View>
       </View>
       <View style={styles.cardFooter}>
-        {/* <Text style={styles.dateSubmitted}>{formatRelativeDate(item.createdAt)}</Text>
+        {/* <Text style={styles.dateSubmitted}>{formatRelativeDate(item.created_at)}</Text>
         {item.audio?.length > 0 && (
           <Ionicons name="volume-medium" size={20} color={colors.text} style={styles.audioIndicator} />
         )} */}
@@ -185,8 +185,8 @@ export default function AssetView() {
             <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
               {activeTab === 'text' && (
                 <View style={styles.sourceTextContainer}>
-                  <Text style={styles.sourceLanguageLabel}>
-                    {asset?.sourceLanguage.nativeName || asset?.sourceLanguage.englishName}:
+                  <Text style={styles.source_languageLabel}>
+                    {asset?.source_language.native_name || asset?.source_language.english_name}:
                   </Text>
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
@@ -226,7 +226,7 @@ export default function AssetView() {
                   data={translations.sort((a, b) => 
                     sortOption === 'voteCount' 
                       ? b.voteCount - a.voteCount
-                      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                      : new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                   )}
                   renderItem={renderTranslationCard}
                   keyExtractor={item => item.id}
@@ -249,7 +249,7 @@ export default function AssetView() {
         isVisible={isNewTranslationModalVisible}
         onClose={() => setIsNewTranslationModalVisible(false)}
         onSubmit={handleNewTranslation}
-        assetId={assetId!}
+        asset_id={asset_id!}
       />
       </LinearGradient>
     </GestureHandlerRootView>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.medium,
     marginBottom: spacing.medium,
   },
-  sourceLanguageLabel: {
+  source_languageLabel: {
     fontSize: fontSizes.medium,
     color: colors.text,
     fontWeight: 'bold',

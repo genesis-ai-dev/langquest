@@ -2,114 +2,115 @@ import { column, Schema, Table } from '@powersync/react-native';
 
 
 const baseColumns = {
+    // id: column.text,???
     rev: column.integer,
-    createdAt: column.text,
-    lastUpdated: column.text
+    created_at: column.text,
+    last_updated: column.text,
+    version_chain_id: column.text
 };
 
 
-const User = new Table({
+const user = new Table({
     ...baseColumns,
     username: column.text,
     password: column.text,
     // icon: column.text,
     // achievements: column.text,
-    uiLanguageId: column.text
+    ui_language_id: column.text
 });
 
-const Language = new Table({
+const language = new Table({
     ...baseColumns,
-    nativeName: column.text,
-    englishName: column.text,
+    native_name: column.text,
+    english_name: column.text,
     iso639_3: column.text,
-    uiReady: column.integer,
-    creatorId: column.text,
-    versionChainId: column.text
+    ui_ready: column.integer,
+    creator_id: column.text
 });
 
-const Project = new Table({
+const project = new Table({
     ...baseColumns,
     name: column.text,
     description: column.text,
-    sourceLanguageId: column.text,
-    targetLanguageId: column.text
+    source_language_id: column.text,
+    target_language_id: column.text
 });
 
-const Quest = new Table({
+const quest = new Table({
     ...baseColumns,
     name: column.text,
     description: column.text,
-    projectId: column.text,
+    project_id: column.text,
 });
 
-const Tag = new Table({
+const tag = new Table({
     ...baseColumns,
     name: column.text,
 });
 
-const QuestToTags = new Table({
-    questId: column.text,
-    tagId: column.text,
+const quest_tag_link = new Table({
+    quest_id: column.text,
+    tag_id: column.text,
 }, {
     indexes: {
-        pk: ['questId', 'tagId'],
+        pk: ['quest_id', 'tag_id'],
     }
 });
 
-const Asset = new Table({
+const asset = new Table({
     ...baseColumns,
     name: column.text,
-    sourceLanguageId: column.text,
+    source_language_id: column.text,
     text: column.text,
     images: column.text,
     audio: column.text,
 });
 
-const AssetToTags = new Table({
-    assetId: column.text,
-    tagId: column.text,
+const asset_tag_link = new Table({
+    asset_id: column.text,
+    tag_id: column.text,
 }, {
     indexes: {
-        pk: ['assetId', 'tagId'],
+        pk: ['asset_id', 'tag_id'],
     }
 });
 
-const QuestToAssets = new Table({
-    questId: column.text,
-    assetId: column.text,
+const quest_asset_link = new Table({
+    quest_id: column.text,
+    asset_id: column.text,
 }, { 
     indexes: {
-        pk: ['questId', 'assetId'],
+        pk: ['quest_id', 'asset_id'],
     }
 });
 
-const Translations = new Table({
+const translation = new Table({
     ...baseColumns,
-    assetId: column.text,
-    targetLanguageId: column.text,
-    test: column.text,
+    asset_id: column.text,
+    target_language_id: column.text,
+    text: column.text,
     audio: column.text,
-    creatorId: column.text,
+    creator_id: column.text,
 });
 
-const Vote = new Table({
+const vote = new Table({
     ...baseColumns,
-    translationId: column.text,
+    translation_id: column.text,
     polarity: column.text,
     comment: column.text,
-    creatorId: column.text,
+    creator_id: column.text,
 });
 
 export const AppSchema = new Schema({
-    User, 
-    Language, 
-    Project, 
-    Quest, 
-    Tag,
-    QuestToTags,
-    Asset,
-    AssetToTags,
-    QuestToAssets,
-    Translations,
-    Vote
+    user, 
+    language, 
+    project, 
+    quest, 
+    tag,
+    quest_tag_link,
+    asset,
+    asset_tag_link,
+    quest_asset_link,
+    translation,
+    vote
 });

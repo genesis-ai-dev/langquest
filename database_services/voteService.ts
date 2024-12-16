@@ -8,8 +8,8 @@ const { db } = system;
 
 export class VoteService {
   async addVote(data: {
-    translationId: string;
-    creatorId: string;
+    translation_id: string;
+    creator_id: string;
     polarity: 'up' | 'down';
     comment?: string;
   }) {
@@ -19,8 +19,8 @@ export class VoteService {
         .from(vote)
         .where(
           and(
-            eq(vote.translationId, data.translationId),
-            eq(vote.creatorId, data.creatorId)
+            eq(vote.translation_id, data.translation_id),
+            eq(vote.creator_id, data.creator_id)
           )
         )
         .get();
@@ -39,7 +39,7 @@ export class VoteService {
             .set({
               polarity: data.polarity,
               comment: data.comment,
-              // lastUpdated: new Date(),
+              // last_updated: new Date(),
             })
             .where(eq(vote.id, existingVote.id))
             .returning();
@@ -52,11 +52,11 @@ export class VoteService {
         .insert(vote)
         .values({
           rev: 1,
-          translationId: data.translationId,
-          creatorId: data.creatorId,
+          translation_id: data.translation_id,
+          creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment || '',
-          versionChainId: randomUUID(),
+          version_chain_id: randomUUID(),
         })
         .returning();
       
@@ -68,14 +68,14 @@ export class VoteService {
     }
   }
 
-  async getUserVoteForTranslation(translationId: string, userId: string): Promise<typeof vote.$inferSelect | null> {
+  async getUserVoteForTranslation(translation_id: string, userId: string): Promise<typeof vote.$inferSelect | null> {
     const result = await db
       .select()
       .from(vote)
       .where(
         and(
-          eq(vote.translationId, translationId),
-          eq(vote.creatorId, userId)
+          eq(vote.translation_id, translation_id),
+          eq(vote.creator_id, userId)
         )
       )
       .get();

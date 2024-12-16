@@ -48,7 +48,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "fafd03a9-a42c-44c7-849c-b0f84fbffe93"
+        "project_id": "fafd03a9-a42c-44c7-849c-b0f84fbffe93"
       }
     },
     "owner": "eten-genesis"

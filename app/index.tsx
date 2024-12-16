@@ -30,87 +30,67 @@ export default function Index() {
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [isDbReady, setIsDbReady] = useState(false);
 
   // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
-      setPassword('');
+      // setPassword('');
+      setCredentials({ username: '', password: '' });
     };
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    
     const initializeDatabase = async () => {
-      // Sign in anonymously and wait for it to complete
-      const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
-
-      if (signInError) {
+      if (system.isInitialized()) {
+        return;
+      }
+  
+      try {
+        const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
+  
+        if (signInError || !mounted) {
           console.error('Error signing in anonymously:', signInError);
           return;
-      }
-
-      console.log('Anonymous user signed in:', data.user);
-      
-      // try {
-      //   const { data, error } = await supabaseConnector.client.auth.signUp({
-      //     email: 'caleb.koster@gmail.com',
-      //     password: 'password1!'
-      //   });
+        }
+  
+        const { data: sessionData } = await supabaseConnector.client.auth.getSession();
         
-      //   if (error) {
-      //     console.error('Error signing up:', error.message);
-      //   } else {
-      //     console.log('User signed up successfully:', data.user);
-      //   }
-      // } catch (err) {
-      //   console.error('Error during signup:', err);
-      // }
-
-      // try {
-      //   const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
-      //     email: 'caleb.koster@gmail.com',
-      //     password: 'password1!'
-      //   });
+        if (!mounted) return;
         
-      //   if (error) {
-      //     console.error('Error signing in:', error.message);
-      //   } else {
-      //     console.log('User signed in successfully:', data.user);
-      //     console.log('Session:', data.session);
-      //   }
-      // } catch (err) {
-      //   console.error('Error during sign in:', err);
-      // }
-
-
-      try {
-        const { data } = await supabaseConnector.client.auth.getSession();
-        console.log('Checking for session data:', data);
-        console.log('Checking for session:', data.session);
-        if (data.session) {
-          console.log('Session found');
-          await system.init(); // Initialize PowerSync after we confirm we have a session          
-          router.push("/projects");
-        } else {
-          console.log('No session found');
+        if (sessionData.session) {
+          await system.init();
+          if (mounted) {
+            router.push("/projects");
+          }
         }
       } catch (error) {
         console.error('Session check error:', error);
-        router.replace("/register");
+        if (mounted) {
+          router.replace("/register");
+        }
       }
     };
   
     initializeDatabase();
+  
+    return () => {
+      mounted = false;
+    };
   }, []);
   
   const handleSignIn = async () => {
     try {
-      const authenticatedUser = await userService.validateCredentials({username, password});
+      const authenticatedUser = await userService.validateCredentials(credentials);
       if (authenticatedUser) {
-        await system.init(); // Initialize PowerSync after successful login
-        setPassword('');
+        // await system.init(); // Initialize PowerSync after successful login
+        // setPassword('');
+        setCredentials({ username: '', password: '' });
         setCurrentUser(authenticatedUser);
         router.push("/projects");
       } else {
@@ -142,8 +122,8 @@ export default function Index() {
               style={{ flex: 1, color: colors.text }}
               placeholder="Username"
               placeholderTextColor={colors.text}
-              value={username}
-              onChangeText={setUsername}
+              value={credentials.username}
+              onChangeText={(text) => setCredentials({ ...credentials, username: text.toLowerCase().trim() })}
             />
           </View>
           
@@ -154,8 +134,8 @@ export default function Index() {
               placeholder="Password"
               placeholderTextColor={colors.text}
               secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+              value={credentials.password}
+              onChangeText={(password) => setCredentials({ ...credentials, password })}
             />
           </View>
           

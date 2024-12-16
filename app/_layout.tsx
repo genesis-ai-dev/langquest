@@ -13,10 +13,6 @@ export default function RootLayout() {
     return system.powersync;
   }, []);
 
-  // useEffect(() => {
-  //   system.init();
-  // }, []);
-
   return (
     <PowerSyncContext.Provider value={db}>
       <AuthProvider>

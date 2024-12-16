@@ -19,7 +19,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) =>
   const handleStartQuest = () => {
     router.push({
       pathname: "/assets",
-      params: { questId: quest.id, questName: quest.name }
+      params: { quest_id: quest.id, questName: quest.name }
     });
     onClose();
   };

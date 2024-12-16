@@ -12,14 +12,14 @@ interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: () => void;
-  assetId: string;
+  asset_id: string;
 }
 
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ 
   isVisible, 
   onClose, 
   onSubmit,
-  assetId,
+  asset_id,
 }) => {
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
@@ -45,9 +45,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     try {
       await translationService.createTranslation({
         text: translationText.trim(),
-        targetLanguageId: activeProject.targetLanguageId,
-        assetId,
-        creatorId: currentUser.id,
+        target_language_id: activeProject.target_language_id,
+        asset_id,
+        creator_id: currentUser.id,
       });
       
       setTranslationText('');

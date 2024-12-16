@@ -71,13 +71,29 @@ export class System {
     // }
   }
 
-  async init() {
-    await this.powersync.init();
-    await this.powersync.connect(this.supabaseConnector);
+  private initialized = false;
+  private connecting = false;
 
-    // if (this.attachmentQueue) {
-    //   await this.attachmentQueue.init();
-    // }
+  async init() {
+    if (this.initialized || this.connecting) {
+      return;
+    }
+    
+    try {
+      this.connecting = true;
+      await this.powersync.init();
+      await this.powersync.connect(this.supabaseConnector);
+      this.initialized = true;
+    } catch (error) {
+      console.error('PowerSync initialization error:', error);
+      throw error;
+    } finally {
+      this.connecting = false;
+    }
+  }
+
+  isInitialized() {
+    return this.initialized;
   }
 }
 

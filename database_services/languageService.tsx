@@ -7,11 +7,11 @@ import { system } from '../db/powersync/system';
 const db = system.db;
 
 export class LanguageService {
-  async getUiReadyLanguages() {
+  async getUi_readyLanguages() {
     return await db
       .select()
       .from(language)
-      .where(eq(language.uiReady, true));
+      .where(eq(language.ui_ready, true));
   }
 }
 

@@ -37,7 +37,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 export default function Quests() {
   const router = useRouter();
   const { setActiveQuest } = useProjectContext();
-  const { projectId, projectName } = useLocalSearchParams<{ projectId: string; projectName: string }>();
+  const { project_id, projectName } = useLocalSearchParams<{ project_id: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [quests, setQuests] = useState<QuestWithRelations[]>([]);
   const [filteredQuests, setFilteredQuests] = useState<QuestWithRelations[]>([]);
@@ -48,12 +48,12 @@ export default function Quests() {
 
   useEffect(() => {
     loadQuests();
-  }, [projectId]);
+  }, [project_id]);
 
   const loadQuests = async () => {
     try {
-      if (!projectId) return;
-      const loadedQuests = await questService.getQuestsByProjectId(projectId);
+      if (!project_id) return;
+      const loadedQuests = await questService.getQuestsByProject_id(project_id);
       setQuests(loadedQuests);
       setFilteredQuests(loadedQuests);
     } catch (error) {

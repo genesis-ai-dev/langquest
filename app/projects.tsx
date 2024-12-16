@@ -15,8 +15,8 @@ import { AuthGuard } from '@/guards/AuthGuard';
 
 
 // type ProjectWithRelations = typeof project.$inferSelect & {
-//   sourceLanguage: typeof language.$inferSelect;
-//   targetLanguage: typeof language.$inferSelect;
+//   source_language: typeof language.$inferSelect;
+//   target_language: typeof language.$inferSelect;
 // };
 
 
@@ -24,8 +24,8 @@ const ProjectCard: React.FC<{ project: ProjectWithRelations }> = ({ project }) =
   <View style={sharedStyles.card}>
     <Text style={sharedStyles.cardTitle}>{project.name}</Text>
     <Text style={sharedStyles.cardLanguageText}>
-      {project.sourceLanguage.nativeName || project.sourceLanguage.englishName} → 
-      {project.targetLanguage.nativeName || project.targetLanguage.englishName}
+      {project.source_language.native_name || project.source_language.english_name} → 
+      {project.target_language.native_name || project.target_language.english_name}
     </Text>
     {project.description && (
       <Text style={sharedStyles.cardDescription}>{project.description}</Text>
@@ -69,9 +69,9 @@ export default function Projects() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
+      const loadedLanguages = await languageService.getUi_readyLanguages();
       const languageNames = loadedLanguages
-        .map(lang => lang.nativeName || lang.englishName)
+        .map(lang => lang.native_name || lang.english_name)
         .filter((name): name is string => name !== null);
       setLanguages(languageNames);
     } catch (error) {
@@ -85,11 +85,11 @@ export default function Projects() {
     if (showLanguageFilters) {
       filtered = filtered.filter(project => {
         const sourceMatch = sourceFilter === 'All' || 
-          project.sourceLanguage.nativeName === sourceFilter || 
-          project.sourceLanguage.englishName === sourceFilter;
+          project.source_language.native_name === sourceFilter || 
+          project.source_language.english_name === sourceFilter;
         const targetMatch = targetFilter === 'All' || 
-          project.targetLanguage.nativeName === targetFilter || 
-          project.targetLanguage.englishName === targetFilter;
+          project.target_language.native_name === targetFilter || 
+          project.target_language.english_name === targetFilter;
         return sourceMatch && targetMatch;
       });
     }
@@ -122,7 +122,7 @@ export default function Projects() {
     if (selectedProject) {
       router.push({
         pathname: "/quests",
-        params: { projectId: selectedProject.id, projectName: selectedProject.name }
+        params: { project_id: selectedProject.id, projectName: selectedProject.name }
       });
     }
   };

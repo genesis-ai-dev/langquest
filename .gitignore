@@ -28,3 +28,4 @@ package-lock.json
 ~$langquest types.xlsx
 langquest types.xlsx
 .env
+.env

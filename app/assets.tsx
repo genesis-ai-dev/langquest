@@ -23,7 +23,7 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
       )}
       <View style={sharedStyles.cardInfo}>
         <Text style={sharedStyles.cardInfoText}>
-          {asset.sourceLanguage.nativeName || asset.sourceLanguage.englishName}
+          {asset.source_language.native_name || asset.source_language.english_name}
         </Text>
         {asset.tags.map((tag) => (
           <Text key={tag.id} style={[sharedStyles.cardInfoText, styles.tag]}>
@@ -37,7 +37,7 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
 export default function Assets() {
   const router = useRouter();
   const { setActiveAsset } = useProjectContext();
-  const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
+  const { quest_id, questName } = useLocalSearchParams<{ quest_id: string; questName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [assets, setAssets] = useState<AssetWithRelations[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<AssetWithRelations[]>([]);
@@ -47,12 +47,12 @@ export default function Assets() {
 
   useEffect(() => {
     loadAssets();
-  }, [questId]);
+  }, [quest_id]);
 
   const loadAssets = async () => {
     try {
-      if (!questId) return;
-      const loadedAssets = await assetService.getAssetsByQuestId(questId);
+      if (!quest_id) return;
+      const loadedAssets = await assetService.getAssetsByQuest_id(quest_id);
       setAssets(loadedAssets);
       setFilteredAssets(loadedAssets);
     } catch (error) {
@@ -90,8 +90,8 @@ export default function Assets() {
             valueB = b.name.toLowerCase();
             break;
           case 'language':
-            valueA = (a.sourceLanguage.nativeName || a.sourceLanguage.englishName)!.toLowerCase();
-            valueB = (b.sourceLanguage.nativeName || b.sourceLanguage.englishName)!.toLowerCase();
+            valueA = (a.source_language.native_name || a.source_language.english_name)!.toLowerCase();
+            valueB = (b.source_language.native_name || b.source_language.english_name)!.toLowerCase();
             break;
           default:
             const tagA = a.tags.find(tag => tag.name.startsWith(`${field}:`));
@@ -132,7 +132,7 @@ export default function Assets() {
     router.push({
       pathname: "/assetView",
       params: { 
-        assetId: asset.id,
+        asset_id: asset.id,
         assetName: asset.name
       }
     });

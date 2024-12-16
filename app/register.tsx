@@ -25,8 +25,9 @@ export default function Register() {
   const { setCurrentUser } = useAuth();
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
+  
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showLanguages, setShowLanguages] = useState(false);
   const { supabaseConnector } = useSystem();
@@ -35,7 +36,8 @@ export default function Register() {
   // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
-      setPassword('');
+      // setPassword('');
+      setCredentials({ username: '', password: '' });
       setConfirmPassword('');
     };
   }, []);
@@ -48,13 +50,13 @@ export default function Register() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
+      const loadedLanguages = await languageService.getUi_readyLanguages();
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {
         const englishLang = loadedLanguages.find(l => 
-          l.englishName?.toLowerCase() === 'english' || 
-          l.nativeName?.toLowerCase() === 'english'
+          l.english_name?.toLowerCase() === 'english' || 
+          l.native_name?.toLowerCase() === 'english'
         );
         setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
       }
@@ -79,13 +81,13 @@ export default function Register() {
     try {
       const userData = {
         credentials,
-        uiLanguageId: selectedLanguageId
+        ui_language_id: selectedLanguageId
       };
       
       const newUser = await userService.createNew(userData);
       const authenticatedUser = await userService.validateCredentials(credentials);
       if (newUser) {
-        setPassword('');
+        setCredentials({ username: '', password: '' });
         setConfirmPassword('');
         setCurrentUser(authenticatedUser); // Set the newly created user as current user
         Alert.alert('Success', 'Registration successful!', [
@@ -107,10 +109,10 @@ export default function Register() {
           
           <CustomDropdown
             label="App Language"
-            value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-            options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+            value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
+            options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
             onSelect={(langName) => {
-              const lang = languages.find(l => l.nativeName === langName);
+              const lang = languages.find(l => l.native_name === langName);
               if (lang) {
                 setSelectedLanguageId(lang.id);
               }
@@ -128,7 +130,7 @@ export default function Register() {
               style={{ flex: 1, color: colors.text }}
               placeholder="Username"
               placeholderTextColor={colors.text}
-              value={username}
+              value={credentials.username}
               onChangeText={(text) => setCredentials({ ...credentials, username: text.toLowerCase().trim() })}
             />
           </View>
@@ -140,7 +142,7 @@ export default function Register() {
               placeholder="Password"
               placeholderTextColor={colors.text}
               secureTextEntry
-              value={password}
+              value={credentials.password}
               onChangeText={(password) => setCredentials({ ...credentials, password })}
             />
           </View>

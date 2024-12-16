@@ -51,7 +51,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     }
   };
 
-  const isOwnTranslation = currentUser?.id === translation.creatorId;
+  const isOwnTranslation = currentUser?.id === translation.creator_id;
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
@@ -62,13 +62,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     if (userVote?.polarity === voteType) {
       try {
         await voteService.addVote({
-          translationId: translation.id,
-          creatorId: currentUser.id,
+          translation_id: translation.id,
+          creator_id: currentUser.id,
           polarity: voteType,
         });
         
         // Get updated translation data after vote removal
-        const updatedTranslations = await translationService.getTranslationsByAssetId(translation.assetId);
+        const updatedTranslations = await translationService.getTranslationsByAsset_id(translation.asset_id);
         const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
         if (updatedTranslation) {
           setTranslation(updatedTranslation);
@@ -91,14 +91,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const handleVoteSubmit = async (comment: string) => {
     try {
       await voteService.addVote({
-        translationId: translation.id,
-        creatorId: currentUser!.id,
+        translation_id: translation.id,
+        creator_id: currentUser!.id,
         polarity: currentVoteType,
         comment: comment || undefined,
       });
       
       // Get updated translation data after vote
-      const updatedTranslations = await translationService.getTranslationsByAssetId(translation.assetId);
+      const updatedTranslations = await translationService.getTranslationsByAsset_id(translation.asset_id);
       const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
       if (updatedTranslation) {
         setTranslation(updatedTranslation);
@@ -124,7 +124,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <ScrollView style={styles.scrollView}>
           {/* <Text style={styles.translatorInfo}>
             Translated by {translation.creator.username} in{' '}
-            {translation.targetLanguage.nativeName || translation.targetLanguage.englishName}
+            {translation.target_language.native_name || translation.target_language.english_name}
           </Text> */}
           <Text style={styles.text}>{translation.text}</Text>
         </ScrollView>

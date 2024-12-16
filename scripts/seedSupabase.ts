@@ -31,20 +31,20 @@ async function seedLanguages() {
     {
       id: randomUUID(),
       rev: 1,
-      nativeName: 'English',
-      englishName: 'English',
+      native_name: 'English',
+      english_name: 'English',
       iso639_3: 'eng',
-      uiReady: 1,
-      versionChainId: randomUUID(),
+      ui_ready: 1,
+      version_chain_id: randomUUID(),
     },
     {
       id: randomUUID(),
       rev: 1,
-      nativeName: 'Español',
-      englishName: 'Spanish',
+      native_name: 'Español',
+      english_name: 'Spanish',
       iso639_3: 'spa',
-      uiReady: 1,
-      versionChainId: randomUUID(),
+      ui_ready: 1,
+      version_chain_id: randomUUID(),
     }
   ];
 
@@ -80,12 +80,12 @@ async function seedLanguages() {
 //   console.log('Seeding tags...');
   
 //   const tagData = [
-//     { name: 'Book:Romans', versionchainid: randomUUID() },
-//     { name: 'Chapter:1', versionchainid: randomUUID() },
-//     { name: 'Chapter:2', versionchainid: randomUUID() },
-//     { name: 'Author:Paul', versionchainid: randomUUID() },
-//     { name: 'Difficulty:Easy', versionchainid: randomUUID() },
-//     { name: 'Difficulty:Medium', versionchainid: randomUUID() },
+//     { name: 'Book:Romans', version_chain_id: randomUUID() },
+//     { name: 'Chapter:1', version_chain_id: randomUUID() },
+//     { name: 'Chapter:2', version_chain_id: randomUUID() },
+//     { name: 'Author:Paul', version_chain_id: randomUUID() },
+//     { name: 'Difficulty:Easy', version_chain_id: randomUUID() },
+//     { name: 'Difficulty:Medium', version_chain_id: randomUUID() },
 //   ];
 
 //   const tags = tagData.map(tag => ({
@@ -109,12 +109,12 @@ async function seedLanguages() {
 //   // Get language IDs first
 //   const { data: languages, error: langError } = await supabase
 //     .from('language')
-//     .select('id, englishname');
+//     .select('id, english_name');
   
 //   if (langError) throw langError;
   
-//   const english = languages?.find(l => l.englishname === 'English');
-//   const spanish = languages?.find(l => l.englishname === 'Spanish');
+//   const english = languages?.find(l => l.english_name === 'English');
+//   const spanish = languages?.find(l => l.english_name === 'Spanish');
 
 //   if (!english || !spanish) throw new Error('Languages not found');
 
@@ -124,18 +124,18 @@ async function seedLanguages() {
 //       rev: 1,
 //       name: 'English Learning Basics',
 //       description: 'Basic English learning materials for Spanish speakers',
-//       sourcelanguageid: spanish.id,
-//       targetlanguageid: english.id,
-//       versionchainid: 'project-1-chain',
+//       source_language_id: spanish.id,
+//       target_language_id: english.id,
+//       version_chain_id: 'project-1-chain',
 //     },
 //     {
 //       id: randomUUID(),
 //       rev: 1,
 //       name: 'Spanish for Beginners',
 //       description: 'Learn Spanish from English',
-//       sourcelanguageid: english.id,
-//       targetlanguageid: spanish.id,
-//       versionchainid: 'project-2-chain',
+//       source_language_id: english.id,
+//       target_language_id: spanish.id,
+//       version_chain_id: 'project-2-chain',
 //     }
 //   ];
 

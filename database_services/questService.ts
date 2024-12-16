@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { quest, tag, questToTags } from '../db/drizzleSchema';
+import { quest, tag, quest_tag_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
@@ -10,23 +10,23 @@ export type QuestWithRelations = typeof quest.$inferSelect & {
 };
 
 export class QuestService {
-  async getQuestsByProjectId(projectId: string): Promise<QuestWithRelations[]> {
+  async getQuestsByProject_id(project_id: string): Promise<QuestWithRelations[]> {
     const results = await db
       .select({
         id: quest.id,
         rev: quest.rev,
-        createdAt: quest.createdAt,
-        lastUpdated: quest.lastUpdated,
-        versionChainId: quest.versionChainId,
+        created_at: quest.created_at,
+        last_updated: quest.last_updated,
+        version_chain_id: quest.version_chain_id,
         name: quest.name,
         description: quest.description,
-        projectId: quest.projectId,
+        project_id: quest.project_id,
         tags: tag,
       })
       .from(quest)
-      .leftJoin(questToTags, eq(questToTags.questId, quest.id))
-      .leftJoin(tag, eq(tag.id, questToTags.tagId))
-      .where(eq(quest.projectId, projectId));
+      .leftJoin(quest_tag_link, eq(quest_tag_link.quest_id, quest.id))
+      .leftJoin(tag, eq(tag.id, quest_tag_link.tag_id))
+      .where(eq(quest.project_id, project_id));
 
     // Group by quest and combine tags
     const questMap = new Map<string, QuestWithRelations>();

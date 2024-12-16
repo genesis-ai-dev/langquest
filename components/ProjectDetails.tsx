@@ -6,8 +6,8 @@ import { project, language } from '@/db/drizzleSchema';
 
 // Match the type from projectService
 type ProjectWithRelations = typeof project.$inferSelect & {
-  sourceLanguage: typeof language.$inferSelect;
-  targetLanguage: typeof language.$inferSelect;
+  source_language: typeof language.$inferSelect;
+  target_language: typeof language.$inferSelect;
 };
 
 interface ProjectDetailsProps {
@@ -26,8 +26,8 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project, onClose
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            {project.sourceLanguage.nativeName || project.sourceLanguage.englishName} → 
-            {project.targetLanguage.nativeName || project.targetLanguage.englishName}
+            {project.source_language.native_name || project.source_language.english_name} → 
+            {project.target_language.native_name || project.target_language.english_name}
           </Text>
         </View>
 
