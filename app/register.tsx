@@ -85,15 +85,10 @@ export default function Register() {
       };
       
       const newUser = await userService.createNew(userData);
-      const authenticatedUser = await userService.validateCredentials(credentials);
-      if (newUser) {
-        setCredentials({ username: '', password: '' });
-        setConfirmPassword('');
-        setCurrentUser(authenticatedUser); // Set the newly created user as current user
-        Alert.alert('Success', 'Registration successful!', [
-          { text: 'OK', onPress: () => router.push("/projects") } // Go directly to projects
-        ]);
-      }
+      setCredentials({ username: '', password: '' });
+      setConfirmPassword('');
+      setCurrentUser(newUser); // Set the newly created user as current user
+      router.push("/projects");
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Registration failed');

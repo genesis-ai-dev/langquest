@@ -38,7 +38,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   async login(username: string, password: string) {
-    const { error } = await this.client.auth.signInWithPassword({
+    const { data, error } = await this.client.auth.signInWithPassword({
       email: username,
       password: password
     });
@@ -46,6 +46,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     if (error) {
       throw error;
     }
+    
+    return data;
   }
 
   async fetchCredentials() {

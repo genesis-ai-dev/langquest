@@ -86,73 +86,61 @@ export class UserService {
   }
 
   async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
-    console.log('Validating credentials for user:', credentials.username);
-    
-    const hashedPassword = await hashPassword(credentials.password);
-    console.log('Password hashed successfully');
-    
-    console.log('Querying local database for profile');
-    const foundUser = await db
-      .select()
-      .from(profile)
-      .where(eq(profile.username, credentials.username))
-      .get();
-      
-    console.log('Local profile found:', !!foundUser);
-    
     try {
-      console.log('Attempting Supabase login');
-      await supabaseConnector.login(credentials.username, credentials.password);
-      console.log('Supabase login successful');
-    } catch (ex: any) {
-      console.error('Supabase login failed:', ex);
-      return null;
+        // First authenticate with Supabase
+        const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
+            email: credentials.username,
+            password: credentials.password
+        });
+        
+        if (error) throw error;
+        if (!data.user) return null;
+        
+        // Then get the profile data
+        const userWithRelations = await this.getUserById(data.user.id);
+        return userWithRelations;
+    } catch (error) {
+        console.error('Login error:', error);
+        return null;
     }
-    
-    if (foundUser?.password === hashedPassword) {
-      console.log('Local password validation successful');
-      // Return full user object with relations
-      const userWithRelations = await this.getUserById(foundUser.id);
-      console.log('Retrieved user with relations:', !!userWithRelations);
-      return userWithRelations;
-    }
-    
-    console.log('Password validation failed');
-    return null;
   }
 
   async createNew(input: {
-    credentials: {
-      username: string;
-      password: string;
-    };
+    credentials: { username: string; password: string; };
     ui_language_id: string;
   }) {
-    const hashedPassword = await hashPassword(input.credentials.password);
-    const [newUser] = await db
-      .insert(profile)
-      .values({
-        version_chain_id: randomUUID(),
-        username: input.credentials.username,
-        password: hashedPassword,
-        ui_language_id: input.ui_language_id,
-        rev: 1,
-      })
-      .returning();
-    
-    const { data, error } = await supabaseConnector.client.auth.signUp({
-      email: input.credentials.username,
-      password: hashedPassword
-    });
-    if (error) {
-      throw error;
+    try {
+        // Update the anonymous user with email and password
+        const { data: updateData, error: updateError } = await supabaseConnector.client.auth.updateUser({
+            email: input.credentials.username,
+            password: input.credentials.password
+        });
+        
+        if (updateError) throw updateError;
+        if (!updateData.user) throw new Error('No user returned from update');
+
+        // Update ui_language_id in profile
+        const { error: langError } = await supabaseConnector.client
+            .from('profile')
+            .update({ ui_language_id: input.ui_language_id })
+            .eq('id', updateData.user.id);
+
+        if (langError) throw langError;
+
+        // Fetch the complete profile
+        const { data: profile, error: profileError } = await supabaseConnector.client
+            .from('profile')
+            .select()
+            .eq('id', updateData.user.id)
+            .single();
+
+        if (profileError) throw profileError;
+
+        return profile;  // Just return the profile
+    } catch (error) {
+        console.error('Error in createNew:', error);
+        throw error;
     }
-    const session = data.session;
-    if (data.session) {
-      supabaseConnector.client.auth.setSession(data.session);
-    } 
-    
-    return {newUser, session};
   }
 }
 
