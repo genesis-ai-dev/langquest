@@ -18,11 +18,11 @@ const baseColumns = {
 
 export const profile = sqliteTable("profile", {
   ...baseColumns,
-  username: text().notNull(),
-  password: text().notNull(),
+  username: text(),
+  password: text(),
   // icon: text().$type<IconName>(),
   // achievements: text(),
-  ui_language_id: text().notNull(),
+  ui_language_id: text(),
 });
 
 export const userRelations = relations(profile, ({ many, one }) => ({

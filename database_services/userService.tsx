@@ -17,6 +17,7 @@ export type UserWithRelations = typeof profile.$inferSelect & {
 const{ supabaseConnector, db}  = system;
 
 export class UserService {
+
   async getUserById(userId: string): Promise<UserWithRelations | null> {
     const ui_language = aliasedTable(language, 'ui_language');
   
@@ -85,25 +86,87 @@ export class UserService {
     return userWithRelations;
   }
 
-  async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
-    try {
-        // First authenticate with Supabase
-        const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
-            email: credentials.username,
-            password: credentials.password
-        });
+  // async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
+  //   try {
+  //     // 1. Get current anonymous session
+  //     console.log('getting session in validateCredentials');
+  //     const { data: anonData } = await supabaseConnector.client.auth.getSession();
+      
+  //     // First authenticate with Supabase
+  //     console.log('Attempting Supabase authentication...');
+  //     const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
+  //         email: credentials.username,
+  //         password: credentials.password
+  //     });
         
-        if (error) throw error;
-        if (!data.user) return null;
-        
-        // Then get the profile data
-        const userWithRelations = await this.getUserById(data.user.id);
-        return userWithRelations;
-    } catch (error) {
-        console.error('Login error:', error);
-        return null;
+  //     // if (error) throw error;
+  //     // if (!data.user) return null;
+      
+  //     if (error) {
+  //         console.log('Supabase authentication error:', error);
+  //         throw error;
+  //     }
+      
+  //     if (!data.user) {
+  //         console.log('No user data returned from Supabase');
+  //         return null;
+  //     }
+      
+  //     console.log('Supabase authentication successful, user ID:', data.user.id);
+      
+  //     // Then get the profile data
+  //     console.log('Fetching user profile data...');
+  //     const userWithRelations = await this.getUserById(data.user.id);
+      
+  //     if (!userWithRelations) {
+  //         console.log('No profile data found for user ID:', data.user.id);
+  //     } else {
+  //         console.log('Successfully retrieved profile data');
+  //     }
+      
+  //     return userWithRelations;
+  //   } catch (error) {
+  //       console.error('Login error:', error);
+  //       return null;
+  //   }
+  // }
+
+  async validateCredentials(credentials: {username: string, password: string}) {
+  try {
+    // 1. Sign in with existing credentials
+    const { data, error: signInError } = await supabaseConnector.client.auth.signInWithPassword({
+      email: credentials.username,
+      password: credentials.password
+    });
+
+    if (signInError) {
+      console.log('Sign in error:', signInError);
+      return null;
     }
+
+    if (!data.user) {
+      console.log('No user data returned from sign in');
+      return null;
+    }
+
+    // 2. Fetch the profile data directly from Supabase
+    const { data: profile, error: profileError } = await supabaseConnector.client
+      .from('profile')
+      .select()
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError) {
+      console.log('Profile fetch error:', profileError);
+      return null;
+    }
+
+    return profile;  // Return the same format as createNew
+  } catch (error) {
+    console.error('Login error:', error);
+    return null;
   }
+}
 
   async createNew(input: {
     credentials: { username: string; password: string; };
