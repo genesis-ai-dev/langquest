@@ -18,8 +18,6 @@ import { TranslationModal } from '@/components/TranslationModal';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
-const { supabaseConnector } = system;
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
@@ -55,74 +53,6 @@ export default function AssetView() {
   useEffect(() => {
     loadAssetAndTranslations();
   }, [asset_id]);
-
-  useEffect(() => {
-    if (!asset_id) return;
-  
-    // Subscribe to translations changes
-    const translationsSubscription = supabaseConnector.client
-      .channel('translations-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'translation',
-          filter: `asset_id=eq.${asset_id}`,
-        },
-        async (payload: RealtimePostgresChangesPayload<{
-          id: string;
-          asset_id: string;
-          text: string;
-          target_language_id: string;
-          creator_id: string;
-        }>) => {
-          console.log('Translation change received:', payload);
-          const loadedTranslations = await translationService.getTranslationsByAssetId(asset_id);
-          setTranslations(loadedTranslations);
-        }
-      )
-      .subscribe();
-  
-    // Subscribe to votes changes
-    const votesSubscription = supabaseConnector.client
-      .channel('votes-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'vote',
-        },
-        async (payload: RealtimePostgresChangesPayload<{
-          id: string;
-          translation_id: string;
-          polarity: 'up' | 'down';
-          comment?: string;
-          creator_id: string;
-        }>) => {
-          console.log('Vote change received:', payload);
-          // Type guard to check if payload.new or payload.old exists and has translation_id
-          const translationId = 
-            (payload.new && 'translation_id' in payload.new ? payload.new.translation_id : undefined) ||
-            (payload.old && 'translation_id' in payload.old ? payload.old.translation_id : undefined);
-  
-          if (translationId) {
-            const votes = await voteService.getVotesByTranslationId(translationId);
-            setTranslationVotes(prev => ({
-              ...prev,
-              [translationId]: votes
-            }));
-          }
-        }
-      )
-      .subscribe();
-  
-    return () => {
-      supabaseConnector.client.removeChannel(translationsSubscription);
-      supabaseConnector.client.removeChannel(votesSubscription);
-    };
-  }, [asset_id]);
   
   // Add a debug effect to monitor state changes
   useEffect(() => {
@@ -132,6 +62,44 @@ export default function AssetView() {
   useEffect(() => {
     console.log('Translation votes updated:', translationVotes);
   }, [translationVotes]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+  
+    system.powersync.watch(
+      `SELECT * FROM translation WHERE asset_id = ?`, 
+      [asset_id],
+      { 
+        onResult: () => {
+          loadAssetAndTranslations();
+        }
+      },
+      { signal: abortController.signal }
+    );
+  
+    return () => {
+      abortController.abort();
+    };
+  }, [asset_id]);
+  
+  useEffect(() => {
+    const abortController = new AbortController();
+  
+    system.powersync.watch(
+      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
+      [asset_id],
+      { 
+        onResult: () => {
+          loadTranslationData();
+        }
+      },
+      { signal: abortController.signal }
+    );
+  
+    return () => {
+      abortController.abort();
+    };
+  }, [asset_id]);
 
   const loadTranslationData = async () => {
     try {
@@ -154,19 +122,6 @@ export default function AssetView() {
       console.error('Error loading translation data:', error);
     }
   };
-
-  // useEffect(() => {
-  //   const checkPowerSyncState = async () => {
-  //     try {
-  //       const status = await system.db.getStatus();
-  //       console.log('PowerSync status:', status);
-  //     } catch (error) {
-  //       console.error('Error checking PowerSync status:', error);
-  //     }
-  //   };
-  
-  //   checkPowerSyncState();
-  // }, []);
 
   const loadAssetAndTranslations = async () => {
     try {
