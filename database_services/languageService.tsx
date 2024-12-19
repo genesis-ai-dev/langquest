@@ -13,6 +13,14 @@ export class LanguageService {
       .from(language)
       .where(eq(language.ui_ready, true));
   }
+
+  async getLanguageById(id: string) {
+    const results = await db
+      .select()
+      .from(language)
+      .where(eq(language.id, id));
+    return results[0];
+  }
 }
 
 export const languageService = new LanguageService();

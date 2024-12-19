@@ -52,7 +52,7 @@ export default function Assets() {
   const loadAssets = async () => {
     try {
       if (!quest_id) return;
-      const loadedAssets = await assetService.getAssetsByQuest_id(quest_id);
+      const loadedAssets = await assetService.getAssetsByQuestId(quest_id);
       setAssets(loadedAssets);
       setFilteredAssets(loadedAssets);
     } catch (error) {

@@ -7,7 +7,9 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
-import { questService, QuestWithRelations } from '@/database_services/questService';
+import { questService, Quest } from '@/database_services/questService';
+import { tagService, Tag } from '@/database_services/tagService';
+import { assetService } from '@/database_services/assetService';
 import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface SortingOption {
@@ -15,8 +17,16 @@ interface SortingOption {
   order: 'asc' | 'desc';
 }
 
-const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
-  const difficulty = quest.tags.find(tag => tag.name.startsWith('Difficulty:'))?.name.split(':')[1];
+const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  useEffect(() => {
+    const loadTags = async () => {
+      const questTags = await tagService.getTagsByQuestId(quest.id);
+      setTags(questTags);
+    };
+    loadTags();
+  }, [quest.id]);
   
   return (
     <View style={sharedStyles.card}>
@@ -24,9 +34,17 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
-      {difficulty && (
+      {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
-          <Text style={sharedStyles.cardInfoText}>{difficulty}</Text>
+          {tags.slice(0, 3).map((tag, index) => (
+            <Text key={tag.id} style={sharedStyles.cardInfoText}>
+              {tag.name.split(':')[1]}
+              {index < Math.min(tags.length - 1, 2) && ' • '}
+            </Text>
+          ))}
+          {tags.length > 3 && (
+            <Text style={sharedStyles.cardInfoText}> ...</Text>
+          )}
         </View>
       )}
     </View>
@@ -39,12 +57,14 @@ export default function Quests() {
   const { setActiveQuest } = useProjectContext();
   const { project_id, projectName } = useLocalSearchParams<{ project_id: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [quests, setQuests] = useState<QuestWithRelations[]>([]);
-  const [filteredQuests, setFilteredQuests] = useState<QuestWithRelations[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
+  const [filteredQuests, setFilteredQuests] = useState<Quest[]>([]);
+  const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<QuestWithRelations | null>(null);
+  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   useEffect(() => {
     loadQuests();
@@ -53,23 +73,35 @@ export default function Quests() {
   const loadQuests = async () => {
     try {
       if (!project_id) return;
-      const loadedQuests = await questService.getQuestsByProject_id(project_id);
+      const loadedQuests = await questService.getQuestsByProjectId(project_id);
       setQuests(loadedQuests);
       setFilteredQuests(loadedQuests);
+
+      // Load tags for all quests
+      const tagsMap: Record<string, Tag[]> = {};
+      await Promise.all(
+        loadedQuests.map(async (quest) => {
+          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+        })
+      );
+      setQuestTags(tagsMap);
     } catch (error) {
       console.error('Error loading quests:', error);
       Alert.alert('Error', 'Failed to load quests');
     }
   };
 
-  const applyFilters = useCallback((quests: QuestWithRelations[], filters: Record<string, string[]>, search: string) => {
-    return quests.filter(quest => {
+  const applyFilters = useCallback((questsToFilter: Quest[], filters: Record<string, string[]>, search: string) => {
+    return questsToFilter.filter(quest => {
+      // Search filter
       const matchesSearch = quest.name.toLowerCase().includes(search.toLowerCase()) ||
                           (quest.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
       
+      // Tag filters
+      const questTags = questToTags[quest.id] || [];
       const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
         if (selectedOptions.length === 0) return true;
-        return quest.tags.some(tag => {
+        return questTags.some(tag => {
           const [tagCategory, tagValue] = tag.name.split(':');
           return tagCategory.toLowerCase() === category.toLowerCase() && 
                  selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
@@ -78,24 +110,47 @@ export default function Quests() {
   
       return matchesSearch && matchesFilters;
     });
-  }, []);
+  }, [questToTags]);
 
-  const applySorting = useCallback((quests: QuestWithRelations[], sorting: SortingOption[]) => {
-    return [...quests].sort((a, b) => {
+  const applySorting = useCallback((questsToSort: Quest[], sorting: SortingOption[]) => {
+    return [...questsToSort].sort((a, b) => {
       for (const { field, order } of sorting) {
         if (field === 'name') {
           const comparison = a.name.localeCompare(b.name);
           return order === 'asc' ? comparison : -comparison;
         } else {
-          const tagA = a.tags.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
-          const tagB = b.tags.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
+          const tagsA = questTags[a.id] || [];
+          const tagsB = questTags[b.id] || [];
+          const tagA = tagsA.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
+          const tagB = tagsB.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
           const comparison = tagA.localeCompare(tagB);
           if (comparison !== 0) return order === 'asc' ? comparison : -comparison;
         }
       }
       return 0;
     });
-  }, []);
+  }, [questTags]);
+
+  // Load tags when quests change
+  useEffect(() => {
+    const loadTags = async () => {
+      const tagsMap: Record<string, Tag[]> = {};
+      await Promise.all(
+        quests.map(async (quest) => {
+          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+        })
+      );
+      setQuestToTags(tagsMap);
+    };
+    loadTags();
+  }, [quests]);
+
+  // Update filtered quests when search query changes
+  useEffect(() => {
+    const filtered = applyFilters(quests, activeFilters, searchQuery);
+    const sorted = applySorting(filtered, activeSorting);
+    setFilteredQuests(sorted);
+  }, [searchQuery, quests, activeFilters, activeSorting, applyFilters, applySorting]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -103,7 +158,7 @@ export default function Quests() {
     return filterCount + sortCount;
   };
 
-  const handleQuestPress = (quest: QuestWithRelations) => {
+  const handleQuestPress = (quest: Quest) => {
     setActiveQuest(quest);
     setSelectedQuest(quest);
   };
@@ -205,6 +260,7 @@ export default function Quests() {
             visible={isFilterModalVisible}
             onClose={() => setIsFilterModalVisible(false)}
             quests={quests}
+            // questTags={questTags}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}

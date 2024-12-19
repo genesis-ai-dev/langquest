@@ -7,31 +7,43 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, sharedStyles } from '@/styles/theme';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { CustomDropdown } from '@/components/CustomDropdown';
-import { projectService, ProjectWithRelations } from '@/database_services/projectService';
+import { projectService } from '@/database_services/projectService';
 import { languageService } from '@/database_services/languageService';
 import { project, language } from '@/db/drizzleSchema';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { AuthGuard } from '@/guards/AuthGuard';
 
 
-// type ProjectWithRelations = typeof project.$inferSelect & {
-//   source_language: typeof language.$inferSelect;
-//   target_language: typeof language.$inferSelect;
-// };
+type Project = typeof project.$inferSelect
 
 
-const ProjectCard: React.FC<{ project: ProjectWithRelations }> = ({ project }) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{project.name}</Text>
-    <Text style={sharedStyles.cardLanguageText}>
-      {project.source_language.native_name || project.source_language.english_name} → 
-      {project.target_language.native_name || project.target_language.english_name}
-    </Text>
-    {project.description && (
-      <Text style={sharedStyles.cardDescription}>{project.description}</Text>
-    )}
-  </View>
-);
+const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({ project }) => {
+  const [sourceLanguage, setSourceLanguage] = useState<typeof language.$inferSelect | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<typeof language.$inferSelect | null>(null);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      const source = await languageService.getLanguageById(project.source_language_id);
+      const target = await languageService.getLanguageById(project.target_language_id);
+      setSourceLanguage(source);
+      setTargetLanguage(target);
+    };
+    loadLanguages();
+  }, [project.source_language_id, project.target_language_id]);
+
+  return (
+    <View style={sharedStyles.card}>
+      <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+      <Text style={sharedStyles.cardLanguageText}>
+        {sourceLanguage?.native_name || sourceLanguage?.english_name} → 
+        {targetLanguage?.native_name || targetLanguage?.english_name}
+      </Text>
+      {project.description && (
+        <Text style={sharedStyles.cardDescription}>{project.description}</Text>
+      )}
+    </View>
+  );
+};
 
 export default function Projects() {
   const router = useRouter();
@@ -39,9 +51,9 @@ export default function Projects() {
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(null);
-  const [projects, setProjects] = useState<ProjectWithRelations[]>([]);
-  const [filteredProjects, setFilteredProjects] = useState<ProjectWithRelations[]>([]);
-  const [selectedProject, setSelectedProject] = useState<ProjectWithRelations | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
   const { setActiveProject } = useProjectContext();
 
@@ -79,19 +91,26 @@ export default function Projects() {
     }
   };
 
-  const filterProjects = () => {
+  const filterProjects = async () => {
     let filtered = projects;
     
     if (showLanguageFilters) {
-      filtered = filtered.filter(project => {
-        const sourceMatch = sourceFilter === 'All' || 
-          project.source_language.native_name === sourceFilter || 
-          project.source_language.english_name === sourceFilter;
-        const targetMatch = targetFilter === 'All' || 
-          project.target_language.native_name === targetFilter || 
-          project.target_language.english_name === targetFilter;
-        return sourceMatch && targetMatch;
-      });
+      filtered = await Promise.all(
+        filtered.filter(async (project) => {
+          const sourceLanguage = await languageService.getLanguageById(project.source_language_id);
+          const targetLanguage = await languageService.getLanguageById(project.target_language_id);
+          
+          const sourceMatch = sourceFilter === 'All' || 
+            sourceLanguage?.native_name === sourceFilter || 
+            sourceLanguage?.english_name === sourceFilter;
+            
+          const targetMatch = targetFilter === 'All' || 
+            targetLanguage?.native_name === targetFilter || 
+            targetLanguage?.english_name === targetFilter;
+            
+          return sourceMatch && targetMatch;
+        })
+      );
     }
 
     setFilteredProjects(filtered);
@@ -109,7 +128,7 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleProjectPress = (project: ProjectWithRelations) => {
+  const handleProjectPress = (project: Project) => {
     setActiveProject(project);
     setSelectedProject(project);
   };

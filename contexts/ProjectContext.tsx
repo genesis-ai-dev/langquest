@@ -1,22 +1,22 @@
 import React, { createContext, useContext, useState } from 'react';
-import { ProjectWithRelations } from '@/database_services/projectService';
-import { QuestWithRelations } from '@/database_services/questService';
+import { Project } from '@/database_services/projectService';
+import { Quest } from '@/database_services/questService';
 import { AssetWithRelations } from '@/database_services/assetService';
 
 interface ProjectContextType {
-  activeProject: ProjectWithRelations | null;
-  activeQuest: QuestWithRelations | null;
+  activeProject: Project | null;
+  activeQuest: Quest | null;
   activeAsset: AssetWithRelations | null;
-  setActiveProject: (project: ProjectWithRelations | null) => void;
-  setActiveQuest: (quest: QuestWithRelations | null) => void;
+  setActiveProject: (project: Project | null) => void;
+  setActiveQuest: (quest: Quest | null) => void;
   setActiveAsset: (asset: AssetWithRelations | null) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [activeProject, setActiveProject] = useState<ProjectWithRelations | null>(null);
-  const [activeQuest, setActiveQuest] = useState<QuestWithRelations | null>(null);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [activeAsset, setActiveAsset] = useState<AssetWithRelations | null>(null);
 
   return (

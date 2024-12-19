@@ -1,20 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { quest, tag } from '@/db/drizzleSchema';
 import { useRouter } from 'expo-router';
+import { Quest } from '@/database_services/questService';
+import { tagService } from '@/database_services/tagService';
 
-type QuestWithRelations = typeof quest.$inferSelect & {
-  tags: (typeof tag.$inferSelect)[];
-};
+
 
 interface QuestDetailsProps {
-  quest: QuestWithRelations;
+  quest: Quest;
   onClose: () => void;
 }
 
 export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
+  const [tags, setTags] = useState<typeof tag.$inferSelect[]>([]);
   const router = useRouter();
+  
+  useEffect(() => {
+    const loadTags = async () => {
+      const questTags = await tagService.getTagsByQuestId(quest.id);
+      setTags(questTags);
+    };
+    loadTags();
+  }, [quest.id]);
   
   const handleStartQuest = () => {
     router.push({
@@ -34,9 +43,9 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) =>
           <Text style={styles.description}>{quest.description}</Text>
         )}
 
-        {quest.tags.length > 0 && (
+        {tags.length > 0 && (
           <View style={styles.tagsContainer}>
-            {quest.tags.map((tag, index) => {
+            {tags.map((tag, index) => {
               const [category, value] = tag.name.split(':');
               return (
                 <View key={tag.id} style={styles.tagItem}>

@@ -4,18 +4,25 @@ import { project, language } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
 import { system } from '../db/powersync/system';
 
+export type Project = typeof project.$inferSelect;
+
 const { db } = system;
 
-export type ProjectWithRelations = typeof project.$inferSelect & {
-  source_language: typeof language.$inferSelect;
-  target_language: typeof language.$inferSelect;
-};
-
 export class ProjectService {
-  async getAllProjects(): Promise<ProjectWithRelations[]> {
-    const source_language = aliasedTable(language, 'source_language');
-    const target_language = aliasedTable(language, 'target_language');
+  async getAllProjects(): Promise<Project[]> {
+    // const source_language = aliasedTable(language, 'source_language');
+    // const target_language = aliasedTable(language, 'target_language');
+    // console.log('Source language:', source_language);
+    // console.log('Target language:', target_language);
 
+    // First get all projects without joins
+    const basicProjects = await db
+      .select()
+      .from(project);
+    
+    console.log('All projects without joins:', basicProjects);
+
+    // Then get projects with language joins
     const results = await db
       .select({
         id: project.id,
@@ -27,28 +34,17 @@ export class ProjectService {
         description: project.description,
         source_language_id: project.source_language_id,
         target_language_id: project.target_language_id,
-        source_language: {
-          id: source_language.id,
-          native_name: source_language.native_name,
-          english_name: source_language.english_name,
-        },
-        target_language: {
-          id: target_language.id,
-          native_name: target_language.native_name,
-          english_name: target_language.english_name,
-        },
       })
-      .from(project)
-      .leftJoin(source_language, eq(source_language.id, project.source_language_id))
-      .leftJoin(target_language, eq(target_language.id, project.target_language_id));
+      .from(project);
 
+    console.log('Projects with language joins:', results);
 
-    return results as ProjectWithRelations[];
+    return results;
   }
 
-  async getProjectById(id: string): Promise<ProjectWithRelations | undefined> {
-    const source_language = aliasedTable(language, 'source_language');
-    const target_language = aliasedTable(language, 'target_language');
+  async getProjectById(id: string): Promise<Project[]> {
+    // const source_language = aliasedTable(language, 'source_language');
+    // const target_language = aliasedTable(language, 'target_language');
 
     const [result] = await db
       .select({
@@ -61,23 +57,11 @@ export class ProjectService {
         description: project.description,
         source_language_id: project.source_language_id,
         target_language_id: project.target_language_id,
-        source_language: {
-          id: source_language.id,
-          native_name: source_language.native_name,
-          english_name: source_language.english_name,
-        },
-        target_language: {
-          id: target_language.id,
-          native_name: target_language.native_name,
-          english_name: target_language.english_name,
-        },
       })
       .from(project)
-      .leftJoin(source_language, eq(source_language.id, project.source_language_id))
-      .leftJoin(target_language, eq(target_language.id, project.target_language_id))
       .where(eq(project.id, id));
 
-    return result as ProjectWithRelations | undefined;
+    return result;
   }
 }
 

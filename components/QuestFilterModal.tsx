@@ -2,13 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { QuestWithRelations } from '@/database_services/questService';
+import { Quest } from '@/database_services/questService';
+import { tagService, Tag } from '@/database_services/tagService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 
 interface QuestFilterModalProps {
   visible: boolean;
   onClose: () => void;
-  quests: QuestWithRelations[];
+  quests: Quest[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -33,18 +34,30 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
   const [sortingOptions, setSortingOptions] = useState<SortingOption[]>(initialSorting);
+  const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
+
+  useEffect(() => {
+    const loadAllTags = async () => {
+      const tagsMap: Record<string, Tag[]> = {};
+      await Promise.all(
+        quests.map(async (quest) => {
+          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+        })
+      );
+      setQuestTags(tagsMap);
+    };
+    loadAllTags();
+  }, [quests]);
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
     
-    quests.forEach(quest => {
-      quest.tags.forEach(tag => {
-        const [heading, option] = tag.name.split(':');
-        if (!sections[heading]) {
-          sections[heading] = new Set();
-        }
-        sections[heading].add(option);
-      });
+    Object.values(questTags).flat().forEach(tag => {
+      const [heading, option] = tag.name.split(':');
+      if (!sections[heading]) {
+        sections[heading] = new Set();
+      }
+      sections[heading].add(option);
     });
 
     return Object.entries(sections).map(([heading, options]) => ({
@@ -55,17 +68,17 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
         label: option
       }))
     }));
-  }, [quests]);
+  }, [questTags]);
+
 
   const sortingFields = useMemo(() => {
     const fields = new Set(['name']);
-    quests.forEach(quest => {
-      quest.tags.forEach(tag => {
-        fields.add(tag.name.split(':')[0]);
-      });
+    Object.values(questTags).flat().forEach(tag => {
+      const category = tag.name.split(':')[0];
+      fields.add(category);
     });
     return Array.from(fields);
-  }, [quests]);
+  }, [questTags]);
 
   useEffect(() => {
     setSelectedOptions(initialFilters);
