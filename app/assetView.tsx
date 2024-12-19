@@ -53,19 +53,6 @@ export default function AssetView() {
   };
 
   useEffect(() => {
-    // Debug Supabase client configuration
-    const channel = supabaseConnector.client.channel('debug');
-    channel
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
-  
-    return () => {
-      supabaseConnector.client.removeChannel(channel);
-    };
-  }, []);
-
-  useEffect(() => {
     loadAssetAndTranslations();
   }, [asset_id]);
 
@@ -93,13 +80,9 @@ export default function AssetView() {
           console.log('Translation change received:', payload);
           const loadedTranslations = await translationService.getTranslationsByAssetId(asset_id);
           setTranslations(loadedTranslations);
-          // Force reload of translation data
-          await loadTranslationData();
         }
       )
-      .subscribe((status) => {
-        console.log('Translation subscription status:', status);
-      });
+      .subscribe();
   
     // Subscribe to votes changes
     const votesSubscription = supabaseConnector.client
@@ -119,6 +102,7 @@ export default function AssetView() {
           creator_id: string;
         }>) => {
           console.log('Vote change received:', payload);
+          // Type guard to check if payload.new or payload.old exists and has translation_id
           const translationId = 
             (payload.new && 'translation_id' in payload.new ? payload.new.translation_id : undefined) ||
             (payload.old && 'translation_id' in payload.old ? payload.old.translation_id : undefined);
@@ -129,35 +113,14 @@ export default function AssetView() {
               ...prev,
               [translationId]: votes
             }));
-            // Force reload of translation data
-            await loadTranslationData();
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Votes subscription status:', status);
-      });
-  
-    // Add a debug subscription to monitor all changes
-    const debugSubscription = supabaseConnector.client
-      .channel('debug-all')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-        },
-        (payload) => {
-          console.log('Debug: Database change detected:', payload);
         }
       )
       .subscribe();
   
     return () => {
-      console.log('Cleaning up subscriptions');
       supabaseConnector.client.removeChannel(translationsSubscription);
       supabaseConnector.client.removeChannel(votesSubscription);
-      supabaseConnector.client.removeChannel(debugSubscription);
     };
   }, [asset_id]);
   
