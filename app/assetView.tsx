@@ -8,7 +8,9 @@ import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { formatRelativeDate } from '@/utils/dateUtils';
-import { assetService, AssetWithRelations } from '@/database_services/assetService';
+import { language } from '@/db/drizzleSchema';
+import { languageService } from '@/database_services/languageService';
+import { assetService, Asset } from '@/database_services/assetService';
 import { translationService, TranslationWithRelations } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
 import { TranslationModal } from '@/components/TranslationModal';
@@ -29,12 +31,13 @@ export default function AssetView() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { asset_id, assetName } = useLocalSearchParams<{ asset_id: string; assetName: string }>();
-  const [asset, setAsset] = useState<AssetWithRelations | null>(null);
+  const [asset, setAsset] = useState<Asset>();
   const [translations, setTranslations] = useState<TranslationWithRelations[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslation, setSelectedTranslation] = useState<TranslationWithRelations | null>(null);
   const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [sourceLanguage, setSourceLanguage] = useState<typeof language.$inferSelect | null>(null);
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -43,6 +46,14 @@ export default function AssetView() {
   useEffect(() => {
     loadAssetAndTranslations();
   }, [asset_id]);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      const source = await languageService.getLanguageById(asset!.source_language_id);
+      setSourceLanguage(source);
+    };
+    loadLanguages();
+  }, [asset!.source_language_id]);
 
   const loadAssetAndTranslations = async () => {
     try {
@@ -186,7 +197,7 @@ export default function AssetView() {
               {activeTab === 'text' && (
                 <View style={styles.sourceTextContainer}>
                   <Text style={styles.source_languageLabel}>
-                    {asset?.source_language.native_name || asset?.source_language.english_name}:
+                    {sourceLanguage?.native_name || sourceLanguage?.english_name}:
                   </Text>
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
