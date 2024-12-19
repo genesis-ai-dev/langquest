@@ -30,18 +30,16 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
-    if (currentUser) {
-      loadUserVote();
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
+    const loadVotes = async () => {
+      const translationVotes = await voteService.getVotesByTranslationId(translation.id);
+      setVotes(translationVotes);
+      if (currentUser) {
+        const userVote = translationVotes.find(v => v.creator_id === currentUser.id);
+        setUserVote(userVote || null);
+      }
+    };
     loadVotes();
-  }, []);
-
-  useEffect(() => {
-    loadUserVote();
-  }, []);
+  }, [translation.id, currentUser]);
 
   useEffect(() => {
     setTranslation(initialTranslation);
@@ -76,34 +74,23 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       Alert.alert('Error', 'You must be logged in to vote');
       return;
     }
-    // If clicking the same vote type, remove the vote without showing modal
-    if (userVote?.polarity === voteType) {
-      try {
-        await voteService.addVote({
-          translation_id: translation.id,
-          creator_id: currentUser.id,
-          polarity: voteType,
-        });
-        
-        // Get updated translation data after vote removal
-        const updatedTranslations = await translationService.getTranslationsByAssetId(translation.asset_id);
-        const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
-        if (updatedTranslation) {
-          setTranslation(updatedTranslation);
-        }
 
-        onVoteSubmitted();
-        await loadUserVote();
-      } catch (error) {
-        console.error('Error removing vote:', error);
-        Alert.alert('Error', 'Failed to remove vote');
-      }
-      return;
+    try {
+      await voteService.addVote({
+        translation_id: translation.id,
+        creator_id: currentUser.id,
+        polarity: voteType,
+      });
+      onVoteSubmitted();
+      // Update local state to reflect the vote
+      const updatedVotes = await voteService.getVotesByTranslationId(translation.id);
+      setVotes(updatedVotes);
+      const newUserVote = updatedVotes.find(v => v.creator_id === currentUser.id);
+      setUserVote(newUserVote || null);
+    } catch (error) {
+      console.error('Error handling vote:', error);
+      Alert.alert('Error', 'Failed to submit vote');
     }
-
-    // Otherwise, show the comment modal for new/changed votes
-    setCurrentVoteType(voteType);
-    setShowVoteModal(true);
   };
 
   const handleVoteSubmit = async (comment: string) => {

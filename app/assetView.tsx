@@ -86,11 +86,21 @@ export default function AssetView() {
     const abortController = new AbortController();
   
     system.powersync.watch(
-      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
+      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`, 
       [asset_id],
       { 
-        onResult: () => {
-          loadTranslationData();
+        onResult: async () => {
+          // Instead of trying to use the result directly, let's fetch the votes again
+          try {
+            const votesMap: Record<string, Vote[]> = {};
+            await Promise.all(translations.map(async (translation) => {
+              votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
+            }));
+            console.log('Updated votes map:', votesMap); // Debug log
+            setTranslationVotes(votesMap);
+          } catch (error) {
+            console.error('Error updating votes:', error);
+          }
         }
       },
       { signal: abortController.signal }
@@ -99,22 +109,30 @@ export default function AssetView() {
     return () => {
       abortController.abort();
     };
-  }, [asset_id]);
+  }, [asset_id, translations]);
 
   const loadTranslationData = async () => {
     try {
       const votesMap: Record<string, Vote[]> = {};
-      const creatorsMap: Record<string, User> = {};
-      const languagesMap: Record<string, typeof language.$inferSelect> = {};
-  
+      const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
+      const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
+    
       await Promise.all(translations.map(async (translation) => {
+        // Always load votes as they change frequently
         votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-        const creator = await userService.getUserById(translation.creator_id);
-        if (creator) creatorsMap[translation.creator_id] = creator;
-        const targetLang = await languageService.getLanguageById(translation.target_language_id);
-        if (targetLang) languagesMap[translation.target_language_id] = targetLang;
+        
+        // Only load creator and language if not already cached
+        if (!creatorsMap[translation.creator_id]) {
+          const creator = await userService.getUserById(translation.creator_id);
+          if (creator) creatorsMap[translation.creator_id] = creator;
+        }
+        
+        if (!languagesMap[translation.target_language_id]) {
+          const targetLang = await languageService.getLanguageById(translation.target_language_id);
+          if (targetLang) languagesMap[translation.target_language_id] = targetLang;
+        }
       }));
-  
+    
       setTranslationVotes(votesMap);
       setTranslationCreators(creatorsMap);
       setTranslationLanguages(languagesMap);
