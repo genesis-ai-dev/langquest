@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserWithRelations, userService } from '@/database_services/userService';
+import { User, userService } from '@/database_services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 interface AuthContextType {
-  currentUser: UserWithRelations | null;
-  setCurrentUser: (profile: UserWithRelations | null) => void;
+  currentUser: User | null;
+  setCurrentUser: (profile: User | null) => void;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
   isLoading: boolean;
@@ -14,7 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<UserWithRelations | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 

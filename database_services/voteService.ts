@@ -4,6 +4,8 @@ import { vote } from '../db/drizzleSchema';
 import { randomUUID } from 'expo-crypto';
 import { system } from '../db/powersync/system';
 
+export type Vote = typeof vote.$inferSelect;
+
 const { db } = system;
 
 export class VoteService {
@@ -81,6 +83,13 @@ export class VoteService {
       .get();
 
     return result || null;
+  }
+
+  async getVotesByTranslationId(translation_id: string): Promise<Vote[]> {
+    return db
+      .select()
+      .from(vote)
+      .where(eq(vote.translation_id, translation_id));
   }
 }
 

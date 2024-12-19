@@ -31,6 +31,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         storage: this.system.kvStorage,
         autoRefreshToken: true,
         detectSessionInUrl: true
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
       }
     });
     console.log('Supabase client created: ', this.client);

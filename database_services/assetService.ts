@@ -26,24 +26,19 @@ export class AssetService {
 
   async getAssetsByQuestId(quest_id: string) {
     // First get asset IDs from junction table
-    console.log('Getting asset links for quest:', quest_id);
     const assetLinks = await db
       .select({
         asset_id: quest_asset_link.asset_id
       })
       .from(quest_asset_link)
       .where(eq(quest_asset_link.quest_id, quest_id));
-    console.log('Found asset links:', assetLinks);
 
     // Then get the actual assets
-    console.log('Fetching assets for links');
     const assetPromises = assetLinks.map(link => 
       this.getAssetById(link.asset_id)
     );
 
-    const assets = await Promise.all(assetPromises);
-    console.log('Fetched assets:', assets);
-    return assets;
+    return Promise.all(assetPromises);
   }
 }
 

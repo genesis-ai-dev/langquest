@@ -8,82 +8,24 @@ import { system } from '../db/powersync/system';
 import { Session } from '@supabase/supabase-js';
 
 
-export type UserWithRelations = typeof profile.$inferSelect & {
-  ui_language: typeof language.$inferSelect;
-  translations: (typeof translation.$inferSelect)[];
-  votes: (typeof vote.$inferSelect)[];
-};
+// export type UserWithRelations = typeof profile.$inferSelect & {
+//   ui_language: typeof language.$inferSelect;
+//   translations: (typeof translation.$inferSelect)[];
+//   votes: (typeof vote.$inferSelect)[];
+// };
+
+export type User = typeof profile.$inferSelect;
 
 const{ supabaseConnector, db}  = system;
 
 export class UserService {
 
-  async getUserById(userId: string): Promise<UserWithRelations | null> {
-    const ui_language = aliasedTable(language, 'ui_language');
-  
-    const result = await db
-      .select({
-        // User fields
-        id: profile.id,
-        rev: profile.rev,
-        created_at: profile.created_at,
-        last_updated: profile.last_updated,
-        version_chain_id: profile.version_chain_id,
-        username: profile.username,
-        password: profile.password,
-        ui_language_id: profile.ui_language_id,
-        // Related fields
-        ui_language: {
-          id: ui_language.id,
-          rev: ui_language.rev,
-          created_at: ui_language.created_at,
-          last_updated: ui_language.last_updated,
-          version_chain_id: ui_language.version_chain_id,
-          native_name: ui_language.native_name,
-          english_name: ui_language.english_name,
-          iso639_3: ui_language.iso639_3,
-          ui_ready: ui_language.ui_ready,
-          creator_id: ui_language.creator_id,
-        },
-        translations: translation,
-        votes: vote,
-      })
+  async getUserById(id: string): Promise<User | null> {
+    const results = await db
+      .select()
       .from(profile)
-      .leftJoin(ui_language, eq(ui_language.id, profile.ui_language_id))
-      .leftJoin(translation, eq(translation.creator_id, profile.id))
-      .leftJoin(vote, eq(vote.creator_id, profile.id))
-      .where(eq(profile.id, userId))
-      .get();
-  
-    if (!result) return null;
-  
-    // Handle the case where ui_language might be null
-    const userWithRelations: UserWithRelations = {
-      id: result.id,
-      rev: result.rev,
-      created_at: result.created_at,
-      last_updated: result.last_updated,
-      version_chain_id: result.version_chain_id,
-      username: result.username,
-      password: result.password,
-      ui_language_id: result.ui_language_id,
-      ui_language: result.ui_language || {
-        id: '',
-        rev: 1,
-        created_at: '',
-        last_updated: '',
-        version_chain_id: '',
-        native_name: null,
-        english_name: null,
-        iso639_3: null,
-        ui_ready: false,
-        creator_id: null,
-      },
-      translations: result.translations ? [result.translations] : [],
-      votes: result.votes ? [result.votes] : [],
-    };
-  
-    return userWithRelations;
+      .where(eq(profile.id, id));
+    return results[0];
   }
 
   // async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
