@@ -47,6 +47,10 @@ export const translations = {
     english: 'Date',
     spanish: 'Fecha',
   },
+  email: {
+    english: 'Email',
+    spanish: 'Email'
+  },
   enterTranslation: {
     english: 'Enter your translation here',
     spanish: 'Ingrese su traducción aquí',

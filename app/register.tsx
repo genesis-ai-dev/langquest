@@ -25,12 +25,12 @@ export default function Register() {
   const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [showLanguages, setShowLanguages] = useState(false);
   const { supabaseConnector } = useSystem();
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
 
   // Clear passwords when component unmounts
   useEffect(() => {
@@ -248,10 +248,10 @@ export default function Register() {
                   <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
-                    placeholder={t('username')}
+                    placeholder={t('email')}
                     placeholderTextColor={colors.text}
-                    value={username}
-                    onChangeText={setUsername}
+                    value={credentials.username}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text.toLowerCase().trim() }))}
                   />
                 </View>
                 
@@ -262,8 +262,8 @@ export default function Register() {
                     placeholder={t('password')}
                     placeholderTextColor={colors.text}
                     secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
+                    value={credentials.password}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, password: text }))}
                   />
                 </View>
                 
