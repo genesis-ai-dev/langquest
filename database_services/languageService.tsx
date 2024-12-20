@@ -21,6 +21,13 @@ export class LanguageService {
       .where(eq(language.id, id));
     return results[0];
   }
+
+  
+  async getAllLanguages() {
+    return await db
+      .select()
+      .from(language);
+  }
 }
 
 export const languageService = new LanguageService();

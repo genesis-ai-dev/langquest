@@ -4,7 +4,7 @@
     "slug": "langquest",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/langquest_icon_v1.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -17,15 +17,19 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/langquest_icon_v1.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.etengenesis.langquest"
+      "package": "com.etengenesis.langquest",
+      "minSdkVersion": 24,
+      "buildProperties": {
+        "ffmpegKitPackage": "audio"
+      }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/langquest_icon_v1.png"
     },
     "plugins": [
       "expo-router",

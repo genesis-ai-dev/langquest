@@ -3,6 +3,7 @@ import { StyleSheet, View, Text } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface DropdownOption {
   label: string;
@@ -18,6 +19,7 @@ interface CustomDropdownProps {
   onToggle?: () => void;
   fullWidth?: boolean;
   search?: boolean;
+  searchPlaceholder?: string;
   containerStyle?: object;
 }
 
@@ -30,8 +32,10 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   onToggle,
   fullWidth = true,
   search = true,
+  searchPlaceholder,
   containerStyle, 
 }) => {
+  const { t } = useTranslation();
   const data: DropdownOption[] = options.map((option) => {
     if (typeof option === 'string') {
       return { label: option, value: option };
@@ -54,8 +58,8 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         maxHeight={300}
         labelField="label"
         valueField="value"
-        placeholder="Select item"
-        searchPlaceholder="Search..."
+        placeholder={t('selectItem')}
+        searchPlaceholder={searchPlaceholder || t('search')}
         value={value}
         onChange={item => {
           onSelect(item.value);

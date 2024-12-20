@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Quest } from '@/database_services/questService';
 import { tagService } from '@/database_services/tagService';
 
+import { useTranslation } from '@/hooks/useTranslation';
 
 
 interface QuestDetailsProps {
@@ -15,6 +16,7 @@ interface QuestDetailsProps {
 
 export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
   const [tags, setTags] = useState<typeof tag.$inferSelect[]>([]);
+  const { t } = useTranslation();
   const router = useRouter();
   
   useEffect(() => {
@@ -58,7 +60,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) =>
         )}
 
         <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
-          <Text style={styles.startButtonText}>Start Quest</Text>
+          <Text style={styles.startButtonText}>{t('startQuest')}</Text>
         </TouchableOpacity>
       </View>
     </View>

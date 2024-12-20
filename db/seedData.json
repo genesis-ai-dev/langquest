@@ -1,0 +1,1524 @@
+{
+  "languages": [
+    {
+      "id": "lang-eng",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-eng-chain",
+      "nativeName": "English",
+      "englishName": "English",
+      "iso639_3": "eng",
+      "uiReady": true
+    },
+    {
+      "id": "lang-spa",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-spa-chain",
+      "nativeName": "Español",
+      "englishName": "Spanish",
+      "iso639_3": "spa",
+      "uiReady": true
+    },
+    {
+      "id": "lang-mil",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-mil-chain",
+      "nativeName": "Tu'un Savi",
+      "englishName": "Mixteco de Penasco",
+      "iso639_3": "mil",
+      "uiReady": false
+    },
+    {
+      "id": "lang-zas",
+      "rev": 1, 
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-zas-chain",
+      "nativeName": "Diidxazá",
+      "englishName": "Zapoteco de Santiago",
+      "iso639_3": "zas",
+      "uiReady": false
+    },
+    {
+      "id": "lang-poi",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-poi-chain",
+      "nativeName": "Nuntajɨ̃yi",
+      "englishName": "Popoluca",
+      "iso639_3": "poi",
+      "uiReady": false
+    }
+  ],
+  "users": [
+    {
+      "id": "user-1",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-1-chain",
+      "username": "John",
+      "password": "password",
+      "uiLanguageId": "lang-eng"
+    },
+    {
+      "id": "user-2",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-2-chain",
+      "username": "Emma",
+      "password": "password",
+      "uiLanguageId": "lang-eng"
+    },
+    {
+      "id": "user-3",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-3-chain",
+      "username": "David",
+      "password": "password",
+      "uiLanguageId": "lang-eng"
+    },
+    {
+      "id": "user-4",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-4-chain",
+      "username": "Maria",
+      "password": "password",
+      "uiLanguageId": "lang-spa"
+    },
+    {
+      "id": "user-5",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-5-chain",
+      "username": "Carlos",
+      "password": "password",
+      "uiLanguageId": "lang-spa"
+    },
+    {
+      "id": "user-6",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "user-6-chain",
+      "username": "Ana",
+      "password": "password",
+      "uiLanguageId": "lang-spa"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-luke-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "project-luke-mix-chain",
+      "name": "Lucas - Mixteco de Penasco",
+      "description": "Traducción de Lucas al Mixteco de Penasco",
+      "sourceLanguageId": "lang-spa",
+      "targetLanguageId": "lang-mil"
+    },
+    {
+      "id": "proj-luke-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "project-luke-zap-chain",
+      "name": "Lucas - Zapoteco de Santiago",
+      "description": "Traducción de Lucas al Zapoteco de Santiago",
+      "sourceLanguageId": "lang-spa",
+      "targetLanguageId": "lang-zas"
+    },
+    {
+      "id": "proj-gen-pop",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "project-gen-pop-chain",
+      "name": "Vocabulario Génesis - Popoluca",
+      "description": "Vocabulario visual de Génesis en Popoluca",
+      "sourceLanguageId": "lang-spa",
+      "targetLanguageId": "lang-poi"
+    }
+  ],
+  "tags": [
+    {
+      "id": "tag-luke",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-luke-chain",
+      "name": "Libro:Lucas"
+    },
+    {
+      "id": "tag-ch1",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-ch1-chain", 
+      "name": "Capítulo:1"
+    },
+    {
+      "id": "tag-ch2",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-ch2-chain",
+      "name": "Capítulo:2"
+    },
+    {
+      "id": "tag-gen",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-gen-chain",
+      "name": "Book:Genesis"
+    },
+    {
+      "id": "tag-vocab",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-vocab-chain",
+      "name": "Type:Vocabulary"
+    },
+    {
+      "id": "tag-creation",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-creation-chain",
+      "name": "Content:Creation"
+    },
+    {
+      "id": "tag-v1",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:1"
+    },
+    {
+      "id": "tag-v2",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:2"
+    },
+    {
+      "id": "tag-v3",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:3"
+    },
+    {
+      "id": "tag-v4",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:4"
+    },
+    {
+      "id": "tag-v5",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:5"
+    },
+    {
+      "id": "tag-v6",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:6"
+    },
+    {
+      "id": "tag-v7",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:7"
+    },
+    {
+      "id": "tag-v8",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "tag-v1-chain",
+      "name": "Versículo:8"
+    }
+  ],
+  "quests": [
+    {
+      "id": "quest-luke1-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "quest-luke1-mix-chain",
+      "name": "Lucas 1:1-10 (Mixteco)",
+      "description": "Traducir Lucas 1:1-10 al Mixteco de Penasco",
+      "projectId": "proj-luke-mix"
+    },
+    {
+      "id": "quest-luke2-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "quest-luke2-mix-chain",
+      "name": "Lucas 2:1-10 (Mixteco)",
+      "description": "Traducir Lucas 2:1-10 al Mixteco de Penasco",
+      "projectId": "proj-luke-mix"
+    },
+    {
+      "id": "quest-luke1-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "quest-luke1-zap-chain",
+      "name": "Lucas 1:1-10 (Zapoteco)",
+      "description": "Traducir Lucas 1:1-10 al Zapoteco de Santiago",
+      "projectId": "proj-luke-zap"
+    },
+    {
+      "id": "quest-luke2-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "quest-luke2-zap-chain",
+      "name": "Lucas 2:1-10 (Zapoteco)",
+      "description": "Traducir Lucas 2:1-10 al Zapoteco de Santiago",
+      "projectId": "proj-luke-zap"
+    },
+    {
+      "id": "quest-gen-vocab",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "quest-gen-vocab-chain",
+      "name": "Vocabulario de Creación",
+      "description": "Traducir palabras clave de Génesis 1 al Popoluca",
+      "projectId": "proj-gen-pop"
+    }
+  ],
+  "questToTags": [
+    {
+      "questId": "quest-luke1-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "tagId": "tag-gen"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "tagId": "tag-vocab"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "tagId": "tag-creation"
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset-luke1-v1-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v1-chain",
+      "name": "Lucas 1:1",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Como varios intentos se han hecho para poner en orden el relato de aquellos eventos que tuvieron lugar entre nosotros, (BES)",
+        "Puesto que muchos han tratado de poner en orden un relato de las cosas completamente ciertas entre nosotros, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_1_BES.mp3", "LUK_1_1_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v2-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v2-chain",
+      "name": "Lucas 1:2",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Tal como nos lo transmitieron por aquellos que lo vieron desde el principio y fueron predicadores de la palabra, (BES)",
+        "como nos las transmitieron los que desde el principio fueron testigos oculares y servidores de la Palabra, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_2_BES.mp3", "LUK_1_2_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v3-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v3-chain",
+      "name": "Lucas 1:3",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Yo tambien excelentísimo Teófilo me pareció bien, después de haber hecho la investigación, con gran cuidado, de todas las cosas de los acontecimientos desde su origen, y poner los hechos por escrito. (BES)",
+        "a mí también me pareció bien, después de investigar con diligencia todas las cosas desde el principio, escribírtelas en orden, excelentísimo Teófilo, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_3_BES.mp3", "LUK_1_3_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v4-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v4-chain",
+      "name": "Lucas 1:4",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Para que conozcas bien la verdad de aquellas cosas sobre las cuales te enseñaron. (BES)",
+        "para que conozcas exactamente la verdad con respecto a las cosas en las cuales fuiste instruido. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_4_BES.mp3", "LUK_1_4_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v5-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v5-chain",
+      "name": "Lucas 1:5",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "En los días de Herodes, rey de Judea, había un sacerdote, llamado Zacarías, del orden de Abías; y él tenía una esposa de la familia de Aarón, y su nombre era Elisabet. (BES)",
+        "Hubo en los días de Herodes, rey de Judea, un sacerdote llamado Zacarías, de la clase de Abías. Su esposa Elisabet era de la descendencia de Aarón. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_5_BES.mp3", "LUK_1_5_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v6-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v6-chain",
+      "name": "Lucas 1:6",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ellos eran justos a los ojos de Dios, guardando todas las reglas y órdenes de Dios, y no haciendo nada malo. (BES)",
+        "Ambos eran justos delante de Dios y vivían de manera irreprochable según todos los Mandamientos y Ordenanzas del Señor. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_6_BES.mp3", "LUK_1_6_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v7-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v7-chain",
+      "name": "Lucas 1:7",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y estaban sin hijos, porque Elisabet era estéril, y ambos eran muy viejos. (BES)",
+        "No tenían hijos, porque Elisabet era estéril, y ambos de edad avanzada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_7_BES.mp3", "LUK_1_7_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v8-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v8-chain",
+      "name": "Lucas 1:8",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ahora sucedió que ejerciendo su turno actuando como sacerdote ante Dios según el orden de su clase, (BES)",
+        "Aconteció que al ministrar él como sacerdote delante de Dios, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_8_BES.mp3", "LUK_1_8_PDDPT.mp3"]
+    },
+	  {
+      "id": "asset-luke1-v1-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v1-chain",
+      "name": "Lucas 1:1",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Como varios intentos se han hecho para poner en orden el relato de aquellos eventos que tuvieron lugar entre nosotros, (BES)",
+        "Puesto que muchos han tratado de poner en orden un relato de las cosas completamente ciertas entre nosotros, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_1_BES.mp3", "LUK_1_1_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v2-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v2-chain",
+      "name": "Lucas 1:2",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Tal como nos lo transmitieron por aquellos que lo vieron desde el principio y fueron predicadores de la palabra, (BES)",
+        "como nos las transmitieron los que desde el principio fueron testigos oculares y servidores de la Palabra, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_2_BES.mp3", "LUK_1_2_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v3-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v3-chain",
+      "name": "Lucas 1:3",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Yo tambien excelentísimo Teófilo me pareció bien, después de haber hecho la investigación, con gran cuidado, de todas las cosas de los acontecimientos desde su origen, y poner los hechos por escrito. (BES)",
+        "a mí también me pareció bien, después de investigar con diligencia todas las cosas desde el principio, escribírtelas en orden, excelentísimo Teófilo, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_3_BES.mp3", "LUK_1_3_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v4-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v4-chain",
+      "name": "Lucas 1:4",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Para que conozcas bien la verdad de aquellas cosas sobre las cuales te enseñaron. (BES)",
+        "para que conozcas exactamente la verdad con respecto a las cosas en las cuales fuiste instruido. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_4_BES.mp3", "LUK_1_4_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v5-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v5-chain",
+      "name": "Lucas 1:5",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "En los días de Herodes, rey de Judea, había un sacerdote, llamado Zacarías, del orden de Abías; y él tenía una esposa de la familia de Aarón, y su nombre era Elisabet. (BES)",
+        "Hubo en los días de Herodes, rey de Judea, un sacerdote llamado Zacarías, de la clase de Abías. Su esposa Elisabet era de la descendencia de Aarón. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_5_BES.mp3", "LUK_1_5_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v6-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v6-chain",
+      "name": "Lucas 1:6",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ellos eran justos a los ojos de Dios, guardando todas las reglas y órdenes de Dios, y no haciendo nada malo. (BES)",
+        "Ambos eran justos delante de Dios y vivían de manera irreprochable según todos los Mandamientos y Ordenanzas del Señor. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_6_BES.mp3", "LUK_1_6_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v7-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v7-chain",
+      "name": "Lucas 1:7",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y estaban sin hijos, porque Elisabet era estéril, y ambos eran muy viejos. (BES)",
+        "No tenían hijos, porque Elisabet era estéril, y ambos de edad avanzada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_7_BES.mp3", "LUK_1_7_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke1-v8-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke1-v8-chain",
+      "name": "Lucas 1:8",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ahora sucedió que ejerciendo su turno actuando como sacerdote ante Dios según el orden de su clase, (BES)",
+        "Aconteció que al ministrar él como sacerdote delante de Dios, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_1_8_BES.mp3", "LUK_1_8_PDDPT.mp3"]
+    },
+	  {
+      "id": "asset-luke2-v1-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v1-chain",
+      "name": "Lucas 2:1",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ahora sucedió en aquellos días que salió una orden de César Augusto de empadronar a todo el mundo. (BES)",
+        "En aquellos días aconteció que salió un edicto de parte de César Augusto, para que se empadronara toda la tierra habitada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_1_BES.mp3", "LUK_2_1_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v2-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v2-chain",
+      "name": "Lucas 2:2",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Este primer censo, se hizo cuando Cirenio era el gobernante de Siria. (BES)",
+        "Este primer censo se realizó cuando Cirenio era gobernador de Siria. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_2_BES.mp3", "LUK_2_2_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v3-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v3-chain",
+      "name": "Lucas 2:3",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y todos los hombres fueron contados, todos en su ciudad. (BES)",
+        "Todos iban a registrarse, cada uno a su ciudad. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_3_BES.mp3", "LUK_2_3_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v4-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v4-chain",
+      "name": "Lucas 2:4",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y subió José de Galilea, de la ciudad de Nazaret, a Judea, a Belén, la ciudad de David, porque era de la casa y familia de David, (BES)",
+        "Por tanto José subió de la ciudad de Nazaret de Galilea, a Belén, la ciudad de David en Judea, porque él era de la casa y familia de David, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_4_BES.mp3", "LUK_2_4_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v5-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v5-chain",
+      "name": "Lucas 2:5",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Para ser puesto en la lista con María, su futura esposa, que estaba a punto de convertirse en madre. (BES)",
+        "para registrarse con su esposa María, la cual estaba embarazada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_5_BES.mp3", "LUK_2_5_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v6-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v6-chain",
+      "name": "Lucas 2:6",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y mientras estaban allí, llegó el momento de que ella diera a luz. (BES)",
+        "Cuando estaban allí se cumplió el tiempo de su parto y (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_6_BES.mp3", "LUK_2_6_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v7-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v7-chain",
+      "name": "Lucas 2:7",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y ella tuvo su primer hijo; y, lo envolvió en lino, lo puso a descansar en el lugar donde el ganado tenía su comida, porque no había lugar para ellos en el mesón. (BES)",
+        "dio a luz a su Hijo primogénito. Lo envolvió en pañales y lo acostó en un pesebre, porque no había lugar para ellos en la pensión. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_7_BES.mp3", "LUK_2_7_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v8-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v8-chain",
+      "name": "Lucas 2:8",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y en la misma región había pastores de ovejas en los campos, cuidando sus rebaños de noche. (BES)",
+        "Había pastores en aquella misma región que posaban a campo abierto y guardaban las vigilias de la noche sobre sus rebaños. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_8_BES.mp3", "LUK_2_8_PDDPT.mp3"]
+    },
+	  {
+      "id": "asset-luke2-v1-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v1-chain",
+      "name": "Lucas 2:1",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Ahora sucedió en aquellos días que salió una orden de César Augusto de empadronar a todo el mundo. (BES)",
+        "En aquellos días aconteció que salió un edicto de parte de César Augusto, para que se empadronara toda la tierra habitada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_1_BES.mp3", "LUK_2_1_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v2-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v2-chain",
+      "name": "Lucas 2:2",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Este primer censo, se hizo cuando Cirenio era el gobernante de Siria. (BES)",
+        "Este primer censo se realizó cuando Cirenio era gobernador de Siria. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_2_BES.mp3", "LUK_2_2_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v3-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v3-chain",
+      "name": "Lucas 2:3",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y todos los hombres fueron contados, todos en su ciudad. (BES)",
+        "Todos iban a registrarse, cada uno a su ciudad. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_3_BES.mp3", "LUK_2_3_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v4-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v4-chain",
+      "name": "Lucas 2:4",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y subió José de Galilea, de la ciudad de Nazaret, a Judea, a Belén, la ciudad de David, porque era de la casa y familia de David, (BES)",
+        "Por tanto José subió de la ciudad de Nazaret de Galilea, a Belén, la ciudad de David en Judea, porque él era de la casa y familia de David, (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_4_BES.mp3", "LUK_2_4_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v5-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v5-chain",
+      "name": "Lucas 2:5",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Para ser puesto en la lista con María, su futura esposa, que estaba a punto de convertirse en madre. (BES)",
+        "para registrarse con su esposa María, la cual estaba embarazada. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_5_BES.mp3", "LUK_2_5_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v6-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v6-chain",
+      "name": "Lucas 2:6",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y mientras estaban allí, llegó el momento de que ella diera a luz. (BES)",
+        "Cuando estaban allí se cumplió el tiempo de su parto y (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_6_BES.mp3", "LUK_2_6_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v7-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v7-chain",
+      "name": "Lucas 2:7",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y ella tuvo su primer hijo; y, lo envolvió en lino, lo puso a descansar en el lugar donde el ganado tenía su comida, porque no había lugar para ellos en el mesón. (BES)",
+        "dio a luz a su Hijo primogénito. Lo envolvió en pañales y lo acostó en un pesebre, porque no había lugar para ellos en la pensión. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_7_BES.mp3", "LUK_2_7_PDDPT.mp3"]
+    },
+    {
+      "id": "asset-luke2-v8-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-luke2-v8-chain",
+      "name": "Lucas 2:8",
+      "sourceLanguageId": "lang-spa",
+      "text": [
+        "Y en la misma región había pastores de ovejas en los campos, cuidando sus rebaños de noche. (BES)",
+        "Había pastores en aquella misma región que posaban a campo abierto y guardaban las vigilias de la noche sobre sus rebaños. (PDDPT)"
+      ],
+      "images": [],
+      "audio": ["LUK_2_8_BES.mp3", "LUK_2_8_PDDPT.mp3"]
+    },
+    {
+	  "id": "asset-sun",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-sun-chain",
+      "name": "Sol",
+      "sourceLanguageId": "lang-spa",
+      "text": "",
+      "images": ["sun.jpg"],
+      "audio": []
+    },
+    {
+      "id": "asset-moon",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-moon-chain",
+      "name": "Luna",
+      "sourceLanguageId": "lang-spa",
+      "text": "",
+      "images": ["moon.jpg"],
+      "audio": []
+    },
+    {
+      "id": "asset-stars",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "asset-stars-chain",
+      "name": "Estrellas",
+      "sourceLanguageId": "lang-spa",
+      "text": "",
+      "images": ["stars.jpg"],
+      "audio": []
+    }
+  ],
+  "assetToTags": [
+    {
+      "assetId": "asset-luke1-v1-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v1-mix", 
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v1-mix",
+      "tagId": "tag-v1"
+    },
+    {
+      "assetId": "asset-luke1-v2-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v2-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v2-mix", 
+      "tagId": "tag-v2"
+    },
+    {
+      "assetId": "asset-luke1-v3-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v3-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v3-mix",
+      "tagId": "tag-v3"
+    },
+    {
+      "assetId": "asset-luke1-v4-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v4-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v4-mix",
+      "tagId": "tag-v4"
+    },
+    {
+      "assetId": "asset-luke1-v5-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v5-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v5-mix",
+      "tagId": "tag-v5"
+    },
+    {
+      "assetId": "asset-luke1-v6-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v6-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v6-mix",
+      "tagId": "tag-v6"
+    },
+    {
+      "assetId": "asset-luke1-v7-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v7-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v7-mix",
+      "tagId": "tag-v7"
+    },
+    {
+      "assetId": "asset-luke1-v8-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v8-mix",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v8-mix",
+      "tagId": "tag-v8"
+    },
+    {
+      "assetId": "asset-luke2-v1-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v1-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v1-mix",
+      "tagId": "tag-v1"
+    },
+    {
+      "assetId": "asset-luke2-v2-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v2-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v2-mix",
+      "tagId": "tag-v2"
+    },
+    {
+      "assetId": "asset-luke2-v3-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v3-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v3-mix",
+      "tagId": "tag-v3"
+    },
+    {
+      "assetId": "asset-luke2-v4-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v4-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v4-mix",
+      "tagId": "tag-v4"
+    },
+    {
+      "assetId": "asset-luke2-v5-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v5-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v5-mix",
+      "tagId": "tag-v5"
+    },
+    {
+      "assetId": "asset-luke2-v6-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v6-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v6-mix",
+      "tagId": "tag-v6"
+    },
+    {
+      "assetId": "asset-luke2-v7-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v7-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v7-mix",
+      "tagId": "tag-v7"
+    },
+    {
+      "assetId": "asset-luke2-v8-mix",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v8-mix",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v8-mix",
+      "tagId": "tag-v8"
+    },
+    {
+      "assetId": "asset-luke1-v1-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v1-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v1-zap",
+      "tagId": "tag-v1"
+    },
+    {
+      "assetId": "asset-luke1-v2-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v2-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v2-zap",
+      "tagId": "tag-v2"
+    },
+    {
+      "assetId": "asset-luke1-v3-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v3-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v3-zap",
+      "tagId": "tag-v3"
+    },
+    {
+      "assetId": "asset-luke1-v4-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v4-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v4-zap",
+      "tagId": "tag-v4"
+    },
+    {
+      "assetId": "asset-luke1-v5-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v5-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v5-zap",
+      "tagId": "tag-v5"
+    },
+    {
+      "assetId": "asset-luke1-v6-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v6-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v6-zap",
+      "tagId": "tag-v6"
+    },
+    {
+      "assetId": "asset-luke1-v7-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v7-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v7-zap",
+      "tagId": "tag-v7"
+    },
+    {
+      "assetId": "asset-luke1-v8-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke1-v8-zap",
+      "tagId": "tag-ch1"
+    },
+    {
+      "assetId": "asset-luke1-v8-zap",
+      "tagId": "tag-v8"
+    },
+    {
+      "assetId": "asset-luke2-v1-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v1-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v1-zap",
+      "tagId": "tag-v1"
+    },
+    {
+      "assetId": "asset-luke2-v2-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v2-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v2-zap",
+      "tagId": "tag-v2"
+    },
+    {
+      "assetId": "asset-luke2-v3-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v3-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v3-zap",
+      "tagId": "tag-v3"
+    },
+    {
+      "assetId": "asset-luke2-v4-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v4-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v4-zap",
+      "tagId": "tag-v4"
+    },
+    {
+      "assetId": "asset-luke2-v5-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v5-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v5-zap",
+      "tagId": "tag-v5"
+    },
+    {
+      "assetId": "asset-luke2-v6-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v6-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v6-zap",
+      "tagId": "tag-v6"
+    },
+    {
+      "assetId": "asset-luke2-v7-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v7-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v7-zap",
+      "tagId": "tag-v7"
+    },
+    {
+      "assetId": "asset-luke2-v8-zap",
+      "tagId": "tag-luke"
+    },
+    {
+      "assetId": "asset-luke2-v8-zap",
+      "tagId": "tag-ch2"
+    },
+    {
+      "assetId": "asset-luke2-v8-zap",
+      "tagId": "tag-v8"
+    },
+    {
+      "assetId": "asset-sun",
+      "tagId": "tag-gen"
+    },
+    {
+      "assetId": "asset-sun",
+      "tagId": "tag-vocab"
+    },
+    {
+      "assetId": "asset-sun",
+      "tagId": "tag-creation"
+    },
+    {
+      "assetId": "asset-moon",
+      "tagId": "tag-gen"
+    },
+    {
+      "assetId": "asset-moon",
+      "tagId": "tag-vocab"
+    },
+    {
+      "assetId": "asset-moon",
+      "tagId": "tag-creation"
+    },
+    {
+      "assetId": "asset-stars",
+      "tagId": "tag-gen"
+    },
+    {
+      "assetId": "asset-stars",
+      "tagId": "tag-vocab"
+    },
+    {
+      "assetId": "asset-stars",
+      "tagId": "tag-creation"
+    }
+  ],
+  "questToAssets": [
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v1-mix"
+    },
+    {
+      "questId": "quest-luke1-mix", 
+      "assetId": "asset-luke1-v2-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v3-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v4-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v5-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v6-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v7-mix"
+    },
+    {
+      "questId": "quest-luke1-mix",
+      "assetId": "asset-luke1-v8-mix"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v1-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v2-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v3-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v4-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v5-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v6-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v7-zap"
+    },
+    {
+      "questId": "quest-luke1-zap",
+      "assetId": "asset-luke1-v8-zap"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v1-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v2-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v3-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v4-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v5-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v6-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v7-mix"
+    },
+    {
+      "questId": "quest-luke2-mix",
+      "assetId": "asset-luke2-v8-mix"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v1-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v2-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v3-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v4-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v5-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v6-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v7-zap"
+    },
+    {
+      "questId": "quest-luke2-zap",
+      "assetId": "asset-luke2-v8-zap"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "assetId": "asset-sun"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "assetId": "asset-moon"
+    },
+    {
+      "questId": "quest-gen-vocab",
+      "assetId": "asset-stars"
+    }
+  ],
+  "translations": [
+    {
+      "id": "trans-luke1-mix",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "trans-luke1-mix-chain",
+      "assetId": "asset-luke1",
+      "targetLanguageId": "lang-mil",
+      "text": "[Mixtec translation of Luke 1:1-10]",
+      "audio": ["luke-1-1-10-mixtec-1.mp3"],
+      "creatorId": "user-1"
+    },
+    {
+      "id": "trans-luke1-zap",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "trans-luke1-zap-chain",
+      "assetId": "asset-luke1",
+      "targetLanguageId": "lang-zas",
+      "text": "[Zapotec translation of Luke 1:1-10]",
+      "audio": ["luke-1-1-10-zapotec-1.mp3"],
+      "creatorId": "user-2"
+    },
+    {
+      "id": "trans-sun-pop",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "trans-sun-pop-chain",
+      "assetId": "asset-sun",
+      "targetLanguageId": "lang-poi",
+      "text": "jaama",
+      "audio": [],
+      "creatorId": "user-3"
+    }
+  ],
+  "votes": [
+    {
+      "id": "vote-1",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "vote-1-chain",
+      "translationId": "trans-luke1-mix",
+      "polarity": "up",
+      "comment": "Excellent translation, very clear",
+      "creatorId": "user-4"
+    },
+    {
+      "id": "vote-2",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "vote-2-chain",
+      "translationId": "trans-luke1-mix",
+      "polarity": "up",
+      "comment": "Natural sounding",
+      "creatorId": "user-5"
+    },
+    {
+      "id": "vote-3",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "vote-3-chain",
+      "translationId": "trans-luke1-zap",
+      "polarity": "down",
+      "comment": "Needs revision in verse 5",
+      "creatorId": "user-6"
+    }
+  ]
+}
+  

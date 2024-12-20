@@ -10,6 +10,7 @@ import { translationService } from '@/database_services/translationService';
 import { vote, language } from '@/db/drizzleSchema';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface TranslationModalProps {
   translation: Translation;
@@ -22,6 +23,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   onClose, 
   onVoteSubmitted,
 }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
@@ -71,7 +73,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
-      Alert.alert('Error', 'You must be logged in to vote');
+      Alert.alert('Error', t('logInToVote'));
       return;
     }
 
@@ -114,7 +116,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       setShowVoteModal(false);
     } catch (error) {
       console.error('Error submitting vote:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -135,11 +137,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         </ScrollView>
 
         <View style={styles.audioPlayerContainer}>
-          <AudioPlayer 
-            audioFiles={[]}
-            useCarousel={false}
-            mini={true}
-          />
+          {translation.audio && (
+            <AudioPlayer 
+              audioUri={translation.audio}
+              useCarousel={false}
+              mini={true}
+            />
+          )}
         </View>
 
         <View style={styles.feedbackContainer}>

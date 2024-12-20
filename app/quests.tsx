@@ -11,6 +11,7 @@ import { questService, Quest } from '@/database_services/questService';
 import { tagService, Tag } from '@/database_services/tagService';
 import { assetService } from '@/database_services/assetService';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SortingOption {
   field: string;
@@ -53,6 +54,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
 
 export default function Quests() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setActiveQuest } = useProjectContext();
   const { project_id, projectName } = useLocalSearchParams<{ project_id: string; projectName: string }>();
@@ -87,7 +89,7 @@ export default function Quests() {
       setQuestTags(tagsMap);
     } catch (error) {
       console.error('Error loading quests:', error);
-      Alert.alert('Error', 'Failed to load quests');
+      Alert.alert('Error', t('failedLoadQuests'));
     }
   };
 
@@ -216,13 +218,13 @@ export default function Quests() {
           <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={sharedStyles.title}>{projectName} Quests</Text>
+          <Text style={sharedStyles.title}>{projectName} {t('quests')}</Text>
           
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search quests..."
+              placeholder={t('searchQuests')}
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}

@@ -4,6 +4,7 @@ import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -18,12 +19,13 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
   onSubmit, 
   voteType 
 }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [comment, setComment] = useState('');
 
   const handleSubmit = async () => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to vote');
+      Alert.alert('Error', t('logInToVote'));
       return;
     }
 
@@ -32,7 +34,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
       setComment('');
     } catch (error) {
       console.error('Error in handleSubmit:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -42,7 +44,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
       setComment('');
     } catch (error) {
       console.error('Error in handleNoComment:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -74,10 +76,10 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
                 />
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity style={styles.button} onPress={handleNoComment}>
-                    <Text style={styles.buttonText}>No Comment</Text>
+                    <Text style={styles.buttonText}>{t('noComment')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                    <Text style={styles.buttonText}>Submit</Text>
+                    <Text style={styles.buttonText}>{t('submit')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

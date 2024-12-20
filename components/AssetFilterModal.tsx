@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Asset } from '@/database_services/assetService';
 import { tagService, Tag } from '@/database_services/tagService';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface AssetFilterModalProps {
   visible: boolean;
@@ -48,6 +49,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
     };
     loadAllTags();
   }, [assets]);
+  const { t } = useTranslation();
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
@@ -227,7 +229,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
               )}
             </ScrollView>
             <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
-              <Text style={sharedStyles.modalButtonText}>Apply</Text>
+              <Text style={sharedStyles.modalButtonText}>{t('apply')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableWithoutFeedback>

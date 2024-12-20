@@ -18,14 +18,27 @@ import { TranslationModal } from '@/components/TranslationModal';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
+import AudioPlayer from '@/components/AudioPlayer';
+import ImageCarousel from '@/components/ImageCarousel';
+import Carousel from '@/components/Carousel';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
+
+const getFirstAvailableTab = (asset: AssetWithRelations | null): TabType => {
+  if (!asset) return 'text';
+  if (asset.text) return 'text';
+  if (asset.audio?.length) return 'audio';
+  if (asset.images?.length) return 'image';
+  return 'text'; // fallback
+};
 
 type TabType = 'text' | 'audio' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 
 export default function AssetView() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -111,7 +124,13 @@ export default function AssetView() {
     };
   }, [asset_id, translations]);
 
-  const loadTranslationData = async () => {
+  // const loadTranslationData = async () => {
+  //   if (asset) {
+  //     setActiveTab(getFirstAvailableTab(asset));
+  //   }
+  // }, [asset]);
+
+  const loadAssetAndTranslations = async () => {
     try {
       const votesMap: Record<string, Vote[]> = {};
       const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
@@ -137,7 +156,8 @@ export default function AssetView() {
       setTranslationCreators(creatorsMap);
       setTranslationLanguages(languagesMap);
     } catch (error) {
-      console.error('Error loading translation data:', error);
+      console.error('Error loading asset and translations:', error);
+      Alert.alert('Error', t('failedLoadAsset'));
     }
   };
 
@@ -171,7 +191,7 @@ export default function AssetView() {
 
   const handleVote = async (translation_id: string, polarity: 'up' | 'down') => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to vote');
+      Alert.alert('Error', t('logInToVote'));
       return;
     }
 
@@ -184,7 +204,7 @@ export default function AssetView() {
       await loadAssetAndTranslations(); // Reload to get updated vote counts
     } catch (error) {
       console.error('Error voting:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -193,7 +213,7 @@ export default function AssetView() {
       await loadAssetAndTranslations();
     } catch (error) {
       console.error('Error creating translation:', error);
-      Alert.alert('Error', 'Failed to create translation');
+      Alert.alert('Error', t('failedCreateTranslation'));
     }
   };
 
@@ -300,22 +320,49 @@ export default function AssetView() {
             
             <View style={styles.tabBar}>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'text' && styles.activeTab]}
-                onPress={() => setActiveTab('text')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'text' && styles.activeTab,
+                  !asset?.text && styles.disabledTab
+                ]}
+                onPress={() => asset?.text && setActiveTab('text')}
+                disabled={!asset?.text}
               >
-                <Ionicons name="text" size={24} color={colors.text} />
+                <Ionicons 
+                  name="text" 
+                  size={24} 
+                  color={asset?.text ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'audio' && styles.activeTab]}
-                onPress={() => setActiveTab('audio')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'audio' && styles.activeTab,
+                  !asset?.audio?.length && styles.disabledTab
+                ]}
+                onPress={() => asset?.audio?.length && setActiveTab('audio')}
+                disabled={!asset?.audio?.length}
               >
-                <Ionicons name="volume-high" size={24} color={colors.text} />
+                <Ionicons 
+                  name="volume-high" 
+                  size={24} 
+                  color={asset?.audio?.length ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tab, activeTab === 'image' && styles.activeTab]}
-                onPress={() => setActiveTab('image')}
+                style={[
+                  styles.tab, 
+                  activeTab === 'image' && styles.activeTab,
+                  !asset?.images?.length && styles.disabledTab
+                ]}
+                onPress={() => asset?.images?.length && setActiveTab('image')}
+                disabled={!asset?.images?.length}
               >
-                <Ionicons name="image" size={24} color={colors.text} />
+                <Ionicons 
+                  name="image" 
+                  size={24} 
+                  color={asset?.images?.length ? colors.text : colors.textSecondary} 
+                />
               </TouchableOpacity>
             </View>
 
@@ -328,8 +375,18 @@ export default function AssetView() {
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
               )}
-              {/* {activeTab === 'audio' && <AudioPlayer audioFiles={asset?.audio || []} useCarousel={true} />}
-              {activeTab === 'image' && <ImageCarousel images={asset?.images || []} />} */}
+              {activeTab === 'audio' && asset?.audio && Array.isArray(asset.audio) && 
+                <AudioPlayer 
+                  audioFiles={asset.audio.map((moduleId, index) => ({
+                    id: `audio-${index}`,
+                    title: `${t('audio')} ${index + 1}`,
+                    moduleId: moduleId
+                  }))} 
+                />
+              }
+              {activeTab === 'image' && asset?.images && Array.isArray(asset.images) && 
+                <ImageCarousel imageModuleIds={asset.images} />
+              }
             </View>
 
             <View style={styles.horizontalLine} />
@@ -339,11 +396,11 @@ export default function AssetView() {
                 <View style={styles.alignmentContainer}>
                   <View style={styles.dropdownContainer}>
                     <CustomDropdown
-                      label="Sort by"
+                      label={t('sortBy')}
                       value={sortOption}
                       options={[
-                        { label: 'Votes', value: 'voteCount' },
-                        { label: 'Date', value: 'dateSubmitted' }
+                        { label: t('votes'), value: 'voteCount' },
+                        { label: t('date'), value: 'dateSubmitted' }
                       ]}
                       onSelect={(value) => setSortOption(value as SortOption)}
                     />
@@ -353,7 +410,7 @@ export default function AssetView() {
                     onPress={() => setIsNewTranslationModalVisible(true)}
                   >
                     <Ionicons name="add" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>New Translation</Text>
+                    <Text style={styles.newTranslationButtonText}>{t('newTranslation')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -412,6 +469,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginHorizontal: spacing.small,
+  },
+  disabledTab: {
+    opacity: 0.5,
   },
   content: {
     flex: 1,

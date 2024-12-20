@@ -12,6 +12,7 @@ import { languageService } from '@/database_services/languageService';
 import { project, language } from '@/db/drizzleSchema';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { AuthGuard } from '@/guards/AuthGuard';
+import { useTranslation } from '@/hooks/useTranslation';
 
 
 type Project = typeof project.$inferSelect
@@ -46,6 +47,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({ proje
 };
 
 export default function Projects() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
@@ -75,7 +77,7 @@ export default function Projects() {
       setFilteredProjects(loadedProjects);
     } catch (error) {
       console.error('Error loading projects:', error);
-      Alert.alert('Error', 'Failed to load projects');
+      Alert.alert('Error', t('failedLoadProjects'));
     }
   };
 
@@ -154,7 +156,7 @@ export default function Projects() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-          <Text style={sharedStyles.title}>Projects</Text>
+          <Text style={sharedStyles.title}>{t('projects')}</Text>
           
           <View style={sharedStyles.iconBar}>
             <TouchableOpacity 
@@ -174,9 +176,9 @@ export default function Projects() {
           {showLanguageFilters && (
             <View style={sharedStyles.filtersContainer}>
               <CustomDropdown
-                label="Source"
+                label={t('source')}
                 value={sourceFilter}
-                options={['All', ...languages]}
+                options={[t('all'), ...languages]}
                 onSelect={setSourceFilter}
                 isOpen={openDropdown === 'source'}
                 onToggle={() => toggleDropdown('source')}
@@ -184,9 +186,9 @@ export default function Projects() {
                 search={true}
               />
               <CustomDropdown
-                label="Target"
+                label={t('target')}
                 value={targetFilter}
-                options={['All', ...languages]}
+                options={[t('all'), ...languages]}
                 onSelect={setTargetFilter}
                 isOpen={openDropdown === 'target'}
                 onToggle={() => toggleDropdown('target')}

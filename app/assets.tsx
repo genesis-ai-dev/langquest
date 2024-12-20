@@ -9,6 +9,7 @@ import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { assetService, Asset } from '@/database_services/assetService';
 import { tagService, Tag } from '@/database_services/tagService';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SortingOption {
   field: string;
@@ -51,6 +52,7 @@ const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
 
 
 export default function Assets() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { setActiveAsset } = useProjectContext();
   const { quest_id, questName } = useLocalSearchParams<{ quest_id: string; questName: string }>();
@@ -223,7 +225,7 @@ export default function Assets() {
             <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search assets..."
+              placeholder={t('searchAssets')}
               placeholderTextColor={colors.text}
               value={searchQuery}
               onChangeText={setSearchQuery}

@@ -33,3 +33,30 @@ Currently tested on:
 - `database_services/` - Database services
 - `db/` - Database configuration and schema
 - `contexts/` - React context providers
+
+## Building the APK
+
+Follow these steps to build the Android APK:
+
+1. Install EAS CLI globally:
+   ```bash
+   npm install -g eas-cli
+   ```
+
+2. Create an Expo account:
+   - Visit https://expo.dev/signup
+   - Complete the registration process
+
+3. Log in to EAS from your terminal:
+   ```bash
+   eas login
+   ```
+
+4. Build the APK:
+   ```bash
+   eas build -p android --profile preview
+   ```
+
+Once the build completes, you can download the APK from your [EAS Dashboard](https://expo.dev).
+
+**Note:** Each developer needs their own Expo account to build the APK. The repository includes all necessary build configurations.

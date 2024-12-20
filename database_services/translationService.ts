@@ -40,6 +40,15 @@ export class TranslationService {
     return newTranslation;
   }
 
+  async updateTranslationAudio(translationId: string, audioUri: string) {
+    const [updatedTranslation] = await db
+      .update(translation)
+      .set({ audio: audioUri })
+      .where(eq(translation.id, translationId))
+      .returning();
+    
+    return updatedTranslation;
+  }
 }
 
 export const translationService = new TranslationService();

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Quest } from '@/database_services/questService';
 import { tagService, Tag } from '@/database_services/tagService';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface QuestFilterModalProps {
   visible: boolean;
@@ -30,6 +31,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   initialFilters,
   initialSorting,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'filter' | 'sort'>('filter');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
@@ -138,7 +140,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
     <View style={sharedStyles.modalOverlay}>
     <TouchableWithoutFeedback> 
       <View style={sharedStyles.modal}>
-        <Text style={sharedStyles.modalTitle}>Quest Options</Text>
+        <Text style={sharedStyles.modalTitle}>{t('questOptions')}</Text>
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'filter' && styles.activeTab]}
@@ -228,7 +230,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
           )}
         </ScrollView>
         <TouchableOpacity style={sharedStyles.modalButton} onPress={handleApply}>
-          <Text style={sharedStyles.modalButtonText}>Apply</Text>
+          <Text style={sharedStyles.modalButtonText}>{t('apply')}</Text>
         </TouchableOpacity>
           </View>
         </TouchableWithoutFeedback>

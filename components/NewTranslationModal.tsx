@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import AudioRecorder from './AudioRecorder';
+import AudioRecorder from './AudioRecorderComponent/AudioRecorderX';
 import { translationService } from '@/database_services/translationService';
 import { CustomDropdown } from './CustomDropdown';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
+import * as FileSystem from 'expo-file-system';
+import { randomUUID } from 'expo-crypto';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -15,48 +18,72 @@ interface NewTranslationModalProps {
   asset_id: string;
 }
 
+const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
+
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ 
   isVisible, 
   onClose, 
   onSubmit,
   asset_id,
 }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
   const [translationText, setTranslationText] = useState('');
-  // const [selectedLanguageId, setSelectedLanguageId] = useState('');
+  const [audioUri, setAudioUri] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to submit translations');
+      Alert.alert('Error', t('logInToTranslate'));
       return;
     }
 
     if (!activeProject) {
-      Alert.alert('Error', 'No active project found');
+      Alert.alert('Error', t('noProject'));
       return;
     }
     
-    if (!translationText.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!translationText.trim() && !audioUri) {
+      Alert.alert('Error', t('fillFields'));
       return;
     }
 
     try {
+      let permanentAudioUri: string | undefined;
+      
+      if (audioUri) {
+        // Ensure recordings directory exists
+        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, { intermediates: true });
+        
+        // Move audio to permanent storage with unique filename
+        const fileName = `${Date.now()}_${randomUUID()}.m4a`;
+        permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
+        await FileSystem.moveAsync({
+          from: audioUri,
+          to: permanentAudioUri
+        });
+      }
+
       await translationService.createTranslation({
         text: translationText.trim(),
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
+        //audio: permanentAudioUri,
       });
       
       setTranslationText('');
+      setAudioUri(null);
       onSubmit();
       onClose();
     } catch (error) {
       console.error('Error creating translation:', error);
-      Alert.alert('Error', 'Failed to create translation');
+      Alert.alert('Error', t('failedCreateTranslation'));
     }
+  };
+
+  const handleRecordingComplete = (uri: string) => {
+    setAudioUri(uri);
   };
 
   return (
@@ -74,29 +101,28 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
               
-              <Text style={styles.title}>New Translation</Text>
-              
+              <Text style={styles.title}>{t('newTranslation')}</Text>
 
               <TextInput
                 style={styles.textInput}
                 multiline
-                placeholder="Enter your translation here"
+                placeholder={t('enterTranslation')}
                 placeholderTextColor={colors.textSecondary}
                 value={translationText}
                 onChangeText={setTranslationText}
               />
 
-              <AudioRecorder onRecordingComplete={() => {}} />
+              <AudioRecorder onRecordingComplete={handleRecordingComplete} />
 
               <TouchableOpacity 
                 style={[
                   styles.submitButton,
-                  (!translationText.trim()) && styles.submitButtonDisabled
+                  (!translationText.trim() && !audioUri) && styles.submitButtonDisabled
                 ]} 
                 onPress={handleSubmit}
-                disabled={!translationText.trim()}
+                disabled={!translationText.trim() && !audioUri}
               >
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text style={styles.submitButtonText}>{t('submit')}</Text>
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
@@ -109,9 +135,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end', // Change from 'center' to 'flex-end'
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingBottom: spacing.large, // Add some padding from bottom
   },
   modal: {
     backgroundColor: colors.background,
