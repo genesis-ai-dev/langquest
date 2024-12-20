@@ -59,6 +59,9 @@ export default function Index() {
     
     const initializeDatabase = async () => {
       if (system.isInitialized()) {
+        console.log('System is already initialized')
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
         return;
       }
   

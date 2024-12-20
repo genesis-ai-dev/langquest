@@ -41,25 +41,32 @@ export default function Register() {
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadLanguages();
-    }, [])
-  );
-
   // Load saved language on mount
   useEffect(() => {
-    const loadSavedLanguage = async () => {
+    const initializeLanguages = async () => {
       try {
+        // Load languages first
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+         // Then get saved language ID
         const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId) {
+        
+        if (savedLanguageId && loadedLanguages.some(l => l.id === savedLanguageId)) {
           setSelectedLanguageId(savedLanguageId);
+        } else if (loadedLanguages.length > 0) {
+          // Fallback to English or first language
+          const englishLang = loadedLanguages.find(l => 
+            l.english_name?.toLowerCase() === 'english' || 
+            l.native_name?.toLowerCase() === 'english'
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
       } catch (error) {
-        console.error('Error loading saved language:', error);
+        console.error('Error initializing languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-    loadSavedLanguage();
+     initializeLanguages();
   }, []);
 
   // Save language when it changes
@@ -76,23 +83,7 @@ export default function Register() {
     saveLanguage();
   }, [selectedLanguageId]);
 
-  const loadLanguages = async () => {
-    try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
-      setLanguages(loadedLanguages);
-      // Set default language if available
-      if (!selectedLanguageId && loadedLanguages.length > 0) {
-        const englishLang = loadedLanguages.find(l => 
-          l.english_name?.toLowerCase() === 'english' || 
-          l.native_name?.toLowerCase() === 'english'
-        );
-        setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading languages:', error);
-      Alert.alert('Error', t('failedLoadLanguages'));
-    }
-  };
+  
 
 
   const handleRegister = async () => {
