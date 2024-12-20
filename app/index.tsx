@@ -18,15 +18,14 @@ import { system } from '../db/powersync/system';
 import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { seedDatabase } from '../db/seedDatabase';
+// import { seedDatabase } from '../db/seedDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { CustomDropdown } from '@/components/CustomDropdown';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { profile, language } = schema;
+// const { profile, language } = schema;
 const { supabaseConnector } = system;
 
 // const userRepository = new UserRepository();
@@ -37,7 +36,7 @@ export default function Index() {
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [showLanguages, setShowLanguages] = useState(false);
   const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
-  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+  const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
 
   const router = useRouter();
   const { setCurrentUser } = useAuth();
@@ -79,15 +78,7 @@ export default function Index() {
           await system.init();
           if (mounted) {
             router.push("/projects");
-
-        // setDbStatus('Seeding database...');
-        // const seedSuccess = await seedDatabase();
-        
-        // if (seedSuccess) {
-        //   setDbStatus('Database initialized successfully');
-        //   setIsDbReady(true);
-          
-          // Load languages only after database is ready
+          }
           try {
             const loadedLanguages = await languageService.getUiReadyLanguages();
             setLanguages(loadedLanguages);
@@ -102,6 +93,7 @@ export default function Index() {
             console.error('Error loading languages:', error);
             Alert.alert('Error', t('failedLoadLanguages'));
           }
+          
         }
       } catch (error) {
         console.error('Session check error:', error);
@@ -117,8 +109,6 @@ export default function Index() {
       mounted = false;
     };
   }, []);
-  
-  const handleSignIn = async () => {
 
   // Load saved language on mount
   useEffect(() => {
@@ -150,10 +140,10 @@ export default function Index() {
   }, [selectedLanguageId]);
 
   const handleSignIn = async () => {
-    if (!isDbReady) {
-      Alert.alert('Error', t('databaseNotReady'));
-      return;
-    }
+    // if (!isDbReady) {
+    //   Alert.alert('Error', t('databaseNotReady'));
+    //   return;
+    // }
 
     try {
       const authenticatedUser = await userService.validateCredentials(credentials);
@@ -203,10 +193,10 @@ export default function Index() {
               style={{ marginBottom: spacing.small }}
             />
             <CustomDropdown
-              value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-              options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+              value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
+              options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
               onSelect={(langName) => {
-                const lang = languages.find(l => l.nativeName === langName);
+                const lang = languages.find(l => l.native_name === langName);
                 if (lang) {
                   setSelectedLanguageId(lang.id);
                 }
@@ -235,8 +225,8 @@ export default function Index() {
                 style={{ flex: 1, color: colors.text }}
                 placeholder={t('username')}
                 placeholderTextColor={colors.text}
-                value={username}
-                onChangeText={setUsername}
+                value={credentials.username}
+                onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text }))}
               />
             </View>
             
@@ -247,8 +237,8 @@ export default function Index() {
                 placeholder={t('password')}
                 placeholderTextColor={colors.text}
                 secureTextEntry
-                value={password}
-                onChangeText={setPassword}
+                value={credentials.password}
+                onChangeText={(text) => setCredentials(prev => ({ ...prev, password: text }))}
               />
             </View>
           </View>
@@ -272,4 +262,4 @@ export default function Index() {
       </SafeAreaView>
     </LinearGradient>
   );
-}
+  }

@@ -22,7 +22,7 @@ export default function Register() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
-  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+  const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [username, setUsername] = useState('');
@@ -78,7 +78,7 @@ export default function Register() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUi_readyLanguages();
+      const loadedLanguages = await languageService.getUiReadyLanguages();
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {
@@ -228,10 +228,10 @@ export default function Register() {
                   style={{ marginBottom: spacing.small }}
                 />
                 <CustomDropdown
-                  value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-                  options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+                  value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
+                  options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
-                    const lang = languages.find(l => l.nativeName === langName);
+                    const lang = languages.find(l => l.native_name === langName);
                     if (lang) {
                       setSelectedLanguageId(lang.id);
                     }

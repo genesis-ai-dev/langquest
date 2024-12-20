@@ -7,7 +7,7 @@ import { system } from '../db/powersync/system';
 const db = system.db;
 
 export class LanguageService {
-  async getUi_readyLanguages() {
+  async getUiReadyLanguages() {
     return await db
       .select()
       .from(language)

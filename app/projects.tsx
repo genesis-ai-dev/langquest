@@ -83,7 +83,7 @@ export default function Projects() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUi_readyLanguages();
+      const loadedLanguages = await languageService.getUiReadyLanguages();
       const languageNames = loadedLanguages
         .map(lang => lang.native_name || lang.english_name)
         .filter((name): name is string => name !== null);

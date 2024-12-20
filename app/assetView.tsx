@@ -25,7 +25,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
-const getFirstAvailableTab = (asset: AssetWithRelations | null): TabType => {
+const getFirstAvailableTab = (asset: Asset | null): TabType => {
   if (!asset) return 'text';
   if (asset.text) return 'text';
   if (asset.audio?.length) return 'audio';
@@ -130,36 +130,36 @@ export default function AssetView() {
   //   }
   // }, [asset]);
 
-  const loadAssetAndTranslations = async () => {
-    try {
-      const votesMap: Record<string, Vote[]> = {};
-      const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
-      const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
+  // const loadAssetAndTranslations = async () => {
+  //   try {
+  //     const votesMap: Record<string, Vote[]> = {};
+  //     const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
+  //     const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
     
-      await Promise.all(translations.map(async (translation) => {
-        // Always load votes as they change frequently
-        votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
+  //     await Promise.all(translations.map(async (translation) => {
+  //       // Always load votes as they change frequently
+  //       votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
         
-        // Only load creator and language if not already cached
-        if (!creatorsMap[translation.creator_id]) {
-          const creator = await userService.getUserById(translation.creator_id);
-          if (creator) creatorsMap[translation.creator_id] = creator;
-        }
+  //       // Only load creator and language if not already cached
+  //       if (!creatorsMap[translation.creator_id]) {
+  //         const creator = await userService.getUserById(translation.creator_id);
+  //         if (creator) creatorsMap[translation.creator_id] = creator;
+  //       }
         
-        if (!languagesMap[translation.target_language_id]) {
-          const targetLang = await languageService.getLanguageById(translation.target_language_id);
-          if (targetLang) languagesMap[translation.target_language_id] = targetLang;
-        }
-      }));
+  //       if (!languagesMap[translation.target_language_id]) {
+  //         const targetLang = await languageService.getLanguageById(translation.target_language_id);
+  //         if (targetLang) languagesMap[translation.target_language_id] = targetLang;
+  //       }
+  //     }));
     
-      setTranslationVotes(votesMap);
-      setTranslationCreators(creatorsMap);
-      setTranslationLanguages(languagesMap);
-    } catch (error) {
-      console.error('Error loading asset and translations:', error);
-      Alert.alert('Error', t('failedLoadAsset'));
-    }
-  };
+  //     setTranslationVotes(votesMap);
+  //     setTranslationCreators(creatorsMap);
+  //     setTranslationLanguages(languagesMap);
+  //   } catch (error) {
+  //     console.error('Error loading asset and translations:', error);
+  //     Alert.alert('Error', t('failedLoadAsset'));
+  //   }
+  // };
 
   const loadAssetAndTranslations = async () => {
     try {
