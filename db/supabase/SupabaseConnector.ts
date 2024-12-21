@@ -38,6 +38,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
       }
     });
+    this.client.auth.onAuthStateChange((event, session) => {
+      console.log('------------------------------------');
+      console.log('Auth state changed:', event);
+      console.log('User email:', session?.user?.email);
+      console.log('User ID:', session?.user?.id);
+      console.log('------------------------------------');
+    });
     console.log('Supabase client created: ', this.client);
     // this.storage = new SupabaseStorageAdapter({ client: this.client });
   }

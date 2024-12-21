@@ -59,9 +59,7 @@ export default function Index() {
     
     const initializeDatabase = async () => {
       if (system.isInitialized()) {
-        console.log('System is already initialized')
-        const loadedLanguages = await languageService.getUiReadyLanguages();
-        setLanguages(loadedLanguages);
+        console.log('System is already initialized');
         return;
       }
   
@@ -77,27 +75,12 @@ export default function Index() {
         
         if (!mounted) return;
         
-        if (sessionData.session) {
-          await system.init();
-          if (mounted) {
-            router.push("/projects");
-          }
-          try {
-            const loadedLanguages = await languageService.getUiReadyLanguages();
-            setLanguages(loadedLanguages);
-            if (loadedLanguages.length > 0) {
-              const englishLang = loadedLanguages.find(l => 
-                l.englishName?.toLowerCase() === 'english' || 
-                l.nativeName?.toLowerCase() === 'english'
-              );
-              setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
-            }
-          } catch (error) {
-            console.error('Error loading languages:', error);
-            Alert.alert('Error', t('failedLoadLanguages'));
-          }
-          
-        }
+        // if (sessionData.session) {
+        //   await system.init();
+        //   if (mounted) {
+        //     router.push("/projects");
+        //   }
+        // }
       } catch (error) {
         console.error('Session check error:', error);
         if (mounted) {
@@ -115,18 +98,29 @@ export default function Index() {
 
   // Load saved language on mount
   useEffect(() => {
-    const loadSavedLanguage = async () => {
+    const loadLanguages = async () => {
       try {
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+        
+        // Get saved language ID
         const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId) {
+        if (savedLanguageId && loadedLanguages.some(l => l.id === savedLanguageId)) {
           setSelectedLanguageId(savedLanguageId);
+        } else if (loadedLanguages.length > 0) {
+          const englishLang = loadedLanguages.find(l => 
+            l.english_name?.toLowerCase() === 'english' || 
+            l.native_name?.toLowerCase() === 'english'
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
       } catch (error) {
-        console.error('Error loading saved language:', error);
+        console.error('Error loading languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-    loadSavedLanguage();
-  }, []);
+     loadLanguages();
+  }, []); 
 
   // Save language when it changes
   useEffect(() => {
@@ -143,16 +137,10 @@ export default function Index() {
   }, [selectedLanguageId]);
 
   const handleSignIn = async () => {
-    // if (!isDbReady) {
-    //   Alert.alert('Error', t('databaseNotReady'));
-    //   return;
-    // }
-
     try {
       const authenticatedUser = await userService.validateCredentials(credentials);
       if (authenticatedUser) {
-        // await system.init(); // Initialize PowerSync after successful login
-        // setPassword('');
+        await system.init(); // Initialize PowerSync after successful login
         setCredentials({ username: '', password: '' });
         setCurrentUser(authenticatedUser);
         router.push("/projects");

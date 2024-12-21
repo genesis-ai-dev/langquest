@@ -19,8 +19,6 @@ export class ProjectService {
     const basicProjects = await db
       .select()
       .from(project);
-    
-    console.log('All projects without joins:', basicProjects);
 
     // Then get projects with language joins
     const results = await db
@@ -36,8 +34,6 @@ export class ProjectService {
         target_language_id: project.target_language_id,
       })
       .from(project);
-
-    console.log('Projects with language joins:', results);
 
     return results;
   }
