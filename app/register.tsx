@@ -28,7 +28,11 @@ export default function Register() {
   // const [username, setUsername] = useState('');
   // const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({ 
+    username: '', 
+    email: '', 
+    password: '' 
+  });
   const [showLanguages, setShowLanguages] = useState(false);
   const { supabaseConnector } = useSystem();
 
@@ -36,7 +40,7 @@ export default function Register() {
   useEffect(() => {
     return () => {
       // setPassword('');
-      setCredentials({ username: '', password: '' });
+      setCredentials({ username: '', email: '', password: '' });
       setConfirmPassword('');
     };
   }, []);
@@ -84,8 +88,18 @@ export default function Register() {
   }, [selectedLanguageId]);
 
   const handleRegister = async () => {
+    if (!credentials.username.trim()) {
+      Alert.alert('Error', t('usernameRequired'));
+      return;
+    }
+  
+    if (!credentials.email.trim()) {
+      Alert.alert('Error', t('emailRequired'));
+      return;
+    }
+  
     if (credentials.password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Error', t('passwordsNoMatch'));
       return;
     }
   
@@ -101,7 +115,7 @@ export default function Register() {
       };
       
       const newUser = await userService.createNew(userData);
-      setCredentials({ username: '', password: '' });
+      setCredentials({ username: '', email: '', password: '' });
       setConfirmPassword('');
       setCurrentUser(newUser); // Set the newly created user as current user
       router.push("/projects");
@@ -165,14 +179,26 @@ export default function Register() {
                   color={colors.text} 
                   style={{ marginBottom: spacing.small }}
                 />
+
                 <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
                   <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
-                    placeholder={t('email')}
+                    placeholder={t('username')}
                     placeholderTextColor={colors.text}
                     value={credentials.username}
-                    onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text.toLowerCase().trim() }))}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text.trim() }))}
+                  />
+                </View>
+
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="mail-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.email}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, email: text.toLowerCase().trim() }))}
                   />
                 </View>
                 

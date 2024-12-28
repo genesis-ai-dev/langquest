@@ -51,6 +51,10 @@ export const translations = {
     english: 'Email',
     spanish: 'Email'
   },
+  emailRequired: {
+    english: 'Email is required',
+    spanish: 'Se requiere email'
+  },
   enterTranslation: {
     english: 'Enter your translation here',
     spanish: 'Ingrese su traducción aquí',
@@ -238,6 +242,10 @@ export const translations = {
   username: {
     english: 'Username',
     spanish: 'Nombre de usuario',
+  },
+  usernameRequired: {
+    english: 'Username is required',
+    spanish: 'Se requiere nombre de usuario',
   },
   votes: {
     english: 'Votes',

@@ -43,14 +43,14 @@ export default function Index() {
   const [dbStatus, setDbStatus] = useState('Initializing...');
   // const [username, setUsername] = useState('');
   // const [password, setPassword] = useState('');
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [isDbReady, setIsDbReady] = useState(false);
 
   // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
       // setPassword('');
-      setCredentials({ username: '', password: '' });
+      setCredentials({ email: '', password: '' });
     };
   }, []);
 
@@ -146,10 +146,14 @@ export default function Index() {
 
   const handleSignIn = async () => {
     try {
-      const authenticatedUser = await userService.validateCredentials(credentials);
+      const authenticatedUser = await userService.validateCredentials({
+        email: credentials.email.toLowerCase().trim(),
+        password: credentials.password
+      });
+  
       if (authenticatedUser) {
         await system.init(); // Initialize PowerSync after successful login
-        setCredentials({ username: '', password: '' });
+        setCredentials({ email: '', password: '' });
         setCurrentUser(authenticatedUser);
         router.push("/projects");
       } else {
@@ -222,10 +226,10 @@ export default function Index() {
               <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
               <TextInput
                 style={{ flex: 1, color: colors.text }}
-                placeholder={t('username')}
+                placeholder={t('email')}
                 placeholderTextColor={colors.text}
-                value={credentials.username}
-                onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text }))}
+                value={credentials.email}
+                onChangeText={(text) => setCredentials(prev => ({ ...prev, email: text }))}
               />
             </View>
             

@@ -21,11 +21,11 @@ export class UserService {
     return results[0];
   }
 
-  async validateCredentials(credentials: {username: string, password: string}) {
+  async validateCredentials(credentials: {email: string, password: string}) {
   try {
     // 1. Sign in with existing credentials
     const { data, error: signInError } = await supabaseConnector.client.auth.signInWithPassword({
-      email: credentials.username,
+      email: credentials.email,
       password: credentials.password
     });
 
@@ -59,35 +59,41 @@ export class UserService {
 }
 
   async createNew(input: {
-    credentials: { username: string; password: string; };
+    credentials: { 
+      username: string; 
+      email: string; 
+      password: string; };
     ui_language_id: string;
   }) {
     try {
         // Update the anonymous user with email and password
         const { data: updateData, error: updateError } = await supabaseConnector.client.auth.updateUser({
-            email: input.credentials.username,
+            email: input.credentials.email,
             password: input.credentials.password
         });
         
         if (updateError) throw updateError;
         if (!updateData.user) throw new Error('No user returned from update');
 
-        // Update ui_language_id in profile
-        const { error: langError } = await supabaseConnector.client
-            .from('profile')
-            .update({ ui_language_id: input.ui_language_id })
-            .eq('id', updateData.user.id);
-
-        if (langError) throw langError;
-
-        // Fetch the complete profile
-        const { data: profile, error: profileError } = await supabaseConnector.client
-            .from('profile')
-            .select()
-            .eq('id', updateData.user.id)
-            .single();
+        // Update profile with username and ui_language_id
+        const { error: profileError } = await supabaseConnector.client
+        .from('profile')
+        .update({ 
+          username: input.credentials.username,
+          ui_language_id: input.ui_language_id 
+        })
+        .eq('id', updateData.user.id);
 
         if (profileError) throw profileError;
+
+        // Fetch the complete profile
+        const { data: profile, error: fetchError } = await supabaseConnector.client
+          .from('profile')
+          .select()
+          .eq('id', updateData.user.id)
+          .single();
+
+        if (fetchError) throw fetchError;
 
         return profile;  // Just return the profile
     } catch (error) {
