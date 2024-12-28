@@ -12,7 +12,10 @@ import { languageService } from '@/database_services/languageService';
 import { project, language } from '@/db/drizzleSchema';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { AuthGuard } from '@/guards/AuthGuard';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import { BackHandler } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 
 type Project = typeof project.$inferSelect
@@ -58,6 +61,7 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
   const { setActiveProject } = useProjectContext();
+  const { signOut } = useAuth();
 
   // Load projects and languages on mount
   useEffect(() => {
@@ -147,6 +151,27 @@ export default function Projects() {
       });
     }
   };
+
+  const handleBack = () => {
+    // Start the sign out process but return true immediately
+    signOut().catch(error => {
+      console.error('Error signing out:', error);
+    });
+    return true; // Prevents default back behavior
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Add back button handler when screen is focused
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        handleBack
+      );
+
+      // Remove handler when screen is unfocused
+      return () => backHandler.remove();
+    }, [])
+  );
 
   return (
     <AuthGuard>

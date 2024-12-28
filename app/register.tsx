@@ -83,9 +83,6 @@ export default function Register() {
     saveLanguage();
   }, [selectedLanguageId]);
 
-  
-
-
   const handleRegister = async () => {
     if (credentials.password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
@@ -115,82 +112,6 @@ export default function Register() {
   };
 
   return (
-    // <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
-    //   <ScrollView style={sharedStyles.container}>
-    //     <View style={{ alignItems: 'center' }}>
-    //       <Text style={sharedStyles.title}>LangQuest</Text>
-    //       <Text style={sharedStyles.subtitle}>New User Registration</Text>
-          
-    //       <CustomDropdown
-    //         label="App Language"
-    //         value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
-    //         options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
-    //         onSelect={(langName) => {
-    //           const lang = languages.find(l => l.native_name === langName);
-    //           if (lang) {
-    //             setSelectedLanguageId(lang.id);
-    //           }
-    //         }}
-    //         isOpen={showLanguages}
-    //         onToggle={() => setShowLanguages(!showLanguages)}
-    //         search={true}
-    //         fullWidth={true}
-    //         containerStyle={{ marginBottom: spacing.medium }}
-    //       />
-          
-    //       <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-    //         <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-    //         <TextInput
-    //           style={{ flex: 1, color: colors.text }}
-    //           placeholder="Username"
-    //           placeholderTextColor={colors.text}
-    //           value={credentials.username}
-    //           onChangeText={(text) => setCredentials({ ...credentials, username: text.toLowerCase().trim() })}
-    //         />
-    //       </View>
-          
-    //       <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-    //         <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-    //         <TextInput
-    //           style={{ flex: 1, color: colors.text }}
-    //           placeholder="Password"
-    //           placeholderTextColor={colors.text}
-    //           secureTextEntry
-    //           value={credentials.password}
-    //           onChangeText={(password) => setCredentials({ ...credentials, password })}
-    //         />
-    //       </View>
-          
-    //       <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-    //         <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-    //         <TextInput
-    //           style={{ flex: 1, color: colors.text }}
-    //           placeholder="Confirm Password"
-    //           placeholderTextColor={colors.text}
-    //           secureTextEntry
-    //           value={confirmPassword}
-    //           onChangeText={setConfirmPassword}
-    //         />
-    //       </View>
-          
-    //       <View style={{ width: '100%', marginBottom: spacing.medium }}>
-    //         <Text style={{ color: colors.text, marginBottom: spacing.small }}>Avatar:</Text>
-    //         <TouchableOpacity style={[sharedStyles.button, { backgroundColor: colors.inputBackground }]}>
-    //           <Ionicons name="camera-outline" size={24} color={colors.text} />
-    //           <Text style={[sharedStyles.buttonText, { color: colors.text }]}>Select</Text>
-    //         </TouchableOpacity>
-    //       </View>
-          
-    //       <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
-    //         <Text style={sharedStyles.buttonText}>Become a Hero</Text>
-    //       </TouchableOpacity>
-          
-    //       <TouchableOpacity onPress={() => router.push("/")}>
-    //         <Text style={sharedStyles.link}>Returning hero? Sign In</Text>
-    //       </TouchableOpacity>
-    //     </View>
-    //   </ScrollView>
-    // </SafeAreaView>
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={{ flex: 1 }}

@@ -64,6 +64,7 @@ export default function Index() {
       }
   
       try {
+        console.log('signing in anonymously');
         const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
   
         if (signInError || !mounted) {
@@ -75,12 +76,19 @@ export default function Index() {
         
         if (!mounted) return;
         
-        // if (sessionData.session) {
-        //   await system.init();
-        //   if (mounted) {
-        //     router.push("/projects");
-        //   }
+        if (sessionData.session) {
+          await system.init();
+          if (mounted) {
+            router.push("/projects");
+          }
+        }
+
+        // console.log('attempting to initialize system in index without signing in anonymously');
+        // await system.init();
+        // if (mounted) {
+        //   router.push("/projects");
         // }
+
       } catch (error) {
         console.error('Session check error:', error);
         if (mounted) {

@@ -26,6 +26,7 @@ export class System {
   db: any;
 
   constructor() {
+    console.log('System constructor');
     this.kvStorage = new KVStorage();
     this.supabaseConnector = new SupabaseConnector(this);
     // this.storage = this.supabaseConnector.storage;
@@ -37,38 +38,11 @@ export class System {
       }
     });
 
+    console.log('Wrapping PowerSync with Drizzle');
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
         schema: drizzleSchema,
       }
     )
-    /**
-     * The snippet below uses OP-SQLite as the default database adapter.
-     * You will have to uninstall `@journeyapps/react-native-quick-sqlite` and
-     * install both `@powersync/op-sqlite` and `@op-engineering/op-sqlite` to use this.
-     *
-     * import { OPSqliteOpenFactory } from '@powersync/op-sqlite'; // Add this import
-     *
-     * const factory = new OPSqliteOpenFactory({
-     * dbFilename: 'sqlite.db'
-     * });
-     * this.powersync = new PowerSyncDatabase({ database: factory, schema: AppSchema });
-     */
-
-    // if (AppConfig.supabaseBucket) {
-    //   this.attachmentQueue = new PhotoAttachmentQueue({
-    //     powersync: this.powersync,
-    //     storage: this.storage,
-    //     // Use this to handle download errors where you can use the attachment
-    //     // and/or the exception to decide if you want to retry the download
-    //     onDownloadError: async (attachment: AttachmentRecord, exception: any) => {
-    //       if (exception.toString() === 'StorageApiError: Object not found') {
-    //         return { retry: false };
-    //       }
-
-    //       return { retry: true };
-    //     }
-    //   });
-    // }
   }
 
   private initialized = false;

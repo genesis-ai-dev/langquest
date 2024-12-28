@@ -22,6 +22,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   // storage: SupabaseStorageAdapter;
 
   constructor(protected system: System) {
+    console.log('Creating Supabase client (supabaseConnector constructor');
     if (!AppConfig.supabaseUrl || !AppConfig.supabaseAnonKey) {
       throw new Error('Supabase URL or Anon Key is not defined');
     }
@@ -38,6 +39,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
       }
     });
+    console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
       console.log('------------------------------------');
       console.log('Auth state changed:', event);
@@ -59,6 +61,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       throw error;
     }
     
+    return data;
+  }
+
+  async signOut() {
+    await this.client.auth.signOut();
+    const { data, error } = await this.client.auth.signInAnonymously();
+    if (error) throw error;
     return data;
   }
 

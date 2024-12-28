@@ -7,13 +7,6 @@ import { aliasedTable } from 'drizzle-orm';
 import { system } from '../db/powersync/system';
 import { Session } from '@supabase/supabase-js';
 
-
-// export type UserWithRelations = typeof profile.$inferSelect & {
-//   ui_language: typeof language.$inferSelect;
-//   translations: (typeof translation.$inferSelect)[];
-//   votes: (typeof vote.$inferSelect)[];
-// };
-
 export type User = typeof profile.$inferSelect;
 
 const{ supabaseConnector, db}  = system;
@@ -27,51 +20,6 @@ export class UserService {
       .where(eq(profile.id, id));
     return results[0];
   }
-
-  // async validateCredentials(credentials: {username: string, password: string}): Promise<UserWithRelations | null> {
-  //   try {
-  //     // 1. Get current anonymous session
-  //     console.log('getting session in validateCredentials');
-  //     const { data: anonData } = await supabaseConnector.client.auth.getSession();
-      
-  //     // First authenticate with Supabase
-  //     console.log('Attempting Supabase authentication...');
-  //     const { data, error } = await supabaseConnector.client.auth.signInWithPassword({
-  //         email: credentials.username,
-  //         password: credentials.password
-  //     });
-        
-  //     // if (error) throw error;
-  //     // if (!data.user) return null;
-      
-  //     if (error) {
-  //         console.log('Supabase authentication error:', error);
-  //         throw error;
-  //     }
-      
-  //     if (!data.user) {
-  //         console.log('No user data returned from Supabase');
-  //         return null;
-  //     }
-      
-  //     console.log('Supabase authentication successful, user ID:', data.user.id);
-      
-  //     // Then get the profile data
-  //     console.log('Fetching user profile data...');
-  //     const userWithRelations = await this.getUserById(data.user.id);
-      
-  //     if (!userWithRelations) {
-  //         console.log('No profile data found for user ID:', data.user.id);
-  //     } else {
-  //         console.log('Successfully retrieved profile data');
-  //     }
-      
-  //     return userWithRelations;
-  //   } catch (error) {
-  //       console.error('Login error:', error);
-  //       return null;
-  //   }
-  // }
 
   async validateCredentials(credentials: {username: string, password: string}) {
   try {
