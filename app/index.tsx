@@ -78,9 +78,9 @@ export default function Index() {
         
         if (sessionData.session) {
           await system.init();
-          if (mounted) {
-            router.push("/projects");
-          }
+          // if (mounted) {
+          //   router.push("/projects");
+          // }
         }
 
         // console.log('attempting to initialize system in index without signing in anonymously');
