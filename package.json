@@ -23,7 +23,7 @@
     "@powersync/drizzle-driver": "^0.1.0",
     "@powersync/react-native": "^1.16.0",
     "@react-native-async-storage/async-storage": "1.23.1",
-    "@react-native-community/slider": "4.5.4",
+    "@react-native-community/slider": "4.5.2",
     "@react-navigation/native": "^6.0.2",
     "@supabase/supabase-js": "^2.46.1",
     "drizzle-orm": "^0.36.1",
@@ -50,13 +50,14 @@
     "react-native-audio-recorder-player": "^3.6.12",
     "react-native-element-dropdown": "2.12.2",
     "react-native-gesture-handler": "~2.16.1",
-    "react-native-pager-view": "6.4.1",
+    "react-native-pager-view": "6.3.0",
     "react-native-reanimated": "~3.10.1",
     "react-native-safe-area-context": "4.10.5",
     "react-native-screens": "3.31.1",
     "react-native-web": "~0.19.10",
     "tailwindcss": "^3.4.13",
-    "xstate": "^5.19.0"
+    "xstate": "^5.19.0",
+    "expo-dev-client": "~4.0.29"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

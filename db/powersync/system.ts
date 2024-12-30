@@ -14,8 +14,17 @@ import { AppSchema } from './psSchema';
 // import { PhotoAttachmentQueue } from './PhotoAttachmentQueue';
 // import { DrizzleConfig } from 'drizzle-orm';
 import { drizzleSchema}  from '../drizzleSchema';
+import Constants from 'expo-constants'; 
 
 Logger.useDefaults();
+
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+const powersyncUrl = Constants.expoConfig?.extra?.powersyncUrl;
+
+if (!supabaseUrl || !supabaseAnonKey || !powersyncUrl) {
+  throw new Error('Supabase URL, Anon Key, or PowerSync URL is not defined');
+}
 
 export class System {
   kvStorage: KVStorage;
@@ -72,6 +81,5 @@ export class System {
 }
 
 export const system = new System();
-
 export const SystemContext = React.createContext(system);
 export const useSystem = () => React.useContext(SystemContext);
