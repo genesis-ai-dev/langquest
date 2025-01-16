@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import { quest, tag } from '@/db/drizzleSchema';
-import { useRouter } from 'expo-router';
 import { useTranslation } from '@/hooks/useTranslation';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type QuestWithRelations = typeof quest.$inferSelect & {
   tags: (typeof tag.$inferSelect)[];
@@ -14,24 +14,24 @@ interface QuestDetailsProps {
   onClose: () => void;
 }
 
-export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
+export const QuestDetails: React.FC<QuestDetailsProps> = ({
+  quest,
+  onClose,
+}) => {
   const { t } = useTranslation();
-  const router = useRouter();
-  
+  const { goToQuest } = useProjectContext();
+
   const handleStartQuest = () => {
-    router.push({
-      pathname: "/assets",
-      params: { questId: quest.id, questName: quest.name }
-    });
+    goToQuest(quest);
     onClose();
   };
-    
+
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
       <View style={styles.modal}>
         <Text style={styles.title}>{quest.name}</Text>
-        
+
         {quest.description && (
           <Text style={styles.description}>{quest.description}</Text>
         )}

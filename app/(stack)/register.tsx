@@ -1,26 +1,33 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { Text, View, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from "react-native";
-import { useRouter } from "expo-router";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { CustomDropdown } from '@/components/CustomDropdown';
-import { BreadcrumbBanner } from '@/components/BreadcrumbBanner';
-import { userService } from '@/database_services/userService';
+import { useAuth } from '@/contexts/AuthContext';
 import { languageService } from '@/database_services/languageService';
+import { userService } from '@/database_services/userService';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useAuth } from '@/contexts/AuthContext';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Language = typeof language.$inferSelect;
 
 export default function Register() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
-  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
   const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
@@ -40,14 +47,15 @@ export default function Register() {
   useFocusEffect(
     useCallback(() => {
       loadLanguages();
-    }, [])
+    }, []),
   );
 
   // Load saved language on mount
   useEffect(() => {
     const loadSavedLanguage = async () => {
       try {
-        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
+        const savedLanguageId =
+          await AsyncStorage.getItem('selectedLanguageId');
         if (savedLanguageId) {
           setSelectedLanguageId(savedLanguageId);
         }
@@ -78,9 +86,10 @@ export default function Register() {
       setLanguages(loadedLanguages);
       // Set default language if available
       if (!selectedLanguageId && loadedLanguages.length > 0) {
-        const englishLang = loadedLanguages.find(l => 
-          l.englishName?.toLowerCase() === 'english' || 
-          l.nativeName?.toLowerCase() === 'english'
+        const englishLang = loadedLanguages.find(
+          (l) =>
+            l.englishName?.toLowerCase() === 'english' ||
+            l.nativeName?.toLowerCase() === 'english',
         );
         setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
       }
@@ -90,38 +99,43 @@ export default function Register() {
     }
   };
 
-
   const handleRegister = async () => {
     if (password !== confirmPassword) {
       Alert.alert('Error', t('passwordsNoMatch'));
       return;
     }
-  
+
     if (!selectedLanguageId) {
       Alert.alert('Error', t('selectLanguage'));
       return;
     }
-  
+
     try {
       const userData = {
         username: username.trim(),
         password,
-        uiLanguageId: selectedLanguageId
+        uiLanguageId: selectedLanguageId,
       };
-      
+
       const newUser = await userService.createNew(userData);
-      const authenticatedUser = await userService.validateCredentials(username, password);
+      const authenticatedUser = await userService.validateCredentials(
+        username,
+        password,
+      );
       if (newUser) {
         setPassword('');
         setConfirmPassword('');
         setCurrentUser(authenticatedUser); // Set the newly created user as current user
         Alert.alert(t('success'), t('registrationSuccess'), [
-          { text: t('ok'), onPress: () => router.push("/projects") } // Go directly to projects
+          { text: t('ok'), onPress: () => router.replace('/projects') }, // Go directly to projects
         ]);
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : t('registrationFail'));
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : t('registrationFail'),
+      );
     }
   };
 
@@ -131,33 +145,53 @@ export default function Register() {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
+            <View
+              style={[
+                sharedStyles.container,
+                { backgroundColor: 'transparent' },
+              ]}
+            >
               <View style={{ alignItems: 'center', width: '100%' }}>
                 <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>{t('newUserRegistration')}</Text>
+                <Text style={sharedStyles.subtitle}>
+                  {t('newUserRegistration')}
+                </Text>
               </View>
-              
+
               {/* Language section */}
-              <View style={{ alignItems: 'center', marginBottom: spacing.medium, width: '100%' }}>
-                <Ionicons 
-                  name="language" 
-                  size={32} 
-                  color={colors.text} 
+              <View
+                style={{
+                  alignItems: 'center',
+                  marginBottom: spacing.medium,
+                  width: '100%',
+                }}
+              >
+                <Ionicons
+                  name="language"
+                  size={32}
+                  color={colors.text}
                   style={{ marginBottom: spacing.small }}
                 />
                 <CustomDropdown
-                  value={languages.find(l => l.id === selectedLanguageId)?.nativeName || ''}
-                  options={languages.map(l => l.nativeName).filter((name): name is string => name !== null)}
+                  value={
+                    languages.find((l) => l.id === selectedLanguageId)
+                      ?.nativeName || ''
+                  }
+                  options={languages
+                    .map((l) => l.nativeName)
+                    .filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
-                    const lang = languages.find(l => l.nativeName === langName);
+                    const lang = languages.find(
+                      (l) => l.nativeName === langName,
+                    );
                     if (lang) {
                       setSelectedLanguageId(lang.id);
                     }
@@ -170,17 +204,37 @@ export default function Register() {
                   containerStyle={{ marginBottom: spacing.medium }}
                 />
               </View>
-              
+
               {/* User section */}
-              <View style={{ alignItems: 'center', marginBottom: spacing.medium, width: '100%' }}>
-                <Ionicons 
-                  name="person-outline" 
-                  size={32} 
-                  color={colors.text} 
+              <View
+                style={{
+                  alignItems: 'center',
+                  marginBottom: spacing.medium,
+                  width: '100%',
+                }}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={32}
+                  color={colors.text}
                   style={{ marginBottom: spacing.small }}
                 />
-                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
-                  <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('username')}
@@ -189,9 +243,23 @@ export default function Register() {
                     onChangeText={setUsername}
                   />
                 </View>
-                
-                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('password')}
@@ -201,9 +269,23 @@ export default function Register() {
                     onChangeText={setPassword}
                   />
                 </View>
-                
-                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('confirmPassword')}
@@ -214,22 +296,42 @@ export default function Register() {
                   />
                 </View>
               </View>
-              
+
               {/* Avatar section */}
               <View style={{ width: '100%', marginBottom: spacing.medium }}>
-                <Text style={{ color: colors.text, marginBottom: spacing.small }}>{t('avatar')}:</Text>
-                <TouchableOpacity style={[sharedStyles.button, { backgroundColor: colors.inputBackground }]}>
-                  <Ionicons name="camera-outline" size={24} color={colors.text} />
-                  <Text style={[sharedStyles.buttonText, { color: colors.text }]}>{t('select')}</Text>
+                <Text
+                  style={{ color: colors.text, marginBottom: spacing.small }}
+                >
+                  {t('avatar')}:
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    sharedStyles.button,
+                    { backgroundColor: colors.inputBackground },
+                  ]}
+                >
+                  <Ionicons
+                    name="camera-outline"
+                    size={24}
+                    color={colors.text}
+                  />
+                  <Text
+                    style={[sharedStyles.buttonText, { color: colors.text }]}
+                  >
+                    {t('select')}
+                  </Text>
                 </TouchableOpacity>
               </View>
-              
-              <TouchableOpacity style={sharedStyles.button} onPress={handleRegister}>
+
+              <TouchableOpacity
+                style={sharedStyles.button}
+                onPress={handleRegister}
+              >
                 <Text style={sharedStyles.buttonText}>{t('becomeHero')}</Text>
               </TouchableOpacity>
-              
+
               <View style={{ alignItems: 'center', width: '100%' }}>
-                <TouchableOpacity onPress={() => router.push("/")}>
+                <TouchableOpacity onPress={() => router.push('/')}>
                   <Text style={sharedStyles.link}>{t('returningHero')}</Text>
                 </TouchableOpacity>
               </View>

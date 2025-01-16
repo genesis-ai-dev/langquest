@@ -1,12 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  StyleSheet,
+  Modal,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
+import {
+  colors,
+  fontSizes,
+  spacing,
+  sharedStyles,
+  borderRadius,
+} from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
-import { assetService, AssetWithRelations } from '@/database_services/assetService';
+import {
+  assetService,
+  AssetWithRelations,
+} from '@/database_services/assetService';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -35,16 +53,24 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
     </View>
   );
 };
+
 export default function Assets() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveAsset } = useProjectContext();
-  const { questId, questName } = useLocalSearchParams<{ questId: string; questName: string }>();
+  const { setActiveAsset, goToAsset } = useProjectContext();
+  const { questId, questName } = useLocalSearchParams<{
+    questId: string;
+    questName: string;
+  }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [assets, setAssets] = useState<AssetWithRelations[]>([]);
-  const [filteredAssets, setFilteredAssets] = useState<AssetWithRelations[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<AssetWithRelations[]>(
+    [],
+  );
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
+    {},
+  );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
 
   useEffect(() => {
@@ -63,51 +89,74 @@ export default function Assets() {
     }
   };
 
-  const applyFilters = useCallback((assets: AssetWithRelations[], filters: Record<string, string[]>, search: string) => {
-    return assets.filter(asset => {
-      const matchesSearch = asset.name.toLowerCase().includes(search.toLowerCase()) ||
-                          asset.text.toLowerCase().includes(search.toLowerCase());
-      
-      const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
-        if (selectedOptions.length === 0) return true;
-        return asset.tags.some(tag => {
-          const [tagCategory, tagValue] = tag.name.split(':');
-          return tagCategory.toLowerCase() === category.toLowerCase() && 
-                 selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
-        });
+  const applyFilters = useCallback(
+    (
+      assets: AssetWithRelations[],
+      filters: Record<string, string[]>,
+      search: string,
+    ) => {
+      return assets.filter((asset) => {
+        const matchesSearch =
+          asset.name.toLowerCase().includes(search.toLowerCase()) ||
+          asset.text?.toLowerCase().includes(search.toLowerCase());
+
+        const matchesFilters = Object.entries(filters).every(
+          ([category, selectedOptions]) => {
+            if (selectedOptions.length === 0) return true;
+            return asset.tags.some((tag) => {
+              const [tagCategory, tagValue] = tag.name.split(':');
+              return (
+                tagCategory.toLowerCase() === category.toLowerCase() &&
+                selectedOptions.includes(
+                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`,
+                )
+              );
+            });
+          },
+        );
+
+        return matchesSearch && matchesFilters;
       });
-  
-      return matchesSearch && matchesFilters;
-    });
-  }, []);
+    },
+    [],
+  );
 
-  const applySorting = useCallback((assets: AssetWithRelations[], sorting: SortingOption[]) => {
-    return [...assets].sort((a, b) => {
-      for (const { field, order } of sorting) {
-        let valueA: string, valueB: string;
+  const applySorting = useCallback(
+    (assets: AssetWithRelations[], sorting: SortingOption[]) => {
+      return [...assets].sort((a, b) => {
+        for (const { field, order } of sorting) {
+          let valueA: string, valueB: string;
 
-        switch (field) {
-          case 'name':
-            valueA = a.name.toLowerCase();
-            valueB = b.name.toLowerCase();
-            break;
-          case 'language':
-            valueA = (a.sourceLanguage.nativeName || a.sourceLanguage.englishName)!.toLowerCase();
-            valueB = (b.sourceLanguage.nativeName || b.sourceLanguage.englishName)!.toLowerCase();
-            break;
-          default:
-            const tagA = a.tags.find(tag => tag.name.startsWith(`${field}:`));
-            const tagB = b.tags.find(tag => tag.name.startsWith(`${field}:`));
-            valueA = tagA ? tagA.name.split(':')[1].toLowerCase() : '';
-            valueB = tagB ? tagB.name.split(':')[1].toLowerCase() : '';
+          switch (field) {
+            case 'name':
+              valueA = a.name.toLowerCase();
+              valueB = b.name.toLowerCase();
+              break;
+            case 'language':
+              valueA = (a.sourceLanguage.nativeName ||
+                a.sourceLanguage.englishName)!.toLowerCase();
+              valueB = (b.sourceLanguage.nativeName ||
+                b.sourceLanguage.englishName)!.toLowerCase();
+              break;
+            default:
+              const tagA = a.tags.find((tag) =>
+                tag.name.startsWith(`${field}:`),
+              );
+              const tagB = b.tags.find((tag) =>
+                tag.name.startsWith(`${field}:`),
+              );
+              valueA = tagA ? tagA.name.split(':')[1].toLowerCase() : '';
+              valueB = tagB ? tagB.name.split(':')[1].toLowerCase() : '';
+          }
+
+          if (valueA < valueB) return order === 'asc' ? -1 : 1;
+          if (valueA > valueB) return order === 'asc' ? 1 : -1;
         }
-
-        if (valueA < valueB) return order === 'asc' ? -1 : 1;
-        if (valueA > valueB) return order === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  }, []);
+        return 0;
+      });
+    },
+    [],
+  );
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -119,7 +168,14 @@ export default function Assets() {
     let filtered = applyFilters(assets, activeFilters, searchQuery);
     filtered = applySorting(filtered, activeSorting);
     setFilteredAssets(filtered);
-  }, [searchQuery, activeFilters, activeSorting, assets, applyFilters, applySorting]);
+  }, [
+    searchQuery,
+    activeFilters,
+    activeSorting,
+    assets,
+    applyFilters,
+    applySorting,
+  ]);
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
@@ -131,13 +187,7 @@ export default function Assets() {
 
   const handleAssetPress = (asset: AssetWithRelations) => {
     setActiveAsset(asset);
-    router.push({
-      pathname: "/assetView",
-      params: { 
-        assetId: asset.id,
-        assetName: asset.name
-      }
-    });
+    goToAsset(asset);
   };
 
   return (
@@ -146,12 +196,22 @@ export default function Assets() {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-          <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
+        <View
+          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={sharedStyles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
+            <Ionicons
+              name="search"
+              size={20}
+              color={colors.text}
+              style={styles.searchIcon}
+            />
             <TextInput
               style={styles.searchInput}
               placeholder={t('searchAssets')}
@@ -159,16 +219,21 @@ export default function Assets() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity onPress={() => setIsFilterModalVisible(true)} style={styles.filterIcon}>
+            <TouchableOpacity
+              onPress={() => setIsFilterModalVisible(true)}
+              style={styles.filterIcon}
+            >
               <Ionicons name="filter" size={20} color={colors.text} />
               {getActiveOptionsCount() > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{getActiveOptionsCount()}</Text>
+                  <Text style={styles.badgeText}>
+                    {getActiveOptionsCount()}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={filteredAssets}
             renderItem={({ item }) => (
@@ -176,7 +241,7 @@ export default function Assets() {
                 <AssetCard asset={item} />
               </TouchableOpacity>
             )}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
         </View>
