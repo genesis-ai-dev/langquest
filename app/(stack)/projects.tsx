@@ -1,40 +1,53 @@
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { ProjectDetails } from '@/components/ProjectDetails';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { languageService } from '@/database_services/languageService';
-import {
-  projectService,
-  ProjectWithRelations,
-} from '@/database_services/projectService';
-import { AuthGuard } from '@/guards/AuthGuard';
-import { useTranslation } from '@/hooks/useTranslation';
-import { colors, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { colors, spacing, sharedStyles } from '@/styles/theme';
+import { ProjectDetails } from '@/components/ProjectDetails';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import { projectService } from '@/database_services/projectService';
+import { languageService } from '@/database_services/languageService';
+import { project, language } from '@/db/drizzleSchema';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { AuthGuard } from '@/guards/AuthGuard';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
+import { BackHandler } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
-// type ProjectWithRelations = typeof project.$inferSelect & {
-//   sourceLanguage: typeof language.$inferSelect;
-//   targetLanguage: typeof language.$inferSelect;
-// };
 
-const ProjectCard: React.FC<{ project: ProjectWithRelations }> = ({
-  project,
-}) => (
-  <View style={sharedStyles.card}>
-    <Text style={sharedStyles.cardTitle}>{project.name}</Text>
-    <Text style={sharedStyles.cardLanguageText}>
-      {project.sourceLanguage.nativeName || project.sourceLanguage.englishName}{' '}
-      →{project.targetLanguage.nativeName || project.targetLanguage.englishName}
-    </Text>
-    {project.description && (
-      <Text style={sharedStyles.cardDescription}>{project.description}</Text>
-    )}
-  </View>
-);
+type Project = typeof project.$inferSelect
+
+
+const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({ project }) => {
+  const [sourceLanguage, setSourceLanguage] = useState<typeof language.$inferSelect | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<typeof language.$inferSelect | null>(null);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      const source = await languageService.getLanguageById(project.source_language_id);
+      const target = await languageService.getLanguageById(project.target_language_id);
+      setSourceLanguage(source);
+      setTargetLanguage(target);
+    };
+    loadLanguages();
+  }, [project.source_language_id, project.target_language_id]);
+
+  return (
+    <View style={sharedStyles.card}>
+      <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+      <Text style={sharedStyles.cardLanguageText}>
+        {sourceLanguage?.native_name || sourceLanguage?.english_name} → 
+        {targetLanguage?.native_name || targetLanguage?.english_name}
+      </Text>
+      {project.description && (
+        <Text style={sharedStyles.cardDescription}>{project.description}</Text>
+      )}
+    </View>
+  );
+};
 
 export default function Projects() {
   const { t } = useTranslation();
@@ -42,17 +55,13 @@ export default function Projects() {
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
-  const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
-    null,
-  );
-  const [projects, setProjects] = useState<ProjectWithRelations[]>([]);
-  const [filteredProjects, setFilteredProjects] = useState<
-    ProjectWithRelations[]
-  >([]);
-  const [selectedProject, setSelectedProject] =
-    useState<ProjectWithRelations | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
-  const { setActiveProject, goToProject } = useProjectContext();
+  const { setActiveProject } = useProjectContext();
+  const { signOut } = useAuth();
 
   // Load projects and languages on mount
   useEffect(() => {
@@ -78,9 +87,9 @@ export default function Projects() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getAllLanguages();
+      const loadedLanguages = await languageService.getUiReadyLanguages();
       const languageNames = loadedLanguages
-        .map((lang) => lang.nativeName || lang.englishName)
+        .map(lang => lang.native_name || lang.english_name)
         .filter((name): name is string => name !== null);
       setLanguages(languageNames);
     } catch (error) {
@@ -88,21 +97,26 @@ export default function Projects() {
     }
   };
 
-  const filterProjects = () => {
+  const filterProjects = async () => {
     let filtered = projects;
-
+    
     if (showLanguageFilters) {
-      filtered = filtered.filter((project) => {
-        const sourceMatch =
-          sourceFilter === t('all') ||
-          project.sourceLanguage.nativeName === sourceFilter ||
-          project.sourceLanguage.englishName === sourceFilter;
-        const targetMatch =
-          targetFilter === t('all') ||
-          project.targetLanguage.nativeName === targetFilter ||
-          project.targetLanguage.englishName === targetFilter;
-        return sourceMatch && targetMatch;
-      });
+      filtered = await Promise.all(
+        filtered.filter(async (project) => {
+          const sourceLanguage = await languageService.getLanguageById(project.source_language_id);
+          const targetLanguage = await languageService.getLanguageById(project.target_language_id);
+          
+          const sourceMatch = sourceFilter === 'All' || 
+            sourceLanguage?.native_name === sourceFilter || 
+            sourceLanguage?.english_name === sourceFilter;
+            
+          const targetMatch = targetFilter === 'All' || 
+            targetLanguage?.native_name === targetFilter || 
+            targetLanguage?.english_name === targetFilter;
+            
+          return sourceMatch && targetMatch;
+        })
+      );
     }
 
     setFilteredProjects(filtered);
@@ -120,7 +134,7 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleProjectPress = (project: ProjectWithRelations) => {
+  const handleProjectPress = (project: Project) => {
     setActiveProject(project);
     setSelectedProject(project);
   };
@@ -130,87 +144,105 @@ export default function Projects() {
   };
 
   const handleExplore = () => {
-    goToProject(selectedProject);
+    if (selectedProject) {
+      router.push({
+        pathname: "/quests",
+        params: { project_id: selectedProject.id, projectName: selectedProject.name }
+      });
+    }
   };
+
+  const handleBack = () => {
+    // Start the sign out process but return true immediately
+    signOut().catch(error => {
+      console.error('Error signing out:', error);
+    });
+    return true; // Prevents default back behavior
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Add back button handler when screen is focused
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        handleBack
+      );
+
+      // Remove handler when screen is unfocused
+      return () => backHandler.remove();
+    }, [])
+  );
 
   return (
     <AuthGuard>
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          <View
-            style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
-          >
-            <Text style={sharedStyles.title}>{t('projects')}</Text>
-
-            <View style={sharedStyles.iconBar}>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  !showLanguageFilters && sharedStyles.selectedIconButton,
-                ]}
-                onPress={() => setShowLanguageFilters(false)}
-              >
-                <Ionicons name="star-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  showLanguageFilters && sharedStyles.selectedIconButton,
-                ]}
-                onPress={toggleSearch}
-              >
-                <Ionicons name="search-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {showLanguageFilters && (
-              <View style={sharedStyles.filtersContainer}>
-                <CustomDropdown
-                  label={t('source')}
-                  value={sourceFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setSourceFilter}
-                  isOpen={openDropdown === 'source'}
-                  onToggle={() => toggleDropdown('source')}
-                  fullWidth={false}
-                  search={true}
-                />
-                <CustomDropdown
-                  label={t('target')}
-                  value={targetFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setTargetFilter}
-                  isOpen={openDropdown === 'target'}
-                  onToggle={() => toggleDropdown('target')}
-                  fullWidth={false}
-                  search={true}
-                />
-              </View>
-            )}
-
-            <FlatList
-              data={filteredProjects}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => handleProjectPress(item)}>
-                  <ProjectCard project={item} />
-                </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id}
-              style={sharedStyles.list}
-            />
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
+          <Text style={sharedStyles.title}>{t('projects')}</Text>
+          
+          <View style={sharedStyles.iconBar}>
+            <TouchableOpacity 
+              style={[sharedStyles.iconButton, !showLanguageFilters && sharedStyles.selectedIconButton]}
+              onPress={() => setShowLanguageFilters(false)}
+            >
+              <Ionicons name="star-outline" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[sharedStyles.iconButton, showLanguageFilters && sharedStyles.selectedIconButton]}
+              onPress={toggleSearch}
+            >
+              <Ionicons name="search-outline" size={24} color={colors.text} />
+            </TouchableOpacity>
           </View>
-        </SafeAreaView>
-        {selectedProject && (
-          <ProjectDetails
-            project={selectedProject}
-            onClose={handleCloseDetails}
-            onExplore={handleExplore}
+          
+          {showLanguageFilters && (
+            <View style={sharedStyles.filtersContainer}>
+              <CustomDropdown
+                label={t('source')}
+                value={sourceFilter}
+                options={[t('all'), ...languages]}
+                onSelect={setSourceFilter}
+                isOpen={openDropdown === 'source'}
+                onToggle={() => toggleDropdown('source')}
+                fullWidth={false}
+                search={true}
+              />
+              <CustomDropdown
+                label={t('target')}
+                value={targetFilter}
+                options={[t('all'), ...languages]}
+                onSelect={setTargetFilter}
+                isOpen={openDropdown === 'target'}
+                onToggle={() => toggleDropdown('target')}
+                fullWidth={false}
+                search={true}
+              />
+            </View>
+          )}
+          
+          <FlatList
+            data={filteredProjects}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleProjectPress(item)}>
+                <ProjectCard project={item} />
+              </TouchableOpacity>
+            )}
+            keyExtractor={item => item.id}
+            style={sharedStyles.list}
           />
-        )}
-      </LinearGradient>
+        </View>
+      </SafeAreaView>
+      {selectedProject && (
+        <ProjectDetails
+          project={selectedProject}
+          onClose={handleCloseDetails}
+          onExplore={handleExplore}
+        />
+      )}
+    </LinearGradient>
     </AuthGuard>
   );
 }
