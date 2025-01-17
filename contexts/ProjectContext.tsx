@@ -40,7 +40,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   function goToProject(project: Project) {
     router.push({
       pathname: '/quests',
-      params: { projectId: project.id, projectName: project.name },
+      params: { project_id: project.id, projectName: project.name },
     });
     const filteredProjects = recentProjects.filter((p) => p.id !== project.id);
     filteredProjects.push(project);
@@ -52,7 +52,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   function goToQuest(quest: Quest) {
     router.push({
       pathname: '/assets',
-      params: { questId: quest.id, questName: quest.name },
+      params: { quest_id: quest.id, questName: quest.name },
     });
     const filteredQuests = recentQuests.filter((q) => q.id !== quest.id);
     filteredQuests.push(quest);
@@ -64,7 +64,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     router.push({
       pathname: '/assetView',
       params: {
-        assetId: asset.id,
+        asset_id: asset.id,
         assetName: asset.name,
       },
     });

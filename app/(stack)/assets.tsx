@@ -67,8 +67,8 @@ export default function Assets() {
   const { t } = useTranslation();
   const router = useRouter();
   const { setActiveAsset, goToAsset } = useProjectContext();
-  const { questId, questName } = useLocalSearchParams<{
-    questId: string;
+  const { quest_id, questName } = useLocalSearchParams<{
+    quest_id: string;
     questName: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');

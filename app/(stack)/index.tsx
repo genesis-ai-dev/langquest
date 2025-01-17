@@ -10,11 +10,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import * as SQLite from 'expo-sqlite';
 // import { userd, languaged } from '../db/drizzleSchema';
-import * as schema from '../db/drizzleSchema';
+import * as schema from '../../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import migrations from '../drizzle/migrations';
+import migrations from '../../drizzle/migrations';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { system } from '../db/powersync/system';
+import { system } from '../../db/powersync/system';
 import { userService } from '@/database_services/userService';
 import { handleMigrations } from '@/db/migrationHandler';
 import AsyncStorage from '@react-native-async-storage/async-storage';

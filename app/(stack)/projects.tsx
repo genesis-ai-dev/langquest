@@ -51,7 +51,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({ proje
 
 export default function Projects() {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { goToProject } = useProjectContext();
   const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
@@ -145,10 +145,7 @@ export default function Projects() {
 
   const handleExplore = () => {
     if (selectedProject) {
-      router.push({
-        pathname: "/quests",
-        params: { project_id: selectedProject.id, projectName: selectedProject.name }
-      });
+      goToProject(selectedProject);
     }
   };
 

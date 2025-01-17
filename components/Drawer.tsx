@@ -1,7 +1,7 @@
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { AssetWithRelations } from '@/database_services/assetService';
-import type { ProjectWithRelations } from '@/database_services/projectService';
-import { QuestWithRelations } from '@/database_services/questService';
+import { Asset } from '@/database_services/assetService';
+import type { Project } from '@/database_services/projectService';
+import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
@@ -39,21 +39,21 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const handleProjectPress = (project: CategoryItem) => {
     router.navigate({
       pathname: '/quests',
-      params: { projectId: project.id, projectName: project.name },
+      params: { project_id: project.id, projectName: project.name },
     });
   };
 
   const handleQuestPress = (quest: CategoryItem) => {
     router.navigate({
       pathname: '/assets',
-      params: { questId: quest.id, questName: quest.name },
+      params: { quest_id: quest.id, questName: quest.name },
     });
   };
 
   const handleAssetPress = (asset: CategoryItem) => {
     router.navigate({
       pathname: '/assetView',
-      params: { assetId: asset.id, assetName: asset.name },
+      params: { asset_id: asset.id, assetName: asset.name },
     });
   };
 
