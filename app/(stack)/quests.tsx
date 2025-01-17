@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, Alert, BackHandler } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  StyleSheet,
+  Modal,
+  Alert,
+  BackHandler,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
+import {
+  colors,
+  fontSizes,
+  spacing,
+  sharedStyles,
+  borderRadius,
+} from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
@@ -52,11 +68,10 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   );
 };
 
-
 export default function Quests() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveQuest } = useProjectContext();
+  const { setActiveQuest, goToQuest } = useProjectContext();
   const { project_id, projectName } = useLocalSearchParams<{ project_id: string; projectName: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -64,7 +79,9 @@ export default function Quests() {
   const [filteredQuests, setFilteredQuests] = useState<Quest[]>([]);
   const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
+    {},
+  );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
@@ -193,17 +210,20 @@ export default function Quests() {
 
   // Handle back button press
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isFilterModalVisible) {
-        setIsFilterModalVisible(false);
-        return true;
-      }
-      if (selectedQuest) {
-        setSelectedQuest(null);
-        return true;
-      }
-      return false;
-    });
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (isFilterModalVisible) {
+          setIsFilterModalVisible(false);
+          return true;
+        }
+        if (selectedQuest) {
+          setSelectedQuest(null);
+          return true;
+        }
+        return false;
+      },
+    );
 
     return () => backHandler.remove();
   }, [isFilterModalVisible, selectedQuest]);
@@ -214,14 +234,26 @@ export default function Quests() {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-          <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
+        <View
+          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={sharedStyles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={sharedStyles.title}>{projectName} {t('quests')}</Text>
-          
+          <Text style={sharedStyles.title}>
+            {projectName} {t('quests')}
+          </Text>
+
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
+            <Ionicons
+              name="search"
+              size={20}
+              color={colors.text}
+              style={styles.searchIcon}
+            />
             <TextInput
               style={styles.searchInput}
               placeholder={t('searchQuests')}
@@ -229,16 +261,21 @@ export default function Quests() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity onPress={() => setIsFilterModalVisible(true)} style={styles.filterIcon}>
+            <TouchableOpacity
+              onPress={() => setIsFilterModalVisible(true)}
+              style={styles.filterIcon}
+            >
               <Ionicons name="filter" size={20} color={colors.text} />
               {getActiveOptionsCount() > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{getActiveOptionsCount()}</Text>
+                  <Text style={styles.badgeText}>
+                    {getActiveOptionsCount()}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={filteredQuests}
             renderItem={({ item }) => (
@@ -246,7 +283,7 @@ export default function Quests() {
                 <QuestCard quest={item} />
               </TouchableOpacity>
             )}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
         </View>
@@ -271,10 +308,7 @@ export default function Quests() {
         </View>
       </Modal>
       {selectedQuest && (
-        <QuestDetails
-          quest={selectedQuest}
-          onClose={handleCloseDetails}
-        />
+        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
       )}
     </LinearGradient>
   );

@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
+import {
+  colors,
+  fontSizes,
+  spacing,
+  sharedStyles,
+  borderRadius,
+} from '@/styles/theme';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { formatRelativeDate } from '@/utils/dateUtils';
@@ -35,7 +48,6 @@ const getFirstAvailableTab = (asset: Asset | null): TabType => {
 
 type TabType = 'text' | 'audio' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
-
 
 export default function AssetView() {
   const { t } = useTranslation();
@@ -222,11 +234,11 @@ export default function AssetView() {
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
-  type VoteIconName = 
-  | 'thumbs-up'
-  | 'thumbs-up-outline'
-  | 'thumbs-down'
-  | 'thumbs-down-outline';
+  type VoteIconName =
+    | 'thumbs-up'
+    | 'thumbs-up-outline'
+    | 'thumbs-down'
+    | 'thumbs-down-outline';
 
   const getVoteIconName = (translationId: string, voteType: 'up' | 'down'): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
@@ -235,9 +247,9 @@ export default function AssetView() {
     const userVote = votes.find(vote => vote.creator_id === currentUser.id);
   
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
-    return userVote.polarity === voteType 
-      ? `thumbs-${voteType}` as VoteIconName 
-      : `thumbs-${voteType}-outline` as VoteIconName;
+    return userVote.polarity === voteType
+      ? (`thumbs-${voteType}` as VoteIconName)
+      : (`thumbs-${voteType}-outline` as VoteIconName);
   };
 
   useEffect(() => {
@@ -313,55 +325,67 @@ export default function AssetView() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={{ flex: 1 }}>
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.content}>
             <Text style={styles.title}>{asset?.name}</Text>
-            
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={sharedStyles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
             <View style={styles.tabBar}>
               <TouchableOpacity
                 style={[
-                  styles.tab, 
+                  styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !asset?.text && styles.disabledTab
+                  !asset?.text && styles.disabledTab,
                 ]}
                 onPress={() => asset?.text && setActiveTab('text')}
                 disabled={!asset?.text}
               >
-                <Ionicons 
-                  name="text" 
-                  size={24} 
-                  color={asset?.text ? colors.text : colors.textSecondary} 
+                <Ionicons
+                  name="text"
+                  size={24}
+                  color={asset?.text ? colors.text : colors.textSecondary}
                 />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.tab, 
+                  styles.tab,
                   activeTab === 'audio' && styles.activeTab,
-                  !asset?.audio?.length && styles.disabledTab
+                  !asset?.audio?.length && styles.disabledTab,
                 ]}
                 onPress={() => asset?.audio?.length && setActiveTab('audio')}
                 disabled={!asset?.audio?.length}
               >
-                <Ionicons 
-                  name="volume-high" 
-                  size={24} 
-                  color={asset?.audio?.length ? colors.text : colors.textSecondary} 
+                <Ionicons
+                  name="volume-high"
+                  size={24}
+                  color={
+                    asset?.audio?.length ? colors.text : colors.textSecondary
+                  }
                 />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.tab, 
+                  styles.tab,
                   activeTab === 'image' && styles.activeTab,
-                  !asset?.images?.length && styles.disabledTab
+                  !asset?.images?.length && styles.disabledTab,
                 ]}
                 onPress={() => asset?.images?.length && setActiveTab('image')}
                 disabled={!asset?.images?.length}
               >
-                <Ionicons 
-                  name="image" 
-                  size={24} 
-                  color={asset?.images?.length ? colors.text : colors.textSecondary} 
+                <Ionicons
+                  name="image"
+                  size={24}
+                  color={
+                    asset?.images?.length ? colors.text : colors.textSecondary
+                  }
                 />
               </TouchableOpacity>
             </View>
@@ -375,23 +399,32 @@ export default function AssetView() {
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
               )}
-              {activeTab === 'audio' && asset?.audio && Array.isArray(asset.audio) && 
-                <AudioPlayer 
-                  audioFiles={asset.audio.map((moduleId, index) => ({
-                    id: `audio-${index}`,
-                    title: `${t('audio')} ${index + 1}`,
-                    moduleId: moduleId
-                  }))} 
-                />
-              }
-              {activeTab === 'image' && asset?.images && Array.isArray(asset.images) && 
-                <ImageCarousel imageModuleIds={asset.images} />
-              }
+              {activeTab === 'audio' &&
+                asset?.audio &&
+                Array.isArray(asset.audio) && (
+                  <AudioPlayer
+                    audioFiles={asset.audio.map((moduleId, index) => ({
+                      id: `audio-${index}`,
+                      title: `${t('audio')} ${index + 1}`,
+                      moduleId: moduleId,
+                    }))}
+                  />
+                )}
+              {activeTab === 'image' &&
+                asset?.images &&
+                Array.isArray(asset.images) && (
+                  <ImageCarousel imageModuleIds={asset.images} />
+                )}
             </View>
 
             <View style={styles.horizontalLine} />
 
-            <View style={[styles.translationsContainer, { height: translationsContainerHeight }]}>
+            <View
+              style={[
+                styles.translationsContainer,
+                { height: translationsContainerHeight },
+              ]}
+            >
               <View style={styles.translationHeader}>
                 <View style={styles.alignmentContainer}>
                   <View style={styles.dropdownContainer}>
@@ -400,7 +433,7 @@ export default function AssetView() {
                       value={sortOption}
                       options={[
                         { label: t('votes'), value: 'voteCount' },
-                        { label: t('date'), value: 'dateSubmitted' }
+                        { label: t('date'), value: 'dateSubmitted' },
                       ]}
                       onSelect={(value) => setSortOption(value as SortOption)}
                     />
@@ -410,7 +443,9 @@ export default function AssetView() {
                     onPress={() => setIsNewTranslationModalVisible(true)}
                   >
                     <Ionicons name="add" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>{t('newTranslation')}</Text>
+                    <Text style={styles.newTranslationButtonText}>
+                      {t('newTranslation')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -426,7 +461,7 @@ export default function AssetView() {
                     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                   })}
                   renderItem={renderTranslationCard}
-                  keyExtractor={item => item.id}
+                  keyExtractor={(item) => item.id}
                   style={styles.translationsList}
                 />
               </GestureHandlerRootView>
@@ -441,7 +476,7 @@ export default function AssetView() {
             onVoteSubmitted={loadAssetAndTranslations}
           />
         )}
-        
+
         <NewTranslationModal
         isVisible={isNewTranslationModalVisible}
         onClose={() => setIsNewTranslationModalVisible(false)}

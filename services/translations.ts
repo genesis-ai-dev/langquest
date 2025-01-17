@@ -151,7 +151,7 @@ export const translations = {
     english: 'Projects',
     spanish: 'Proyectos',
   },
-  quests:{
+  quests: {
     english: 'Quests',
     spanish: 'Misiones',
   },
@@ -255,7 +255,14 @@ export const translations = {
     english: 'Welcome back, hero!',
     spanish: '¡Bienvenido de nuevo, héroe!',
   },
-
+  recentlyVisited: {
+    english: 'Recently Visited',
+    spanish: 'Recientemente visitado',
+  },
+  assets: {
+    english: 'Assets',
+    spanish: 'Recursos',
+  },
   // Add more translation keys as needed...
 } as const;
 

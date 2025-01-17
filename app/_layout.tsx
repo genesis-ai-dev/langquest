@@ -7,6 +7,10 @@ import { ProjectProvider } from '@/contexts/ProjectContext';
 import "../global.css";
 import {useSystem} from "../db/powersync/system";
 import { PowerSyncContext } from "@powersync/react-native";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import '../global.css';
+import { Drawer } from '@/components/Drawer';
+
 export default function RootLayout() {
   const system = useSystem();
   const db = useMemo(() => {
@@ -14,22 +18,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <PowerSyncContext.Provider value={db}>
-      <AuthProvider>
-        <ProjectProvider>
-          <SafeAreaProvider>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="register" options={{ headerShown: false }} />
-              <Stack.Screen name="projects" options={{ headerShown: false }} />
-              <Stack.Screen name="quests" options={{ headerShown: false }} />
-              <Stack.Screen name="assets" options={{ headerShown: false }} />
-              <Stack.Screen name="assetView" options={{ headerShown: false }}
-              />
-            </Stack>
-          </SafeAreaProvider>
-        </ProjectProvider>
-      </AuthProvider>
-    </PowerSyncContext.Provider>
+    <AuthProvider>
+      <ProjectProvider>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <Drawer />
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </ProjectProvider>
+    </AuthProvider>
   );
 }

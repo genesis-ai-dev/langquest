@@ -12,7 +12,7 @@ web-build/
 llm_supporting_files/
 /android
 android/
-/ios
+ios/
 
 # macOS
 .DS_Store

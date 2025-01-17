@@ -3,7 +3,13 @@ import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, sharedStyles, borderRadius } from '@/styles/theme';
+import {
+  colors,
+  fontSizes,
+  spacing,
+  sharedStyles,
+  borderRadius,
+} from '@/styles/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { assetService, Asset } from '@/database_services/assetService';
@@ -52,17 +58,23 @@ const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
 
 
 export default function Assets() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const { setActiveAsset } = useProjectContext();
-  const { quest_id, questName } = useLocalSearchParams<{ quest_id: string; questName: string }>();
-  const [searchQuery, setSearchQuery] = useState('');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [assetTags, setAssetTags] = useState<Record<string, Tag[]>>({});
-  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { setActiveAsset, goToAsset } = useProjectContext();
+  const { questId, questName } = useLocalSearchParams<{
+    questId: string;
+    questName: string;
+  }>();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
+    {},
+  );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
@@ -149,7 +161,14 @@ export default function Assets() {
     let filtered = applyFilters(assets, activeFilters, searchQuery);
     filtered = applySorting(filtered, activeSorting);
     setFilteredAssets(filtered);
-  }, [searchQuery, activeFilters, activeSorting, assets, applyFilters, applySorting]);
+  }, [
+    searchQuery,
+    activeFilters,
+    activeSorting,
+    assets,
+    applyFilters,
+    applySorting,
+  ]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -159,13 +178,7 @@ export default function Assets() {
 
   const handleAssetPress = (asset: Asset) => {
     setActiveAsset(asset);
-    router.push({
-      pathname: "/assetView",
-      params: { 
-        asset_id: asset.id,
-        assetName: asset.name
-      }
-    });
+    goToAsset(asset);
   };
 
   const handleCloseDetails = () => {
@@ -217,12 +230,22 @@ export default function Assets() {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-          <TouchableOpacity onPress={() => router.back()} style={sharedStyles.backButton}>
+        <View
+          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={sharedStyles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
+            <Ionicons
+              name="search"
+              size={20}
+              color={colors.text}
+              style={styles.searchIcon}
+            />
             <TextInput
               style={styles.searchInput}
               placeholder={t('searchAssets')}
@@ -230,16 +253,21 @@ export default function Assets() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity onPress={() => setIsFilterModalVisible(true)} style={styles.filterIcon}>
+            <TouchableOpacity
+              onPress={() => setIsFilterModalVisible(true)}
+              style={styles.filterIcon}
+            >
               <Ionicons name="filter" size={20} color={colors.text} />
               {getActiveOptionsCount() > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{getActiveOptionsCount()}</Text>
+                  <Text style={styles.badgeText}>
+                    {getActiveOptionsCount()}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={filteredAssets}
             renderItem={({ item }) => (
@@ -247,7 +275,7 @@ export default function Assets() {
                 <AssetCard asset={item} />
               </TouchableOpacity>
             )}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
         </View>
