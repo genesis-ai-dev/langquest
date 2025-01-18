@@ -37,13 +37,15 @@ export class ProjectService {
       })
       .from(project)
       .leftJoin(sourceLanguage, eq(sourceLanguage.id, project.sourceLanguageId))
-      .leftJoin(targetLanguage, eq(targetLanguage.id, project.targetLanguageId));
-
+      .leftJoin(
+        targetLanguage,
+        eq(targetLanguage.id, project.targetLanguageId),
+      );
 
     return results as ProjectWithRelations[];
   }
 
-  async getProjectById(id: string): Promise<ProjectWithRelations | undefined> {
+  async getProjectById(id: string): Promise<ProjectWithRelations | null> {
     const sourceLanguage = aliasedTable(language, 'sourceLanguage');
     const targetLanguage = aliasedTable(language, 'targetLanguage');
 
@@ -74,7 +76,7 @@ export class ProjectService {
       .leftJoin(targetLanguage, eq(targetLanguage.id, project.targetLanguageId))
       .where(eq(project.id, id));
 
-    return result as ProjectWithRelations | undefined;
+    return result as ProjectWithRelations | null;
   }
 }
 

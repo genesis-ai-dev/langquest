@@ -130,7 +130,7 @@ export default function Projects() {
   };
 
   const handleExplore = () => {
-    goToProject(selectedProject);
+    if (selectedProject) goToProject(selectedProject);
   };
 
   return (

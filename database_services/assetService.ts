@@ -1,15 +1,24 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db/database';
-import { asset, tag, assetToTags, language, questToAssets } from '../db/drizzleSchema';
+import {
+  asset,
+  tag,
+  assetToTags,
+  language,
+  questToAssets,
+  quest,
+  project,
+} from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
 
 export type AssetWithRelations = typeof asset.$inferSelect & {
   sourceLanguage: typeof language.$inferSelect;
   tags: (typeof tag.$inferSelect)[];
+  questId: typeof questToAssets.$inferSelect.questId;
+  projectId: typeof project.$inferSelect.id;
 };
 
 export class AssetService {
-
   async getAssetById(id: string) {
     const sourceLanguage = aliasedTable(language, 'sourceLanguage');
     const [foundAsset] = await db
@@ -36,14 +45,19 @@ export class AssetService {
           uiReady: sourceLanguage.uiReady,
           creatorId: sourceLanguage.creatorId,
         },
+        questId: questToAssets.questId,
+        projectId: quest.projectId,
         tags: tag,
       })
       .from(asset)
-      .leftJoin(sourceLanguage, eq(asset.sourceLanguageId, sourceLanguage.id)) // Fix: use sourceLanguage alias
+      .innerJoin(sourceLanguage, eq(asset.sourceLanguageId, sourceLanguage.id))
+      .innerJoin(questToAssets, eq(questToAssets.assetId, asset.id))
+      .innerJoin(quest, eq(quest.id, questToAssets.questId))
+      .innerJoin(project, eq(project.id, quest.projectId))
       .leftJoin(assetToTags, eq(assetToTags.assetId, asset.id))
       .leftJoin(tag, eq(tag.id, assetToTags.tagId))
       .where(eq(asset.id, id));
-    
+
     // Group tags like in getAssetsByQuestId
     if (!foundAsset || !foundAsset.sourceLanguage) return null;
 
@@ -83,18 +97,21 @@ export class AssetService {
           uiReady: sourceLanguage.uiReady,
           creatorId: sourceLanguage.creatorId,
         },
+        projectId: quest.projectId,
         tags: tag,
       })
       .from(asset)
       .innerJoin(questToAssets, eq(questToAssets.assetId, asset.id))
+      .innerJoin(quest, eq(quest.id, questToAssets.questId))
       .innerJoin(sourceLanguage, eq(sourceLanguage.id, asset.sourceLanguageId))
       .leftJoin(assetToTags, eq(assetToTags.assetId, asset.id))
       .leftJoin(tag, eq(tag.id, assetToTags.tagId))
+      .innerJoin(project, eq(project.id, quest.projectId))
       .where(eq(questToAssets.questId, questId));
 
     // Group by asset and combine tags
     const assetMap = new Map<string, AssetWithRelations>();
-    results.forEach(result => {
+    results.forEach((result) => {
       if (!result.sourceLanguage) {
         throw new Error(`Asset ${result.id} has no source language`);
       }
@@ -102,6 +119,7 @@ export class AssetService {
       if (!assetMap.has(result.id)) {
         assetMap.set(result.id, {
           ...result,
+          questId,
           sourceLanguage: result.sourceLanguage,
           tags: result.tags ? [result.tags] : [],
         });

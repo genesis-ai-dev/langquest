@@ -22,6 +22,7 @@
     "@react-navigation/drawer": "^6.0.2",
     "@react-navigation/native": "^6.0.2",
     "drizzle-orm": "^0.36.1",
+    "eslint-config-expo": "^8.0.1",
     "expo": "~51.0.28",
     "expo-av": "14.0.7",
     "expo-constants": "~16.0.2",

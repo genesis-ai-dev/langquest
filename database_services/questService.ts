@@ -27,7 +27,7 @@ export class QuestService {
 
     // Group by quest and combine tags
     const questMap = new Map<string, QuestWithRelations>();
-    results.forEach(result => {
+    results.forEach((result) => {
       if (!questMap.has(result.id)) {
         questMap.set(result.id, {
           ...result,
@@ -40,6 +40,41 @@ export class QuestService {
     });
 
     return Array.from(questMap.values());
+  }
+
+  async getQuestById(questId: string): Promise<QuestWithRelations | null> {
+    const results = await db
+      .select({
+        id: quest.id,
+        rev: quest.rev,
+        createdAt: quest.createdAt,
+        lastUpdated: quest.lastUpdated,
+        versionChainId: quest.versionChainId,
+        name: quest.name,
+        description: quest.description,
+        projectId: quest.projectId,
+        tags: tag,
+      })
+      .from(quest)
+      .leftJoin(questToTags, eq(questToTags.questId, quest.id))
+      .leftJoin(tag, eq(tag.id, questToTags.tagId))
+      .where(eq(quest.id, questId));
+
+    // Group by quest and combine tags
+    const questMap = new Map<string, QuestWithRelations>();
+    results.forEach((result) => {
+      if (!questMap.has(result.id)) {
+        questMap.set(result.id, {
+          ...result,
+          tags: [],
+        });
+      }
+      if (result.tags) {
+        questMap.get(result.id)!.tags.push(result.tags);
+      }
+    });
+
+    return Array.from(questMap.values())[0] || null;
   }
 }
 

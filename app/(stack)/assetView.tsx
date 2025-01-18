@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  colors,
-  fontSizes,
-  spacing,
-  sharedStyles,
-  borderRadius,
-} from '@/styles/theme';
-import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
+import AudioPlayer from '@/components/AudioPlayer';
 import { CustomDropdown } from '@/components/CustomDropdown';
-import { formatRelativeDate } from '@/utils/dateUtils';
+import ImageCarousel from '@/components/ImageCarousel';
+import { NewTranslationModal } from '@/components/NewTranslationModal';
+import { TranslationModal } from '@/components/TranslationModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import {
   assetService,
   AssetWithRelations,
@@ -30,13 +14,28 @@ import {
   TranslationWithRelations,
 } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
-import { TranslationModal } from '@/components/TranslationModal';
-import { NewTranslationModal } from '@/components/NewTranslationModal';
-import { useAuth } from '@/contexts/AuthContext';
-import AudioPlayer from '@/components/AudioPlayer';
-import ImageCarousel from '@/components/ImageCarousel';
-import Carousel from '@/components/Carousel';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing,
+} from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
@@ -55,6 +54,8 @@ export default function AssetView() {
   const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
+  const { setActiveProject, setActiveQuest, setActiveAsset } =
+    useProjectContext();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { assetId, assetName } = useLocalSearchParams<{
     assetId: string;
@@ -214,7 +215,10 @@ export default function AssetView() {
           <View style={styles.content}>
             <Text style={styles.title}>{asset?.name}</Text>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => {
+                router.back();
+                setActiveAsset(null);
+              }}
               style={sharedStyles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />

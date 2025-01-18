@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState } from 'react';
-import { ProjectWithRelations } from '@/database_services/projectService';
-import { QuestWithRelations } from '@/database_services/questService';
+import {
+  projectService,
+  ProjectWithRelations,
+} from '@/database_services/projectService';
+import {
+  questService,
+  QuestWithRelations,
+} from '@/database_services/questService';
 import { AssetWithRelations } from '@/database_services/assetService';
 import { useRouter } from 'expo-router';
 
@@ -11,9 +17,9 @@ interface ProjectContextType {
   recentQuests: QuestWithRelations[];
   activeAsset: AssetWithRelations | null;
   recentAssets: AssetWithRelations[];
-  goToProject: (project: ProjectWithRelations) => void;
-  goToQuest: (quest: QuestWithRelations) => void;
-  goToAsset: (quest: AssetWithRelations) => void;
+  goToProject: (project: ProjectWithRelations, navigate?: boolean) => void;
+  goToQuest: (quest: QuestWithRelations, navigate?: boolean) => void;
+  goToAsset: (asset: AssetWithRelations, navigate?: boolean) => void;
   setActiveProject: (project: ProjectWithRelations | null) => void;
   setActiveQuest: (quest: QuestWithRelations | null) => void;
   setActiveAsset: (asset: AssetWithRelations | null) => void;
@@ -37,41 +43,58 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [recentQuests, setRecentQuests] = useState<QuestWithRelations[]>([]);
   const [recentAssets, setRecentAssets] = useState<AssetWithRelations[]>([]);
 
-  function goToProject(project: ProjectWithRelations) {
-    router.push({
+  function goToProject(project: ProjectWithRelations, navigate?: boolean) {
+    setActiveProject(project);
+    setActiveQuest(null);
+    setActiveAsset(null);
+
+    router[navigate ? 'navigate' : 'push']({
       pathname: '/quests',
       params: { projectId: project.id, projectName: project.name },
     });
-    const filteredProjects = recentProjects.filter((p) => p.id !== project.id);
-    filteredProjects.push(project);
-    filteredProjects.reverse();
 
-    setRecentProjects(filteredProjects.slice(0, 3)); // Keep only last 3 projects
+    setRecentProjects((prev) => {
+      const filtered = prev.filter((p) => p.id !== project.id);
+      return [project, ...filtered].slice(0, 3);
+    });
   }
 
-  function goToQuest(quest: QuestWithRelations) {
-    router.push({
+  function goToQuest(quest: QuestWithRelations, navigate?: boolean) {
+    setActiveQuest(quest);
+    setActiveAsset(null);
+    router[navigate ? 'navigate' : 'push']({
       pathname: '/assets',
       params: { questId: quest.id, questName: quest.name },
     });
-    const filteredQuests = recentQuests.filter((q) => q.id !== quest.id);
-    filteredQuests.push(quest);
-    filteredQuests.reverse();
-    setRecentQuests(filteredQuests.slice(0, 3)); // Keep only last 3 quests
+
+    setRecentQuests((prev) => {
+      const filtered = prev.filter((q) => q.id !== quest.id);
+      return [quest, ...filtered].slice(0, 3);
+    });
+
+    // change active project based on loaded quest
+    projectService.getProjectById(quest.projectId).then(setActiveProject);
   }
 
-  function goToAsset(asset: AssetWithRelations) {
-    router.push({
+  function goToAsset(asset: AssetWithRelations, navigate?: boolean) {
+    setActiveAsset(asset);
+
+    router[navigate ? 'navigate' : 'push']({
       pathname: '/assetView',
       params: {
         assetId: asset.id,
         assetName: asset.name,
       },
     });
-    const filteredAssets = recentAssets.filter((a) => a.id !== asset.id);
-    filteredAssets.reverse();
-    filteredAssets.push(asset);
-    setRecentAssets(filteredAssets.slice(0, 3)); // Keep only last 3 assets
+
+    setRecentAssets((prev) => {
+      const filtered = prev.filter((a) => a.id !== asset.id);
+      return [asset, ...filtered].slice(0, 3);
+    });
+
+    // change active project and quest based on loaded asset
+    projectService.getProjectById(asset.projectId).then(setActiveProject);
+    questService.getQuestById(asset.questId).then(setActiveQuest);
   }
 
   return (

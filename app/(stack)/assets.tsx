@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  StyleSheet,
-  Modal,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import {
-  colors,
-  fontSizes,
-  spacing,
-  sharedStyles,
-  borderRadius,
-} from '@/styles/theme';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import {
   assetService,
   AssetWithRelations,
 } from '@/database_services/assetService';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing,
+} from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SortingOption {
   field: string;
@@ -57,7 +57,7 @@ const AssetCard: React.FC<{ asset: AssetWithRelations }> = ({ asset }) => {
 export default function Assets() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveAsset, goToAsset } = useProjectContext();
+  const { setActiveAsset, goToAsset, setActiveQuest } = useProjectContext();
   const { questId, questName } = useLocalSearchParams<{
     questId: string;
     questName: string;
@@ -200,7 +200,10 @@ export default function Assets() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              router.back();
+              setActiveQuest(null);
+            }}
             style={sharedStyles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />

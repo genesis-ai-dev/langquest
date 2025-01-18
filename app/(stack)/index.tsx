@@ -1,37 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 // import { userRepository } from '@/database_services/repositories';
 // import { initDatabase } from '@/database_services/dbInit';
 
-import * as SQLite from 'expo-sqlite';
 // import { userd, languaged } from '../db/drizzleSchema';
-import * as schema from '../../db/drizzleSchema';
-import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import migrations from '../../drizzle/migrations';
-import { db } from '../../db/database';
-import { userService } from '@/database_services/userService';
-import { handleMigrations } from '@/db/migrationHandler';
-import { seedDatabase } from '../../db/seedDatabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/hooks/useTranslation';
-import { languageService } from '@/database_services/languageService';
-import { language } from '@/db/drizzleSchema';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { useAuth } from '@/contexts/AuthContext';
+import { languageService } from '@/database_services/languageService';
+import { userService } from '@/database_services/userService';
+import { language } from '@/db/drizzleSchema';
+import { handleMigrations } from '@/db/migrationHandler';
+import { useTranslation } from '@/hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { db } from '../../db/database';
+import { seedDatabase } from '../../db/seedDatabase';
+import migrations from '../../drizzle/migrations';
 
 type Language = typeof language.$inferSelect;
 
