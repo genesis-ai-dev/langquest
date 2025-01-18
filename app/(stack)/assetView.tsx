@@ -1,40 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import AudioPlayer from '@/components/AudioPlayer';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import ImageCarousel from '@/components/ImageCarousel';
+import { NewTranslationModal } from '@/components/NewTranslationModal';
+import { TranslationModal } from '@/components/TranslationModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { Asset, assetService } from '@/database_services/assetService';
+import { languageService } from '@/database_services/languageService';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+  Translation,
+  translationService,
+} from '@/database_services/translationService';
+import { User, userService } from '@/database_services/userService';
+import { Vote, voteService } from '@/database_services/voteService';
+import { language } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
+  borderRadius,
   colors,
   fontSizes,
-  spacing,
   sharedStyles,
-  borderRadius,
+  spacing,
 } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { formatRelativeDate } from '@/utils/dateUtils';
-import { language } from '@/db/drizzleSchema';
-import { userService, User } from '@/database_services/userService';
-import { languageService } from '@/database_services/languageService';
-import { assetService, Asset } from '@/database_services/assetService';
-import { translationService, Translation } from '@/database_services/translationService';
-import { voteService, Vote } from '@/database_services/voteService';
-import { TranslationModal } from '@/components/TranslationModal';
-import { NewTranslationModal } from '@/components/NewTranslationModal';
-import { useAuth } from '@/contexts/AuthContext';
-import { system } from '@/db/powersync/system';
-import AudioPlayer from '@/components/AudioPlayer';
-import ImageCarousel from '@/components/ImageCarousel';
-import Carousel from '@/components/Carousel';
-import { useTranslation } from '@/hooks/useTranslation';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
@@ -53,84 +55,103 @@ export default function AssetView() {
   const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
+  const { setActiveAsset } = useProjectContext();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { asset_id, assetName } = useLocalSearchParams<{ asset_id: string; assetName: string }>();
+  const { asset_id, assetName } = useLocalSearchParams<{
+    asset_id: string;
+    assetName: string;
+  }>();
   const [asset, setAsset] = useState<Asset>();
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
-  const [selectedTranslation, setSelectedTranslation] = useState<Translation | null>(null);
-  const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] = useState(false);
+  const [selectedTranslation, setSelectedTranslation] =
+    useState<Translation | null>(null);
+  const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [sourceLanguage, setSourceLanguage] = useState<typeof language.$inferSelect | null>(null);
-  const [translationVotes, setTranslationVotes] = useState<Record<string, Vote[]>>({});
-  const [translationCreators, setTranslationCreators] = useState<Record<string, User>>({});
-  const [translationLanguages, setTranslationLanguages] = useState<Record<string, typeof language.$inferSelect>>({});
-  
+  const [sourceLanguage, setSourceLanguage] = useState<
+    typeof language.$inferSelect | null
+  >(null);
+  const [translationVotes, setTranslationVotes] = useState<
+    Record<string, Vote[]>
+  >({});
+  const [translationCreators, setTranslationCreators] = useState<
+    Record<string, User>
+  >({});
+  const [translationLanguages, setTranslationLanguages] = useState<
+    Record<string, typeof language.$inferSelect>
+  >({});
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
   const calculateVoteCount = (votes: Vote[]): number => {
-    return votes.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0);
+    return votes.reduce(
+      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
+      0,
+    );
   };
 
   useEffect(() => {
     loadAssetAndTranslations();
   }, [asset_id]);
-  
+
   // Add a debug effect to monitor state changes
   useEffect(() => {
     console.log('Translations updated:', translations);
   }, [translations]);
-  
+
   useEffect(() => {
     console.log('Translation votes updated:', translationVotes);
   }, [translationVotes]);
 
   useEffect(() => {
     const abortController = new AbortController();
-  
+
     system.powersync.watch(
-      `SELECT * FROM translation WHERE asset_id = ?`, 
+      `SELECT * FROM translation WHERE asset_id = ?`,
       [asset_id],
-      { 
+      {
         onResult: () => {
           loadAssetAndTranslations();
-        }
+        },
       },
-      { signal: abortController.signal }
+      { signal: abortController.signal },
     );
-  
+
     return () => {
       abortController.abort();
     };
   }, [asset_id]);
-  
+
   useEffect(() => {
     const abortController = new AbortController();
-  
+
     system.powersync.watch(
-      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`, 
+      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
       [asset_id],
-      { 
+      {
         onResult: async () => {
           // Instead of trying to use the result directly, let's fetch the votes again
           try {
             const votesMap: Record<string, Vote[]> = {};
-            await Promise.all(translations.map(async (translation) => {
-              votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-            }));
+            await Promise.all(
+              translations.map(async (translation) => {
+                votesMap[translation.id] =
+                  await voteService.getVotesByTranslationId(translation.id);
+              }),
+            );
             console.log('Updated votes map:', votesMap); // Debug log
             setTranslationVotes(votesMap);
           } catch (error) {
             console.error('Error updating votes:', error);
           }
-        }
+        },
       },
-      { signal: abortController.signal }
+      { signal: abortController.signal },
     );
-  
+
     return () => {
       abortController.abort();
     };
@@ -147,23 +168,23 @@ export default function AssetView() {
   //     const votesMap: Record<string, Vote[]> = {};
   //     const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
   //     const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
-    
+
   //     await Promise.all(translations.map(async (translation) => {
   //       // Always load votes as they change frequently
   //       votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-        
+
   //       // Only load creator and language if not already cached
   //       if (!creatorsMap[translation.creator_id]) {
   //         const creator = await userService.getUserById(translation.creator_id);
   //         if (creator) creatorsMap[translation.creator_id] = creator;
   //       }
-        
+
   //       if (!languagesMap[translation.target_language_id]) {
   //         const targetLang = await languageService.getLanguageById(translation.target_language_id);
   //         if (targetLang) languagesMap[translation.target_language_id] = targetLang;
   //       }
   //     }));
-    
+
   //     setTranslationVotes(votesMap);
   //     setTranslationCreators(creatorsMap);
   //     setTranslationLanguages(languagesMap);
@@ -177,7 +198,7 @@ export default function AssetView() {
     try {
       if (!asset_id) return;
       setIsLoading(true);
-      
+
       const loadedAsset = await assetService.getAssetById(asset_id);
       if (!loadedAsset) {
         Alert.alert('Error', 'Asset not found');
@@ -185,13 +206,16 @@ export default function AssetView() {
       }
 
       setAsset(loadedAsset);
-      
+
       // Load source language
-      const source = await languageService.getLanguageById(loadedAsset.source_language_id);
+      const source = await languageService.getLanguageById(
+        loadedAsset.source_language_id,
+      );
       setSourceLanguage(source);
 
       // Load translations
-      const loadedTranslations = await translationService.getTranslationsByAssetId(asset_id);
+      const loadedTranslations =
+        await translationService.getTranslationsByAssetId(asset_id);
       setTranslations(loadedTranslations);
     } catch (error) {
       console.error('Error loading asset and translations:', error);
@@ -201,7 +225,10 @@ export default function AssetView() {
     }
   };
 
-  const handleVote = async (translation_id: string, polarity: 'up' | 'down') => {
+  const handleVote = async (
+    translation_id: string,
+    polarity: 'up' | 'down',
+  ) => {
     if (!currentUser) {
       Alert.alert('Error', t('logInToVote'));
       return;
@@ -240,12 +267,15 @@ export default function AssetView() {
     | 'thumbs-down'
     | 'thumbs-down-outline';
 
-  const getVoteIconName = (translationId: string, voteType: 'up' | 'down'): VoteIconName => {
+  const getVoteIconName = (
+    translationId: string,
+    voteType: 'up' | 'down',
+  ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
-    
+
     const votes = translationVotes[translationId] || [];
-    const userVote = votes.find(vote => vote.creator_id === currentUser.id);
-  
+    const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
+
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
     return userVote.polarity === voteType
       ? (`thumbs-${voteType}` as VoteIconName)
@@ -257,34 +287,45 @@ export default function AssetView() {
       const votesMap: Record<string, Vote[]> = {};
       const creatorsMap: Record<string, User> = {};
       const languagesMap: Record<string, typeof language.$inferSelect> = {};
-  
-      await Promise.all(translations.map(async (translation) => {
-        // Load votes
-        votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-        
-        // Load creator
-        const creator = await userService.getUserById(translation.creator_id);
-        if (creator) creatorsMap[translation.creator_id] = creator;
-        
-        // Load target language
-        const targetLang = await languageService.getLanguageById(translation.target_language_id);
-        if (targetLang) languagesMap[translation.target_language_id] = targetLang;
-      }));
-  
+
+      await Promise.all(
+        translations.map(async (translation) => {
+          // Load votes
+          votesMap[translation.id] = await voteService.getVotesByTranslationId(
+            translation.id,
+          );
+
+          // Load creator
+          const creator = await userService.getUserById(translation.creator_id);
+          if (creator) creatorsMap[translation.creator_id] = creator;
+
+          // Load target language
+          const targetLang = await languageService.getLanguageById(
+            translation.target_language_id,
+          );
+          if (targetLang)
+            languagesMap[translation.target_language_id] = targetLang;
+        }),
+      );
+
       setTranslationVotes(votesMap);
       setTranslationCreators(creatorsMap);
       setTranslationLanguages(languagesMap);
     };
-  
+
     loadTranslationData();
   }, [translations]);
 
-  const renderTranslationCard = ({ item: translation }: { item: Translation }) => {
+  const renderTranslationCard = ({
+    item: translation,
+  }: {
+    item: Translation;
+  }) => {
     const votes = translationVotes[translation.id] || [];
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
     const voteCount = calculateVoteCount(votes);
-  
+
     return (
       <TouchableOpacity
         style={styles.translationCard}
@@ -296,24 +337,29 @@ export default function AssetView() {
               {getPreviewText(translation.text)}
             </Text>
             <Text style={styles.translatorInfo}>
-              by {creator?.username} in {targetLanguage?.native_name || targetLanguage?.english_name}
+              by {creator?.username} in{' '}
+              {targetLanguage?.native_name || targetLanguage?.english_name}
             </Text>
           </View>
           <View style={styles.translationCardRight}>
             <View style={styles.voteContainer}>
-              <TouchableOpacity onPress={() => handleVote(translation.id, 'up')}>
-                <Ionicons 
-                  name={getVoteIconName(translation.id, 'up')} 
-                  size={16} 
-                  color={colors.text} 
+              <TouchableOpacity
+                onPress={() => handleVote(translation.id, 'up')}
+              >
+                <Ionicons
+                  name={getVoteIconName(translation.id, 'up')}
+                  size={16}
+                  color={colors.text}
                 />
               </TouchableOpacity>
               <Text style={styles.voteCount}>{voteCount}</Text>
-              <TouchableOpacity onPress={() => handleVote(translation.id, 'down')}>
-                <Ionicons 
-                  name={getVoteIconName(translation.id, 'down')} 
-                  size={16} 
-                  color={colors.text} 
+              <TouchableOpacity
+                onPress={() => handleVote(translation.id, 'down')}
+              >
+                <Ionicons
+                  name={getVoteIconName(translation.id, 'down')}
+                  size={16}
+                  color={colors.text}
                 />
               </TouchableOpacity>
             </View>
@@ -333,7 +379,10 @@ export default function AssetView() {
           <View style={styles.content}>
             <Text style={styles.title}>{asset?.name}</Text>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => {
+                router.back();
+                setActiveAsset(null);
+              }}
               style={sharedStyles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -394,7 +443,9 @@ export default function AssetView() {
               {activeTab === 'text' && (
                 <View style={styles.sourceTextContainer}>
                   <Text style={styles.source_languageLabel}>
-                    {sourceLanguage?.native_name || sourceLanguage?.english_name}:
+                    {sourceLanguage?.native_name ||
+                      sourceLanguage?.english_name}
+                    :
                   </Text>
                   <Text style={styles.sourceText}>{asset?.text}</Text>
                 </View>
@@ -456,9 +507,14 @@ export default function AssetView() {
                     if (sortOption === 'voteCount') {
                       const votesA = translationVotes[a.id] || [];
                       const votesB = translationVotes[b.id] || [];
-                      return calculateVoteCount(votesB) - calculateVoteCount(votesA);
+                      return (
+                        calculateVoteCount(votesB) - calculateVoteCount(votesA)
+                      );
                     }
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    return (
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime()
+                    );
                   })}
                   renderItem={renderTranslationCard}
                   keyExtractor={(item) => item.id}
@@ -478,11 +534,11 @@ export default function AssetView() {
         )}
 
         <NewTranslationModal
-        isVisible={isNewTranslationModalVisible}
-        onClose={() => setIsNewTranslationModalVisible(false)}
-        onSubmit={handleNewTranslation}
-        asset_id={asset_id!}
-      />
+          isVisible={isNewTranslationModalVisible}
+          onClose={() => setIsNewTranslationModalVisible(false)}
+          onSubmit={handleNewTranslation}
+          asset_id={asset_id!}
+        />
       </LinearGradient>
     </GestureHandlerRootView>
   );

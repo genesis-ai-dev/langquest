@@ -4,6 +4,7 @@ import type { Project } from '@/database_services/projectService';
 import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
   type DrawerContentComponentProps,
@@ -11,51 +12,25 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
+import { useCallback, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  LayoutChangeEvent,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useState, useCallback } from 'react';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  useSharedValue,
-  withSpring,
-  interpolate,
-} from 'react-native-reanimated';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const { recentProjects, recentQuests, recentAssets } = useProjectContext();
-
-  type CategoryItem = { id: string; name: string };
-
-  const handleProjectPress = (project: CategoryItem) => {
-    router.navigate({
-      pathname: '/quests',
-      params: { project_id: project.id, projectName: project.name },
-    });
-  };
-
-  const handleQuestPress = (quest: CategoryItem) => {
-    router.navigate({
-      pathname: '/assets',
-      params: { quest_id: quest.id, questName: quest.name },
-    });
-  };
-
-  const handleAssetPress = (asset: CategoryItem) => {
-    router.navigate({
-      pathname: '/assetView',
-      params: { asset_id: asset.id, assetName: asset.name },
-    });
-  };
+  const {
+    recentProjects,
+    recentQuests,
+    recentAssets,
+    goToProject,
+    goToQuest,
+    goToAsset,
+  } = useProjectContext();
 
   return (
     <LinearGradient
@@ -67,20 +42,92 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <Category
           title={t('projects')}
           items={recentProjects}
-          onPress={handleProjectPress}
+          onPress={(item) => goToProject(item as Project, true)}
         />
         <Category
           title={t('quests')}
           items={recentQuests}
-          onPress={handleQuestPress}
+          onPress={(item) => goToQuest(item as Quest, true)}
         />
         <Category
           title={t('assets')}
           items={recentAssets}
-          onPress={handleAssetPress}
+          onPress={(item) => goToAsset(item as Asset, true)}
         />
       </DrawerContentScrollView>
+      <View style={styles.drawerFooter}>
+        <DrawerFooter />
+      </View>
     </LinearGradient>
+  );
+}
+
+function DrawerFooter() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const {
+    goToProject,
+    goToQuest,
+    activeProject,
+    activeQuest,
+    setActiveProject,
+    setActiveQuest,
+    setActiveAsset,
+  } = useProjectContext();
+
+  if (pathname === '/projects' && (!activeProject || !activeQuest)) return null;
+
+  return (
+    <View style={styles.drawerFooterNav}>
+      {pathname !== '/projects' && (
+        <TouchableOpacity
+          onPress={() => {
+            router.navigate('/projects');
+            setActiveProject(null);
+            setActiveQuest(null);
+            setActiveAsset(null);
+          }}
+        >
+          <Ionicons name="home" size={20} color={colors.text} />
+        </TouchableOpacity>
+      )}
+      <View style={styles.footerTextContainer}>
+        {activeProject && (
+          <>
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            <TouchableOpacity
+              onPress={() => goToProject(activeProject, true)}
+              style={styles.footerTextItem}
+            >
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: colors.text }}
+              >
+                {activeProject.name}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {activeQuest && activeProject && (
+          <>
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            <TouchableOpacity
+              onPress={() => goToQuest(activeQuest, true)}
+              style={styles.footerTextItem}
+            >
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: colors.text }}
+              >
+                {activeQuest.name}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -92,7 +139,7 @@ export function Drawer() {
         headerShown: false,
         drawerType: 'slide',
         swipeEdgeWidth: 100,
-        // swipeEnabled: pathname !== '/' && pathname !== '/register', // no drawer on login page
+        swipeEnabled: pathname !== '/' && pathname !== '/register', // no drawer on login page
       }}
       drawerContent={DrawerContent}
     />
@@ -105,11 +152,10 @@ function Category({
   onPress,
 }: {
   title: string;
-  items: { id: string; name: string }[];
-  onPress: (item: { id: string; name: string }) => void;
+  items: (Project | Quest | Asset)[];
+  onPress: (item: Project | Quest | Asset) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const animation = useSharedValue(1);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(!isExpanded);
@@ -117,15 +163,19 @@ function Category({
 
   return (
     <View style={styles.drawerCategory}>
-      <Pressable style={styles.categoryHeader} onPress={toggleExpand}>
+      <Pressable
+        style={styles.categoryHeader}
+        onPress={toggleExpand}
+        disabled={items.length === 0}
+      >
         <Text style={styles.drawerCategoryTitle}>{title}</Text>
-        <Animated.View>
+        {items.length > 0 && (
           <Ionicons
             name={isExpanded ? 'chevron-down' : 'chevron-forward'}
             size={20}
             color={colors.text}
           />
-        </Animated.View>
+        )}
       </Pressable>
       {isExpanded && (
         <View style={styles.categoryContent}>
@@ -187,5 +237,32 @@ const styles = StyleSheet.create({
   },
   categoryItemText: {
     color: colors.text,
+  },
+  drawerFooter: {
+    // padding: spacing.small,
+    borderTopWidth: 1,
+    borderTopColor: colors.inputBackground,
+    position: 'static',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  drawerFooterNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small,
+    padding: spacing.small,
+  },
+  footerTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.small,
+    alignItems: 'center',
+  },
+  footerTextItem: {
+    flex: 1,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.small,
+    paddingVertical: spacing.xsmall,
+    paddingHorizontal: spacing.small,
   },
 });

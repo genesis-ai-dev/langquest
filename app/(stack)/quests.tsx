@@ -238,7 +238,10 @@ export default function Quests() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              router.back();
+              setActiveQuest(null);
+            }}
             style={sharedStyles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />

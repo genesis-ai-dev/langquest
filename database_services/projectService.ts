@@ -16,9 +16,7 @@ export class ProjectService {
     // console.log('Target language:', target_language);
 
     // First get all projects without joins
-    const basicProjects = await db
-      .select()
-      .from(project);
+    // const basicProjects = await db.select().from(project);
 
     // Then get projects with language joins
     const results = await db
@@ -38,7 +36,7 @@ export class ProjectService {
     return results;
   }
 
-  async getProjectById(id: string): Promise<Project[]> {
+  async getProjectById(id: string): Promise<Project | null> {
     // const source_language = aliasedTable(language, 'source_language');
     // const target_language = aliasedTable(language, 'target_language');
 

@@ -76,45 +76,45 @@
 //     for (const langData of seedData.languages) {
 //       await upsertData(language, langData);
 //     }
-    
+
 //     for (const userData of seedData.users) {
 //       const processedUserData = await processUserData(userData);
 //       await upsertData(user, processedUserData);
 //     }
-    
+
 //     for (const projectData of seedData.projects) {
 //       await upsertData(project, projectData);
 //     }
-    
+
 //     for (const tagData of seedData.tags) {
 //       await upsertData(tag, tagData);
 //     }
-    
+
 //     for (const questData of seedData.quests) {
 //       await upsertData(quest, questData);
 //     }
-    
+
 //     for (const assetData of seedData.assets) {
 //       await upsertData(asset, processAssetData(assetData));
 //     }
-    
+
 //     // Seed relations
 //     for (const relation of seedData.questToTags) {
 //       await insertRelation(questToTags, relation);
 //     }
-    
+
 //     for (const relation of seedData.assetToTags) {
 //       await insertRelation(assetToTags, relation);
 //     }
-    
+
 //     for (const relation of seedData.questToAssets) {
 //       await insertRelation(questToAssets, relation);
 //     }
-    
+
 //     for (const translationData of seedData.translations) {
 //       await upsertData(translation, translationData);
 //     }
-    
+
 //     for (const voteData of seedData.votes) {
 //       await upsertData(vote, voteData);
 //     }

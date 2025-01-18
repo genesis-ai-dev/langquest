@@ -1,28 +1,38 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Modal, Alert, BackHandler } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { Asset, assetService } from '@/database_services/assetService';
+import { Tag, tagService } from '@/database_services/tagService';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
+  borderRadius,
   colors,
   fontSizes,
-  spacing,
   sharedStyles,
-  borderRadius,
+  spacing,
 } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { AssetFilterModal } from '@/components/AssetFilterModal';
-import { assetService, Asset } from '@/database_services/assetService';
-import { tagService, Tag } from '@/database_services/tagService';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { type FC, useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  BackHandler,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
+const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
   const [tags, setTags] = useState<Tag[]>([]);
 
   useEffect(() => {
@@ -32,7 +42,7 @@ const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
     };
     loadTags();
   }, [asset.id]);
-  
+
   return (
     <View style={sharedStyles.card}>
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
@@ -56,7 +66,6 @@ const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
   );
 };
 
-
 export default function Assets() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
@@ -66,7 +75,7 @@ export default function Assets() {
 
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveAsset, goToAsset } = useProjectContext();
+  const { setActiveAsset, goToAsset, setActiveQuest } = useProjectContext();
   const { quest_id, questName } = useLocalSearchParams<{
     quest_id: string;
     questName: string;
@@ -93,7 +102,7 @@ export default function Assets() {
       await Promise.all(
         loadedAssets.map(async (asset) => {
           tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
-        })
+        }),
       );
       console.log('Tags found for asset: ', tagsMap);
       setAssetTags(tagsMap);
@@ -103,45 +112,69 @@ export default function Assets() {
     }
   };
 
-  const applyFilters = useCallback((assetsToFilter: Asset[], filters: Record<string, string[]>, search: string) => {
-    return assetsToFilter.filter(asset => {
-      // Search filter
-      const matchesSearch = asset.name.toLowerCase().includes(search.toLowerCase()) ||
-                          (asset.text?.toLowerCase().includes(search.toLowerCase()) ?? false);
-      
-      // Tag filters
-      const assetTags = assetToTags[asset.id] || [];
-      const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
-        if (selectedOptions.length === 0) return true;
-        return assetTags.some(tag => {
-          const [tagCategory, tagValue] = tag.name.split(':');
-          return tagCategory.toLowerCase() === category.toLowerCase() && 
-                 selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
-        });
-      });
-  
-      return matchesSearch && matchesFilters;
-    });
-  }, [assetToTags]);
+  const applyFilters = useCallback(
+    (
+      assetsToFilter: Asset[],
+      filters: Record<string, string[]>,
+      search: string,
+    ) => {
+      return assetsToFilter.filter((asset) => {
+        // Search filter
+        const matchesSearch =
+          asset.name.toLowerCase().includes(search.toLowerCase()) ||
+          (asset.text?.toLowerCase().includes(search.toLowerCase()) ?? false);
 
-  const applySorting = useCallback((assetsToSort: Asset[], sorting: SortingOption[]) => {
-    return [...assetsToSort].sort((a, b) => {
-      for (const { field, order } of sorting) {
-        if (field === 'name') {
-          const comparison = a.name.localeCompare(b.name);
-          return order === 'asc' ? comparison : -comparison;
-        } else {
-          const tagsA = assetTags[a.id] || [];
-          const tagsB = assetTags[b.id] || [];
-          const tagA = tagsA.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
-          const tagB = tagsB.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
-          const comparison = tagA.localeCompare(tagB);
-          if (comparison !== 0) return order === 'asc' ? comparison : -comparison;
+        // Tag filters
+        const assetTags = assetToTags[asset.id] || [];
+        const matchesFilters = Object.entries(filters).every(
+          ([category, selectedOptions]) => {
+            if (selectedOptions.length === 0) return true;
+            return assetTags.some((tag) => {
+              const [tagCategory, tagValue] = tag.name.split(':');
+              return (
+                tagCategory.toLowerCase() === category.toLowerCase() &&
+                selectedOptions.includes(
+                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`,
+                )
+              );
+            });
+          },
+        );
+
+        return matchesSearch && matchesFilters;
+      });
+    },
+    [assetToTags],
+  );
+
+  const applySorting = useCallback(
+    (assetsToSort: Asset[], sorting: SortingOption[]) => {
+      return [...assetsToSort].sort((a, b) => {
+        for (const { field, order } of sorting) {
+          if (field === 'name') {
+            const comparison = a.name.localeCompare(b.name);
+            return order === 'asc' ? comparison : -comparison;
+          } else {
+            const tagsA = assetTags[a.id] || [];
+            const tagsB = assetTags[b.id] || [];
+            const tagA =
+              tagsA
+                .find((tag) => tag.name.startsWith(`${field}:`))
+                ?.name.split(':')[1] || '';
+            const tagB =
+              tagsB
+                .find((tag) => tag.name.startsWith(`${field}:`))
+                ?.name.split(':')[1] || '';
+            const comparison = tagA.localeCompare(tagB);
+            if (comparison !== 0)
+              return order === 'asc' ? comparison : -comparison;
+          }
         }
-      }
-      return 0;
-    });
-  }, [assetTags]);
+        return 0;
+      });
+    },
+    [assetTags],
+  );
 
   // Load tags when assets change
   useEffect(() => {
@@ -150,7 +183,7 @@ export default function Assets() {
       await Promise.all(
         assets.map(async (asset) => {
           tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
-        })
+        }),
       );
       setAssetToTags(tagsMap);
     };
@@ -209,17 +242,20 @@ export default function Assets() {
 
   // Handle back button press
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isFilterModalVisible) {
-        setIsFilterModalVisible(false);
-        return true;
-      }
-      if (selectedAsset) {
-        setSelectedAsset(null);
-        return true;
-      }
-      return false;
-    });
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (isFilterModalVisible) {
+          setIsFilterModalVisible(false);
+          return true;
+        }
+        if (selectedAsset) {
+          setSelectedAsset(null);
+          return true;
+        }
+        return false;
+      },
+    );
 
     return () => backHandler.remove();
   }, [isFilterModalVisible, selectedAsset]);
@@ -234,7 +270,10 @@ export default function Assets() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              router.back();
+              setActiveQuest(null);
+            }}
             style={sharedStyles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />

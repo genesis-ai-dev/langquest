@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView  } from "react-native";
-import { useRouter } from "expo-router";
+import {
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fontSizes, spacing, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 // import { userRepository } from '@/database_services/repositories';
 // import { initDatabase } from '@/database_services/dbInit';
 
-import * as SQLite from 'expo-sqlite';
 // import { userd, languaged } from '../db/drizzleSchema';
 import * as schema from '../../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
@@ -24,6 +29,10 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing } from '@/styles/theme';
+import { sharedStyles } from '@/styles/theme';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -35,7 +44,7 @@ export default function Index() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [showLanguages, setShowLanguages] = useState(false);
-  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
   const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
 
   const router = useRouter();
@@ -56,26 +65,28 @@ export default function Index() {
 
   useEffect(() => {
     let mounted = true;
-    
+
     const initializeDatabase = async () => {
       if (system.isInitialized()) {
         console.log('System is already initialized');
         return;
       }
-  
+
       try {
         console.log('signing in anonymously');
-        const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
-  
+        const { data, error: signInError } =
+          await supabaseConnector.client.auth.signInAnonymously();
+
         if (signInError || !mounted) {
           console.error('Error signing in anonymously:', signInError);
           return;
         }
-  
-        const { data: sessionData } = await supabaseConnector.client.auth.getSession();
-        
+
+        const { data: sessionData } =
+          await supabaseConnector.client.auth.getSession();
+
         if (!mounted) return;
-        
+
         if (sessionData.session) {
           await system.init();
           // if (mounted) {
@@ -88,17 +99,16 @@ export default function Index() {
         // if (mounted) {
         //   router.push("/projects");
         // }
-
       } catch (error) {
         console.error('Session check error:', error);
         if (mounted) {
-          router.replace("/register");
+          router.replace('/register');
         }
       }
     };
-  
+
     initializeDatabase();
-  
+
     return () => {
       mounted = false;
     };
@@ -110,15 +120,20 @@ export default function Index() {
       try {
         const loadedLanguages = await languageService.getUiReadyLanguages();
         setLanguages(loadedLanguages);
-        
+
         // Get saved language ID
-        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId && loadedLanguages.some(l => l.id === savedLanguageId)) {
+        const savedLanguageId =
+          await AsyncStorage.getItem('selectedLanguageId');
+        if (
+          savedLanguageId &&
+          loadedLanguages.some((l) => l.id === savedLanguageId)
+        ) {
           setSelectedLanguageId(savedLanguageId);
         } else if (loadedLanguages.length > 0) {
-          const englishLang = loadedLanguages.find(l => 
-            l.english_name?.toLowerCase() === 'english' || 
-            l.native_name?.toLowerCase() === 'english'
+          const englishLang = loadedLanguages.find(
+            (l) =>
+              l.english_name?.toLowerCase() === 'english' ||
+              l.native_name?.toLowerCase() === 'english',
           );
           setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
@@ -127,8 +142,8 @@ export default function Index() {
         Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-     loadLanguages();
-  }, []); 
+    loadLanguages();
+  }, []);
 
   // Save language when it changes
   useEffect(() => {
@@ -148,15 +163,15 @@ export default function Index() {
     try {
       const authenticatedUser = await userService.validateCredentials({
         email: credentials.email.toLowerCase().trim(),
-        password: credentials.password
+        password: credentials.password,
       });
-  
+
       if (authenticatedUser) {
         await system.init(); // Initialize PowerSync after successful login
         setCredentials({ email: '', password: '' });
         setCurrentUser(authenticatedUser);
         // router.push("/projects");
-        router.replace("/projects");
+        router.replace('/projects');
       } else {
         Alert.alert('Error', t('invalidAuth'));
       }
@@ -166,104 +181,154 @@ export default function Index() {
     }
   };
 
-
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView 
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
         >
-        <View style={[sharedStyles.container, { backgroundColor: 'transparent' }]}>
-        <Text>{dbStatus}</Text>
-          <View style={{ alignItems: 'center', width: '100%' }}>
-            <Text style={sharedStyles.appTitle}>LangQuest</Text>
-            <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
-          </View>
-          
-          {/* Language section */}
-          <View style={{ alignItems: 'center', marginBottom: spacing.medium }}>
-            <Ionicons 
-              name="language" 
-              size={32} 
-              color={colors.text} 
-              style={{ marginBottom: spacing.small }}
-            />
-            <CustomDropdown
-              value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
-              options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
-              onSelect={(langName) => {
-                const lang = languages.find(l => l.native_name === langName);
-                if (lang) {
-                  setSelectedLanguageId(lang.id);
-                }
-              }}
-              isOpen={showLanguages}
-              onToggle={() => setShowLanguages(!showLanguages)}
-              search={true}
-              searchPlaceholder={t('search')}
-              fullWidth={true}
-              containerStyle={{ marginBottom: spacing.medium }}
-            />
-          </View>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View
+              style={[
+                sharedStyles.container,
+                { backgroundColor: 'transparent' },
+              ]}
+            >
+              <Text>{dbStatus}</Text>
+              <View style={{ alignItems: 'center', width: '100%' }}>
+                <Text style={sharedStyles.appTitle}>LangQuest</Text>
+                <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
+              </View>
 
-          {/* User section */}
-          <View style={{ alignItems: 'center', marginBottom: spacing.medium }}>
-            <Ionicons 
-              name="person-outline" 
-              size={32} 
-              color={colors.text} 
-              style={{ marginBottom: spacing.small }}
-            />
-          
-            <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-              <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-              <TextInput
-                style={{ flex: 1, color: colors.text }}
-                placeholder={t('email')}
-                placeholderTextColor={colors.text}
-                value={credentials.email}
-                onChangeText={(text) => setCredentials(prev => ({ ...prev, email: text }))}
-              />
+              {/* Language section */}
+              <View
+                style={{ alignItems: 'center', marginBottom: spacing.medium }}
+              >
+                <Ionicons
+                  name="language"
+                  size={32}
+                  color={colors.text}
+                  style={{ marginBottom: spacing.small }}
+                />
+                <CustomDropdown
+                  value={
+                    languages.find((l) => l.id === selectedLanguageId)
+                      ?.native_name || ''
+                  }
+                  options={languages
+                    .map((l) => l.native_name)
+                    .filter((name): name is string => name !== null)}
+                  onSelect={(langName) => {
+                    const lang = languages.find(
+                      (l) => l.native_name === langName,
+                    );
+                    if (lang) {
+                      setSelectedLanguageId(lang.id);
+                    }
+                  }}
+                  isOpen={showLanguages}
+                  onToggle={() => setShowLanguages(!showLanguages)}
+                  search={true}
+                  searchPlaceholder={t('search')}
+                  fullWidth={true}
+                  containerStyle={{ marginBottom: spacing.medium }}
+                />
+              </View>
+
+              {/* User section */}
+              <View
+                style={{ alignItems: 'center', marginBottom: spacing.medium }}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={32}
+                  color={colors.text}
+                  style={{ marginBottom: spacing.small }}
+                />
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    { flexDirection: 'row', alignItems: 'center' },
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.email}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, email: text }))
+                    }
+                  />
+                </View>
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    { flexDirection: 'row', alignItems: 'center' },
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('password')}
+                    placeholderTextColor={colors.text}
+                    secureTextEntry
+                    value={credentials.password}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, password: text }))
+                    }
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity>
+                <Text
+                  style={[sharedStyles.link, { marginBottom: spacing.medium }]}
+                >
+                  {t('forgotPassword')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={sharedStyles.button}
+                onPress={handleSignIn}
+              >
+                <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+                <Text
+                  style={{ color: colors.text, marginRight: spacing.small }}
+                >
+                  {t('newUser')}
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/register')}>
+                  <Text style={sharedStyles.link}>{t('register')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            
-            <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-              <TextInput
-                style={{ flex: 1, color: colors.text }}
-                placeholder={t('password')}
-                placeholderTextColor={colors.text}
-                secureTextEntry
-                value={credentials.password}
-                onChangeText={(text) => setCredentials(prev => ({ ...prev, password: text }))}
-              />
-            </View>
-          </View>
-          
-          <TouchableOpacity>
-            <Text style={[sharedStyles.link, { marginBottom: spacing.medium }]}>{t('forgotPassword')}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={sharedStyles.button} onPress={handleSignIn}>
-            <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-            <Text style={{ color: colors.text, marginRight: spacing.small }}>{t('newUser')}</Text>
-            <TouchableOpacity onPress={() => router.push("/register")}>
-              <Text style={sharedStyles.link}>{t('register')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
   );
-  }
+}

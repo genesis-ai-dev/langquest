@@ -1,5 +1,8 @@
 import '@azure/core-asynciterator-polyfill';
-import { wrapPowerSyncWithDrizzle } from "@powersync/drizzle-driver";
+import {
+  PowerSyncSQLiteDatabase,
+  wrapPowerSyncWithDrizzle,
+} from '@powersync/drizzle-driver';
 
 import { PowerSyncDatabase } from '@powersync/react-native';
 import React from 'react';
@@ -13,8 +16,8 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AppSchema } from './psSchema';
 // import { PhotoAttachmentQueue } from './PhotoAttachmentQueue';
 // import { DrizzleConfig } from 'drizzle-orm';
-import { drizzleSchema}  from '../drizzleSchema';
-import Constants from 'expo-constants'; 
+import { drizzleSchema } from '../drizzleSchema';
+import Constants from 'expo-constants';
 
 Logger.useDefaults();
 
@@ -32,7 +35,7 @@ export class System {
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
   // attachmentQueue: PhotoAttachmentQueue | undefined = undefined;
-  db: any;
+  db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
     console.log('System constructor');
@@ -44,14 +47,13 @@ export class System {
       database: {
         dbFilename: 'sqlite.db',
         debugMode: true,
-      }
+      },
     });
 
     console.log('Wrapping PowerSync with Drizzle');
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
-        schema: drizzleSchema,
-      }
-    )
+      schema: drizzleSchema,
+    });
   }
 
   private initialized = false;
@@ -61,7 +63,7 @@ export class System {
     if (this.initialized || this.connecting) {
       return;
     }
-    
+
     try {
       this.connecting = true;
       await this.powersync.init();
