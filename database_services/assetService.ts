@@ -1,134 +1,32 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
-import {
-  asset,
-  tag,
-  assetToTags,
-  language,
-  questToAssets,
-  quest,
-  project,
-} from '../db/drizzleSchema';
-import { aliasedTable } from 'drizzle-orm';
+import { asset, quest_asset_link } from '../db/drizzleSchema';
+import { system } from '../db/powersync/system';
 
-export type AssetWithRelations = typeof asset.$inferSelect & {
-  sourceLanguage: typeof language.$inferSelect;
-  tags: (typeof tag.$inferSelect)[];
-  questId: typeof questToAssets.$inferSelect.questId;
-  projectId: typeof project.$inferSelect.id;
-};
+const { db } = system;
+
+export type Asset = typeof asset.$inferSelect;
 
 export class AssetService {
   async getAssetById(id: string) {
-    const sourceLanguage = aliasedTable(language, 'sourceLanguage');
-    const [foundAsset] = await db
-      .select({
-        id: asset.id,
-        rev: asset.rev,
-        createdAt: asset.createdAt,
-        lastUpdated: asset.lastUpdated,
-        versionChainId: asset.versionChainId,
-        name: asset.name,
-        text: asset.text,
-        images: asset.images,
-        audio: asset.audio,
-        sourceLanguageId: asset.sourceLanguageId,
-        sourceLanguage: {
-          id: sourceLanguage.id,
-          rev: sourceLanguage.rev,
-          createdAt: sourceLanguage.createdAt,
-          lastUpdated: sourceLanguage.lastUpdated,
-          versionChainId: sourceLanguage.versionChainId,
-          nativeName: sourceLanguage.nativeName,
-          englishName: sourceLanguage.englishName,
-          iso639_3: sourceLanguage.iso639_3,
-          uiReady: sourceLanguage.uiReady,
-          creatorId: sourceLanguage.creatorId,
-        },
-        questId: questToAssets.questId,
-        projectId: quest.projectId,
-        tags: tag,
-      })
-      .from(asset)
-      .innerJoin(sourceLanguage, eq(asset.sourceLanguageId, sourceLanguage.id))
-      .innerJoin(questToAssets, eq(questToAssets.assetId, asset.id))
-      .innerJoin(quest, eq(quest.id, questToAssets.questId))
-      .innerJoin(project, eq(project.id, quest.projectId))
-      .leftJoin(assetToTags, eq(assetToTags.assetId, asset.id))
-      .leftJoin(tag, eq(tag.id, assetToTags.tagId))
-      .where(eq(asset.id, id));
-
-    // Group tags like in getAssetsByQuestId
-    if (!foundAsset || !foundAsset.sourceLanguage) return null;
-
-    const assetWithTags: AssetWithRelations = {
-      ...foundAsset,
-      sourceLanguage: foundAsset.sourceLanguage,
-      tags: foundAsset.tags ? [foundAsset.tags] : [],
-    };
-
-    return assetWithTags;
+    const results = await db.select().from(asset).where(eq(asset.id, id));
+    return results[0];
   }
 
-  async getAssetsByQuestId(questId: string): Promise<AssetWithRelations[]> {
-    const sourceLanguage = aliasedTable(language, 'sourceLanguage');
-
-    const results = await db
+  async getAssetsByQuestId(quest_id: string) {
+    // First get asset IDs from junction table
+    const assetLinks = await db
       .select({
-        id: asset.id,
-        rev: asset.rev,
-        createdAt: asset.createdAt,
-        lastUpdated: asset.lastUpdated,
-        versionChainId: asset.versionChainId,
-        name: asset.name,
-        text: asset.text,
-        images: asset.images,
-        audio: asset.audio,
-        sourceLanguageId: asset.sourceLanguageId,
-        sourceLanguage: {
-          id: sourceLanguage.id,
-          rev: sourceLanguage.rev,
-          createdAt: sourceLanguage.createdAt,
-          lastUpdated: sourceLanguage.lastUpdated,
-          versionChainId: sourceLanguage.versionChainId,
-          nativeName: sourceLanguage.nativeName,
-          englishName: sourceLanguage.englishName,
-          iso639_3: sourceLanguage.iso639_3,
-          uiReady: sourceLanguage.uiReady,
-          creatorId: sourceLanguage.creatorId,
-        },
-        projectId: quest.projectId,
-        tags: tag,
+        asset_id: quest_asset_link.asset_id,
       })
-      .from(asset)
-      .innerJoin(questToAssets, eq(questToAssets.assetId, asset.id))
-      .innerJoin(quest, eq(quest.id, questToAssets.questId))
-      .innerJoin(sourceLanguage, eq(sourceLanguage.id, asset.sourceLanguageId))
-      .leftJoin(assetToTags, eq(assetToTags.assetId, asset.id))
-      .leftJoin(tag, eq(tag.id, assetToTags.tagId))
-      .innerJoin(project, eq(project.id, quest.projectId))
-      .where(eq(questToAssets.questId, questId));
+      .from(quest_asset_link)
+      .where(eq(quest_asset_link.quest_id, quest_id));
 
-    // Group by asset and combine tags
-    const assetMap = new Map<string, AssetWithRelations>();
-    results.forEach((result) => {
-      if (!result.sourceLanguage) {
-        throw new Error(`Asset ${result.id} has no source language`);
-      }
+    // Then get the actual assets
+    const assetPromises = assetLinks.map((link) =>
+      this.getAssetById(link.asset_id),
+    );
 
-      if (!assetMap.has(result.id)) {
-        assetMap.set(result.id, {
-          ...result,
-          questId,
-          sourceLanguage: result.sourceLanguage,
-          tags: result.tags ? [result.tags] : [],
-        });
-      } else if (result.tags) {
-        assetMap.get(result.id)!.tags.push(result.tags);
-      }
-    });
-
-    return Array.from(assetMap.values());
+    return Promise.all(assetPromises);
   }
 }
 

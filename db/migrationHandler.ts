@@ -2,9 +2,10 @@ import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import { openDatabaseSync } from 'expo-sqlite/next';
 import migrations from '../drizzle/migrations';
-import { db } from './database';
+import { system } from './powersync/system';
 
 export async function handleMigrations() {
+  const db = system.db;
   try {
     await migrate(db, migrations);
     console.log('Migrations completed successfully');

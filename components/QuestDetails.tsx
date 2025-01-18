@@ -1,26 +1,32 @@
-import { useProjectContext } from '@/contexts/ProjectContext';
+import React, { useState, useEffect } from 'react';
 import { quest, tag } from '@/db/drizzleSchema';
+import { useRouter } from 'expo-router';
+import { Quest } from '@/database_services/questService';
+import { tagService } from '@/database_services/tagService';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-type QuestWithRelations = typeof quest.$inferSelect & {
-  tags: (typeof tag.$inferSelect)[];
-};
 
 interface QuestDetailsProps {
-  quest: QuestWithRelations;
+  quest: Quest;
   onClose: () => void;
 }
 
-export const QuestDetails: React.FC<QuestDetailsProps> = ({
-  quest,
-  onClose,
-}) => {
+export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
+  const [tags, setTags] = useState<typeof tag.$inferSelect[]>([]);
   const { t } = useTranslation();
   const { goToQuest } = useProjectContext();
-
+  
+  useEffect(() => {
+    const loadTags = async () => {
+      const questTags = await tagService.getTagsByQuestId(quest.id);
+      setTags(questTags);
+    };
+    loadTags();
+  }, [quest.id]);
+  
   const handleStartQuest = () => {
     goToQuest(quest);
     onClose();
@@ -36,9 +42,9 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
           <Text style={styles.description}>{quest.description}</Text>
         )}
 
-        {quest.tags.length > 0 && (
+        {tags.length > 0 && (
           <View style={styles.tagsContainer}>
-            {quest.tags.map((tag, index) => {
+            {tags.map((tag, index) => {
               const [category, value] = tag.name.split(':');
               return (
                 <View key={tag.id} style={styles.tagItem}>

@@ -21,11 +21,7 @@
         "foregroundImage": "./assets/images/langquest_icon_v1.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.etengenesis.langquest",
-      "minSdkVersion": 24,
-      "buildProperties": {
-        "ffmpegKitPackage": "audio"
-      }
+      "package": "com.etengenesis.langquest"
     },
     "web": {
       "bundler": "metro",
@@ -34,13 +30,28 @@
     },
     "plugins": [
       "expo-router",
-      "./plugins/withAndroidConfig"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 31,
+            "minSdkVersion": 24,
+            "buildToolsVersion": "24.0.0"
+          },
+          "ios": {
+            "deploymentTarget": "13.4"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "eas": {
+        "project_id": "fafd03a9-a42c-44c7-849c-b0f84fbffe93",
         "projectId": "fafd03a9-a42c-44c7-849c-b0f84fbffe93"
       }
     },

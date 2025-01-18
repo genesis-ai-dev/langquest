@@ -11,229 +11,253 @@ const timestampDefault = sql`CURRENT_TIMESTAMP`;
 const baseColumns = {
   id: text().primaryKey().$defaultFn(() => uuidDefault),
   rev: int().notNull(),
-  createdAt: text().notNull().default(timestampDefault),
-  lastUpdated: text().notNull().default(timestampDefault),
-  versionChainId: text().notNull(),
+  created_at: text().notNull().default(timestampDefault),
+  last_updated: text().notNull().default(timestampDefault),
+  version_chain_id: text().notNull(),
 };
 
-export const user = sqliteTable("User", {
+export const profile = sqliteTable("profile", {
   ...baseColumns,
-  username: text().notNull(),
-  password: text().notNull(),
+  username: text(),
+  password: text(),
   // icon: text().$type<IconName>(),
   // achievements: text(),
-  uiLanguageId: text().notNull(),
+  ui_language_id: text(),
 });
 
-export const userRelations = relations(user, ({ many, one }) => ({
-  createdLanguages: many(language, { relationName: 'creator' }),
-  uiLanguage: one(language, {  
-    fields: [user.uiLanguageId],
+export const userRelations = relations(profile, ({ many, one }) => ({
+  created_languages: many(language, { relationName: 'creator' }),
+  ui_language: one(language, {  
+    fields: [profile.ui_language_id],
     references: [language.id],
   }),
 }));
 
-export const language = sqliteTable("Language", {
+export const language = sqliteTable("language", {
   ...baseColumns,
-  // Enforce the existence of either nativeName or englishName in the app
-  nativeName: text(), // Enforce uniqueness across chains in the app
-  englishName: text(), // Enforce uniqueness across chains in the app
+  // Enforce the existence of either native_name or english_name in the app
+  native_name: text(), // Enforce uniqueness across chains in the app
+  english_name: text(), // Enforce uniqueness across chains in the app
   iso639_3: text(), // Enforce uniqueness across chains in the app
-  uiReady: int({ mode: 'boolean' }).notNull(),
-  creatorId: text(),
+  ui_ready: int({ mode: 'boolean' }).notNull(),
+  creator_id: text(),
 });
 
 export const languageRelations = relations(language, ({ one, many }) => ({
-  creator: one(user, {
-    fields: [language.creatorId],
-    references: [user.id],
+  creator: one(profile, {
+    fields: [language.creator_id],
+    references: [profile.id],
   }),
-  uiUsers: many(user, { relationName: 'uiLanguage' }),
+  uiUsers: many(profile, { relationName: 'uiLanguage' }),
   sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
   targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
-export const project = sqliteTable("Project", {
+export const project = sqliteTable("project", {
   ...baseColumns,
   name: text().notNull(),
   description: text(),
-  sourceLanguageId: text().notNull(),
-  targetLanguageId: text().notNull(),
+  source_language_id: text().notNull(),
+  target_language_id: text().notNull(),
 });
 
 export const projectRelations = relations(project, ({ one }) => ({
-  sourceLanguage: one(language, {
-    fields: [project.sourceLanguageId],
+  source_language: one(language, {
+    fields: [project.source_language_id],
     references: [language.id],
   }),
-  targetLanguage: one(language, {
-    fields: [project.targetLanguageId],
+  target_language: one(language, {
+    fields: [project.target_language_id],
     references: [language.id],
   }),
 }));
 
-export const quest = sqliteTable("Quest", {
+export const quest = sqliteTable("quest", {
   ...baseColumns,
   name: text().notNull(),
   description: text(),
-  projectId: text().notNull(),
+  project_id: text().notNull(),
 });
 
 export const questRelations = relations(quest, ({ one, many }) => ({
   project: one(project, {
-    fields: [quest.projectId],
+    fields: [quest.project_id],
     references: [project.id],
   }),
-  tags: many(questToTags),
-  assets: many(questToAssets),
+  tags: many(quest_tag_link),
+  assets: many(quest_asset_link),
 }));
 
-export const tag = sqliteTable("Tag", {
+export const tag = sqliteTable("tag", {
   ...baseColumns,
   name: text().notNull(),
 });
 
 export const tagRelations = relations(tag, ({ many }) => ({
-  quests: many(questToTags),
-  assets: many(assetToTags),
+  quests: many(quest_tag_link),
+  assets: many(asset_tag_link),
 }));
 
-export const questToTags = sqliteTable("QuestToTags", {
-    questId: text()
+export const quest_tag_link = sqliteTable("quest_tag_link", {
+    quest_id: text()
       .notNull()
       .references(() => quest.id),
-    tagId: text()
+    tag_id: text()
       .notNull() 
       .references(() => tag.id),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.questId, t.tagId] }),
+    pk: primaryKey({ columns: [t.quest_id, t.tag_id] }),
   })
 );
 
-export const questToTagsRelations = relations(questToTags, ({ one }) => ({
+export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
   quest: one(quest, {
-    fields: [questToTags.questId],
+    fields: [quest_tag_link.quest_id],
     references: [quest.id],
   }),
   tag: one(tag, {
-    fields: [questToTags.tagId], 
+    fields: [quest_tag_link.tag_id], 
     references: [tag.id],
   }),
 }));
 
-export const asset = sqliteTable("Asset", {
+export const asset = sqliteTable("asset", {
   ...baseColumns,
   name: text().notNull(),
-  sourceLanguageId: text().notNull(),
-  text: text(),
-  // text: text({ mode: 'json' }).$type<string[]>().notNull(),
-  images: text({ mode: 'json' }).$type<number[]>(),
-  audio: text({ mode: 'json' }).$type<number[]>(),
+  source_language_id: text().notNull(),
+  text: text().notNull(),
+  images: text({ mode: 'json' }).$type<string[]>(),
+  audio: text({ mode: 'json' }).$type<string[]>(),
 });
 
 export const assetRelations = relations(asset, ({ one, many }) => ({
-  sourceLanguage: one(language, {
-    fields: [asset.sourceLanguageId],
+  source_language: one(language, {
+    fields: [asset.source_language_id],
     references: [language.id],
   }),
-  tags: many(assetToTags),
-  quests: many(questToAssets),
+  tags: many(asset_tag_link),
+  quests: many(quest_asset_link),
   translations: many(translation),
 }));
 
-export const assetToTags = sqliteTable(
-  "AssetToTags",
+export const asset_tag_link = sqliteTable(
+  "asset_tag_link",
   {
-    assetId: text()
+    asset_id: text()
       .notNull()
       .references(() => asset.id),
-    tagId: text()
+    tag_id: text()
       .notNull()
       .references(() => tag.id),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.assetId, t.tagId] }),
+    pk: primaryKey({ columns: [t.asset_id, t.tag_id] }),
   })
 );
 
-export const assetToTagsRelations = relations(assetToTags, ({ one }) => ({
+export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
   asset: one(asset, {
-    fields: [assetToTags.assetId],
+    fields: [asset_tag_link.asset_id],
     references: [asset.id],
   }),
   tag: one(tag, {
-    fields: [assetToTags.tagId],
+    fields: [asset_tag_link.tag_id],
     references: [tag.id],
   }),
 }));
 
-export const questToAssets = sqliteTable(
-  "QuestToAssets",
+export const quest_asset_link = sqliteTable(
+  "quest_asset_link",
   {
-    questId: text()
+    quest_id: text()
       .notNull()
       .references(() => quest.id),
-    assetId: text()
+    asset_id: text()
       .notNull()
       .references(() => asset.id),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.questId, t.assetId] }),
+    pk: primaryKey({ columns: [t.quest_id, t.asset_id] }),
   })
 );
 
-export const questToAssetsRelations = relations(questToAssets, ({ one }) => ({
+export const quest_asset_linkRelations = relations(quest_asset_link, ({ one }) => ({
   quest: one(quest, {
-    fields: [questToAssets.questId],
+    fields: [quest_asset_link.quest_id],
     references: [quest.id],
   }),
   asset: one(asset, {
-    fields: [questToAssets.assetId],
+    fields: [quest_asset_link.asset_id],
     references: [asset.id],
   }),
 }));
 
-export const translation = sqliteTable("Translation", {
+export const translation = sqliteTable("translation", {
   ...baseColumns,
-  assetId: text().notNull().references(() => asset.id),
-  targetLanguageId: text().notNull().references(() => language.id),
+  asset_id: text().notNull().references(() => asset.id),
+  target_language_id: text().notNull().references(() => language.id),
   text: text().notNull(),
-  audio: text(),
-  creatorId: text().notNull().references(() => user.id),
+  audio: text({ mode: 'json' }).$type<string>(),
+  creator_id: text().notNull().references(() => profile.id),
 });
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
   asset: one(asset, {
-    fields: [translation.assetId],
+    fields: [translation.asset_id],
     references: [asset.id],
   }),
-  targetLanguage: one(language, {
-    fields: [translation.targetLanguageId],
+  target_language: one(language, {
+    fields: [translation.target_language_id],
     references: [language.id],
   }),
-  creator: one(user, {
-    fields: [translation.creatorId],
-    references: [user.id],
+  creator: one(profile, {
+    fields: [translation.creator_id],
+    references: [profile.id],
   }),
   votes: many(vote),
 }));
 
-export const vote = sqliteTable("Vote", {
+export const vote = sqliteTable("vote", {
   ...baseColumns,
-  translationId: text().notNull().references(() => translation.id),
+  translation_id: text().notNull().references(() => translation.id),
   polarity: text().notNull(), // "up" or "down"
   comment: text(),
-  creatorId: text().notNull().references(() => user.id),
+  creator_id: text().notNull().references(() => profile.id),
 });
 
 export const voteRelations = relations(vote, ({ one }) => ({
   translation: one(translation, {
-    fields: [vote.translationId],
+    fields: [vote.translation_id],
     references: [translation.id],
   }),
-  creator: one(user, {
-    fields: [vote.creatorId],
-    references: [user.id],
+  creator: one(profile, {
+    fields: [vote.creator_id],
+    references: [profile.id],
   }),
 }));
+
+export const drizzleSchema = {
+  profile,
+  language,
+  project,
+  quest,
+  tag,
+  quest_tag_link,
+  asset,
+  asset_tag_link,
+  quest_asset_link,
+  translation,
+  vote,
+  userRelations,
+  languageRelations,
+  projectRelations,
+  questRelations,
+  tagRelations,
+  quest_tag_linkRelations,
+  assetRelations,
+  asset_tag_linkRelations,
+  quest_asset_linkRelations,
+  translationRelations,
+  voteRelations,
+};

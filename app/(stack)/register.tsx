@@ -4,6 +4,7 @@ import { languageService } from '@/database_services/languageService';
 import { userService } from '@/database_services/userService';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useSystem } from '@/db/powersync/system';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,43 +28,56 @@ type Language = typeof language.$inferSelect;
 export default function Register() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
-  const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
-  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [credentials, setCredentials] = useState({ 
+    username: '', 
+    email: '', 
+    password: '' 
+  });
   const [showLanguages, setShowLanguages] = useState(false);
+  const { supabaseConnector } = useSystem();
 
   // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
-      setPassword('');
+      // setPassword('');
+      setCredentials({ username: '', email: '', password: '' });
       setConfirmPassword('');
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadLanguages();
-    }, []),
-  );
-
   // Load saved language on mount
   useEffect(() => {
-    const loadSavedLanguage = async () => {
+    const initializeLanguages = async () => {
       try {
-        const savedLanguageId =
-          await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId) {
+        // Load languages first
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+         // Then get saved language ID
+        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
+        
+        if (savedLanguageId && loadedLanguages.some(l => l.id === savedLanguageId)) {
           setSelectedLanguageId(savedLanguageId);
+        } else if (loadedLanguages.length > 0) {
+          // Fallback to English or first language
+          const englishLang = loadedLanguages.find(l => 
+            l.english_name?.toLowerCase() === 'english' || 
+            l.native_name?.toLowerCase() === 'english'
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
       } catch (error) {
-        console.error('Error loading saved language:', error);
+        console.error('Error initializing languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-    loadSavedLanguage();
+     initializeLanguages();
   }, []);
 
   // Save language when it changes
@@ -80,27 +94,18 @@ export default function Register() {
     saveLanguage();
   }, [selectedLanguageId]);
 
-  const loadLanguages = async () => {
-    try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
-      setLanguages(loadedLanguages);
-      // Set default language if available
-      if (!selectedLanguageId && loadedLanguages.length > 0) {
-        const englishLang = loadedLanguages.find(
-          (l) =>
-            l.englishName?.toLowerCase() === 'english' ||
-            l.nativeName?.toLowerCase() === 'english',
-        );
-        setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading languages:', error);
-      Alert.alert('Error', t('failedLoadLanguages'));
-    }
-  };
-
   const handleRegister = async () => {
-    if (password !== confirmPassword) {
+    if (!credentials.username.trim()) {
+      Alert.alert('Error', t('usernameRequired'));
+      return;
+    }
+  
+    if (!credentials.email.trim()) {
+      Alert.alert('Error', t('emailRequired'));
+      return;
+    }
+  
+    if (credentials.password !== confirmPassword) {
       Alert.alert('Error', t('passwordsNoMatch'));
       return;
     }
@@ -112,24 +117,15 @@ export default function Register() {
 
     try {
       const userData = {
-        username: username.trim(),
-        password,
-        uiLanguageId: selectedLanguageId,
+        credentials,
+        ui_language_id: selectedLanguageId
       };
 
       const newUser = await userService.createNew(userData);
-      const authenticatedUser = await userService.validateCredentials(
-        username,
-        password,
-      );
-      if (newUser) {
-        setPassword('');
-        setConfirmPassword('');
-        setCurrentUser(authenticatedUser); // Set the newly created user as current user
-        Alert.alert(t('success'), t('registrationSuccess'), [
-          { text: t('ok'), onPress: () => router.replace('/projects') }, // Go directly to projects
-        ]);
-      }
+      setCredentials({ username: '', email: '', password: '' });
+      setConfirmPassword('');
+      setCurrentUser(newUser); // Set the newly created user as current user
+      router.push("/projects");
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert(
@@ -181,17 +177,10 @@ export default function Register() {
                   style={{ marginBottom: spacing.small }}
                 />
                 <CustomDropdown
-                  value={
-                    languages.find((l) => l.id === selectedLanguageId)
-                      ?.nativeName || ''
-                  }
-                  options={languages
-                    .map((l) => l.nativeName)
-                    .filter((name): name is string => name !== null)}
+                  value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
+                  options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
-                    const lang = languages.find(
-                      (l) => l.nativeName === langName,
-                    );
+                    const lang = languages.find(l => l.native_name === langName);
                     if (lang) {
                       setSelectedLanguageId(lang.id);
                     }
@@ -219,28 +208,26 @@ export default function Register() {
                   color={colors.text}
                   style={{ marginBottom: spacing.small }}
                 />
-                <View
-                  style={[
-                    sharedStyles.input,
-                    {
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      width: '100%',
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color={colors.text}
-                    style={{ marginRight: spacing.medium }}
-                  />
+
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('username')}
                     placeholderTextColor={colors.text}
-                    value={username}
-                    onChangeText={setUsername}
+                    value={credentials.username}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text.trim() }))}
+                  />
+                </View>
+
+                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
+                  <Ionicons name="mail-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.email}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, email: text.toLowerCase().trim() }))}
                   />
                 </View>
 
@@ -265,8 +252,8 @@ export default function Register() {
                     placeholder={t('password')}
                     placeholderTextColor={colors.text}
                     secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
+                    value={credentials.password}
+                    onChangeText={(text) => setCredentials(prev => ({ ...prev, password: text }))}
                   />
                 </View>
 

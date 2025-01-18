@@ -4,16 +4,16 @@ import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from './AudioPlayer';
 import { VoteCommentModal } from './VoteCommentModal';
-import { TranslationWithRelations } from '@/database_services/translationService';
-import { voteService } from '@/database_services/voteService';
+import { Translation } from '@/database_services/translationService';
+import { voteService, Vote } from '@/database_services/voteService';
 import { translationService } from '@/database_services/translationService';
-import { vote } from '@/db/drizzleSchema';
+import { vote, language } from '@/db/drizzleSchema';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface TranslationModalProps {
-  translation: TranslationWithRelations;
+  translation: Translation;
   onClose: () => void;
   onVoteSubmitted: () => void;
 }
@@ -29,20 +29,32 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect | null>(null);
+  const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
-    if (currentUser) {
-      loadUserVote();
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    loadUserVote();
-  }, []);
+    const loadVotes = async () => {
+      const translationVotes = await voteService.getVotesByTranslationId(translation.id);
+      setVotes(translationVotes);
+      if (currentUser) {
+        const userVote = translationVotes.find(v => v.creator_id === currentUser.id);
+        setUserVote(userVote || null);
+      }
+    };
+    loadVotes();
+  }, [translation.id, currentUser]);
 
   useEffect(() => {
     setTranslation(initialTranslation);
   }, [initialTranslation]);
+
+  const loadVotes = async () => {
+    try {
+      const translationVotes = await voteService.getVotesByTranslationId(translation.id);
+      setVotes(translationVotes);
+    } catch (error) {
+      console.error('Error loading votes:', error);
+    }
+  };
 
   const loadUserVote = async () => {
     try {
@@ -53,54 +65,47 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     }
   };
 
-  const isOwnTranslation = currentUser?.id === translation.creatorId;
+  const calculateVoteCount = () => {
+    return votes.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0);
+  };
+
+  const isOwnTranslation = currentUser?.id === translation.creator_id;
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
       Alert.alert('Error', t('logInToVote'));
       return;
     }
-    // If clicking the same vote type, remove the vote without showing modal
-    if (userVote?.polarity === voteType) {
-      try {
-        await voteService.addVote({
-          translationId: translation.id,
-          creatorId: currentUser.id,
-          polarity: voteType,
-        });
-        
-        // Get updated translation data after vote removal
-        const updatedTranslations = await translationService.getTranslationsByAssetId(translation.assetId);
-        const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
-        if (updatedTranslation) {
-          setTranslation(updatedTranslation);
-        }
 
-        onVoteSubmitted();
-        await loadUserVote();
-      } catch (error) {
-        console.error('Error removing vote:', error);
-        Alert.alert('Error', t('failedRemoveVote'));
-      }
-      return;
+    try {
+      await voteService.addVote({
+        translation_id: translation.id,
+        creator_id: currentUser.id,
+        polarity: voteType,
+      });
+      onVoteSubmitted();
+      // Update local state to reflect the vote
+      const updatedVotes = await voteService.getVotesByTranslationId(translation.id);
+      setVotes(updatedVotes);
+      const newUserVote = updatedVotes.find(v => v.creator_id === currentUser.id);
+      setUserVote(newUserVote || null);
+    } catch (error) {
+      console.error('Error handling vote:', error);
+      Alert.alert('Error', 'Failed to submit vote');
     }
-
-    // Otherwise, show the comment modal for new/changed votes
-    setCurrentVoteType(voteType);
-    setShowVoteModal(true);
   };
 
   const handleVoteSubmit = async (comment: string) => {
     try {
       await voteService.addVote({
-        translationId: translation.id,
-        creatorId: currentUser!.id,
+        translation_id: translation.id,
+        creator_id: currentUser!.id,
         polarity: currentVoteType,
         comment: comment || undefined,
       });
       
       // Get updated translation data after vote
-      const updatedTranslations = await translationService.getTranslationsByAssetId(translation.assetId);
+      const updatedTranslations = await translationService.getTranslationsByAssetId(translation.asset_id);
       const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
       if (updatedTranslation) {
         setTranslation(updatedTranslation);
@@ -126,7 +131,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <ScrollView style={styles.scrollView}>
           {/* <Text style={styles.translatorInfo}>
             Translated by {translation.creator.username} in{' '}
-            {translation.targetLanguage.nativeName || translation.targetLanguage.englishName}
+            {translation.target_language.native_name || translation.target_language.english_name}
           </Text> */}
           <Text style={styles.text}>{translation.text}</Text>
         </ScrollView>
@@ -156,7 +161,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.voteRank}>{translation.voteCount}</Text>
+        <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
         <TouchableOpacity 
           style={[
             styles.feedbackButton,

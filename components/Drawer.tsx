@@ -1,7 +1,7 @@
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { AssetWithRelations } from '@/database_services/assetService';
-import type { ProjectWithRelations } from '@/database_services/projectService';
-import { QuestWithRelations } from '@/database_services/questService';
+import { Asset } from '@/database_services/assetService';
+import type { Project } from '@/database_services/projectService';
+import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,17 +42,17 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <Category
           title={t('projects')}
           items={recentProjects}
-          onPress={(item) => goToProject(item as ProjectWithRelations, true)}
+          onPress={(item) => goToProject(item as Project, true)}
         />
         <Category
           title={t('quests')}
           items={recentQuests}
-          onPress={(item) => goToQuest(item as QuestWithRelations, true)}
+          onPress={(item) => goToQuest(item as Quest, true)}
         />
         <Category
           title={t('assets')}
           items={recentAssets}
-          onPress={(item) => goToAsset(item as AssetWithRelations, true)}
+          onPress={(item) => goToAsset(item as Asset, true)}
         />
       </DrawerContentScrollView>
       <View style={styles.drawerFooter}>
@@ -152,10 +152,8 @@ function Category({
   onPress,
 }: {
   title: string;
-  items: (ProjectWithRelations | QuestWithRelations | AssetWithRelations)[];
-  onPress: (
-    item: ProjectWithRelations | QuestWithRelations | AssetWithRelations,
-  ) => void;
+  items: (Project | Quest | Asset)[];
+  onPress: (item: Project | Quest | Asset) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 

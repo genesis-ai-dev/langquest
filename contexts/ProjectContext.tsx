@@ -1,56 +1,43 @@
-import React, { createContext, useContext, useState } from 'react';
-import {
-  projectService,
-  ProjectWithRelations,
-} from '@/database_services/projectService';
-import {
-  questService,
-  QuestWithRelations,
-} from '@/database_services/questService';
-import { AssetWithRelations } from '@/database_services/assetService';
+import { Asset } from '@/database_services/assetService';
+import { Project, projectService } from '@/database_services/projectService';
+import { Quest } from '@/database_services/questService';
 import { useRouter } from 'expo-router';
+import React, { createContext, useContext, useState } from 'react';
 
 interface ProjectContextType {
-  activeProject: ProjectWithRelations | null;
-  recentProjects: ProjectWithRelations[];
-  activeQuest: QuestWithRelations | null;
-  recentQuests: QuestWithRelations[];
-  activeAsset: AssetWithRelations | null;
-  recentAssets: AssetWithRelations[];
-  goToProject: (project: ProjectWithRelations, navigate?: boolean) => void;
-  goToQuest: (quest: QuestWithRelations, navigate?: boolean) => void;
-  goToAsset: (asset: AssetWithRelations, navigate?: boolean) => void;
-  setActiveProject: (project: ProjectWithRelations | null) => void;
-  setActiveQuest: (quest: QuestWithRelations | null) => void;
-  setActiveAsset: (asset: AssetWithRelations | null) => void;
+  activeProject: Project | null;
+  recentProjects: Project[];
+  activeQuest: Quest | null;
+  recentQuests: Quest[];
+  activeAsset: Asset | null;
+  recentAssets: Asset[];
+  goToProject: (project: Project, navigate?: boolean) => void;
+  goToQuest: (quest: Quest, navigate?: boolean) => void;
+  goToAsset: (asset: Asset, navigate?: boolean) => void;
+  setActiveProject: (project: Project | null) => void;
+  setActiveQuest: (quest: Quest | null) => void;
+  setActiveAsset: (asset: Asset | null) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [activeProject, setActiveProject] =
-    useState<ProjectWithRelations | null>(null);
-  const [activeQuest, setActiveQuest] = useState<QuestWithRelations | null>(
-    null,
-  );
-  const [activeAsset, setActiveAsset] = useState<AssetWithRelations | null>(
-    null,
-  );
-  const [recentProjects, setRecentProjects] = useState<ProjectWithRelations[]>(
-    [],
-  );
-  const [recentQuests, setRecentQuests] = useState<QuestWithRelations[]>([]);
-  const [recentAssets, setRecentAssets] = useState<AssetWithRelations[]>([]);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+  const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [recentQuests, setRecentQuests] = useState<Quest[]>([]);
+  const [recentAssets, setRecentAssets] = useState<Asset[]>([]);
 
-  function goToProject(project: ProjectWithRelations, navigate?: boolean) {
+  function goToProject(project: Project, navigate?: boolean) {
     setActiveProject(project);
     setActiveQuest(null);
     setActiveAsset(null);
 
     router[navigate ? 'navigate' : 'push']({
       pathname: '/quests',
-      params: { projectId: project.id, projectName: project.name },
+      params: { project_id: project.id, projectName: project.name },
     });
 
     setRecentProjects((prev) => {
@@ -59,12 +46,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function goToQuest(quest: QuestWithRelations, navigate?: boolean) {
+  function goToQuest(quest: Quest, navigate?: boolean) {
     setActiveQuest(quest);
     setActiveAsset(null);
     router[navigate ? 'navigate' : 'push']({
       pathname: '/assets',
-      params: { questId: quest.id, questName: quest.name },
+      params: { quest_id: quest.id, questName: quest.name },
     });
 
     setRecentQuests((prev) => {
@@ -73,16 +60,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     });
 
     // change active project based on loaded quest
-    projectService.getProjectById(quest.projectId).then(setActiveProject);
+    projectService.getProjectById(quest.project_id).then(setActiveProject);
   }
 
-  function goToAsset(asset: AssetWithRelations, navigate?: boolean) {
+  function goToAsset(asset: Asset, navigate?: boolean) {
     setActiveAsset(asset);
 
     router[navigate ? 'navigate' : 'push']({
       pathname: '/assetView',
       params: {
-        assetId: asset.id,
+        asset_id: asset.id,
         assetName: asset.name,
       },
     });
@@ -93,8 +80,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     });
 
     // change active project and quest based on loaded asset
-    projectService.getProjectById(asset.projectId).then(setActiveProject);
-    questService.getQuestById(asset.questId).then(setActiveQuest);
+    // will add this back when we restructure stack navigation structure (so we can get the quest and project ids from previous navigation url state)
+    // projectService.getProjectById(asset.project_id).then(setActiveProject);
+    // questService.getQuestById(asset.quest_id).then(setActiveQuest);
   }
 
   return (

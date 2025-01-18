@@ -15,7 +15,7 @@ interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: () => void;
-  assetId: string;
+  asset_id: string;
 }
 
 const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
@@ -24,7 +24,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   isVisible, 
   onClose, 
   onSubmit,
-  assetId,
+  asset_id,
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
@@ -65,11 +65,11 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       }
 
       await translationService.createTranslation({
-        text: translationText.trim() || '',
-        targetLanguageId: activeProject.targetLanguageId,
-        assetId,
-        creatorId: currentUser.id,
-        audio: permanentAudioUri,
+        text: translationText.trim(),
+        target_language_id: activeProject.target_language_id,
+        asset_id,
+        creator_id: currentUser.id,
+        //audio: permanentAudioUri,
       });
       
       setTranslationText('');

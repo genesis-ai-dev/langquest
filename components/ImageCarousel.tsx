@@ -5,7 +5,7 @@ import { loadAsset } from '../utils/assetUtils';
 import { Asset } from 'expo-asset';
 
 interface ImageCarouselProps {
-  imageModuleIds: number[];
+  imageModuleIds: string[];
 }
 
 const ImageCarousel: React.FC<ImageCarouselProps> = ({ imageModuleIds }) => {

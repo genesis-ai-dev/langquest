@@ -1,13 +1,25 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/database';
+// import { db } from '../db/database';
 import { language } from '../db/drizzleSchema';
+
+import { system } from '../db/powersync/system';
+
+const db = system.db;
 
 export class LanguageService {
   async getUiReadyLanguages() {
     return await db
       .select()
       .from(language)
-      .where(eq(language.uiReady, true));
+      .where(eq(language.ui_ready, true));
+  }
+
+  async getLanguageById(id: string) {
+    const results = await db
+      .select()
+      .from(language)
+      .where(eq(language.id, id));
+    return results[0];
   }
 
   

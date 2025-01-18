@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserWithRelations, userService } from '@/database_services/userService';
+import { User, userService } from '@/database_services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { system } from '@/db/powersync/system';
 
 interface AuthContextType {
-  currentUser: UserWithRelations | null;
-  setCurrentUser: (user: UserWithRelations | null) => void;
+  currentUser: User | null;
+  setCurrentUser: (profile: User | null) => void;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
   isLoading: boolean;
@@ -14,9 +15,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<UserWithRelations | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { supabaseConnector } = system;
 
   // Check for stored user session on app start
   useEffect(() => {
@@ -24,9 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const storedUserId = await AsyncStorage.getItem('userId');
         if (storedUserId) {
-          const user = await userService.getUserById(storedUserId);
-          if (user) {
-            setCurrentUser(user);
+          const profile = await userService.getUserById(storedUserId);
+          if (profile) {
+            setCurrentUser(profile);
           }
         }
       } catch (error) {
@@ -60,6 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.removeItem('userId');
       setCurrentUser(null);
+    
+      // Sign out and get new anonymous session
+      await supabaseConnector.signOut();
+      
+      // Reinitialize system with new anonymous user
+      await system.init();
+
       router.replace('/'); // Navigate back to sign-in
     } catch (error) {
       console.error('Error signing out:', error);

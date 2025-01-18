@@ -2,14 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { AssetWithRelations } from '@/database_services/assetService';
+import { Asset } from '@/database_services/assetService';
+import { tagService, Tag } from '@/database_services/tagService';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface AssetFilterModalProps {
   visible: boolean;
   onClose: () => void;
-  assets: AssetWithRelations[];
+  assets: Asset[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -34,19 +35,31 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(initialFilters);
   const [sortingOptions, setSortingOptions] = useState<SortingOption[]>(initialSorting);
+  const [assetTags, setAssetTags] = useState<Record<string, Tag[]>>({});
+
+  useEffect(() => {
+    const loadAllTags = async () => {
+      const tagsMap: Record<string, Tag[]> = {};
+      await Promise.all(
+        assets.map(async (asset) => {
+          tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
+        })
+      );
+      setAssetTags(tagsMap);
+    };
+    loadAllTags();
+  }, [assets]);
   const { t } = useTranslation();
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
     
-    assets.forEach(asset => {
-      asset.tags.forEach(tag => {
-        const [heading, option] = tag.name.split(':');
-        if (!sections[heading]) {
-          sections[heading] = new Set();
-        }
-        sections[heading].add(option);
-      });
+    Object.values(assetTags).flat().forEach(tag => {
+      const [heading, option] = tag.name.split(':');
+      if (!sections[heading]) {
+        sections[heading] = new Set();
+      }
+      sections[heading].add(option);
     });
 
     return Object.entries(sections).map(([heading, options]) => ({
@@ -57,17 +70,16 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
         label: option
       }))
     }));
-  }, [assets]);
+  }, [assetTags]);
 
   const sortingFields = useMemo(() => {
     const fields = new Set(['name']);
-    assets.forEach(asset => {
-      asset.tags.forEach(tag => {
-        fields.add(tag.name.split(':')[0]);
-      });
+    Object.values(assetTags).flat().forEach(tag => {
+      const category = tag.name.split(':')[0];
+      fields.add(category);
     });
     return Array.from(fields);
-  }, [assets]);
+  }, [assetTags]);
 
   useEffect(() => {
     setSelectedOptions(initialFilters);

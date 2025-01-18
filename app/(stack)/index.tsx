@@ -1,36 +1,43 @@
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import { userRepository } from '@/database_services/repositories';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { useAuth } from '@/contexts/AuthContext';
-import { languageService } from '@/database_services/languageService';
-import { userService } from '@/database_services/userService';
-import { language } from '@/db/drizzleSchema';
-import { handleMigrations } from '@/db/migrationHandler';
-import { useTranslation } from '@/hooks/useTranslation';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as schema from '../../db/drizzleSchema';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import { db } from '../../db/database';
-import { seedDatabase } from '../../db/seedDatabase';
 import migrations from '../../drizzle/migrations';
+import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { system } from '../../db/powersync/system';
+import { userService } from '@/database_services/userService';
+import { handleMigrations } from '@/db/migrationHandler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { seedDatabase } from '../db/seedDatabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
+import { languageService } from '@/database_services/languageService';
+import { language } from '@/db/drizzleSchema';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing } from '@/styles/theme';
+import { sharedStyles } from '@/styles/theme';
 
+// const { profile, language } = schema;
+const { supabaseConnector } = system;
+
+// const userRepository = new UserRepository();
 type Language = typeof language.$inferSelect;
 
 export default function Index() {
@@ -38,83 +45,104 @@ export default function Index() {
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
   const [showLanguages, setShowLanguages] = useState(false);
   const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
-  const { t } = useTranslation(selectedLanguage?.englishName?.toLowerCase());
+  const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
 
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [isDbReady, setIsDbReady] = useState(false);
-
-  const { success, error } = useMigrations(db, migrations);
 
   // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
-      setPassword('');
+      // setPassword('');
+      setCredentials({ email: '', password: '' });
     };
   }, []);
 
   useEffect(() => {
-    const initializeDatabase = async () => {
-      try {
-        setDbStatus('Running migrations...');
-        const { success, error } = await handleMigrations();
+    let mounted = true;
 
-        if (!success) {
-          setDbStatus(`Migration error: ${error}`);
-          console.error('Migration error:', error);
+    const initializeDatabase = async () => {
+      if (system.isInitialized()) {
+        console.log('System is already initialized');
+        return;
+      }
+
+      try {
+        console.log('signing in anonymously');
+        const { data, error: signInError } =
+          await supabaseConnector.client.auth.signInAnonymously();
+
+        if (signInError || !mounted) {
+          console.error('Error signing in anonymously:', signInError);
           return;
         }
 
-        setDbStatus('Seeding database...');
-        const seedSuccess = await seedDatabase();
+        const { data: sessionData } =
+          await supabaseConnector.client.auth.getSession();
 
-        if (seedSuccess) {
-          setDbStatus('Database initialized successfully');
-          setIsDbReady(true);
+        if (!mounted) return;
 
-          // Load languages only after database is ready
-          try {
-            const loadedLanguages = await languageService.getUiReadyLanguages();
-            setLanguages(loadedLanguages);
-            if (loadedLanguages.length > 0) {
-              const englishLang = loadedLanguages.find(
-                (l) =>
-                  l.englishName?.toLowerCase() === 'english' ||
-                  l.nativeName?.toLowerCase() === 'english',
-              );
-              setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
-            }
-          } catch (error) {
-            console.error('Error loading languages:', error);
-            Alert.alert('Error', t('failedLoadLanguages'));
-          }
+        if (sessionData.session) {
+          await system.init();
+          // if (mounted) {
+          //   router.push("/projects");
+          // }
         }
+
+        // console.log('attempting to initialize system in index without signing in anonymously');
+        // await system.init();
+        // if (mounted) {
+        //   router.push("/projects");
+        // }
       } catch (error) {
-        console.error('Database initialization error:', error);
-        setDbStatus(`Database initialization failed: ${error}`);
+        console.error('Session check error:', error);
+        if (mounted) {
+          router.replace('/register');
+        }
       }
     };
 
     initializeDatabase();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Load saved language on mount
   useEffect(() => {
-    const loadSavedLanguage = async () => {
+    const loadLanguages = async () => {
       try {
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+
+        // Get saved language ID
         const savedLanguageId =
           await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId) {
+        if (
+          savedLanguageId &&
+          loadedLanguages.some((l) => l.id === savedLanguageId)
+        ) {
           setSelectedLanguageId(savedLanguageId);
+        } else if (loadedLanguages.length > 0) {
+          const englishLang = loadedLanguages.find(
+            (l) =>
+              l.english_name?.toLowerCase() === 'english' ||
+              l.native_name?.toLowerCase() === 'english',
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
       } catch (error) {
-        console.error('Error loading saved language:', error);
+        console.error('Error loading languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-    loadSavedLanguage();
+    loadLanguages();
   }, []);
 
   // Save language when it changes
@@ -132,19 +160,17 @@ export default function Index() {
   }, [selectedLanguageId]);
 
   const handleSignIn = async () => {
-    if (!isDbReady) {
-      Alert.alert('Error', t('databaseNotReady'));
-      return;
-    }
-
     try {
-      const authenticatedUser = await userService.validateCredentials(
-        username,
-        password,
-      );
+      const authenticatedUser = await userService.validateCredentials({
+        email: credentials.email.toLowerCase().trim(),
+        password: credentials.password,
+      });
+
       if (authenticatedUser) {
-        setPassword('');
+        await system.init(); // Initialize PowerSync after successful login
+        setCredentials({ email: '', password: '' });
         setCurrentUser(authenticatedUser);
+        // router.push("/projects");
         router.replace('/projects');
       } else {
         Alert.alert('Error', t('invalidAuth'));
@@ -194,14 +220,14 @@ export default function Index() {
                 <CustomDropdown
                   value={
                     languages.find((l) => l.id === selectedLanguageId)
-                      ?.nativeName || ''
+                      ?.native_name || ''
                   }
                   options={languages
-                    .map((l) => l.nativeName)
+                    .map((l) => l.native_name)
                     .filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
                     const lang = languages.find(
-                      (l) => l.nativeName === langName,
+                      (l) => l.native_name === langName,
                     );
                     if (lang) {
                       setSelectedLanguageId(lang.id);
@@ -241,10 +267,12 @@ export default function Index() {
                   />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
-                    placeholder={t('username')}
+                    placeholder={t('email')}
                     placeholderTextColor={colors.text}
-                    value={username}
-                    onChangeText={setUsername}
+                    value={credentials.email}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, email: text }))
+                    }
                   />
                 </View>
 
@@ -265,9 +293,10 @@ export default function Index() {
                     placeholder={t('password')}
                     placeholderTextColor={colors.text}
                     secureTextEntry
-                    autoCapitalize="none"
-                    value={password}
-                    onChangeText={setPassword}
+                    value={credentials.password}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, password: text }))
+                    }
                   />
                 </View>
               </View>
