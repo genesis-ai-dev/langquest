@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { openDatabaseSync } from "expo-sqlite";
+import { openDatabaseSync } from 'expo-sqlite';
 import * as schema from './drizzleSchema';
 
 // Create a singleton database instance

@@ -2,27 +2,28 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 
 export class AudioPlayer {
   private sound: Audio.Sound | null = null;
-  private onPlaybackStatusUpdate: ((status: AVPlaybackStatus) => void) | null = null;
-  
+  private onPlaybackStatusUpdate: ((status: AVPlaybackStatus) => void) | null =
+    null;
+
   async loadAudio(uri: string) {
     try {
       await this.unloadAudio();
-      
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
+        staysActiveInBackground: true
       });
 
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: false }
       );
-      
+
       if (this.onPlaybackStatusUpdate) {
         sound.setOnPlaybackStatusUpdate(this.onPlaybackStatusUpdate);
       }
-      
+
       this.sound = sound;
       return true;
     } catch (error) {

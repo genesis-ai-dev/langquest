@@ -1,5 +1,9 @@
-const { withAndroidManifest, withGradleProperties, withDangerousMod } = require('@expo/config-plugins');
-const fs = require('fs/promises');  // Add this import
+const {
+  withAndroidManifest,
+  withGradleProperties,
+  withDangerousMod
+} = require('@expo/config-plugins');
+const fs = require('fs/promises'); // Add this import
 
 function modifyBuildGradle(contents) {
   // Replace minSdkVersion line
@@ -7,7 +11,7 @@ function modifyBuildGradle(contents) {
     /minSdkVersion = Integer\.parseInt\(findProperty\('android\.minSdkVersion'\) \?: '\d+'\)/,
     "minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')"
   );
-  
+
   // Add ffmpegKitPackage if not present
   if (!contents.includes('ffmpegKitPackage')) {
     contents = contents.replace(
@@ -16,7 +20,7 @@ function modifyBuildGradle(contents) {
         ffmpegKitPackage = "audio"`
     );
   }
-  
+
   return contents;
 }
 
@@ -38,7 +42,7 @@ const withAndroidConfig = (config) => {
       const newContents = modifyBuildGradle(contents);
       await fs.writeFile(buildGradlePath, newContents);
       return config;
-    },
+    }
   ]);
 
   return config;

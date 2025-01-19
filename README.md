@@ -1,22 +1,25 @@
 # LangQuest
-  
+
 Internal mobile app for collaborative language translation.
-  
+
 ## Quick Start
-  
+
 1. Install dependencies:
+
 ```bash
 npm i
 ```
-  
+
 2. Generate database migrations (run after each edit to the `db/drizzleSchema.ts` file):
+
 ```bash
 npx drizzle-kit generate
 ```
-  
+
 3. Run the app by following the [Expo environment setup guide](https://docs.expo.dev/get-started/set-up-your-environment/) for your platform.
-  
+
 Currently tested on:
+
 - ✅ Android devices
 - ❓ iOS (untested)
 
@@ -39,15 +42,18 @@ Currently tested on:
 Follow these steps to build the Android APK:
 
 1. Install EAS CLI globally:
+
    ```bash
    npm install -g eas-cli
    ```
 
 2. Create an Expo account:
+
    - Visit https://expo.dev/signup
    - Complete the registration process
 
 3. Log in to EAS from your terminal:
+
    ```bash
    eas login
    ```

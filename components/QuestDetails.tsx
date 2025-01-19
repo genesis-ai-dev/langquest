@@ -8,17 +8,19 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-
 interface QuestDetailsProps {
   quest: Quest;
   onClose: () => void;
 }
 
-export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) => {
-  const [tags, setTags] = useState<typeof tag.$inferSelect[]>([]);
+export const QuestDetails: React.FC<QuestDetailsProps> = ({
+  quest,
+  onClose
+}) => {
+  const [tags, setTags] = useState<(typeof tag.$inferSelect)[]>([]);
   const { t } = useTranslation();
   const { goToQuest } = useProjectContext();
-  
+
   useEffect(() => {
     const loadTags = async () => {
       const questTags = await tagService.getTagsByQuestId(quest.id);
@@ -26,7 +28,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({ quest, onClose }) =>
     };
     loadTags();
   }, [quest.id]);
-  
+
   const handleStartQuest = () => {
     goToQuest(quest);
     onClose();
@@ -69,56 +71,56 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   closeArea: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFillObject
   },
   modal: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
     width: '80%',
-    maxHeight: '80%',
+    maxHeight: '80%'
   },
   title: {
     fontSize: fontSizes.xlarge,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   description: {
     fontSize: fontSizes.medium,
     color: colors.text,
-    marginBottom: spacing.large,
+    marginBottom: spacing.large
   },
   tagsContainer: {
-    marginBottom: spacing.large,
+    marginBottom: spacing.large
   },
   tagItem: {
     flexDirection: 'row',
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   tagCategory: {
     fontSize: fontSizes.medium,
     color: colors.text,
     fontWeight: 'bold',
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   tagValue: {
     fontSize: fontSizes.medium,
-    color: colors.text,
+    color: colors.text
   },
   startButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     alignItems: 'center',
-    marginTop: spacing.large,
+    marginTop: spacing.large
   },
   startButtonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-  },
+    fontWeight: 'bold'
+  }
 });

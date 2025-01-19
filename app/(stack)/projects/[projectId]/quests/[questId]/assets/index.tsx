@@ -8,7 +8,7 @@ import {
   colors,
   fontSizes,
   sharedStyles,
-  spacing,
+  spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +23,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -75,26 +75,27 @@ export default function Assets() {
 
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveAsset, goToAsset, setActiveQuest } = useProjectContext();
-  const { quest_id, questName } = useLocalSearchParams<{
-    quest_id: string;
+  const { goToAsset } = useProjectContext();
+  const { questId, questName, projectId } = useLocalSearchParams<{
+    questId: string;
     questName: string;
+    projectId: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
-    {},
+    {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     loadAssets();
-  }, [quest_id]);
+  }, [questId]);
 
   const loadAssets = async () => {
     try {
-      if (!quest_id) return;
-      const loadedAssets = await assetService.getAssetsByQuestId(quest_id);
+      if (!questId) return;
+      const loadedAssets = await assetService.getAssetsByQuestId(questId);
       setAssets(loadedAssets);
 
       // Load tags for all assets
@@ -102,7 +103,7 @@ export default function Assets() {
       await Promise.all(
         loadedAssets.map(async (asset) => {
           tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
-        }),
+        })
       );
       console.log('Tags found for asset: ', tagsMap);
       setAssetTags(tagsMap);
@@ -116,7 +117,7 @@ export default function Assets() {
     (
       assetsToFilter: Asset[],
       filters: Record<string, string[]>,
-      search: string,
+      search: string
     ) => {
       return assetsToFilter.filter((asset) => {
         // Search filter
@@ -134,17 +135,17 @@ export default function Assets() {
               return (
                 tagCategory.toLowerCase() === category.toLowerCase() &&
                 selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`,
+                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`
                 )
               );
             });
-          },
+          }
         );
 
         return matchesSearch && matchesFilters;
       });
     },
-    [assetToTags],
+    [assetToTags]
   );
 
   const applySorting = useCallback(
@@ -173,7 +174,7 @@ export default function Assets() {
         return 0;
       });
     },
-    [assetTags],
+    [assetTags]
   );
 
   // Load tags when assets change
@@ -183,7 +184,7 @@ export default function Assets() {
       await Promise.all(
         assets.map(async (asset) => {
           tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
-        }),
+        })
       );
       setAssetToTags(tagsMap);
     };
@@ -200,7 +201,7 @@ export default function Assets() {
     activeSorting,
     assets,
     applyFilters,
-    applySorting,
+    applySorting
   ]);
 
   const getActiveOptionsCount = () => {
@@ -210,8 +211,7 @@ export default function Assets() {
   };
 
   const handleAssetPress = (asset: Asset) => {
-    setActiveAsset(asset);
-    goToAsset(asset);
+    goToAsset(asset, questId, projectId);
   };
 
   const handleCloseDetails = () => {
@@ -254,7 +254,7 @@ export default function Assets() {
           return true;
         }
         return false;
-      },
+      }
     );
 
     return () => backHandler.remove();
@@ -270,10 +270,7 @@ export default function Assets() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <TouchableOpacity
-            onPress={() => {
-              router.back();
-              setActiveQuest(null);
-            }}
+            onPress={() => router.back()}
             style={sharedStyles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -348,21 +345,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   searchIcon: {
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   searchInput: {
     flex: 1,
     color: colors.text,
     fontSize: fontSizes.medium,
-    paddingVertical: spacing.medium,
+    paddingVertical: spacing.medium
   },
   filterIcon: {
     marginLeft: spacing.small,
     padding: spacing.small,
-    position: 'relative',
+    position: 'relative'
   },
   badge: {
     position: 'absolute',
@@ -373,17 +370,17 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   badgeText: {
     color: colors.buttonText,
     fontSize: fontSizes.small,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   tag: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
-    marginRight: spacing.small,
-  },
+    marginRight: spacing.small
+  }
 });

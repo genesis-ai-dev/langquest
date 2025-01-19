@@ -2,7 +2,13 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, borderRadius, sharedStyles } from '@/styles/theme';
+import {
+  colors,
+  fontSizes,
+  spacing,
+  borderRadius,
+  sharedStyles
+} from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface DropdownOption {
@@ -33,7 +39,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   fullWidth = true,
   search = true,
   searchPlaceholder,
-  containerStyle, 
+  containerStyle
 }) => {
   const { t } = useTranslation();
   const data: DropdownOption[] = options.map((option) => {
@@ -44,7 +50,13 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   });
 
   return (
-    <View style={[styles.container, fullWidth ? styles.fullWidth : styles.halfWidth, containerStyle]}>
+    <View
+      style={[
+        styles.container,
+        fullWidth ? styles.fullWidth : styles.halfWidth,
+        containerStyle
+      ]}
+    >
       {label && <Text style={styles.label}>{label}:</Text>}
       <Dropdown
         style={styles.dropdown}
@@ -61,17 +73,26 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         placeholder={t('selectItem')}
         searchPlaceholder={searchPlaceholder || t('search')}
         value={value}
-        onChange={item => {
+        onChange={(item) => {
           onSelect(item.value);
         }}
         onFocus={onToggle}
         onBlur={onToggle}
         renderLeftIcon={() => (
-          <Ionicons name="chevron-down-outline" size={20} color={colors.text} style={styles.icon} />
+          <Ionicons
+            name="chevron-down-outline"
+            size={20}
+            color={colors.text}
+            style={styles.icon}
+          />
         )}
         renderItem={(item, selected) => (
           <View style={[styles.item, selected && styles.selectedItem]}>
-            <Text style={[styles.itemText, selected && styles.selectedItemText]}>{item.label}</Text>
+            <Text
+              style={[styles.itemText, selected && styles.selectedItemText]}
+            >
+              {item.label}
+            </Text>
           </View>
         )}
       />
@@ -84,15 +105,15 @@ const styles = StyleSheet.create({
     // marginBottom: spacing.medium,
   },
   fullWidth: {
-    width: '100%',
+    width: '100%'
   },
   halfWidth: {
     flex: 1,
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   label: {
     color: colors.text,
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   dropdown: {
     height: 50,
@@ -100,7 +121,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 1,
     borderRadius: borderRadius.medium,
-    paddingHorizontal: spacing.medium,
+    paddingHorizontal: spacing.medium
   },
   dropdownContainer: {
     backgroundColor: colors.background,
@@ -108,13 +129,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.medium,
     overflow: 'hidden',
-    marginTop: 8,
+    marginTop: 8
   },
   searchContainer: {
     backgroundColor: colors.background,
     borderBottomColor: colors.primary,
     borderBottomWidth: 1,
-    padding: 0,
+    padding: 0
   },
   inputSearchStyle: {
     height: 40,
@@ -123,36 +144,36 @@ const styles = StyleSheet.create({
     color: colors.text,
     borderRadius: 0,
     margin: 0,
-    padding: spacing.small,
+    padding: spacing.small
   },
   item: {
     padding: spacing.medium,
     borderBottomWidth: 1,
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.primary
   },
   icon: {
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   placeholderStyle: {
     fontSize: fontSizes.medium,
-    color: colors.text,
+    color: colors.text
   },
   selectedTextStyle: {
     fontSize: fontSizes.medium,
-    color: colors.text,
+    color: colors.text
   },
   iconStyle: {
     width: 20,
-    height: 20,
+    height: 20
   },
   selectedItem: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primary
   },
   itemText: {
     fontSize: fontSizes.medium,
-    color: colors.text,
+    color: colors.text
   },
   selectedItemText: {
-    color: colors.buttonText,
-  },
+    color: colors.buttonText
+  }
 });

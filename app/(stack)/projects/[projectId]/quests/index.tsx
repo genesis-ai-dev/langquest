@@ -1,33 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { QuestDetails } from '@/components/QuestDetails';
+import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { Quest, questService } from '@/database_services/questService';
+import { Tag, tagService } from '@/database_services/tagService';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  StyleSheet,
-  Modal,
-  Alert,
-  BackHandler,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import {
+  borderRadius,
   colors,
   fontSizes,
-  spacing,
   sharedStyles,
-  borderRadius,
+  spacing
 } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { QuestDetails } from '@/components/QuestDetails';
-import { questService, Quest } from '@/database_services/questService';
-import { tagService, Tag } from '@/database_services/tagService';
-import { assetService } from '@/database_services/assetService';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  BackHandler,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SortingOption {
   field: string;
@@ -44,7 +43,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
     };
     loadTags();
   }, [quest.id]);
-  
+
   return (
     <View style={sharedStyles.card}>
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
@@ -71,8 +70,10 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 export default function Quests() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { setActiveQuest, goToQuest } = useProjectContext();
-  const { project_id, projectName } = useLocalSearchParams<{ project_id: string; projectName: string }>();
+  const { projectId, projectName } = useLocalSearchParams<{
+    projectId: string;
+    projectName: string;
+  }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [quests, setQuests] = useState<Quest[]>([]);
   const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
@@ -80,19 +81,19 @@ export default function Quests() {
   const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
-    {},
+    {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   useEffect(() => {
     loadQuests();
-  }, [project_id]);
+  }, [projectId]);
 
   const loadQuests = async () => {
     try {
-      if (!project_id) return;
-      const loadedQuests = await questService.getQuestsByProjectId(project_id);
+      if (!projectId) return;
+      const loadedQuests = await questService.getQuestsByProjectId(projectId);
       setQuests(loadedQuests);
       setFilteredQuests(loadedQuests);
 
@@ -110,45 +111,70 @@ export default function Quests() {
     }
   };
 
-  const applyFilters = useCallback((questsToFilter: Quest[], filters: Record<string, string[]>, search: string) => {
-    return questsToFilter.filter(quest => {
-      // Search filter
-      const matchesSearch = quest.name.toLowerCase().includes(search.toLowerCase()) ||
-                          (quest.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
-      
-      // Tag filters
-      const questTags = questToTags[quest.id] || [];
-      const matchesFilters = Object.entries(filters).every(([category, selectedOptions]) => {
-        if (selectedOptions.length === 0) return true;
-        return questTags.some(tag => {
-          const [tagCategory, tagValue] = tag.name.split(':');
-          return tagCategory.toLowerCase() === category.toLowerCase() && 
-                 selectedOptions.includes(`${category.toLowerCase()}:${tagValue.toLowerCase()}`);
-        });
-      });
-  
-      return matchesSearch && matchesFilters;
-    });
-  }, [questToTags]);
+  const applyFilters = useCallback(
+    (
+      questsToFilter: Quest[],
+      filters: Record<string, string[]>,
+      search: string
+    ) => {
+      return questsToFilter.filter((quest) => {
+        // Search filter
+        const matchesSearch =
+          quest.name.toLowerCase().includes(search.toLowerCase()) ||
+          (quest.description?.toLowerCase().includes(search.toLowerCase()) ??
+            false);
 
-  const applySorting = useCallback((questsToSort: Quest[], sorting: SortingOption[]) => {
-    return [...questsToSort].sort((a, b) => {
-      for (const { field, order } of sorting) {
-        if (field === 'name') {
-          const comparison = a.name.localeCompare(b.name);
-          return order === 'asc' ? comparison : -comparison;
-        } else {
-          const tagsA = questTags[a.id] || [];
-          const tagsB = questTags[b.id] || [];
-          const tagA = tagsA.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
-          const tagB = tagsB.find(tag => tag.name.startsWith(`${field}:`))?.name.split(':')[1] || '';
-          const comparison = tagA.localeCompare(tagB);
-          if (comparison !== 0) return order === 'asc' ? comparison : -comparison;
+        // Tag filters
+        const questTags = questToTags[quest.id] || [];
+        const matchesFilters = Object.entries(filters).every(
+          ([category, selectedOptions]) => {
+            if (selectedOptions.length === 0) return true;
+            return questTags.some((tag) => {
+              const [tagCategory, tagValue] = tag.name.split(':');
+              return (
+                tagCategory.toLowerCase() === category.toLowerCase() &&
+                selectedOptions.includes(
+                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`
+                )
+              );
+            });
+          }
+        );
+
+        return matchesSearch && matchesFilters;
+      });
+    },
+    [questToTags]
+  );
+
+  const applySorting = useCallback(
+    (questsToSort: Quest[], sorting: SortingOption[]) => {
+      return [...questsToSort].sort((a, b) => {
+        for (const { field, order } of sorting) {
+          if (field === 'name') {
+            const comparison = a.name.localeCompare(b.name);
+            return order === 'asc' ? comparison : -comparison;
+          } else {
+            const tagsA = questTags[a.id] || [];
+            const tagsB = questTags[b.id] || [];
+            const tagA =
+              tagsA
+                .find((tag) => tag.name.startsWith(`${field}:`))
+                ?.name.split(':')[1] || '';
+            const tagB =
+              tagsB
+                .find((tag) => tag.name.startsWith(`${field}:`))
+                ?.name.split(':')[1] || '';
+            const comparison = tagA.localeCompare(tagB);
+            if (comparison !== 0)
+              return order === 'asc' ? comparison : -comparison;
+          }
         }
-      }
-      return 0;
-    });
-  }, [questTags]);
+        return 0;
+      });
+    },
+    [questTags]
+  );
 
   // Load tags when quests change
   useEffect(() => {
@@ -169,7 +195,14 @@ export default function Quests() {
     const filtered = applyFilters(quests, activeFilters, searchQuery);
     const sorted = applySorting(filtered, activeSorting);
     setFilteredQuests(sorted);
-  }, [searchQuery, quests, activeFilters, activeSorting, applyFilters, applySorting]);
+  }, [
+    searchQuery,
+    quests,
+    activeFilters,
+    activeSorting,
+    applyFilters,
+    applySorting
+  ]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -178,7 +211,6 @@ export default function Quests() {
   };
 
   const handleQuestPress = (quest: Quest) => {
-    setActiveQuest(quest);
     setSelectedQuest(quest);
   };
 
@@ -222,7 +254,7 @@ export default function Quests() {
           return true;
         }
         return false;
-      },
+      }
     );
 
     return () => backHandler.remove();
@@ -238,10 +270,7 @@ export default function Quests() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <TouchableOpacity
-            onPress={() => {
-              router.back();
-              setActiveQuest(null);
-            }}
+            onPress={() => router.back()}
             style={sharedStyles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -324,21 +353,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   searchIcon: {
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   searchInput: {
     flex: 1,
     color: colors.text,
     fontSize: fontSizes.medium,
-    paddingVertical: spacing.medium,
+    paddingVertical: spacing.medium
   },
   filterIcon: {
     marginLeft: spacing.small,
     padding: spacing.small,
-    position: 'relative',
+    position: 'relative'
   },
   badge: {
     position: 'absolute',
@@ -349,11 +378,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   badgeText: {
     color: colors.buttonText,
     fontSize: fontSizes.small,
-    fontWeight: 'bold',
-  },
+    fontWeight: 'bold'
+  }
 });

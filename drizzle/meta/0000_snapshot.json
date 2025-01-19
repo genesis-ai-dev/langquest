@@ -110,12 +110,8 @@
           "name": "AssetToTags_assetId_Asset_id_fk",
           "tableFrom": "AssetToTags",
           "tableTo": "Asset",
-          "columnsFrom": [
-            "assetId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assetId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -123,22 +119,15 @@
           "name": "AssetToTags_tagId_Tag_id_fk",
           "tableFrom": "AssetToTags",
           "tableTo": "Tag",
-          "columnsFrom": [
-            "tagId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tagId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "AssetToTags_assetId_tagId_pk": {
-          "columns": [
-            "assetId",
-            "tagId"
-          ],
+          "columns": ["assetId", "tagId"],
           "name": "AssetToTags_assetId_tagId_pk"
         }
       },
@@ -394,12 +383,8 @@
           "name": "QuestToAssets_questId_Quest_id_fk",
           "tableFrom": "QuestToAssets",
           "tableTo": "Quest",
-          "columnsFrom": [
-            "questId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["questId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -407,22 +392,15 @@
           "name": "QuestToAssets_assetId_Asset_id_fk",
           "tableFrom": "QuestToAssets",
           "tableTo": "Asset",
-          "columnsFrom": [
-            "assetId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assetId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "QuestToAssets_questId_assetId_pk": {
-          "columns": [
-            "questId",
-            "assetId"
-          ],
+          "columns": ["questId", "assetId"],
           "name": "QuestToAssets_questId_assetId_pk"
         }
       },
@@ -453,12 +431,8 @@
           "name": "QuestToTags_questId_Quest_id_fk",
           "tableFrom": "QuestToTags",
           "tableTo": "Quest",
-          "columnsFrom": [
-            "questId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["questId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -466,22 +440,15 @@
           "name": "QuestToTags_tagId_Tag_id_fk",
           "tableFrom": "QuestToTags",
           "tableTo": "Tag",
-          "columnsFrom": [
-            "tagId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tagId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "QuestToTags_questId_tagId_pk": {
-          "columns": [
-            "questId",
-            "tagId"
-          ],
+          "columns": ["questId", "tagId"],
           "name": "QuestToTags_questId_tagId_pk"
         }
       },
@@ -624,12 +591,8 @@
           "name": "Translation_assetId_Asset_id_fk",
           "tableFrom": "Translation",
           "tableTo": "Asset",
-          "columnsFrom": [
-            "assetId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assetId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -637,12 +600,8 @@
           "name": "Translation_targetLanguageId_Language_id_fk",
           "tableFrom": "Translation",
           "tableTo": "Language",
-          "columnsFrom": [
-            "targetLanguageId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["targetLanguageId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -650,12 +609,8 @@
           "name": "Translation_creatorId_User_id_fk",
           "tableFrom": "Translation",
           "tableTo": "User",
-          "columnsFrom": [
-            "creatorId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["creatorId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -807,12 +762,8 @@
           "name": "Vote_translationId_Translation_id_fk",
           "tableFrom": "Vote",
           "tableTo": "Translation",
-          "columnsFrom": [
-            "translationId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["translationId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -820,12 +771,8 @@
           "name": "Vote_creatorId_User_id_fk",
           "tableFrom": "Vote",
           "tableTo": "User",
-          "columnsFrom": [
-            "creatorId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["creatorId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

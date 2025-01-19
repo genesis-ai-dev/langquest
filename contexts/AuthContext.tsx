@@ -62,10 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.removeItem('userId');
       setCurrentUser(null);
-    
+
       // Sign out and get new anonymous session
       await supabaseConnector.signOut();
-      
+
       // Reinitialize system with new anonymous user
       await system.init();
 
@@ -76,13 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      currentUser,
-      setCurrentUser,
-      isAuthenticated: currentUser !== null,
-      signOut,
-      isLoading,
-    }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        setCurrentUser,
+        isAuthenticated: currentUser !== null,
+        signOut,
+        isLoading
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

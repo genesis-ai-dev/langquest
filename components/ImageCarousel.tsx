@@ -15,7 +15,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ imageModuleIds }) => {
     const loadAssets = async () => {
       try {
         const assets = await Promise.all(
-          imageModuleIds.map(id => {
+          imageModuleIds.map((id) => {
             if (typeof id !== 'number') {
               throw new Error(`Invalid module ID: ${id}`);
             }
@@ -41,8 +41,8 @@ const styles = StyleSheet.create({
   carouselImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'contain',
-  },
+    resizeMode: 'contain'
+  }
 });
 
 export default ImageCarousel;
