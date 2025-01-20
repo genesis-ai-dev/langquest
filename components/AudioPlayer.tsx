@@ -20,11 +20,11 @@ interface AudioPlayerProps {
   mini?: boolean;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ 
-  audioFiles = [], 
+const AudioPlayer: React.FC<AudioPlayerProps> = ({
+  audioFiles = [],
   audioUri,
-  useCarousel = true, 
-  mini = false 
+  useCarousel = true,
+  mini = false
 }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,7 +57,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       await cleanupSound();
       if (audioUri) {
         setActiveModuleId(null); // Reset active module
-        setPosition(0);          // Reset position
+        setPosition(0); // Reset position
       }
     };
     setupSound();
@@ -104,7 +104,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (status.isLoaded) {
       setDuration(status.durationMillis || 0);
       setPosition(status.positionMillis || 0);
-      
+
       if (status.didJustFinish) {
         setIsPlaying(false);
         // Don't reset position here - let playPauseSound handle it
@@ -116,10 +116,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const loadSound = async (moduleIdOrUri: number | string) => {
     try {
-      const source = typeof moduleIdOrUri === 'string' 
-        ? { uri: moduleIdOrUri }
-        : moduleIdOrUri;
-      
+      const source =
+        typeof moduleIdOrUri === 'string'
+          ? { uri: moduleIdOrUri }
+          : moduleIdOrUri;
+
       const { sound: newSound } = await Audio.Sound.createAsync(
         source,
         { shouldPlay: true, positionMillis: 0 }, // Explicitly start at beginning
@@ -144,13 +145,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onPress={() => playPauseSound(item.moduleId)}
       >
         <Ionicons
-          name={isPlaying && activeModuleId === item.moduleId ? "pause" : "play"}
+          name={
+            isPlaying && activeModuleId === item.moduleId ? 'pause' : 'play'
+          }
           size={mini ? 24 : 48}
           color={colors.text}
         />
       </TouchableOpacity>
       {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
-      <View style={[styles.audioProgressContainer, mini && styles.miniAudioProgressContainer]}>
+      <View
+        style={[
+          styles.audioProgressContainer,
+          mini && styles.miniAudioProgressContainer
+        ]}
+      >
         <Slider
           style={styles.audioProgressBar}
           minimumValue={0}
@@ -174,20 +182,22 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   );
 
   if (useCarousel) {
-    return <Carousel 
-      items={audioFiles} 
-      renderItem={renderAudioItem}
-      onPageChange={handlePageChange}
-    />;
+    return (
+      <Carousel
+        items={audioFiles}
+        renderItem={renderAudioItem}
+        onPageChange={handlePageChange}
+      />
+    );
   } else {
     // Use audioFilesOrSingle instead of audioFiles[0]
-    const audioFilesOrSingle = audioUri 
+    const audioFilesOrSingle = audioUri
       ? [{ id: 'single', title: t('recording'), moduleId: audioUri }]
       : audioFiles;
 
     // Only render if we have files to play
     if (audioFilesOrSingle.length === 0) return null;
-    
+
     return renderAudioItem(audioFilesOrSingle[0], 0);
   }
 };
@@ -195,7 +205,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 const styles = StyleSheet.create({
   audioItem: {
     alignItems: 'center',
-    width: '100%',
+    width: '100%'
   },
   audioPlayButton: {
     justifyContent: 'center',
@@ -203,43 +213,43 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.inputBackground,
+    backgroundColor: colors.inputBackground
   },
   audioFileName: {
     color: colors.text,
     fontSize: fontSizes.small,
     marginTop: spacing.small,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   audioProgressContainer: {
     width: '100%',
-    paddingHorizontal: spacing.medium,
+    paddingHorizontal: spacing.medium
   },
   audioProgressBar: {
     width: '100%',
-    height: 40,
+    height: 40
   },
   audioTimeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   audioTimeText: {
     color: colors.text,
-    fontSize: fontSizes.small,
+    fontSize: fontSizes.small
   },
   miniAudioItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   miniAudioPlayButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 20
   },
   miniAudioProgressContainer: {
     flex: 1,
-    marginLeft: spacing.small,
-  },
+    marginLeft: spacing.small
+  }
 });
 
 export default AudioPlayer;

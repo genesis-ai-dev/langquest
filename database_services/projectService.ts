@@ -29,7 +29,7 @@ export class ProjectService {
         name: project.name,
         description: project.description,
         source_language_id: project.source_language_id,
-        target_language_id: project.target_language_id,
+        target_language_id: project.target_language_id
       })
       .from(project);
 
@@ -50,7 +50,7 @@ export class ProjectService {
         name: project.name,
         description: project.description,
         source_language_id: project.source_language_id,
-        target_language_id: project.target_language_id,
+        target_language_id: project.target_language_id
       })
       .from(project)
       .where(eq(project.id, id));

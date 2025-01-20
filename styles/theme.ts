@@ -19,29 +19,28 @@ const getColorHex = (color: string) => {
     brown: '#795548',
     grey: '#9E9E9E',
     black: '#000000',
-    white: '#FFFFFF',
+    white: '#FFFFFF'
   };
   return colorMap[color.toLowerCase()] || '#8B5CF6'; // Default to purple if color not found
 };
 
 export const colors = {
-    primary: getColorHex(themeColor),
-    background: '#1E1E1E', // Dark background
-    text: '#FFFFFF',
-    textSecondary: '#CCCCCC', // Light gray
-    inputBackground: 'rgba(255, 255, 255, 0.1)', // Slightly transparent white
-    inputText: '#FFFFFF',
-    buttonBackground: getColorHex(themeColor),
-    buttonText: '#FFFFFF',
-    inputBorder: getColorHex(themeColor),
-    gradientStart: '#000000',
-    gradientEnd: adjustColor(getColorHex(themeColor), -70), // Darken by 50%
-    appTitle: adjustColor(getColorHex(themeColor), 130), // Lighten by 30%
-    backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
-    accent: adjustColor(getColorHex(themeColor), 30),
-    error: '#FF0000',
-  };
-  
+  primary: getColorHex(themeColor),
+  background: '#1E1E1E', // Dark background
+  text: '#FFFFFF',
+  textSecondary: '#CCCCCC', // Light gray
+  inputBackground: 'rgba(255, 255, 255, 0.1)', // Slightly transparent white
+  inputText: '#FFFFFF',
+  buttonBackground: getColorHex(themeColor),
+  buttonText: '#FFFFFF',
+  inputBorder: getColorHex(themeColor),
+  gradientStart: '#000000',
+  gradientEnd: adjustColor(getColorHex(themeColor), -70), // Darken by 50%
+  appTitle: adjustColor(getColorHex(themeColor), 130), // Lighten by 30%
+  backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
+  accent: adjustColor(getColorHex(themeColor), 30),
+  error: '#FF0000'
+};
 
 export const fontSizes = {
   xsmall: 10,
@@ -50,7 +49,7 @@ export const fontSizes = {
   large: 16,
   xlarge: 20,
   xxlarge: 28,
-  xxxlarge: 48,
+  xxxlarge: 48
 };
 
 export const spacing = {
@@ -60,40 +59,40 @@ export const spacing = {
   large: 24,
   xlarge: 32,
   xxlarge: 48,
-  xxxlarge: 54,
+  xxxlarge: 54
 };
 
 export const borderRadius = {
   small: 4,
   medium: 16,
-  large: 25, // Increased for rounded corners
+  large: 25 // Increased for rounded corners
 };
 
 export const sharedStyles = StyleSheet.create({
   container: {
     flex: 1,
     // backgroundColor: colors.background,
-    padding: spacing.large,
+    padding: spacing.large
   },
   appTitle: {
     fontSize: fontSizes.xxxlarge,
     fontWeight: 'bold',
     color: colors.appTitle,
     marginBottom: spacing.medium,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   title: {
     fontSize: fontSizes.xxlarge,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: spacing.medium,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   subtitle: {
     fontSize: fontSizes.large,
     color: colors.text,
     marginBottom: spacing.xlarge,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   input: {
     backgroundColor: colors.inputBackground,
@@ -106,13 +105,13 @@ export const sharedStyles = StyleSheet.create({
     marginBottom: spacing.medium,
     width: '100%',
     minHeight: 48,
-    fontSize: fontSizes.medium,
+    fontSize: fontSizes.medium
   },
   backButton: {
     position: 'absolute',
     top: spacing.medium,
     left: spacing.medium,
-    zIndex: 1,
+    zIndex: 1
   },
   button: {
     backgroundColor: colors.buttonBackground,
@@ -122,56 +121,56 @@ export const sharedStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.large,
-    minHeight: 48,
+    minHeight: 48
   },
   buttonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   link: {
     color: colors.primary,
-    fontSize: fontSizes.medium,
+    fontSize: fontSizes.medium
   },
   card: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   cardTitle: {
     color: colors.text,
     fontSize: fontSizes.large,
     fontWeight: 'bold',
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   cardDescription: {
     color: colors.text,
     fontSize: fontSizes.medium,
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   cardInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   cardInfoText: {
     color: colors.text,
     marginLeft: spacing.small,
-    marginRight: spacing.medium,
+    marginRight: spacing.medium
   },
   cardLanguageText: {
     color: colors.text,
     fontSize: fontSizes.small,
-    marginTop: spacing.small,
+    marginTop: spacing.small
   },
   iconBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   iconButton: {
     padding: spacing.small,
-    borderRadius: borderRadius.medium,
+    borderRadius: borderRadius.medium
   },
   searchContainer: {
     flexDirection: 'row',
@@ -179,69 +178,69 @@ export const sharedStyles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   searchIcon: {
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   searchInput: {
     flex: 1,
     color: colors.text,
     fontSize: fontSizes.medium,
-    paddingVertical: spacing.medium,
+    paddingVertical: spacing.medium
   },
   selectedIconButton: {
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.primary
   },
   list: {
-    width: '100%',
+    width: '100%'
   },
   filtersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: spacing.medium,
-    zIndex: 2,
+    zIndex: 2
   },
   dropdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.background,
+    backgroundColor: colors.background
   },
   modal: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
     width: '80%',
-    maxHeight: '80%',
+    maxHeight: '80%'
   },
   modalTitle: {
     fontSize: fontSizes.large,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   modalContent: {
     flexGrow: 1,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   modalButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     alignItems: 'center',
-    marginTop: spacing.large,
+    marginTop: spacing.large
   },
   modalButtonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   badge: {
     position: 'absolute',
@@ -252,24 +251,24 @@ export const sharedStyles = StyleSheet.create({
     width: 18,
     height: 18,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   badgeText: {
     color: colors.buttonText,
     fontSize: fontSizes.xsmall,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
-  
+
   checkboxContainer: {
     width: 24,
     height: 24,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   cardSubtitle: {
     color: colors.textSecondary,
     fontSize: fontSizes.medium,
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   cardProperty: {
     fontSize: fontSizes.small,
@@ -278,6 +277,6 @@ export const sharedStyles = StyleSheet.create({
     paddingHorizontal: spacing.small,
     paddingVertical: spacing.xsmall,
     borderRadius: borderRadius.small,
-    overflow: 'hidden',
-  },
+    overflow: 'hidden'
+  }
 });

@@ -30,9 +30,7 @@ export class VoteService {
       if (existingVote) {
         if (existingVote.polarity === data.polarity) {
           // Remove vote if clicking same button again
-          await db
-            .delete(vote)
-            .where(eq(vote.id, existingVote.id));
+          await db.delete(vote).where(eq(vote.id, existingVote.id));
           return null;
         } else {
           // Update vote if changing polarity
@@ -40,7 +38,7 @@ export class VoteService {
             .update(vote)
             .set({
               polarity: data.polarity,
-              comment: data.comment,
+              comment: data.comment
               // last_updated: new Date(),
             })
             .where(eq(vote.id, existingVote.id))
@@ -58,10 +56,10 @@ export class VoteService {
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment || '',
-          version_chain_id: randomUUID(),
+          version_chain_id: randomUUID()
         })
         .returning();
-      
+
       console.log('New vote created:', newVote); // Add logging
       return newVote;
     } catch (error) {
@@ -70,7 +68,10 @@ export class VoteService {
     }
   }
 
-  async getUserVoteForTranslation(translation_id: string, userId: string): Promise<typeof vote.$inferSelect | null> {
+  async getUserVoteForTranslation(
+    translation_id: string,
+    userId: string
+  ): Promise<typeof vote.$inferSelect | null> {
     const result = await db
       .select()
       .from(vote)

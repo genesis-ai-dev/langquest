@@ -10,7 +10,11 @@ interface CarouselProps {
   onPageChange?: () => void;
 }
 
-const Carousel: React.FC<CarouselProps> = ({ items, renderItem, onPageChange }) => {
+const Carousel: React.FC<CarouselProps> = ({
+  items,
+  renderItem,
+  onPageChange
+}) => {
   const [currentPage, setCurrentPage] = useState(0);
   const pagerRef = useRef<PagerView>(null);
 
@@ -25,7 +29,6 @@ const Carousel: React.FC<CarouselProps> = ({ items, renderItem, onPageChange }) 
       onPageChange();
     }
   };
-
 
   return (
     <View style={styles.carouselContainer}>
@@ -55,7 +58,7 @@ const Carousel: React.FC<CarouselProps> = ({ items, renderItem, onPageChange }) 
               key={index}
               style={[
                 styles.paginationDot,
-                index === currentPage && styles.paginationDotActive,
+                index === currentPage && styles.paginationDotActive
               ]}
             />
           ))}
@@ -76,16 +79,16 @@ const styles = StyleSheet.create({
   carouselContainer: {
     flex: 1,
     width: '100%',
-    position: 'relative',
+    position: 'relative'
   },
   pagerView: {
-    flex: 1,
+    flex: 1
   },
   carouselItem: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -95,12 +98,12 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 0,
     right: 0,
-    paddingHorizontal: spacing.small,
+    paddingHorizontal: spacing.small
   },
   paginationContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   paginationDot: {
     width: 8,
@@ -108,22 +111,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.text,
     opacity: 0.4,
-    marginHorizontal: 4,
+    marginHorizontal: 4
   },
   paginationDotActive: {
-    opacity: 1,
+    opacity: 1
   },
   navButton: {
     backgroundColor: colors.inputBackground,
     borderRadius: 15,
-    padding: 6,
+    padding: 6
   },
   navButtonLeft: {
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   navButtonRight: {
-    marginLeft: spacing.small,
-  },
+    marginLeft: spacing.small
+  }
 });
 
 export default Carousel;

@@ -4,19 +4,19 @@ import { AudioManager } from './AudioManager';
 // Define types for the machine
 type AudioMachineContext = {
   audioManager: AudioManager;
-  lastPlaybackPosition: number; 
+  lastPlaybackPosition: number;
   recordingDuration: number;
   playbackPosition: number;
   isFlashing: boolean;
   onRecordingComplete: (uri: string) => void;
 };
 
-type AudioMachineEvents = 
+type AudioMachineEvents =
   | { type: 'PRESS_MIC' }
   | { type: 'PRESS_PAUSE' }
   | { type: 'PRESS_CHECK' }
   | { type: 'PRESS_PLAY' }
-  | { type: 'PLAYBACK_COMPLETE'};
+  | { type: 'PLAYBACK_COMPLETE' };
 
 export const audioRecorderMachine = createMachine({
   id: 'audioRecorder',
@@ -25,18 +25,20 @@ export const audioRecorderMachine = createMachine({
     context: AudioMachineContext;
     events: AudioMachineEvents;
   },
-  context: ({ input }: { 
-    input: { 
+  context: ({
+    input
+  }: {
+    input: {
       audioManager: AudioManager;
       onRecordingComplete: (uri: string) => void;
-    } 
+    };
   }) => ({
     audioManager: input.audioManager,
     onRecordingComplete: input.onRecordingComplete,
     lastPlaybackPosition: 0,
     recordingDuration: 0,
     playbackPosition: 0,
-    isFlashing: false,
+    isFlashing: false
   }),
   states: {
     idle: {
@@ -55,9 +57,9 @@ export const audioRecorderMachine = createMachine({
           actions: ({ context }) => {
             console.log('Starting new recording session');
             context.audioManager.startRecording();
-          },
-        },
-      },
+          }
+        }
+      }
     },
     recording: {
       entry: ({ context }) => {
@@ -71,20 +73,20 @@ export const audioRecorderMachine = createMachine({
           actions: async ({ context }) => {
             console.log('Pausing recording');
             await context.audioManager.pauseRecording();
-          },
+          }
         },
         PRESS_CHECK: {
           target: 'recordingStopped',
           guard: ({ context, event }) => {
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
-          },
+          }
           // actions: async ({ context }) => {
           //   console.log('Finalizing recording');
           //   await context.audioManager.stopRecording();
           // },
-        },
-      },
+        }
+      }
     },
     recordingPaused: {
       entry: ({ context }) => {
@@ -96,20 +98,20 @@ export const audioRecorderMachine = createMachine({
           actions: async ({ context }) => {
             console.log('Resuming recording');
             await context.audioManager.resumeRecording();
-          },
+          }
         },
         PRESS_CHECK: {
           target: 'recordingStopped',
           guard: ({ context, event }) => {
             console.log('Checking if recording is long enough...');
             return true; // Will be replaced with actual duration check
-          },
+          }
           // actions: async ({ context }) => {
           //   console.log('Finalizing recording');
           //   await context.audioManager.stopRecording();
           // },
-        },
-      },
+        }
+      }
     },
     recordingStopped: {
       entry: [
@@ -134,7 +136,7 @@ export const audioRecorderMachine = createMachine({
             console.log('Starting new recording session');
             await context.audioManager.discardRecording();
             await context.audioManager.startRecording();
-          },
+          }
         },
         PRESS_PLAY: {
           target: 'playing',
@@ -145,9 +147,9 @@ export const audioRecorderMachine = createMachine({
           actions: async ({ context }) => {
             console.log('Starting playback');
             await context.audioManager.playRecording();
-          },
-        },
-      },
+          }
+        }
+      }
     },
     playing: {
       entry: ({ context }) => {
@@ -165,7 +167,7 @@ export const audioRecorderMachine = createMachine({
             await context.audioManager.pausePlayback();
             await context.audioManager.discardRecording();
             await context.audioManager.startRecording();
-          },
+          }
         },
         PRESS_PAUSE: {
           target: 'playbackPaused',
@@ -177,16 +179,16 @@ export const audioRecorderMachine = createMachine({
               context.lastPlaybackPosition = status.positionMillis;
             }
             await context.audioManager.pausePlayback();
-          },
+          }
         },
         PLAYBACK_COMPLETE: {
           target: 'playbackEnded',
           actions: ({ context }) => {
             console.log('Playback finished');
             context.lastPlaybackPosition = 0; // Reset position
-          },
-        },
-      },
+          }
+        }
+      }
     },
     playbackPaused: {
       entry: ({ context }) => {
@@ -204,16 +206,21 @@ export const audioRecorderMachine = createMachine({
             await context.audioManager.pausePlayback();
             await context.audioManager.discardRecording();
             await context.audioManager.startRecording();
-          },
+          }
         },
         PRESS_PLAY: {
           target: 'playing',
           actions: async ({ context }) => {
-            console.log('Resuming playback from position:', context.lastPlaybackPosition);
-            await context.audioManager.playFromPosition(context.lastPlaybackPosition);
-          },
-        },
-      },
+            console.log(
+              'Resuming playback from position:',
+              context.lastPlaybackPosition
+            );
+            await context.audioManager.playFromPosition(
+              context.lastPlaybackPosition
+            );
+          }
+        }
+      }
     },
     playbackEnded: {
       entry: ({ context }) => {
@@ -231,16 +238,16 @@ export const audioRecorderMachine = createMachine({
             console.log('Starting new recording session');
             await context.audioManager.discardRecording();
             await context.audioManager.startRecording();
-          },
+          }
         },
         PRESS_PLAY: {
           target: 'playing',
           actions: async ({ context }) => {
             console.log('Starting playback from beginning');
             await context.audioManager.playFromPosition(0);
-          },
-        },
-      },
-    },
-  },
+          }
+        }
+      }
+    }
+  }
 });

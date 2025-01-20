@@ -1,16 +1,16 @@
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
-import type { Project } from '@/database_services/projectService';
+import { type Project } from '@/database_services/projectService';
 import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
-  type DrawerContentComponentProps,
+  type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePathname, useRouter } from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
 import { useCallback, useState } from 'react';
 import {
@@ -18,7 +18,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
@@ -29,8 +29,12 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     recentAssets,
     goToProject,
     goToQuest,
-    goToAsset,
+    goToAsset
   } = useProjectContext();
+  const { projectId, questId } = useGlobalSearchParams<{
+    projectId: string;
+    questId: string;
+  }>();
 
   return (
     <LinearGradient
@@ -52,7 +56,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <Category
           title={t('assets')}
           items={recentAssets}
-          onPress={(item) => goToAsset(item as Asset, true)}
+          onPress={(item) => goToAsset(item as Asset, projectId, questId, true)}
         />
       </DrawerContentScrollView>
       <View style={styles.drawerFooter}>
@@ -65,29 +69,15 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 function DrawerFooter() {
   const router = useRouter();
   const pathname = usePathname();
-  const {
-    goToProject,
-    goToQuest,
-    activeProject,
-    activeQuest,
-    setActiveProject,
-    setActiveQuest,
-    setActiveAsset,
-  } = useProjectContext();
+  const { goToProject, goToQuest, activeProject, activeQuest } =
+    useProjectContext();
 
   if (pathname === '/projects' && (!activeProject || !activeQuest)) return null;
 
   return (
     <View style={styles.drawerFooterNav}>
       {pathname !== '/projects' && (
-        <TouchableOpacity
-          onPress={() => {
-            router.navigate('/projects');
-            setActiveProject(null);
-            setActiveQuest(null);
-            setActiveAsset(null);
-          }}
-        >
+        <TouchableOpacity onPress={() => router.navigate('/projects')}>
           <Ionicons name="home" size={20} color={colors.text} />
         </TouchableOpacity>
       )}
@@ -133,13 +123,14 @@ function DrawerFooter() {
 
 export function Drawer() {
   const pathname = usePathname();
+  console.log(pathname);
   return (
     <ExpoDrawer
       screenOptions={{
         headerShown: false,
         drawerType: 'slide',
         swipeEdgeWidth: 100,
-        swipeEnabled: pathname !== '/' && pathname !== '/register', // no drawer on login page
+        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
       }}
       drawerContent={DrawerContent}
     />
@@ -149,7 +140,7 @@ export function Drawer() {
 function Category({
   title,
   items,
-  onPress,
+  onPress
 }: {
   title: string;
   items: (Project | Quest | Asset)[];
@@ -198,13 +189,13 @@ const styles = StyleSheet.create({
   drawer: {
     padding: 15,
     flex: 1,
-    color: colors.text,
+    color: colors.text
   },
   drawerHeader: {
     fontSize: fontSizes.large,
     fontWeight: '600',
     marginBottom: 15,
-    color: colors.text,
+    color: colors.text
   },
   drawerCategory: {
     padding: spacing.small,
@@ -212,31 +203,31 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     color: colors.text,
     marginVertical: spacing.small,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   drawerCategoryTitle: {
     fontSize: fontSizes.medium,
     fontWeight: '500',
-    color: colors.text,
+    color: colors.text
   },
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.xsmall,
+    paddingVertical: spacing.xsmall
   },
   categoryContent: {
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   measureContainer: {
     position: 'absolute',
-    width: '100%',
+    width: '100%'
   },
   categoryItem: {
-    paddingVertical: 5,
+    paddingVertical: 5
   },
   categoryItemText: {
-    color: colors.text,
+    color: colors.text
   },
   drawerFooter: {
     // padding: spacing.small,
@@ -244,25 +235,25 @@ const styles = StyleSheet.create({
     borderTopColor: colors.inputBackground,
     position: 'static',
     justifyContent: 'flex-end',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   drawerFooterNav: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.small,
-    padding: spacing.small,
+    padding: spacing.small
   },
   footerTextContainer: {
     flex: 1,
     flexDirection: 'row',
     gap: spacing.small,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   footerTextItem: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.small,
     paddingVertical: spacing.xsmall,
-    paddingHorizontal: spacing.small,
-  },
+    paddingHorizontal: spacing.small
+  }
 });

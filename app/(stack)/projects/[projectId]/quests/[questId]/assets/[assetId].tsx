@@ -9,7 +9,7 @@ import { Asset, assetService } from '@/database_services/assetService';
 import { languageService } from '@/database_services/languageService';
 import {
   Translation,
-  translationService,
+  translationService
 } from '@/database_services/translationService';
 import { User, userService } from '@/database_services/userService';
 import { Vote, voteService } from '@/database_services/voteService';
@@ -21,7 +21,7 @@ import {
   colors,
   fontSizes,
   sharedStyles,
-  spacing,
+  spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +33,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,10 +55,9 @@ export default function AssetView() {
   const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { setActiveAsset } = useProjectContext();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { asset_id, assetName } = useLocalSearchParams<{
-    asset_id: string;
+  const { assetId, assetName } = useLocalSearchParams<{
+    assetId: string;
     assetName: string;
   }>();
   const [asset, setAsset] = useState<Asset>();
@@ -89,13 +88,13 @@ export default function AssetView() {
   const calculateVoteCount = (votes: Vote[]): number => {
     return votes.reduce(
       (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
-      0,
+      0
     );
   };
 
   useEffect(() => {
     loadAssetAndTranslations();
-  }, [asset_id]);
+  }, [assetId]);
 
   // Add a debug effect to monitor state changes
   useEffect(() => {
@@ -111,26 +110,26 @@ export default function AssetView() {
 
     system.powersync.watch(
       `SELECT * FROM translation WHERE asset_id = ?`,
-      [asset_id],
+      [assetId],
       {
         onResult: () => {
           loadAssetAndTranslations();
-        },
+        }
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     );
 
     return () => {
       abortController.abort();
     };
-  }, [asset_id]);
+  }, [assetId]);
 
   useEffect(() => {
     const abortController = new AbortController();
 
     system.powersync.watch(
       `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
-      [asset_id],
+      [assetId],
       {
         onResult: async () => {
           // Instead of trying to use the result directly, let's fetch the votes again
@@ -140,22 +139,22 @@ export default function AssetView() {
               translations.map(async (translation) => {
                 votesMap[translation.id] =
                   await voteService.getVotesByTranslationId(translation.id);
-              }),
+              })
             );
             console.log('Updated votes map:', votesMap); // Debug log
             setTranslationVotes(votesMap);
           } catch (error) {
             console.error('Error updating votes:', error);
           }
-        },
+        }
       },
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     );
 
     return () => {
       abortController.abort();
     };
-  }, [asset_id, translations]);
+  }, [assetId, translations]);
 
   // const loadTranslationData = async () => {
   //   if (asset) {
@@ -196,10 +195,10 @@ export default function AssetView() {
 
   const loadAssetAndTranslations = async () => {
     try {
-      if (!asset_id) return;
+      if (!assetId) return;
       setIsLoading(true);
 
-      const loadedAsset = await assetService.getAssetById(asset_id);
+      const loadedAsset = await assetService.getAssetById(assetId);
       if (!loadedAsset) {
         Alert.alert('Error', 'Asset not found');
         return;
@@ -209,13 +208,13 @@ export default function AssetView() {
 
       // Load source language
       const source = await languageService.getLanguageById(
-        loadedAsset.source_language_id,
+        loadedAsset.source_language_id
       );
       setSourceLanguage(source);
 
       // Load translations
       const loadedTranslations =
-        await translationService.getTranslationsByAssetId(asset_id);
+        await translationService.getTranslationsByAssetId(assetId);
       setTranslations(loadedTranslations);
     } catch (error) {
       console.error('Error loading asset and translations:', error);
@@ -227,7 +226,7 @@ export default function AssetView() {
 
   const handleVote = async (
     translation_id: string,
-    polarity: 'up' | 'down',
+    polarity: 'up' | 'down'
   ) => {
     if (!currentUser) {
       Alert.alert('Error', t('logInToVote'));
@@ -238,7 +237,7 @@ export default function AssetView() {
       await voteService.addVote({
         translation_id,
         creator_id: currentUser.id,
-        polarity,
+        polarity
       });
       await loadAssetAndTranslations(); // Reload to get updated vote counts
     } catch (error) {
@@ -269,7 +268,7 @@ export default function AssetView() {
 
   const getVoteIconName = (
     translationId: string,
-    voteType: 'up' | 'down',
+    voteType: 'up' | 'down'
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
@@ -292,7 +291,7 @@ export default function AssetView() {
         translations.map(async (translation) => {
           // Load votes
           votesMap[translation.id] = await voteService.getVotesByTranslationId(
-            translation.id,
+            translation.id
           );
 
           // Load creator
@@ -301,11 +300,11 @@ export default function AssetView() {
 
           // Load target language
           const targetLang = await languageService.getLanguageById(
-            translation.target_language_id,
+            translation.target_language_id
           );
           if (targetLang)
             languagesMap[translation.target_language_id] = targetLang;
-        }),
+        })
       );
 
       setTranslationVotes(votesMap);
@@ -317,7 +316,7 @@ export default function AssetView() {
   }, [translations]);
 
   const renderTranslationCard = ({
-    item: translation,
+    item: translation
   }: {
     item: Translation;
   }) => {
@@ -379,10 +378,7 @@ export default function AssetView() {
           <View style={styles.content}>
             <Text style={styles.title}>{asset?.name}</Text>
             <TouchableOpacity
-              onPress={() => {
-                router.back();
-                setActiveAsset(null);
-              }}
+              onPress={() => router.back()}
               style={sharedStyles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -392,7 +388,7 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !asset?.text && styles.disabledTab,
+                  !asset?.text && styles.disabledTab
                 ]}
                 onPress={() => asset?.text && setActiveTab('text')}
                 disabled={!asset?.text}
@@ -407,7 +403,7 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'audio' && styles.activeTab,
-                  !asset?.audio?.length && styles.disabledTab,
+                  !asset?.audio?.length && styles.disabledTab
                 ]}
                 onPress={() => asset?.audio?.length && setActiveTab('audio')}
                 disabled={!asset?.audio?.length}
@@ -424,7 +420,7 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'image' && styles.activeTab,
-                  !asset?.images?.length && styles.disabledTab,
+                  !asset?.images?.length && styles.disabledTab
                 ]}
                 onPress={() => asset?.images?.length && setActiveTab('image')}
                 disabled={!asset?.images?.length}
@@ -457,7 +453,7 @@ export default function AssetView() {
                     audioFiles={asset.audio.map((moduleId, index) => ({
                       id: `audio-${index}`,
                       title: `${t('audio')} ${index + 1}`,
-                      moduleId: moduleId,
+                      moduleId: moduleId
                     }))}
                   />
                 )}
@@ -473,7 +469,7 @@ export default function AssetView() {
             <View
               style={[
                 styles.translationsContainer,
-                { height: translationsContainerHeight },
+                { height: translationsContainerHeight }
               ]}
             >
               <View style={styles.translationHeader}>
@@ -484,7 +480,7 @@ export default function AssetView() {
                       value={sortOption}
                       options={[
                         { label: t('votes'), value: 'voteCount' },
-                        { label: t('date'), value: 'dateSubmitted' },
+                        { label: t('date'), value: 'dateSubmitted' }
                       ]}
                       onSelect={(value) => setSortOption(value as SortOption)}
                     />
@@ -537,7 +533,7 @@ export default function AssetView() {
           isVisible={isNewTranslationModalVisible}
           onClose={() => setIsNewTranslationModalVisible(false)}
           onSubmit={handleNewTranslation}
-          asset_id={asset_id!}
+          asset_id={assetId!}
         />
       </LinearGradient>
     </GestureHandlerRootView>
@@ -549,88 +545,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.medium,
+    padding: spacing.medium
   },
   safeArea: {
-    flex: 1,
+    flex: 1
   },
   title: {
     fontSize: fontSizes.large,
     color: colors.text,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginHorizontal: spacing.small,
+    marginHorizontal: spacing.small
   },
   disabledTab: {
-    opacity: 0.5,
+    opacity: 0.5
   },
   content: {
     flex: 1,
-    paddingTop: spacing.medium, // Add padding to the top
+    paddingTop: spacing.medium // Add padding to the top
   },
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     marginHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   source_languageLabel: {
     fontSize: fontSizes.medium,
     color: colors.text,
     fontWeight: 'bold',
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   sourceText: {
     fontSize: fontSizes.medium,
-    color: colors.text,
+    color: colors.text
   },
   assetViewer: {
-    flex: 1,
+    flex: 1
     // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
   },
   horizontalLine: {
     height: 1,
     backgroundColor: colors.inputBorder,
-    marginVertical: spacing.medium,
+    marginVertical: spacing.medium
   },
   tabBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     borderBottomWidth: 1,
     borderBottomColor: colors.inputBorder,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   tab: {
-    padding: spacing.medium,
+    padding: spacing.medium
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.primary
   },
   tabContent: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   translationsContainer: {
     // flex: 1,
   },
   translationsList: {
-    padding: spacing.medium,
+    padding: spacing.medium
   },
   translationHeader: {
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   alignmentContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   dropdownContainer: {
     flex: 1,
-    marginRight: spacing.medium,
+    marginRight: spacing.medium
   },
   newTranslationButton: {
     backgroundColor: colors.primary,
@@ -639,61 +635,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.medium,
     height: 50,
-    borderRadius: borderRadius.medium,
+    borderRadius: borderRadius.medium
   },
   newTranslationButtonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold',
-    marginLeft: spacing.small,
+    marginLeft: spacing.small
   },
   translationCard: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   translationCardContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   translationCardLeft: {
     flex: 1,
-    marginRight: spacing.small,
+    marginRight: spacing.small
   },
   translationCardRight: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   translationPreview: {
     color: colors.text,
     fontSize: fontSizes.medium,
-    marginBottom: spacing.small,
+    marginBottom: spacing.small
   },
   translatorInfo: {
     color: colors.textSecondary,
     fontSize: fontSizes.small,
-    marginBottom: spacing.xsmall,
+    marginBottom: spacing.xsmall
   },
   dateSubmitted: {
     color: colors.textSecondary,
-    fontSize: fontSizes.small,
+    fontSize: fontSizes.small
   },
   voteContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.small,
+    gap: spacing.small
   },
   voteCount: {
     color: colors.text,
-    fontSize: fontSizes.small,
+    fontSize: fontSizes.small
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.small,
+    marginTop: spacing.small
   },
   audioIndicator: {
     // marginTop: spacing.medium,
-  },
+  }
 });

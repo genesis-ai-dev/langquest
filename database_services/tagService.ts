@@ -17,12 +17,12 @@ export class TagService {
       .where(eq(quest_tag_link.quest_id, quest_id));
 
     // Then get the actual tags
-    const tagPromises = tagLinks.map(link => 
+    const tagPromises = tagLinks.map((link) =>
       db
         .select()
         .from(tag)
         .where(eq(tag.id, link.tag_id))
-        .then(results => results[0])
+        .then((results) => results[0])
     );
 
     return Promise.all(tagPromises);
@@ -38,12 +38,12 @@ export class TagService {
       .where(eq(asset_tag_link.asset_id, asset_id));
 
     // Then get the actual tags
-    const tagPromises = tagLinks.map(link => 
+    const tagPromises = tagLinks.map((link) =>
       db
         .select()
         .from(tag)
         .where(eq(tag.id, link.tag_id))
-        .then(results => results[0])
+        .then((results) => results[0])
     );
 
     return Promise.all(tagPromises);

@@ -1,4 +1,9 @@
-import { AbstractPowerSyncDatabase, CrudEntry, PowerSyncBackendConnector, UpdateType } from '@powersync/react-native';
+import {
+  AbstractPowerSyncDatabase,
+  CrudEntry,
+  PowerSyncBackendConnector,
+  UpdateType
+} from '@powersync/react-native';
 
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { AppConfig } from './AppConfig';
@@ -26,19 +31,23 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     if (!AppConfig.supabaseUrl || !AppConfig.supabaseAnonKey) {
       throw new Error('Supabase URL or Anon Key is not defined');
     }
-    this.client = createClient(AppConfig.supabaseUrl, AppConfig.supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        storage: this.system.kvStorage,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
+    this.client = createClient(
+      AppConfig.supabaseUrl,
+      AppConfig.supabaseAnonKey,
+      {
+        auth: {
+          persistSession: true,
+          storage: this.system.kvStorage,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 10
+          }
         }
       }
-    });
+    );
     console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
       console.log('------------------------------------');
@@ -60,7 +69,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
 
@@ -86,7 +95,9 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     return {
       endpoint: AppConfig.powersyncUrl ?? '',
       token: session.access_token ?? '',
-      expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : undefined,
+      expiresAt: session.expires_at
+        ? new Date(session.expires_at * 1000)
+        : undefined,
       userID: session.user.id
     };
   }
@@ -130,7 +141,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       await transaction.complete();
     } catch (ex: any) {
       console.debug(ex);
-      if (typeof ex.code == 'string' && FATAL_RESPONSE_CODES.some((regex) => regex.test(ex.code))) {
+      if (
+        typeof ex.code == 'string' &&
+        FATAL_RESPONSE_CODES.some((regex) => regex.test(ex.code))
+      ) {
         /**
          * Instead of blocking the queue with these errors,
          * discard the (rest of the) transaction.

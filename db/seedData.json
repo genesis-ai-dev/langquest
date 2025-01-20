@@ -35,7 +35,7 @@
     },
     {
       "id": "lang-zas",
-      "rev": 1, 
+      "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
       "lastUpdated": "2024-01-01T00:00:00Z",
       "versionChainId": "lang-zas-chain",
@@ -167,7 +167,7 @@
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
       "lastUpdated": "2024-01-01T00:00:00Z",
-      "versionChainId": "tag-ch1-chain", 
+      "versionChainId": "tag-ch1-chain",
       "name": "Capítulo:1"
     },
     {
@@ -486,7 +486,7 @@
       "images": [],
       "audio": ["LUK_1_8_BES.mp3", "LUK_1_8_PDDPT.mp3"]
     },
-	  {
+    {
       "id": "asset-luke1-v1-zap",
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
@@ -606,7 +606,7 @@
       "images": [],
       "audio": ["LUK_1_8_BES.mp3", "LUK_1_8_PDDPT.mp3"]
     },
-	  {
+    {
       "id": "asset-luke2-v1-mix",
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
@@ -726,7 +726,7 @@
       "images": [],
       "audio": ["LUK_2_8_BES.mp3", "LUK_2_8_PDDPT.mp3"]
     },
-	  {
+    {
       "id": "asset-luke2-v1-zap",
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
@@ -847,7 +847,7 @@
       "audio": ["LUK_2_8_BES.mp3", "LUK_2_8_PDDPT.mp3"]
     },
     {
-	  "id": "asset-sun",
+      "id": "asset-sun",
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
       "lastUpdated": "2024-01-01T00:00:00Z",
@@ -889,7 +889,7 @@
       "tagId": "tag-luke"
     },
     {
-      "assetId": "asset-luke1-v1-mix", 
+      "assetId": "asset-luke1-v1-mix",
       "tagId": "tag-ch1"
     },
     {
@@ -905,7 +905,7 @@
       "tagId": "tag-ch1"
     },
     {
-      "assetId": "asset-luke1-v2-mix", 
+      "assetId": "asset-luke1-v2-mix",
       "tagId": "tag-v2"
     },
     {
@@ -1311,7 +1311,7 @@
       "assetId": "asset-luke1-v1-mix"
     },
     {
-      "questId": "quest-luke1-mix", 
+      "questId": "quest-luke1-mix",
       "assetId": "asset-luke1-v2-mix"
     },
     {
@@ -1521,4 +1521,3 @@
     }
   ]
 }
-  

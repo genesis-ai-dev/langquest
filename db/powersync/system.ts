@@ -1,7 +1,7 @@
 import '@azure/core-asynciterator-polyfill';
 import {
   PowerSyncSQLiteDatabase,
-  wrapPowerSyncWithDrizzle,
+  wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
 
 import { PowerSyncDatabase } from '@powersync/react-native';
@@ -46,13 +46,13 @@ export class System {
       schema: AppSchema,
       database: {
         dbFilename: 'sqlite.db',
-        debugMode: true,
-      },
+        debugMode: true
+      }
     });
 
     console.log('Wrapping PowerSync with Drizzle');
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
-      schema: drizzleSchema,
+      schema: drizzleSchema
     });
   }
 

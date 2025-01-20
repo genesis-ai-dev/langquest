@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Modal,
+  TouchableWithoutFeedback
+} from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
@@ -13,11 +21,11 @@ interface VoteCommentModalProps {
   voteType: 'up' | 'down';
 }
 
-export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({ 
-  isVisible, 
-  onClose, 
-  onSubmit, 
-  voteType 
+export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
+  isVisible,
+  onClose,
+  onSubmit,
+  voteType
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
@@ -49,9 +57,9 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
   };
 
   return (
-    <Modal 
-      visible={isVisible} 
-      transparent 
+    <Modal
+      visible={isVisible}
+      transparent
       animationType="slide"
       onRequestClose={onClose} // Handle back button press
     >
@@ -75,10 +83,16 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
                   onChangeText={setComment}
                 />
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.button} onPress={handleNoComment}>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleNoComment}
+                  >
                     <Text style={styles.buttonText}>{t('noComment')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleSubmit}
+                  >
                     <Text style={styles.buttonText}>{t('submit')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -96,20 +110,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   container: {
     width: '90%',
-    maxWidth: 400,
+    maxWidth: 400
   },
   modal: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
-    padding: spacing.large,
+    padding: spacing.large
   },
   icon: {
     alignSelf: 'center',
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   textInput: {
     backgroundColor: colors.inputBackground,
@@ -118,11 +132,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
     minHeight: 100,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   button: {
     flex: 1,
@@ -130,11 +144,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     alignItems: 'center',
-    marginHorizontal: spacing.small,
+    marginHorizontal: spacing.small
   },
   buttonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-  },
+    fontWeight: 'bold'
+  }
 });

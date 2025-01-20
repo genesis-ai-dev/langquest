@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView
+} from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from './AudioPlayer';
@@ -18,25 +24,31 @@ interface TranslationModalProps {
   onVoteSubmitted: () => void;
 }
 
-export const TranslationModal: React.FC<TranslationModalProps> = ({ 
-  translation: initialTranslation, 
-  onClose, 
-  onVoteSubmitted,
+export const TranslationModal: React.FC<TranslationModalProps> = ({
+  translation: initialTranslation,
+  onClose,
+  onVoteSubmitted
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
-  const [userVote, setUserVote] = useState<typeof vote.$inferSelect | null>(null);
+  const [userVote, setUserVote] = useState<typeof vote.$inferSelect | null>(
+    null
+  );
   const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
     const loadVotes = async () => {
-      const translationVotes = await voteService.getVotesByTranslationId(translation.id);
+      const translationVotes = await voteService.getVotesByTranslationId(
+        translation.id
+      );
       setVotes(translationVotes);
       if (currentUser) {
-        const userVote = translationVotes.find(v => v.creator_id === currentUser.id);
+        const userVote = translationVotes.find(
+          (v) => v.creator_id === currentUser.id
+        );
         setUserVote(userVote || null);
       }
     };
@@ -49,7 +61,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const loadVotes = async () => {
     try {
-      const translationVotes = await voteService.getVotesByTranslationId(translation.id);
+      const translationVotes = await voteService.getVotesByTranslationId(
+        translation.id
+      );
       setVotes(translationVotes);
     } catch (error) {
       console.error('Error loading votes:', error);
@@ -58,7 +72,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const loadUserVote = async () => {
     try {
-      const vote = await voteService.getUserVoteForTranslation(translation.id, currentUser!.id);
+      const vote = await voteService.getUserVoteForTranslation(
+        translation.id,
+        currentUser!.id
+      );
       setUserVote(vote);
     } catch (error) {
       console.error('Error loading user vote:', error);
@@ -66,7 +83,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   };
 
   const calculateVoteCount = () => {
-    return votes.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0);
+    return votes.reduce(
+      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
+      0
+    );
   };
 
   const isOwnTranslation = currentUser?.id === translation.creator_id;
@@ -81,13 +101,17 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       await voteService.addVote({
         translation_id: translation.id,
         creator_id: currentUser.id,
-        polarity: voteType,
+        polarity: voteType
       });
       onVoteSubmitted();
       // Update local state to reflect the vote
-      const updatedVotes = await voteService.getVotesByTranslationId(translation.id);
+      const updatedVotes = await voteService.getVotesByTranslationId(
+        translation.id
+      );
       setVotes(updatedVotes);
-      const newUserVote = updatedVotes.find(v => v.creator_id === currentUser.id);
+      const newUserVote = updatedVotes.find(
+        (v) => v.creator_id === currentUser.id
+      );
       setUserVote(newUserVote || null);
     } catch (error) {
       console.error('Error handling vote:', error);
@@ -101,12 +125,15 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         translation_id: translation.id,
         creator_id: currentUser!.id,
         polarity: currentVoteType,
-        comment: comment || undefined,
+        comment: comment || undefined
       });
-      
+
       // Get updated translation data after vote
-      const updatedTranslations = await translationService.getTranslationsByAssetId(translation.asset_id);
-      const updatedTranslation = updatedTranslations.find(t => t.id === translation.id);
+      const updatedTranslations =
+        await translationService.getTranslationsByAssetId(translation.asset_id);
+      const updatedTranslation = updatedTranslations.find(
+        (t) => t.id === translation.id
+      );
       if (updatedTranslation) {
         setTranslation(updatedTranslation);
       }
@@ -127,7 +154,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
-        
+
         <ScrollView style={styles.scrollView}>
           {/* <Text style={styles.translatorInfo}>
             Translated by {translation.creator.username} in{' '}
@@ -138,7 +165,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
         <View style={styles.audioPlayerContainer}>
           {translation.audio && (
-            <AudioPlayer 
+            <AudioPlayer
               audioUri={translation.audio}
               useCarousel={false}
               mini={true}
@@ -147,35 +174,41 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         </View>
 
         <View style={styles.feedbackContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.feedbackButton,
-            isOwnTranslation && styles.feedbackButtonDisabled
-          ]} 
-          onPress={() => handleVote('up')}
-          disabled={isOwnTranslation}
-        >
-          <Ionicons
-            name={userVote?.polarity === 'up' ? "thumbs-up" : "thumbs-up-outline"}
-            size={24}
-            color={colors.text}
-          />
-        </TouchableOpacity>
-        <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
-        <TouchableOpacity 
-          style={[
-            styles.feedbackButton,
-            isOwnTranslation && styles.feedbackButtonDisabled
-          ]} 
-          onPress={() => handleVote('down')}
-          disabled={isOwnTranslation}
-        >
-          <Ionicons
-            name={userVote?.polarity === 'down' ? "thumbs-down" : "thumbs-down-outline"}
-            size={24}
-            color={colors.text}
-          />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.feedbackButton,
+              isOwnTranslation && styles.feedbackButtonDisabled
+            ]}
+            onPress={() => handleVote('up')}
+            disabled={isOwnTranslation}
+          >
+            <Ionicons
+              name={
+                userVote?.polarity === 'up' ? 'thumbs-up' : 'thumbs-up-outline'
+              }
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+          <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
+          <TouchableOpacity
+            style={[
+              styles.feedbackButton,
+              isOwnTranslation && styles.feedbackButtonDisabled
+            ]}
+            onPress={() => handleVote('down')}
+            disabled={isOwnTranslation}
+          >
+            <Ionicons
+              name={
+                userVote?.polarity === 'down'
+                  ? 'thumbs-down'
+                  : 'thumbs-down-outline'
+              }
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -197,11 +230,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     top: 0,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
   modal: {
     backgroundColor: colors.background,
@@ -210,53 +243,53 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '80%',
     paddingTop: spacing.xlarge,
-    paddingBottom: spacing.small,
+    paddingBottom: spacing.small
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   closeButton: {
     position: 'absolute',
     top: spacing.small,
     right: spacing.small,
-    padding: spacing.small,
+    padding: spacing.small
   },
   title: {
     fontSize: fontSizes.large,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   scrollView: {
-    maxHeight: '70%', 
+    maxHeight: '70%'
   },
   audioPlayerContainer: {
-    marginTop: spacing.medium, // Add space above the audio player
+    marginTop: spacing.medium // Add space above the audio player
   },
   feedbackContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: spacing.medium,
-    paddingHorizontal: spacing.large,
+    paddingHorizontal: spacing.large
   },
   voteRank: {
     fontSize: fontSizes.medium,
     color: colors.text,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   feedbackButton: {
     padding: spacing.medium,
-    marginHorizontal: spacing.large,
+    marginHorizontal: spacing.large
   },
   feedbackButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.5
   },
   text: {
     fontSize: fontSizes.medium,
-    color: colors.text,
-  },
+    color: colors.text
+  }
 });

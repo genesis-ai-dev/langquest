@@ -3,11 +3,11 @@ import { eq } from 'drizzle-orm';
 import { translation, vote, language, profile } from '../db/drizzleSchema';
 import { aliasedTable } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
-import { system,  } from '../db/powersync/system';
+import { system } from '../db/powersync/system';
 
 const { db } = system;
 
-export type Translation = typeof translation.$inferSelect
+export type Translation = typeof translation.$inferSelect;
 
 export class TranslationService {
   async getTranslationsByAssetId(asset_id: string): Promise<Translation[]> {
@@ -33,10 +33,10 @@ export class TranslationService {
         asset_id: data.asset_id,
         target_language_id: data.target_language_id,
         creator_id: data.creator_id,
-        version_chain_id: randomUUID(),
+        version_chain_id: randomUUID()
       })
       .returning();
-    
+
     return newTranslation;
   }
 
@@ -46,7 +46,7 @@ export class TranslationService {
       .set({ audio: audioUri })
       .where(eq(translation.id, translationId))
       .returning();
-    
+
     return updatedTranslation;
   }
 }

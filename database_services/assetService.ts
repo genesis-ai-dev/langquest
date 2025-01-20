@@ -16,14 +16,14 @@ export class AssetService {
     // First get asset IDs from junction table
     const assetLinks = await db
       .select({
-        asset_id: quest_asset_link.asset_id,
+        asset_id: quest_asset_link.asset_id
       })
       .from(quest_asset_link)
       .where(eq(quest_asset_link.quest_id, quest_id));
 
     // Then get the actual assets
     const assetPromises = assetLinks.map((link) =>
-      this.getAssetById(link.asset_id),
+      this.getAssetById(link.asset_id)
     );
 
     return Promise.all(assetPromises);

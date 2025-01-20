@@ -18,9 +18,11 @@ interface AudioRecorderProps {
   onRecordingComplete: (uri: string) => void;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({
+  onRecordingComplete
+}) => {
   const [audioManager] = useState(() => new AudioManager());
-  const [actor, setActor] = useState(() => 
+  const [actor, setActor] = useState(() =>
     createActor(audioRecorderMachine, {
       input: {
         audioManager,
@@ -72,7 +74,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
       if (status.isLoaded) {
         setPlaybackPosition(status.positionMillis);
         if (status.didJustFinish) {
-        setPlaybackPosition(0); // Reset position when playback ends
+          setPlaybackPosition(0); // Reset position when playback ends
           actor.send({ type: 'PLAYBACK_COMPLETE' });
         }
       }
@@ -83,7 +85,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   useEffect(() => {
     if (snapshot.value === 'recordingPaused') {
       flashingInterval.current = setInterval(() => {
-        setSnapshot(prev => ({
+        setSnapshot((prev) => ({
           ...prev,
           context: { ...prev.context, isFlashing: !prev.context.isFlashing }
         }));
@@ -99,7 +101,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
 
   // Reset playback position when entering certain states
   useEffect(() => {
-    const currentState = typeof snapshot.value === 'string' ? snapshot.value : Object.keys(snapshot.value)[0];
+    const currentState =
+      typeof snapshot.value === 'string'
+        ? snapshot.value
+        : Object.keys(snapshot.value)[0];
     if (['idle', 'recording', 'recordingStopped'].includes(currentState)) {
       setPlaybackPosition(0);
     }
@@ -131,11 +136,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   const getDurationDisplay = (): string => {
     const playbackTime = formatTime(playbackPosition);
     const totalTime = formatTime(recordingDuration);
-    
+
     if (snapshot.value === 'recordingPaused' && snapshot.context.isFlashing) {
       return `${playbackTime}/--:--`;
     }
-    
+
     return `${playbackTime}/${totalTime}`;
   };
 
@@ -143,86 +148,86 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
     switch (snapshot.value) {
       case 'idle':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'checkmark', 
+          {
+            icon: 'checkmark',
             onPress: undefined,
-            disabled: true 
-          },
+            disabled: true
+          }
         ];
       case 'recording':
         return [
-          { 
-            icon: 'pause', 
-            onPress: async () => actor.send({ type: 'PRESS_PAUSE' }) 
+          {
+            icon: 'pause',
+            onPress: async () => actor.send({ type: 'PRESS_PAUSE' })
           },
-          { 
-            icon: 'checkmark', 
-            onPress: async () => actor.send({ type: 'PRESS_CHECK' }) 
-          },
+          {
+            icon: 'checkmark',
+            onPress: async () => actor.send({ type: 'PRESS_CHECK' })
+          }
         ];
       case 'recordingPaused':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'checkmark', 
-            onPress: async () => actor.send({ type: 'PRESS_CHECK' }) 
-          },
+          {
+            icon: 'checkmark',
+            onPress: async () => actor.send({ type: 'PRESS_CHECK' })
+          }
         ];
       case 'recordingStopped':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'play', 
-            onPress: async () => actor.send({ type: 'PRESS_PLAY' }) 
-          },
+          {
+            icon: 'play',
+            onPress: async () => actor.send({ type: 'PRESS_PLAY' })
+          }
         ];
       case 'playing':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'pause', 
-            onPress: async () => actor.send({ type: 'PRESS_PAUSE' }) 
-          },
+          {
+            icon: 'pause',
+            onPress: async () => actor.send({ type: 'PRESS_PAUSE' })
+          }
         ];
       case 'playbackPaused':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'play', 
-            onPress: async () => actor.send({ type: 'PRESS_PLAY' }) 
-          },
+          {
+            icon: 'play',
+            onPress: async () => actor.send({ type: 'PRESS_PLAY' })
+          }
         ];
       case 'playbackEnded':
         return [
-          { 
-            icon: 'mic', 
-            onPress: async () => actor.send({ type: 'PRESS_MIC' }) 
+          {
+            icon: 'mic',
+            onPress: async () => actor.send({ type: 'PRESS_MIC' })
           },
-          { 
-            icon: 'play', 
-            onPress: async () => actor.send({ type: 'PRESS_PLAY' }) 
-          },
+          {
+            icon: 'play',
+            onPress: async () => actor.send({ type: 'PRESS_PLAY' })
+          }
         ];
       default:
         return [
           { icon: 'mic', onPress: undefined },
-          { icon: 'checkmark', onPress: undefined, disabled: true },
+          { icon: 'checkmark', onPress: undefined, disabled: true }
         ];
     }
   };
@@ -231,10 +236,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
 
   return (
     <View style={styles.container}>
-      <Text style={[
-        styles.duration,
-        snapshot.value === 'recordingPaused' && styles.flashingDuration
-      ]}>
+      <Text
+        style={[
+          styles.duration,
+          snapshot.value === 'recordingPaused' && styles.flashingDuration
+        ]}
+      >
         {getDurationDisplay()}
       </Text>
       <View style={styles.buttonContainer}>
@@ -253,38 +260,35 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete }) =>
   );
 };
 
-
-
-
 const styles = StyleSheet.create({
-    container: {
-      alignItems: 'center',
-      padding: spacing.medium,
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      width: '100%',
-    },
-    button: {
-      backgroundColor: colors.primary,
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    buttonDisabled: {
-      opacity: 0.5,
-    },
-    duration: {
-      fontSize: fontSizes.medium,
-      color: colors.text,
-      marginBottom: spacing.small,
-    },
-    flashingDuration: {
-      opacity: 0.5,
-    },
-  });
-  
-  export default AudioRecorder;
+  container: {
+    alignItems: 'center',
+    padding: spacing.medium
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%'
+  },
+  button: {
+    backgroundColor: colors.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  buttonDisabled: {
+    opacity: 0.5
+  },
+  duration: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    marginBottom: spacing.small
+  },
+  flashingDuration: {
+    opacity: 0.5
+  }
+});
+
+export default AudioRecorder;

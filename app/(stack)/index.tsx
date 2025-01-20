@@ -7,7 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -133,7 +133,7 @@ export default function Index() {
           const englishLang = loadedLanguages.find(
             (l) =>
               l.english_name?.toLowerCase() === 'english' ||
-              l.native_name?.toLowerCase() === 'english',
+              l.native_name?.toLowerCase() === 'english'
           );
           setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
@@ -163,7 +163,7 @@ export default function Index() {
     try {
       const authenticatedUser = await userService.validateCredentials({
         email: credentials.email.toLowerCase().trim(),
-        password: credentials.password,
+        password: credentials.password
       });
 
       if (authenticatedUser) {
@@ -198,7 +198,7 @@ export default function Index() {
             <View
               style={[
                 sharedStyles.container,
-                { backgroundColor: 'transparent' },
+                { backgroundColor: 'transparent' }
               ]}
             >
               <Text>{dbStatus}</Text>
@@ -227,7 +227,7 @@ export default function Index() {
                     .filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
                     const lang = languages.find(
-                      (l) => l.native_name === langName,
+                      (l) => l.native_name === langName
                     );
                     if (lang) {
                       setSelectedLanguageId(lang.id);
@@ -256,7 +256,7 @@ export default function Index() {
                 <View
                   style={[
                     sharedStyles.input,
-                    { flexDirection: 'row', alignItems: 'center' },
+                    { flexDirection: 'row', alignItems: 'center' }
                   ]}
                 >
                   <Ionicons
@@ -279,7 +279,7 @@ export default function Index() {
                 <View
                   style={[
                     sharedStyles.input,
-                    { flexDirection: 'row', alignItems: 'center' },
+                    { flexDirection: 'row', alignItems: 'center' }
                   ]}
                 >
                   <Ionicons
@@ -293,6 +293,7 @@ export default function Index() {
                     placeholder={t('password')}
                     placeholderTextColor={colors.text}
                     secureTextEntry
+                    autoCapitalize="none"
                     value={credentials.password}
                     onChangeText={(text) =>
                       setCredentials((prev) => ({ ...prev, password: text }))

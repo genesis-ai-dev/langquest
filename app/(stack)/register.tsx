@@ -19,7 +19,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,17 +28,17 @@ type Language = typeof language.$inferSelect;
 export default function Register() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
-  const selectedLanguage = languages.find(l => l.id === selectedLanguageId);
+  const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
   const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   // const [username, setUsername] = useState('');
   // const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [credentials, setCredentials] = useState({ 
-    username: '', 
-    email: '', 
-    password: '' 
+  const [credentials, setCredentials] = useState({
+    username: '',
+    email: '',
+    password: ''
   });
   const [showLanguages, setShowLanguages] = useState(false);
   const { supabaseConnector } = useSystem();
@@ -59,16 +59,21 @@ export default function Register() {
         // Load languages first
         const loadedLanguages = await languageService.getUiReadyLanguages();
         setLanguages(loadedLanguages);
-         // Then get saved language ID
-        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
-        
-        if (savedLanguageId && loadedLanguages.some(l => l.id === savedLanguageId)) {
+        // Then get saved language ID
+        const savedLanguageId =
+          await AsyncStorage.getItem('selectedLanguageId');
+
+        if (
+          savedLanguageId &&
+          loadedLanguages.some((l) => l.id === savedLanguageId)
+        ) {
           setSelectedLanguageId(savedLanguageId);
         } else if (loadedLanguages.length > 0) {
           // Fallback to English or first language
-          const englishLang = loadedLanguages.find(l => 
-            l.english_name?.toLowerCase() === 'english' || 
-            l.native_name?.toLowerCase() === 'english'
+          const englishLang = loadedLanguages.find(
+            (l) =>
+              l.english_name?.toLowerCase() === 'english' ||
+              l.native_name?.toLowerCase() === 'english'
           );
           setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
         }
@@ -77,7 +82,7 @@ export default function Register() {
         Alert.alert('Error', t('failedLoadLanguages'));
       }
     };
-     initializeLanguages();
+    initializeLanguages();
   }, []);
 
   // Save language when it changes
@@ -99,12 +104,12 @@ export default function Register() {
       Alert.alert('Error', t('usernameRequired'));
       return;
     }
-  
+
     if (!credentials.email.trim()) {
       Alert.alert('Error', t('emailRequired'));
       return;
     }
-  
+
     if (credentials.password !== confirmPassword) {
       Alert.alert('Error', t('passwordsNoMatch'));
       return;
@@ -125,12 +130,12 @@ export default function Register() {
       setCredentials({ username: '', email: '', password: '' });
       setConfirmPassword('');
       setCurrentUser(newUser); // Set the newly created user as current user
-      router.push("/projects");
+      router.push('/projects');
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert(
         'Error',
-        error instanceof Error ? error.message : t('registrationFail'),
+        error instanceof Error ? error.message : t('registrationFail')
       );
     }
   };
@@ -152,7 +157,7 @@ export default function Register() {
             <View
               style={[
                 sharedStyles.container,
-                { backgroundColor: 'transparent' },
+                { backgroundColor: 'transparent' }
               ]}
             >
               <View style={{ alignItems: 'center', width: '100%' }}>
@@ -167,7 +172,7 @@ export default function Register() {
                 style={{
                   alignItems: 'center',
                   marginBottom: spacing.medium,
-                  width: '100%',
+                  width: '100%'
                 }}
               >
                 <Ionicons
@@ -177,10 +182,17 @@ export default function Register() {
                   style={{ marginBottom: spacing.small }}
                 />
                 <CustomDropdown
-                  value={languages.find(l => l.id === selectedLanguageId)?.native_name || ''}
-                  options={languages.map(l => l.native_name).filter((name): name is string => name !== null)}
+                  value={
+                    languages.find((l) => l.id === selectedLanguageId)
+                      ?.native_name || ''
+                  }
+                  options={languages
+                    .map((l) => l.native_name)
+                    .filter((name): name is string => name !== null)}
                   onSelect={(langName) => {
-                    const lang = languages.find(l => l.native_name === langName);
+                    const lang = languages.find(
+                      (l) => l.native_name === langName
+                    );
                     if (lang) {
                       setSelectedLanguageId(lang.id);
                     }
@@ -199,7 +211,7 @@ export default function Register() {
                 style={{
                   alignItems: 'center',
                   marginBottom: spacing.medium,
-                  width: '100%',
+                  width: '100%'
                 }}
               >
                 <Ionicons
@@ -209,25 +221,33 @@ export default function Register() {
                   style={{ marginBottom: spacing.small }}
                 />
 
-                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
-                  <Ionicons name="person-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('username')}
                     placeholderTextColor={colors.text}
                     value={credentials.username}
-                    onChangeText={(text) => setCredentials(prev => ({ ...prev, username: text.trim() }))}
-                  />
-                </View>
-
-                <View style={[sharedStyles.input, { flexDirection: 'row', alignItems: 'center', width: '100%' }]}>
-                  <Ionicons name="mail-outline" size={20} color={colors.text} style={{ marginRight: spacing.medium }} />
-                  <TextInput
-                    style={{ flex: 1, color: colors.text }}
-                    placeholder={t('email')}
-                    placeholderTextColor={colors.text}
-                    value={credentials.email}
-                    onChangeText={(text) => setCredentials(prev => ({ ...prev, email: text.toLowerCase().trim() }))}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({
+                        ...prev,
+                        username: text.trim()
+                      }))
+                    }
                   />
                 </View>
 
@@ -237,8 +257,38 @@ export default function Register() {
                     {
                       flexDirection: 'row',
                       alignItems: 'center',
-                      width: '100%',
-                    },
+                      width: '100%'
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.email}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({
+                        ...prev,
+                        email: text.toLowerCase().trim()
+                      }))
+                    }
+                  />
+                </View>
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
+                    }
                   ]}
                 >
                   <Ionicons
@@ -250,10 +300,13 @@ export default function Register() {
                   <TextInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('password')}
+                    autoCapitalize="none"
                     placeholderTextColor={colors.text}
                     secureTextEntry
                     value={credentials.password}
-                    onChangeText={(text) => setCredentials(prev => ({ ...prev, password: text }))}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, password: text }))
+                    }
                   />
                 </View>
 
@@ -263,8 +316,8 @@ export default function Register() {
                     {
                       flexDirection: 'row',
                       alignItems: 'center',
-                      width: '100%',
-                    },
+                      width: '100%'
+                    }
                   ]}
                 >
                   <Ionicons
@@ -278,6 +331,7 @@ export default function Register() {
                     placeholder={t('confirmPassword')}
                     placeholderTextColor={colors.text}
                     secureTextEntry
+                    autoCapitalize="none"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                   />
@@ -294,7 +348,7 @@ export default function Register() {
                 <TouchableOpacity
                   style={[
                     sharedStyles.button,
-                    { backgroundColor: colors.inputBackground },
+                    { backgroundColor: colors.inputBackground }
                   ]}
                 >
                   <Ionicons

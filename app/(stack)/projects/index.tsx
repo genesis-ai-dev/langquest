@@ -20,7 +20,7 @@ import { useFocusEffect } from 'expo-router';
 type Project = typeof project.$inferSelect;
 
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
-  project,
+  project
 }) => {
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
@@ -32,10 +32,10 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   useEffect(() => {
     const loadLanguages = async () => {
       const source = await languageService.getLanguageById(
-        project.source_language_id,
+        project.source_language_id
       );
       const target = await languageService.getLanguageById(
-        project.target_language_id,
+        project.target_language_id
       );
       setSourceLanguage(source);
       setTargetLanguage(target);
@@ -64,13 +64,12 @@ export default function Projects() {
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
-    null,
+    null
   );
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
-  const { setActiveProject } = useProjectContext();
   const { signOut } = useAuth();
 
   // Load projects and languages on mount
@@ -114,10 +113,10 @@ export default function Projects() {
       filtered = await Promise.all(
         filtered.filter(async (project) => {
           const sourceLanguage = await languageService.getLanguageById(
-            project.source_language_id,
+            project.source_language_id
           );
           const targetLanguage = await languageService.getLanguageById(
-            project.target_language_id,
+            project.target_language_id
           );
 
           const sourceMatch =
@@ -131,7 +130,7 @@ export default function Projects() {
             targetLanguage?.english_name === targetFilter;
 
           return sourceMatch && targetMatch;
-        }),
+        })
       );
     }
 
@@ -151,7 +150,6 @@ export default function Projects() {
   };
 
   const handleProjectPress = (project: Project) => {
-    setActiveProject(project);
     setSelectedProject(project);
   };
 
@@ -176,12 +174,12 @@ export default function Projects() {
       // Add back button handler when screen is focused
       const backHandler = BackHandler.addEventListener(
         'hardwareBackPress',
-        handleBack,
+        handleBack
       );
 
       // Remove handler when screen is unfocused
       return () => backHandler.remove();
-    }, []),
+    }, [])
   );
 
   return (
@@ -200,7 +198,7 @@ export default function Projects() {
               <TouchableOpacity
                 style={[
                   sharedStyles.iconButton,
-                  !showLanguageFilters && sharedStyles.selectedIconButton,
+                  !showLanguageFilters && sharedStyles.selectedIconButton
                 ]}
                 onPress={() => setShowLanguageFilters(false)}
               >
@@ -209,7 +207,7 @@ export default function Projects() {
               <TouchableOpacity
                 style={[
                   sharedStyles.iconButton,
-                  showLanguageFilters && sharedStyles.selectedIconButton,
+                  showLanguageFilters && sharedStyles.selectedIconButton
                 ]}
                 onPress={toggleSearch}
               >

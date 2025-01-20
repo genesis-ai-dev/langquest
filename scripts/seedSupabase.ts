@@ -15,7 +15,10 @@ dotenv.config();
 // Helper function to generate UUIDs (replacing expo-crypto's randomUUID)
 const randomUUID = () => cryptoRandomUUID();
 
-if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
+if (
+  !process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+) {
   throw new Error('Missing Supabase environment variables');
 }
 
@@ -26,7 +29,7 @@ const supabase = createClient(
 
 async function seedLanguages() {
   console.log('Seeding languages...');
-  
+
   const languages = [
     {
       id: randomUUID(),
@@ -35,7 +38,7 @@ async function seedLanguages() {
       english_name: 'English',
       iso639_3: 'eng',
       ui_ready: 1,
-      version_chain_id: randomUUID(),
+      version_chain_id: randomUUID()
     },
     {
       id: randomUUID(),
@@ -44,7 +47,7 @@ async function seedLanguages() {
       english_name: 'Spanish',
       iso639_3: 'spa',
       ui_ready: 1,
-      version_chain_id: randomUUID(),
+      version_chain_id: randomUUID()
     }
   ];
 
@@ -78,7 +81,7 @@ async function seedLanguages() {
 
 // async function seedTags() {
 //   console.log('Seeding tags...');
-  
+
 //   const tagData = [
 //     { name: 'Book:Romans', version_chain_id: randomUUID() },
 //     { name: 'Chapter:1', version_chain_id: randomUUID() },
@@ -105,14 +108,14 @@ async function seedLanguages() {
 
 // async function seedProjects() {
 //   console.log('Seeding projects...');
-  
+
 //   // Get language IDs first
 //   const { data: languages, error: langError } = await supabase
 //     .from('language')
 //     .select('id, english_name');
-  
+
 //   if (langError) throw langError;
-  
+
 //   const english = languages?.find(l => l.english_name === 'English');
 //   const spanish = languages?.find(l => l.english_name === 'Spanish');
 
@@ -152,15 +155,18 @@ async function seedSupabase() {
   try {
     // Log environment variables (redacted)
     console.log('Supabase URL exists:', !!process.env.EXPO_PUBLIC_SUPABASE_URL);
-    console.log('Supabase Anon Key exists:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
-    
+    console.log(
+      'Supabase Anon Key exists:',
+      !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     await seedLanguages();
     console.log('Database seeded successfully');
     process.exit(0);
   } catch (error: unknown) {
     // Type guard to check if error is an object
     const supabaseError = error as SupabaseError;
-    
+
     console.error('Error seeding database:', {
       name: supabaseError?.name || 'Unknown error',
       message: supabaseError?.message || 'No error message available',

@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Modal,
+  TouchableWithoutFeedback,
+  Alert
+} from 'react-native';
 import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AudioRecorder from './AudioRecorderComponent/AudioRecorderX';
@@ -20,11 +29,11 @@ interface NewTranslationModalProps {
 
 const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 
-export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({ 
-  isVisible, 
-  onClose, 
+export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
+  isVisible,
+  onClose,
   onSubmit,
-  asset_id,
+  asset_id
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
@@ -42,7 +51,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       Alert.alert('Error', t('noProject'));
       return;
     }
-    
+
     if (!translationText.trim() && !audioUri) {
       Alert.alert('Error', t('fillFields'));
       return;
@@ -50,11 +59,13 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
     try {
       let permanentAudioUri: string | undefined;
-      
+
       if (audioUri) {
         // Ensure recordings directory exists
-        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, { intermediates: true });
-        
+        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
+          intermediates: true
+        });
+
         // Move audio to permanent storage with unique filename
         const fileName = `${Date.now()}_${randomUUID()}.m4a`;
         permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
@@ -68,10 +79,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         text: translationText.trim(),
         target_language_id: activeProject.target_language_id,
         asset_id,
-        creator_id: currentUser.id,
+        creator_id: currentUser.id
         //audio: permanentAudioUri,
       });
-      
+
       setTranslationText('');
       setAudioUri(null);
       onSubmit();
@@ -100,7 +111,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
-              
+
               <Text style={styles.title}>{t('newTranslation')}</Text>
 
               <TextInput
@@ -114,11 +125,13 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
               <AudioRecorder onRecordingComplete={handleRecordingComplete} />
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.submitButton,
-                  (!translationText.trim() && !audioUri) && styles.submitButtonDisabled
-                ]} 
+                  !translationText.trim() &&
+                    !audioUri &&
+                    styles.submitButtonDisabled
+                ]}
                 onPress={handleSubmit}
                 disabled={!translationText.trim() && !audioUri}
               >
@@ -138,24 +151,24 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Change from 'center' to 'flex-end'
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingBottom: spacing.large, // Add some padding from bottom
+    paddingBottom: spacing.large // Add some padding from bottom
   },
   modal: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '80%'
   },
   closeButton: {
     alignSelf: 'flex-end',
-    padding: spacing.small,
+    padding: spacing.small
   },
   title: {
     fontSize: fontSizes.large,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   textInput: {
     backgroundColor: colors.inputBackground,
@@ -164,21 +177,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
     minHeight: 100,
-    marginBottom: spacing.medium,
+    marginBottom: spacing.medium
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     alignItems: 'center',
-    marginTop: spacing.medium,
+    marginTop: spacing.medium
   },
   submitButtonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   submitButtonDisabled: {
-    backgroundColor: colors.backgroundSecondary,
-  },
+    backgroundColor: colors.backgroundSecondary
+  }
 });
