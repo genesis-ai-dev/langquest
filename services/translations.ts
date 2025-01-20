@@ -262,6 +262,34 @@ export const translations = {
   assets: {
     english: 'Assets',
     spanish: 'Recursos'
+  },
+  notifications: {
+    english: 'Notifications',
+    spanish: 'Notificaciones'
+  },
+  downloads: {
+    english: 'Downloads',
+    spanish: 'Descargas'
+  },
+  leaderboard: {
+    english: 'Leaderboard',
+    spanish: 'Tabla de clasificación'
+  },
+  profile: {
+    english: 'Profile',
+    spanish: 'Perfil'
+  },
+  settings: {
+    english: 'Settings',
+    spanish: 'Configuración'
+  },
+  export: {
+    english: 'Export',
+    spanish: 'Exportar'
+  },
+  logOut: {
+    english: 'Log Out',
+    spanish: 'Cerrar sesión'
   }
   // Add more translation keys as needed...
 } as const;

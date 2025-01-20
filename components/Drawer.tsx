@@ -7,6 +7,7 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
+  DrawerNavigationOptions,
   type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -121,19 +122,13 @@ function DrawerFooter() {
   );
 }
 
-export function Drawer() {
-  const pathname = usePathname();
-  console.log(pathname);
+export function Drawer({
+  screenOptions
+}: {
+  screenOptions: DrawerNavigationOptions;
+}) {
   return (
-    <ExpoDrawer
-      screenOptions={{
-        headerShown: false,
-        drawerType: 'slide',
-        swipeEdgeWidth: 100,
-        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
-      }}
-      drawerContent={DrawerContent}
-    />
+    <ExpoDrawer screenOptions={screenOptions} drawerContent={DrawerContent} />
   );
 }
 
