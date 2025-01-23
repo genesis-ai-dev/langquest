@@ -1,38 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import { userRepository } from '@/database_services/repositories';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import * as schema from '../../db/drizzleSchema';
-import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import migrations from '../../drizzle/migrations';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { system } from '../../db/powersync/system';
 import { userService } from '@/database_services/userService';
-import { handleMigrations } from '@/db/migrationHandler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { system } from '../../db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
+import { CustomDropdown } from '@/components/CustomDropdown';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/hooks/useTranslation';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
-import { CustomDropdown } from '@/components/CustomDropdown';
+import { useTranslation } from '@/hooks/useTranslation';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing } from '@/styles/theme';
-import { sharedStyles } from '@/styles/theme';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;

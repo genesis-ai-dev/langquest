@@ -7,6 +7,7 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
+  DrawerItemList,
   type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +43,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       style={{ flex: 1 }}
     >
       <DrawerContentScrollView {...props} style={styles.drawer}>
+        {/* <DrawerItemList {...props} /> */}
         <Text style={styles.drawerHeader}>{t('recentlyVisited')}</Text>
         <Category
           title={t('projects')}
@@ -123,7 +125,6 @@ function DrawerFooter() {
 
 export function Drawer() {
   const pathname = usePathname();
-  console.log(pathname);
   return (
     <ExpoDrawer
       screenOptions={{

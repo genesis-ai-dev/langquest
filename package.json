@@ -14,6 +14,7 @@
     "lint:fix": "eslint --fix --ignore-pattern .gitignore",
     "format": "prettier --check . --ignore-path .gitignore",
     "format:fix": "prettier --write . --ignore-path .gitignore",
+    "typecheck": "tsc --noEmit",
     "seed:supabase": "tsx scripts/seedSupabase.ts"
   },
   "jest": {
@@ -23,7 +24,7 @@
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@expo/vector-icons": "^14.0.2",
     "@journeyapps/react-native-quick-sqlite": "^2.2.0",
-    "@powersync/drizzle-driver": "^0.1.0",
+    "@powersync/drizzle-driver": "^0.3.0",
     "@powersync/react-native": "^1.16.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/slider": "4.5.4",

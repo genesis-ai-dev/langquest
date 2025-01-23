@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Carousel from './Carousel';
-import { loadAsset } from '../utils/assetUtils';
 import { Asset } from 'expo-asset';
+import { loadAsset } from '@/utils/assetUtils';
 
 interface ImageCarouselProps {
   imageModuleIds: string[];
