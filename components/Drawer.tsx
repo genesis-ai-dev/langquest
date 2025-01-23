@@ -7,20 +7,70 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
+  DrawerItem,
   DrawerItemList,
   type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
-import { Drawer as ExpoDrawer } from 'expo-router/drawer';
-import { useCallback, useState } from 'react';
 import {
+  Href,
+  Link,
+  useGlobalSearchParams,
+  usePathname,
+  useRouter
+} from 'expo-router';
+import { Drawer as ExpoDrawer } from 'expo-router/drawer';
+import { forwardRef, Fragment, useCallback, useState } from 'react';
+import {
+  Alert,
   Pressable,
+  PressableProps,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+
+type DrawerItem = {
+  id: number;
+  name?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  path: Href<string>;
+};
+
+const drawerItems: DrawerItem[] = [
+  { id: 0, name: 'Projects', icon: 'home', path: '/projects' },
+  {
+    id: 1,
+    name: 'Downloads',
+    icon: 'download',
+    path: '/downloads'
+  },
+  {
+    id: 2,
+    name: 'Notifications',
+    icon: 'notifications',
+    path: '/notifications'
+  },
+  { id: 3, name: 'Profile', icon: 'person', path: '/profile' },
+  { id: 4, name: 'P2P', icon: 'swap-horizontal', path: '/p2p' },
+  { id: 5, name: 'Settings', icon: 'settings', path: '/settings' }
+] as const;
+
+export function Drawer() {
+  const pathname = usePathname();
+  return (
+    <ExpoDrawer
+      screenOptions={{
+        headerShown: false,
+        drawerType: 'slide',
+        swipeEdgeWidth: 100
+        // swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
+      }}
+      drawerContent={DrawerContent}
+    />
+  );
+}
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation();
@@ -43,7 +93,6 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       style={{ flex: 1 }}
     >
       <DrawerContentScrollView {...props} style={styles.drawer}>
-        {/* <DrawerItemList {...props} /> */}
         <Text style={styles.drawerHeader}>{t('recentlyVisited')}</Text>
         <Category
           title={t('projects')}
@@ -61,10 +110,48 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           onPress={(item) => goToAsset(item as Asset, projectId, questId, true)}
         />
       </DrawerContentScrollView>
+      <DrawerItems />
       <View style={styles.drawerFooter}>
         <DrawerFooter />
       </View>
     </LinearGradient>
+  );
+}
+
+const Item = forwardRef<
+  View,
+  {
+    active?: boolean;
+    item: Omit<DrawerItem, 'path'> & { path?: Href<string> };
+  } & Omit<PressableProps, 'style'>
+>(({ active, item, ...props }, ref) => {
+  return (
+    <Pressable ref={ref} style={styles.drawerItem} {...props}>
+      <Ionicons name={item.icon} size={20} color={colors.text} />
+      <Text style={{ color: colors.text }}>{item.name}</Text>
+    </Pressable>
+  );
+});
+
+function DrawerItems() {
+  const pathname = usePathname();
+
+  return (
+    <View style={styles.drawerItems}>
+      {drawerItems.map((item) => (
+        <Link href={item.path} key={item.id} style={styles.drawerItem} asChild>
+          <Item item={item} active={pathname === item.path} />
+        </Link>
+      ))}
+      <Item
+        item={{
+          id: 6,
+          name: 'Logout',
+          icon: 'log-out'
+        }}
+        onPress={() => Alert.alert('Log out')}
+      />
+    </View>
   );
 }
 
@@ -120,21 +207,6 @@ function DrawerFooter() {
         )}
       </View>
     </View>
-  );
-}
-
-export function Drawer() {
-  const pathname = usePathname();
-  return (
-    <ExpoDrawer
-      screenOptions={{
-        headerShown: false,
-        drawerType: 'slide',
-        swipeEdgeWidth: 100,
-        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
-      }}
-      drawerContent={DrawerContent}
-    />
   );
 }
 
@@ -229,6 +301,18 @@ const styles = StyleSheet.create({
   },
   categoryItemText: {
     color: colors.text
+  },
+  drawerItems: {
+    gap: spacing.small,
+    padding: spacing.small
+  },
+  drawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small,
+    padding: spacing.small,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.medium
   },
   drawerFooter: {
     // padding: spacing.small,
