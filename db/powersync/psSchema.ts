@@ -108,6 +108,51 @@ const vote = new Table({
   creator_id: column.text
 });
 
+const notification = new Table({
+  ...baseColumns,
+  profile_id: column.text,
+  project_subscription_id: column.text,
+  quest_subscription_id: column.text,
+  asset_subscription_id: column.text,
+  translation_subscription_id: column.text,
+  invite_request_id: column.text,
+  event_type: column.text,
+  viewed: column.integer
+});
+
+const translation_subscription = new Table({
+  ...baseColumns,
+  translation_id: column.text,
+  profile_id: column.text
+});
+
+const project_subscription = new Table({
+  ...baseColumns,
+  project_id: column.text,
+  profile_id: column.text
+});
+
+const quest_subscription = new Table({
+  ...baseColumns,
+  quest_id: column.text,
+  project_subscription_id: column.text
+});
+
+const asset_subscription = new Table({
+  ...baseColumns,
+  asset_id: column.text,
+  quest_subscription_id: column.text
+});
+
+const invite_request = new Table({
+  ...baseColumns,
+  sender_profile_id: column.text,
+  receiver_profile_id: column.text,
+  project_id: column.text,
+  type: column.text,
+  status: column.text
+});
+
 export const AppSchema = new Schema({
   profile,
   language,
@@ -119,5 +164,11 @@ export const AppSchema = new Schema({
   asset_tag_link,
   quest_asset_link,
   translation,
-  vote
+  vote,
+  notification,
+  translation_subscription,
+  project_subscription,
+  quest_subscription,
+  asset_subscription,
+  invite_request
 });

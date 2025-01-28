@@ -22,12 +22,10 @@ type Project = typeof project.$inferSelect;
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [targetLanguage, setTargetLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
+  const [sourceLanguage, setSourceLanguage] =
+    useState<typeof language.$inferSelect>();
+  const [targetLanguage, setTargetLanguage] =
+    useState<typeof language.$inferSelect>();
 
   useEffect(() => {
     const loadLanguages = async () => {

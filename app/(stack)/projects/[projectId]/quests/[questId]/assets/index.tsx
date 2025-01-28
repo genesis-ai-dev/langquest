@@ -211,7 +211,7 @@ export default function Assets() {
   };
 
   const handleAssetPress = (asset: Asset) => {
-    goToAsset(asset, questId, projectId);
+    goToAsset({ asset, questId, projectId });
   };
 
   const handleCloseDetails = () => {
