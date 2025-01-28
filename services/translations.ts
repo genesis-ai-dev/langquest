@@ -143,10 +143,6 @@ export const translations = {
     english: 'Password',
     spanish: 'Contraseña'
   },
-  passwordRequired: {
-    english: 'Password is required',
-    spanish: 'Se requiere contraseña'
-  },
   passwordsNoMatch: {
     english: 'Passwords do not match',
     spanish: 'Las contraseñas no coinciden'
@@ -215,10 +211,6 @@ export const translations = {
     english: 'An error occurred during sign in',
     spanish: 'Ocurrió un error durante el inicio de sesión'
   },
-  logOut: {
-    english: 'Log Out',
-    spanish: 'Cerrar Sesión'
-  },
   sortBy: {
     english: 'Sort by...',
     spanish: 'Ordenar por...'
@@ -270,39 +262,6 @@ export const translations = {
   assets: {
     english: 'Assets',
     spanish: 'Recursos'
-  },
-  notifications: {
-    english: 'Notifications',
-    spanish: 'Notificaciones'
-  },
-  profile: {
-    english: 'Profile',
-    spanish: 'Perfil'
-  },
-  settings: {
-    english: 'Settings',
-    spanish: 'Configuración'
-  },
-  changePassword: {
-    english: 'Change Password',
-    spanish: 'Cambiar Contraseña'
-  },
-  currentPassword: {
-    english: 'Current Password',
-    spanish: 'Contraseña Actual'
-  },
-  newPassword: {
-    english: 'New Password',
-    spanish: 'Nueva Contraseña'
-  },
-  offlinePasswordChange: {
-    english: 'Password can only be changed when online',
-    spanish: 'La contraseña solo se puede cambiar cuando está en línea'
-  },
-  onlineOnlyFeatures: {
-    english: 'Password changes are only available when online',
-    spanish:
-      'Los cambios de contraseña solo están disponibles cuando está en línea'
   }
   // Add more translation keys as needed...
 } as const;

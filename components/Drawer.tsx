@@ -1,4 +1,3 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
 import { type Project } from '@/database_services/projectService';
@@ -11,81 +10,16 @@ import {
   type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Href,
-  Link,
-  useGlobalSearchParams,
-  usePathname,
-  useRouter
-} from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
-import { forwardRef, Fragment, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableOpacityProps,
   View
 } from 'react-native';
-
-type DrawerItem = {
-  name?: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  path: Href<string>;
-};
-
-function DrawerItems() {
-  const pathname = usePathname();
-  const { isAuthenticated, signOut } = useAuth();
-  const { t } = useTranslation();
-
-  const drawerItems: DrawerItem[] = [
-    { name: t('projects'), icon: 'home', path: '/projects' },
-    {
-      name: t('notifications'),
-      icon: 'notifications',
-      path: '/notifications'
-    },
-    { name: t('profile'), icon: 'person', path: '/profile' },
-    { name: t('settings'), icon: 'settings', path: '/settings' }
-  ] as const;
-
-  return (
-    <View style={styles.drawerItems}>
-      {drawerItems.map((item, index) => (
-        <Link href={item.path} key={index} asChild>
-          <DrawerItem item={item} active={pathname === item.path} />
-        </Link>
-      ))}
-      {isAuthenticated && (
-        <DrawerItem
-          item={{
-            name: t('logOut'),
-            icon: 'log-out'
-          }}
-          onPress={() => signOut()}
-        />
-      )}
-    </View>
-  );
-}
-
-export function Drawer() {
-  const pathname = usePathname();
-  return (
-    <ExpoDrawer
-      screenOptions={{
-        headerShown: false,
-        drawerType: 'slide',
-        swipeEdgeWidth: 100,
-        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
-      }}
-      drawerContent={DrawerContent}
-    />
-  );
-}
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation();
@@ -97,6 +31,10 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     goToQuest,
     goToAsset
   } = useProjectContext();
+  const { projectId, questId } = useGlobalSearchParams<{
+    projectId: string;
+    questId: string;
+  }>();
 
   return (
     <LinearGradient
@@ -118,14 +56,84 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <Category
           title={t('assets')}
           items={recentAssets}
-          onPress={(item) => goToAsset({ path: item.path }, true)}
+          onPress={(item) => goToAsset(item as Asset, projectId, questId, true)}
         />
       </DrawerContentScrollView>
-      <DrawerItems />
       <View style={styles.drawerFooter}>
         <DrawerFooter />
       </View>
     </LinearGradient>
+  );
+}
+
+function DrawerFooter() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { goToProject, goToQuest, activeProject, activeQuest } =
+    useProjectContext();
+
+  if (pathname === '/projects' && (!activeProject || !activeQuest)) return null;
+
+  return (
+    <View style={styles.drawerFooterNav}>
+      {pathname !== '/projects' && (
+        <TouchableOpacity onPress={() => router.navigate('/projects')}>
+          <Ionicons name="home" size={20} color={colors.text} />
+        </TouchableOpacity>
+      )}
+      <View style={styles.footerTextContainer}>
+        {activeProject && (
+          <>
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            <TouchableOpacity
+              onPress={() => goToProject(activeProject, true)}
+              style={styles.footerTextItem}
+            >
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: colors.text }}
+              >
+                {activeProject.name}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {activeQuest && activeProject && (
+          <>
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            <TouchableOpacity
+              onPress={() => goToQuest(activeQuest, true)}
+              style={styles.footerTextItem}
+            >
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: colors.text }}
+              >
+                {activeQuest.name}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+export function Drawer() {
+  const pathname = usePathname();
+  console.log(pathname);
+  return (
+    <ExpoDrawer
+      screenOptions={{
+        headerShown: false,
+        drawerType: 'slide',
+        swipeEdgeWidth: 100,
+        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
+      }}
+      drawerContent={DrawerContent}
+    />
   );
 }
 
@@ -135,8 +143,8 @@ function Category({
   onPress
 }: {
   title: string;
-  items: ((Project | Quest | Asset) & { path: Href<string> })[];
-  onPress: (item: (Project | Quest | Asset) & { path: Href<string> }) => void;
+  items: (Project | Quest | Asset)[];
+  onPress: (item: Project | Quest | Asset) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -163,99 +171,16 @@ function Category({
       {isExpanded && (
         <View style={styles.categoryContent}>
           {items.map((item) => (
-            <Link href={item.path} asChild>
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => onPress(item)}
-                style={styles.categoryItem}
-              >
-                <Text style={styles.categoryItemText}>{item.name}</Text>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => onPress(item)}
+              style={styles.categoryItem}
+            >
+              <Text style={styles.categoryItemText}>{item.name}</Text>
+            </TouchableOpacity>
           ))}
         </View>
       )}
-    </View>
-  );
-}
-
-const DrawerItem = forwardRef<
-  TouchableOpacity,
-  {
-    active?: boolean;
-    item: Omit<DrawerItem, 'path'> & { path?: Href<string> };
-  } & TouchableOpacityProps
->(({ active, item, style, ...props }, ref) => {
-  return (
-    <TouchableOpacity
-      ref={ref}
-      style={[
-        // typeof style === 'function' ? style({ pressed }) : style,
-        styles.drawerItem,
-        active && {
-          backgroundColor: colors.primary
-        }
-      ]}
-      {...props}
-    >
-      <Ionicons name={item.icon} size={20} color={colors.text} />
-      <Text style={{ color: colors.text }}>{item.name}</Text>
-    </TouchableOpacity>
-  );
-});
-
-function DrawerFooter() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { goToProject, goToQuest, activeProject, activeQuest } =
-    useProjectContext();
-
-  if (!pathname.startsWith('/projects') || !activeProject || !activeQuest)
-    return null;
-
-  return (
-    <View style={styles.drawerFooterNav}>
-      {pathname.startsWith('/projects') && (
-        <TouchableOpacity onPress={() => router.navigate('/projects')}>
-          <Ionicons name="home" size={20} color={colors.text} />
-        </TouchableOpacity>
-      )}
-      <View style={styles.footerTextContainer}>
-        {activeProject && (
-          <Fragment>
-            <Ionicons name="chevron-forward" size={14} color={colors.text} />
-            <TouchableOpacity
-              onPress={() => goToProject(activeProject, true)}
-              style={styles.footerTextItem}
-            >
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ color: colors.text }}
-              >
-                {activeProject.name}
-              </Text>
-            </TouchableOpacity>
-          </Fragment>
-        )}
-        {activeQuest && activeProject && (
-          <Fragment>
-            <Ionicons name="chevron-forward" size={14} color={colors.text} />
-            <TouchableOpacity
-              onPress={() => goToQuest(activeQuest, true)}
-              style={styles.footerTextItem}
-            >
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ color: colors.text }}
-              >
-                {activeQuest.name}
-              </Text>
-            </TouchableOpacity>
-          </Fragment>
-        )}
-      </View>
     </View>
   );
 }
@@ -303,18 +228,6 @@ const styles = StyleSheet.create({
   },
   categoryItemText: {
     color: colors.text
-  },
-  drawerItems: {
-    gap: spacing.small,
-    padding: spacing.small
-  },
-  drawerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small,
-    padding: spacing.medium,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.small
   },
   drawerFooter: {
     // padding: spacing.small,

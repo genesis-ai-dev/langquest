@@ -7,6 +7,6 @@ export default function StackLayout() {
         headerShown: false,
         gestureEnabled: false
       }}
-    ></Stack>
+    />
   );
 }

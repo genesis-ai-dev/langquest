@@ -29,7 +29,7 @@ export class TranslationService {
       .values({
         rev: 1,
         text: data.text,
-        audio: null, // Null for now
+        audio: [], // Empty array for now
         asset_id: data.asset_id,
         target_language_id: data.target_language_id,
         creator_id: data.creator_id,

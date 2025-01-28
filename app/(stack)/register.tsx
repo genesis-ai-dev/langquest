@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -19,69 +19,118 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  StyleSheet
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { useForm, Controller } from 'react-hook-form';
 
 type Language = typeof language.$inferSelect;
 
-type RegisterFormData = {
-  username: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  selectedLanguageId: string;
-};
-
-const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-
 export default function Register() {
-  const { t } = useTranslation();
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string>('');
+  const selectedLanguage = languages.find((l) => l.id === selectedLanguageId);
+  const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
   const router = useRouter();
   const { setCurrentUser } = useAuth();
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [credentials, setCredentials] = useState({
+    username: '',
+    email: '',
+    password: ''
+  });
+  const [showLanguages, setShowLanguages] = useState(false);
   const { supabaseConnector } = useSystem();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { errors }
-  } = useForm<RegisterFormData>({
-    defaultValues: {
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      selectedLanguageId: ''
-    }
-  });
-
-  // Clear form when component unmounts
+  // Clear passwords when component unmounts
   useEffect(() => {
     return () => {
-      reset();
+      // setPassword('');
+      setCredentials({ username: '', email: '', password: '' });
+      setConfirmPassword('');
     };
-  }, [reset]);
+  }, []);
 
-  const onSubmit = async (data: RegisterFormData) => {
+  // Load saved language on mount
+  useEffect(() => {
+    const initializeLanguages = async () => {
+      try {
+        // Load languages first
+        const loadedLanguages = await languageService.getUiReadyLanguages();
+        setLanguages(loadedLanguages);
+        // Then get saved language ID
+        const savedLanguageId =
+          await AsyncStorage.getItem('selectedLanguageId');
+
+        if (
+          savedLanguageId &&
+          loadedLanguages.some((l) => l.id === savedLanguageId)
+        ) {
+          setSelectedLanguageId(savedLanguageId);
+        } else if (loadedLanguages.length > 0) {
+          // Fallback to English or first language
+          const englishLang = loadedLanguages.find(
+            (l) =>
+              l.english_name?.toLowerCase() === 'english' ||
+              l.native_name?.toLowerCase() === 'english'
+          );
+          setSelectedLanguageId(englishLang?.id || loadedLanguages[0].id);
+        }
+      } catch (error) {
+        console.error('Error initializing languages:', error);
+        Alert.alert('Error', t('failedLoadLanguages'));
+      }
+    };
+    initializeLanguages();
+  }, []);
+
+  // Save language when it changes
+  useEffect(() => {
+    const saveLanguage = async () => {
+      try {
+        if (selectedLanguageId) {
+          await AsyncStorage.setItem('selectedLanguageId', selectedLanguageId);
+        }
+      } catch (error) {
+        console.error('Error saving language:', error);
+      }
+    };
+    saveLanguage();
+  }, [selectedLanguageId]);
+
+  const handleRegister = async () => {
+    if (!credentials.username.trim()) {
+      Alert.alert('Error', t('usernameRequired'));
+      return;
+    }
+
+    if (!credentials.email.trim()) {
+      Alert.alert('Error', t('emailRequired'));
+      return;
+    }
+
+    if (credentials.password !== confirmPassword) {
+      Alert.alert('Error', t('passwordsNoMatch'));
+      return;
+    }
+
+    if (!selectedLanguageId) {
+      Alert.alert('Error', t('selectLanguage'));
+      return;
+    }
+
     try {
       const userData = {
-        credentials: {
-          username: data.username,
-          email: data.email,
-          password: data.password
-        },
-        ui_language_id: data.selectedLanguageId
+        credentials,
+        ui_language_id: selectedLanguageId
       };
 
       const newUser = await userService.createNew(userData);
-      reset();
+      setCredentials({ username: '', email: '', password: '' });
+      setConfirmPassword('');
       setCurrentUser(newUser); // Set the newly created user as current user
-      router.replace('/projects');
+      router.push('/projects');
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert(
@@ -111,14 +160,20 @@ export default function Register() {
                 { backgroundColor: 'transparent' }
               ]}
             >
-              <Text style={sharedStyles.appTitle}>LangQuest</Text>
-              <Text style={sharedStyles.subtitle}>
-                {t('newUserRegistration')}
-              </Text>
+              <View style={{ alignItems: 'center', width: '100%' }}>
+                <Text style={sharedStyles.appTitle}>LangQuest</Text>
+                <Text style={sharedStyles.subtitle}>
+                  {t('newUserRegistration')}
+                </Text>
+              </View>
 
               {/* Language section */}
               <View
-                style={{ alignItems: 'center', marginBottom: spacing.medium }}
+                style={{
+                  alignItems: 'center',
+                  marginBottom: spacing.medium,
+                  width: '100%'
+                }}
               >
                 <Ionicons
                   name="language"
@@ -126,23 +181,29 @@ export default function Register() {
                   color={colors.text}
                   style={{ marginBottom: spacing.small }}
                 />
-                <Controller
-                  control={control}
-                  name="selectedLanguageId"
-                  rules={{ required: t('selectLanguage') }}
-                  render={({ field: { onChange, value } }) => (
-                    <LanguageSelect
-                      value={value}
-                      onChange={onChange}
-                      containerStyle={{ width: '100%' }}
-                    />
-                  )}
+                <CustomDropdown
+                  value={
+                    languages.find((l) => l.id === selectedLanguageId)
+                      ?.native_name || ''
+                  }
+                  options={languages
+                    .map((l) => l.native_name)
+                    .filter((name): name is string => name !== null)}
+                  onSelect={(langName) => {
+                    const lang = languages.find(
+                      (l) => l.native_name === langName
+                    );
+                    if (lang) {
+                      setSelectedLanguageId(lang.id);
+                    }
+                  }}
+                  isOpen={showLanguages}
+                  onToggle={() => setShowLanguages(!showLanguages)}
+                  search={true}
+                  searchPlaceholder={t('search')}
+                  fullWidth={true}
+                  containerStyle={{ marginBottom: spacing.medium }}
                 />
-                {errors.selectedLanguageId && (
-                  <Text style={styles.errorText}>
-                    {errors.selectedLanguageId.message}
-                  </Text>
-                )}
               </View>
 
               {/* User section */}
@@ -160,192 +221,161 @@ export default function Register() {
                   style={{ marginBottom: spacing.small }}
                 />
 
-                <Controller
-                  control={control}
-                  name="username"
-                  rules={{
-                    required: t('usernameRequired'),
-                    minLength: {
-                      value: 3,
-                      message: t('usernameRequired')
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
                     }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="person-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('username')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                      />
-                    </View>
-                  )}
-                />
-                {errors.username && (
-                  <Text style={styles.errorText}>
-                    {errors.username.message}
-                  </Text>
-                )}
-
-                <Controller
-                  control={control}
-                  name="email"
-                  rules={{
-                    required: t('emailRequired'),
-                    pattern: {
-                      value: EMAIL_REGEX,
-                      message: t('emailRequired')
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('username')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.username}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({
+                        ...prev,
+                        username: text.trim()
+                      }))
                     }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="mail-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('email')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                      />
-                    </View>
-                  )}
-                />
-                {errors.email && (
-                  <Text style={styles.errorText}>{errors.email.message}</Text>
-                )}
+                  />
+                </View>
 
-                <Controller
-                  control={control}
-                  name="password"
-                  rules={{
-                    required: t('password'),
-                    minLength: {
-                      value: 6,
-                      message: t('password')
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
                     }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('password')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        secureTextEntry
-                      />
-                    </View>
-                  )}
-                />
-                {errors.password && (
-                  <Text style={styles.errorText}>
-                    {errors.password.message}
-                  </Text>
-                )}
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.text}
+                    value={credentials.email}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({
+                        ...prev,
+                        email: text.toLowerCase().trim()
+                      }))
+                    }
+                  />
+                </View>
 
-                <Controller
-                  control={control}
-                  name="confirmPassword"
-                  rules={{
-                    required: t('confirmPassword'),
-                    validate: (value) =>
-                      value === watch('password') || t('passwordsNoMatch')
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('confirmPassword')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        secureTextEntry
-                      />
-                    </View>
-                  )}
-                />
-                {errors.confirmPassword && (
-                  <Text style={styles.errorText}>
-                    {errors.confirmPassword.message}
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('password')}
+                    autoCapitalize="none"
+                    placeholderTextColor={colors.text}
+                    secureTextEntry
+                    value={credentials.password}
+                    onChangeText={(text) =>
+                      setCredentials((prev) => ({ ...prev, password: text }))
+                    }
+                  />
+                </View>
+
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      width: '100%'
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                    style={{ marginRight: spacing.medium }}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('confirmPassword')}
+                    placeholderTextColor={colors.text}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                  />
+                </View>
+              </View>
+
+              {/* Avatar section */}
+              <View style={{ width: '100%', marginBottom: spacing.medium }}>
+                <Text
+                  style={{ color: colors.text, marginBottom: spacing.small }}
+                >
+                  {t('avatar')}:
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    sharedStyles.button,
+                    { backgroundColor: colors.inputBackground }
+                  ]}
+                >
+                  <Ionicons
+                    name="camera-outline"
+                    size={24}
+                    color={colors.text}
+                  />
+                  <Text
+                    style={[sharedStyles.buttonText, { color: colors.text }]}
+                  >
+                    {t('select')}
                   </Text>
-                )}
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity
-                style={[sharedStyles.button, { marginTop: 'auto' }]}
-                onPress={handleSubmit(onSubmit)}
+                style={sharedStyles.button}
+                onPress={handleRegister}
               >
-                <Text style={sharedStyles.buttonText}>{t('register')}</Text>
+                <Text style={sharedStyles.buttonText}>{t('becomeHero')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={{ marginTop: spacing.medium }}
-                onPress={() => router.replace('/')}
-              >
-                <Text style={sharedStyles.link}>{t('returningHero')}</Text>
-              </TouchableOpacity>
+              <View style={{ alignItems: 'center', width: '100%' }}>
+                <TouchableOpacity onPress={() => router.push('/')}>
+                  <Text style={sharedStyles.link}>{t('returningHero')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -353,14 +383,3 @@ export default function Register() {
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: spacing.small,
-    alignSelf: 'flex-start',
-    paddingLeft: spacing.medium
-  }
-});

@@ -210,7 +210,7 @@ export default function AssetView() {
       const source = await languageService.getLanguageById(
         loadedAsset.source_language_id
       );
-      if (source) setSourceLanguage(source);
+      setSourceLanguage(source);
 
       // Load translations
       const loadedTranslations =

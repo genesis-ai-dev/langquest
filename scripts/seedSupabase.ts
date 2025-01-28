@@ -1,4 +1,3 @@
-import { invite_request, notification } from '@/db/drizzleSchema';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID as cryptoRandomUUID } from 'crypto';
 import dotenv from 'dotenv';
@@ -79,50 +78,6 @@ async function seedLanguages() {
   console.log('Languages seeded successfully');
   return languages;
 }
-
-// export async function seedNotifications() {
-//   console.log('Seeding invite requests...');
-
-//   const inviteRequests: typeof invite_request.$inferInsert[] = [
-//     {
-//       id: randomUUID(),
-//       rev: 1,
-//       sender_profile_id: randomUUID(),
-//       receiver_profile_id: randomUUID(),
-//       project_id: randomUUID(),
-//       type: 'invite',
-//       status: 'pending',
-//       version_chain_id: randomUUID()
-//     }
-//   ];
-
-//   const notifications: typeof notification.$inferInsert[] = [
-//     {
-//       id: randomUUID(),
-//       rev: 1,
-//       invite_request_id: inviteRequests[0].id!,
-//       version_chain_id: randomUUID(),
-//       viewed: false,
-//       profile_id: inviteRequests[0].sender_profile_id!,
-//       event_type: 'invite_request'
-//     }
-//   ];
-
-//   const { error: inviteRequestError } = await supabase.from('invite_request').upsert(inviteRequests);
-
-//   const { error: notificationError } = await supabase
-//     .from('notification')
-//     .upsert(notifications);
-
-//   if (inviteRequestError || notificationError) {
-//     console.error('Seeding error:', inviteRequestError || notificationError);
-//     throw inviteRequestError || notificationError;
-//   }
-
-//   console.log('Seeded data:', data);
-//   console.log('Notifications seeded successfully');
-//   return notifications;
-// }
 
 // async function seedTags() {
 //   console.log('Seeding tags...');

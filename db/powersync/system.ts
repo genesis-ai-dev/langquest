@@ -16,7 +16,7 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AppSchema } from './psSchema';
 // import { PhotoAttachmentQueue } from './PhotoAttachmentQueue';
 // import { DrizzleConfig } from 'drizzle-orm';
-import * as drizzleSchema from '../drizzleSchema';
+import { drizzleSchema } from '../drizzleSchema';
 import Constants from 'expo-constants';
 
 Logger.useDefaults();

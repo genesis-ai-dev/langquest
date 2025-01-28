@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, userService } from '@/database_services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { system } from '@/db/powersync/system';
-import { DrawerActions } from '@react-navigation/native';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -20,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { supabaseConnector } = system;
-  const navigation = useNavigation();
+
   // Check for stored user session on app start
   useEffect(() => {
     const loadStoredUser = async () => {
@@ -70,7 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Reinitialize system with new anonymous user
       await system.init();
 
-      navigation.dispatch(DrawerActions.closeDrawer());
       router.replace('/'); // Navigate back to sign-in
     } catch (error) {
       console.error('Error signing out:', error);
