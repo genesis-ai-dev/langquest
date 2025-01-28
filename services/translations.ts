@@ -262,6 +262,18 @@ export const translations = {
   assets: {
     english: 'Assets',
     spanish: 'Recursos'
+  },
+  notifications: {
+    english: 'Notifications',
+    spanish: 'Notificaciones'
+  },
+  profile: {
+    english: 'Profile',
+    spanish: 'Perfil'
+  },
+  settings: {
+    english: 'Settings',
+    spanish: 'Configuración'
   }
   // Add more translation keys as needed...
 } as const;

@@ -1,6 +1,7 @@
-import { colors } from '@/styles/theme';
+import { colors, sharedStyles } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView, Text } from 'react-native';
+import { Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Settings() {
   return (
@@ -9,7 +10,7 @@ export default function Settings() {
       style={{ flex: 1 }}
     >
       <SafeAreaView>
-        <Text style={{ color: colors.text }}>Settings</Text>
+        <Text style={sharedStyles.title}>Settings</Text>
       </SafeAreaView>
     </LinearGradient>
   );

@@ -22,6 +22,7 @@ export const profile = sqliteTable('profile', {
   ...baseColumns,
   username: text(),
   password: text(),
+  avatar: text(),
   // icon: text().$type<IconName>(),
   // achievements: text(),
   ui_language_id: text()
@@ -103,12 +104,8 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
-    quest_id: text()
-      .notNull()
-      .references(() => quest.id),
-    tag_id: text()
-      .notNull()
-      .references(() => tag.id)
+    quest_id: text().notNull(),
+    tag_id: text().notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.quest_id, t.tag_id] })
@@ -148,12 +145,8 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
 export const asset_tag_link = sqliteTable(
   'asset_tag_link',
   {
-    asset_id: text()
-      .notNull()
-      .references(() => asset.id),
-    tag_id: text()
-      .notNull()
-      .references(() => tag.id)
+    asset_id: text().notNull(),
+    tag_id: text().notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.asset_id, t.tag_id] })
@@ -174,12 +167,8 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
 export const quest_asset_link = sqliteTable(
   'quest_asset_link',
   {
-    quest_id: text()
-      .notNull()
-      .references(() => quest.id),
-    asset_id: text()
-      .notNull()
-      .references(() => asset.id)
+    quest_id: text().notNull(),
+    asset_id: text().notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.quest_id, t.asset_id] })
@@ -202,17 +191,11 @@ export const quest_asset_linkRelations = relations(
 
 export const translation = sqliteTable('translation', {
   ...baseColumns,
-  asset_id: text()
-    .notNull()
-    .references(() => asset.id),
-  target_language_id: text()
-    .notNull()
-    .references(() => language.id),
+  asset_id: text().notNull(),
+  target_language_id: text().notNull(),
   text: text().notNull(),
   audio: text({ mode: 'json' }).$type<string>(),
-  creator_id: text()
-    .notNull()
-    .references(() => profile.id)
+  creator_id: text().notNull()
 });
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
@@ -233,14 +216,10 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
 
 export const vote = sqliteTable('vote', {
   ...baseColumns,
-  translation_id: text()
-    .notNull()
-    .references(() => translation.id),
+  translation_id: text().notNull(),
   polarity: text().notNull(), // "up" or "down"
   comment: text(),
-  creator_id: text()
-    .notNull()
-    .references(() => profile.id)
+  creator_id: text().notNull()
 });
 
 export const voteRelations = relations(vote, ({ one }) => ({
@@ -254,6 +233,165 @@ export const voteRelations = relations(vote, ({ one }) => ({
   })
 }));
 
+// export const notification = sqliteTable('notification', {
+//   ...baseColumns,
+//   id: text().notNull(),
+//   profile_id: text().notNull(),
+//   project_subscription_id: text().notNull(),
+//   quest_subscription_id: text().notNull(),
+//   asset_subscription_id: text().notNull(),
+//   translation_subscription_id: text().notNull(),
+//   invite_request_id: text().notNull(),
+//   event_type: text().notNull(),
+//   viewed: int({ mode: 'boolean' }).notNull()
+// });
+
+// export const notificationRelations = relations(notification, ({ one }) => ({
+//   profile: one(profile, {
+//     fields: [notification.profile_id],
+//     references: [profile.id]
+//   }),
+//   project_subscription: one(project_subscription, {
+//     fields: [notification.project_subscription_id],
+//     references: [project_subscription.id]
+//   }),
+//   quest_subscription: one(quest_subscription, {
+//     fields: [notification.quest_subscription_id],
+//     references: [quest_subscription.id]
+//   }),
+//   asset_subscription: one(asset_subscription, {
+//     fields: [notification.asset_subscription_id],
+//     references: [asset_subscription.id]
+//   }),
+//   translation_subscription: one(translation_subscription, {
+//     fields: [notification.translation_subscription_id],
+//     references: [translation_subscription.id]
+//   }),
+//   invite_request: one(invite_request, {
+//     fields: [notification.invite_request_id],
+//     references: [invite_request.id]
+//   })
+// }));
+
+// export const translation_subscription = sqliteTable(
+//   'translation_subscription',
+//   {
+//     ...baseColumns,
+//     translation_id: text().notNull(),
+//     profile_id: text().notNull()
+//   }
+// );
+
+// export const translationSubscriptionRelations = relations(
+//   translation_subscription,
+//   ({ one, many }) => ({
+//     translation: one(translation, {
+//       fields: [translation_subscription.translation_id],
+//       references: [translation.id]
+//     }),
+//     profile: one(profile, {
+//       fields: [translation_subscription.profile_id],
+//       references: [profile.id]
+//     }),
+//     notifications: many(notification)
+//   })
+// );
+
+// export const project_subscription = sqliteTable('project_subscription', {
+//   ...baseColumns,
+//   project_id: text().notNull(),
+//   profile_id: text().notNull()
+// });
+
+// export const projectSubscriptionRelations = relations(
+//   project_subscription,
+//   ({ one, many }) => ({
+//     project: one(project, {
+//       fields: [project_subscription.project_id],
+//       references: [project.id]
+//     }),
+//     profile: one(profile, {
+//       fields: [project_subscription.profile_id],
+//       references: [profile.id]
+//     }),
+//     quest_subscriptions: many(quest_subscription),
+//     notifications: many(notification)
+//   })
+// );
+
+// export const quest_subscription = sqliteTable('quest_subscription', {
+//   ...baseColumns,
+//   quest_id: text().notNull(),
+//   project_subscription_id: text().notNull()
+// });
+
+// export const questSubscriptionRelations = relations(
+//   quest_subscription,
+//   ({ one, many }) => ({
+//     quest: one(quest, {
+//       fields: [quest_subscription.quest_id],
+//       references: [quest.id]
+//     }),
+//     project_subscription: one(project_subscription, {
+//       fields: [quest_subscription.project_subscription_id],
+//       references: [project_subscription.id]
+//     }),
+//     asset_subscriptions: many(asset_subscription),
+//     notifications: many(notification)
+//   })
+// );
+
+// export const asset_subscription = sqliteTable('asset_subscription', {
+//   ...baseColumns,
+//   asset_id: text().notNull(),
+//   quest_subscription_id: text().notNull()
+// });
+
+// export const assetSubscriptionRelations = relations(
+//   asset_subscription,
+//   ({ one, many }) => ({
+//     asset: one(asset, {
+//       fields: [asset_subscription.asset_id],
+//       references: [asset.id]
+//     }),
+//     quest_subscription: one(quest_subscription, {
+//       fields: [asset_subscription.quest_subscription_id],
+//       references: [quest_subscription.id]
+//     }),
+//     notifications: many(notification)
+//   })
+// );
+
+// export const invite_request = sqliteTable('invite_request', {
+//   ...baseColumns,
+//   sender_profile_id: text().notNull(),
+//   receiver_profile_id: text().notNull(),
+//   project_id: text().notNull(),
+//   type: text({ enum: ['invite', 'request'] }).notNull(),
+//   status: text({
+//     enum: ['pending', 'rejected', 'approved', 'cancelled']
+//   }).notNull()
+// });
+
+// export const inviteRequestRelations = relations(
+//   invite_request,
+//   ({ one, many }) => ({
+//     sender: one(profile, {
+//       fields: [invite_request.sender_profile_id],
+//       references: [profile.id]
+//     }),
+//     receiver: one(profile, {
+//       fields: [invite_request.receiver_profile_id],
+//       references: [profile.id]
+//     }),
+//     project: one(project, {
+//       fields: [invite_request.project_id],
+//       references: [project.id]
+//     }),
+//     notifications: many(notification)
+//   })
+// );
+
 export const drizzleSchema = {
   profile,
   language,
@@ -265,16 +403,11 @@ export const drizzleSchema = {
   asset_tag_link,
   quest_asset_link,
   translation,
-  vote,
-  userRelations,
-  languageRelations,
-  projectRelations,
-  questRelations,
-  tagRelations,
-  quest_tag_linkRelations,
-  assetRelations,
-  asset_tag_linkRelations,
-  quest_asset_linkRelations,
-  translationRelations,
-  voteRelations
+  vote
+  // notification,
+  // translation_subscription,
+  // project_subscription,
+  // quest_subscription,
+  // asset_subscription,
+  // invite_request
 };

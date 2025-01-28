@@ -27,6 +27,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -42,7 +43,7 @@ export default function Index() {
   const { t } = useTranslation(selectedLanguage?.english_name?.toLowerCase());
 
   const router = useRouter();
-  const { setCurrentUser } = useAuth();
+  const { setCurrentUser, isAuthenticated } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
   // const [username, setUsername] = useState('');
   // const [password, setPassword] = useState('');
@@ -83,9 +84,9 @@ export default function Index() {
 
         if (sessionData.session) {
           await system.init();
-          // if (mounted) {
-          //   router.push("/projects");
-          // }
+          if (mounted) {
+            router.push('/projects');
+          }
         }
 
         // console.log('attempting to initialize system in index without signing in anonymously');
