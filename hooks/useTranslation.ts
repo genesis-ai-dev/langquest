@@ -6,6 +6,7 @@ import {
   TranslationKey,
   translations
 } from '@/services/translations';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
 export function useTranslation(languageOverride?: string | null) {
@@ -24,6 +25,7 @@ export function useTranslation(languageOverride?: string | null) {
     };
     getLanguage();
   }, [currentUser]);
+
   // Get language from user's uiLanguage relation
   const userLanguage =
     (languageOverride?.toLowerCase() as SupportedLanguage) ||

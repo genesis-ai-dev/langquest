@@ -102,6 +102,46 @@ export class UserService {
       throw error;
     }
   }
+
+  async updateUser(data: {
+    id: string;
+    ui_language_id?: string;
+    // avatar?: string;
+    password?: string;
+  }): Promise<User | null> {
+    try {
+      // Update auth if password is changing
+      if (data.password) {
+        const { error: updateError } =
+          await supabaseConnector.client.auth.updateUser({
+            password: data.password
+          });
+        if (updateError) throw updateError;
+      }
+
+      // Update profile data
+      const updateData: Partial<User> = {
+        ...(data.ui_language_id && { ui_language_id: data.ui_language_id })
+        // ...(data.avatar && { avatar: data.avatar })
+      };
+
+      // Update profile in Supabase
+      const { data: updatedProfile, error: profileError } =
+        await supabaseConnector.client
+          .from('profile')
+          .update(updateData)
+          .eq('id', data.id)
+          .select()
+          .single();
+
+      if (profileError) throw profileError;
+
+      return updatedProfile;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
 }
 
 export const userService = new UserService();

@@ -62,7 +62,7 @@ function DrawerItems() {
       {isAuthenticated && (
         <DrawerItem
           item={{
-            name: 'Logout',
+            name: t('logOut'),
             icon: 'log-out'
           }}
           onPress={() => signOut()}
@@ -209,8 +209,6 @@ function DrawerFooter() {
   const pathname = usePathname();
   const { goToProject, goToQuest, activeProject, activeQuest } =
     useProjectContext();
-
-  console.log(activeProject?.name);
 
   if (!pathname.startsWith('/projects') || !activeProject || !activeQuest)
     return null;
