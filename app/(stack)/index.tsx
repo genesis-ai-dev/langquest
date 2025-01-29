@@ -183,7 +183,7 @@ export default function Index() {
                       <LanguageSelect
                         value={value}
                         onChange={(lang) => {
-                          onChange(lang);
+                          onChange(lang.id);
                           setCurrentLanguage(lang);
                         }}
                         containerStyle={{ width: '100%' }}
