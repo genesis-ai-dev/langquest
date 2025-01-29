@@ -18,12 +18,7 @@
         "developmentClient": true,
         "gradleCommand": ":app:assembleRelease"
       },
-      "prebuildCommand": "npx expo prebuild --platform android --clean",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://unsxkmlcyxgtgmtzfonb.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuc3hrbWxjeXhndGdtdHpmb25iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyMTY2MjcsImV4cCI6MjA0OTc5MjYyN30.Xpb-Uyr5LwVh0VT41_1tfZFnTVbtDqQnjYq9QgK-Fho",
-        "EXPO_PUBLIC_POWERSYNC_URL": "https://6760a942d9a45e3f178bd863.powersync.journeyapps.com"
-      }
+      "prebuildCommand": "npx expo prebuild --platform android --clean"
     },
     "preview2": {
       "android": {
