@@ -65,6 +65,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         selectedTextStyle={styles.selectedTextStyle}
         inputSearchStyle={styles.inputSearchStyle}
         iconStyle={styles.iconStyle}
+        activeColor={colors.primaryLight}
         data={data}
         search={search}
         maxHeight={300}
@@ -78,14 +79,6 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         }}
         onFocus={onToggle}
         onBlur={onToggle}
-        renderLeftIcon={() => (
-          <Ionicons
-            name="chevron-down-outline"
-            size={20}
-            color={colors.text}
-            style={styles.icon}
-          />
-        )}
         renderItem={(item, selected) => (
           <View style={[styles.item, selected && styles.selectedItem]}>
             <Text
@@ -125,6 +118,7 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     backgroundColor: colors.background,
+    // backgroundColor: colors.inputBackground,
     borderColor: colors.primary,
     borderWidth: 1,
     borderRadius: borderRadius.medium,
@@ -132,7 +126,6 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   searchContainer: {
-    backgroundColor: colors.background,
     borderBottomColor: colors.primary,
     borderBottomWidth: 1,
     padding: 0
@@ -140,7 +133,6 @@ const styles = StyleSheet.create({
   inputSearchStyle: {
     height: 40,
     fontSize: fontSizes.medium,
-    backgroundColor: colors.inputBackground,
     color: colors.text,
     borderRadius: 0,
     margin: 0,

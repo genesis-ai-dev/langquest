@@ -157,7 +157,7 @@ export default function Index() {
             <View
               style={[
                 sharedStyles.container,
-                { backgroundColor: 'transparent' }
+                { backgroundColor: 'transparent', gap: spacing.medium }
               ]}
             >
               {dbStatus && <Text>{dbStatus}</Text>}
