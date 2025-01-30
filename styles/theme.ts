@@ -26,6 +26,7 @@ const getColorHex = (color: string) => {
 
 export const colors = {
   primary: getColorHex(themeColor),
+  primaryLight: adjustColor(getColorHex(themeColor), 30),
   background: '#1E1E1E', // Dark background
   text: '#FFFFFF',
   textSecondary: '#CCCCCC', // Light gray

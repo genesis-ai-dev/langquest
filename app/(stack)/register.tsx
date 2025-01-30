@@ -108,7 +108,7 @@ export default function Register() {
             <View
               style={[
                 sharedStyles.container,
-                { backgroundColor: 'transparent' }
+                { backgroundColor: 'transparent', gap: spacing.medium }
               ]}
             >
               <Text style={sharedStyles.appTitle}>LangQuest</Text>
@@ -117,15 +117,8 @@ export default function Register() {
               </Text>
 
               {/* Language section */}
-              <View
-                style={{ alignItems: 'center', marginBottom: spacing.medium }}
-              >
-                <Ionicons
-                  name="language"
-                  size={32}
-                  color={colors.text}
-                  style={{ marginBottom: spacing.small }}
-                />
+              <View style={{ alignItems: 'center', gap: spacing.medium }}>
+                <Ionicons name="language" size={32} color={colors.text} />
                 <Controller
                   control={control}
                   name="selectedLanguageId"
@@ -133,7 +126,7 @@ export default function Register() {
                   render={({ field: { onChange, value } }) => (
                     <LanguageSelect
                       value={value}
-                      onChange={onChange}
+                      onChange={(lang) => onChange(lang.id)}
                       containerStyle={{ width: '100%' }}
                     />
                   )}
@@ -149,188 +142,191 @@ export default function Register() {
               <View
                 style={{
                   alignItems: 'center',
-                  marginBottom: spacing.medium,
+                  gap: spacing.medium,
                   width: '100%'
                 }}
               >
-                <Ionicons
-                  name="person-outline"
-                  size={32}
-                  color={colors.text}
-                  style={{ marginBottom: spacing.small }}
-                />
+                <Ionicons name="person-outline" size={32} color={colors.text} />
 
-                <Controller
-                  control={control}
-                  name="username"
-                  rules={{
-                    required: t('usernameRequired'),
-                    minLength: {
-                      value: 3,
-                      message: t('usernameRequired')
-                    }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="person-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('username')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                      />
-                    </View>
+                <View style={{ gap: spacing.small }}>
+                  <Controller
+                    control={control}
+                    name="username"
+                    rules={{
+                      required: t('usernameRequired'),
+                      minLength: {
+                        value: 3,
+                        message: t('usernameRequired')
+                      }
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <View
+                        style={[
+                          sharedStyles.input,
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            width: '100%',
+                            gap: spacing.medium
+                          }
+                        ]}
+                      >
+                        <Ionicons
+                          name="person-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                        <TextInput
+                          style={{ flex: 1, color: colors.text }}
+                          placeholder={t('username')}
+                          placeholderTextColor={colors.text}
+                          value={value}
+                          onChangeText={(text) => onChange(text.trim())}
+                        />
+                      </View>
+                    )}
+                  />
+                  {errors.username && (
+                    <Text style={styles.errorText}>
+                      {errors.username.message}
+                    </Text>
                   )}
-                />
-                {errors.username && (
-                  <Text style={styles.errorText}>
-                    {errors.username.message}
-                  </Text>
-                )}
+                </View>
 
-                <Controller
-                  control={control}
-                  name="email"
-                  rules={{
-                    required: t('emailRequired'),
-                    pattern: {
-                      value: EMAIL_REGEX,
-                      message: t('emailRequired')
-                    }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="mail-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('email')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                      />
-                    </View>
+                <View style={{ gap: spacing.small }}>
+                  <Controller
+                    control={control}
+                    name="email"
+                    rules={{
+                      required: t('emailRequired'),
+                      pattern: {
+                        value: EMAIL_REGEX,
+                        message: t('emailRequired')
+                      }
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <View
+                        style={[
+                          sharedStyles.input,
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            width: '100%',
+                            gap: spacing.medium
+                          }
+                        ]}
+                      >
+                        <Ionicons
+                          name="mail-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                        <TextInput
+                          style={{ flex: 1, color: colors.text }}
+                          placeholder={t('email')}
+                          placeholderTextColor={colors.text}
+                          value={value}
+                          onChangeText={(text) => onChange(text.trim())}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                        />
+                      </View>
+                    )}
+                  />
+                  {errors.email && (
+                    <Text style={styles.errorText}>{errors.email.message}</Text>
                   )}
-                />
-                {errors.email && (
-                  <Text style={styles.errorText}>{errors.email.message}</Text>
-                )}
+                </View>
 
-                <Controller
-                  control={control}
-                  name="password"
-                  rules={{
-                    required: t('password'),
-                    minLength: {
-                      value: 6,
-                      message: t('password')
-                    }
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('password')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        secureTextEntry
-                      />
-                    </View>
+                <View style={{ gap: spacing.small }}>
+                  <Controller
+                    control={control}
+                    name="password"
+                    rules={{
+                      required: t('password'),
+                      minLength: {
+                        value: 6,
+                        message: t('password')
+                      }
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <View
+                        style={[
+                          sharedStyles.input,
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            width: '100%',
+                            gap: spacing.medium
+                          }
+                        ]}
+                      >
+                        <Ionicons
+                          name="lock-closed-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                        <TextInput
+                          style={{ flex: 1, color: colors.text }}
+                          placeholder={t('password')}
+                          placeholderTextColor={colors.text}
+                          value={value}
+                          onChangeText={(text) => onChange(text.trim())}
+                          secureTextEntry
+                        />
+                      </View>
+                    )}
+                  />
+                  {errors.password && (
+                    <Text style={styles.errorText}>
+                      {errors.password.message}
+                    </Text>
                   )}
-                />
-                {errors.password && (
-                  <Text style={styles.errorText}>
-                    {errors.password.message}
-                  </Text>
-                )}
+                </View>
 
-                <Controller
-                  control={control}
-                  name="confirmPassword"
-                  rules={{
-                    required: t('confirmPassword'),
-                    validate: (value) =>
-                      value === watch('password') || t('passwordsNoMatch')
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <View
-                      style={[
-                        sharedStyles.input,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          width: '100%'
-                        }
-                      ]}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={colors.text}
-                        style={{ marginRight: spacing.medium }}
-                      />
-                      <TextInput
-                        style={{ flex: 1, color: colors.text }}
-                        placeholder={t('confirmPassword')}
-                        placeholderTextColor={colors.text}
-                        value={value}
-                        onChangeText={(text) => onChange(text.trim())}
-                        secureTextEntry
-                      />
-                    </View>
+                <View style={{ gap: spacing.small }}>
+                  <Controller
+                    control={control}
+                    name="confirmPassword"
+                    rules={{
+                      required: t('confirmPassword'),
+                      validate: (value) =>
+                        value === watch('password') || t('passwordsNoMatch')
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <View
+                        style={[
+                          sharedStyles.input,
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            width: '100%',
+                            gap: spacing.medium
+                          }
+                        ]}
+                      >
+                        <Ionicons
+                          name="lock-closed-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                        <TextInput
+                          style={{ flex: 1, color: colors.text }}
+                          placeholder={t('confirmPassword')}
+                          placeholderTextColor={colors.text}
+                          value={value}
+                          onChangeText={(text) => onChange(text.trim())}
+                          secureTextEntry
+                        />
+                      </View>
+                    )}
+                  />
+                  {errors.confirmPassword && (
+                    <Text style={styles.errorText}>
+                      {errors.confirmPassword.message}
+                    </Text>
                   )}
-                />
-                {errors.confirmPassword && (
-                  <Text style={styles.errorText}>
-                    {errors.confirmPassword.message}
-                  </Text>
-                )}
+                </View>
               </View>
 
               <TouchableOpacity
@@ -358,9 +354,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error || '#ff0000',
     fontSize: 12,
-    marginTop: 4,
-    marginBottom: spacing.small,
-    alignSelf: 'flex-start',
-    paddingLeft: spacing.medium
+    alignSelf: 'flex-start'
   }
 });

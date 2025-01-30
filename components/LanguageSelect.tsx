@@ -48,7 +48,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
                 l.english_name?.toLowerCase() === 'english' ||
                 l.native_name?.toLowerCase() === 'english'
             );
-            onChange(englishLang ?? loadedLanguages[0]);
+            onChange(englishLang || loadedLanguages[0]);
           }
         }
       } catch (error) {
@@ -78,7 +78,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
       value={languages.find((l) => l.id === value)?.native_name || ''}
       options={languages
         .map((l) => l.native_name)
-        .filter((name): name is string => name !== null)}
+        .filter((name) => name !== null)}
       onSelect={(langName) => {
         const lang = languages.find((l) => l.native_name === langName);
         if (lang) onChange(lang);
