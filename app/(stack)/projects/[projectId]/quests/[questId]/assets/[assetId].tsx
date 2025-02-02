@@ -22,9 +22,10 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -55,7 +56,7 @@ export default function AssetView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { assetId } = useLocalSearchParams<{
+  const { assetId } = useGlobalSearchParams<{
     assetId: string;
   }>();
   const [asset, setAsset] = useState<Asset>();
@@ -451,14 +452,18 @@ export default function AssetView() {
                     audioFiles={asset.audio.map((moduleId, index) => ({
                       id: `audio-${index}`,
                       title: `${t('audio')} ${index + 1}`,
-                      moduleId: moduleId
+                      uri: getLocalUriFromAssetId(moduleId)!
                     }))}
                   />
                 )}
               {activeTab === 'image' &&
                 asset?.images &&
                 Array.isArray(asset.images) && (
-                  <ImageCarousel imageModuleIds={asset.images} />
+                  <ImageCarousel
+                    uris={asset.images.map(
+                      (moduleId) => getLocalUriFromAssetId(moduleId)!
+                    )}
+                  />
                 )}
             </View>
 

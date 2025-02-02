@@ -10,7 +10,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 interface AudioFile {
   id: string;
   title: string;
-  moduleId: number | string;
+  uri: string;
 }
 
 interface AudioPlayerProps {
@@ -30,9 +30,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
-  const [activeModuleId, setActiveModuleId] = useState<number | string | null>(
-    null
-  );
+  const [activeUri, setActiveUri] = useState<number | string | null>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -72,34 +70,30 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
-  const loadAndPlaySound = async (moduleIdOrUri: number | string) => {
+  const loadAndPlaySound = async (uri: string) => {
     try {
       // Unload previous sound if exists
       if (sound) {
         await sound.unloadAsync();
       }
 
-      const source =
-        typeof moduleIdOrUri === 'string'
-          ? { uri: moduleIdOrUri }
-          : moduleIdOrUri;
       const { sound: newSound } = await Audio.Sound.createAsync(
-        source,
+        { uri: uri },
         { shouldPlay: true },
         onPlaybackStatusUpdate
       );
 
       setSound(newSound);
       setIsPlaying(true);
-      setActiveModuleId(moduleIdOrUri);
+      setActiveUri(uri);
     } catch (error) {
       console.error('Error loading sound:', error);
     }
   };
 
-  const handlePlayPause = async (moduleId: number | string) => {
-    if (!sound || moduleId !== activeModuleId) {
-      await loadAndPlaySound(moduleId);
+  const handlePlayPause = async (uri: string) => {
+    if (!sound || uri !== activeUri) {
+      await loadAndPlaySound(uri);
     } else {
       if (isPlaying) {
         await sound.pauseAsync();
@@ -121,12 +115,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
       <TouchableOpacity
         style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-        onPress={() => handlePlayPause(item.moduleId)}
+        onPress={() => handlePlayPause(item.uri)}
       >
         <Ionicons
-          name={
-            isPlaying && activeModuleId === item.moduleId ? 'pause' : 'play'
-          }
+          name={isPlaying && activeUri === item.uri ? 'pause' : 'play'}
           size={mini ? 24 : 48}
           color={colors.text}
         />
@@ -167,7 +159,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             setSound(null);
             setIsPlaying(false);
             setPosition(0);
-            setActiveModuleId(null);
+            setActiveUri(null);
           }
         }}
       />
@@ -175,7 +167,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   }
 
   const audioFilesOrSingle = audioUri
-    ? [{ id: 'single', title: t('recording'), moduleId: audioUri }]
+    ? [{ id: 'single', title: t('recording'), uri: audioUri }]
     : audioFiles;
 
   if (audioFilesOrSingle.length === 0) return null;

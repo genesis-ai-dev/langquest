@@ -97,7 +97,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
-    console.log('closing new translation modal');
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {

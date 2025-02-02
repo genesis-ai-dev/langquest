@@ -48,7 +48,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadProject = async () => {
       const project = await projectService.getProjectById(projectId);
-      console.log('fetched project', project?.name, projectId, project?.id);
       setActiveProject(project);
     };
     loadProject();

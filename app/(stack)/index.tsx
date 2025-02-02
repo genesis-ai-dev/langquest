@@ -17,20 +17,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // import { userd, languaged } from '../db/drizzleSchema';
 import { userService } from '@/database_services/userService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
-import { CustomDropdown } from '@/components/CustomDropdown';
+import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
-import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { Session } from '@supabase/supabase-js';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { useForm, Controller } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -52,7 +49,8 @@ export default function Index() {
   const router = useRouter();
   const { setCurrentUser, isAuthenticated } = useAuth();
   const [dbStatus, setDbStatus] = useState('Initializing...');
-  const [isDbReady, setIsDbReady] = useState(false);
+  // const [username, setUsername] = useState('');
+  // const [password, setPassword] = useState('');
 
   const {
     control,
@@ -82,13 +80,15 @@ export default function Index() {
         console.log('System is already initialized');
         return;
       }
-    
+
       try {
-        const { data: sessionData } = await supabaseConnector.client.auth.getSession();
-    
+        const { data: sessionData } =
+          await supabaseConnector.client.auth.getSession();
+
         if (!sessionData.session) {
           console.log('No session - signing in anonymously');
-          const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
+          const { data, error: signInError } =
+            await supabaseConnector.client.auth.signInAnonymously();
           if (signInError) {
             console.error('Error signing in anonymously:', signInError);
             return;
@@ -101,7 +101,7 @@ export default function Index() {
             return;
           }
         }
-    
+
         await system.init();
       } catch (error) {
         console.error('Session check error:', error);
@@ -121,31 +121,28 @@ export default function Index() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       // Attempt to sign in with password
-      const { data: signInData, error: signInError } = 
+      const { data: signInData, error: signInError } =
         await supabaseConnector.client.auth.signInWithPassword({
           email: data.email.toLowerCase().trim(),
           password: data.password.trim()
         });
-  
+
       if (signInError) {
         throw signInError;
       }
-  
+
       // Check if email is verified
       if (!signInData.user?.email_confirmed_at) {
-        Alert.alert(
-          'Verification Required',
-          t('accountNotVerified'),
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Verification Required', t('accountNotVerified'), [
+          { text: 'OK' }
+        ]);
         return;
       }
-  
+
       // Email is verified, proceed with login
       await system.init();
       reset();
       router.replace('/projects');
-  
     } catch (error) {
       console.error('Error during sign in:', error);
       Alert.alert(

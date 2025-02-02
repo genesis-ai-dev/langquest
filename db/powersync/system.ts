@@ -37,7 +37,6 @@ export class System {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
-    console.log('System constructor');
     this.kvStorage = new KVStorage();
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
