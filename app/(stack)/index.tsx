@@ -82,28 +82,27 @@ export default function Index() {
         console.log('System is already initialized');
         return;
       }
-
+    
       try {
-        console.log('signing in anonymously');
-        const { data, error: signInError } =
-          await supabaseConnector.client.auth.signInAnonymously();
-
-        if (signInError || !mounted) {
-          console.error('Error signing in anonymously:', signInError);
-          return;
-        }
-
-        const { data: sessionData } =
-          await supabaseConnector.client.auth.getSession();
-
-        if (!mounted) return;
-
-        if (sessionData.session) {
-          await system.init();
-          if (mounted) {
+        const { data: sessionData } = await supabaseConnector.client.auth.getSession();
+    
+        if (!sessionData.session) {
+          console.log('No session - signing in anonymously');
+          const { data, error: signInError } = await supabaseConnector.client.auth.signInAnonymously();
+          if (signInError) {
+            console.error('Error signing in anonymously:', signInError);
+            return;
+          }
+        } else {
+          const isAnonymous = await supabaseConnector.isAnonymousSession();
+          if (!isAnonymous && mounted) {
+            await system.init();
             router.replace('/projects');
+            return;
           }
         }
+    
+        await system.init();
       } catch (error) {
         console.error('Session check error:', error);
         if (mounted) {
@@ -121,22 +120,38 @@ export default function Index() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const authenticatedUser = await userService.validateCredentials({
-        email: data.email.toLowerCase().trim(),
-        password: data.password.trim()
-      });
-
-      if (authenticatedUser) {
-        await system.init(); // Initialize PowerSync after successful login
-        reset();
-        setCurrentUser(authenticatedUser);
-        router.replace('/projects');
-      } else {
-        Alert.alert('Error', t('invalidAuth'));
+      // Attempt to sign in with password
+      const { data: signInData, error: signInError } = 
+        await supabaseConnector.client.auth.signInWithPassword({
+          email: data.email.toLowerCase().trim(),
+          password: data.password.trim()
+        });
+  
+      if (signInError) {
+        throw signInError;
       }
+  
+      // Check if email is verified
+      if (!signInData.user?.email_confirmed_at) {
+        Alert.alert(
+          'Verification Required',
+          t('accountNotVerified'),
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+  
+      // Email is verified, proceed with login
+      await system.init();
+      reset();
+      router.replace('/projects');
+  
     } catch (error) {
       console.error('Error during sign in:', error);
-      Alert.alert('Error', t('signInError'));
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : t('signInError')
+      );
     }
   };
 

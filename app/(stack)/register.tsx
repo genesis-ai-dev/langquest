@@ -69,19 +69,34 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      const userData = {
-        credentials: {
-          username: data.username,
-          email: data.email,
-          password: data.password
-        },
-        ui_language_id: data.selectedLanguageId
-      };
+      // First, attempt to sign up the user with Supabase
+      const { data: authData, error: authError } = await supabaseConnector.client.auth.updateUser({
+        email: data.email.trim(),
+        password: data.password.trim(),
+        data: {
+          username: data.username.trim(),
+          ui_language_id: data.selectedLanguageId
+        }
+      });
 
-      const newUser = await userService.createNew(userData);
-      reset();
-      setCurrentUser(newUser); // Set the newly created user as current user
-      router.replace('/projects');
+      console.log('Auth response:', {
+        user: authData?.user,
+        error: authError
+      });
+  
+      if (authError) {
+        throw authError;
+      }
+  
+      // Email confirmation is required
+      Alert.alert(
+        'Success',
+        t('checkEmail'),
+        [{ text: 'OK', onPress: () => router.replace('/') }]
+      );
+      return;
+      
+  
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert(
@@ -181,7 +196,7 @@ export default function Register() {
                           placeholder={t('username')}
                           placeholderTextColor={colors.text}
                           value={value}
-                          onChangeText={(text) => onChange(text.trim())}
+                          onChangeText={onChange} 
                         />
                       </View>
                     )}
@@ -226,7 +241,7 @@ export default function Register() {
                           placeholder={t('email')}
                           placeholderTextColor={colors.text}
                           value={value}
-                          onChangeText={(text) => onChange(text.trim())}
+                          onChangeText={onChange} 
                           autoCapitalize="none"
                           keyboardType="email-address"
                         />
@@ -271,7 +286,7 @@ export default function Register() {
                           placeholder={t('password')}
                           placeholderTextColor={colors.text}
                           value={value}
-                          onChangeText={(text) => onChange(text.trim())}
+                          onChangeText={onChange} 
                           secureTextEntry
                         />
                       </View>
@@ -315,7 +330,7 @@ export default function Register() {
                           placeholder={t('confirmPassword')}
                           placeholderTextColor={colors.text}
                           value={value}
-                          onChangeText={(text) => onChange(text.trim())}
+                          onChangeText={onChange} 
                           secureTextEntry
                         />
                       </View>

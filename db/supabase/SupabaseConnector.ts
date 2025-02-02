@@ -60,6 +60,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     // this.storage = new SupabaseStorageAdapter({ client: this.client });
   }
 
+  async isAnonymousSession() {
+    const { data: { session } } = await this.client.auth.getSession();
+    console.log('Session:', session);
+    return session?.user?.is_anonymous === true;
+  }
+
   async login(username: string, password: string) {
     const { data, error } = await this.client.auth.signInWithPassword({
       email: username,

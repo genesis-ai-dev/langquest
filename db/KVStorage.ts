@@ -19,3 +19,4 @@ export class KVStorage {
     await deleteItemAsync(key);
   }
 }
+
