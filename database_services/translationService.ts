@@ -1,8 +1,7 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { translation, vote, language, profile } from '../db/drizzleSchema';
-import { aliasedTable } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
+import { translation } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
@@ -11,10 +10,9 @@ export type Translation = typeof translation.$inferSelect;
 
 export class TranslationService {
   async getTranslationsByAssetId(asset_id: string): Promise<Translation[]> {
-    return db
-      .select()
-      .from(translation)
-      .where(eq(translation.asset_id, asset_id));
+    return db.query.translation.findMany({
+      where: eq(translation.asset_id, asset_id)
+    });
   }
 
   async createTranslation(data: {
@@ -22,14 +20,14 @@ export class TranslationService {
     target_language_id: string;
     asset_id: string;
     creator_id: string;
-    // audio?: string[];
+    audio: string;
   }) {
     const [newTranslation] = await db
       .insert(translation)
       .values({
         rev: 1,
         text: data.text,
-        audio: null, // Null for now
+        audio: data.audio,
         asset_id: data.asset_id,
         target_language_id: data.target_language_id,
         creator_id: data.creator_id,
@@ -40,10 +38,10 @@ export class TranslationService {
     return newTranslation;
   }
 
-  async updateTranslationAudio(translationId: string, audioUri: string) {
+  async updateTranslationAudio(translationId: string, attachmentId: string) {
     const [updatedTranslation] = await db
       .update(translation)
-      .set({ audio: audioUri })
+      .set({ audio: attachmentId })
       .where(eq(translation.id, translationId))
       .returning();
 

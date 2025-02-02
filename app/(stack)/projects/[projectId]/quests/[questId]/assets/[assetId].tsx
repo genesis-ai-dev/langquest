@@ -4,7 +4,6 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { TranslationModal } from '@/components/TranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
 import { languageService } from '@/database_services/languageService';
 import {
@@ -56,9 +55,8 @@ export default function AssetView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { assetId, assetName } = useLocalSearchParams<{
+  const { assetId } = useLocalSearchParams<{
     assetId: string;
-    assetName: string;
   }>();
   const [asset, setAsset] = useState<Asset>();
   const [translations, setTranslations] = useState<Translation[]>([]);

@@ -1,22 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  View,
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import { vote } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView
+  View
 } from 'react-native';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from './AudioPlayer';
 import { VoteCommentModal } from './VoteCommentModal';
-import { Translation } from '@/database_services/translationService';
-import { voteService, Vote } from '@/database_services/voteService';
-import { translationService } from '@/database_services/translationService';
-import { vote, language } from '@/db/drizzleSchema';
-import { Alert } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 
 interface TranslationModalProps {
   translation: Translation;
@@ -58,17 +62,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   useEffect(() => {
     setTranslation(initialTranslation);
   }, [initialTranslation]);
-
-  const loadVotes = async () => {
-    try {
-      const translationVotes = await voteService.getVotesByTranslationId(
-        translation.id
-      );
-      setVotes(translationVotes);
-    } catch (error) {
-      console.error('Error loading votes:', error);
-    }
-  };
 
   const loadUserVote = async () => {
     try {
@@ -166,7 +159,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <View style={styles.audioPlayerContainer}>
           {translation.audio && (
             <AudioPlayer
-              audioUri={translation.audio}
+              audioUri={getLocalUriFromAssetId(translation.audio)}
               useCarousel={false}
               mini={true}
             />

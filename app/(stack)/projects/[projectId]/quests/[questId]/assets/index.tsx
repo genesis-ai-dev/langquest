@@ -12,7 +12,7 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { type FC, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -76,11 +76,11 @@ export default function Assets() {
   const { t } = useTranslation();
   const router = useRouter();
   const { goToAsset } = useProjectContext();
-  const { questId, questName, projectId } = useLocalSearchParams<{
+  const { questId, projectId } = useGlobalSearchParams<{
     questId: string;
-    questName: string;
     projectId: string;
   }>();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}

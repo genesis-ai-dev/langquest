@@ -163,7 +163,7 @@ function Category({
       {isExpanded && (
         <View style={styles.categoryContent}>
           {items.map((item) => (
-            <Link href={item.path} asChild>
+            <Link href={item.path} key={item.id} asChild>
               <TouchableOpacity
                 key={item.id}
                 onPress={() => onPress(item)}
