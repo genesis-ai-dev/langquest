@@ -37,22 +37,26 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
     // TODO: make sure having two watches is not a problem (I think it will be a problem)
 
+    let lastAssets: string[] = [];
+    let lastTranslations: string[] = [];
     this.db.watch(this.db.query.asset.findMany(), {
       onResult(assets) {
         const allAssets = assets.flatMap((asset) => [
           ...(asset.images ?? []),
           ...(asset.audio ?? [])
         ]);
-        onUpdate(allAssets);
+        onUpdate([...allAssets, ...lastTranslations]);
+        lastAssets = allAssets;
       }
     });
 
     this.db.watch(this.db.query.translation.findMany(), {
       onResult(translations) {
-        const allAssets = translations
+        const allTranslations = translations
           .map((translation) => translation.audio)
           .filter(Boolean);
-        onUpdate(allAssets);
+        onUpdate([...lastAssets, ...allTranslations]);
+        lastTranslations = allTranslations;
       }
     });
   }
