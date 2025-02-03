@@ -37,7 +37,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return () => {
       if (sound) sound.unloadAsync();
     };
-  }, []);
+  }, [sound]);
 
   useEffect(() => {
     const setupAudio = async () => {

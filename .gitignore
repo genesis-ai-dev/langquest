@@ -13,6 +13,7 @@ llm_supporting_files/
 android/
 ios/
 .env.*
+!.env.example
 
 # macOS
 .DS_Store
