@@ -77,8 +77,8 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     <CustomDropdown
       value={languages.find((l) => l.id === value)?.native_name || ''}
       options={languages
-        .map((l) => l.native_name)
-        .filter((name) => name !== null)}
+        .filter((l) => l.native_name !== null)
+        .map((l) => l.native_name!)}
       onSelect={(langName) => {
         const lang = languages.find((l) => l.native_name === langName);
         if (lang) onChange(lang);

@@ -209,14 +209,14 @@ export default function AssetView() {
       const source = await languageService.getLanguageById(
         loadedAsset.source_language_id
       );
-      if (source) setSourceLanguage(source);
+      setSourceLanguage(source);
 
       // Load translations
       const loadedTranslations =
         await translationService.getTranslationsByAssetId(assetId);
       setTranslations(loadedTranslations);
     } catch (error) {
-      console.error('Error loading asset and translations:', error);
+      console.error('Error loading asset and translations:', error, assetId);
       Alert.alert('Error', 'Failed to load asset data');
     } finally {
       setIsLoading(false);

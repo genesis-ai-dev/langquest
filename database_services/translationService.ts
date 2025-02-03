@@ -9,8 +9,8 @@ const { db } = system;
 export type Translation = typeof translation.$inferSelect;
 
 export class TranslationService {
-  async getTranslationsByAssetId(asset_id: string): Promise<Translation[]> {
-    return db.query.translation.findMany({
+  async getTranslationsByAssetId(asset_id: string) {
+    return await db.query.translation.findMany({
       where: eq(translation.asset_id, asset_id)
     });
   }

@@ -7,9 +7,8 @@ import {
 import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { randomUUID } from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
-import { drizzleSchema } from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
-
+import * as drizzleSchema from '../drizzleSchema';
 export class AttachmentQueue extends AbstractAttachmentQueue {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
