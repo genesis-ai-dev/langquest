@@ -10,7 +10,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 interface AudioFile {
   id: string;
   title: string;
-  moduleId: number | string;
+  uri: string;
 }
 
 interface AudioPlayerProps {
@@ -30,38 +30,25 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
-  const [activeModuleId, setActiveModuleId] = useState<number | null>(null);
+  const [activeUri, setActiveUri] = useState<number | string | null>(null);
   const { t } = useTranslation();
-
-  const cleanupSound = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-      setSound(null);
-    }
-    setIsPlaying(false);
-    setPosition(0);
-    setDuration(0);
-    setActiveModuleId(null);
-  };
 
   useEffect(() => {
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      if (sound) sound.unloadAsync();
     };
-  }, []);
+  }, [sound]);
 
   useEffect(() => {
-    const setupSound = async () => {
-      await cleanupSound();
-      if (audioUri) {
-        setActiveModuleId(null); // Reset active module
-        setPosition(0); // Reset position
-      }
+    const setupAudio = async () => {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true
+      });
     };
-    setupSound();
-  }, [audioUri]);
+    setupAudio();
+  }, []);
 
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -70,84 +57,68 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const playPauseSound = async (moduleId: number | string) => {
-    if (moduleId !== activeModuleId) {
-      await cleanupSound();
-      await loadSound(moduleId);
-      setActiveModuleId(moduleId as number);
-    } else {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          try {
-            const status = await sound.getStatusAsync();
-            if (status.isLoaded) {
-              // If at the end, reset position
-              if (status.positionMillis >= status.durationMillis!) {
-                await sound.setPositionAsync(0);
-                setPosition(0);
-              }
-              await sound.playAsync();
-              setIsPlaying(true);
-            }
-          } catch (error) {
-            console.error('Error playing sound:', error);
-          }
-        }
-      }
-    }
-  };
-
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setDuration(status.durationMillis || 0);
       setPosition(status.positionMillis || 0);
+      setIsPlaying(status.isPlaying);
 
       if (status.didJustFinish) {
         setIsPlaying(false);
-        // Don't reset position here - let playPauseSound handle it
-      } else {
-        setIsPlaying(status.isPlaying);
+        setPosition(0);
       }
     }
   };
 
-  const loadSound = async (moduleIdOrUri: number | string) => {
+  const loadAndPlaySound = async (uri: string) => {
     try {
-      const source =
-        typeof moduleIdOrUri === 'string'
-          ? { uri: moduleIdOrUri }
-          : moduleIdOrUri;
+      // Unload previous sound if exists
+      if (sound) {
+        await sound.unloadAsync();
+      }
 
       const { sound: newSound } = await Audio.Sound.createAsync(
-        source,
-        { shouldPlay: true, positionMillis: 0 }, // Explicitly start at beginning
+        { uri: uri },
+        { shouldPlay: true },
         onPlaybackStatusUpdate
       );
+
       setSound(newSound);
       setIsPlaying(true);
-      setPosition(0); // Ensure UI starts at beginning
+      setActiveUri(uri);
     } catch (error) {
       console.error('Error loading sound:', error);
     }
   };
 
-  const handlePageChange = async () => {
-    await cleanupSound();
+  const handlePlayPause = async (uri: string) => {
+    if (!sound || uri !== activeUri) {
+      await loadAndPlaySound(uri);
+    } else {
+      if (isPlaying) {
+        await sound.pauseAsync();
+      } else {
+        if (position >= duration) {
+          await sound.setPositionAsync(0);
+          setPosition(0);
+        }
+        await sound.playAsync();
+      }
+    }
+  };
+
+  const handleSliderChange = async (value: number) => {
+    if (sound) await sound.setPositionAsync(value);
   };
 
   const renderAudioItem = (item: AudioFile, index: number) => (
     <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
       <TouchableOpacity
         style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-        onPress={() => playPauseSound(item.moduleId)}
+        onPress={() => handlePlayPause(item.uri)}
       >
         <Ionicons
-          name={
-            isPlaying && activeModuleId === item.moduleId ? 'pause' : 'play'
-          }
+          name={isPlaying && activeUri === item.uri ? 'pause' : 'play'}
           size={mini ? 24 : 48}
           color={colors.text}
         />
@@ -164,11 +135,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           minimumValue={0}
           maximumValue={duration}
           value={position}
-          onSlidingComplete={async (value) => {
-            if (sound) {
-              await sound.setPositionAsync(value);
-            }
-          }}
+          onSlidingComplete={handleSliderChange}
           minimumTrackTintColor={colors.primary}
           maximumTrackTintColor={colors.inputBorder}
           thumbTintColor={colors.primary}
@@ -186,20 +153,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       <Carousel
         items={audioFiles}
         renderItem={renderAudioItem}
-        onPageChange={handlePageChange}
+        onPageChange={async () => {
+          if (sound) {
+            await sound.unloadAsync();
+            setSound(null);
+            setIsPlaying(false);
+            setPosition(0);
+            setActiveUri(null);
+          }
+        }}
       />
     );
-  } else {
-    // Use audioFilesOrSingle instead of audioFiles[0]
-    const audioFilesOrSingle = audioUri
-      ? [{ id: 'single', title: t('recording'), moduleId: audioUri }]
-      : audioFiles;
-
-    // Only render if we have files to play
-    if (audioFilesOrSingle.length === 0) return null;
-
-    return renderAudioItem(audioFilesOrSingle[0], 0);
   }
+
+  const audioFilesOrSingle = audioUri
+    ? [{ id: 'single', title: t('recording'), uri: audioUri }]
+    : audioFiles;
+
+  if (audioFilesOrSingle.length === 0) return null;
+
+  return renderAudioItem(audioFilesOrSingle[0], 0);
 };
 
 const styles = StyleSheet.create({

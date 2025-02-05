@@ -194,7 +194,7 @@ export const translation = sqliteTable('translation', {
   asset_id: text().notNull(),
   target_language_id: text().notNull(),
   text: text().notNull(),
-  audio: text({ mode: 'json' }).$type<string>(),
+  audio: text(),
   creator_id: text().notNull()
 });
 
@@ -391,23 +391,3 @@ export const voteRelations = relations(vote, ({ one }) => ({
 //     notifications: many(notification)
 //   })
 // );
-
-export const drizzleSchema = {
-  profile,
-  language,
-  project,
-  quest,
-  tag,
-  quest_tag_link,
-  asset,
-  asset_tag_link,
-  quest_asset_link,
-  translation,
-  vote
-  // notification,
-  // translation_subscription,
-  // project_subscription,
-  // quest_subscription,
-  // asset_subscription,
-  // invite_request
-};

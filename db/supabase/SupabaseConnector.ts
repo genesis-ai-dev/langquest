@@ -7,7 +7,7 @@ import {
 
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { AppConfig } from './AppConfig';
-// import { SupabaseStorageAdapter } from '../storage/SupabaseStorageAdapter';
+import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 import { System } from '../powersync/system';
 
 /// Postgres Response codes that we cannot recover from by retrying.
@@ -24,13 +24,14 @@ const FATAL_RESPONSE_CODES = [
 
 export class SupabaseConnector implements PowerSyncBackendConnector {
   client: SupabaseClient;
-  // storage: SupabaseStorageAdapter;
+  storage: SupabaseStorageAdapter;
 
   constructor(protected system: System) {
     console.log('Creating Supabase client (supabaseConnector constructor');
     if (!AppConfig.supabaseUrl || !AppConfig.supabaseAnonKey) {
       throw new Error('Supabase URL or Anon Key is not defined');
     }
+
     this.client = createClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
@@ -48,6 +49,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
       }
     );
+    this.storage = new SupabaseStorageAdapter({ client: this.client });
+
     console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
       console.log('------------------------------------');
@@ -57,7 +60,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       console.log('------------------------------------');
     });
     console.log('Supabase client created: ', this.client);
-    // this.storage = new SupabaseStorageAdapter({ client: this.client });
   }
 
   async isAnonymousSession() {

@@ -46,15 +46,27 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
-    projectService.getProjectById(projectId).then(setActiveProject);
+    const loadProject = async () => {
+      const project = await projectService.getProjectById(projectId);
+      setActiveProject(project);
+    };
+    loadProject();
   }, [projectId]);
 
   useEffect(() => {
-    questService.getQuestById(questId).then(setActiveQuest);
+    const loadQuest = async () => {
+      const quest = await questService.getQuestById(questId);
+      setActiveQuest(quest);
+    };
+    loadQuest();
   }, [questId]);
 
   useEffect(() => {
-    assetService.getAssetById(assetId).then(setActiveAsset);
+    const loadAsset = async () => {
+      const asset = await assetService.getAssetById(assetId);
+      setActiveAsset(asset);
+    };
+    loadAsset();
   }, [assetId]);
 
   function goToProject(project: Project, navigate?: boolean) {
@@ -81,8 +93,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       pathname: '/projects/[projectId]/quests/[questId]/assets',
       params: {
         projectId: quest.project_id,
-        questId: quest.id,
-        questName: quest.name
+        questId: quest.id
       }
     };
     router[navigate ? 'navigate' : 'push'](path);

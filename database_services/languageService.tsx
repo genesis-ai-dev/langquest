@@ -14,9 +14,11 @@ export class LanguageService {
   }
 
   async getLanguageById(id: string) {
-    return await db.query.language.findFirst({
-      where: eq(language.id, id)
-    });
+    return (
+      (await db.query.language.findFirst({
+        where: eq(language.id, id)
+      })) ?? null
+    );
   }
 
   async getAllLanguages() {

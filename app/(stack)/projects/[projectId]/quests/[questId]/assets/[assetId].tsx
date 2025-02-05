@@ -4,7 +4,6 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { TranslationModal } from '@/components/TranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
 import { languageService } from '@/database_services/languageService';
 import {
@@ -23,9 +22,10 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -56,9 +56,8 @@ export default function AssetView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { assetId, assetName } = useLocalSearchParams<{
+  const { assetId } = useGlobalSearchParams<{
     assetId: string;
-    assetName: string;
   }>();
   const [asset, setAsset] = useState<Asset>();
   const [translations, setTranslations] = useState<Translation[]>([]);
@@ -210,14 +209,14 @@ export default function AssetView() {
       const source = await languageService.getLanguageById(
         loadedAsset.source_language_id
       );
-      if (source) setSourceLanguage(source);
+      setSourceLanguage(source);
 
       // Load translations
       const loadedTranslations =
         await translationService.getTranslationsByAssetId(assetId);
       setTranslations(loadedTranslations);
     } catch (error) {
-      console.error('Error loading asset and translations:', error);
+      console.error('Error loading asset and translations:', error, assetId);
       Alert.alert('Error', 'Failed to load asset data');
     } finally {
       setIsLoading(false);
@@ -453,14 +452,18 @@ export default function AssetView() {
                     audioFiles={asset.audio.map((moduleId, index) => ({
                       id: `audio-${index}`,
                       title: `${t('audio')} ${index + 1}`,
-                      moduleId: moduleId
+                      uri: getLocalUriFromAssetId(moduleId)!
                     }))}
                   />
                 )}
               {activeTab === 'image' &&
                 asset?.images &&
                 Array.isArray(asset.images) && (
-                  <ImageCarousel imageModuleIds={asset.images} />
+                  <ImageCarousel
+                    uris={asset.images.map(
+                      (moduleId) => getLocalUriFromAssetId(moduleId)!
+                    )}
+                  />
                 )}
             </View>
 

@@ -4,17 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import PagerView from 'react-native-pager-view';
 import { colors, spacing } from '@/styles/theme';
 
-interface CarouselProps {
-  items: any[];
-  renderItem: (item: any, index: number) => ReactNode;
+interface CarouselProps<T> {
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
   onPageChange?: () => void;
 }
 
-const Carousel: React.FC<CarouselProps> = ({
-  items,
-  renderItem,
-  onPageChange
-}) => {
+function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
   const [currentPage, setCurrentPage] = useState(0);
   const pagerRef = useRef<PagerView>(null);
 
@@ -73,7 +69,7 @@ const Carousel: React.FC<CarouselProps> = ({
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   carouselContainer: {

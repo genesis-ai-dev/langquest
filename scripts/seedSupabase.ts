@@ -1,4 +1,3 @@
-import { invite_request, notification } from '@/db/drizzleSchema';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID as cryptoRandomUUID } from 'crypto';
 import dotenv from 'dotenv';

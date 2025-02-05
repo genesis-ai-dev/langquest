@@ -1,24 +1,24 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { translationService } from '@/database_services/translationService';
+import { system } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
+  Alert,
   Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
   TouchableWithoutFeedback,
-  Alert
+  View
 } from 'react-native';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import AudioRecorder from './AudioRecorderComponent/AudioRecorderX';
-import { translationService } from '@/database_services/translationService';
-import { CustomDropdown } from './CustomDropdown';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { useAuth } from '@/contexts/AuthContext';
+import AudioRecorder from './AudioRecorder';
 import * as FileSystem from 'expo-file-system';
-import { randomUUID } from 'expo-crypto';
-import { useTranslation } from '@/hooks/useTranslation';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -26,8 +26,6 @@ interface NewTranslationModalProps {
   onSubmit: () => void;
   asset_id: string;
 }
-
-const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   isVisible,
@@ -58,57 +56,74 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
-      let permanentAudioUri: string | undefined;
+      // let permanentAudioUri: string | undefined;
+      if (audioUri && system.attachmentQueue) {
+        const attachment = await system.attachmentQueue.saveAudio(audioUri);
+        console.log('attachment', attachment);
 
-      if (audioUri) {
-        // Ensure recordings directory exists
-        await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
-          intermediates: true
+        await translationService.createTranslation({
+          text: translationText.trim(),
+          target_language_id: activeProject.target_language_id,
+          asset_id,
+          creator_id: currentUser.id,
+          audio: attachment.id
         });
 
-        // Move audio to permanent storage with unique filename
-        const fileName = `${Date.now()}_${randomUUID()}.m4a`;
-        permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
-        await FileSystem.moveAsync({
-          from: audioUri,
-          to: permanentAudioUri
-        });
+        setTranslationText('');
+        setAudioUri(null);
+        onSubmit();
+        handleClose();
       }
+      // // Ensure recordings directory exists
+      // await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
+      //   intermediates: true
+      // });
 
-      await translationService.createTranslation({
-        text: translationText.trim(),
-        target_language_id: activeProject.target_language_id,
-        asset_id,
-        creator_id: currentUser.id
-        //audio: permanentAudioUri,
-      });
-
-      setTranslationText('');
-      setAudioUri(null);
-      onSubmit();
-      onClose();
+      // // Move audio to permanent storage with unique filename
+      // const fileName = `${Date.now()}_${randomUUID()}.m4a`;
+      // permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
+      // await FileSystem.moveAsync({
+      //   from: audioUri,
+      //   to: permanentAudioUri
+      // });
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
     }
   };
 
-  const handleRecordingComplete = (uri: string) => {
+  function handleRecordingComplete(uri: string) {
     setAudioUri(uri);
-  };
+  }
+
+  async function handleClose() {
+    console.log('handleClose', audioUri);
+    if (audioUri) {
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      if (fileInfo.exists) {
+        console.log('Deleting recording', audioUri);
+        await FileSystem.deleteAsync(audioUri);
+      }
+    }
+    onClose();
+  }
 
   return (
     <Modal
       visible={isVisible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onDismiss={handleClose}
+      onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.container}>
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <Pressable style={styles.container} onPress={handleClose}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.modal}>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+              >
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
 
@@ -139,7 +154,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
-        </View>
+        </Pressable>
       </TouchableWithoutFeedback>
     </Modal>
   );
