@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -39,7 +39,8 @@ type RegisterFormData = {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function Register() {
-  const { t } = useTranslation();
+  const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
+  const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const { supabaseConnector } = useSystem();
@@ -141,7 +142,10 @@ export default function Register() {
                   render={({ field: { onChange, value } }) => (
                     <LanguageSelect
                       value={value}
-                      onChange={(lang) => onChange(lang.id)}
+                      onChange={(lang) => {
+                        onChange(lang.id);
+                        setCurrentLanguage(lang);
+                      }}
                       containerStyle={{ width: '100%' }}
                     />
                   )}
