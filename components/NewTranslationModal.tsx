@@ -97,6 +97,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
+    console.log('handleClose', audioUri);
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {
@@ -115,11 +116,14 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       onDismiss={handleClose}
       onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
         <Pressable style={styles.container} onPress={handleClose}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.modal}>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+              >
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
 

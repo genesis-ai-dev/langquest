@@ -45,6 +45,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         playsInSilentModeIOS: true
       });
 
+      // resume recording if it paused
+      if (recording) {
+        await recording.startAsync();
+        setIsRecording(true);
+        return;
+      }
+
       const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
@@ -61,6 +68,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     } catch (error) {
       console.error('Failed to start recording:', error);
     }
+  };
+
+  const pauseRecording = async () => {
+    if (!recording) return;
+    await recording.pauseAsync();
+    setIsRecording(false);
   };
 
   const stopRecording = async () => {
@@ -146,7 +159,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       return [
         {
           icon: 'pause',
-          onPress: stopRecording
+          onPress: pauseRecording
         },
         {
           icon: 'checkmark',
