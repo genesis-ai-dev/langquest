@@ -187,9 +187,14 @@ export const translations = {
     english: 'Registration successful',
     spanish: 'Registro exitoso'
   },
+  resetPassword: {
+    english: 'Reset Password',
+    spanish: 'Restablecer contraseña'
+  },
   returningHero: {
     english: 'Returning hero? Sign In',
     spanish: '¿Héroe que regresa? Inicia sesión'
+
   },
   search: {
     english: 'Search...',

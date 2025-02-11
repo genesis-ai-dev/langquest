@@ -320,6 +320,13 @@ export default function Index() {
               </View>
 
               <TouchableOpacity
+                style={{ marginTop: spacing.medium }}
+                onPress={() => router.push('/request-reset-password')}
+              >
+                <Text style={sharedStyles.link}>{t('forgotPassword')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[sharedStyles.button, { marginTop: 'auto' }]}
                 onPress={handleSubmit(onSubmit)}
               >

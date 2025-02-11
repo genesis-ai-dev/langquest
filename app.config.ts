@@ -7,7 +7,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/langquest_icon_v1.png',
-  scheme: 'myapp',
+  scheme: 'langquest',
   userInterfaceStyle: 'automatic',
   splash: {
     image: './assets/images/splash.png',
@@ -22,7 +22,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: './assets/images/langquest_icon_v1.png',
       backgroundColor: '#ffffff'
     },
-    package: 'com.etengenesis.langquest'
+    package: 'com.etengenesis.langquest',
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "https",
+            host: "langquest.org",
+            pathPrefix: "/reset-password"
+          },
+          {
+            scheme: "langquest",
+            host: "*"
+          }
+        ],
+        category: ["BROWSABLE", "DEFAULT"]
+      }
+    ]
   },
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

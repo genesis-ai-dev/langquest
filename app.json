@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/langquest_icon_v1.png",
-    "scheme": "myapp",
+    "scheme": "langquest",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
