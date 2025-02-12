@@ -76,39 +76,36 @@ export default function Register() {
         throw new Error('Selected language not found');
       }
 
-      // First, attempt to sign up the user with Supabase
-      const { data: authData, error: authError } = await supabaseConnector.client.auth.updateUser({
-        email: data.email.trim(),
-        password: data.password.trim(),
-        data: {
-          username: data.username.trim(),
-          ui_language_id: data.selectedLanguageId,
-          ui_language: selectedLanguage.english_name?.toLowerCase() || 'english'
-        }
-      });
+      // Update the anonymous user with credentials
+      const { data: authData, error: authError } = await supabaseConnector.client.auth.updateUser(
+        {
+          email: data.email.trim(),
+          password: data.password.trim(),
+          data: {
+            username: data.username.trim(),
+            ui_language_id: data.selectedLanguageId,
+            ui_language: selectedLanguage.english_name?.toLowerCase() || 'english'
+          }
+        },
+        { emailRedirectTo: 'langquest://' }
+      );
 
-      console.log('Auth response:', {
-        user: authData?.user,
-        error: authError
-      });
-  
       if (authError) {
         throw authError;
       }
-  
+
       // Email confirmation is required
       Alert.alert(
-        'Success',
+        t('success'),
         t('checkEmail'),
         [{ text: 'OK', onPress: () => router.replace('/') }]
       );
       return;
-      
-  
+
     } catch (error) {
       console.error('Error registering user:', error);
       Alert.alert(
-        'Error',
+        t('error'),
         error instanceof Error ? error.message : t('registrationFail')
       );
     }

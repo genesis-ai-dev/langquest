@@ -2,7 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { router, useRouter } from 'expo-router';
-import { ResetPasswordParams } from './(stack)/request-reset-password';
+// import { ResetPasswordParams } from './(stack)/request-reset-password';
 import { LogBox } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';

@@ -1,35 +1,48 @@
 import { useRouter } from 'expo-router';
-import * as Linking from 'expo-linking';
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useSystem } from '@/db/powersync/system';
-import { useLocalSearchParams } from 'expo-router';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { languageService } from '@/database_services/languageService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { language } from '@/db/drizzleSchema';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useForm, Controller } from 'react-hook-form';
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-export type ResetPasswordParams = {
-  access_token?: string;
-  refresh_token?: string;
-  type?: string;
+type RequestResetFormData = {
+  email: string;
 };
 
-export default function ResetPassword() {
-  const { supabaseConnector } = useSystem();
-  const [email, setEmail] = useState('');
+export default function RequestResetPassword() {
   const [currentLanguage, setCurrentLanguage] = useState<typeof language.$inferSelect | null>(null);
   const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
-  const params = useLocalSearchParams<ResetPasswordParams>();
+  const { supabaseConnector } = useSystem();
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<RequestResetFormData>({
+    defaultValues: {
+      email: ''
+    }
+  });
 
   // Load saved language
   useEffect(() => {
@@ -49,24 +62,10 @@ export default function ResetPassword() {
     loadLanguage();
   }, []);
 
-  useEffect(() => {
-    // Handle deep link parameters with proper type checking
-    if (params.access_token && params.refresh_token) {
-      console.log('Received tokens from deep link');
-      console.log('Access token:', params.access_token);
-      console.log('Refresh token:', params.refresh_token);
-    }
-  }, [params]);
-
-  const onRequestReset = async () => {
+  const onSubmit = async (data: RequestResetFormData) => {
     try {
-      if (!EMAIL_REGEX.test(email)) {
-        Alert.alert(t('error'), t('enterValidEmail'));
-        return;
-      }
-
       const { error } = await supabaseConnector.client.auth.resetPasswordForEmail(
-        email.toLowerCase().trim(),
+        data.email.toLowerCase().trim(),
         {
           redirectTo: `langquest://reset-password`
         }
@@ -74,11 +73,7 @@ export default function ResetPassword() {
 
       if (error) throw error;
 
-      Alert.alert(
-        t('success'),
-        t('checkEmailForResetLink'),
-        [{ text: t('ok') }]
-      );
+      Alert.alert(t('success'), t('checkEmailForResetLink'), [{ text: t('ok') }]);
     } catch (error) {
       console.error('Error requesting password reset:', error);
       Alert.alert(
@@ -89,40 +84,95 @@ export default function ResetPassword() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'center' }}>
-      <Text style={{ fontSize: 24, marginBottom: 20 }}>{t('resetPassword')}</Text>
-      <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          padding: 10,
-          marginBottom: 20,
-          borderRadius: 5
-        }}
-        placeholder={t('enterYourEmail')}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#0066cc',
-          padding: 15,
-          borderRadius: 5,
-          alignItems: 'center'
-        }}
-        onPress={onRequestReset}
-      >
-        <Text style={{ color: 'white' }}>{t('sendResetEmail')}</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={{ marginTop: 20, alignItems: 'center' }}
-        onPress={() => router.replace('/')}
-      >
-        <Text style={{ color: '#0066cc' }}>{t('backToLogin')}</Text>
-      </TouchableOpacity>
-    </View>
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, padding: spacing.large }}>
+          <Text style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}>
+            {t('resetPassword')}
+          </Text>
+
+          <View style={styles.centerSection}>
+            <Controller
+              control={control}
+              name="email"
+              rules={{
+                required: t('emailRequired'),
+                pattern: {
+                  value: EMAIL_REGEX,
+                  message: t('enterValidEmail')
+                }
+              }}
+              render={({ field: { onChange, value } }) => (
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: spacing.medium
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={colors.text}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text, marginLeft: spacing.medium }}
+                    placeholder={t('enterYourEmail')}
+                    placeholderTextColor={colors.text}
+                    value={value}
+                    onChangeText={onChange}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+                </View>
+              )}
+            />
+            {errors.email && (
+              <Text style={styles.errorText}>{errors.email.message}</Text>
+            )}
+
+            <TouchableOpacity
+              style={[sharedStyles.button, { marginBottom: 0 }]}
+              onPress={handleSubmit(onSubmit)}
+            >
+              <Text style={sharedStyles.buttonText}>
+                {t('sendResetEmail')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.bottomLink}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={sharedStyles.link}>{t('backToLogin')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  errorText: {
+    color: colors.error || '#ff0000',
+    fontSize: 12,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.medium
+  },
+  centerSection: {
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: -spacing.xxxlarge
+  },
+  bottomLink: {
+    alignItems: 'center',
+    marginBottom: spacing.large
+  }
+});

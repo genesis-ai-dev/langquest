@@ -7,12 +7,24 @@ import {
   TouchableOpacity,
   View,
   StyleSheet,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useSystem } from '@/db/powersync/system';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useForm, Controller } from 'react-hook-form';
+
+type ResetPasswordFormData = {
+  newPassword: string;
+  confirmPassword: string;
+};
 
 export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
@@ -22,6 +34,18 @@ export default function ResetPassword() {
   const [canResetPassword, setCanResetPassword] = useState(false);
   const { t } = useTranslation(); // This will use currentUser's language preference
   const router = useRouter();
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors }
+  } = useForm<ResetPasswordFormData>({
+    defaultValues: {
+      newPassword: '',
+      confirmPassword: ''
+    }
+  });
 
   useEffect(() => {
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
@@ -45,34 +69,30 @@ export default function ResetPassword() {
     };
   }, []);
 
-  const onResetPassword = async () => {
+  const onSubmit = async (data: ResetPasswordFormData) => {
     try {
-      if (newPassword.length < 6) {
+      if (data.newPassword.length < 6) {
         Alert.alert(t('error'), t('passwordMinLength'));
         return;
       }
 
-      if (newPassword !== confirmPassword) {
+      if (data.newPassword !== data.confirmPassword) {
         Alert.alert(t('error'), t('passwordsNoMatch'));
         return;
       }
 
       const { error } = await supabaseConnector.client.auth.updateUser({
-        password: newPassword
+        password: data.newPassword
       });
 
       if (error) throw error;
 
-      Alert.alert(
-        t('success'),
-        t('passwordResetSuccess'),
-        [
-          {
-            text: t('ok'),
-            onPress: () => router.replace('/projects')
-          }
-        ]
-      );
+      Alert.alert(t('success'), t('passwordResetSuccess'), [
+        {
+          text: t('ok'),
+          onPress: () => router.replace('/projects')
+        }
+      ]);
     } catch (error) {
       console.error('Error resetting password:', error);
       Alert.alert(
@@ -92,72 +112,166 @@ export default function ResetPassword() {
 
   if (!canResetPassword) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.title}>{t('invalidResetLink')}</Text>
-        <TouchableOpacity
-          style={[sharedStyles.button, styles.button]}
-          onPress={() => router.replace('/')}
-        >
-          <Text style={sharedStyles.buttonText}>{t('backToLogin')}</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View style={[styles.container, styles.centered]}>
+            <Text style={sharedStyles.subtitle}>{t('invalidResetLink')}</Text>
+            <TouchableOpacity
+              style={[sharedStyles.button, styles.button]}
+              onPress={() => router.replace('/')}
+            >
+              <Text style={sharedStyles.buttonText}>{t('backToLogin')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('resetPassword')}</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder={t('newPassword')}
-        value={newPassword}
-        onChangeText={setNewPassword}
-        secureTextEntry
-        placeholderTextColor={colors.text}
-      />
-      
-      <TextInput
-        style={styles.input}
-        placeholder={t('confirmNewPassword')}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        placeholderTextColor={colors.text}
-      />
-      
-      <TouchableOpacity
-        style={[sharedStyles.button, styles.button]}
-        onPress={onResetPassword}
-      >
-        <Text style={sharedStyles.buttonText}>{t('resetPassword')}</Text>
-      </TouchableOpacity>
-    </View>
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, padding: spacing.large }}>
+          <Text style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}>
+            {t('resetPassword')}
+          </Text>
+
+          <View style={styles.centerSection}>
+            <Controller
+              control={control}
+              name="newPassword"
+              rules={{
+                required: t('passwordRequired'),
+                minLength: {
+                  value: 6,
+                  message: t('passwordMinLength')
+                }
+              }}
+              render={({ field: { onChange, value } }) => (
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.medium
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('newPassword')}
+                    placeholderTextColor={colors.text}
+                    value={value}
+                    onChangeText={onChange}
+                    secureTextEntry
+                  />
+                </View>
+              )}
+            />
+            {errors.newPassword && (
+              <Text style={styles.errorText}>
+                {errors.newPassword.message}
+              </Text>
+            )}
+
+            <Controller
+              control={control}
+              name="confirmPassword"
+              rules={{
+                required: t('confirmPassword'),
+                validate: (value) =>
+                  value === watch('newPassword') || t('passwordsNoMatch')
+              }}
+              render={({ field: { onChange, value } }) => (
+                <View
+                  style={[
+                    sharedStyles.input,
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.medium
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.text}
+                  />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text }}
+                    placeholder={t('confirmNewPassword')}
+                    placeholderTextColor={colors.text}
+                    value={value}
+                    onChangeText={onChange}
+                    secureTextEntry
+                  />
+                </View>
+              )}
+            />
+            {errors.confirmPassword && (
+              <Text style={styles.errorText}>
+                {errors.confirmPassword.message}
+              </Text>
+            )}
+
+            <TouchableOpacity
+              style={[sharedStyles.button, { marginBottom: 0 }]}
+              onPress={handleSubmit(onSubmit)}
+            >
+              <Text style={sharedStyles.buttonText}>{t('resetPassword')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.bottomLink}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={sharedStyles.link}>{t('backToLogin')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.large,
+    padding: spacing.large
   },
   centered: {
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  title: {
-    fontSize: 24,
-    marginBottom: spacing.large,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  input: {
-    ...sharedStyles.input,
-    width: '100%',
-    marginBottom: spacing.medium,
+  errorText: {
+    color: colors.error || '#ff0000',
+    fontSize: 12,
+    alignSelf: 'flex-start'
   },
   button: {
     width: '100%',
-    marginTop: spacing.medium,
+    marginTop: spacing.medium
+  },
+  centerSection: {
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: -spacing.xxxlarge
+  },
+  bottomLink: {
+    alignItems: 'center',
+    marginBottom: spacing.large
   }
 }); 
