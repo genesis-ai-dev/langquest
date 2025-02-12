@@ -28,11 +28,12 @@ type ResetPasswordFormData = {
 
 export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
+  const [userLanguage, setUserLanguage] = useState<string | null>(null);
+  const { t } = useTranslation(userLanguage);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [canResetPassword, setCanResetPassword] = useState(false);
-  const { t } = useTranslation(); // This will use currentUser's language preference
   const router = useRouter();
 
   const {
@@ -53,6 +54,11 @@ export default function ResetPassword() {
         console.log('[Reset Password] Auth event:', event);
         if (event === 'PASSWORD_RECOVERY') {
           setCanResetPassword(true);
+          // Get user's language preference from session
+          const userLang = session?.user?.user_metadata?.ui_language;
+          if (userLang) {
+            setUserLanguage(userLang);
+          }
         }
       }
     );
@@ -61,6 +67,11 @@ export default function ResetPassword() {
     supabaseConnector.client.auth.getSession().then(({ data: { session } }) => {
       console.log('[Reset Password] Current session:', session?.user);
       setCanResetPassword(!!session?.user);
+      // Get user's language preference from current session
+      const userLang = session?.user?.user_metadata?.ui_language;
+      if (userLang) {
+        setUserLanguage(userLang);
+      }
       setIsLoading(false);
     });
 
@@ -268,7 +279,8 @@ const styles = StyleSheet.create({
   centerSection: {
     flex: 1,
     justifyContent: 'center',
-    marginTop: -spacing.xxxlarge
+    marginTop: -spacing.xxxlarge,
+    gap: spacing.large
   },
   bottomLink: {
     alignItems: 'center',
