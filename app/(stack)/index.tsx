@@ -320,7 +320,7 @@ export default function Index() {
               </View>
 
               <TouchableOpacity
-                style={{ marginTop: spacing.medium }}
+                style={{ marginTop: spacing.medium, alignSelf: 'center' }}
                 onPress={() => router.push('/request-reset-password')}
               >
                 <Text style={sharedStyles.link}>{t('forgotPassword')}</Text>
@@ -334,7 +334,7 @@ export default function Index() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={{ marginTop: spacing.medium }}
+                style={{ marginTop: spacing.medium, alignSelf: 'center' }}
                 onPress={() => router.push('/register')}
               >
                 <Text style={sharedStyles.link}>{t('newUser')}</Text>

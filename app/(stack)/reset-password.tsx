@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useSystem } from '@/db/powersync/system';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { useTranslation } from '@/hooks/useTranslation';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
@@ -18,6 +20,7 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [canResetPassword, setCanResetPassword] = useState(false);
+  const { t } = useTranslation(); // This will use currentUser's language preference
   const router = useRouter();
 
   useEffect(() => {
@@ -45,12 +48,12 @@ export default function ResetPassword() {
   const onResetPassword = async () => {
     try {
       if (newPassword.length < 6) {
-        Alert.alert('Error', 'Password must be at least 6 characters');
+        Alert.alert(t('error'), t('passwordMinLength'));
         return;
       }
 
       if (newPassword !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
+        Alert.alert(t('error'), t('passwordsNoMatch'));
         return;
       }
 
@@ -61,11 +64,11 @@ export default function ResetPassword() {
       if (error) throw error;
 
       Alert.alert(
-        'Success',
-        'Password has been reset successfully',
+        t('success'),
+        t('passwordResetSuccess'),
         [
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => router.replace('/projects')
           }
         ]
@@ -73,8 +76,8 @@ export default function ResetPassword() {
     } catch (error) {
       console.error('Error resetting password:', error);
       Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to reset password'
+        t('error'),
+        error instanceof Error ? error.message : t('failedResetPassword')
       );
     }
   };
@@ -90,12 +93,12 @@ export default function ResetPassword() {
   if (!canResetPassword) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.title}>Invalid or expired reset link</Text>
+        <Text style={styles.title}>{t('invalidResetLink')}</Text>
         <TouchableOpacity
           style={[sharedStyles.button, styles.button]}
           onPress={() => router.replace('/')}
         >
-          <Text style={sharedStyles.buttonText}>Back to Login</Text>
+          <Text style={sharedStyles.buttonText}>{t('backToLogin')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -103,11 +106,11 @@ export default function ResetPassword() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Reset Password</Text>
+      <Text style={styles.title}>{t('resetPassword')}</Text>
       
       <TextInput
         style={styles.input}
-        placeholder="New Password"
+        placeholder={t('newPassword')}
         value={newPassword}
         onChangeText={setNewPassword}
         secureTextEntry
@@ -116,7 +119,7 @@ export default function ResetPassword() {
       
       <TextInput
         style={styles.input}
-        placeholder="Confirm New Password"
+        placeholder={t('confirmNewPassword')}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -127,7 +130,7 @@ export default function ResetPassword() {
         style={[sharedStyles.button, styles.button]}
         onPress={onResetPassword}
       >
-        <Text style={sharedStyles.buttonText}>Reset Password</Text>
+        <Text style={sharedStyles.buttonText}>{t('resetPassword')}</Text>
       </TouchableOpacity>
     </View>
   );

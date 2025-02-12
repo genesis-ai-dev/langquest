@@ -35,6 +35,10 @@ export const translations = {
     english: 'Avatar',
     spanish: 'Avatar'
   },
+  backToLogin: {
+    english: 'Back to Login',
+    spanish: 'Volver al inicio de sesión'
+  },
   becomeHero: {
     english: 'Become a Hero',
     spanish: 'Conviértete en héroe'
@@ -42,6 +46,14 @@ export const translations = {
   checkEmail: {
     english: 'Please check your email',
     spanish: 'Por favor revise su correo electrónico'
+  },
+  checkEmailForResetLink: {
+    english: 'Please check your email for the password reset link',
+    spanish: 'Por favor revise su correo electrónico para el enlace de restablecimiento de contraseña'
+  },
+  confirmNewPassword: {
+    english: 'Confirm New Password',
+    spanish: 'Confirmar nueva contraseña'
   },
   confirmPassword: {
     english: 'Confirm Password',
@@ -66,6 +78,14 @@ export const translations = {
   enterTranslation: {
     english: 'Enter your translation here',
     spanish: 'Ingrese su traducción aquí'
+  },
+  enterValidEmail: {
+    english: 'Please enter a valid email',
+    spanish: 'Por favor ingrese un correo electrónico válido'
+  },
+  enterYourEmail: {
+    english: 'Enter your email',
+    spanish: 'Ingrese su correo electrónico'
   },
   error: {
     english: 'Error',
@@ -99,6 +119,14 @@ export const translations = {
     english: 'Failed to remove vote',
     spanish: 'Error al eliminar el voto'
   },
+  failedResetPassword: {
+    english: 'Failed to reset password',
+    spanish: 'Error al restablecer la contraseña'
+  },
+  failedSendResetEmail: {
+    english: 'Failed to send reset email',
+    spanish: 'Error al enviar el correo de restablecimiento'
+  },
   failedToVote: {
     english: 'Failed to submit vote',
     spanish: 'Error al enviar el voto'
@@ -114,6 +142,10 @@ export const translations = {
   invalidAuth: {
     english: 'Inavlid username or password',
     spanish: 'Usuario o contraseña inválidos'
+  },
+  invalidResetLink: {
+    english: 'Invalid or expired reset link',
+    spanish: 'Enlace de restablecimiento inválido o expirado'
   },
   logInToTranslate: {
     english: 'You must be logged in to submit translations',
@@ -155,9 +187,17 @@ export const translations = {
     english: 'Password is required',
     spanish: 'Se requiere contraseña'
   },
+  passwordMinLength: {
+    english: 'Password must be at least 6 characters',
+    spanish: 'La contraseña debe tener al menos 6 caracteres'
+  },
   passwordsNoMatch: {
     english: 'Passwords do not match',
     spanish: 'Las contraseñas no coinciden'
+  },
+  passwordResetSuccess: {
+    english: 'Password has been reset successfully',
+    spanish: 'La contraseña se ha restablecido correctamente'
   },
   projects: {
     english: 'Projects',
@@ -219,6 +259,10 @@ export const translations = {
   selectLanguage: {
     english: 'Please select a language',
     spanish: 'Por favor seleccione un idioma'
+  },
+  sendResetEmail: {
+    english: 'Send Reset Email',
+    spanish: 'Enviar correo de restablecimiento'
   },
   signIn: {
     english: 'Sign In',

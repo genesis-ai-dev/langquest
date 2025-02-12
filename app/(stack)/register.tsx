@@ -70,13 +70,20 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
+      // Get the language object first
+      const selectedLanguage = await languageService.getLanguageById(data.selectedLanguageId);
+      if (!selectedLanguage) {
+        throw new Error('Selected language not found');
+      }
+
       // First, attempt to sign up the user with Supabase
       const { data: authData, error: authError } = await supabaseConnector.client.auth.updateUser({
         email: data.email.trim(),
         password: data.password.trim(),
         data: {
           username: data.username.trim(),
-          ui_language_id: data.selectedLanguageId
+          ui_language_id: data.selectedLanguageId,
+          ui_language: selectedLanguage.english_name?.toLowerCase() || 'english'
         }
       });
 
