@@ -32,12 +32,14 @@ npm i
    - Enable "USB debugging"
 
 
-6. Run the app by following the [Expo environment setup guide](https://docs.expo.dev/get-started/set-up-your-environment/) for your platform, **witht he supplemental pointers below**:
+6. Run the app by following the [Expo environment setup guide](https://docs.expo.dev/get-started/set-up-your-environment/) for your platform, **with the supplemental pointers below**:
 
 - Recommended to run on physical android device (emulator may have minimal limitations but should allow for most functionality)
+
 ![Android Device](readme_images/android_device.jpg)
 
 - Choose **Development build** (not Expo Go)
+
 ![Dev Build](readme_images/dev_build.jpg)
 
 ### There are two ways to run the app:
@@ -67,7 +69,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 - Includes development tools and debugging features
 - Faster build times for testing changes
 - Requires local Android SDK setup
-
+---
 ### Common issue during setup:
 
 ```bash
@@ -83,48 +85,3 @@ To resolve this:
 5. Try building the app again
 
 
-
-
-Currently tested on:
-
-- ✅ Android devices
-- ❓ iOS (untested)
-
-
-## Project Structure
-
-- `app/` - Main application screens
-- `components/` - Specific modals and reusable UI components
-- `database_services/` - Database services
-- `db/` - Database configuration and schema
-- `contexts/` - React context providers
-
-## Building the APK
-
-Follow these steps to build the Android APK:
-
-1. Install EAS CLI globally:
-
-   ```bash
-   npm install -g eas-cli
-   ```
-
-2. Create an Expo account:
-
-   - Visit https://expo.dev/signup
-   - Complete the registration process
-
-3. Log in to EAS from your terminal:
-
-   ```bash
-   eas login
-   ```
-
-4. Build the APK:
-   ```bash
-   eas build -p android --profile preview
-   ```
-
-Once the build completes, you can download the APK from your [EAS Dashboard](https://expo.dev).
-
-**Note:** Each developer needs their own Expo account to build the APK. The repository includes all necessary build configurations.
