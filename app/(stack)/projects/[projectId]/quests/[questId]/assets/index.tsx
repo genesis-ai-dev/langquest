@@ -3,6 +3,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
 import { Tag, tagService } from '@/database_services/tagService';
 import { useTranslation } from '@/hooks/useTranslation';
+import { asset_content_link } from '@/db/drizzleSchema';
 import {
   borderRadius,
   colors,
@@ -72,6 +73,9 @@ export default function Assets() {
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [assetTags, setAssetTags] = useState<Record<string, Tag[]>>({});
+  const [assetContents, setAssetContents] = useState<
+    Record<string, (typeof asset_content_link.$inferSelect)[]>
+  >({});
 
   const { t } = useTranslation();
   const router = useRouter();
@@ -98,15 +102,27 @@ export default function Assets() {
       const loadedAssets = await assetService.getAssetsByQuestId(questId);
       setAssets(loadedAssets);
 
-      // Load tags for all assets
+      // Load tags and content for all assets
       const tagsMap: Record<string, Tag[]> = {};
+      const contentsMap: Record<
+        string,
+        (typeof asset_content_link.$inferSelect)[]
+      > = {};
+
       await Promise.all(
         loadedAssets.map(async (asset) => {
-          tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
+          const [tags, content] = await Promise.all([
+            tagService.getTagsByAssetId(asset.id),
+            assetService.getAssetContent(asset.id)
+          ]);
+          tagsMap[asset.id] = tags;
+          contentsMap[asset.id] = content;
         })
       );
+
       console.log('Tags found for asset: ', tagsMap);
       setAssetTags(tagsMap);
+      setAssetContents(contentsMap);
     } catch (error) {
       console.error('Error loading assets:', error);
       Alert.alert('Error', 'Failed to load assets');
@@ -114,16 +130,20 @@ export default function Assets() {
   };
 
   const applyFilters = useCallback(
-    (
+    async (
       assetsToFilter: Asset[],
       filters: Record<string, string[]>,
       search: string
     ) => {
-      return assetsToFilter.filter((asset) => {
+      const filteredAssets = [];
+      for (const asset of assetsToFilter) {
         // Search filter
+        const assetContent = assetContents[asset.id] || [];
         const matchesSearch =
           asset.name.toLowerCase().includes(search.toLowerCase()) ||
-          (asset.text?.toLowerCase().includes(search.toLowerCase()) ?? false);
+          assetContent.some((content) =>
+            content.text.toLowerCase().includes(search.toLowerCase())
+          );
 
         // Tag filters
         const assetTags = assetToTags[asset.id] || [];
@@ -142,10 +162,13 @@ export default function Assets() {
           }
         );
 
-        return matchesSearch && matchesFilters;
-      });
+        if (matchesSearch && matchesFilters) {
+          filteredAssets.push(asset);
+        }
+      }
+      return filteredAssets;
     },
-    [assetToTags]
+    [assetToTags, assetContents]
   );
 
   const applySorting = useCallback(
@@ -192,9 +215,12 @@ export default function Assets() {
   }, [assets]);
 
   useEffect(() => {
-    let filtered = applyFilters(assets, activeFilters, searchQuery);
-    filtered = applySorting(filtered, activeSorting);
-    setFilteredAssets(filtered);
+    const updateFilteredAssets = async () => {
+      const filtered = await applyFilters(assets, activeFilters, searchQuery);
+      const sorted = applySorting(filtered, activeSorting);
+      setFilteredAssets(sorted);
+    };
+    updateFilteredAssets();
   }, [
     searchQuery,
     activeFilters,
@@ -218,27 +244,20 @@ export default function Assets() {
     setSelectedAsset(null);
   };
 
-  const handleApplyFilters = (filters: Record<string, string[]>) => {
+  const handleApplyFilters = async (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
-    const filtered = applyFilters(assets, filters, searchQuery);
+    const filtered = await applyFilters(assets, filters, searchQuery);
     const sorted = applySorting(filtered, activeSorting);
     setFilteredAssets(sorted);
     setIsFilterModalVisible(false);
   };
 
-  const handleApplySorting = (sorting: SortingOption[]) => {
+  const handleApplySorting = async (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
-    const filtered = applyFilters(assets, activeFilters, searchQuery);
+    const filtered = await applyFilters(assets, activeFilters, searchQuery);
     const sorted = applySorting(filtered, sorting);
     setFilteredAssets(sorted);
   };
-
-  // Update filtered assets when search query changes
-  useEffect(() => {
-    const filtered = applyFilters(assets, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    setFilteredAssets(sorted);
-  }, [searchQuery, assets, applyFilters, applySorting]);
 
   // Handle back button press
   useEffect(() => {

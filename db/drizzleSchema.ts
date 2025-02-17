@@ -12,7 +12,7 @@ const baseColumns = {
   id: text()
     .primaryKey()
     .$defaultFn(() => uuidDefault),
-  active: int({ mode: 'boolean' }).notNull(),
+  active: int({ mode: 'boolean' }).default(true).notNull(),
   created_at: text().notNull().default(timestampDefault),
   last_updated: text().notNull().default(timestampDefault)
 };

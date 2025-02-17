@@ -51,12 +51,10 @@ export class VoteService {
       const [newVote] = await db
         .insert(vote)
         .values({
-          rev: 1,
           translation_id: data.translation_id,
           creator_id: data.creator_id,
           polarity: data.polarity,
-          comment: data.comment || '',
-          version_chain_id: randomUUID()
+          comment: data.comment || ''
         })
         .returning();
 
