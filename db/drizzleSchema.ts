@@ -235,7 +235,7 @@ export const asset_content_link = sqliteTable('asset_content_link', {
   ...baseColumns,
   asset_id: text().notNull(),
   text: text().notNull(),
-  audio_attachment_id: text() // Optional since text content might not have an associated file
+  audio_id: text() // Optional since text content might not have an associated file
 });
 
 export const asset_content_linkRelations = relations(
