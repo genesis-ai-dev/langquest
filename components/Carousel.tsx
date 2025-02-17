@@ -2,7 +2,7 @@ import React, { useState, useRef, ReactNode } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PagerView from 'react-native-pager-view';
-import { colors, spacing } from '@/styles/theme';
+import { borderRadius, colors, spacing } from '@/styles/theme';
 
 interface CarouselProps<T> {
   items: T[];
@@ -42,7 +42,11 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
       </PagerView>
       <View style={styles.controlsContainer}>
         <TouchableOpacity
-          style={[styles.navButton, styles.navButtonLeft]}
+          style={[
+            styles.navButton,
+            styles.navButtonLeft,
+            currentPage === 0 && { opacity: 0 }
+          ]}
           onPress={() => pagerRef.current?.setPage(currentPage - 1)}
           disabled={currentPage === 0}
         >
@@ -60,7 +64,11 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
           ))}
         </View>
         <TouchableOpacity
-          style={[styles.navButton, styles.navButtonRight]}
+          style={[
+            styles.navButton,
+            styles.navButtonRight,
+            currentPage === items.length - 1 && { opacity: 0 }
+          ]}
           onPress={() => pagerRef.current?.setPage(currentPage + 1)}
           disabled={currentPage === items.length - 1}
         >
@@ -84,7 +92,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderRadius: borderRadius.medium
   },
   controlsContainer: {
     flexDirection: 'row',

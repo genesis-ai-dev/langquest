@@ -35,18 +35,25 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    // TODO: make sure having two watches is not a problem (I think it will be a problem)
-
-    let lastAssets: string[] = [];
+    let lastAssetImages: string[] = [];
+    let lastAssetAudio: string[] = [];
     let lastTranslations: string[] = [];
     this.db.watch(this.db.query.asset.findMany(), {
       onResult(assets) {
-        const allAssets = assets.flatMap((asset) => [
-          ...(asset.images ?? []),
-          ...(asset.audio ?? [])
-        ]);
-        onUpdate([...allAssets, ...lastTranslations]);
-        lastAssets = allAssets;
+        const allImageAssets = assets
+          .flatMap((asset) => asset.images)
+          .filter(Boolean);
+        onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
+        lastAssetImages = allImageAssets;
+      }
+    });
+    this.db.watch(this.db.query.asset_content_link.findMany(), {
+      onResult(assets) {
+        const allAudioAssets = assets
+          .map((asset) => asset.audio_attachment_id)
+          .filter(Boolean);
+        onUpdate([...allAudioAssets, ...lastAssetImages, ...lastTranslations]);
+        lastAssetAudio = allAudioAssets;
       }
     });
 
@@ -55,7 +62,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
         const allTranslations = translations
           .map((translation) => translation.audio)
           .filter(Boolean);
-        onUpdate([...lastAssets, ...allTranslations]);
+        onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
         lastTranslations = allTranslations;
       }
     });

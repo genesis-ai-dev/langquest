@@ -280,8 +280,8 @@ export const translations = {
     spanish: 'Cerrar Sesión'
   },
   sortBy: {
-    english: 'Sort by...',
-    spanish: 'Ordenar por...'
+    english: 'Sort by',
+    spanish: 'Ordenar por'
   },
   source: {
     english: 'Source',

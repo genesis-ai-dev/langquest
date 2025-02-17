@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import { randomUUID } from 'expo-crypto';
-import { translation } from '../db/drizzleSchema';
+import { asset_content_link, translation } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
@@ -40,9 +40,9 @@ export class TranslationService {
 
   async updateTranslationAudio(translationId: string, attachmentId: string) {
     const [updatedTranslation] = await db
-      .update(translation)
-      .set({ audio: attachmentId })
-      .where(eq(translation.id, translationId))
+      .update(asset_content_link)
+      .set({ attachment_id: attachmentId })
+      .where(eq(asset_content_link.id, translationId))
       .returning();
 
     return updatedTranslation;

@@ -12,10 +12,9 @@ const baseColumns = {
   id: text()
     .primaryKey()
     .$defaultFn(() => uuidDefault),
-  rev: int().notNull(),
+  active: int({ mode: 'boolean' }).notNull(),
   created_at: text().notNull().default(timestampDefault),
-  last_updated: text().notNull().default(timestampDefault),
-  version_chain_id: text().notNull()
+  last_updated: text().notNull().default(timestampDefault)
 };
 
 export const profile = sqliteTable('profile', {
@@ -127,9 +126,7 @@ export const asset = sqliteTable('asset', {
   ...baseColumns,
   name: text().notNull(),
   source_language_id: text().notNull(),
-  text: text().notNull(),
-  images: text({ mode: 'json' }).$type<string[]>(),
-  audio: text({ mode: 'json' }).$type<string[]>()
+  images: text({ mode: 'json' }).$type<string[]>().notNull()
 });
 
 export const assetRelations = relations(asset, ({ one, many }) => ({
@@ -139,7 +136,8 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
   }),
   tags: many(asset_tag_link),
   quests: many(quest_asset_link),
-  translations: many(translation)
+  translations: many(translation),
+  content: many(asset_content_link)
 }));
 
 export const asset_tag_link = sqliteTable(
@@ -217,7 +215,7 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
 export const vote = sqliteTable('vote', {
   ...baseColumns,
   translation_id: text().notNull(),
-  polarity: text().notNull(), // "up" or "down"
+  polarity: text({ enum: ['up', 'down'] }).notNull(),
   comment: text(),
   creator_id: text().notNull()
 });
@@ -232,6 +230,23 @@ export const voteRelations = relations(vote, ({ one }) => ({
     references: [profile.id]
   })
 }));
+
+export const asset_content_link = sqliteTable('asset_content_link', {
+  ...baseColumns,
+  asset_id: text().notNull(),
+  text: text().notNull(),
+  audio_attachment_id: text() // Optional since text content might not have an associated file
+});
+
+export const asset_content_linkRelations = relations(
+  asset_content_link,
+  ({ one }) => ({
+    asset: one(asset, {
+      fields: [asset_content_link.asset_id],
+      references: [asset.id]
+    })
+  })
+);
 
 // export const notification = sqliteTable('notification', {
 //   ...baseColumns,
