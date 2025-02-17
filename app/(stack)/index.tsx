@@ -140,9 +140,9 @@ export default function Index() {
       }
 
       const user = await userService.getUserById(signInData.user.id);
-        if (user) {
-          setCurrentUser(user);
-        }
+      if (user) {
+        setCurrentUser(user);
+      }
 
       // Email is verified, proceed with login
       await system.init();

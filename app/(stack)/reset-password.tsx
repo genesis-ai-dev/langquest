@@ -149,7 +149,9 @@ export default function ResetPassword() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, padding: spacing.large }}>
-          <Text style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}>
+          <Text
+            style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}
+          >
             {t('resetPassword')}
           </Text>
 
@@ -192,9 +194,7 @@ export default function ResetPassword() {
               )}
             />
             {errors.newPassword && (
-              <Text style={styles.errorText}>
-                {errors.newPassword.message}
-              </Text>
+              <Text style={styles.errorText}>{errors.newPassword.message}</Text>
             )}
 
             <Controller
@@ -286,4 +286,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.large
   }
-}); 
+});

@@ -25,8 +25,6 @@ expo-env.d.ts
 # @end expo-cli
 app/sqlite_in_expo.md
 *.db
-package-lock.json
-_package-lock.json
 ~$langquest types.xlsx
 langquest types.xlsx
 .env
