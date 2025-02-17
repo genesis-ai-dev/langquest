@@ -12,8 +12,10 @@ type TranslationSet = {
 // All UI translations
 export const translations = {
   accountNotVerified: {
-    english: 'Please verify your email address before signing in. Check your email for the verification link.',
-    spanish: 'Por favor verifique su dirección de correo electrónico antes de iniciar sesión. Revise su correo electrónico para el enlace de verificación.'
+    english:
+      'Please verify your email address before signing in. Check your email for the verification link.',
+    spanish:
+      'Por favor verifique su dirección de correo electrónico antes de iniciar sesión. Revise su correo electrónico para el enlace de verificación.'
   },
   all: {
     english: 'All',
@@ -49,7 +51,8 @@ export const translations = {
   },
   checkEmailForResetLink: {
     english: 'Please check your email for the password reset link',
-    spanish: 'Por favor revise su correo electrónico para el enlace de restablecimiento de contraseña'
+    spanish:
+      'Por favor revise su correo electrónico para el enlace de restablecimiento de contraseña'
   },
   confirmNewPassword: {
     english: 'Confirm New Password',
@@ -234,7 +237,6 @@ export const translations = {
   returningHero: {
     english: 'Returning hero? Sign In',
     spanish: '¿Héroe que regresa? Inicia sesión'
-
   },
   search: {
     english: 'Search...',
@@ -270,7 +272,8 @@ export const translations = {
   },
   signInError: {
     english: 'Unable to sign in. Please check your credentials and try again.',
-    spanish: 'No se puede iniciar sesión. Por favor verifique sus credenciales e intente nuevamente.'
+    spanish:
+      'No se puede iniciar sesión. Por favor verifique sus credenciales e intente nuevamente.'
   },
   logOut: {
     english: 'Log Out',

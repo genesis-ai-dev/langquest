@@ -29,7 +29,9 @@ type RequestResetFormData = {
 };
 
 export default function RequestResetPassword() {
-  const [currentLanguage, setCurrentLanguage] = useState<typeof language.$inferSelect | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState<
+    typeof language.$inferSelect | null
+  >(null);
   const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
   const { supabaseConnector } = useSystem();
@@ -48,9 +50,11 @@ export default function RequestResetPassword() {
   useEffect(() => {
     const loadLanguage = async () => {
       try {
-        const savedLanguageId = await AsyncStorage.getItem('selectedLanguageId');
+        const savedLanguageId =
+          await AsyncStorage.getItem('selectedLanguageId');
         if (savedLanguageId) {
-          const languageData = await languageService.getLanguageById(savedLanguageId);
+          const languageData =
+            await languageService.getLanguageById(savedLanguageId);
           if (languageData) {
             setCurrentLanguage(languageData);
           }
@@ -64,16 +68,19 @@ export default function RequestResetPassword() {
 
   const onSubmit = async (data: RequestResetFormData) => {
     try {
-      const { error } = await supabaseConnector.client.auth.resetPasswordForEmail(
-        data.email.toLowerCase().trim(),
-        {
-          redirectTo: `langquest://reset-password`
-        }
-      );
+      const { error } =
+        await supabaseConnector.client.auth.resetPasswordForEmail(
+          data.email.toLowerCase().trim(),
+          {
+            redirectTo: `langquest://reset-password`
+          }
+        );
 
       if (error) throw error;
 
-      Alert.alert(t('success'), t('checkEmailForResetLink'), [{ text: t('ok') }]);
+      Alert.alert(t('success'), t('checkEmailForResetLink'), [
+        { text: t('ok') }
+      ]);
     } catch (error) {
       console.error('Error requesting password reset:', error);
       Alert.alert(
@@ -90,7 +97,9 @@ export default function RequestResetPassword() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, padding: spacing.large }}>
-          <Text style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}>
+          <Text
+            style={[sharedStyles.subtitle, { marginBottom: spacing.xlarge }]}
+          >
             {t('resetPassword')}
           </Text>
 
@@ -116,13 +125,13 @@ export default function RequestResetPassword() {
                     }
                   ]}
                 >
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={colors.text}
-                  />
+                  <Ionicons name="mail-outline" size={20} color={colors.text} />
                   <TextInput
-                    style={{ flex: 1, color: colors.text, marginLeft: spacing.medium }}
+                    style={{
+                      flex: 1,
+                      color: colors.text,
+                      marginLeft: spacing.medium
+                    }}
                     placeholder={t('enterYourEmail')}
                     placeholderTextColor={colors.text}
                     value={value}
@@ -141,9 +150,7 @@ export default function RequestResetPassword() {
               style={[sharedStyles.button, { marginBottom: 0 }]}
               onPress={handleSubmit(onSubmit)}
             >
-              <Text style={sharedStyles.buttonText}>
-                {t('sendResetEmail')}
-              </Text>
+              <Text style={sharedStyles.buttonText}>{t('sendResetEmail')}</Text>
             </TouchableOpacity>
           </View>
 

@@ -63,7 +63,9 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   async isAnonymousSession() {
-    const { data: { session } } = await this.client.auth.getSession();
+    const {
+      data: { session }
+    } = await this.client.auth.getSession();
     console.log('Session:', session);
     return session?.user?.is_anonymous === true;
   }

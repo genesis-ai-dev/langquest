@@ -147,12 +147,8 @@
           "name": "asset_subscription_asset_id_asset_id_fk",
           "tableFrom": "asset_subscription",
           "tableTo": "asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -160,12 +156,8 @@
           "name": "asset_subscription_quest_subscription_id_quest_subscription_id_fk",
           "tableFrom": "asset_subscription",
           "tableTo": "quest_subscription",
-          "columnsFrom": [
-            "quest_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quest_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -198,12 +190,8 @@
           "name": "asset_tag_link_asset_id_asset_id_fk",
           "tableFrom": "asset_tag_link",
           "tableTo": "asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -211,22 +199,15 @@
           "name": "asset_tag_link_tag_id_tag_id_fk",
           "tableFrom": "asset_tag_link",
           "tableTo": "tag",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "asset_tag_link_asset_id_tag_id_pk": {
-          "columns": [
-            "asset_id",
-            "tag_id"
-          ],
+          "columns": ["asset_id", "tag_id"],
           "name": "asset_tag_link_asset_id_tag_id_pk"
         }
       },
@@ -315,12 +296,8 @@
           "name": "invite_request_sender_profile_id_profile_id_fk",
           "tableFrom": "invite_request",
           "tableTo": "profile",
-          "columnsFrom": [
-            "sender_profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sender_profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -328,12 +305,8 @@
           "name": "invite_request_receiver_profile_id_profile_id_fk",
           "tableFrom": "invite_request",
           "tableTo": "profile",
-          "columnsFrom": [
-            "receiver_profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["receiver_profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -341,12 +314,8 @@
           "name": "invite_request_project_id_project_id_fk",
           "tableFrom": "invite_request",
           "tableTo": "project",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -540,12 +509,8 @@
           "name": "notification_profile_id_profile_id_fk",
           "tableFrom": "notification",
           "tableTo": "profile",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -553,12 +518,8 @@
           "name": "notification_project_subscription_id_project_subscription_id_fk",
           "tableFrom": "notification",
           "tableTo": "project_subscription",
-          "columnsFrom": [
-            "project_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -566,12 +527,8 @@
           "name": "notification_quest_subscription_id_quest_subscription_id_fk",
           "tableFrom": "notification",
           "tableTo": "quest_subscription",
-          "columnsFrom": [
-            "quest_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quest_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -579,12 +536,8 @@
           "name": "notification_asset_subscription_id_asset_subscription_id_fk",
           "tableFrom": "notification",
           "tableTo": "asset_subscription",
-          "columnsFrom": [
-            "asset_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -592,12 +545,8 @@
           "name": "notification_translation_subscription_id_translation_subscription_id_fk",
           "tableFrom": "notification",
           "tableTo": "translation_subscription",
-          "columnsFrom": [
-            "translation_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["translation_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -605,12 +554,8 @@
           "name": "notification_invite_request_id_invite_request_id_fk",
           "tableFrom": "notification",
           "tableTo": "invite_request",
-          "columnsFrom": [
-            "invite_request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invite_request_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -823,12 +768,8 @@
           "name": "project_subscription_project_id_project_id_fk",
           "tableFrom": "project_subscription",
           "tableTo": "project",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -836,12 +777,8 @@
           "name": "project_subscription_profile_id_profile_id_fk",
           "tableFrom": "project_subscription",
           "tableTo": "profile",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -942,12 +879,8 @@
           "name": "quest_asset_link_quest_id_quest_id_fk",
           "tableFrom": "quest_asset_link",
           "tableTo": "quest",
-          "columnsFrom": [
-            "quest_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quest_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -955,22 +888,15 @@
           "name": "quest_asset_link_asset_id_asset_id_fk",
           "tableFrom": "quest_asset_link",
           "tableTo": "asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "quest_asset_link_quest_id_asset_id_pk": {
-          "columns": [
-            "quest_id",
-            "asset_id"
-          ],
+          "columns": ["quest_id", "asset_id"],
           "name": "quest_asset_link_quest_id_asset_id_pk"
         }
       },
@@ -1038,12 +964,8 @@
           "name": "quest_subscription_quest_id_quest_id_fk",
           "tableFrom": "quest_subscription",
           "tableTo": "quest",
-          "columnsFrom": [
-            "quest_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quest_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1051,12 +973,8 @@
           "name": "quest_subscription_project_subscription_id_project_subscription_id_fk",
           "tableFrom": "quest_subscription",
           "tableTo": "project_subscription",
-          "columnsFrom": [
-            "project_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1089,12 +1007,8 @@
           "name": "quest_tag_link_quest_id_quest_id_fk",
           "tableFrom": "quest_tag_link",
           "tableTo": "quest",
-          "columnsFrom": [
-            "quest_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quest_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1102,22 +1016,15 @@
           "name": "quest_tag_link_tag_id_tag_id_fk",
           "tableFrom": "quest_tag_link",
           "tableTo": "tag",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "quest_tag_link_quest_id_tag_id_pk": {
-          "columns": [
-            "quest_id",
-            "tag_id"
-          ],
+          "columns": ["quest_id", "tag_id"],
           "name": "quest_tag_link_quest_id_tag_id_pk"
         }
       },
@@ -1260,12 +1167,8 @@
           "name": "translation_asset_id_asset_id_fk",
           "tableFrom": "translation",
           "tableTo": "asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1273,12 +1176,8 @@
           "name": "translation_target_language_id_language_id_fk",
           "tableFrom": "translation",
           "tableTo": "language",
-          "columnsFrom": [
-            "target_language_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_language_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1286,12 +1185,8 @@
           "name": "translation_creator_id_profile_id_fk",
           "tableFrom": "translation",
           "tableTo": "profile",
-          "columnsFrom": [
-            "creator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["creator_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1361,12 +1256,8 @@
           "name": "translation_subscription_translation_id_translation_id_fk",
           "tableFrom": "translation_subscription",
           "tableTo": "translation",
-          "columnsFrom": [
-            "translation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["translation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1374,12 +1265,8 @@
           "name": "translation_subscription_profile_id_profile_id_fk",
           "tableFrom": "translation_subscription",
           "tableTo": "profile",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1463,12 +1350,8 @@
           "name": "vote_translation_id_translation_id_fk",
           "tableFrom": "vote",
           "tableTo": "translation",
-          "columnsFrom": [
-            "translation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["translation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1476,12 +1359,8 @@
           "name": "vote_creator_id_profile_id_fk",
           "tableFrom": "vote",
           "tableTo": "profile",
-          "columnsFrom": [
-            "creator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["creator_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

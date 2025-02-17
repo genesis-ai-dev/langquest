@@ -25,20 +25,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'com.etengenesis.langquest',
     intentFilters: [
       {
-        action: "VIEW",
+        action: 'VIEW',
         autoVerify: true,
         data: [
           {
-            scheme: "https",
-            host: "langquest.org",
-            pathPrefix: "/reset-password"
+            scheme: 'https',
+            host: 'langquest.org',
+            pathPrefix: '/reset-password'
           },
           {
-            scheme: "langquest",
-            host: "*"
+            scheme: 'langquest',
+            host: '*'
           }
         ],
-        category: ["BROWSABLE", "DEFAULT"]
+        category: ['BROWSABLE', 'DEFAULT']
       }
     ]
   },

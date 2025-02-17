@@ -11,7 +11,7 @@ async function generateRandomBytes(byteCount: number): Promise<Uint8Array> {
   try {
     return await Crypto.getRandomBytesAsync(byteCount);
   } catch (error) {
-    console.error("expo-crypto failed, falling back to expo-random:", error);
+    console.error('expo-crypto failed, falling back to expo-random:', error);
     return await Random.getRandomBytesAsync(byteCount);
   }
 }
@@ -29,9 +29,9 @@ export class KVStorage {
       // Generate a new 256-bit (32-byte) random encryption key using generateRandomBytes.
       const randomBytes = await generateRandomBytes(32);
       key = Array.from(randomBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
+        .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
-      
+
       await setItemAsync(ENCRYPTION_KEY_STORAGE, key);
     }
 
@@ -68,9 +68,9 @@ export class KVStorage {
       // Generate a random reference key using generateRandomBytes
       const randomBytes = await generateRandomBytes(16);
       const referenceKey = Array.from(randomBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
+        .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
-      
+
       const encryptedValue = await this.encryptValue(value);
       await AsyncStorage.setItem(referenceKey, encryptedValue);
       await setItemAsync(key, referenceKey);

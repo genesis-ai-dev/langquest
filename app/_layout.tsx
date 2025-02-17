@@ -51,29 +51,33 @@ function DeepLinkHandler() {
     if (url) {
       // Split URL into base and hash parts
       const [basePath, hashPart] = url.split('#');
-      
+
       // Parse the base URL
       const { path, queryParams } = Linking.parse(basePath);
-      
+
       // Parse the hash fragment if it exists
       let hashParams: AuthParams = {};
       if (hashPart) {
         const hashSearchParams = new URLSearchParams(hashPart);
-        hashParams = Object.fromEntries(hashSearchParams.entries()) as AuthParams;
+        hashParams = Object.fromEntries(
+          hashSearchParams.entries()
+        ) as AuthParams;
       }
-      
+
       // Combine query params and hash params
       const allParams: AuthParams = { ...queryParams, ...hashParams };
-      
-      console.log('[Deep Link] Parsed:', { 
-        path, 
-        params: allParams 
+
+      console.log('[Deep Link] Parsed:', {
+        path,
+        params: allParams
       });
-      
+
       // Get the actual path without any params
-      const actualPath = (path || basePath.split('://')[1]?.split('?')[0])?.split('#')[0];
+      const actualPath = (
+        path || basePath.split('://')[1]?.split('?')[0]
+      )?.split('#')[0];
       console.log('[Deep Link] Actual path:', actualPath);
-      
+
       // Simply route to the appropriate screen based on the path
       switch (actualPath) {
         case 'reset-password':
@@ -91,15 +95,15 @@ function DeepLinkHandler() {
           }
           router.replace('/reset-password');
           break;
-          
+
         case 'projects':
           router.push('/projects');
           break;
-          
+
         case 'settings':
           router.push('/settings');
           break;
-          
+
         default:
           console.log('[Deep Link] Unhandled path:', actualPath);
           router.replace('/');
