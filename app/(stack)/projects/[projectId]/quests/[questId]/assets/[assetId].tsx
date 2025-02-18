@@ -456,14 +456,12 @@ export default function AssetView() {
                           </Text>
                           <Text style={styles.sourceText}>{content.text}</Text>
                         </View>
-                        {content.audio_attachment_id && (
+                        {content.audio_id && (
                           <MiniAudioPlayer
                             audioFile={{
                               id: content.id,
                               title: content.text,
-                              uri: getLocalUriFromAssetId(
-                                content.audio_attachment_id
-                              )!
+                              uri: getLocalUriFromAssetId(content.audio_id)!
                             }}
                           />
                         )}

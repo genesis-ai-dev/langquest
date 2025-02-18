@@ -50,7 +50,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     this.db.watch(this.db.query.asset_content_link.findMany(), {
       onResult(assets) {
         const allAudioAssets = assets
-          .map((asset) => asset.audio_attachment_id)
+          .map((asset) => asset.audio_id)
           .filter(Boolean);
         onUpdate([...allAudioAssets, ...lastAssetImages, ...lastTranslations]);
         lastAssetAudio = allAudioAssets;

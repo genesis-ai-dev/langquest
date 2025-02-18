@@ -39,7 +39,7 @@ export class TranslationService {
   async updateTranslationAudio(translationId: string, attachmentId: string) {
     const [updatedTranslation] = await db
       .update(asset_content_link)
-      .set({ audio_attachment_id: attachmentId })
+      .set({ audio_id: attachmentId })
       .where(eq(asset_content_link.id, translationId))
       .returning();
 
