@@ -161,27 +161,6 @@ export default function Projects() {
     if (selectedProject) goToProject(selectedProject);
   };
 
-  const handleBack = () => {
-    // Start the sign out process but return true immediately
-    signOut().catch((error) => {
-      console.error('Error signing out:', error);
-    });
-    return true; // Prevents default back behavior
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      // Add back button handler when screen is focused
-      const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
-        handleBack
-      );
-
-      // Remove handler when screen is unfocused
-      return () => backHandler.remove();
-    }, [])
-  );
-
   return (
     <AuthGuard>
       <LinearGradient
