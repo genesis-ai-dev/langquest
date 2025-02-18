@@ -9,6 +9,7 @@ import { randomUUID } from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
 import { AppConfig } from '../supabase/AppConfig';
 import * as drizzleSchema from '../drizzleSchema';
+import { isNotNull } from 'drizzle-orm';
 export class AttachmentQueue extends AbstractAttachmentQueue {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
@@ -38,34 +39,52 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     let lastAssetImages: string[] = [];
     let lastAssetAudio: string[] = [];
     let lastTranslations: string[] = [];
-    this.db.watch(this.db.query.asset.findMany(), {
-      onResult(assets) {
-        const allImageAssets = assets
-          .flatMap((asset) => asset.images)
-          .filter(Boolean);
-        onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
-        lastAssetImages = allImageAssets;
-      }
-    });
-    this.db.watch(this.db.query.asset_content_link.findMany(), {
-      onResult(assets) {
-        const allAudioAssets = assets
-          .map((asset) => asset.audio_id)
-          .filter(Boolean);
-        onUpdate([...allAudioAssets, ...lastAssetImages, ...lastTranslations]);
-        lastAssetAudio = allAudioAssets;
-      }
-    });
 
-    this.db.watch(this.db.query.translation.findMany(), {
-      onResult(translations) {
-        const allTranslations = translations
-          .map((translation) => translation.audio)
-          .filter(Boolean);
-        onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
-        lastTranslations = allTranslations;
+    this.db.watch(
+      this.db.query.asset_content_link.findMany({
+        where: (asset) => isNotNull(asset.audio_id)
+      }),
+      {
+        onResult(assets) {
+          const allAudioAssets = assets.map((asset) => asset.audio_id!);
+          onUpdate([
+            ...allAudioAssets,
+            ...lastAssetImages,
+            ...lastTranslations
+          ]);
+          lastAssetAudio = allAudioAssets;
+        }
       }
-    });
+    );
+
+    this.db.watch(
+      this.db.query.asset.findMany({
+        where: (asset) => isNotNull(asset.images)
+      }),
+      {
+        onResult(assets) {
+          console.log('watched assets', assets);
+          const allImageAssets = assets.flatMap((asset) => asset.images!);
+          onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
+          lastAssetImages = allImageAssets;
+        }
+      }
+    );
+
+    this.db.watch(
+      this.db.query.translation.findMany({
+        where: (translation) => isNotNull(translation.audio)
+      }),
+      {
+        onResult(translations) {
+          const allTranslations = translations.map(
+            (translation) => translation.audio!
+          );
+          onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
+          lastTranslations = allTranslations;
+        }
+      }
+    );
   }
 
   async newAttachmentRecord(
