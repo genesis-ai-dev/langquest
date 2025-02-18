@@ -1,15 +1,27 @@
 import { eq } from 'drizzle-orm';
-import { asset, quest_asset_link } from '../db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  quest_asset_link
+} from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
 
 export type Asset = typeof asset.$inferSelect;
+export type AssetContent = typeof asset_content_link.$inferSelect;
 
 export class AssetService {
   async getAssetById(id: string) {
     const results = await db.select().from(asset).where(eq(asset.id, id));
     return results[0];
+  }
+
+  async getAssetContent(asset_id: string): Promise<AssetContent[]> {
+    return db
+      .select()
+      .from(asset_content_link)
+      .where(eq(asset_content_link.asset_id, asset_id));
   }
 
   async getAssetsByQuestId(quest_id: string) {

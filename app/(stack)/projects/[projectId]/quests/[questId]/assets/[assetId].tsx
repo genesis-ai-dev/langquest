@@ -1,4 +1,4 @@
-import AudioPlayer from '@/components/AudioPlayer';
+import MiniAudioPlayer from '@/components/MiniAudioPlayer';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import ImageCarousel from '@/components/ImageCarousel';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
@@ -12,7 +12,7 @@ import {
 } from '@/database_services/translationService';
 import { User, userService } from '@/database_services/userService';
 import { Vote, voteService } from '@/database_services/voteService';
-import { language } from '@/db/drizzleSchema';
+import { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -26,7 +26,7 @@ import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Alert,
   Dimensions,
@@ -37,18 +37,24 @@ import {
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Carousel from '@/components/Carousel';
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
-const getFirstAvailableTab = (asset: Asset | null): TabType => {
+const getFirstAvailableTab = (
+  asset: Asset | null,
+  assetContent: (typeof asset_content_link.$inferSelect)[]
+): TabType => {
   if (!asset) return 'text';
-  if (asset.text) return 'text';
-  if (asset.audio?.length) return 'audio';
-  if (asset.images?.length) return 'image';
+  const hasText = assetContent.length > 0;
+  const hasImages = (asset?.images?.length ?? 0) > 0;
+
+  if (hasText) return 'text';
+  if (hasImages) return 'image';
   return 'text'; // fallback
 };
 
-type TabType = 'text' | 'audio' | 'image';
+type TabType = 'text' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
@@ -56,10 +62,14 @@ export default function AssetView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
+  const [currentPage, setCurrentPage] = useState(0);
   const { assetId } = useGlobalSearchParams<{
     assetId: string;
   }>();
   const [asset, setAsset] = useState<Asset>();
+  const [assetContent, setAssetContent] = useState<
+    (typeof asset_content_link.$inferSelect)[]
+  >([]);
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslation, setSelectedTranslation] =
@@ -81,6 +91,7 @@ export default function AssetView() {
   >({});
 
   const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
@@ -204,6 +215,11 @@ export default function AssetView() {
       }
 
       setAsset(loadedAsset);
+
+      // Load asset content
+      const content = await assetService.getAssetContent(assetId);
+      setAssetContent(content);
+      setActiveTab(getFirstAvailableTab(loadedAsset, content));
 
       // Load source language
       const source = await languageService.getLanguageById(
@@ -367,6 +383,8 @@ export default function AssetView() {
     );
   };
 
+  const flatListRef = useRef<FlatList>(null);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LinearGradient
@@ -387,31 +405,16 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !asset?.text && styles.disabledTab
+                  !assetContent.length && styles.disabledTab
                 ]}
-                onPress={() => asset?.text && setActiveTab('text')}
-                disabled={!asset?.text}
+                onPress={() => setActiveTab('text')}
+                disabled={!assetContent.length}
               >
                 <Ionicons
                   name="text"
                   size={24}
-                  color={asset?.text ? colors.text : colors.textSecondary}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.tab,
-                  activeTab === 'audio' && styles.activeTab,
-                  !asset?.audio?.length && styles.disabledTab
-                ]}
-                onPress={() => asset?.audio?.length && setActiveTab('audio')}
-                disabled={!asset?.audio?.length}
-              >
-                <Ionicons
-                  name="volume-high"
-                  size={24}
                   color={
-                    asset?.audio?.length ? colors.text : colors.textSecondary
+                    assetContent.length ? colors.text : colors.textSecondary
                   }
                 />
               </TouchableOpacity>
@@ -419,52 +422,63 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'image' && styles.activeTab,
-                  !asset?.images?.length && styles.disabledTab
+                  !(asset?.images?.length ?? 0) && styles.disabledTab
                 ]}
-                onPress={() => asset?.images?.length && setActiveTab('image')}
-                disabled={!asset?.images?.length}
+                onPress={() =>
+                  (asset?.images?.length ?? 0) > 0 && setActiveTab('image')
+                }
+                disabled={!(asset?.images?.length ?? 0)}
               >
                 <Ionicons
                   name="image"
                   size={24}
                   color={
-                    asset?.images?.length ? colors.text : colors.textSecondary
+                    (asset?.images?.length ?? 0) > 0
+                      ? colors.text
+                      : colors.textSecondary
                   }
                 />
               </TouchableOpacity>
             </View>
 
             <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-              {activeTab === 'text' && (
-                <View style={styles.sourceTextContainer}>
-                  <Text style={styles.source_languageLabel}>
-                    {sourceLanguage?.native_name ||
-                      sourceLanguage?.english_name}
-                    :
-                  </Text>
-                  <Text style={styles.sourceText}>{asset?.text}</Text>
-                </View>
-              )}
-              {activeTab === 'audio' &&
-                asset?.audio &&
-                Array.isArray(asset.audio) && (
-                  <AudioPlayer
-                    audioFiles={asset.audio.map((moduleId, index) => ({
-                      id: `audio-${index}`,
-                      title: `${t('audio')} ${index + 1}`,
-                      uri: getLocalUriFromAssetId(moduleId)!
-                    }))}
-                  />
-                )}
-              {activeTab === 'image' &&
-                asset?.images &&
-                Array.isArray(asset.images) && (
-                  <ImageCarousel
-                    uris={asset.images.map(
-                      (moduleId) => getLocalUriFromAssetId(moduleId)!
+              {activeTab === 'text' && assetContent.length > 0 && (
+                <View style={styles.carouselWrapper}>
+                  <Carousel
+                    items={assetContent}
+                    renderItem={(content) => (
+                      <View style={styles.sourceTextContainer}>
+                        <View>
+                          <Text style={styles.source_languageLabel}>
+                            {sourceLanguage?.native_name ||
+                              sourceLanguage?.english_name}
+                            :
+                          </Text>
+                          <Text style={styles.sourceText}>{content.text}</Text>
+                        </View>
+                        {content.audio_id && (
+                          <MiniAudioPlayer
+                            audioFile={{
+                              id: content.id,
+                              title: content.text,
+                              uri: getLocalUriFromAssetId(content.audio_id)!
+                            }}
+                          />
+                        )}
+                      </View>
                     )}
                   />
-                )}
+                </View>
+              )}
+              {activeTab === 'image' && (
+                <ImageCarousel
+                  uris={
+                    asset?.images?.map(
+                      (imageId) => getLocalUriFromAssetId(imageId)!
+                    ) ?? []
+                  }
+                />
+              )}
             </View>
 
             <View style={styles.horizontalLine} />
@@ -570,9 +584,13 @@ const styles = StyleSheet.create({
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    marginHorizontal: spacing.medium,
-    marginBottom: spacing.medium
+    paddingHorizontal: spacing.medium,
+    paddingTop: spacing.medium,
+    paddingBottom: spacing.xxlarge,
+    marginHorizontal: spacing.small,
+    width: '100%',
+    flex: 1,
+    justifyContent: 'space-between'
   },
   source_languageLabel: {
     fontSize: fontSizes.medium,
@@ -582,11 +600,12 @@ const styles = StyleSheet.create({
   },
   sourceText: {
     fontSize: fontSizes.medium,
-    color: colors.text
+    color: colors.text,
+    marginBottom: spacing.medium
   },
   assetViewer: {
-    flex: 1
-    // maxHeight: Dimensions.get('window').height * 0.4, // Adjust this value as needed
+    flex: 1,
+    width: '100%'
   },
   horizontalLine: {
     height: 1,
@@ -694,5 +713,41 @@ const styles = StyleSheet.create({
   },
   audioIndicator: {
     // marginTop: spacing.medium,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.small
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: spacing.medium
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+    backgroundColor: colors.textSecondary
+  },
+  paginationDotActive: {
+    backgroundColor: colors.primary
+  },
+  arrowButton: {
+    padding: spacing.small,
+    borderRadius: borderRadius.medium
+  },
+  arrowButtonDisabled: {
+    opacity: 0.5
+  },
+  flatListContent: {
+    paddingRight: spacing.medium
+  },
+  carouselWrapper: {
+    flex: 1,
+    paddingHorizontal: spacing.medium
   }
 });

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import { randomUUID } from 'expo-crypto';
-import { translation } from '../db/drizzleSchema';
+import { asset_content_link, translation } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
@@ -25,13 +25,11 @@ export class TranslationService {
     const [newTranslation] = await db
       .insert(translation)
       .values({
-        rev: 1,
         text: data.text,
         audio: data.audio,
         asset_id: data.asset_id,
         target_language_id: data.target_language_id,
-        creator_id: data.creator_id,
-        version_chain_id: randomUUID()
+        creator_id: data.creator_id
       })
       .returning();
 
@@ -40,9 +38,9 @@ export class TranslationService {
 
   async updateTranslationAudio(translationId: string, attachmentId: string) {
     const [updatedTranslation] = await db
-      .update(translation)
-      .set({ audio: attachmentId })
-      .where(eq(translation.id, translationId))
+      .update(asset_content_link)
+      .set({ audio_id: attachmentId })
+      .where(eq(asset_content_link.id, translationId))
       .returning();
 
     return updatedTranslation;
