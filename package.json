@@ -12,8 +12,8 @@
     "test": "jest --watchAll",
     "lint": "eslint --ignore-pattern .gitignore",
     "lint:fix": "eslint --fix --ignore-pattern .gitignore",
-    "format": "prettier --check . --ignore-path .gitignore",
-    "format:fix": "prettier --write . --ignore-path .gitignore",
+    "format": "prettier --check . '!**/*.md'",
+    "format:fix": "prettier --write . '!**/*.md'",
     "typecheck": "tsc --noEmit",
     "seed:supabase": "tsx scripts/seedSupabase.ts"
   },
