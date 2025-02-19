@@ -28,4 +28,5 @@ app/sqlite_in_expo.md
 ~$langquest types.xlsx
 langquest types.xlsx
 .env
-.env
+.drizzle
+.idea
