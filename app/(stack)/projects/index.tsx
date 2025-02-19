@@ -1,21 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { colors, spacing, sharedStyles } from '@/styles/theme';
-import { ProjectDetails } from '@/components/ProjectDetails';
 import { CustomDropdown } from '@/components/CustomDropdown';
-import { projectService } from '@/database_services/projectService';
-import { languageService } from '@/database_services/languageService';
-import { project, language } from '@/db/drizzleSchema';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { AuthGuard } from '@/guards/AuthGuard';
+import { ProjectDetails } from '@/components/ProjectDetails';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { languageService } from '@/database_services/languageService';
+import { projectService } from '@/database_services/projectService';
+import { language, project } from '@/db/drizzleSchema';
+import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
-import { BackHandler } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { colors, sharedStyles } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Project = typeof project.$inferSelect;
 
@@ -160,27 +157,6 @@ export default function Projects() {
   const handleExplore = () => {
     if (selectedProject) goToProject(selectedProject);
   };
-
-  const handleBack = () => {
-    // Start the sign out process but return true immediately
-    signOut().catch((error) => {
-      console.error('Error signing out:', error);
-    });
-    return true; // Prevents default back behavior
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      // Add back button handler when screen is focused
-      const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
-        handleBack
-      );
-
-      // Remove handler when screen is unfocused
-      return () => backHandler.remove();
-    }, [])
-  );
 
   return (
     <AuthGuard>
