@@ -38,9 +38,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
-  const [userVote, setUserVote] = useState<typeof vote.$inferSelect | null>(
-    null
-  );
+  const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
@@ -53,7 +51,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         const userVote = translationVotes.find(
           (v) => v.creator_id === currentUser.id
         );
-        setUserVote(userVote || null);
+        setUserVote(userVote);
       }
     };
     loadVotes();
@@ -105,7 +103,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       const newUserVote = updatedVotes.find(
         (v) => v.creator_id === currentUser.id
       );
-      setUserVote(newUserVote || null);
+      setUserVote(newUserVote);
     } catch (error) {
       console.error('Error handling vote:', error);
       Alert.alert('Error', 'Failed to submit vote');

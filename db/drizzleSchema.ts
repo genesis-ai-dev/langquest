@@ -5,16 +5,25 @@ import { sql, relations } from 'drizzle-orm';
 type IconName = `${string}.png`; // Matches any .png filename
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
-const timestampDefault = sql`CURRENT_TIMESTAMP`;
+const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 // Base columns that all tables will have
 const baseColumns = {
   id: text()
     .primaryKey()
     .$defaultFn(() => uuidDefault),
-  active: int({ mode: 'boolean' }).default(true).notNull(),
+  active: int({ mode: 'boolean' }).notNull().default(true),
   created_at: text().notNull().default(timestampDefault),
-  last_updated: text().notNull().default(timestampDefault)
+  last_updated: text()
+    .notNull()
+    .default(timestampDefault)
+    .$onUpdate(() => timestampDefault)
+};
+
+const linkColumns = {
+  active: baseColumns.active,
+  created_at: baseColumns.created_at,
+  last_updated: baseColumns.last_updated
 };
 
 export const profile = sqliteTable('profile', {
@@ -31,7 +40,8 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   created_languages: many(language, { relationName: 'creator' }),
   ui_language: one(language, {
     fields: [profile.ui_language_id],
-    references: [language.id]
+    references: [language.id],
+    relationName: 'uiLanguage'
   })
 }));
 
@@ -42,13 +52,14 @@ export const language = sqliteTable('language', {
   english_name: text(), // Enforce uniqueness across chains in the app
   iso639_3: text(), // Enforce uniqueness across chains in the app
   ui_ready: int({ mode: 'boolean' }).notNull(),
-  creator_id: text()
+  creator_id: text().references(() => profile.id)
 });
 
 export const languageRelations = relations(language, ({ one, many }) => ({
   creator: one(profile, {
     fields: [language.creator_id],
-    references: [profile.id]
+    references: [profile.id],
+    relationName: 'creator'
   }),
   uiUsers: many(profile, { relationName: 'uiLanguage' }),
   sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
@@ -59,18 +70,24 @@ export const project = sqliteTable('project', {
   ...baseColumns,
   name: text().notNull(),
   description: text(),
-  source_language_id: text().notNull(),
-  target_language_id: text().notNull()
+  source_language_id: text()
+    .notNull()
+    .references(() => language.id),
+  target_language_id: text()
+    .notNull()
+    .references(() => language.id)
 });
 
 export const projectRelations = relations(project, ({ one }) => ({
   source_language: one(language, {
     fields: [project.source_language_id],
-    references: [language.id]
+    references: [language.id],
+    relationName: 'sourceLanguage'
   }),
   target_language: one(language, {
     fields: [project.target_language_id],
-    references: [language.id]
+    references: [language.id],
+    relationName: 'targetLanguage'
   })
 }));
 
@@ -78,7 +95,9 @@ export const quest = sqliteTable('quest', {
   ...baseColumns,
   name: text().notNull(),
   description: text(),
-  project_id: text().notNull()
+  project_id: text()
+    .notNull()
+    .references(() => project.id)
 });
 
 export const questRelations = relations(quest, ({ one, many }) => ({
@@ -103,6 +122,7 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
+    ...baseColumns,
     quest_id: text().notNull(),
     tag_id: text().notNull()
   },
@@ -125,7 +145,9 @@ export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
 export const asset = sqliteTable('asset', {
   ...baseColumns,
   name: text().notNull(),
-  source_language_id: text().notNull(),
+  source_language_id: text()
+    .notNull()
+    .references(() => language.id),
   images: text({ mode: 'json' }).$type<string[]>()
 });
 
@@ -143,6 +165,7 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
 export const asset_tag_link = sqliteTable(
   'asset_tag_link',
   {
+    ...linkColumns,
     asset_id: text().notNull(),
     tag_id: text().notNull()
   },
@@ -165,6 +188,7 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
 export const quest_asset_link = sqliteTable(
   'quest_asset_link',
   {
+    ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull()
   },
@@ -189,11 +213,17 @@ export const quest_asset_linkRelations = relations(
 
 export const translation = sqliteTable('translation', {
   ...baseColumns,
-  asset_id: text().notNull(),
-  target_language_id: text().notNull(),
+  asset_id: text()
+    .notNull()
+    .references(() => asset.id),
+  target_language_id: text()
+    .notNull()
+    .references(() => language.id),
   text: text().notNull(),
   audio: text(),
-  creator_id: text().notNull()
+  creator_id: text()
+    .notNull()
+    .references(() => profile.id)
 });
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
@@ -214,10 +244,14 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
 
 export const vote = sqliteTable('vote', {
   ...baseColumns,
-  translation_id: text().notNull(),
+  translation_id: text()
+    .notNull()
+    .references(() => translation.id),
   polarity: text({ enum: ['up', 'down'] }).notNull(),
   comment: text(),
-  creator_id: text().notNull()
+  creator_id: text()
+    .notNull()
+    .references(() => profile.id)
 });
 
 export const voteRelations = relations(vote, ({ one }) => ({
@@ -233,7 +267,9 @@ export const voteRelations = relations(vote, ({ one }) => ({
 
 export const asset_content_link = sqliteTable('asset_content_link', {
   ...baseColumns,
-  asset_id: text().notNull(),
+  asset_id: text()
+    .notNull()
+    .references(() => asset.id),
   text: text().notNull(),
   audio_id: text() // Optional since text content might not have an associated file
 });

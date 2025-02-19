@@ -91,7 +91,6 @@ export default function AssetView() {
   >({});
 
   const screenHeight = Dimensions.get('window').height;
-  const screenWidth = Dimensions.get('window').width;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
