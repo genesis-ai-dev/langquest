@@ -4,5 +4,6 @@
     "*/*/**/index.{ts,js,vue,tsx,jsx}": "${dirname} - ${filename}.${extname}",
     "**/app/**/{page,layout,route}.{tsx,jsx,ts,js}": "${dirname} - ${filename}.${extname}"
   },
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnSave": true
 }

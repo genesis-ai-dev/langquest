@@ -287,30 +287,33 @@ export const project_download = sqliteTable(
   {
     ...linkColumns,
     profile_id: text().notNull(),
-    project_id: text().notNull(),
+    project_id: text().notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.project_id] })
   })
 );
 
-export const project_downloadRelations = relations(project_download, ({ one }) => ({
-  profile: one(profile, {
-    fields: [project_download.profile_id],
-    references: [profile.id]
-  }),
-  project: one(project, {
-    fields: [project_download.project_id],
-    references: [project.id]
+export const project_downloadRelations = relations(
+  project_download,
+  ({ one }) => ({
+    profile: one(profile, {
+      fields: [project_download.profile_id],
+      references: [profile.id]
+    }),
+    project: one(project, {
+      fields: [project_download.project_id],
+      references: [project.id]
+    })
   })
-}));
+);
 
 export const quest_download = sqliteTable(
   'quest_download',
   {
     ...linkColumns,
     profile_id: text().notNull(),
-    quest_id: text().notNull(), // Changed from project_id to quest_id
+    quest_id: text().notNull() // Changed from project_id to quest_id
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.quest_id] })
@@ -333,7 +336,7 @@ export const asset_download = sqliteTable(
   {
     ...linkColumns,
     profile_id: text().notNull(),
-    asset_id: text().notNull(), // Changed from project_id to asset_id
+    asset_id: text().notNull() // Changed from project_id to asset_id
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.asset_id] })
