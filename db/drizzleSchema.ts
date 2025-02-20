@@ -7,11 +7,7 @@ type IconName = `${string}.png`; // Matches any .png filename
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
-// Base columns that all tables will have
-const baseColumns = {
-  id: text()
-    .primaryKey()
-    .$defaultFn(() => uuidDefault),
+const linkColumns = {
   active: int({ mode: 'boolean' }).notNull().default(true),
   created_at: text().notNull().default(timestampDefault),
   last_updated: text()
@@ -20,10 +16,12 @@ const baseColumns = {
     .$onUpdate(() => timestampDefault)
 };
 
-const linkColumns = {
-  active: baseColumns.active,
-  created_at: baseColumns.created_at,
-  last_updated: baseColumns.last_updated
+// Base columns that most tables will have
+const baseColumns = {
+  id: text()
+    .primaryKey()
+    .$defaultFn(() => uuidDefault),
+  ...linkColumns
 };
 
 export const profile = sqliteTable('profile', {
@@ -122,7 +120,7 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
-    ...baseColumns,
+    ...linkColumns,
     quest_id: text().notNull(),
     tag_id: text().notNull()
   },
@@ -219,7 +217,7 @@ export const translation = sqliteTable('translation', {
   target_language_id: text()
     .notNull()
     .references(() => language.id),
-  text: text().notNull(),
+  text: text(),
   audio: text(),
   creator_id: text()
     .notNull()
@@ -283,6 +281,75 @@ export const asset_content_linkRelations = relations(
     })
   })
 );
+
+export const project_download = sqliteTable(
+  'project_download',
+  {
+    ...linkColumns,
+    profile_id: text().notNull(),
+    project_id: text().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.profile_id, t.project_id] })
+  })
+);
+
+export const project_downloadRelations = relations(project_download, ({ one }) => ({
+  profile: one(profile, {
+    fields: [project_download.profile_id],
+    references: [profile.id]
+  }),
+  project: one(project, {
+    fields: [project_download.project_id],
+    references: [project.id]
+  })
+}));
+
+export const quest_download = sqliteTable(
+  'quest_download',
+  {
+    ...linkColumns,
+    profile_id: text().notNull(),
+    quest_id: text().notNull(), // Changed from project_id to quest_id
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.profile_id, t.quest_id] })
+  })
+);
+
+export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
+  profile: one(profile, {
+    fields: [quest_download.profile_id],
+    references: [profile.id]
+  }),
+  quest: one(quest, {
+    fields: [quest_download.quest_id],
+    references: [quest.id]
+  })
+}));
+
+export const asset_download = sqliteTable(
+  'asset_download',
+  {
+    ...linkColumns,
+    profile_id: text().notNull(),
+    asset_id: text().notNull(), // Changed from project_id to asset_id
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.profile_id, t.asset_id] })
+  })
+);
+
+export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
+  profile: one(profile, {
+    fields: [asset_download.profile_id],
+    references: [profile.id]
+  }),
+  asset: one(asset, {
+    fields: [asset_download.asset_id],
+    references: [asset.id]
+  })
+}));
 
 // export const notification = sqliteTable('notification', {
 //   ...baseColumns,

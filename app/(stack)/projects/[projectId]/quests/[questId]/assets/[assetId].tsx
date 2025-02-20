@@ -347,7 +347,7 @@ export default function AssetView() {
         <View style={styles.translationCardContent}>
           <View style={styles.translationCardLeft}>
             <Text style={styles.translationPreview} numberOfLines={2}>
-              {getPreviewText(translation.text)}
+              {getPreviewText(translation.text ?? '')}
             </Text>
             <Text style={styles.translatorInfo}>
               by {creator?.username} in{' '}

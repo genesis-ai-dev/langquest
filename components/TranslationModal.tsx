@@ -146,13 +146,15 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        <ScrollView style={styles.scrollView}>
-          {/* <Text style={styles.translatorInfo}>
-            Translated by {translation.creator.username} in{' '}
-            {translation.target_language.native_name || translation.target_language.english_name}
-          </Text> */}
-          <Text style={styles.text}>{translation.text}</Text>
-        </ScrollView>
+        {translation.text && (
+          <ScrollView style={styles.scrollView}>
+            {/* <Text style={styles.translatorInfo}>
+              Translated by {translation.creator.username} in{' '}
+              {translation.target_language.native_name || translation.target_language.english_name}
+            </Text> */}
+            <Text style={styles.text}>{translation.text}</Text>
+          </ScrollView>
+        )}
 
         <View style={styles.audioPlayerContainer}>
           {translation.audio && (
