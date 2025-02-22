@@ -20,29 +20,47 @@ export class DownloadService {
   ) {
     try {
       const id = `${profileId}_${projectId}`;
-      await db.transaction(async (tx) => {
-        // Update/create project download record
-        await tx
-          .insert(project_download)
-          .values({
-            id,
-            profile_id: profileId,
-            project_id: projectId,
-            active
-          })
-          .onConflictDoUpdate({
-            target: [project_download.profile_id, project_download.project_id],
-            set: { active }
-          });
-
-        // Cascade to all quests in the project
-        const quests = await questService.getQuestsByProjectId(projectId);
-        await Promise.all(
-          quests.map((quest) =>
-            this.setQuestDownload(profileId, quest.id, active)
+      const existing = await db
+        .select()
+        .from(project_download)
+        .where(
+          and(
+            eq(project_download.profile_id, profileId),
+            eq(project_download.project_id, projectId)
           )
         );
-      });
+      console.log('existing', existing);
+
+      if (existing.length > 0) {
+        // Update existing record
+        console.log('updating existing record');
+        await db
+          .update(project_download)
+          .set({ active })
+          .where(
+            and(
+              eq(project_download.profile_id, profileId),
+              eq(project_download.project_id, projectId)
+            )
+          );
+      } else {
+        console.log('inserting new record');
+        // Insert new record
+        await db.insert(project_download).values({
+          id,
+          profile_id: profileId,
+          project_id: projectId,
+          active
+        });
+      }
+
+      // Cascade to all quests in the project
+      const quests = await questService.getQuestsByProjectId(projectId);
+      await Promise.all(
+        quests.map((quest) =>
+          this.setQuestDownload(profileId, quest.id, active)
+        )
+      );
     } catch (error) {
       console.error('Error in setProjectDownload:', error);
       throw error;
@@ -52,29 +70,47 @@ export class DownloadService {
   async setQuestDownload(profileId: string, questId: string, active: boolean) {
     try {
       const id = `${profileId}_${questId}`;
-      await db.transaction(async (tx) => {
-        // Update/create quest download record
-        await tx
-          .insert(quest_download)
-          .values({
-            id,
-            profile_id: profileId,
-            quest_id: questId,
-            active
-          })
-          .onConflictDoUpdate({
-            target: [quest_download.profile_id, quest_download.quest_id],
-            set: { active }
-          });
-
-        // Cascade to all assets in the quest
-        const assets = await assetService.getAssetsByQuestId(questId);
-        await Promise.all(
-          assets.map((asset) =>
-            this.setAssetDownload(profileId, asset.id, active)
+      const existing = await db
+        .select()
+        .from(quest_download)
+        .where(
+          and(
+            eq(quest_download.profile_id, profileId),
+            eq(quest_download.quest_id, questId)
           )
         );
-      });
+      console.log('existing', existing);
+
+      if (existing.length > 0) {
+        // Update existing record
+        console.log('updating existing record');
+        await db
+          .update(quest_download)
+          .set({ active })
+          .where(
+            and(
+              eq(quest_download.profile_id, profileId),
+              eq(quest_download.quest_id, questId)
+            )
+          );
+      } else {
+        console.log('inserting new record');
+        // Insert new record
+        await db.insert(quest_download).values({
+          id,
+          profile_id: profileId,
+          quest_id: questId,
+          active
+        });
+      }
+
+      // Cascade to all assets in the quest
+      const assets = await assetService.getAssetsByQuestId(questId);
+      await Promise.all(
+        assets.map((asset) =>
+          this.setAssetDownload(profileId, asset.id, active)
+        )
+      );
     } catch (error) {
       console.error('Error in setQuestDownload:', error);
       throw error;
