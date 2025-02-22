@@ -27,6 +27,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 
 interface SortingOption {
   field: string;
@@ -34,18 +37,46 @@ interface SortingOption {
 }
 
 const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
+  const { currentUser } = useAuth();
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
 
   useEffect(() => {
-    const loadTags = async () => {
+    const loadData = async () => {
       const assetTags = await tagService.getTagsByAssetId(asset.id);
       setTags(assetTags);
+
+      if (currentUser) {
+        const status = await downloadService.getAssetDownloadStatus(
+          currentUser.id,
+          asset.id
+        );
+        setIsDownloaded(status);
+      }
     };
-    loadTags();
-  }, [asset.id]);
+    loadData();
+  }, [asset.id, currentUser]);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setAssetDownload(
+        currentUser.id,
+        asset.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling asset download:', error);
+    }
+  };
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
       {/* {asset.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>

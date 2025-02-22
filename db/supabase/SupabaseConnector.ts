@@ -22,6 +22,38 @@ const FATAL_RESPONSE_CODES = [
   new RegExp('^42501$')
 ];
 
+interface CompositeKeyConfig {
+  table: string;
+  keys: string[];
+}
+
+const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = [
+  {
+    table: 'project_download',
+    keys: ['profile_id', 'project_id']
+  },
+  {
+    table: 'quest_download',
+    keys: ['profile_id', 'quest_id']
+  },
+  {
+    table: 'asset_download',
+    keys: ['profile_id', 'asset_id']
+  },
+  {
+    table: 'quest_tag_link',
+    keys: ['quest_id', 'tag_id']
+  },
+  {
+    table: 'asset_tag_link',
+    keys: ['asset_id', 'tag_id']
+  },
+  {
+    table: 'quest_asset_link',
+    keys: ['quest_id', 'asset_id']
+  }
+];
+
 export class SupabaseConnector implements PowerSyncBackendConnector {
   client: SupabaseClient;
   storage: SupabaseStorageAdapter;
@@ -114,30 +146,59 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
     const transaction = await database.getNextCrudTransaction();
-
-    if (!transaction) {
-      return;
-    }
+    if (!transaction) return;
 
     let lastOp: CrudEntry | null = null;
     try {
-      // Note: If transactional consistency is important, use database functions
-      // or edge functions to process the entire transaction in a single call.
       for (const op of transaction.crud) {
         lastOp = op;
         const table = this.client.from(op.table);
         let result: any = null;
+
+        // Find composite key config for this table
+        const compositeConfig = COMPOSITE_KEY_TABLES.find(
+          (c) => c.table === op.table
+        );
+        const isCompositeTable = !!compositeConfig;
+
+        let compositeKeys = {};
+        if (isCompositeTable && op.id) {
+          const [firstId, secondId] = op.id.split('_');
+          compositeKeys = {
+            [compositeConfig.keys[0]]: firstId,
+            [compositeConfig.keys[1]]: secondId
+          };
+        }
+
+        const opData =
+          isCompositeTable && op.opData
+            ? Object.fromEntries(
+                Object.entries(op.opData).filter(([key]) => key !== 'id')
+              )
+            : op.opData;
+
         switch (op.op) {
           case UpdateType.PUT:
-            // eslint-disable-next-line no-case-declarations
-            const record = { ...op.opData, id: op.id };
+            const record = isCompositeTable
+              ? { ...compositeKeys, ...opData }
+              : { ...opData, id: op.id };
             result = await table.upsert(record);
             break;
+
           case UpdateType.PATCH:
-            result = await table.update(op.opData).eq('id', op.id);
+            if (isCompositeTable && op.opData) {
+              result = await table.update(opData).match(compositeKeys);
+            } else {
+              result = await table.update(opData).eq('id', op.id);
+            }
             break;
+
           case UpdateType.DELETE:
-            result = await table.delete().eq('id', op.id);
+            if (isCompositeTable) {
+              result = await table.delete().match(compositeKeys);
+            } else {
+              result = await table.delete().eq('id', op.id);
+            }
             break;
         }
 

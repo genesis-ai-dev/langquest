@@ -13,12 +13,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 
 type Project = typeof project.$inferSelect;
 
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
+  const { currentUser } = useAuth();
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
@@ -27,21 +31,45 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   >(null);
 
   useEffect(() => {
-    const loadLanguages = async () => {
-      const source = await languageService.getLanguageById(
-        project.source_language_id
-      );
-      const target = await languageService.getLanguageById(
-        project.target_language_id
-      );
+    const loadData = async () => {
+      const [source, target] = await Promise.all([
+        languageService.getLanguageById(project.source_language_id),
+        languageService.getLanguageById(project.target_language_id)
+      ]);
       setSourceLanguage(source);
       setTargetLanguage(target);
+
+      if (currentUser) {
+        const status = await downloadService.getProjectDownloadStatus(
+          currentUser.id,
+          project.id
+        );
+        setIsDownloaded(status);
+      }
     };
-    loadLanguages();
-  }, [project.source_language_id, project.target_language_id]);
+    loadData();
+  }, [project.source_language_id, project.target_language_id, currentUser]);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setProjectDownload(
+        currentUser.id,
+        project.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling project download:', error);
+    }
+  };
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{project.name}</Text>
       <Text style={sharedStyles.cardLanguageText}>
         {sourceLanguage?.native_name || sourceLanguage?.english_name} →

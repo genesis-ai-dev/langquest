@@ -27,6 +27,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 
 interface SortingOption {
   field: string;
@@ -34,18 +37,46 @@ interface SortingOption {
 }
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+  const { currentUser } = useAuth();
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
 
   useEffect(() => {
-    const loadTags = async () => {
+    const loadData = async () => {
       const questTags = await tagService.getTagsByQuestId(quest.id);
       setTags(questTags);
+
+      if (currentUser) {
+        const status = await downloadService.getQuestDownloadStatus(
+          currentUser.id,
+          quest.id
+        );
+        setIsDownloaded(status);
+      }
     };
-    loadTags();
-  }, [quest.id]);
+    loadData();
+  }, [quest.id, currentUser]);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setQuestDownload(
+        currentUser.id,
+        quest.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling quest download:', error);
+    }
+  };
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>

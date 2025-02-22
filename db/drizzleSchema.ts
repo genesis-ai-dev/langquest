@@ -120,6 +120,7 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     tag_id: text().notNull()
@@ -163,6 +164,7 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
 export const asset_tag_link = sqliteTable(
   'asset_tag_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     asset_id: text().notNull(),
     tag_id: text().notNull()
@@ -186,6 +188,7 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
 export const quest_asset_link = sqliteTable(
   'quest_asset_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull()
@@ -285,6 +288,7 @@ export const asset_content_linkRelations = relations(
 export const project_download = sqliteTable(
   'project_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text().notNull(),
     project_id: text().notNull()
@@ -311,6 +315,7 @@ export const project_downloadRelations = relations(
 export const quest_download = sqliteTable(
   'quest_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text().notNull(),
     quest_id: text().notNull() // Changed from project_id to quest_id
@@ -334,6 +339,7 @@ export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
 export const asset_download = sqliteTable(
   'asset_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text().notNull(),
     asset_id: text().notNull() // Changed from project_id to asset_id
