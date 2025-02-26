@@ -162,21 +162,18 @@ export class DownloadService {
   // Query methods
   async getProjectDownloadStatus(profileId: string, projectId: string) {
     try {
-      // Query by profile_id only, then filter for project_id
-      const results = await db
+      const result = await db
         .select()
         .from(project_download)
-        .where(eq(project_download.profile_id, profileId));
+        .where(
+          and(
+            eq(project_download.profile_id, profileId),
+            eq(project_download.project_id, projectId)
+          )
+        );
 
-      console.log('All download records for profile:', results);
-
-      // Filter for the specific project
-      const matchingRecord = results.find(
-        (record) => record.project_id === projectId
-      );
-      console.log('Matching record for project:', matchingRecord);
-
-      return matchingRecord ? matchingRecord.active : false;
+      console.log('Project download status result:', result);
+      return result[0]?.active ?? false;
     } catch (error) {
       console.error('Error getting project download status:', error);
       return false;
