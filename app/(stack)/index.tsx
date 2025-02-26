@@ -133,7 +133,7 @@ export default function Index() {
 
       // Check if email is verified
       if (!signInData.user?.email_confirmed_at) {
-        Alert.alert('Verification Required', t('accountNotVerified'), [
+        Alert.alert(t('verificationRequired'), t('accountNotVerified'), [
           { text: 'OK' }
         ]);
         return;

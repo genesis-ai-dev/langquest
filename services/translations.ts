@@ -363,6 +363,10 @@ export const translations = {
     english: 'Password changes are only available when online',
     spanish:
       'Los cambios de contraseña solo están disponibles cuando está en línea'
+  },
+  verificationRequired: {
+    english: 'Verification Required',
+    spanish: 'Verificación Requerida'
   }
   // Add more translation keys as needed...
 } as const;

@@ -290,8 +290,12 @@ export const project_download = sqliteTable(
   {
     id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    project_id: text().notNull()
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.project_id] })
@@ -317,8 +321,12 @@ export const quest_download = sqliteTable(
   {
     id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    quest_id: text().notNull() // Changed from project_id to quest_id
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    quest_id: text()
+      .notNull()
+      .references(() => quest.id)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.quest_id] })
@@ -341,8 +349,12 @@ export const asset_download = sqliteTable(
   {
     id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    asset_id: text().notNull() // Changed from project_id to asset_id
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id)
   },
   (t) => ({
     pk: primaryKey({ columns: [t.profile_id, t.asset_id] })

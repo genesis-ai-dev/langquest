@@ -47,10 +47,18 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       setTags(questTags);
 
       if (currentUser) {
+        console.log('Checking quest download status:', {
+          questId: quest.id,
+          profileId: currentUser.id
+        });
         const status = await downloadService.getQuestDownloadStatus(
           currentUser.id,
           quest.id
         );
+        console.log('Quest download status result:', {
+          questId: quest.id,
+          status
+        });
         setIsDownloaded(status);
       }
     };

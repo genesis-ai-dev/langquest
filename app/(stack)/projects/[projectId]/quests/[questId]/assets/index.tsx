@@ -47,10 +47,18 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
       setTags(assetTags);
 
       if (currentUser) {
+        console.log('Checking asset download status:', {
+          assetId: asset.id,
+          profileId: currentUser.id
+        });
         const status = await downloadService.getAssetDownloadStatus(
           currentUser.id,
           asset.id
         );
+        console.log('Asset download status result:', {
+          assetId: asset.id,
+          status
+        });
         setIsDownloaded(status);
       }
     };

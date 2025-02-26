@@ -81,18 +81,35 @@ export class System {
   private connecting = false;
 
   async init() {
-    if (this.initialized || this.connecting) {
+    if (this.connecting) {
       return;
     }
 
     try {
       this.connecting = true;
+
+      // First initialize the database if not already done
       await this.powersync.init();
+
+      // If we're already connected, disconnect first
+      // This is to ensure that we can access user-specific sync bucket records with current user credentials
+      if (this.powersync.connected) {
+        console.log(
+          'Disconnecting existing PowerSync connection before reconnecting'
+        );
+        await this.powersync.disconnect();
+      }
+
+      // Connect with the current user credentials
+      console.log('Connecting PowerSync with current user credentials');
       await this.powersync.connect(this.supabaseConnector);
 
       if (this.attachmentQueue) {
         await this.attachmentQueue.init();
       }
+
+      // Wait for sync to complete before returning
+      await this.waitForSync();
 
       this.initialized = true;
     } catch (error) {
@@ -105,6 +122,31 @@ export class System {
 
   isInitialized() {
     return this.initialized;
+  }
+
+  async waitForSync() {
+    console.log('Waiting for PowerSync data to be fully synced...');
+
+    // Use PowerSync's built-in method to wait for first sync
+    await this.powersync.waitForFirstSync();
+
+    // Additionally, we can check specifically for our user_downloads bucket
+    const currentUser = await this.supabaseConnector.client.auth.getUser();
+    if (currentUser.data?.user) {
+      const userId = currentUser.data.user.id;
+      const bucketName = `user_downloads["${userId}"]`;
+
+      // Check if the bucket exists and has data
+      // const result = await this.db.execute(
+      //   'SELECT COUNT(*) as count FROM ps_buckets WHERE bucket = ?',
+      //   [bucketName]
+      // );
+
+      // const bucketExists = result.rows._array[0]?.count > 0;
+      // console.log(`User downloads bucket exists: ${bucketExists}`);
+    }
+
+    console.log('PowerSync sync complete');
   }
 }
 

@@ -10,6 +10,36 @@ import { AppConfig } from './AppConfig';
 import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 import { System } from '../powersync/system';
 
+import * as schema from '../drizzleSchema';
+
+// const allTables = Object.values(schema).filter(
+//   (value) =>
+//     'name' in value &&
+//     'columns' in value &&
+//     'dialect' in value &&
+//     value.dialect === 'sqlite'
+// ) as any[];
+
+// const compositeKeyTables = allTables
+//   .filter((table) => {
+//     const pk = table.constraints.primaryKey;
+//     console.log('Primary key for table', table.name, ':', pk);
+//     return pk && pk.columns.length > 1;
+//   })
+//   .map((table) => {
+//     const pk = table.constraints.primaryKey;
+//     const result = {
+//       table: table.name,
+//       keys: pk.columns.map((col: any) => col.name)
+//     };
+//     console.log(
+//       `Found composite key table: ${result.table} with keys: ${result.keys.join(', ')}`
+//     );
+//     return result;
+//   });
+
+// const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = compositeKeyTables;
+
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
@@ -27,34 +57,35 @@ interface CompositeKeyConfig {
   keys: string[];
 }
 
-const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = [
-  {
-    table: 'project_download',
-    keys: ['profile_id', 'project_id']
-  },
-  {
-    table: 'quest_download',
-    keys: ['profile_id', 'quest_id']
-  },
-  {
-    table: 'asset_download',
-    keys: ['profile_id', 'asset_id']
-  },
-  {
-    table: 'quest_tag_link',
-    keys: ['quest_id', 'tag_id']
-  },
-  {
-    table: 'asset_tag_link',
-    keys: ['asset_id', 'tag_id']
-  },
-  {
-    table: 'quest_asset_link',
-    keys: ['quest_id', 'asset_id']
-  }
-];
+// const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = [
+//   {
+//     table: 'project_download',
+//     keys: ['profile_id', 'project_id']
+//   },
+//   {
+//     table: 'quest_download',
+//     keys: ['profile_id', 'quest_id']
+//   },
+//   {
+//     table: 'asset_download',
+//     keys: ['profile_id', 'asset_id']
+//   },
+//   {
+//     table: 'quest_tag_link',
+//     keys: ['quest_id', 'tag_id']
+//   },
+//   {
+//     table: 'asset_tag_link',
+//     keys: ['asset_id', 'tag_id']
+//   },
+//   {
+//     table: 'quest_asset_link',
+//     keys: ['quest_id', 'asset_id']
+//   }
+// ];
 
 export class SupabaseConnector implements PowerSyncBackendConnector {
+  private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
   storage: SupabaseStorageAdapter;
 
@@ -92,6 +123,48 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       console.log('------------------------------------');
     });
     console.log('Supabase client created: ', this.client);
+
+    // Initialize composite key tables
+    this.initCompositeKeyTables();
+  }
+
+  private initCompositeKeyTables() {
+    console.log('Initializing composite key tables');
+
+    const tables = Object.entries(schema)
+      .filter(
+        ([_, value]) =>
+          value &&
+          typeof value === 'object' &&
+          Symbol.for('drizzle:IsDrizzleTable') in value
+      )
+      .map(([_, table]: [string, any]) => table);
+
+    // Let's examine the full structure of one composite key table
+    const assetDownload = tables.find(
+      (t) => t[Symbol.for('drizzle:Name')] === 'asset_download'
+    );
+    if (assetDownload) {
+      console.log('Asset Download table full structure:', {
+        name: assetDownload[Symbol.for('drizzle:Name')],
+        allSymbols: Object.getOwnPropertySymbols(assetDownload),
+        allProperties: Object.keys(assetDownload),
+        config: assetDownload.config,
+        extraConfig: assetDownload[Symbol.for('drizzle:ExtraConfigBuilder')]
+      });
+    }
+
+    // For now, let's hardcode the composite key tables since we know them from the schema
+    this.compositeKeyTables = [
+      { table: 'quest_tag_link', keys: ['quest_id', 'tag_id'] },
+      { table: 'asset_tag_link', keys: ['asset_id', 'tag_id'] },
+      { table: 'quest_asset_link', keys: ['quest_id', 'asset_id'] },
+      { table: 'project_download', keys: ['profile_id', 'project_id'] },
+      { table: 'quest_download', keys: ['profile_id', 'quest_id'] },
+      { table: 'asset_download', keys: ['profile_id', 'asset_id'] }
+    ];
+
+    console.log('Final composite key tables:', this.compositeKeyTables);
   }
 
   async isAnonymousSession() {
@@ -156,7 +229,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         let result: any = null;
 
         // Find composite key config for this table
-        const compositeConfig = COMPOSITE_KEY_TABLES.find(
+        const compositeConfig = this.compositeKeyTables.find(
           (c) => c.table === op.table
         );
         const isCompositeTable = !!compositeConfig;
@@ -168,6 +241,16 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             [compositeConfig.keys[0]]: firstId,
             [compositeConfig.keys[1]]: secondId
           };
+        }
+
+        if (op.table === 'asset_download') {
+          console.log('Operation:', {
+            table: op.table,
+            op: op.op,
+            id: op.id,
+            opData: op.opData,
+            clientId: op.clientId
+          });
         }
 
         const opData =
