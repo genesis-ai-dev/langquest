@@ -12,34 +12,6 @@ import { System } from '../powersync/system';
 
 import * as schema from '../drizzleSchema';
 
-// const allTables = Object.values(schema).filter(
-//   (value) =>
-//     'name' in value &&
-//     'columns' in value &&
-//     'dialect' in value &&
-//     value.dialect === 'sqlite'
-// ) as any[];
-
-// const compositeKeyTables = allTables
-//   .filter((table) => {
-//     const pk = table.constraints.primaryKey;
-//     console.log('Primary key for table', table.name, ':', pk);
-//     return pk && pk.columns.length > 1;
-//   })
-//   .map((table) => {
-//     const pk = table.constraints.primaryKey;
-//     const result = {
-//       table: table.name,
-//       keys: pk.columns.map((col: any) => col.name)
-//     };
-//     console.log(
-//       `Found composite key table: ${result.table} with keys: ${result.keys.join(', ')}`
-//     );
-//     return result;
-//   });
-
-// const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = compositeKeyTables;
-
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
@@ -56,33 +28,6 @@ interface CompositeKeyConfig {
   table: string;
   keys: string[];
 }
-
-// const COMPOSITE_KEY_TABLES: CompositeKeyConfig[] = [
-//   {
-//     table: 'project_download',
-//     keys: ['profile_id', 'project_id']
-//   },
-//   {
-//     table: 'quest_download',
-//     keys: ['profile_id', 'quest_id']
-//   },
-//   {
-//     table: 'asset_download',
-//     keys: ['profile_id', 'asset_id']
-//   },
-//   {
-//     table: 'quest_tag_link',
-//     keys: ['quest_id', 'tag_id']
-//   },
-//   {
-//     table: 'asset_tag_link',
-//     keys: ['asset_id', 'tag_id']
-//   },
-//   {
-//     table: 'quest_asset_link',
-//     keys: ['quest_id', 'asset_id']
-//   }
-// ];
 
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];

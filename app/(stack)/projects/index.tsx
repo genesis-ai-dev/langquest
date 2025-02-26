@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { languageService } from '@/database_services/languageService';
 import { projectService } from '@/database_services/projectService';
-import { language, project, quest } from '@/db/drizzleSchema';
+import { language, project } from '@/db/drizzleSchema';
 import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles } from '@/styles/theme';
@@ -44,13 +44,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
           projectId: project.id,
           profileId: currentUser.id
         });
-
-        // Simple test: add a 2-second delay
-        // console.log(
-        //   'TEST: Adding 2-second delay before checking download status'
-        // );
-        // await new Promise((resolve) => setTimeout(resolve, 5000));
-        // console.log('TEST: Delay complete, now checking download status');
 
         const status = await downloadService.getProjectDownloadStatus(
           currentUser.id,

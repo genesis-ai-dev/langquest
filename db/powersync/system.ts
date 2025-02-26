@@ -108,8 +108,8 @@ export class System {
         await this.attachmentQueue.init();
       }
 
-      // Wait for sync to complete before returning
-      await this.waitForSync();
+      // Wait for the latest sync to complete
+      await this.waitForLatestSync();
 
       this.initialized = true;
     } catch (error) {
@@ -124,29 +124,30 @@ export class System {
     return this.initialized;
   }
 
-  async waitForSync() {
-    console.log('Waiting for PowerSync data to be fully synced...');
+  async waitForLatestSync() {
+    console.log('Waiting for latest PowerSync data sync to complete...');
 
-    // Use PowerSync's built-in method to wait for first sync
-    await this.powersync.waitForFirstSync();
+    // Create a promise that resolves when a new sync completes after this point
+    return new Promise<void>((resolve) => {
+      let initialTimestamp =
+        this.powersync.currentStatus?.lastSyncedAt?.getTime() || 0;
+      console.log(`Current lastSyncedAt timestamp: ${initialTimestamp}`);
 
-    // Additionally, we can check specifically for our user_downloads bucket
-    const currentUser = await this.supabaseConnector.client.auth.getUser();
-    if (currentUser.data?.user) {
-      const userId = currentUser.data.user.id;
-      const bucketName = `user_downloads["${userId}"]`;
+      const unsubscribe = this.powersync.registerListener({
+        statusChanged: (status) => {
+          // Check if we have a new sync completion timestamp
+          const newTimestamp = status.lastSyncedAt?.getTime() || 0;
 
-      // Check if the bucket exists and has data
-      // const result = await this.db.execute(
-      //   'SELECT COUNT(*) as count FROM ps_buckets WHERE bucket = ?',
-      //   [bucketName]
-      // );
-
-      // const bucketExists = result.rows._array[0]?.count > 0;
-      // console.log(`User downloads bucket exists: ${bucketExists}`);
-    }
-
-    console.log('PowerSync sync complete');
+          if (newTimestamp > initialTimestamp) {
+            console.log(
+              `New sync completed at: ${status.lastSyncedAt?.toISOString()}`
+            );
+            unsubscribe(); // Remove the listener
+            resolve();
+          }
+        }
+      });
+    });
   }
 }
 
