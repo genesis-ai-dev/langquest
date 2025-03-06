@@ -297,6 +297,7 @@ export default function Register() {
                           value={value}
                           onChangeText={onChange}
                           secureTextEntry
+                          autoCapitalize="none"
                         />
                       </View>
                     )}
@@ -341,6 +342,7 @@ export default function Register() {
                           value={value}
                           onChangeText={onChange}
                           secureTextEntry
+                          autoCapitalize="none"
                         />
                       </View>
                     )}

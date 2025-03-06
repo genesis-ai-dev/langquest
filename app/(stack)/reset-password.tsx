@@ -189,6 +189,7 @@ export default function ResetPassword() {
                     value={value}
                     onChangeText={onChange}
                     secureTextEntry
+                    autoCapitalize="none"
                   />
                 </View>
               )}
@@ -227,6 +228,7 @@ export default function ResetPassword() {
                     placeholderTextColor={colors.text}
                     value={value}
                     onChangeText={onChange}
+                    autoCapitalize="none"
                     secureTextEntry
                   />
                 </View>

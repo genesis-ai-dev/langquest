@@ -306,6 +306,7 @@ export default function Index() {
                             value={value}
                             onChangeText={onChange}
                             secureTextEntry
+                            autoCapitalize="none"
                           />
                         </View>
                       )}
