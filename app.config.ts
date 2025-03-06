@@ -1,12 +1,16 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
+const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
+const iconPath = './assets/images/langquest_icon_v1.png';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  owner: 'eten-genesis',
   name: 'langquest',
   slug: 'langquest',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/images/langquest_icon_v1.png',
+  icon: iconPath,
   scheme: 'langquest',
   userInterfaceStyle: 'automatic',
   splash: {
@@ -15,7 +19,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     backgroundColor: '#ffffff'
   },
   ios: {
-    supportsTablet: true
+    supportsTablet: true,
+    bundleIdentifier: 'com.etengenesis.langquest'
   },
   android: {
     adaptiveIcon: {
@@ -42,12 +47,44 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       }
     ]
   },
+  web: {
+    bundler: 'metro',
+    output: 'static',
+    favicon: iconPath
+  },
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    [
+      'expo-build-properties',
+      {
+        android: {
+          compileSdkVersion: 34,
+          targetSdkVersion: 31,
+          minSdkVersion: 24,
+          buildToolsVersion: '24.0.0'
+        },
+        ios: {
+          deploymentTarget: '13.4'
+        }
+      }
+    ]
+  ],
+  experiments: {
+    typedRoutes: true
+  },
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     powersyncUrl: process.env.EXPO_PUBLIC_POWERSYNC_URL,
     eas: {
-      projectId: 'fafd03a9-a42c-44c7-849c-b0f84fbffe93'
+      projectId
     }
+  },
+  updates: {
+    url: `https://u.expo.dev/${projectId}`
+  },
+  runtimeVersion: {
+    policy: 'appVersion'
   }
 });

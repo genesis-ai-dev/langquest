@@ -4,11 +4,13 @@ description: 'Common setup steps for Actions'
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
         cache-dependency-path: '**/package-lock.json'
         node-version-file: '.nvmrc'
         cache: 'npm'
 
-    - shell: bash
+    - name: Install dependencies
+      shell: bash
       run: npm install

@@ -5,5 +5,8 @@
     "**/app/**/{page,layout,route}.{tsx,jsx,ts,js}": "${dirname} - ${filename}.${extname}"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/expo/vscode-expo/schemas/schema/eas-workflow.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/.eas/workflows/create-development-builds.yml"
+  }
 }
