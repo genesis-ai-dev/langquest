@@ -14,6 +14,8 @@ jobs:
 
       - name: Setup
         uses: ./tooling/github/setup-expo
+        with:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Create preview
         uses: expo/expo-github-action/preview@v8
