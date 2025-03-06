@@ -25,7 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useForm, Controller } from 'react-hook-form';
-
+import { PasswordInput } from '@/components/PasswordInput';
 type Language = typeof language.$inferSelect;
 
 type RegisterFormData = {
@@ -290,13 +290,12 @@ export default function Register() {
                           size={20}
                           color={colors.text}
                         />
-                        <TextInput
+                        <PasswordInput
                           style={{ flex: 1, color: colors.text }}
                           placeholder={t('password')}
                           placeholderTextColor={colors.text}
                           value={value}
                           onChangeText={onChange}
-                          secureTextEntry
                         />
                       </View>
                     )}
@@ -334,13 +333,12 @@ export default function Register() {
                           size={20}
                           color={colors.text}
                         />
-                        <TextInput
+                        <PasswordInput
                           style={{ flex: 1, color: colors.text }}
                           placeholder={t('confirmPassword')}
                           placeholderTextColor={colors.text}
                           value={value}
                           onChangeText={onChange}
-                          secureTextEntry
                         />
                       </View>
                     )}
