@@ -20,6 +20,7 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForm, Controller } from 'react-hook-form';
+import { PasswordInput } from '@/components/PasswordInput';
 
 type ResetPasswordFormData = {
   newPassword: string;
@@ -182,14 +183,12 @@ export default function ResetPassword() {
                     size={20}
                     color={colors.text}
                   />
-                  <TextInput
+                  <PasswordInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('newPassword')}
                     placeholderTextColor={colors.text}
                     value={value}
                     onChangeText={onChange}
-                    secureTextEntry
-                    autoCapitalize="none"
                   />
                 </View>
               )}
@@ -222,14 +221,12 @@ export default function ResetPassword() {
                     size={20}
                     color={colors.text}
                   />
-                  <TextInput
+                  <PasswordInput
                     style={{ flex: 1, color: colors.text }}
                     placeholder={t('confirmNewPassword')}
                     placeholderTextColor={colors.text}
                     value={value}
                     onChangeText={onChange}
-                    autoCapitalize="none"
-                    secureTextEntry
                   />
                 </View>
               )}

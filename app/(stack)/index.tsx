@@ -28,6 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Session } from '@supabase/supabase-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
+import { PasswordInput } from '@/components/PasswordInput';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -299,14 +300,12 @@ export default function Index() {
                             size={20}
                             color={colors.text}
                           />
-                          <TextInput
+                          <PasswordInput
                             style={{ flex: 1, color: colors.text }}
                             placeholder={t('password')}
                             placeholderTextColor={colors.text}
                             value={value}
                             onChangeText={onChange}
-                            secureTextEntry
-                            autoCapitalize="none"
                           />
                         </View>
                       )}
