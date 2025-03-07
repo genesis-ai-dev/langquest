@@ -47,10 +47,24 @@ jobs:
             exit 1
           fi
 
+      - name: Pull environment variables
+        run: eas env:pull --environment development
+
+      - name: Rename .env.local to .env
+        run: |
+          if [ -f .env.local ]; then
+            mv .env.local .env
+            echo "Renamed .env.local to .env"
+          else
+            echo "No .env.local file found, skipping rename"
+          fi
+
+      - name: Update .env with branch URL
+        run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ steps.supabase-branch.outputs.supabase_url }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
       - name: Create preview
         uses: expo/expo-github-action/preview@v8
         with:
           command: eas update --auto --platform android
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ steps.supabase-branch.outputs.supabase_url }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
