@@ -87,11 +87,13 @@ export default function Quests() {
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+  // const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [showProjectStats, setShowProjectStats] = useState(false);
   const [selectedProject, setSelectedProject] = useState<
     typeof project.$inferSelect | null
   >(null);
+
+  const { goToQuest } = useProjectContext();
 
   useEffect(() => {
     loadQuests();
@@ -229,11 +231,11 @@ export default function Quests() {
   };
 
   const handleQuestPress = (quest: Quest) => {
-    setSelectedQuest(quest);
+    goToQuest(quest);
   };
 
   const handleCloseDetails = () => {
-    setSelectedQuest(null);
+    // setSelectedQuest(null);
     setShowProjectStats(false);
   };
 
@@ -265,16 +267,16 @@ export default function Quests() {
           setIsFilterModalVisible(false);
           return true;
         }
-        if (selectedQuest) {
-          setSelectedQuest(null);
-          return true;
-        }
+        // if (selectedQuest) {
+        //   setSelectedQuest(null);
+        //   return true;
+        // }
         return false;
       }
     );
 
     return () => backHandler.remove();
-  }, [isFilterModalVisible, selectedQuest]);
+  }, [isFilterModalVisible]);
 
   return (
     <LinearGradient
@@ -363,9 +365,6 @@ export default function Quests() {
           />
         </View>
       </Modal>
-      {selectedQuest && (
-        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
-      )}
       {showProjectStats && selectedProject && (
         <ProjectDetails
           project={selectedProject}

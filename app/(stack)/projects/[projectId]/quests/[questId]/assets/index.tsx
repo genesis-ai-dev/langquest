@@ -1,4 +1,5 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { QuestDetails } from '@/components/QuestDetails';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
 import { Tag, tagService } from '@/database_services/tagService';
@@ -27,6 +28,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Quest, questService } from '@/database_services/questService';
 
 interface SortingOption {
   field: string;
@@ -91,9 +93,12 @@ export default function Assets() {
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [showQuestStats, setShowQuestStats] = useState(false);
+  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   useEffect(() => {
     loadAssets();
+    loadQuest();
   }, [questId]);
 
   const loadAssets = async () => {
@@ -126,6 +131,16 @@ export default function Assets() {
     } catch (error) {
       console.error('Error loading assets:', error);
       Alert.alert('Error', 'Failed to load assets');
+    }
+  };
+
+  const loadQuest = async () => {
+    try {
+      if (!questId) return;
+      const quest = await questService.getQuestById(questId);
+      setSelectedQuest(quest);
+    } catch (error) {
+      console.error('Error loading quest:', error);
     }
   };
 
@@ -242,6 +257,7 @@ export default function Assets() {
 
   const handleCloseDetails = () => {
     setSelectedAsset(null);
+    setShowQuestStats(false);
   };
 
   const handleApplyFilters = async (filters: Record<string, string[]>) => {
@@ -257,6 +273,10 @@ export default function Assets() {
     const filtered = await applyFilters(assets, activeFilters, searchQuery);
     const sorted = applySorting(filtered, sorting);
     setFilteredAssets(sorted);
+  };
+
+  const toggleQuestStats = () => {
+    setShowQuestStats((prev) => !prev);
   };
 
   // Handle back button press
@@ -288,12 +308,20 @@ export default function Assets() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={sharedStyles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerContainer}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={sharedStyles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={toggleQuestStats}
+              style={styles.statsButton}
+            >
+              <Ionicons name="stats-chart" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.searchContainer}>
             <Ionicons
               name="search"
@@ -353,11 +381,24 @@ export default function Assets() {
           />
         </View>
       </Modal>
+      {showQuestStats && selectedQuest && (
+        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
+      )}
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.medium,
+    width: '100%'
+  },
+  statsButton: {
+    padding: spacing.small
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
