@@ -13,16 +13,15 @@ import Logger from 'js-logger';
 import { KVStorage } from '../KVStorage';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import * as drizzleSchema from '../drizzleSchema';
-import Constants from 'expo-constants';
 import { AppConfig } from '../supabase/AppConfig';
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import { AttachmentQueue } from './AttachmentQueue';
 
 Logger.useDefaults();
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
-const powersyncUrl = Constants.expoConfig?.extra?.powersyncUrl;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const powersyncUrl = process.env.EXPO_PUBLIC_POWERSYNC_URL;
 
 if (!supabaseUrl || !supabaseAnonKey || !powersyncUrl) {
   throw new Error('Supabase URL, Anon Key, or PowerSync URL is not defined');
