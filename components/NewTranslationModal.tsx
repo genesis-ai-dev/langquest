@@ -56,24 +56,29 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
-      // let permanentAudioUri: string | undefined;
+      let audioAttachmentId = '';
+
+      // Process audio if available
       if (audioUri && system.attachmentQueue) {
         const attachment = await system.attachmentQueue.saveAudio(audioUri);
         console.log('attachment', attachment);
-
-        await translationService.createTranslation({
-          text: translationText.trim(),
-          target_language_id: activeProject.target_language_id,
-          asset_id,
-          creator_id: currentUser.id,
-          audio: attachment.id
-        });
-
-        setTranslationText('');
-        setAudioUri(null);
-        onSubmit();
-        handleClose();
+        audioAttachmentId = attachment.id;
       }
+
+      // Create the translation with or without audio
+      await translationService.createTranslation({
+        text: translationText.trim(),
+        target_language_id: activeProject.target_language_id,
+        asset_id,
+        creator_id: currentUser.id,
+        audio: audioAttachmentId
+      });
+
+      setTranslationText('');
+      setAudioUri(null);
+      onSubmit();
+      handleClose();
+
       // // Ensure recordings directory exists
       // await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
       //   intermediates: true
