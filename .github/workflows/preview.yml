@@ -5,6 +5,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
 jobs:
   update:
     name: EAS Update
@@ -21,7 +24,33 @@ jobs:
         with:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Fetch Supabase branch info
+        id: supabase-branch
+        run: |
+          BRANCH_DATA=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+            https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCT_PROJECT_ID }}/branches)
+
+          BRANCH_ID=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .id')
+          echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
+
+          if [ -n "$BRANCH_ID" ]; then
+            BRANCH_DETAILS=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+              "https://api.supabase.com/v1/branches/$BRANCH_ID")
+            
+            # Get the ref from branch details
+            PROJECT_ID=$(echo $BRANCH_DETAILS | jq -r .ref)
+            echo "supabase_url=https://$PROJECT_ID.supabase.co" >> $GITHUB_OUTPUT
+          else
+            echo "No matching branch found"
+            exit 1
+          fi
+
       - name: Create preview
         uses: expo/expo-github-action/preview@v8
         with:
           command: eas update --auto --platform android
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ steps.supabase-branch.outputs.supabase_url }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
