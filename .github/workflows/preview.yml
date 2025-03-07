@@ -1,6 +1,10 @@
 name: preview
 on: pull_request
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   update:
     name: EAS Update
@@ -20,4 +24,4 @@ jobs:
       - name: Create preview
         uses: expo/expo-github-action/preview@v8
         with:
-          command: eas update --auto
+          command: eas update --auto --platform android
