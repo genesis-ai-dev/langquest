@@ -3,6 +3,8 @@ name: Create development builds
 on:
   push:
     branches: ['dev']
+  pull_request:
+    branches: ['*']
 
 jobs:
   fingerprint:
