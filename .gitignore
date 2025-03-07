@@ -9,6 +9,11 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+llm_supporting_files/
+android/
+ios/
+.env.*
+!.env.example
 
 # macOS
 .DS_Store
@@ -18,3 +23,10 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+app/sqlite_in_expo.md
+*.db
+~$langquest types.xlsx
+langquest types.xlsx
+.env
+.drizzle
+.idea

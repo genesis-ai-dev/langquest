@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "version": ">= 12.5.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "cache": {
+          "key": "android-native-v1"
+        },
+        // "developmentClient": true,
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "prebuildCommand": "npx expo prebuild --platform android --clean",
+      "channel": "preview"
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production"
+    }
+  },
+  "submit": {}
+}
