@@ -19,6 +19,15 @@ export default function MiniAudioPlayer({ audioFile }: MiniAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
+    const setupAudio = async () => {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true
+      });
+    };
+    setupAudio();
+
     return () => {
       if (sound) sound.unloadAsync();
     };
