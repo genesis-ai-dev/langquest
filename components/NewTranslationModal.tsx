@@ -74,18 +74,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         onSubmit();
         handleClose();
       }
-      // // Ensure recordings directory exists
-      // await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
-      //   intermediates: true
-      // });
-
-      // // Move audio to permanent storage with unique filename
-      // const fileName = `${Date.now()}_${randomUUID()}.m4a`;
-      // permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
-      // await FileSystem.moveAsync({
-      //   from: audioUri,
-      //   to: permanentAudioUri
-      // });
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
