@@ -30,13 +30,13 @@ jobs:
     params:
       fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
       profile: development
-  get_ios_build:
-    name: Check for existing ios build
-    needs: [fingerprint]
-    type: get-build
-    params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-      profile: development
+  # get_ios_build:
+  #   name: Check for existing ios build
+  #   needs: [fingerprint]
+  #   type: get-build
+  #   params:
+  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+  #     profile: development
   android_development_build:
     name: Build Android (Development)
     needs: [get_android_build]
@@ -45,19 +45,19 @@ jobs:
     params:
       platform: android
       profile: development
-  ios_device_development_build:
-    name: Build iOS (Development)
-    needs: [get_ios_build]
-    if: ${{ !needs.get_ios_build.outputs.build_id }}
-    type: build
-    params:
-      platform: ios
-      profile: development
-  ios_simulator_development_build:
-    name: Build iOS Simulator (Development)
-    needs: [get_ios_build]
-    if: ${{ !needs.get_ios_build.outputs.build_id }}
-    type: build
-    params:
-      platform: ios
-      profile: development-simulator
+  # ios_device_development_build:
+  #   name: Build iOS (Development)
+  #   needs: [get_ios_build]
+  #   if: ${{ !needs.get_ios_build.outputs.build_id }}
+  #   type: build
+  #   params:
+  #     platform: ios
+  #     profile: development
+  # ios_simulator_development_build:
+  #   name: Build iOS Simulator (Development)
+  #   needs: [get_ios_build]
+  #   if: ${{ !needs.get_ios_build.outputs.build_id }}
+  #   type: build
+  #   params:
+  #     platform: ios
+  #     profile: development-simulator
