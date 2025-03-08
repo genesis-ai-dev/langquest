@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system';
 import { AppConfig } from '../supabase/AppConfig';
 import * as drizzleSchema from '../drizzleSchema';
 import { isNotNull } from 'drizzle-orm';
+
 export class AttachmentQueue extends AbstractAttachmentQueue {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
@@ -88,23 +89,25 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   async newAttachmentRecord(
-    record?: Partial<AttachmentRecord>
+    record?: Partial<AttachmentRecord>,
+    extension?: string
   ): Promise<AttachmentRecord> {
     const photoId = record?.id ?? randomUUID();
+    const filename =
+      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
     return {
       state: AttachmentState.QUEUED_UPLOAD,
       id: photoId,
-      filename: photoId,
+      filename,
       ...record
     };
   }
 
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
-    photoAttachment.local_uri = this.getLocalFilePathSuffix(
-      photoAttachment.filename
+    const localUri = this.getLocalUri(
+      this.getLocalFilePathSuffix(photoAttachment.filename)
     );
-    const localUri = this.getLocalUri(photoAttachment.local_uri);
     await this.storage.writeFile(localUri, base64Data, {
       encoding: FileSystem.EncodingType.Base64
     });
@@ -118,13 +121,16 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   async saveAudio(tempUri: string): Promise<AttachmentRecord> {
-    const audioAttachment = await this.newAttachmentRecord({
-      media_type: 'audio/mpeg'
-    });
-    audioAttachment.local_uri = this.getLocalFilePathSuffix(
-      audioAttachment.filename
+    const extension = tempUri.split('.').pop();
+    const audioAttachment = await this.newAttachmentRecord(
+      {
+        media_type: 'audio/mpeg'
+      },
+      extension
     );
-    const localUri = this.getLocalUri(audioAttachment.local_uri);
+    const localUri = this.getLocalUri(
+      this.getLocalFilePathSuffix(audioAttachment.filename)
+    );
     await FileSystem.moveAsync({
       from: tempUri,
       to: localUri
