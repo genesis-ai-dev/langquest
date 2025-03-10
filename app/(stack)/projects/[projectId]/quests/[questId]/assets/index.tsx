@@ -309,12 +309,6 @@ export default function Assets() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <View style={styles.headerContainer}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
             <View style={styles.searchContainer}>
               <Ionicons
                 name="search"
@@ -443,8 +437,5 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
-  },
-  backButton: {
-    padding: spacing.small
   }
 });
