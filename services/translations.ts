@@ -399,6 +399,14 @@ export const translations = {
   notAccepted: {
     english: 'Not Accepted',
     spanish: 'No Aceptado'
+  },
+  processing: {
+    english: 'Processing...',
+    spanish: 'Procesando...'
+  },
+  accept: {
+    english: 'Accept',
+    spanish: 'Aceptar'
   }
   // Add more translation keys as needed...
 } as const;

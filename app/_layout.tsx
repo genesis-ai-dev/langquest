@@ -11,6 +11,7 @@ import { useSystem } from '../db/powersync/system';
 import '../global.css';
 import { Drawer } from '@/components/Drawer';
 import { userService } from '@/database_services/userService';
+import { TermsGuard } from '@/guards/TermsGuard';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -126,7 +127,9 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <DeepLinkHandler />
-            <Drawer />
+            <TermsGuard>
+              <Drawer />
+            </TermsGuard>
           </GestureHandlerRootView>
         </SafeAreaProvider>
       </ProjectProvider>
