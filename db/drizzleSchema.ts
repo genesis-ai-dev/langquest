@@ -31,7 +31,9 @@ export const profile = sqliteTable('profile', {
   avatar: text(),
   // icon: text().$type<IconName>(),
   // achievements: text(),
-  ui_language_id: text()
+  ui_language_id: text(),
+  terms_accepted: int({ mode: 'boolean' }),
+  terms_version: text()
 });
 
 export const userRelations = relations(profile, ({ many, one }) => ({

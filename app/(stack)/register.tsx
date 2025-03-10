@@ -20,7 +20,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet
+  StyleSheet,
+  Modal,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LanguageSelect } from '@/components/LanguageSelect';
@@ -34,6 +36,7 @@ type RegisterFormData = {
   password: string;
   confirmPassword: string;
   selectedLanguageId: string;
+  termsAccepted: boolean;
 };
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
@@ -44,6 +47,7 @@ export default function Register() {
   const router = useRouter();
   const { setCurrentUser } = useAuth();
   const { supabaseConnector } = useSystem();
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   const {
     control,
@@ -57,7 +61,8 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      selectedLanguageId: ''
+      selectedLanguageId: '',
+      termsAccepted: false
     }
   });
 
@@ -70,6 +75,11 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
+      if (!data.termsAccepted) {
+        Alert.alert(t('error'), t('termsRequired'));
+        return;
+      }
+
       // Get the language object first
       const selectedLanguage = await languageService.getLanguageById(
         data.selectedLanguageId
@@ -88,7 +98,9 @@ export default function Register() {
               username: data.username.trim(),
               ui_language_id: data.selectedLanguageId,
               ui_language:
-                selectedLanguage.english_name?.toLowerCase() || 'english'
+                selectedLanguage.english_name?.toLowerCase() || 'english',
+              terms_accepted: true,
+              terms_version: '1.0'
             }
           },
           { emailRedirectTo: 'langquest://' }
@@ -351,6 +363,55 @@ export default function Register() {
                 </View>
               </View>
 
+              {/* Terms and Conditions section */}
+              <View style={{ width: '100%', gap: spacing.small }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.small
+                  }}
+                >
+                  <Controller
+                    control={control}
+                    name="termsAccepted"
+                    rules={{ required: t('termsRequired') }}
+                    render={({ field: { onChange, value } }) => (
+                      <TouchableOpacity
+                        onPress={() => onChange(!value)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: spacing.small
+                        }}
+                      >
+                        <Ionicons
+                          name={value ? 'checkbox' : 'square-outline'}
+                          size={24}
+                          color={colors.text}
+                        />
+                        <Text style={{ color: colors.text }}>
+                          {t('agreeToTerms')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+                {errors.termsAccepted && (
+                  <Text style={styles.errorText}>
+                    {errors.termsAccepted.message}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  onPress={() => setTermsModalVisible(true)}
+                  style={{ marginTop: spacing.small }}
+                >
+                  <Text style={[sharedStyles.link, { fontSize: 14 }]}>
+                    {t('viewTerms')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
                 style={[sharedStyles.button, { marginTop: 'auto' }]}
                 onPress={handleSubmit(onSubmit)}
@@ -368,6 +429,55 @@ export default function Register() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Terms and Conditions Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={termsModalVisible}
+        onRequestClose={() => setTermsModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {t('termsAndConditionsTitle')}
+              </Text>
+              <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
+              <TouchableOpacity
+                onPress={() => setTermsModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalText}>
+                {t('termsAndConditionsContent')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  // Open the full data policy in browser
+                  Linking.openURL('https://www.langquest.org/data-policy');
+                }}
+                style={{ marginTop: spacing.medium }}
+              >
+                <Text style={sharedStyles.link}>View Full Data Policy</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[sharedStyles.button, { flex: 1 }]}
+                onPress={() => {
+                  setTermsModalVisible(false);
+                }}
+              >
+                <Text style={sharedStyles.buttonText}>{t('ok')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -377,5 +487,51 @@ const styles = StyleSheet.create({
     color: colors.error || '#ff0000',
     fontSize: 12,
     alignSelf: 'flex-start'
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 20,
+    width: '80%',
+    maxHeight: '80%',
+    alignItems: 'center'
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%'
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10
+  },
+  modalVersion: {
+    fontSize: 14,
+    color: colors.text
+  },
+  closeButton: {
+    padding: 5
+  },
+  modalBody: {
+    flex: 1,
+    width: '100%',
+    padding: 10
+  },
+  modalText: {
+    color: colors.text,
+    marginBottom: 10
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    width: '100%',
+    marginTop: 20
   }
 });
