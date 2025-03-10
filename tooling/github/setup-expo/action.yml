@@ -1,17 +1,14 @@
 name: 'Setup and install + Expo'
 description: 'Common setup steps for Actions'
 
+inputs:
+  EXPO_TOKEN:
+    description: 'You must provide an EXPO_TOKEN secret linked to this projects Expo account in this repos secrets. Learn more: https://docs.expo.dev/eas-update/github-actions'
+    required: true
+
 runs:
   using: composite
   steps:
-    - name: Check for EXPO_TOKEN
-      shell: bash
-      run: |
-        if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-          echo "You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets. Learn more: https://docs.expo.dev/eas-update/github-actions"
-          exit 1
-        fi
-
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
@@ -23,7 +20,7 @@ runs:
       uses: expo/expo-github-action@v8
       with:
         eas-version: latest
-        token: ${{ secrets.EXPO_TOKEN }}
+        token: ${{ inputs.EXPO_TOKEN }}
 
     - name: Install dependencies
       shell: bash
