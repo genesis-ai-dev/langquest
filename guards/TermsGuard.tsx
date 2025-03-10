@@ -14,11 +14,18 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Ionicons } from '@expo/vector-icons';
 import { userService } from '@/database_services/userService';
+import { LanguageSelect } from '@/components/LanguageSelect';
+import { language } from '@/db/drizzleSchema';
+
+type Language = typeof language.$inferSelect;
 
 export function TermsGuard({ children }: { children: React.ReactNode }) {
   const { currentUser, setCurrentUser, isLoading } = useAuth();
   const { powersync } = useSystem();
-  const { t } = useTranslation();
+  const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(
+    null
+  );
+  const { t } = useTranslation(selectedLanguage?.english_name);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,6 +131,16 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Language Selector */}
+            <View style={styles.languageSelector}>
+              <LanguageSelect
+                value={selectedLanguage?.id || ''}
+                onChange={(lang) => setSelectedLanguage(lang)}
+                containerStyle={{ flex: 1 }}
+              />
+            </View>
+
             <ScrollView
               style={styles.modalBody}
               contentContainerStyle={styles.modalBodyContent}
@@ -131,44 +148,32 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
               <Text style={styles.modalText}>
                 {t('termsAndConditionsContent')}
               </Text>
-              <Text style={styles.modalText}>
-                By accepting these terms, you agree that all content you
-                contribute to LangQuest will be freely available worldwide under
-                the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.
-              </Text>
-              <Text style={styles.modalText}>
-                This means your contributions can be used by anyone for any
-                purpose without attribution. We collect minimal user data: only
-                your email (for account recovery) and newsletter subscription if
-                opted in.
-              </Text>
+              <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
+              <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
               <TouchableOpacity
                 onPress={() => {
                   // Open the full data policy in browser
-                  Linking.openURL('https://www.langquest.org/data-policy');
+                  Linking.openURL(t('dataPolicyUrl'));
                 }}
                 style={{ marginTop: spacing.medium }}
               >
                 <Text style={[sharedStyles.link, styles.linkText]}>
-                  View Full Data Policy
+                  {t('viewFullDataPolicy')}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
             <View style={styles.termsCheckbox}>
               <TouchableOpacity
                 onPress={() => setTermsAccepted(!termsAccepted)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: spacing.small
-                }}
+                style={styles.checkboxContainer}
               >
                 <Ionicons
                   name={termsAccepted ? 'checkbox' : 'square-outline'}
                   size={24}
                   color={colors.text}
+                  style={styles.checkboxIcon}
                 />
-                <Text style={{ color: colors.text }}>{t('agreeToTerms')}</Text>
+                <Text style={styles.checkboxText}>{t('agreeToTerms')}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.modalFooter}>
@@ -227,6 +232,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary
   },
+  languageSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+    gap: 10
+  },
+  languageLabel: {
+    fontSize: 16,
+    color: colors.text
+  },
   modalBody: {
     width: '100%',
     maxHeight: '60%'
@@ -248,6 +264,19 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 20,
     marginBottom: 10
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small
+  },
+  checkboxIcon: {
+    marginTop: 2
+  },
+  checkboxText: {
+    color: colors.text,
+    flex: 1,
+    flexWrap: 'wrap'
   },
   modalFooter: {
     flexDirection: 'row',
