@@ -22,7 +22,7 @@ git checkout dev
 npm i
 ```
 
-4. Obtain the .env file from another developer, and place in the project root.
+4. Obtain the .env file from another developer, and place in the project root. Make sure the file name includes the dot (`.env`) when copying or dragging the file into your project directory, as some systems may hide or remove the dot.
 
 5. If you're using a physical android device, enable USB debugging before connecting to your machine:
 

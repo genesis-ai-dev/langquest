@@ -31,6 +31,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   async init() {
+    console.log('Override init in AttachmentQueue entered............');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
@@ -40,65 +41,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
       return;
     }
 
-    // Set up watch for asset_download table to detect changes in download preferences
-    await this.watchAssetDownloads();
-
     await super.init();
-  }
-
-  // Step 1: Watch for changes in the asset_download table
-  async watchAssetDownloads() {
-    try {
-      console.log('[DOWNLOAD WATCH] Setting up watch for asset_download table');
-
-      // Get the current user's profile ID
-      const currentUserId = await this.getCurrentUserId();
-      console.log(`[DOWNLOAD WATCH] Current user ID: ${currentUserId}`);
-
-      if (currentUserId) {
-        // Watch for changes in the current user's downloads
-        this.db.watch(
-          this.db.query.asset_download.findMany({
-            where: (ad) => eq(ad.profile_id, currentUserId)
-          }),
-          {
-            onResult: async (downloads) => {
-              // Log the count of active downloads
-              const activeDownloads = downloads.filter(
-                (d) => d.active === true
-              );
-              console.log(
-                `[DOWNLOAD WATCH] User ${currentUserId} downloads changed: ${downloads.length} total, ${activeDownloads.length} active`
-              );
-
-              // Process each active download - identify all related attachments
-              for (const download of activeDownloads) {
-                console.log(
-                  `[DOWNLOAD WATCH] Active download: asset=${download.asset_id}`
-                );
-
-                // Step 2 testing: When asset is selected for download, identify all its attachments
-                const attachments = await this.getAllAssetAttachments(
-                  download.asset_id
-                );
-                console.log(
-                  `[DOWNLOAD WATCH] Asset ${download.asset_id} has ${attachments.length} total attachments`
-                );
-              }
-            }
-          }
-        );
-      }
-
-      console.log(
-        '[DOWNLOAD WATCH] Watch for asset_download table established successfully'
-      );
-    } catch (error) {
-      console.error(
-        '[DOWNLOAD WATCH] Error setting up asset_download watch:',
-        error
-      );
-    }
   }
 
   // Helper method to get the current user's ID
@@ -115,55 +58,152 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    let lastAssetImages: string[] = [];
-    let lastAssetAudio: string[] = [];
-    let lastTranslations: string[] = [];
+    // Watch for changes in ALL download records
+    this.db.watch(this.db.query.asset_download.findMany(), {
+      onResult: async (downloads) => {
+        console.log('Download records changed:', downloads.length);
+        const currentUserId = await this.getCurrentUserId();
+        if (!currentUserId) {
+          // User is logged out - don't delete anything, just stop syncing
+          onUpdate([]);
+          return;
+        }
 
+        // Filter to current user's downloads
+        const userDownloads = downloads.filter(
+          (download) => download.profile_id === currentUserId
+        );
+        console.log(`User downloads: ${userDownloads.length}`);
+
+        // Split into active and inactive downloads
+        const activeDownloads = userDownloads.filter(
+          (download) => download.active === true
+        );
+        const inactiveDownloads = userDownloads.filter(
+          (download) => download.active === false
+        );
+
+        console.log(
+          `Active downloads: ${activeDownloads.length}, Inactive: ${inactiveDownloads.length}`
+        );
+
+        // Process inactive downloads - delete their attachments
+        for (const download of inactiveDownloads) {
+          const attachments = await this.getAllAssetAttachments(
+            download.asset_id
+          );
+          for (const attachmentId of attachments) {
+            // Delete each attachment from the queue
+            await this.deleteFromQueue(attachmentId);
+            console.log(
+              `Deleted attachment ${attachmentId} for inactive asset ${download.asset_id}`
+            );
+          }
+        }
+
+        // Get all attachments for active assets
+        const activeAttachments: string[] = [];
+        for (const download of activeDownloads) {
+          const attachments = await this.getAllAssetAttachments(
+            download.asset_id
+          );
+          activeAttachments.push(...attachments);
+        }
+
+        // Remove duplicates
+        const uniqueActiveAttachments = [...new Set(activeAttachments)];
+        console.log(
+          `Total active attachments to sync: ${uniqueActiveAttachments.length}`
+        );
+
+        // Tell PowerSync which attachments to keep synced
+        onUpdate(uniqueActiveAttachments);
+      }
+    });
+
+    // Watch for changes in asset content links
     this.db.watch(
       this.db.query.asset_content_link.findMany({
         where: (asset) => isNotNull(asset.audio_id)
       }),
       {
-        onResult(assets) {
-          const allAudioAssets = assets.map((asset) => asset.audio_id!);
-          onUpdate([
-            ...allAudioAssets,
-            ...lastAssetImages,
-            ...lastTranslations
-          ]);
-          lastAssetAudio = allAudioAssets;
-        }
-      }
-    );
+        onResult: async (assets) => {
+          console.log(`Asset content links updated: ${assets.length}`);
 
-    this.db.watch(
-      this.db.query.asset.findMany({
-        where: (asset) => isNotNull(asset.images)
-      }),
-      {
-        onResult(assets) {
-          console.log('watched assets', assets);
-          const allImageAssets = assets.flatMap((asset) => asset.images!);
-          onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
-          lastAssetImages = allImageAssets;
-        }
-      }
-    );
+          // Get current user ID
+          const currentUserId = await this.getCurrentUserId();
+          if (!currentUserId) {
+            onUpdate([]);
+            return;
+          }
 
-    this.db.watch(
-      this.db.query.translation.findMany({
-        where: (translation) => isNotNull(translation.audio)
-      }),
-      {
-        onResult(translations) {
-          const allTranslations = translations.map(
-            (translation) => translation.audio!
+          // Get active downloads for current user
+          const activeDownloads = await this.db.query.asset_download.findMany({
+            where: (download) =>
+              and(
+                eq(download.profile_id, currentUserId),
+                eq(download.active, true)
+              )
+          });
+
+          const activeAssetIds = activeDownloads.map(
+            (download) => download.asset_id
           );
-          onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
-          lastTranslations = allTranslations;
+
+          // Get all attachments for active assets
+          const allAttachments: string[] = [];
+          for (const assetId of activeAssetIds) {
+            const assetAttachments = await this.getAllAssetAttachments(assetId);
+            allAttachments.push(...assetAttachments);
+          }
+
+          // Remove duplicates
+          const uniqueAttachments = [...new Set(allAttachments)];
+          console.log(
+            `Total unique attachments to sync: ${uniqueAttachments.length}`
+          );
+
+          // Update PowerSync
+          onUpdate(uniqueAttachments);
         }
       }
     );
+
+    // this.db.watch(
+    //   this.db.query.asset.findMany({
+    //     where: (asset) => isNotNull(asset.images)
+    //   }),
+    //   {
+    //     onResult(assets) {
+    //       console.log('watched assets', assets);
+    //       const allImageAssets = assets.flatMap((asset) => asset.images!);
+    //       onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
+    //       lastAssetImages = allImageAssets;
+    //     }
+    //   }
+    // );
+
+    // this.db.watch(
+    //   this.db.query.translation.findMany({
+    //     where: (translation) => isNotNull(translation.audio)
+    //   }),
+    //   {
+    //     onResult(translations) {
+    //       const allTranslations = translations.map(
+    //         (translation) => translation.audio!
+    //       );
+    //       onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
+    //       lastTranslations = allTranslations;
+    //     }
+    //   }
+    // );
+  }
+
+  async deleteFromQueue(attachmentId: string): Promise<void> {
+    const record = await this.record(attachmentId);
+    if (record) {
+      await this.delete(record);
+    }
   }
 
   async newAttachmentRecord(

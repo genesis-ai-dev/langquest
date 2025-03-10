@@ -9,7 +9,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-llm_supporting_files/
+llm_supp_files/
 android/
 ios/
 .env.*
