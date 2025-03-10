@@ -41,7 +41,7 @@ jobs:
         run: |
           BRANCH_DATA=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-            https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCT_PROJECT_ID }}/branches)
+            https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}/branches)
 
           BRANCH_ID=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .id')
           echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
@@ -53,7 +53,6 @@ jobs:
             
             # Get the ref from branch details
             PROJECT_ID=$(echo $BRANCH_DETAILS | jq -r .ref)
-            echo "supabase_url=https://$PROJECT_ID.supabase.co" >> $GITHUB_OUTPUT
 
             # Update or add Supabase URL to .env file
             awk '!/^EXPO_PUBLIC_SUPABASE_URL=/' .env > .env.tmp || touch .env.tmp
