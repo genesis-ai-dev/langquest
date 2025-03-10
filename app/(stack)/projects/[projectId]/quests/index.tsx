@@ -1,9 +1,12 @@
 import { QuestDetails } from '@/components/QuestDetails';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { ProjectDetails } from '@/components/ProjectDetails';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Quest, questService } from '@/database_services/questService';
+import { Project, projectService } from '@/database_services/projectService';
 import { Tag, tagService } from '@/database_services/tagService';
 import { useTranslation } from '@/hooks/useTranslation';
+import { project } from '@/db/drizzleSchema';
 import {
   borderRadius,
   colors,
@@ -84,10 +87,17 @@ export default function Quests() {
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+  // const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+  const [showProjectStats, setShowProjectStats] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<
+    typeof project.$inferSelect | null
+  >(null);
+
+  const { goToQuest } = useProjectContext();
 
   useEffect(() => {
     loadQuests();
+    loadProject();
   }, [projectId]);
 
   const loadQuests = async () => {
@@ -108,6 +118,16 @@ export default function Quests() {
     } catch (error) {
       console.error('Error loading quests:', error);
       Alert.alert('Error', t('failedLoadQuests'));
+    }
+  };
+
+  const loadProject = async () => {
+    try {
+      if (!projectId) return;
+      const project = await projectService.getProjectById(projectId);
+      setSelectedProject(project);
+    } catch (error) {
+      console.error('Error loading project:', error);
     }
   };
 
@@ -211,11 +231,12 @@ export default function Quests() {
   };
 
   const handleQuestPress = (quest: Quest) => {
-    setSelectedQuest(quest);
+    goToQuest(quest);
   };
 
   const handleCloseDetails = () => {
-    setSelectedQuest(null);
+    // setSelectedQuest(null);
+    setShowProjectStats(false);
   };
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
@@ -233,12 +254,9 @@ export default function Quests() {
     setFilteredQuests(sorted);
   };
 
-  // Update filtered quests when search query changes
-  useEffect(() => {
-    const filtered = applyFilters(quests, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    setFilteredQuests(sorted);
-  }, [searchQuery, quests, applyFilters, applySorting]);
+  const toggleProjectStats = () => {
+    setShowProjectStats((prev) => !prev);
+  };
 
   // Handle back button press
   useEffect(() => {
@@ -249,16 +267,16 @@ export default function Quests() {
           setIsFilterModalVisible(false);
           return true;
         }
-        if (selectedQuest) {
-          setSelectedQuest(null);
-          return true;
-        }
+        // if (selectedQuest) {
+        //   setSelectedQuest(null);
+        //   return true;
+        // }
         return false;
       }
     );
 
     return () => backHandler.remove();
-  }, [isFilterModalVisible, selectedQuest]);
+  }, [isFilterModalVisible]);
 
   return (
     <LinearGradient
@@ -269,15 +287,17 @@ export default function Quests() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={sharedStyles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={sharedStyles.title}>
-            {projectName} {t('quests')}
-          </Text>
+          <View style={styles.headerContainer}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.title}>
+              {projectName} {t('quests')}
+            </Text>
+          </View>
 
           <View style={styles.searchContainer}>
             <Ionicons
@@ -318,6 +338,12 @@ export default function Quests() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
+          <TouchableOpacity
+            onPress={toggleProjectStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
       <Modal
@@ -339,8 +365,11 @@ export default function Quests() {
           />
         </View>
       </Modal>
-      {selectedQuest && (
-        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
+      {showProjectStats && selectedProject && (
+        <ProjectDetails
+          project={selectedProject}
+          onClose={handleCloseDetails}
+        />
       )}
     </LinearGradient>
   );
@@ -384,5 +413,27 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.small,
     fontWeight: 'bold'
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: spacing.medium,
+    width: '100%'
+  },
+  statsButton: {
+    padding: spacing.small,
+    alignSelf: 'flex-end'
+  },
+  backButton: {
+    padding: spacing.small
+  },
+  title: {
+    fontSize: fontSizes.xxlarge,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginLeft: spacing.medium,
+    flex: 1,
+    textAlign: 'center'
   }
 });

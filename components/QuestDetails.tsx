@@ -19,7 +19,6 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
 }) => {
   const [tags, setTags] = useState<(typeof tag.$inferSelect)[]>([]);
   const { t } = useTranslation();
-  const { goToQuest } = useProjectContext();
 
   useEffect(() => {
     const loadTags = async () => {
@@ -28,11 +27,6 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
     };
     loadTags();
   }, [quest.id]);
-
-  const handleStartQuest = () => {
-    goToQuest(quest);
-    onClose();
-  };
 
   return (
     <View style={styles.overlay}>
@@ -57,10 +51,6 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
             })}
           </View>
         )}
-
-        <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
-          <Text style={styles.startButtonText}>{t('startQuest')}</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

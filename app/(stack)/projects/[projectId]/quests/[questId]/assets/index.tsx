@@ -1,4 +1,5 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { QuestDetails } from '@/components/QuestDetails';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
 import { Tag, tagService } from '@/database_services/tagService';
@@ -27,6 +28,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Quest, questService } from '@/database_services/questService';
 
 interface SortingOption {
   field: string;
@@ -91,9 +93,12 @@ export default function Assets() {
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [showQuestStats, setShowQuestStats] = useState(false);
+  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   useEffect(() => {
     loadAssets();
+    loadQuest();
   }, [questId]);
 
   const loadAssets = async () => {
@@ -126,6 +131,16 @@ export default function Assets() {
     } catch (error) {
       console.error('Error loading assets:', error);
       Alert.alert('Error', 'Failed to load assets');
+    }
+  };
+
+  const loadQuest = async () => {
+    try {
+      if (!questId) return;
+      const quest = await questService.getQuestById(questId);
+      setSelectedQuest(quest);
+    } catch (error) {
+      console.error('Error loading quest:', error);
     }
   };
 
@@ -242,6 +257,7 @@ export default function Assets() {
 
   const handleCloseDetails = () => {
     setSelectedAsset(null);
+    setShowQuestStats(false);
   };
 
   const handleApplyFilters = async (filters: Record<string, string[]>) => {
@@ -257,6 +273,10 @@ export default function Assets() {
     const filtered = await applyFilters(assets, activeFilters, searchQuery);
     const sorted = applySorting(filtered, sorting);
     setFilteredAssets(sorted);
+  };
+
+  const toggleQuestStats = () => {
+    setShowQuestStats((prev) => !prev);
   };
 
   // Handle back button press
@@ -288,39 +308,41 @@ export default function Assets() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={sharedStyles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors.text}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t('searchAssets')}
-              placeholderTextColor={colors.text}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+          <View style={styles.headerContainer}>
             <TouchableOpacity
-              onPress={() => setIsFilterModalVisible(true)}
-              style={styles.filterIcon}
+              onPress={() => router.back()}
+              style={styles.backButton}
             >
-              <Ionicons name="filter" size={20} color={colors.text} />
-              {getActiveOptionsCount() > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {getActiveOptionsCount()}
-                  </Text>
-                </View>
-              )}
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={20}
+                color={colors.text}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('searchAssets')}
+                placeholderTextColor={colors.text}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity
+                onPress={() => setIsFilterModalVisible(true)}
+                style={styles.filterIcon}
+              >
+                <Ionicons name="filter" size={20} color={colors.text} />
+                {getActiveOptionsCount() > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {getActiveOptionsCount()}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <FlatList
@@ -333,6 +355,12 @@ export default function Assets() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
+          <TouchableOpacity
+            onPress={toggleQuestStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
       <Modal
@@ -353,18 +381,32 @@ export default function Assets() {
           />
         </View>
       </Modal>
+      {showQuestStats && selectedQuest && (
+        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
+      )}
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'column',
+    marginBottom: spacing.medium,
+    width: '100%'
+  },
+  statsButton: {
+    padding: spacing.small,
+    alignSelf: 'flex-end'
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium
+    marginTop: spacing.medium,
+    marginBottom: spacing.medium,
+    width: '100%'
   },
   searchIcon: {
     marginRight: spacing.small
@@ -401,5 +443,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
+  },
+  backButton: {
+    padding: spacing.small
   }
 });

@@ -65,7 +65,6 @@ export default function Projects() {
   );
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
   const { signOut } = useAuth();
 
@@ -146,16 +145,8 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleProjectPress = (project: Project) => {
-    setSelectedProject(project);
-  };
-
-  const handleCloseDetails = () => {
-    setSelectedProject(null);
-  };
-
-  const handleExplore = () => {
-    if (selectedProject) goToProject(selectedProject);
+  const handleExplore = (project: Project) => {
+    if (project) goToProject(project);
   };
 
   return (
@@ -219,7 +210,7 @@ export default function Projects() {
             <FlatList
               data={filteredProjects}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => handleProjectPress(item)}>
+                <TouchableOpacity onPress={() => handleExplore(item)}>
                   <ProjectCard project={item} />
                 </TouchableOpacity>
               )}
@@ -228,13 +219,6 @@ export default function Projects() {
             />
           </View>
         </SafeAreaView>
-        {selectedProject && (
-          <ProjectDetails
-            project={selectedProject}
-            onClose={handleCloseDetails}
-            onExplore={handleExplore}
-          />
-        )}
       </LinearGradient>
     </AuthGuard>
   );
