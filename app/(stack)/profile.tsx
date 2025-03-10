@@ -6,7 +6,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -14,10 +14,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Modal,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
+import { Ionicons } from '@expo/vector-icons';
 
 type Language = typeof language.$inferSelect;
 
@@ -27,12 +30,14 @@ type ProfileFormData = {
   confirmPassword: string;
   selectedLanguageId: string;
   // selectedAvatar: string;
+  termsAccepted: boolean;
 };
 
 export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
   const { t } = useTranslation();
   const isOnline = useNetworkStatus();
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   const {
     control,
@@ -45,20 +50,22 @@ export default function Profile() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: currentUser?.ui_language_id || ''
-      // selectedAvatar: 'cat'
+      selectedLanguageId: (currentUser?.ui_language_id as string) ?? '',
+      // selectedAvatar: 'cat',
+      termsAccepted: !!currentUser?.terms_accepted
     }
   });
 
-  // Set initial language from user's profile
+  // Set initial values from user's profile
   useEffect(() => {
-    if (currentUser?.ui_language_id) {
+    if (currentUser) {
       reset({
-        selectedLanguageId: currentUser.ui_language_id,
+        selectedLanguageId: (currentUser.ui_language_id as string) ?? '',
         currentPassword: '',
         newPassword: '',
-        confirmPassword: ''
-        // selectedAvatar: 'cat'
+        confirmPassword: '',
+        // selectedAvatar: 'cat',
+        termsAccepted: !!currentUser.terms_accepted
       });
     }
   }, [currentUser, reset]);
@@ -83,7 +90,9 @@ export default function Profile() {
       const updatedUser = await userService.updateUser({
         id: currentUser.id,
         ui_language_id: data.selectedLanguageId,
-        ...(isOnline && data.newPassword ? { password: data.newPassword } : {})
+        ...(isOnline && data.newPassword ? { password: data.newPassword } : {}),
+        terms_accepted: data.termsAccepted,
+        terms_version: data.termsAccepted ? '1.0' : undefined
       });
 
       if (updatedUser) {
@@ -132,6 +141,61 @@ export default function Profile() {
                   {errors.selectedLanguageId.message}
                 </Text>
               )}
+            </View>
+
+            {/* Terms and Conditions Section */}
+            <View style={styles.termsSection}>
+              <Text style={styles.sectionTitle}>
+                {t('termsAndConditionsTitle')}
+              </Text>
+
+              <View style={styles.termsStatus}>
+                <Text style={styles.label}>
+                  {t('termsVersion')}:{' '}
+                  {currentUser?.terms_version || t('notAccepted')}
+                </Text>
+                <Text style={styles.label}>
+                  {t('status')}:{' '}
+                  {currentUser?.terms_accepted
+                    ? t('accepted')
+                    : t('notAccepted')}
+                </Text>
+              </View>
+
+              <View style={styles.controllerContainer}>
+                <Controller
+                  control={control}
+                  name="termsAccepted"
+                  render={({ field: { onChange, value } }) => (
+                    <TouchableOpacity
+                      onPress={() => onChange(!value)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.small
+                      }}
+                    >
+                      <Ionicons
+                        name={value ? 'checkbox' : 'square-outline'}
+                        size={24}
+                        color={colors.text}
+                      />
+                      <Text style={{ color: colors.text }}>
+                        {t('agreeToTerms')}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setTermsModalVisible(true)}
+                style={{ marginTop: spacing.small }}
+              >
+                <Text style={[sharedStyles.link, { fontSize: 14 }]}>
+                  {t('viewTerms')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Password Change - Only when online */}
@@ -237,6 +301,55 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Terms and Conditions Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={termsModalVisible}
+          onRequestClose={() => setTermsModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {t('termsAndConditionsTitle')}
+                </Text>
+                <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
+                <TouchableOpacity
+                  onPress={() => setTermsModalVisible(false)}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.modalText}>
+                  {t('termsAndConditionsContent')}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    // Open the full data policy in browser
+                    Linking.openURL('https://www.langquest.org/data-policy');
+                  }}
+                  style={{ marginTop: spacing.medium }}
+                >
+                  <Text style={sharedStyles.link}>View Full Data Policy</Text>
+                </TouchableOpacity>
+              </ScrollView>
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[sharedStyles.button, { flex: 1 }]}
+                  onPress={() => {
+                    setTermsModalVisible(false);
+                  }}
+                >
+                  <Text style={sharedStyles.buttonText}>{t('ok')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -251,6 +364,15 @@ const styles = StyleSheet.create({
   },
   passwordSection: {
     gap: spacing.medium
+  },
+  termsSection: {
+    gap: spacing.medium
+  },
+  termsStatus: {
+    backgroundColor: colors.inputBackground,
+    padding: spacing.medium,
+    borderRadius: 8,
+    gap: spacing.small
   },
   controllerContainer: {
     gap: spacing.small
@@ -294,5 +416,51 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error || '#ff0000',
     fontSize: 12
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 20,
+    width: '80%',
+    maxHeight: '80%',
+    alignItems: 'center'
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%'
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10
+  },
+  modalVersion: {
+    fontSize: 14,
+    color: colors.text
+  },
+  closeButton: {
+    padding: 5
+  },
+  modalBody: {
+    flex: 1,
+    width: '100%',
+    padding: 10
+  },
+  modalText: {
+    color: colors.text,
+    marginBottom: 10
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    width: '100%',
+    marginTop: 20
   }
 });
