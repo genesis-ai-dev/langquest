@@ -393,12 +393,6 @@ export default function AssetView() {
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.content}>
             <Text style={styles.title}>{asset?.name}</Text>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={sharedStyles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
             <View style={styles.tabBar}>
               <TouchableOpacity
                 style={[

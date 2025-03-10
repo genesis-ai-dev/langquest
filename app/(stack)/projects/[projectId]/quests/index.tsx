@@ -288,12 +288,6 @@ export default function Quests() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <View style={styles.headerContainer}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
             <Text style={styles.title}>
               {projectName} {t('quests')}
             </Text>
@@ -425,14 +419,10 @@ const styles = StyleSheet.create({
     padding: spacing.small,
     alignSelf: 'flex-end'
   },
-  backButton: {
-    padding: spacing.small
-  },
   title: {
     fontSize: fontSizes.xxlarge,
     fontWeight: 'bold',
     color: colors.text,
-    marginLeft: spacing.medium,
     flex: 1,
     textAlign: 'center'
   }
