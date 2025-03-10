@@ -25,6 +25,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Fetch Supabase branch info
+        continue-on-error: true
         id: supabase-branch
         run: |
           BRANCH_DATA=$(curl -s \
