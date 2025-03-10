@@ -89,7 +89,12 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
         animationType="slide"
         transparent={true}
         visible={termsModalVisible}
-        onRequestClose={() => {}}
+        onRequestClose={() => {
+          // Only allow closing if not a new user (terms already accepted)
+          if (currentUser?.terms_accepted) {
+            setTermsModalVisible(false);
+          }
+        }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -98,10 +103,44 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
                 {t('termsAndConditionsTitle')}
               </Text>
               <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  // Only allow closing if not a new user (terms already accepted)
+                  if (currentUser?.terms_accepted) {
+                    setTermsModalVisible(false);
+                  }
+                }}
+                disabled={!currentUser?.terms_accepted}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={
+                    currentUser?.terms_accepted
+                      ? colors.text
+                      : colors.textSecondary
+                  }
+                />
+              </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+            >
               <Text style={styles.modalText}>
                 {t('termsAndConditionsContent')}
+              </Text>
+              <Text style={styles.modalText}>
+                By accepting these terms, you agree that all content you
+                contribute to LangQuest will be freely available worldwide under
+                the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.
+              </Text>
+              <Text style={styles.modalText}>
+                This means your contributions can be used by anyone for any
+                purpose without attribution. We collect minimal user data: only
+                your email (for account recovery) and newsletter subscription if
+                opted in.
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -110,7 +149,9 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
                 }}
                 style={{ marginTop: spacing.medium }}
               >
-                <Text style={sharedStyles.link}>View Full Data Policy</Text>
+                <Text style={[sharedStyles.link, styles.linkText]}>
+                  View Full Data Policy
+                </Text>
               </TouchableOpacity>
             </ScrollView>
             <View style={styles.termsCheckbox}>
@@ -157,39 +198,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background || 'white',
     padding: 20,
     borderRadius: 20,
-    width: '80%',
-    maxHeight: '80%',
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
     alignItems: 'center'
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%'
+    width: '100%',
+    marginBottom: 15
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 10
+    color: colors.text,
+    flex: 1
   },
   modalVersion: {
     fontSize: 14,
-    color: colors.text
+    color: colors.textSecondary
   },
   modalBody: {
-    flex: 1,
     width: '100%',
+    maxHeight: '60%'
+  },
+  modalBodyContent: {
     padding: 10
   },
   modalText: {
     color: colors.text,
-    marginBottom: 10
+    marginBottom: 15,
+    fontSize: 16,
+    lineHeight: 24
+  },
+  linkText: {
+    fontSize: 16,
+    textAlign: 'center'
   },
   termsCheckbox: {
     width: '100%',
@@ -203,5 +256,9 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5
+  },
+  closeButton: {
+    padding: 5,
+    marginLeft: 10
   }
 });
