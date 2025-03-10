@@ -297,12 +297,6 @@ export default function Quests() {
             <Text style={sharedStyles.title}>
               {projectName} {t('quests')}
             </Text>
-            <TouchableOpacity
-              onPress={toggleProjectStats}
-              style={styles.statsButton}
-            >
-              <Ionicons name="stats-chart" size={24} color={colors.text} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.searchContainer}>
@@ -344,6 +338,12 @@ export default function Quests() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
+          <TouchableOpacity
+            onPress={toggleProjectStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
       <Modal
@@ -422,6 +422,7 @@ const styles = StyleSheet.create({
     width: '100%'
   },
   statsButton: {
-    padding: spacing.small
+    padding: spacing.small,
+    alignSelf: 'flex-end'
   }
 });

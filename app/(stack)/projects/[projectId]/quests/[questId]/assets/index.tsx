@@ -315,12 +315,6 @@ export default function Assets() {
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={toggleQuestStats}
-              style={styles.statsButton}
-            >
-              <Ionicons name="stats-chart" size={24} color={colors.text} />
-            </TouchableOpacity>
           </View>
           <View style={styles.searchContainer}>
             <Ionicons
@@ -361,6 +355,12 @@ export default function Assets() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
+          <TouchableOpacity
+            onPress={toggleQuestStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
       <Modal
@@ -397,7 +397,8 @@ const styles = StyleSheet.create({
     width: '100%'
   },
   statsButton: {
-    padding: spacing.small
+    padding: spacing.small,
+    alignSelf: 'flex-end'
   },
   searchContainer: {
     flexDirection: 'row',
