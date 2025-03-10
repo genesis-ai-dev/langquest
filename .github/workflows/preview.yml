@@ -24,8 +24,19 @@ jobs:
         with:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Pull environment variables
+        run: eas env:pull --environment development
+
+      - name: Rename .env.local to .env
+        run: |
+          if [ -f .env.local ]; then
+            mv .env.local .env
+            echo "Renamed .env.local to .env"
+          else
+            echo "No .env.local file found, skipping rename"
+          fi
+
       - name: Fetch Supabase branch info
-        continue-on-error: true
         id: supabase-branch
         run: |
           BRANCH_DATA=$(curl -s \
@@ -43,27 +54,15 @@ jobs:
             # Get the ref from branch details
             PROJECT_ID=$(echo $BRANCH_DETAILS | jq -r .ref)
             echo "supabase_url=https://$PROJECT_ID.supabase.co" >> $GITHUB_OUTPUT
+
+            # Update or add Supabase URL to .env file
+            awk '!/^EXPO_PUBLIC_SUPABASE_URL=/' .env > .env.tmp || touch .env.tmp
+            echo "EXPO_PUBLIC_SUPABASE_URL=https://$PROJECT_ID.supabase.co" >> .env.tmp
+            mv .env.tmp .env
           else
-            echo "No matching branch found"
-            exit 1
+            echo "::warning::No Supabase branch found matching git branch '${{ env.BRANCH_NAME }}', using EAS env variables only."
+            exit 0
           fi
-
-      - name: Pull environment variables
-        run: eas env:pull --environment development
-
-      - name: Rename .env.local to .env
-        run: |
-          if [ -f .env.local ]; then
-            mv .env.local .env
-            echo "Renamed .env.local to .env"
-          else
-            echo "No .env.local file found, skipping rename"
-          fi
-
-      - name: Update .env with branch URL
-        run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ steps.supabase-branch.outputs.supabase_url }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
 
       - name: Create preview
         uses: expo/expo-github-action/preview@v8
