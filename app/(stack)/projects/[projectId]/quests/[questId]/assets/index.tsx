@@ -311,38 +311,38 @@ export default function Assets() {
           <View style={styles.headerContainer}>
             <TouchableOpacity
               onPress={() => router.back()}
-              style={sharedStyles.backButton}
+              style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-          </View>
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors.text}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t('searchAssets')}
-              placeholderTextColor={colors.text}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity
-              onPress={() => setIsFilterModalVisible(true)}
-              style={styles.filterIcon}
-            >
-              <Ionicons name="filter" size={20} color={colors.text} />
-              {getActiveOptionsCount() > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {getActiveOptionsCount()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={20}
+                color={colors.text}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('searchAssets')}
+                placeholderTextColor={colors.text}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity
+                onPress={() => setIsFilterModalVisible(true)}
+                style={styles.filterIcon}
+              >
+                <Ionicons name="filter" size={20} color={colors.text} />
+                {getActiveOptionsCount() > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {getActiveOptionsCount()}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <FlatList
@@ -390,9 +390,7 @@ export default function Assets() {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     marginBottom: spacing.medium,
     width: '100%'
   },
@@ -406,7 +404,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium
+    marginTop: spacing.medium,
+    marginBottom: spacing.medium,
+    width: '100%'
   },
   searchIcon: {
     marginRight: spacing.small
@@ -443,5 +443,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
+  },
+  backButton: {
+    padding: spacing.small
   }
 });

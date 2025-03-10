@@ -290,11 +290,11 @@ export default function Quests() {
           <View style={styles.headerContainer}>
             <TouchableOpacity
               onPress={() => router.back()}
-              style={sharedStyles.backButton}
+              style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={sharedStyles.title}>
+            <Text style={styles.title}>
               {projectName} {t('quests')}
             </Text>
           </View>
@@ -417,12 +417,23 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: spacing.medium,
     width: '100%'
   },
   statsButton: {
     padding: spacing.small,
     alignSelf: 'flex-end'
+  },
+  backButton: {
+    padding: spacing.small
+  },
+  title: {
+    fontSize: fontSizes.xxlarge,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginLeft: spacing.medium,
+    flex: 1,
+    textAlign: 'center'
   }
 });
