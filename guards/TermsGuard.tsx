@@ -21,7 +21,7 @@ type Language = typeof language.$inferSelect;
 
 export function TermsGuard({ children }: { children: React.ReactNode }) {
   const { currentUser, setCurrentUser, isLoading } = useAuth();
-  const { powersync } = useSystem();
+  const { powersync, supabaseConnector } = useSystem();
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(
     null
   );
@@ -45,7 +45,7 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
     } else if (!isLoading && currentUser && currentUser.terms_accepted) {
       // Resume syncing if not connected
       if (!powersync.connected) {
-        powersync.connect(useSystem().supabaseConnector);
+        powersync.connect(supabaseConnector);
       }
     }
   }, [currentUser, isLoading, powersync]);
@@ -91,110 +91,108 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
 
   // Otherwise, show terms modal and block rendering of children
   return (
-    <>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={termsModalVisible}
-        onRequestClose={() => {
-          // Only allow closing if not a new user (terms already accepted)
-          if (currentUser?.terms_accepted) {
-            setTermsModalVisible(false);
-          }
-        }}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {t('termsAndConditionsTitle')}
-              </Text>
-              <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  // Only allow closing if not a new user (terms already accepted)
-                  if (currentUser?.terms_accepted) {
-                    setTermsModalVisible(false);
-                  }
-                }}
-                disabled={!currentUser?.terms_accepted}
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={
-                    currentUser?.terms_accepted
-                      ? colors.text
-                      : colors.textSecondary
-                  }
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Language Selector */}
-            <View style={styles.languageSelector}>
-              <LanguageSelect
-                value={selectedLanguage?.id || ''}
-                onChange={(lang) => setSelectedLanguage(lang)}
-                containerStyle={{ flex: 1 }}
-              />
-            </View>
-
-            <ScrollView
-              style={styles.modalBody}
-              contentContainerStyle={styles.modalBodyContent}
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={termsModalVisible}
+      onRequestClose={() => {
+        // Only allow closing if not a new user (terms already accepted)
+        if (currentUser?.terms_accepted) {
+          setTermsModalVisible(false);
+        }
+      }}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {t('termsAndConditionsTitle')}
+            </Text>
+            <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                // Only allow closing if not a new user (terms already accepted)
+                if (currentUser?.terms_accepted) {
+                  setTermsModalVisible(false);
+                }
+              }}
+              disabled={!currentUser?.terms_accepted}
             >
-              <Text style={styles.modalText}>
-                {t('termsAndConditionsContent')}
+              <Ionicons
+                name="close"
+                size={24}
+                color={
+                  currentUser?.terms_accepted
+                    ? colors.text
+                    : colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Language Selector */}
+          <View style={styles.languageSelector}>
+            <LanguageSelect
+              value={selectedLanguage?.id || ''}
+              onChange={(lang) => setSelectedLanguage(lang)}
+              containerStyle={{ flex: 1 }}
+            />
+          </View>
+
+          <ScrollView
+            style={styles.modalBody}
+            contentContainerStyle={styles.modalBodyContent}
+          >
+            <Text style={styles.modalText}>
+              {t('termsAndConditionsContent')}
+            </Text>
+            <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
+            <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                // Open the full data policy in browser
+                Linking.openURL(t('dataPolicyUrl'));
+              }}
+              style={{ marginTop: spacing.medium }}
+            >
+              <Text style={[sharedStyles.link, styles.linkText]}>
+                {t('viewFullDataPolicy')}
               </Text>
-              <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
-              <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  // Open the full data policy in browser
-                  Linking.openURL(t('dataPolicyUrl'));
-                }}
-                style={{ marginTop: spacing.medium }}
-              >
-                <Text style={[sharedStyles.link, styles.linkText]}>
-                  {t('viewFullDataPolicy')}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <View style={styles.termsCheckbox}>
-              <TouchableOpacity
-                onPress={() => setTermsAccepted(!termsAccepted)}
-                style={styles.checkboxContainer}
-              >
-                <Ionicons
-                  name={termsAccepted ? 'checkbox' : 'square-outline'}
-                  size={24}
-                  color={colors.text}
-                  style={styles.checkboxIcon}
-                />
-                <Text style={styles.checkboxText}>{t('agreeToTerms')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.button,
-                  { flex: 1 },
-                  !termsAccepted && styles.disabledButton
-                ]}
-                onPress={handleAcceptTerms}
-                disabled={!termsAccepted || isProcessing}
-              >
-                <Text style={sharedStyles.buttonText}>
-                  {isProcessing ? t('processing') : t('accept')}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
+          </ScrollView>
+          <View style={styles.termsCheckbox}>
+            <TouchableOpacity
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              style={styles.checkboxContainer}
+            >
+              <Ionicons
+                name={termsAccepted ? 'checkbox' : 'square-outline'}
+                size={24}
+                color={colors.text}
+                style={styles.checkboxIcon}
+              />
+              <Text style={styles.checkboxText}>{t('agreeToTerms')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[
+                sharedStyles.button,
+                { flex: 1 },
+                !termsAccepted && styles.disabledButton
+              ]}
+              onPress={handleAcceptTerms}
+              disabled={!termsAccepted || isProcessing}
+            >
+              <Text style={sharedStyles.buttonText}>
+                {isProcessing ? t('processing') : t('accept')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </>
+      </View>
+    </Modal>
   );
 }
 

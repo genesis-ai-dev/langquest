@@ -1,17 +1,16 @@
-import React, { useMemo, useEffect } from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
-import { router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { Drawer } from '@/components/Drawer';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
+import { TermsGuard } from '@/guards/TermsGuard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSystem } from '../db/powersync/system';
 import '../global.css';
-import { Drawer } from '@/components/Drawer';
-import { userService } from '@/database_services/userService';
-import { TermsGuard } from '@/guards/TermsGuard';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -116,11 +115,6 @@ function DeepLinkHandler() {
 }
 
 export default function RootLayout() {
-  const system = useSystem();
-  const db = useMemo(() => {
-    return system.powersync;
-  }, []);
-
   return (
     <AuthProvider>
       <ProjectProvider>

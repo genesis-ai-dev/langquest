@@ -382,8 +382,6 @@ export default function AssetView() {
     );
   };
 
-  const flatListRef = useRef<FlatList>(null);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LinearGradient
