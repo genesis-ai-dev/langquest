@@ -13,8 +13,35 @@ const { supabaseConnector, db } = system;
 
 export class UserService {
   async getUserById(id: string): Promise<User | null> {
-    const results = await db.select().from(profile).where(eq(profile.id, id));
-    return results[0];
+    try {
+      // Get the user profile from the database
+      const results = await db.select().from(profile).where(eq(profile.id, id));
+
+      if (results.length === 0) {
+        return null;
+      }
+
+      // Get the user metadata from auth
+      const { data: userData } = await supabaseConnector.client.auth.getUser();
+
+      // Combine the profile data with the user metadata
+      if (userData.user) {
+        const userMetadata = userData.user.user_metadata || {};
+
+        // Return the combined data
+        return {
+          ...results[0],
+          terms_accepted:
+            userMetadata.terms_accepted || results[0].terms_accepted,
+          terms_version: userMetadata.terms_version || results[0].terms_version
+        };
+      }
+
+      return results[0];
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      return null;
+    }
   }
 
   async validateCredentials(credentials: { email: string; password: string }) {
@@ -135,6 +162,8 @@ export class UserService {
         ...(data.terms_version && { terms_version: data.terms_version })
       };
 
+      console.log('Updating profile with data:', updateData);
+
       // Update profile in Supabase
       const { data: updatedProfile, error: profileError } =
         await supabaseConnector.client
@@ -144,8 +173,12 @@ export class UserService {
           .select()
           .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
 
+      console.log('Profile updated successfully:', updatedProfile);
       return updatedProfile;
     } catch (error) {
       console.error('Error updating user:', error);

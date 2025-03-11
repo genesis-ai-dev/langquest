@@ -28,6 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useForm, Controller } from 'react-hook-form';
 import { PasswordInput } from '@/components/PasswordInput';
+import { TermsModal } from '@/components/TermsModal';
+
 type Language = typeof language.$inferSelect;
 
 type RegisterFormData = {
@@ -109,6 +111,8 @@ export default function Register() {
       if (authError) {
         throw authError;
       }
+
+      console.log('User updated with terms acceptance in auth metadata');
 
       // Email confirmation is required
       Alert.alert(t('success'), t('checkEmail'), [
@@ -431,53 +435,13 @@ export default function Register() {
       </SafeAreaView>
 
       {/* Terms and Conditions Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <TermsModal
         visible={termsModalVisible}
-        onRequestClose={() => setTermsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {t('termsAndConditionsTitle')}
-              </Text>
-              <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
-              <TouchableOpacity
-                onPress={() => setTermsModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalText}>
-                {t('termsAndConditionsContent')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  // Open the full data policy in browser
-                  Linking.openURL('https://www.langquest.org/data-policy');
-                }}
-                style={{ marginTop: spacing.medium }}
-              >
-                <Text style={sharedStyles.link}>View Full Data Policy</Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[sharedStyles.button, { flex: 1 }]}
-                onPress={() => {
-                  setTermsModalVisible(false);
-                }}
-              >
-                <Text style={sharedStyles.buttonText}>{t('ok')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setTermsModalVisible(false)}
+        canDismiss={true}
+        showAcceptButton={false}
+        initialLanguage={currentLanguage}
+      />
     </LinearGradient>
   );
 }
@@ -487,51 +451,5 @@ const styles = StyleSheet.create({
     color: colors.error || '#ff0000',
     fontSize: 12,
     alignSelf: 'flex-start'
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 20,
-    width: '80%',
-    maxHeight: '80%',
-    alignItems: 'center'
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%'
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10
-  },
-  modalVersion: {
-    fontSize: 14,
-    color: colors.text
-  },
-  closeButton: {
-    padding: 5
-  },
-  modalBody: {
-    flex: 1,
-    width: '100%',
-    padding: 10
-  },
-  modalText: {
-    color: colors.text,
-    marginBottom: 10
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    width: '100%',
-    marginTop: 20
   }
 });
