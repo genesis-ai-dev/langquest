@@ -363,6 +363,72 @@ export const translations = {
     english: 'Password changes are only available when online',
     spanish:
       'Los cambios de contraseña solo están disponibles cuando está en línea'
+  },
+  termsAndConditionsTitle: {
+    english: 'Terms and Conditions',
+    spanish: 'Términos y Condiciones'
+  },
+  termsAndConditionsContent: {
+    english:
+      'LangQuest is dedicated to language preservation and making language data freely available to everyone. All contributions to LangQuest are licensed under CC0 1.0 Universal Public Domain Dedication. Once content is dedicated to the public domain, it cannot be removed or revoked. Future versions of these terms will not change this dedication.',
+    spanish:
+      'LangQuest está dedicado a la preservación de idiomas y a hacer que los datos lingüísticos estén disponibles gratuitamente para todos. Todas las contribuciones a LangQuest están licenciadas bajo la Dedicación de Dominio Público CC0 1.0 Universal. Una vez que el contenido se dedica al dominio público, no se puede eliminar ni revocar. Las versiones futuras de estos términos no cambiarán esta dedicación.'
+  },
+  agreeToTerms: {
+    english: 'I have read and agree to the Terms and Conditions',
+    spanish: 'He leído y acepto los Términos y Condiciones'
+  },
+  viewTerms: {
+    english: 'View Terms and Conditions',
+    spanish: 'Ver Términos y Condiciones'
+  },
+  termsRequired: {
+    english: 'You must agree to the Terms and Conditions',
+    spanish: 'Debe aceptar los Términos y Condiciones'
+  },
+  termsVersion: {
+    english: 'Terms Version 1.0',
+    spanish: 'Versión de Términos 1.0'
+  },
+  status: {
+    english: 'Status',
+    spanish: 'Estado'
+  },
+  accepted: {
+    english: 'Accepted',
+    spanish: 'Aceptado'
+  },
+  notAccepted: {
+    english: 'Not Accepted',
+    spanish: 'No Aceptado'
+  },
+  processing: {
+    english: 'Processing...',
+    spanish: 'Procesando...'
+  },
+  accept: {
+    english: 'Accept',
+    spanish: 'Aceptar'
+  },
+  termsContributionInfo: {
+    english:
+      'By accepting these terms, you agree that all content you contribute to LangQuest will be freely available worldwide under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+    spanish:
+      'Al aceptar estos términos, acepta que todo el contenido que aporte a LangQuest estará disponible gratuitamente en todo el mundo bajo la Dedicación de Dominio Público CC0 1.0 Universal (CC0 1.0).'
+  },
+  termsDataInfo: {
+    english:
+      'This means your contributions can be used by anyone for any purpose without attribution. We collect minimal user data: only your email (for account recovery) and newsletter subscription if opted in.',
+    spanish:
+      'Esto significa que sus contribuciones pueden ser utilizadas por cualquier persona para cualquier propósito sin atribución. Recopilamos datos mínimos de usuario: solo su correo electrónico (para recuperación de cuenta) y suscripción al boletín si se inscribe.'
+  },
+  viewFullDataPolicy: {
+    english: 'View Full Data Policy',
+    spanish: 'Ver Política de Datos Completa'
+  },
+  dataPolicyUrl: {
+    english: 'https://www.langquest.org/data-policy',
+    spanish: 'https://www.langquest.org/data-policy'
   }
   // Add more translation keys as needed...
 } as const;

@@ -25,6 +25,9 @@ expo-env.d.ts
 # @end expo-cli
 app/sqlite_in_expo.md
 *.db
+*.db-shm
+*.db-wal
+
 ~$langquest types.xlsx
 langquest types.xlsx
 .env

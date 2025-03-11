@@ -63,6 +63,8 @@ export class UserService {
       password: string;
     };
     ui_language_id: string;
+    terms_accepted?: boolean;
+    terms_version?: string;
   }) {
     try {
       // Update the anonymous user with email and password
@@ -80,7 +82,9 @@ export class UserService {
         .from('profile')
         .update({
           username: input.credentials.username,
-          ui_language_id: input.ui_language_id
+          ui_language_id: input.ui_language_id,
+          terms_accepted: input.terms_accepted || false,
+          terms_version: input.terms_version || null
         })
         .eq('id', updateData.user.id);
 
@@ -108,6 +112,8 @@ export class UserService {
     ui_language_id?: string;
     // avatar?: string;
     password?: string;
+    terms_accepted?: boolean;
+    terms_version?: string;
   }): Promise<User | null> {
     try {
       // Update auth if password is changing
@@ -121,8 +127,12 @@ export class UserService {
 
       // Update profile data
       const updateData: Partial<User> = {
-        ...(data.ui_language_id && { ui_language_id: data.ui_language_id })
-        // ...(data.avatar && { avatar: data.avatar })
+        ...(data.ui_language_id && { ui_language_id: data.ui_language_id }),
+        // ...(data.avatar && { avatar: data.avatar }),
+        ...(data.terms_accepted !== undefined && {
+          terms_accepted: data.terms_accepted
+        }),
+        ...(data.terms_version && { terms_version: data.terms_version })
       };
 
       // Update profile in Supabase
