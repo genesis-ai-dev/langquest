@@ -57,7 +57,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 export default function Projects() {
   const { t } = useTranslation();
   const { goToProject } = useProjectContext();
-  const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
@@ -105,40 +104,30 @@ export default function Projects() {
   const filterProjects = async () => {
     let filtered = projects;
 
-    if (showLanguageFilters) {
-      filtered = await Promise.all(
-        filtered.filter(async (project) => {
-          const sourceLanguage = await languageService.getLanguageById(
-            project.source_language_id
-          );
-          const targetLanguage = await languageService.getLanguageById(
-            project.target_language_id
-          );
+    filtered = await Promise.all(
+      filtered.filter(async (project) => {
+        const sourceLanguage = await languageService.getLanguageById(
+          project.source_language_id
+        );
+        const targetLanguage = await languageService.getLanguageById(
+          project.target_language_id
+        );
 
-          const sourceMatch =
-            sourceFilter === 'All' ||
-            sourceLanguage?.native_name === sourceFilter ||
-            sourceLanguage?.english_name === sourceFilter;
+        const sourceMatch =
+          sourceFilter === 'All' ||
+          sourceLanguage?.native_name === sourceFilter ||
+          sourceLanguage?.english_name === sourceFilter;
 
-          const targetMatch =
-            targetFilter === 'All' ||
-            targetLanguage?.native_name === targetFilter ||
-            targetLanguage?.english_name === targetFilter;
+        const targetMatch =
+          targetFilter === 'All' ||
+          targetLanguage?.native_name === targetFilter ||
+          targetLanguage?.english_name === targetFilter;
 
-          return sourceMatch && targetMatch;
-        })
-      );
-    }
+        return sourceMatch && targetMatch;
+      })
+    );
 
     setFilteredProjects(filtered);
-  };
-
-  const toggleSearch = () => {
-    setShowLanguageFilters(!showLanguageFilters);
-    if (!showLanguageFilters) {
-      setSourceFilter('All');
-      setTargetFilter('All');
-    }
   };
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
@@ -161,51 +150,28 @@ export default function Projects() {
           >
             <Text style={sharedStyles.title}>{t('projects')}</Text>
 
-            <View style={sharedStyles.iconBar}>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  !showLanguageFilters && sharedStyles.selectedIconButton
-                ]}
-                onPress={() => setShowLanguageFilters(false)}
-              >
-                <Ionicons name="star-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  showLanguageFilters && sharedStyles.selectedIconButton
-                ]}
-                onPress={toggleSearch}
-              >
-                <Ionicons name="search-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
+            <View style={sharedStyles.filtersContainer}>
+              <CustomDropdown
+                label={t('source')}
+                value={sourceFilter}
+                options={[t('all'), ...languages]}
+                onSelect={setSourceFilter}
+                isOpen={openDropdown === 'source'}
+                onToggle={() => toggleDropdown('source')}
+                fullWidth={false}
+                search={true}
+              />
+              <CustomDropdown
+                label={t('target')}
+                value={targetFilter}
+                options={[t('all'), ...languages]}
+                onSelect={setTargetFilter}
+                isOpen={openDropdown === 'target'}
+                onToggle={() => toggleDropdown('target')}
+                fullWidth={false}
+                search={true}
+              />
             </View>
-
-            {showLanguageFilters && (
-              <View style={sharedStyles.filtersContainer}>
-                <CustomDropdown
-                  label={t('source')}
-                  value={sourceFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setSourceFilter}
-                  isOpen={openDropdown === 'source'}
-                  onToggle={() => toggleDropdown('source')}
-                  fullWidth={false}
-                  search={true}
-                />
-                <CustomDropdown
-                  label={t('target')}
-                  value={targetFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setTargetFilter}
-                  isOpen={openDropdown === 'target'}
-                  onToggle={() => toggleDropdown('target')}
-                  fullWidth={false}
-                  search={true}
-                />
-              </View>
-            )}
 
             <FlatList
               data={filteredProjects}
