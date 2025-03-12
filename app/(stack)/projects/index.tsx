@@ -13,6 +13,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Constants for storage keys
+const SOURCE_FILTER_KEY = 'project_source_filter';
+const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
 
@@ -67,6 +72,42 @@ export default function Projects() {
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const { signOut } = useAuth();
+
+  // Load stored filter settings on component mount
+  useEffect(() => {
+    const loadSavedFilters = async () => {
+      try {
+        const savedSourceFilter = await AsyncStorage.getItem(SOURCE_FILTER_KEY);
+        const savedTargetFilter = await AsyncStorage.getItem(TARGET_FILTER_KEY);
+
+        if (savedSourceFilter !== null) {
+          setSourceFilter(savedSourceFilter);
+        }
+
+        if (savedTargetFilter !== null) {
+          setTargetFilter(savedTargetFilter);
+        }
+      } catch (error) {
+        console.error('Error loading saved filters:', error);
+      }
+    };
+
+    loadSavedFilters();
+  }, []);
+
+  // Save filter settings when they change
+  useEffect(() => {
+    const saveFilters = async () => {
+      try {
+        await AsyncStorage.setItem(SOURCE_FILTER_KEY, sourceFilter);
+        await AsyncStorage.setItem(TARGET_FILTER_KEY, targetFilter);
+      } catch (error) {
+        console.error('Error saving filters:', error);
+      }
+    };
+
+    saveFilters();
+  }, [sourceFilter, targetFilter]);
 
   // Load projects and languages on mount
   useEffect(() => {
@@ -192,6 +233,28 @@ export default function Projects() {
     if (project) goToProject(project);
   };
 
+  // Custom setSourceFilter function that validates against available options
+  const handleSourceFilterChange = (value: string) => {
+    // Only set the filter if the value is 'All' or exists in sourceLanguages
+    if (value === 'All' || sourceLanguages.includes(value)) {
+      setSourceFilter(value);
+    } else {
+      // Fallback to 'All' if value doesn't exist in available options
+      setSourceFilter('All');
+    }
+  };
+
+  // Custom setTargetFilter function that validates against available options
+  const handleTargetFilterChange = (value: string) => {
+    // Only set the filter if the value is 'All' or exists in targetLanguages
+    if (value === 'All' || targetLanguages.includes(value)) {
+      setTargetFilter(value);
+    } else {
+      // Fallback to 'All' if value doesn't exist in available options
+      setTargetFilter('All');
+    }
+  };
+
   return (
     <AuthGuard>
       <LinearGradient
@@ -209,7 +272,7 @@ export default function Projects() {
                 label={t('source')}
                 value={sourceFilter}
                 options={[t('all'), ...sourceLanguages]}
-                onSelect={setSourceFilter}
+                onSelect={handleSourceFilterChange}
                 isOpen={openDropdown === 'source'}
                 onToggle={() => toggleDropdown('source')}
                 fullWidth={false}
@@ -219,7 +282,7 @@ export default function Projects() {
                 label={t('target')}
                 value={targetFilter}
                 options={[t('all'), ...targetLanguages]}
-                onSelect={setTargetFilter}
+                onSelect={handleTargetFilterChange}
                 isOpen={openDropdown === 'target'}
                 onToggle={() => toggleDropdown('target')}
                 fullWidth={false}
