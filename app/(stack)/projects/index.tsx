@@ -64,7 +64,8 @@ export default function Projects() {
   );
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
+  const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
+  const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const { signOut } = useAuth();
 
   // Load projects and languages on mount
@@ -91,43 +92,96 @@ export default function Projects() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
-      const languageNames = loadedLanguages
-        .map((lang) => lang.native_name || lang.english_name)
+      // Get all languages
+      const allLanguages = await languageService.getAllLanguages();
+
+      // Get unique source languages from projects
+      const uniqueSourceLanguageIds = [
+        ...new Set(projects.map((project) => project.source_language_id))
+      ];
+
+      // Get unique target languages from projects
+      const uniqueTargetLanguageIds = [
+        ...new Set(projects.map((project) => project.target_language_id))
+      ];
+
+      // Filter and map source languages
+      const sourceLanguageNames = uniqueSourceLanguageIds
+        .map((id) => {
+          const lang = allLanguages.find((l) => l.id === id);
+          return lang?.native_name || lang?.english_name;
+        })
         .filter((name): name is string => name !== null);
-      setLanguages(languageNames);
+
+      // Filter and map target languages
+      const targetLanguageNames = uniqueTargetLanguageIds
+        .map((id) => {
+          const lang = allLanguages.find((l) => l.id === id);
+          return lang?.native_name || lang?.english_name;
+        })
+        .filter((name): name is string => name !== null);
+
+      setSourceLanguages(sourceLanguageNames);
+      setTargetLanguages(targetLanguageNames);
     } catch (error) {
       console.error('Error loading languages:', error);
     }
   };
 
+  // Update language lists when projects change
+  useEffect(() => {
+    if (projects.length > 0) {
+      loadLanguages();
+    }
+  }, [projects]);
+
   const filterProjects = async () => {
-    let filtered = projects;
+    try {
+      // Start with all projects
+      let filtered = [...projects];
 
-    filtered = await Promise.all(
-      filtered.filter(async (project) => {
-        const sourceLanguage = await languageService.getLanguageById(
-          project.source_language_id
+      // Get all languages to avoid repeated calls
+      const allLanguages = await languageService.getAllLanguages();
+
+      // Create a new array with filtered results
+      const results = [];
+
+      // Go through each project
+      for (const project of filtered) {
+        // Find the source and target language objects
+        const sourceLanguage = allLanguages.find(
+          (l) => l.id === project.source_language_id
         );
-        const targetLanguage = await languageService.getLanguageById(
-          project.target_language_id
+        const targetLanguage = allLanguages.find(
+          (l) => l.id === project.target_language_id
         );
 
+        // Get language names (prefer native name, fall back to English name)
+        const sourceName =
+          sourceLanguage?.native_name || sourceLanguage?.english_name || '';
+        const targetName =
+          targetLanguage?.native_name || targetLanguage?.english_name || '';
+
+        // Check if this project matches the filters
         const sourceMatch =
-          sourceFilter === 'All' ||
-          sourceLanguage?.native_name === sourceFilter ||
-          sourceLanguage?.english_name === sourceFilter;
+          sourceFilter === 'All' || sourceFilter === sourceName;
 
         const targetMatch =
-          targetFilter === 'All' ||
-          targetLanguage?.native_name === targetFilter ||
-          targetLanguage?.english_name === targetFilter;
+          targetFilter === 'All' || targetFilter === targetName;
 
-        return sourceMatch && targetMatch;
-      })
-    );
+        // If both filters match, include this project
+        if (sourceMatch && targetMatch) {
+          results.push(project);
+        }
+      }
 
-    setFilteredProjects(filtered);
+      // Update the filtered projects state
+      setFilteredProjects(results);
+    } catch (error) {
+      console.error('Error filtering projects:', error);
+      // Fall back to showing all projects if filtering fails
+      setFilteredProjects(projects);
+    }
   };
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
@@ -154,7 +208,7 @@ export default function Projects() {
               <CustomDropdown
                 label={t('source')}
                 value={sourceFilter}
-                options={[t('all'), ...languages]}
+                options={[t('all'), ...sourceLanguages]}
                 onSelect={setSourceFilter}
                 isOpen={openDropdown === 'source'}
                 onToggle={() => toggleDropdown('source')}
@@ -164,7 +218,7 @@ export default function Projects() {
               <CustomDropdown
                 label={t('target')}
                 value={targetFilter}
-                options={[t('all'), ...languages]}
+                options={[t('all'), ...targetLanguages]}
                 onSelect={setTargetFilter}
                 isOpen={openDropdown === 'target'}
                 onToggle={() => toggleDropdown('target')}
