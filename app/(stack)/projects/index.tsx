@@ -13,6 +13,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Constants for storage keys
+const SOURCE_FILTER_KEY = 'project_source_filter';
+const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
 
@@ -57,7 +62,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 export default function Projects() {
   const { t } = useTranslation();
   const { goToProject } = useProjectContext();
-  const [showLanguageFilters, setShowLanguageFilters] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
@@ -65,8 +69,45 @@ export default function Projects() {
   );
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
+  const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
+  const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const { signOut } = useAuth();
+
+  // Load stored filter settings on component mount
+  useEffect(() => {
+    const loadSavedFilters = async () => {
+      try {
+        const savedSourceFilter = await AsyncStorage.getItem(SOURCE_FILTER_KEY);
+        const savedTargetFilter = await AsyncStorage.getItem(TARGET_FILTER_KEY);
+
+        if (savedSourceFilter !== null) {
+          setSourceFilter(savedSourceFilter);
+        }
+
+        if (savedTargetFilter !== null) {
+          setTargetFilter(savedTargetFilter);
+        }
+      } catch (error) {
+        console.error('Error loading saved filters:', error);
+      }
+    };
+
+    loadSavedFilters();
+  }, []);
+
+  // Save filter settings when they change
+  useEffect(() => {
+    const saveFilters = async () => {
+      try {
+        await AsyncStorage.setItem(SOURCE_FILTER_KEY, sourceFilter);
+        await AsyncStorage.setItem(TARGET_FILTER_KEY, targetFilter);
+      } catch (error) {
+        console.error('Error saving filters:', error);
+      }
+    };
+
+    saveFilters();
+  }, [sourceFilter, targetFilter]);
 
   // Load projects and languages on mount
   useEffect(() => {
@@ -92,52 +133,95 @@ export default function Projects() {
 
   const loadLanguages = async () => {
     try {
-      const loadedLanguages = await languageService.getUiReadyLanguages();
-      const languageNames = loadedLanguages
-        .map((lang) => lang.native_name || lang.english_name)
+      // Get all languages
+      const allLanguages = await languageService.getAllLanguages();
+
+      // Get unique source languages from projects
+      const uniqueSourceLanguageIds = [
+        ...new Set(projects.map((project) => project.source_language_id))
+      ];
+
+      // Get unique target languages from projects
+      const uniqueTargetLanguageIds = [
+        ...new Set(projects.map((project) => project.target_language_id))
+      ];
+
+      // Filter and map source languages
+      const sourceLanguageNames = uniqueSourceLanguageIds
+        .map((id) => {
+          const lang = allLanguages.find((l) => l.id === id);
+          return lang?.native_name || lang?.english_name;
+        })
         .filter((name): name is string => name !== null);
-      setLanguages(languageNames);
+
+      // Filter and map target languages
+      const targetLanguageNames = uniqueTargetLanguageIds
+        .map((id) => {
+          const lang = allLanguages.find((l) => l.id === id);
+          return lang?.native_name || lang?.english_name;
+        })
+        .filter((name): name is string => name !== null);
+
+      setSourceLanguages(sourceLanguageNames);
+      setTargetLanguages(targetLanguageNames);
     } catch (error) {
       console.error('Error loading languages:', error);
     }
   };
 
-  const filterProjects = async () => {
-    let filtered = projects;
-
-    if (showLanguageFilters) {
-      filtered = await Promise.all(
-        filtered.filter(async (project) => {
-          const sourceLanguage = await languageService.getLanguageById(
-            project.source_language_id
-          );
-          const targetLanguage = await languageService.getLanguageById(
-            project.target_language_id
-          );
-
-          const sourceMatch =
-            sourceFilter === 'All' ||
-            sourceLanguage?.native_name === sourceFilter ||
-            sourceLanguage?.english_name === sourceFilter;
-
-          const targetMatch =
-            targetFilter === 'All' ||
-            targetLanguage?.native_name === targetFilter ||
-            targetLanguage?.english_name === targetFilter;
-
-          return sourceMatch && targetMatch;
-        })
-      );
+  // Update language lists when projects change
+  useEffect(() => {
+    if (projects.length > 0) {
+      loadLanguages();
     }
+  }, [projects]);
 
-    setFilteredProjects(filtered);
-  };
+  const filterProjects = async () => {
+    try {
+      // Start with all projects
+      let filtered = [...projects];
 
-  const toggleSearch = () => {
-    setShowLanguageFilters(!showLanguageFilters);
-    if (!showLanguageFilters) {
-      setSourceFilter('All');
-      setTargetFilter('All');
+      // Get all languages to avoid repeated calls
+      const allLanguages = await languageService.getAllLanguages();
+
+      // Create a new array with filtered results
+      const results = [];
+
+      // Go through each project
+      for (const project of filtered) {
+        // Find the source and target language objects
+        const sourceLanguage = allLanguages.find(
+          (l) => l.id === project.source_language_id
+        );
+        const targetLanguage = allLanguages.find(
+          (l) => l.id === project.target_language_id
+        );
+
+        // Get language names (prefer native name, fall back to English name)
+        const sourceName =
+          sourceLanguage?.native_name || sourceLanguage?.english_name || '';
+        const targetName =
+          targetLanguage?.native_name || targetLanguage?.english_name || '';
+
+        // Check if this project matches the filters
+        const sourceMatch =
+          sourceFilter === 'All' || sourceFilter === sourceName;
+
+        const targetMatch =
+          targetFilter === 'All' || targetFilter === targetName;
+
+        // If both filters match, include this project
+        if (sourceMatch && targetMatch) {
+          results.push(project);
+        }
+      }
+
+      // Update the filtered projects state
+      setFilteredProjects(results);
+    } catch (error) {
+      console.error('Error filtering projects:', error);
+      // Fall back to showing all projects if filtering fails
+      setFilteredProjects(projects);
     }
   };
 
@@ -147,6 +231,28 @@ export default function Projects() {
 
   const handleExplore = (project: Project) => {
     if (project) goToProject(project);
+  };
+
+  // Custom setSourceFilter function that validates against available options
+  const handleSourceFilterChange = (value: string) => {
+    // Only set the filter if the value is 'All' or exists in sourceLanguages
+    if (value === 'All' || sourceLanguages.includes(value)) {
+      setSourceFilter(value);
+    } else {
+      // Fallback to 'All' if value doesn't exist in available options
+      setSourceFilter('All');
+    }
+  };
+
+  // Custom setTargetFilter function that validates against available options
+  const handleTargetFilterChange = (value: string) => {
+    // Only set the filter if the value is 'All' or exists in targetLanguages
+    if (value === 'All' || targetLanguages.includes(value)) {
+      setTargetFilter(value);
+    } else {
+      // Fallback to 'All' if value doesn't exist in available options
+      setTargetFilter('All');
+    }
   };
 
   return (
@@ -161,51 +267,28 @@ export default function Projects() {
           >
             <Text style={sharedStyles.title}>{t('projects')}</Text>
 
-            <View style={sharedStyles.iconBar}>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  !showLanguageFilters && sharedStyles.selectedIconButton
-                ]}
-                onPress={() => setShowLanguageFilters(false)}
-              >
-                <Ionicons name="star-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  sharedStyles.iconButton,
-                  showLanguageFilters && sharedStyles.selectedIconButton
-                ]}
-                onPress={toggleSearch}
-              >
-                <Ionicons name="search-outline" size={24} color={colors.text} />
-              </TouchableOpacity>
+            <View style={sharedStyles.filtersContainer}>
+              <CustomDropdown
+                label={t('source')}
+                value={sourceFilter}
+                options={[t('all'), ...sourceLanguages]}
+                onSelect={handleSourceFilterChange}
+                isOpen={openDropdown === 'source'}
+                onToggle={() => toggleDropdown('source')}
+                fullWidth={false}
+                search={true}
+              />
+              <CustomDropdown
+                label={t('target')}
+                value={targetFilter}
+                options={[t('all'), ...targetLanguages]}
+                onSelect={handleTargetFilterChange}
+                isOpen={openDropdown === 'target'}
+                onToggle={() => toggleDropdown('target')}
+                fullWidth={false}
+                search={true}
+              />
             </View>
-
-            {showLanguageFilters && (
-              <View style={sharedStyles.filtersContainer}>
-                <CustomDropdown
-                  label={t('source')}
-                  value={sourceFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setSourceFilter}
-                  isOpen={openDropdown === 'source'}
-                  onToggle={() => toggleDropdown('source')}
-                  fullWidth={false}
-                  search={true}
-                />
-                <CustomDropdown
-                  label={t('target')}
-                  value={targetFilter}
-                  options={[t('all'), ...languages]}
-                  onSelect={setTargetFilter}
-                  isOpen={openDropdown === 'target'}
-                  onToggle={() => toggleDropdown('target')}
-                  fullWidth={false}
-                  search={true}
-                />
-              </View>
-            )}
 
             <FlatList
               data={filteredProjects}
