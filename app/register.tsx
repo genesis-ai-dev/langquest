@@ -97,7 +97,7 @@ export default function Register() {
               terms_version: '1.0'
             }
           },
-          { emailRedirectTo: 'langquest://' }
+          { emailRedirectTo: 'https://langquest.org/registration-confirmation' }
         );
 
       if (authError) {

@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { LogBox } from 'react-native';
+import { LogBox, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -90,6 +90,32 @@ function DeepLinkHandler() {
             }
           }
           router.replace('/reset-password');
+          break;
+
+        case 'registration-confirmation':
+          console.log('[Deep Link] Handling registration confirmation');
+          // Set the session with the tokens
+          if (allParams.access_token && allParams.refresh_token) {
+            try {
+              await system.supabaseConnector.client.auth.setSession({
+                access_token: allParams.access_token,
+                refresh_token: allParams.refresh_token
+              });
+              // Show success message and navigate to login
+              Alert.alert(
+                'Registration Successful',
+                'Your account has been verified. You can now log in.',
+                [{ text: 'OK', onPress: () => router.replace('/') }]
+              );
+            } catch (error) {
+              console.error('[Deep Link] Error setting session:', error);
+              Alert.alert(
+                'Registration Error',
+                'There was an error verifying your account. Please try again.',
+                [{ text: 'OK', onPress: () => router.replace('/') }]
+              );
+            }
+          }
           break;
 
         case 'projects':

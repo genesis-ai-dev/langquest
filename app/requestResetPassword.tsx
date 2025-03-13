@@ -69,7 +69,7 @@ export default function RequestResetPassword() {
         await supabaseConnector.client.auth.resetPasswordForEmail(
           data.email.toLowerCase().trim(),
           {
-            redirectTo: `langquest://reset-password`
+            redirectTo: `https://langquest.org/reset-password`
           }
         );
 

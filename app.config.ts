@@ -39,6 +39,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             pathPrefix: '/reset-password'
           },
           {
+            scheme: 'https',
+            host: 'langquest.org',
+            pathPrefix: '/registration-confirmation'
+          },
+          {
             scheme: 'langquest',
             host: '*'
           }
