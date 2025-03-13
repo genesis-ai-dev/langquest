@@ -15,6 +15,7 @@ import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import {
   borderRadius,
   colors,
@@ -22,18 +23,22 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
+import {
+  getLocalUriFromAssetId,
+  ensureAssetLoaded
+} from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Alert,
   Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -89,6 +94,9 @@ export default function AssetView() {
   const [translationLanguages, setTranslationLanguages] = useState<
     Record<string, typeof language.$inferSelect>
   >({});
+  // const [audioUris, setAudioUris] = useState<Record<string, string>>({});
+  // const [imageUris, setImageUris] = useState<string[]>([]);
+  // const [loadingUris, setLoadingUris] = useState(true);
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -101,8 +109,36 @@ export default function AssetView() {
     );
   };
 
+  const allAttachmentIds = React.useMemo(() => {
+    if (!asset || !assetContent) return [];
+
+    // Collect all attachment IDs
+    const contentAudioIds = assetContent
+      .filter((content) => content.audio_id)
+      .map((content) => content.audio_id!)
+      .filter(Boolean); // Remove any undefined values
+
+    const imageIds = asset?.images || [];
+
+    const translationAudioIds = translations
+      .filter((translation) => translation.audio)
+      .map((translation) => translation.audio!)
+      .filter(Boolean);
+
+    return [...contentAudioIds, ...imageIds, ...translationAudioIds];
+  }, [asset, assetContent, translations]);
+
+  // Use the hook to watch attachment states
+  const { attachmentUris, loadingAttachments } =
+    useAttachmentStates(allAttachmentIds);
+
   useEffect(() => {
     loadAssetAndTranslations();
+
+    // Ensure attachments are loaded into temp queue
+    if (assetId) {
+      ensureAssetLoaded(assetId);
+    }
   }, [assetId]);
 
   // Add a debug effect to monitor state changes
@@ -125,6 +161,7 @@ export default function AssetView() {
           loadAssetAndTranslations();
         }
       },
+
       { signal: abortController.signal }
     );
 
@@ -164,6 +201,13 @@ export default function AssetView() {
       abortController.abort();
     };
   }, [assetId, translations]);
+
+  // useEffect(() => {
+  //   // Only proceed if we have both asset and assetContent loaded
+  //   if (asset && assetContent && assetContent.length > 0) {
+  //     loadAllUris();
+  //   }
+  // }, [asset, assetContent]);
 
   // const loadTranslationData = async () => {
   //   if (asset) {
@@ -230,6 +274,9 @@ export default function AssetView() {
       const loadedTranslations =
         await translationService.getTranslationsByAssetId(assetId);
       setTranslations(loadedTranslations);
+
+      // After loading asset data, load the URIs
+      // await loadAllUris();
     } catch (error) {
       console.error('Error loading asset and translations:', error, assetId);
       Alert.alert('Error', 'Failed to load asset data');
@@ -237,6 +284,49 @@ export default function AssetView() {
       setIsLoading(false);
     }
   };
+
+  // Load all URIs function
+  // const loadAllUris = async () => {
+  //   setLoadingUris(true);
+
+  //   // Ensure the asset is loaded in temp queue if needed
+  //   if (assetId) {
+  //     await ensureAssetLoaded(assetId);
+  //   }
+
+  //   // Load image URIs if asset has images
+  //   if (asset?.images && asset.images.length > 0) {
+  //     const resolvedImageUris = await Promise.all(
+  //       asset.images.map(async (imageId) => {
+  //         const uri = await getLocalUriFromAssetId(imageId);
+  //         return uri || ''; // Fallback to empty string if undefined
+  //       })
+  //     );
+  //     setImageUris(resolvedImageUris.filter((uri) => uri !== ''));
+  //   }
+
+  //   // Load audio URIs for all content items with audio
+  //   if (assetContent && assetContent.length > 0) {
+  //     const audioMap: Record<string, string> = {};
+
+  //     await Promise.all(
+  //       assetContent
+  //         .filter((content) => content.audio_id)
+  //         .map(async (content) => {
+  //           if (content.audio_id) {
+  //             const uri = await getLocalUriFromAssetId(content.audio_id);
+  //             if (uri) {
+  //               audioMap[content.audio_id] = uri;
+  //             }
+  //           }
+  //         })
+  //     );
+
+  //     setAudioUris(audioMap);
+  //   }
+
+  //   setLoadingUris(false);
+  // };
 
   const handleVote = async (
     translation_id: string,
@@ -440,45 +530,59 @@ export default function AssetView() {
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-              {activeTab === 'text' && assetContent.length > 0 && (
-                <View style={styles.carouselWrapper}>
-                  <Carousel
-                    items={assetContent}
-                    renderItem={(content) => (
-                      <View style={styles.sourceTextContainer}>
-                        <View>
-                          <Text style={styles.source_languageLabel}>
-                            {sourceLanguage?.native_name ||
-                              sourceLanguage?.english_name}
-                            :
-                          </Text>
-                          <Text style={styles.sourceText}>{content.text}</Text>
+            {isLoading ? (
+              <ActivityIndicator size="large" />
+            ) : (
+              <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+                {activeTab === 'text' && assetContent.length > 0 && (
+                  <View style={styles.carouselWrapper}>
+                    <Carousel
+                      items={assetContent}
+                      renderItem={(content) => (
+                        <View style={styles.sourceTextContainer}>
+                          <View>
+                            <Text style={styles.source_languageLabel}>
+                              {sourceLanguage?.native_name ||
+                                sourceLanguage?.english_name}
+                              :
+                            </Text>
+                            <Text style={styles.sourceText}>
+                              {content.text}
+                            </Text>
+                          </View>
+                          {content.audio_id &&
+                          attachmentUris[content.audio_id] ? (
+                            <MiniAudioPlayer
+                              audioFile={{
+                                id: content.id,
+                                title: content.text,
+                                uri: attachmentUris[content.audio_id]
+                              }}
+                            />
+                          ) : content.audio_id && loadingAttachments ? (
+                            <View style={styles.audioLoading}>
+                              <Text style={{ color: colors.textSecondary }}>
+                                Loading audio...
+                              </Text>
+                              <ActivityIndicator size="small" />
+                            </View>
+                          ) : null}
                         </View>
-                        {content.audio_id && (
-                          <MiniAudioPlayer
-                            audioFile={{
-                              id: content.id,
-                              title: content.text,
-                              uri: getLocalUriFromAssetId(content.audio_id)!
-                            }}
-                          />
-                        )}
-                      </View>
-                    )}
+                      )}
+                    />
+                  </View>
+                )}
+                {activeTab === 'image' && (
+                  <ImageCarousel
+                    uris={
+                      asset?.images
+                        ?.map((imageId) => attachmentUris[imageId])
+                        .filter(Boolean) || []
+                    }
                   />
-                </View>
-              )}
-              {activeTab === 'image' && (
-                <ImageCarousel
-                  uris={
-                    asset?.images?.map(
-                      (imageId) => getLocalUriFromAssetId(imageId)!
-                    ) ?? []
-                  }
-                />
-              )}
-            </View>
+                )}
+              </View>
+            )}
 
             <View style={styles.horizontalLine} />
 
@@ -565,6 +669,11 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1
+  },
+  audioLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   title: {
     fontSize: fontSizes.large,

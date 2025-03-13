@@ -5,7 +5,12 @@ import {
   wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
 
-import { PowerSyncDatabase, Schema } from '@powersync/react-native';
+import {
+  PowerSyncDatabase,
+  Schema,
+  Column,
+  ColumnType
+} from '@powersync/react-native';
 import React from 'react';
 import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
@@ -17,7 +22,7 @@ import Constants from 'expo-constants';
 import { AppConfig } from '../supabase/AppConfig';
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import { AttachmentQueue } from './AttachmentQueue';
-
+import { TempAttachmentQueue } from './TempAttachmentQueue';
 Logger.useDefaults();
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -33,7 +38,8 @@ export class System {
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
-  attachmentQueue: AttachmentQueue | undefined = undefined;
+  permAttachmentQueue: AttachmentQueue | undefined = undefined;
+  tempAttachmentQueue: AttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
@@ -43,7 +49,11 @@ export class System {
     this.powersync = new PowerSyncDatabase({
       schema: new Schema([
         ...new DrizzleAppSchema(drizzleSchema).tables,
-        new AttachmentTable()
+        new AttachmentTable({
+          additionalColumns: [
+            new Column({ name: 'storage_type', type: ColumnType.TEXT })
+          ]
+        })
       ]),
       database: {
         dbFilename: 'sqlite.db',
@@ -57,17 +67,47 @@ export class System {
     });
 
     if (AppConfig.supabaseBucket) {
-      this.attachmentQueue = new AttachmentQueue({
+      this.permAttachmentQueue = new AttachmentQueue({
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
+        attachmentDirectoryName: 'shared_attachments',
+        cacheLimit: 500, // Higher limit for permanent downloads
         // Use this to handle download errors where you can use the attachment
         // and/or the exception to decide if you want to retry the download
         onDownloadError: async (
           attachment: AttachmentRecord,
           exception: any
         ) => {
-          if (exception.toString() === 'StorageApiError: Object not found') {
+          if (
+            exception.toString() === 'StorageApiError: Object not found' ||
+            exception.status === 400 ||
+            exception.toString().includes('status":400')
+          ) {
+            return { retry: false };
+          }
+
+          return { retry: true };
+        }
+      });
+
+      this.tempAttachmentQueue = new TempAttachmentQueue({
+        powersync: this.powersync,
+        storage: this.storage,
+        db: this.db,
+        attachmentDirectoryName: 'shared_attachments',
+        maxCacheSize: 6, // Lower limit for temporary browsing
+        // syncInterval: 5000, // Faster sync for temporary content
+
+        onDownloadError: async (
+          attachment: AttachmentRecord,
+          exception: any
+        ) => {
+          if (
+            exception.toString() === 'StorageApiError: Object not found' ||
+            exception.status === 400 ||
+            exception.toString().includes('status":400')
+          ) {
             return { retry: false };
           }
 
@@ -104,8 +144,12 @@ export class System {
       console.log('Connecting PowerSync with current user credentials');
       await this.powersync.connect(this.supabaseConnector);
 
-      if (this.attachmentQueue) {
-        await this.attachmentQueue.init();
+      if (this.permAttachmentQueue) {
+        await this.permAttachmentQueue.init();
+      }
+
+      if (this.tempAttachmentQueue) {
+        await this.tempAttachmentQueue.init();
       }
 
       // Wait for the latest sync to complete

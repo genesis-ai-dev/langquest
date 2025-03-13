@@ -11,15 +11,16 @@ import { AppConfig } from '../supabase/AppConfig';
 import * as drizzleSchema from '../drizzleSchema';
 import { isNotNull, eq, and } from 'drizzle-orm';
 import { system } from '../powersync/system';
+import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
-export class AttachmentQueue extends AbstractAttachmentQueue {
-  db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+export class AttachmentQueue extends AbstractSharedAttachmentQueue {
+  // db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
   // Track previous active downloads to detect changes
-  previousActiveDownloads: {
-    profile_id: string;
-    asset_id: string;
-    active: boolean;
-  }[] = [];
+  // previousActiveDownloads: {
+  //   profile_id: string;
+  //   asset_id: string;
+  //   active: boolean;
+  // }[] = [];
 
   constructor(
     options: AttachmentQueueOptions & {
@@ -27,7 +28,11 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     }
   ) {
     super(options);
-    this.db = options.db;
+    // this.db = options.db;
+  }
+
+  getStorageType(): 'permanent' | 'temporary' {
+    return 'permanent';
   }
 
   async init() {
@@ -37,7 +42,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
         'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
       );
       // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
-      this.options.syncInterval = 0;
+      this.options.syncInterval = 5000;
       return;
     }
 
@@ -255,6 +260,28 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     }
 
     return this.saveToQueue(audioAttachment);
+  }
+
+  async expireCache() {
+    const res = await this.powersync
+      .getAll<AttachmentRecord>(`SELECT * FROM ${this.table}
+          WHERE
+           state = ${AttachmentState.SYNCED} OR state = ${AttachmentState.ARCHIVED}
+         ORDER BY
+           timestamp DESC
+         LIMIT 100 OFFSET ${this.options.cacheLimit}`);
+
+    if (res.length == 0) {
+      return;
+    }
+
+    console.debug(`Deleting ${res.length} permanent attachments`);
+
+    await this.powersync.writeTransaction(async (tx) => {
+      for (const record of res) {
+        await this.delete(record, tx);
+      }
+    });
   }
 
   // Step 2: Identify all attachments related to an asset

@@ -71,6 +71,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const loadAndPlaySound = async (uri: string) => {
+    console.log('Loading and playing sound:', uri);
     try {
       // Unload previous sound if exists
       if (sound) {
