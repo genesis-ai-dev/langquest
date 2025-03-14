@@ -1,6 +1,6 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
-import { userService } from '@/database_services/userService';
+import { profileService } from '@/database_services/userService';
 import { language } from '@/db/drizzleSchema';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -87,7 +87,7 @@ export default function Profile() {
       }
 
       // Update user profile
-      const updatedUser = await userService.updateUser({
+      const updatedUser = await profileService.updateProfile({
         id: currentUser.id,
         ui_language_id: data.selectedLanguageId,
         ...(isOnline && data.newPassword ? { password: data.newPassword } : {}),
