@@ -12,7 +12,7 @@ export type Profile = typeof profile.$inferSelect;
 const { supabaseConnector, db } = system;
 
 // Debug flag
-const DEBUG = true;
+const DEBUG = false;
 
 // Custom debug function
 function debug(...args: any[]) {

@@ -40,7 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel from '@/components/Carousel';
 
 // Debug flag
-const DEBUG = true;
+const DEBUG = false;
 
 // Custom debug function
 function debug(...args: any[]) {
@@ -398,7 +398,7 @@ export default function AssetView() {
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
     const voteCount = calculateVoteCount(votes);
-    console.log('asset translation', {
+    debug('asset translation', {
       translationCreators,
       translationLanguages,
       votes,
@@ -417,7 +417,9 @@ export default function AssetView() {
               {getPreviewText(translation.text ?? '')}
             </Text>
             <Text style={styles.translatorInfo}>
-              by {creator?.username} in{' '}
+              {currentUser && currentUser.id === translation.creator_id
+                ? `${creator?.username} => `
+                : ''}
               {targetLanguage?.native_name || targetLanguage?.english_name}
             </Text>
           </View>
