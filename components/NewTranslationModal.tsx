@@ -56,13 +56,13 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
-      let audioAttachmentId = '';
+      let audioAttachmentFilename = '';
 
       // Process audio if available
       if (audioUri && system.attachmentQueue) {
         const attachment = await system.attachmentQueue.saveAudio(audioUri);
         console.log('attachment', attachment);
-        audioAttachmentId = attachment.id;
+        audioAttachmentFilename = attachment.filename;
       }
 
       // Create the translation with or without audio
@@ -71,7 +71,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
-        audio: audioAttachmentId
+        audio: audioAttachmentFilename
       });
 
       setTranslationText('');
