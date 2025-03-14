@@ -1,7 +1,6 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { languageService } from '@/database_services/languageService';
-import { userService } from '@/database_services/userService';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSystem } from '@/db/powersync/system';

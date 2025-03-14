@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/db/powersync/system';
 import { View } from 'react-native';
-import { userService } from '@/database_services/userService';
+import { profileService } from '@/database_services/profileService';
 import { TermsModal } from '@/components/TermsModal';
 
 export function TermsGuard({ children }: { children: React.ReactNode }) {
@@ -45,18 +45,11 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
       console.log('Accepting terms...');
 
       // Update the user's metadata in auth
-      const { error: authError } =
-        await supabaseConnector.client.auth.updateUser({
-          data: {
-            terms_accepted: true,
-            terms_version: '1.0'
-          }
-        });
-
-      if (authError) {
-        console.error('Error updating user metadata:', authError);
-        return;
-      }
+      const updatedUser = await profileService.updateProfile({
+        id: currentUser.id,
+        terms_accepted: true,
+        terms_version: '1.0'
+      });
 
       // Update local state to reflect terms acceptance
       setHasAcceptedTerms(true);
@@ -70,12 +63,8 @@ export function TermsGuard({ children }: { children: React.ReactNode }) {
       }
 
       // Refresh the current user
-      const { data: userData } = await supabaseConnector.client.auth.getUser();
-      if (userData.user) {
-        const updatedUser = await userService.getUserById(userData.user.id);
-        if (updatedUser) {
-          setCurrentUser(updatedUser);
-        }
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
       }
     } catch (error) {
       console.error('Error accepting terms:', error);

@@ -7,41 +7,25 @@ import { aliasedTable } from 'drizzle-orm';
 import { system } from '../db/powersync/system';
 import { Session } from '@supabase/supabase-js';
 
-export type User = typeof profile.$inferSelect;
+export type Profile = typeof profile.$inferSelect;
 
 const { supabaseConnector, db } = system;
 
-export class UserService {
-  async getUserById(id: string): Promise<User | null> {
-    try {
-      // Get the user profile from the database
-      const results = await db.select().from(profile).where(eq(profile.id, id));
+// Debug flag
+const DEBUG = false;
 
-      if (results.length === 0) {
-        return null;
-      }
+// Custom debug function
+function debug(...args: any[]) {
+  if (DEBUG) {
+    console.log('[DEBUG userService]', ...args);
+  }
+}
 
-      // Get the user metadata from auth
-      const { data: userData } = await supabaseConnector.client.auth.getUser();
-
-      // Combine the profile data with the user metadata
-      if (userData.user) {
-        const userMetadata = userData.user.user_metadata || {};
-
-        // Return the combined data
-        return {
-          ...results[0],
-          terms_accepted:
-            userMetadata.terms_accepted || results[0].terms_accepted,
-          terms_version: userMetadata.terms_version || results[0].terms_version
-        };
-      }
-
-      return results[0];
-    } catch (error) {
-      console.error('Error getting user by ID:', error);
-      return null;
-    }
+export class ProfileService {
+  async getProfileByUserId(id: string): Promise<Profile | null> {
+    debug('Getting user by ID:', id);
+    const results = await db.select().from(profile).where(eq(profile.id, id));
+    return results[0];
   }
 
   async validateCredentials(credentials: { email: string; password: string }) {
@@ -134,14 +118,14 @@ export class UserService {
     }
   }
 
-  async updateUser(data: {
+  async updateProfile(data: {
     id: string;
     ui_language_id?: string;
     // avatar?: string;
     password?: string;
     terms_accepted?: boolean;
     terms_version?: string;
-  }): Promise<User | null> {
+  }): Promise<Profile | null> {
     try {
       // Update auth if password is changing
       if (data.password) {
@@ -153,7 +137,7 @@ export class UserService {
       }
 
       // Update profile data
-      const updateData: Partial<User> = {
+      const updateData: Partial<Profile> = {
         ...(data.ui_language_id && { ui_language_id: data.ui_language_id }),
         // ...(data.avatar && { avatar: data.avatar }),
         ...(data.terms_accepted !== undefined && {
@@ -187,4 +171,4 @@ export class UserService {
   }
 }
 
-export const userService = new UserService();
+export const profileService = new ProfileService();

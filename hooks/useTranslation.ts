@@ -1,6 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { languageService } from '@/database_services/languageService';
-import { userService } from '@/database_services/userService';
 import {
   SupportedLanguage,
   TranslationKey,

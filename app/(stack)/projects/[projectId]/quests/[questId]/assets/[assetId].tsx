@@ -10,7 +10,7 @@ import {
   Translation,
   translationService
 } from '@/database_services/translationService';
-import { User, userService } from '@/database_services/userService';
+import { Profile, profileService } from '@/database_services/profileService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -38,6 +38,16 @@ import {
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel from '@/components/Carousel';
+
+// Debug flag
+const DEBUG = false;
+
+// Custom debug function
+function debug(...args: any[]) {
+  if (DEBUG) {
+    console.log('[DEBUG assetView]', ...args);
+  }
+}
 
 const ASSET_VIEWER_PROPORTION = 0.38;
 
@@ -84,7 +94,7 @@ export default function AssetView() {
     Record<string, Vote[]>
   >({});
   const [translationCreators, setTranslationCreators] = useState<
-    Record<string, User>
+    Record<string, Profile>
   >({});
   const [translationLanguages, setTranslationLanguages] = useState<
     Record<string, typeof language.$inferSelect>
@@ -298,26 +308,76 @@ export default function AssetView() {
   useEffect(() => {
     const loadTranslationData = async () => {
       const votesMap: Record<string, Vote[]> = {};
-      const creatorsMap: Record<string, User> = {};
+      const creatorsMap: Record<string, Profile> = {};
       const languagesMap: Record<string, typeof language.$inferSelect> = {};
 
       await Promise.all(
         translations.map(async (translation) => {
-          // Load votes
-          votesMap[translation.id] = await voteService.getVotesByTranslationId(
-            translation.id
-          );
+          try {
+            debug('Loading data for translation:', translation.id);
 
-          // Load creator
-          const creator = await userService.getUserById(translation.creator_id);
-          if (creator) creatorsMap[translation.creator_id] = creator;
+            // Load votes
+            try {
+              votesMap[translation.id] =
+                await voteService.getVotesByTranslationId(translation.id);
+              debug('Successfully loaded votes for translation:', {
+                translationId: translation.id,
+                votes: votesMap[translation.id]
+              });
+            } catch (error) {
+              console.error('Failed to load votes for translation:', {
+                translationId: translation.id,
+                error
+              });
+              votesMap[translation.id] = [];
+            }
 
-          // Load target language
-          const targetLang = await languageService.getLanguageById(
-            translation.target_language_id
-          );
-          if (targetLang)
-            languagesMap[translation.target_language_id] = targetLang;
+            // Load creator
+            try {
+              debug('before creator', { translation });
+              const creator = await profileService.getProfileByUserId(
+                translation.creator_id
+              );
+              debug('after creator', { translation });
+              debug('creator', { creator, translation });
+              if (creator) {
+                creatorsMap[translation.creator_id] = creator;
+                debug('Successfully loaded creator:', {
+                  creatorId: translation.creator_id,
+                  creator
+                });
+              }
+            } catch (error) {
+              console.error('Failed to load creator:', {
+                creatorId: translation.creator_id,
+                error
+              });
+            }
+
+            // Load target language
+            try {
+              const targetLang = await languageService.getLanguageById(
+                translation.target_language_id
+              );
+              if (targetLang) {
+                languagesMap[translation.target_language_id] = targetLang;
+                debug('Successfully loaded target language:', {
+                  languageId: translation.target_language_id,
+                  language: targetLang
+                });
+              }
+            } catch (error) {
+              console.error('Failed to load target language:', {
+                languageId: translation.target_language_id,
+                error
+              });
+            }
+          } catch (error) {
+            console.error('Error processing translation:', {
+              translationId: translation.id,
+              error
+            });
+          }
         })
       );
 
@@ -338,7 +398,14 @@ export default function AssetView() {
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
     const voteCount = calculateVoteCount(votes);
-
+    debug('asset translation', {
+      translationCreators,
+      translationLanguages,
+      votes,
+      creator,
+      targetLanguage,
+      voteCount
+    });
     return (
       <TouchableOpacity
         style={styles.translationCard}
@@ -350,7 +417,9 @@ export default function AssetView() {
               {getPreviewText(translation.text ?? '')}
             </Text>
             <Text style={styles.translatorInfo}>
-              by {creator?.username} in{' '}
+              {currentUser && currentUser.id === translation.creator_id
+                ? `${creator?.username} => `
+                : ''}
               {targetLanguage?.native_name || targetLanguage?.english_name}
             </Text>
           </View>
