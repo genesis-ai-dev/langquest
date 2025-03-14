@@ -1,0 +1,31 @@
+---
+name: Security maintenance
+about: Tasks related to security, credentials, or access management
+title: "[SECURITY] "
+labels: security
+assignees: ''
+---
+
+## Security Task Description
+[Brief description of what needs to be changed/updated]
+
+### Action Items
+1. [First step]
+2. [Next step]
+3. [Final step]
+
+### Access Requirements
+- Systems affected: [list systems]
+- Required permissions: [who needs to be involved]
+- Downtime expected: [if any]
+
+### Verification Steps
+- [ ] Insecurity removed
+- [ ] Security added
+- [ ] Systems tested with updated security
+- [ ] Documentation updated
+
+### Security Considerations
+- Sensitive data handling: [any special requirements]
+- Backup requirements: [if needed]
+- Communication plan: [who needs to be notified]
