@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import { profileService } from '@/database_services/userService';
+import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';

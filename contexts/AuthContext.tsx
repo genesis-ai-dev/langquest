@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Profile, profileService } from '@/database_services/userService';
+import { Profile, profileService } from '@/database_services/profileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRouter } from 'expo-router';
 import { system } from '@/db/powersync/system';

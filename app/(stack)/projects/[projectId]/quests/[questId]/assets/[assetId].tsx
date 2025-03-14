@@ -10,7 +10,7 @@ import {
   Translation,
   translationService
 } from '@/database_services/translationService';
-import { Profile, profileService } from '@/database_services/userService';
+import { Profile, profileService } from '@/database_services/profileService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';

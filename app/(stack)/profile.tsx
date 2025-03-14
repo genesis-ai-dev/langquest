@@ -1,6 +1,6 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileService } from '@/database_services/userService';
+import { profileService } from '@/database_services/profileService';
 import { language } from '@/db/drizzleSchema';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';

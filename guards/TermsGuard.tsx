@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/db/powersync/system';
 import { View } from 'react-native';
-import { profileService } from '@/database_services/userService';
+import { profileService } from '@/database_services/profileService';
 import { TermsModal } from '@/components/TermsModal';
 
 export function TermsGuard({ children }: { children: React.ReactNode }) {
