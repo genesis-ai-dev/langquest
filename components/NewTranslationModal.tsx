@@ -5,9 +5,11 @@ import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   StyleSheet,
@@ -18,7 +20,6 @@ import {
   View
 } from 'react-native';
 import AudioRecorder from './AudioRecorder';
-import * as FileSystem from 'expo-file-system';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -56,13 +57,13 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
-      let audioAttachmentFilename = '';
+      let audioAttachmentId = '';
 
       // Process audio if available
       if (audioUri && system.attachmentQueue) {
         const attachment = await system.attachmentQueue.saveAudio(audioUri);
         console.log('attachment', attachment);
-        audioAttachmentFilename = attachment.filename;
+        audioAttachmentId = attachment.id;
       }
 
       // Create the translation with or without audio
@@ -71,7 +72,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
-        audio: audioAttachmentFilename
+        audio: audioAttachmentId
       });
 
       setTranslationText('');
@@ -101,54 +102,64 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onDismiss={handleClose}
-      onRequestClose={handleClose}
-    >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Pressable style={styles.container} onPress={handleClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modal}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleClose}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
+    <KeyboardAvoidingView>
+      <Modal
+        visible={isVisible}
+        transparent
+        animationType="slide"
+        onDismiss={handleClose}
+        onRequestClose={handleClose}
+      >
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Pressable style={styles.container} onPress={handleClose}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modal}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    // flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Text style={styles.title}>{t('newTranslation')}</Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleClose}
+                  >
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
 
-              <Text style={styles.title}>{t('newTranslation')}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  multiline
+                  placeholder={t('enterTranslation')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={translationText}
+                  onChangeText={setTranslationText}
+                />
 
-              <TextInput
-                style={styles.textInput}
-                multiline
-                placeholder={t('enterTranslation')}
-                placeholderTextColor={colors.textSecondary}
-                value={translationText}
-                onChangeText={setTranslationText}
-              />
+                <AudioRecorder onRecordingComplete={handleRecordingComplete} />
 
-              <AudioRecorder onRecordingComplete={handleRecordingComplete} />
-
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  !translationText.trim() &&
-                    !audioUri &&
-                    styles.submitButtonDisabled
-                ]}
-                onPress={handleSubmit}
-                disabled={!translationText.trim() && !audioUri}
-              >
-                <Text style={styles.submitButtonText}>{t('submit')}</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    !translationText.trim() &&
+                      !audioUri &&
+                      styles.submitButtonDisabled
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={!translationText.trim() && !audioUri}
+                >
+                  <Text style={styles.submitButtonText}>{t('submit')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </Pressable>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -161,11 +172,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.large // Add some padding from bottom
   },
   modal: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.medium,
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
-    width: '90%',
-    maxHeight: '80%'
+    width: '90%'
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -174,8 +187,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSizes.large,
     fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium
+    color: colors.text
   },
   textInput: {
     backgroundColor: colors.inputBackground,
@@ -183,15 +195,13 @@ const styles = StyleSheet.create({
     padding: spacing.medium,
     color: colors.text,
     fontSize: fontSizes.medium,
-    minHeight: 100,
-    marginBottom: spacing.medium
+    minHeight: 100
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    alignItems: 'center',
-    marginTop: spacing.medium
+    alignItems: 'center'
   },
   submitButtonText: {
     color: colors.buttonText,

@@ -133,6 +133,9 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.medium
   },
   card: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.small,
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
@@ -141,8 +144,7 @@ export const sharedStyles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
+    fontWeight: 'bold'
   },
   cardDescription: {
     color: colors.text,
@@ -159,9 +161,8 @@ export const sharedStyles = StyleSheet.create({
     marginRight: spacing.medium
   },
   cardLanguageText: {
-    color: colors.text,
-    fontSize: fontSizes.small,
-    marginTop: spacing.small
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   },
   iconBar: {
     flexDirection: 'row',

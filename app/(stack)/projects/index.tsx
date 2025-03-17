@@ -47,11 +47,13 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   return (
     <View style={sharedStyles.card}>
-      <Text style={sharedStyles.cardTitle}>{project.name}</Text>
-      <Text style={sharedStyles.cardLanguageText}>
-        {sourceLanguage?.native_name || sourceLanguage?.english_name} →
-        {targetLanguage?.native_name || targetLanguage?.english_name}
-      </Text>
+      <View>
+        <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+        <Text style={sharedStyles.cardLanguageText}>
+          {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}
+          {targetLanguage?.native_name || targetLanguage?.english_name}
+        </Text>
+      </View>
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>
       )}
