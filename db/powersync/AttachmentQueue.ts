@@ -95,19 +95,20 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     const photoId = record?.id ?? randomUUID();
     const filename =
       record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
+    const filenameWithoutPath = filename.split('/').pop() ?? filename;
+    const localUri = this.getLocalFilePathSuffix(filename);
     return {
       state: AttachmentState.QUEUED_UPLOAD,
-      id: photoId,
-      filename,
+      id: filename,
+      filename: filenameWithoutPath,
+      local_uri: localUri,
       ...record
     };
   }
 
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
-    const localUri = this.getLocalUri(
-      this.getLocalFilePathSuffix(photoAttachment.filename)
-    );
+    const localUri = this.getLocalUri(photoAttachment.local_uri!);
     await this.storage.writeFile(localUri, base64Data, {
       encoding: FileSystem.EncodingType.Base64
     });
@@ -128,9 +129,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
       },
       extension
     );
-    const localUri = this.getLocalUri(
-      this.getLocalFilePathSuffix(audioAttachment.filename)
-    );
+    const localUri = this.getLocalUri(audioAttachment.local_uri!);
     await FileSystem.moveAsync({
       from: tempUri,
       to: localUri

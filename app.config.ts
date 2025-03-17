@@ -6,7 +6,7 @@ const iconPath = './assets/images/langquest_icon_v1.png';
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
-  name: 'langquest',
+  name: 'LangQuest',
   slug: 'langquest',
   version: '1.0.0',
   orientation: 'portrait',
