@@ -16,7 +16,7 @@
     "format:fix": "prettier --write . '!**/*.md' '!drizzle/**'",
     "typecheck": "tsc --noEmit",
     "seed:supabase": "tsx scripts/seedSupabase.ts",
-    "powersync:start": "docker compose -f supabase/docker-compose.yml --env-file .env.local up",
+    "powersync:start": "docker compose -f supabase/docker-compose.yml --env-file .env.local up -d",
     "powersync:stop": "docker compose -f supabase/docker-compose.yml --env-file .env.local down"
   },
   "jest": {
