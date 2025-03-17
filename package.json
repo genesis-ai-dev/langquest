@@ -15,7 +15,9 @@
     "format": "prettier --check . '!**/*.md' '!drizzle/**'",
     "format:fix": "prettier --write . '!**/*.md' '!drizzle/**'",
     "typecheck": "tsc --noEmit",
-    "seed:supabase": "tsx scripts/seedSupabase.ts"
+    "seed:supabase": "tsx scripts/seedSupabase.ts",
+    "powersync:start": "docker compose -f supabase/docker-compose.yml --env-file .env.local up",
+    "powersync:stop": "docker compose -f supabase/docker-compose.yml --env-file .env.local down"
   },
   "jest": {
     "preset": "jest-expo"
@@ -24,9 +26,9 @@
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@expo/vector-icons": "^14.0.2",
     "@journeyapps/react-native-quick-sqlite": "^2.4.0",
-    "@powersync/attachments": "^2.2.0",
+    "@powersync/attachments": "^2.2.1",
     "@powersync/drizzle-driver": "^0.3.2",
-    "@powersync/react-native": "^1.18.0",
+    "@powersync/react-native": "^1.18.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/netinfo": "11.3.1",
     "@react-native-community/slider": "4.5.2",
