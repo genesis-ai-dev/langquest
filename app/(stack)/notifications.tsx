@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -48,8 +49,8 @@ type InviteRequestNotification = {
 };
 
 export default function Notifications() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
   // const [inviteRequestNotifications, setInviteRequestNotifications] = useState<
   //   Awaited<
   //     ReturnType<typeof notificationService.getAllInviteRequestNotifications>
@@ -139,8 +140,15 @@ export default function Notifications() {
         colors={[colors.gradientStart, colors.gradientEnd]}
         style={{ flex: 1 }}
       >
-        <SafeAreaView style={{ flex: 1, paddingHorizontal: spacing.medium }}>
-          <Text style={sharedStyles.title}>{t('notifications')}</Text>
+        <SafeAreaView
+          style={{
+            flex: 1,
+            paddingHorizontal: spacing.medium,
+            paddingTop: spacing.medium,
+            gap: spacing.medium
+          }}
+        >
+          <PageHeader title={t('notifications')} />
           <FlashList
             data={notifications}
             stickyHeaderIndices={stickyHeaderIndices}

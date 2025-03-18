@@ -21,6 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
+import { PageHeader } from '@/components/PageHeader';
 
 type Language = typeof language.$inferSelect;
 
@@ -121,7 +122,7 @@ export default function Profile() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView style={styles.container}>
           <View style={styles.contentContainer}>
-            <Text style={sharedStyles.title}>{t('profile')}</Text>
+            <PageHeader title={t('profile')} />
 
             {/* Language Selection - Always available */}
             <View style={styles.controllerContainer}>

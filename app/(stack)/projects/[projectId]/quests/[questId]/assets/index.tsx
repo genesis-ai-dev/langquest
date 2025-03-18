@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Quest, questService } from '@/database_services/questService';
+import { PageHeader } from '@/components/PageHeader';
 
 interface SortingOption {
   field: string;
@@ -80,7 +81,6 @@ export default function Assets() {
   >({});
 
   const { t } = useTranslation();
-  const router = useRouter();
   const { goToAsset } = useProjectContext();
   const { questId, projectId } = useGlobalSearchParams<{
     questId: string;
@@ -488,6 +488,9 @@ export default function Assets() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
+          <View style={{ paddingHorizontal: spacing.medium }}>
+            <PageHeader title={selectedQuest?.name ?? ''} />
+          </View>
           <View style={styles.headerContainer}>
             <View style={styles.searchContainer}>
               <Ionicons

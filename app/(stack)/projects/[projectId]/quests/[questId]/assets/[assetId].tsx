@@ -38,6 +38,7 @@ import {
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel from '@/components/Carousel';
+import { PageHeader } from '@/components/PageHeader';
 
 // Debug flag
 const DEBUG = false;
@@ -459,7 +460,9 @@ export default function AssetView() {
       >
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.content}>
-            <Text style={styles.title}>{asset?.name}</Text>
+            <View style={{ padding: spacing.medium }}>
+              <PageHeader title={asset?.name ?? ''} />
+            </View>
             <View style={styles.tabBar}>
               <TouchableOpacity
                 style={[

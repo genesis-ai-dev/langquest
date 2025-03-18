@@ -1,6 +1,7 @@
 import { QuestDetails } from '@/components/QuestDetails';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { ProjectDetails } from '@/components/ProjectDetails';
+import { PageHeader } from '@/components/PageHeader';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Quest, questService } from '@/database_services/questService';
 import { Project, projectService } from '@/database_services/projectService';
@@ -288,9 +289,7 @@ export default function Quests() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>
-              {projectName} {t('quests')}
-            </Text>
+            <PageHeader title={`${projectName} ${t('quests')}`} />
           </View>
 
           <View style={styles.searchContainer}>

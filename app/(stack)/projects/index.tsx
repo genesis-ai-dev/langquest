@@ -1,5 +1,5 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
-import { ProjectDetails } from '@/components/ProjectDetails';
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { languageService } from '@/database_services/languageService';
@@ -8,12 +8,11 @@ import { language, project } from '@/db/drizzleSchema';
 import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
@@ -267,7 +266,7 @@ export default function Projects() {
           <View
             style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
           >
-            <Text style={sharedStyles.title}>{t('projects')}</Text>
+            <PageHeader title={t('projects')} />
 
             <View style={sharedStyles.filtersContainer}>
               <CustomDropdown

@@ -48,8 +48,8 @@ function DrawerItems() {
     //   icon: 'notifications',
     //   path: '/notifications'
     // },
-    { name: t('profile'), icon: 'person', path: '/profile' },
-    { name: t('settings'), icon: 'settings', path: '/settings' }
+    { name: t('profile'), icon: 'person', path: '/profile' }
+    // { name: t('settings'), icon: 'settings', path: '/settings' }
   ] as const;
 
   return (

@@ -1,26 +1,21 @@
+import { PasswordInput } from '@/components/PasswordInput';
+import { useSystem } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
-  Alert,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useSystem } from '@/db/powersync/system';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useAuth } from '@/contexts/AuthContext';
-import { useForm, Controller } from 'react-hook-form';
-import { PasswordInput } from '@/components/PasswordInput';
 
 type ResetPasswordFormData = {
   newPassword: string;
@@ -31,8 +26,6 @@ export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
   const [userLanguage, setUserLanguage] = useState<string | null>(null);
   const { t } = useTranslation(userLanguage);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [canResetPassword, setCanResetPassword] = useState(false);
   const router = useRouter();
