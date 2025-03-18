@@ -140,7 +140,10 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                   onChangeText={setTranslationText}
                 />
 
-                <AudioRecorder onRecordingComplete={handleRecordingComplete} />
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  resetRecording={() => setAudioUri(null)}
+                />
 
                 <TouchableOpacity
                   style={[
