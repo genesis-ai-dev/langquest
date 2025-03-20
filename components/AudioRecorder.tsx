@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { RecordingOptions } from 'expo-av/build/Audio';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Maximum file size in bytes (50MB)
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -47,6 +48,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onRecordingComplete,
   resetRecording
 }) => {
+  const { t } = useTranslation();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -247,7 +249,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     const remainingTime = formatTime(
       Math.max(0, maxDuration - recordingDuration)
     );
-    return `${playbackTime}/${totalTime}\n${remainingTime} remaining`;
+    return `${playbackTime}/${totalTime}\n${remainingTime} ${t('remaining')}`;
   };
 
   const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {

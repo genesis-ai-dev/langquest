@@ -331,6 +331,10 @@ export const translations = {
     english: 'Assets',
     spanish: 'Recursos'
   },
+  remaining: {
+    english: 'remaining',
+    spanish: 'restante'
+  },
   notifications: {
     english: 'Notifications',
     spanish: 'Notificaciones'
