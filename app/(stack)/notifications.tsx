@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/guards/AuthGuard';
+import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -48,6 +49,7 @@ type InviteRequestNotification = {
 
 export default function Notifications() {
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   // const [inviteRequestNotifications, setInviteRequestNotifications] = useState<
   //   Awaited<
   //     ReturnType<typeof notificationService.getAllInviteRequestNotifications>
@@ -138,7 +140,7 @@ export default function Notifications() {
         style={{ flex: 1 }}
       >
         <SafeAreaView style={{ flex: 1, paddingHorizontal: spacing.medium }}>
-          <Text style={sharedStyles.title}>Notifications</Text>
+          <Text style={sharedStyles.title}>{t('notifications')}</Text>
           <FlashList
             data={notifications}
             stickyHeaderIndices={stickyHeaderIndices}
