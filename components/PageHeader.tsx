@@ -1,4 +1,4 @@
-import { colors, sharedStyles } from '@/styles/theme';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
 import { useNavigation } from 'expo-router';
@@ -11,7 +11,8 @@ export function PageHeader({ title }: { title: string }) {
       style={{
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: spacing.small
       }}
     >
       <TouchableOpacity

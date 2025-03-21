@@ -488,9 +488,7 @@ export default function Assets() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <View style={{ paddingHorizontal: spacing.medium }}>
-            <PageHeader title={selectedQuest?.name ?? ''} />
-          </View>
+          <PageHeader title={selectedQuest?.name ?? ''} />
           <View style={styles.headerContainer}>
             <View style={styles.searchContainer}>
               <Ionicons
