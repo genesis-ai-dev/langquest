@@ -1,33 +1,28 @@
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { useAuth } from '@/contexts/AuthContext';
+import { LanguageSelect } from '@/components/LanguageSelect';
+import { PasswordInput } from '@/components/PasswordInput';
+import { TermsModal } from '@/components/TermsModal';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
 import { useSystem } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  StyleSheet,
-  Modal,
-  Linking
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { useForm, Controller } from 'react-hook-form';
-import { PasswordInput } from '@/components/PasswordInput';
-import { TermsModal } from '@/components/TermsModal';
 
 type Language = typeof language.$inferSelect;
 
@@ -46,7 +41,6 @@ export default function Register() {
   const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
   const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
-  const { setCurrentUser } = useAuth();
   const { supabaseConnector } = useSystem();
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 

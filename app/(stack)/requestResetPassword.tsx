@@ -1,10 +1,16 @@
+import { languageService } from '@/database_services/languageService';
+import { language } from '@/db/drizzleSchema';
+import { useSystem } from '@/db/powersync/system';
+import { useTranslation } from '@/hooks/useTranslation';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,15 +18,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useSystem } from '@/db/powersync/system';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useTranslation } from '@/hooks/useTranslation';
-import { languageService } from '@/database_services/languageService';
-import { language } from '@/db/drizzleSchema';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useForm, Controller } from 'react-hook-form';
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 

@@ -73,7 +73,8 @@ export const sharedStyles = StyleSheet.create({
   container: {
     flex: 1,
     // backgroundColor: colors.background,
-    padding: spacing.large
+    padding: spacing.large,
+    gap: spacing.medium
   },
   appTitle: {
     fontSize: fontSizes.xxxlarge,
@@ -86,7 +87,6 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.xxlarge,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
     textAlign: 'center'
   },
   subtitle: {
