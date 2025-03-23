@@ -12,13 +12,56 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
-CREATE SCHEMA IF NOT EXISTS "public";
+CREATE EXTENSION IF NOT EXISTS "pgsodium";
 
 
-ALTER SCHEMA "public" OWNER TO "pg_database_owner";
+
+
 
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgjwt" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
 
 
 
@@ -642,6 +685,89 @@ ALTER TABLE "public"."translation" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."vote" ENABLE ROW LEVEL SECURITY;
 
 
+CREATE PUBLICATION "powersync" WITH (publish = 'insert, update, delete, truncate');
+
+
+ALTER PUBLICATION "powersync" OWNER TO "postgres";
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."asset";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."asset";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."asset_content_link";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."asset_download";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."asset_tag_link";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."language";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."profile";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."project";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."project_download";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."quest";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."quest_asset_link";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."quest_download";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."quest_tag_link";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."tag";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."translation";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."translation";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."vote";
+
+
+
+ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."vote";
+
+
+
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
@@ -649,9 +775,201 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 GRANT ALL ON FUNCTION "public"."handle_user_conversion"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_user_conversion"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_user_conversion"() TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -771,7 +1089,31 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES  TO "service_role";
 
 
-CREATE publication powersync FOR TABLE public.asset, public.asset_content_link, public.asset_download, public.asset_tag_link, public.language, public.profile, public.project, public.project_download, public.quest, public.quest_asset_link, public.quest_download, public.quest_tag_link, public.tag, public.translation, public.vote;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

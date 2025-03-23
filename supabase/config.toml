@@ -55,7 +55,7 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./schema.sql", "./seeds/*.sql"]
+sql_paths = ["./seeds/*.sql"]
 
 [realtime]
 enabled = false
@@ -95,11 +95,11 @@ file_size_limit = "50MiB"
 # enabled = true
 
 # Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+[storage.buckets.assets]
+public = true
+file_size_limit = "50MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4"]
+objects_path = "./assets"
 
 [auth]
 enabled = true
@@ -132,7 +132,7 @@ password_requirements = ""
 email_sent = 2
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
-# Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
+# Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true
 anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
