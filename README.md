@@ -63,7 +63,7 @@ npm i
 adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 ```
 
-#### 2. Local Development (`npx expo run:android`)
+#### 2. Local Development (`npm run android`)
 
 ![Local Build](readme_images/no_eas.jpg)
 
@@ -74,7 +74,47 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 - Faster build times for testing changes
 - Requires local Android SDK setup
 
----
+## Local Development Environment
+
+### Prerequisites
+
+- Download [Docker Desktop](https://www.docker.com/get-started) (version 4.24.0 or greater required)
+
+### Running Local Services
+
+- Run this command to run your local dev environment (Cmd/Ctrl+C to stop or run `env:stop`):
+
+  ```bash
+  npm run env
+  ```
+
+  Run this command to reset your local dev environment (please start it up first):
+
+  ```bash
+  npm run env:clean
+  ```
+
+### Setup
+
+- Copy environment variables by running:
+
+  ```bash
+  cp .env.local.example .env.local
+  ```
+
+- Check the status of your local Supabase instance (after its running) and get the anon key:
+
+  ```bash
+  npm run supabase status
+  ```
+
+  Look for the `anon key` in the output and update it in your `.env.local` file:
+
+  ```properties
+  EXPO_PUBLIC_SUPABASE_ANON_KEY='your_anon_key_from_status_command'
+  ```
+
+### Usage
 
 ### Common issue during setup:
 
