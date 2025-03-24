@@ -22,8 +22,17 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
     }
   ) {
-    super(options);
+    super({
+      ...options,
+      performInitialSync: false
+    });
     this.db = options.db;
+  }
+
+  async init() {
+    // Make sure initialSync is always false before calling parent init
+    this.initialSync = false;
+    await super.init();
   }
 
   // Override getLocalFilePathSuffix to use shared directory

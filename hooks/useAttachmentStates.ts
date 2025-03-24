@@ -64,90 +64,69 @@ export function useAttachmentStates(attachmentIds: string[]) {
 
     // Function to process attachments
     const processAttachments = async (attachments: any[]) => {
-      console.log(
-        '[useAttachmentStates] Processing attachments count:',
-        attachments.length
-      );
-
-      const newUris = { ...attachmentUris };
+      // Use functional state update to ensure we're building on the latest state
+      let newUris: Record<string, string> = {};
       let hasChanges = false;
 
-      for (const attachment of attachments) {
-        const previousState = processedAttachmentStates.current.get(
-          attachment.id
-        );
+      // First get current values to work with
+      setAttachmentUris((currentUris) => {
+        newUris = { ...currentUris }; // Start with ALL current URIs
 
-        console.log(
-          `[useAttachmentStates] Processing attachment: ${attachment.id}, State: ${attachment.state}, Previous state: ${previousState}`
-        );
-
-        // Process if state is different or we haven't processed it before
-        if (previousState !== attachment.state) {
-          // Update the state we've seen
-          processedAttachmentStates.current.set(
-            attachment.id,
-            attachment.state
+        for (const attachment of attachments) {
+          const previousState = processedAttachmentStates.current.get(
+            attachment.id
           );
 
-          // Only try to get URI if the attachment is synced (state 3)
-          if (attachment.state === 3) {
-            console.log(
-              `[useAttachmentStates] Attachment is SYNCED, getting local URI`
+          console.log(
+            `[useAttachmentStates] Processing attachment: ${attachment.id}, State: ${attachment.state}, Previous state: ${previousState}`
+          );
+
+          if (previousState !== attachment.state) {
+            processedAttachmentStates.current.set(
+              attachment.id,
+              attachment.state
             );
 
-            try {
-              const uri = await getLocalUriFromAssetId(attachment.id);
-              if (uri) {
-                console.log(
-                  `[useAttachmentStates] Got URI for attachment: ${attachment.id}, ${uri}`
-                );
-                newUris[attachment.id] = uri;
-                hasChanges = true;
-              } else {
-                console.log(
-                  `[useAttachmentStates] No URI found for attachment: ${attachment.id}`
-                );
+            if (attachment.state === 3) {
+              // SYNCED state
+              // Process synchronously for the initial update
+              const existingUri = newUris[attachment.id];
+              if (!existingUri) {
+                getLocalUriFromAssetId(attachment.id)
+                  .then((uri) => {
+                    if (uri) {
+                      // Use another functional update to add this URI safely
+                      setAttachmentUris((latestUris) => ({
+                        ...latestUris,
+                        [attachment.id]: uri
+                      }));
+                      console.log(
+                        `[useAttachmentStates] Added URI later: ${attachment.id}, ${uri}`
+                      );
+                    }
+                  })
+                  .catch((error) => {
+                    console.error(
+                      `[useAttachmentStates] Error getting URI: ${error}`
+                    );
+                  });
               }
-            } catch (error) {
-              console.error(
-                `[useAttachmentStates] Error getting URI: ${error}`
-              );
             }
           } else {
             console.log(
-              `[useAttachmentStates] Attachment not SYNCED, skipping URI lookup`
+              `[useAttachmentStates] Attachment state unchanged, skipping`
             );
           }
-        } else {
-          console.log(
-            `[useAttachmentStates] Attachment state unchanged, skipping`
-          );
         }
-      }
 
-      if (hasChanges) {
-        console.log(
-          '[useAttachmentStates] Setting new attachment URIs:',
-          newUris
-        );
-        setAttachmentUris(newUris);
-      }
+        // Don't actually update state in this first pass - return unchanged
+        return currentUris;
+      });
 
-      // Count how many attachments we have URIs for
+      // After processing all attachments
       const foundCount = Object.keys(newUris).length;
-
-      // Check if we're done loading:
-      // 1. We have URIs for all attachments, or
-      // 2. We've been running for more than 10 seconds (timeout)
       const timeoutReached = Date.now() - startTimeRef.current > 10000;
-
-      // Done if we found all or timeout reached
       const doneLoading = foundCount === attachmentIds.length || timeoutReached;
-
-      console.log(
-        `[useAttachmentStates] Found ${foundCount}/${attachmentIds.length} attachments, ` +
-          `timeout reached: ${timeoutReached}, done loading: ${doneLoading}`
-      );
 
       setLoadingAttachments(!doneLoading);
     };

@@ -100,9 +100,6 @@ export class AttachmentQueue extends AbstractSharedAttachmentQueue {
           for (const attachmentId of attachments) {
             // Delete each attachment from the queue
             await this.deleteFromQueue(attachmentId);
-            console.log(
-              `Deleted attachment ${attachmentId} for inactive asset ${download.asset_id}`
-            );
           }
         }
 
@@ -207,6 +204,7 @@ export class AttachmentQueue extends AbstractSharedAttachmentQueue {
   async deleteFromQueue(attachmentId: string): Promise<void> {
     const record = await this.record(attachmentId);
     if (record) {
+      console.log(`Record found, deleting attachment: ${attachmentId}`);
       await this.delete(record);
     }
   }

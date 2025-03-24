@@ -251,6 +251,7 @@ export default function AssetView() {
       if (!assetId) return;
       setIsLoading(true);
 
+      // Load asset to retrieve images from its image_ids field
       const loadedAsset = await assetService.getAssetById(assetId);
       if (!loadedAsset) {
         Alert.alert('Error', 'Asset not found');
@@ -259,7 +260,7 @@ export default function AssetView() {
 
       setAsset(loadedAsset);
 
-      // Load asset content
+      // Load asset content to get asset audio and text
       const content = await assetService.getAssetContent(assetId);
       setAssetContent(content);
       setActiveTab(getFirstAvailableTab(loadedAsset, content));
@@ -419,6 +420,35 @@ export default function AssetView() {
     loadTranslationData();
   }, [translations]);
 
+  // Add this effect to monitor attachment URI changes
+  useEffect(() => {
+    console.log('[AssetView] attachmentUris changed:', {
+      uriCount: Object.keys(attachmentUris).length,
+      allUris: attachmentUris,
+      contentWithAudio: assetContent
+        .filter((content) => content.audio_id)
+        .map((content) => ({
+          contentId: content.id,
+          audioId: content.audio_id,
+          hasUri: content.audio_id ? !!attachmentUris[content.audio_id] : false
+        }))
+    });
+  }, [attachmentUris]);
+
+  // Add this effect to monitor loading state changes
+  useEffect(() => {
+    console.log('[AssetView] loadingAttachments changed:', loadingAttachments);
+  }, [loadingAttachments]);
+
+  // Add this effect to monitor content changes
+  useEffect(() => {
+    console.log('[AssetView] assetContent changed:', {
+      contentCount: assetContent.length,
+      contentWithAudio: assetContent.filter((content) => content.audio_id)
+        .length
+    });
+  }, [assetContent]);
+
   const renderTranslationCard = ({
     item: translation
   }: {
@@ -538,37 +568,102 @@ export default function AssetView() {
                   <View style={styles.carouselWrapper}>
                     <Carousel
                       items={assetContent}
-                      renderItem={(content) => (
-                        <View style={styles.sourceTextContainer}>
-                          <View>
-                            <Text style={styles.source_languageLabel}>
-                              {sourceLanguage?.native_name ||
-                                sourceLanguage?.english_name}
-                              :
-                            </Text>
-                            <Text style={styles.sourceText}>
-                              {content.text}
-                            </Text>
-                          </View>
-                          {content.audio_id &&
-                          attachmentUris[content.audio_id] ? (
-                            <MiniAudioPlayer
-                              audioFile={{
-                                id: content.id,
-                                title: content.text,
-                                uri: attachmentUris[content.audio_id]
-                              }}
-                            />
-                          ) : content.audio_id && loadingAttachments ? (
-                            <View style={styles.audioLoading}>
-                              <Text style={{ color: colors.textSecondary }}>
-                                Loading audio...
+                      renderItem={(content) => {
+                        // Add logging when rendering each content item
+                        console.log(
+                          `[AssetView] Rendering content ${content.id}:`,
+                          {
+                            hasAudioId: !!content.audio_id,
+                            audioId: content.audio_id,
+                            hasUri: content.audio_id
+                              ? !!attachmentUris[content.audio_id]
+                              : false,
+                            uri: content.audio_id
+                              ? attachmentUris[content.audio_id]
+                              : null,
+                            loadingAttachments,
+                            activeTab,
+                            renderingAudioPlayer: !!(
+                              content.audio_id &&
+                              attachmentUris[content.audio_id]
+                            )
+                          }
+                        );
+
+                        return (
+                          <View style={styles.sourceTextContainer}>
+                            <View>
+                              <Text style={styles.source_languageLabel}>
+                                {sourceLanguage?.native_name ||
+                                  sourceLanguage?.english_name}
+                                :
                               </Text>
-                              <ActivityIndicator size="small" />
+                              <Text style={styles.sourceText}>
+                                {content.text}
+                              </Text>
                             </View>
-                          ) : null}
-                        </View>
-                      )}
+
+                            {content.audio_id &&
+                            attachmentUris[content.audio_id]
+                              ? // Log when audio player is rendered
+                                (() => {
+                                  console.log(
+                                    `[AssetView] Rendering audio player for ${content.id}:`,
+                                    {
+                                      audioId: content.audio_id,
+                                      uri: attachmentUris[content.audio_id]
+                                    }
+                                  );
+                                  return (
+                                    <MiniAudioPlayer
+                                      audioFile={{
+                                        id: content.id,
+                                        title: content.text,
+                                        uri: attachmentUris[content.audio_id]
+                                      }}
+                                    />
+                                  );
+                                })()
+                              : content.audio_id && loadingAttachments
+                                ? // Log when showing loading indicator
+                                  (() => {
+                                    console.log(
+                                      `[AssetView] Showing loading indicator for ${content.id}:`,
+                                      {
+                                        audioId: content.audio_id,
+                                        loadingAttachments
+                                      }
+                                    );
+                                    return (
+                                      <View style={styles.audioLoading}>
+                                        <Text
+                                          style={{
+                                            color: colors.textSecondary
+                                          }}
+                                        >
+                                          Loading audio...
+                                        </Text>
+                                        <ActivityIndicator size="small" />
+                                      </View>
+                                    );
+                                  })()
+                                : // Log when not showing audio player or loading indicator
+                                  (() => {
+                                    console.log(
+                                      `[AssetView] No audio player/loader for ${content.id}:`,
+                                      {
+                                        audioId: content.audio_id,
+                                        hasUri: content.audio_id
+                                          ? !!attachmentUris[content.audio_id]
+                                          : false,
+                                        loadingAttachments
+                                      }
+                                    );
+                                    return null;
+                                  })()}
+                          </View>
+                        );
+                      }}
                     />
                   </View>
                 )}
