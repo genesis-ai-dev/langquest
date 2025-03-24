@@ -82,7 +82,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 ### Running Local Services
 
-- Run this command to run your local dev environment (Cmd/Ctrl+C to stop or run `env:stop`):
+- Run this command to run your local dev environment (Cmd/Ctrl+C to stop or run `npm run env:stop`):
 
   ```bash
   npm run env
@@ -114,7 +114,33 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   EXPO_PUBLIC_SUPABASE_ANON_KEY='your_anon_key_from_status_command'
   ```
 
+- Then reload (press `r` in the terminal that is running the expo app) or restart the app to reflect the .env changes.
+
 ### Usage
+
+#### Making Database Changes
+
+1. Access the Supabase Studio at [http://localhost:54323](http://localhost:54323)
+
+2. Modify tables & columns in the Table Editor and/or SQL Editor
+
+3. Generate a migration file with a descriptive name to describe your changes:
+
+   ```bash
+   npm run supabase db diff -- -f "your_migration_description"
+   ```
+
+   > This creates a timestamped SQL migration file in the `supabase/migrations` directory
+
+4. Review the generated migration file to ensure it captures your intended changes
+
+5. Commit the migration file to your repository to track database schema changes
+
+#### Making Sync Rule Changes
+
+1. Edit the sync rules configuration in `/supabase/config/sync_rules.yml`.
+
+> If your local environment is running already, PowerSync will auto restart when you make changes to the sync rules. Otherwise just start the environment and changes will be reflected accordingly.
 
 ### Common issue during setup:
 
