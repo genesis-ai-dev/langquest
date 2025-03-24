@@ -120,9 +120,11 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 #### Making Database Changes
 
-1. Access the Supabase Studio at [http://localhost:54323](http://localhost:54323)
+1. Access the Supabase Studio at [http://localhost:54323](http://localhost:54323).
 
-2. Modify tables & columns in the Table Editor and/or SQL Editor
+2. Modify tables & columns in the Table Editor and/or SQL Editor.
+
+   > For any new database tables you create, make sure to toggle its 'powersync' [publication](http://localhost:54323/project/default/database/publications) before diffing database changes, so that PowerSync can replicate the tables.
 
 3. Generate a migration file with a descriptive name to describe your changes:
 
@@ -132,9 +134,9 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
    > This creates a timestamped SQL migration file in the `supabase/migrations` directory
 
-4. Review the generated migration file to ensure it captures your intended changes
+4. Review the generated migration file to ensure it captures your intended changes.
 
-5. Commit the migration file to your repository to track database schema changes
+5. Commit the migration file to your repository to track database schema changes.
 
 #### Making Sync Rule Changes
 
