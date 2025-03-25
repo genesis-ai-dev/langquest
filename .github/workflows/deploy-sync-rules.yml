@@ -4,6 +4,10 @@ on:
   push:
     branches: ['dev']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   deploy-sync-rules:
     runs-on: ubuntu-latest
@@ -19,4 +23,4 @@ jobs:
           ORG_ID: ${{ secrets.POWERSYNC_ORG }}
           PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
           INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
-        run: npx powersync sync-rules deploy ./supabase/config/sync-rules.yml
+        run: npx powersync instance sync-rules deploy ./supabase/config/sync-rules.yml
