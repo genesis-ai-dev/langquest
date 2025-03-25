@@ -1,3 +1,5 @@
+name: Validate Sync Rules
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]

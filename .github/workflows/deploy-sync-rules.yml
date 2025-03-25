@@ -1,3 +1,5 @@
+name: Deploy Sync Rules
+
 on:
   push:
     branches:
