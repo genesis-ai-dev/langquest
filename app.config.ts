@@ -2,15 +2,16 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
+const appName = 'LangQuest';
 
 const getAppName = () => {
   switch (process.env.APP_VARIANT) {
     case 'development':
-      return 'LangQuest (Dev)';
+      return `${appName} (Dev)`;
     case 'preview':
-      return 'LangQuest (Preview)';
+      return `${appName} (Preview)`;
     default:
-      return 'LangQuest';
+      return appName;
   }
 };
 
@@ -104,7 +105,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId
     }
   },
+  updates: {
+    url: `https://u.expo.dev/${projectId}`
+  },
   runtimeVersion: {
-    policy: 'nativeVersion'
+    policy: 'appVersion'
   }
 });
