@@ -104,9 +104,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId
     }
   },
-  updates: {
-    url: `https://u.expo.dev/${projectId}`
-  },
   runtimeVersion: {
     policy: 'nativeVersion'
   }
