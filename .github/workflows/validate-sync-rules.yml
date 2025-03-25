@@ -3,10 +3,10 @@ name: Validate Sync Rules
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches:
-      - dev
-    paths:
-      - 'supabase/config/sync-rules.yml' # Only trigger when sync rules file is changed
+    paths: ['supabase/config/sync-rules.yml']
+  push:
+    branches: ['dev']
+    paths: ['supabase/config/sync-rules.yml']
 
 jobs:
   validate-sync-rules:
