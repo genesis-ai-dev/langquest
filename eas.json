@@ -5,26 +5,33 @@
   },
   "build": {
     "development": {
-      "developmentClient": true,
+      "channel": "development",
       "distribution": "internal",
-      "channel": "development"
+      "developmentClient": true,
+      "env": {
+        "APP_VARIANT": "development"
+      }
     },
     "preview": {
+      "channel": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk",
         "cache": {
           "key": "android-native-v1"
-        },
-        // "developmentClient": true,
-        "gradleCommand": ":app:assembleRelease"
+        }
       },
       "prebuildCommand": "npx expo prebuild --platform android --clean",
-      "channel": "preview"
+      "env": {
+        "APP_VARIANT": "preview"
+      }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
-      "channel": "production"
+      "env": {
+        "APP_VARIANT": "production"
+      }
     }
   },
   "submit": {}
