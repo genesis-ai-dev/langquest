@@ -8,19 +8,16 @@ on:
 jobs:
   deploy-sync-rules:
     runs-on: ubuntu-latest
-    env:
-      AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
-      ORG_ID: ${{ secrets.POWERSYNC_ORG }}
-      PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
-      INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup
         uses: ./tooling/github/setup-ci
 
-      - name: Initialize PowerSync CLI
-        run: powersync init
-
       - name: Deploy Sync Rules
+        env:
+          AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+          ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+          PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+          INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
         run: powersync sync-rules deploy ./supabase/config/sync-rules.yml
