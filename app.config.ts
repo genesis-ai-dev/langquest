@@ -2,16 +2,46 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
+const appName = 'LangQuest';
+
+const getAppName = () => {
+  switch (process.env.APP_VARIANT) {
+    case 'development':
+      return `${appName} (Dev)`;
+    case 'preview':
+      return `${appName} (Preview)`;
+    default:
+      return appName;
+  }
+};
+
+const getEnvironmentSuffix = () => {
+  switch (process.env.APP_VARIANT) {
+    case 'development':
+      return 'dev';
+    case 'preview':
+      return 'prev';
+    default:
+      return '';
+  }
+};
+
+const environmentSuffix = getEnvironmentSuffix();
+const appSlug = 'langquest';
+const appPackage = `com.etengenesis.${appSlug}${
+  environmentSuffix ? `.${environmentSuffix}` : ''
+}`;
+const appScheme = `langquest${environmentSuffix ? `-${environmentSuffix}` : ''}`;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
-  name: 'LangQuest',
-  slug: 'langquest',
+  name: getAppName(),
+  slug: appSlug,
   version: '1.0.0',
   orientation: 'portrait',
   icon: iconPath,
-  scheme: 'langquest',
+  scheme: appScheme,
   userInterfaceStyle: 'automatic',
   splash: {
     image: './assets/images/splash.png',
@@ -20,14 +50,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.etengenesis.langquest'
+    bundleIdentifier: appPackage
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/images/langquest_icon_v1.png',
       backgroundColor: '#ffffff'
     },
-    package: 'com.etengenesis.langquest',
+    package: appPackage,
     intentFilters: [
       {
         action: 'VIEW',
