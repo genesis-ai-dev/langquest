@@ -1,5 +1,3 @@
-name: Validate Sync Rules
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -11,11 +9,13 @@ on:
 jobs:
   validate-sync-rules:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     env:
       AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
       ORG_ID: ${{ secrets.POWERSYNC_ORG }}
       PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
-      INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,12 +26,12 @@ jobs:
         id: validate
         run: |
           OUTPUT=$(npx powersync instance sync-rules validate -f supabase/config/sync-rules.yml) || { 
-            echo "::set-output name=status::failed"
-            echo "::set-output name=output::$OUTPUT"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "output=$OUTPUT" >> $GITHUB_OUTPUT
             exit 1
           }
-          echo "::set-output name=status::passed"
-          echo "::set-output name=output::$OUTPUT"
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "output=$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
         if: steps.validate.outputs.status == 'passed'
