@@ -19,7 +19,7 @@
     "powersync:stop": "docker compose -f supabase/docker-compose.yml --env-file .env.local down",
     "env:start": "npm run supabase start && npm run powersync:start",
     "env:stop": "npm run powersync:stop && npm run supabase stop",
-    "env": "npm run env:up && npm run env:down",
+    "env": "[ ! -f .env.local ] && cp .env.local.example .env.local; npm run env:start && npm run env:stop",
     "env:clean": "npm run powersync:stop && docker volume rm -f supabase_mongo_storage && npm run supabase db reset && npm run powersync:start",
     "supabase": "npx supabase@beta"
   },

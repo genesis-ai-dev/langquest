@@ -88,33 +88,17 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   npm run env
   ```
 
-  Run this command to reset your local dev environment (please start it up first):
+- Run the app as normal:
+
+  ```bash
+  npm run android
+  ```
+
+- Run this command to reset your local dev environment (please start it up first):
 
   ```bash
   npm run env:clean
   ```
-
-### Setup
-
-- Copy environment variables by running:
-
-  ```bash
-  cp .env.local.example .env.local
-  ```
-
-- Check the status of your local Supabase instance (after its running) and get the anon key:
-
-  ```bash
-  npm run supabase status
-  ```
-
-  Look for the `anon key` in the output and update it in your `.env.local` file:
-
-  ```properties
-  EXPO_PUBLIC_SUPABASE_ANON_KEY='your_anon_key_from_status_command'
-  ```
-
-- Then reload (press `r` in the terminal that is running the expo app) or restart the app to reflect the .env changes.
 
 ### Usage
 
@@ -124,19 +108,27 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 2. Modify tables & columns in the Table Editor and/or SQL Editor.
 
-   > For any new database tables you create, make sure to toggle its 'powersync' [publication](http://localhost:54323/project/default/database/publications) before diffing database changes, so that PowerSync can replicate the tables.
+   > For **any new database tables** you create, make sure to toggle its 'powersync' [publication](http://localhost:54323/project/default/database/publications) before diffing database changes, so that PowerSync can replicate the tables.
 
-3. Generate a migration file with a descriptive name to describe your changes:
+3. Update the local drizzle schema in `db/drizzleSchema.ts` to reflect the changes you made
+
+4. Generate a migration file with a descriptive name to describe your changes:
 
    ```bash
-   npm run supabase db diff -- -f "your_migration_description"
+   npx supabase@beta db diff -f "your_migration_description"
    ```
 
    > This creates a timestamped SQL migration file in the `supabase/migrations` directory
 
-4. Review the generated migration file to ensure it captures your intended changes.
+   - For **any new database tables** you create, add a publication statement for each new table, to the end of the new migration file that was just created [(hopefully this will be automatic at some point)](https://github.com/supabase/cli/issues/883):
 
-5. Commit the migration file to your repository to track database schema changes.
+     ```sql
+     alter publication "powersync" add table only "<schema>"."<table_name>";
+     ```
+
+5. Review the generated migration file to ensure it captures your intended changes.
+
+6. Commit the migration file to your repository to track database schema changes.
 
 #### Making Sync Rule Changes
 
