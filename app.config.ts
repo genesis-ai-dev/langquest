@@ -77,8 +77,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   updates: {
     url: `https://u.expo.dev/${projectId}`
-  },
-  runtimeVersion: {
-    policy: 'appVersion'
   }
 });
