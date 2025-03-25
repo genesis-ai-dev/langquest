@@ -8,6 +8,10 @@ on:
     branches: ['dev']
     paths: ['supabase/config/sync-rules.yml']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   validate-sync-rules:
     runs-on: ubuntu-latest
