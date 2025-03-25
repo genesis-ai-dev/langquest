@@ -1,0 +1,26 @@
+name: Deploy Sync Rules
+
+on:
+  push:
+    branches: ['dev']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  deploy-sync-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Deploy Sync Rules
+        env:
+          AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+          ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+          PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+          INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
+        run: npx powersync instance sync-rules deploy -f ./supabase/config/sync-rules.yml -s

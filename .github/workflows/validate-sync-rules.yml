@@ -1,0 +1,61 @@
+name: Validate Sync Rules
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths: ['supabase/config/sync-rules.yml']
+  push:
+    branches: ['dev']
+    paths: ['supabase/config/sync-rules.yml']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  validate-sync-rules:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+      ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+      PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Validate Sync Rules
+        id: validate
+        run: |
+          OUTPUT=$(npx powersync instance sync-rules validate -f supabase/config/sync-rules.yml) || { 
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "output=$OUTPUT" >> $GITHUB_OUTPUT
+            exit 1
+          }
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "output=$OUTPUT" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ${{ steps.validate.outputs.output }}
+          comment-tag: validation
+
+      - name: Comment on PR Failure
+        if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            ❌ PowerSync sync rules validation failed.
+
+            ```
+            ${{ steps.validate.outputs.output }}
+            ```
+
+            Please fix the issues before merging.
+          comment-tag: validation
