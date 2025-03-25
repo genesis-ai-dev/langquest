@@ -76,6 +76,8 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 ## Local Development Environment
 
+> To disable the local environment and use the cloud environment instead, delete your `.env.local` file.
+
 ### Prerequisites
 
 - Download [Docker Desktop](https://www.docker.com/get-started) (version 4.24.0 or greater required)
