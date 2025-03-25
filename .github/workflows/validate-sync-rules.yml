@@ -40,14 +40,14 @@ jobs:
           echo "output=$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
-        if: steps.validate.outputs.status == 'passed'
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: ${{ steps.validate.outputs.output }}
           comment-tag: validation
 
       - name: Comment on PR Failure
-        if: failure() && steps.validate.outputs.status == 'failed'
+        if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: |
