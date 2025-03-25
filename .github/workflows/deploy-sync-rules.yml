@@ -1,0 +1,28 @@
+name: Deploy Sync Rules
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'supabase/config/sync-rules.yml' # Only trigger when sync rules file is changed
+
+jobs:
+  deploy-sync-rules:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+      ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+      PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Initialize PowerSync CLI
+        run: powersync init
+
+      - name: Deploy Sync Rules
+        run: powersync sync-rules deploy ./supabase/config/sync-rules.yml
