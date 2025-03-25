@@ -110,7 +110,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
    > For **any new database tables** you create, make sure to toggle its 'powersync' [publication](http://localhost:54323/project/default/database/publications) before diffing database changes, so that PowerSync can replicate the tables.
 
-3. Update the local drizzle schema in `db/drizzleSchema.ts` to reflect the changes you made
+3. Update the local drizzle schema in `db/drizzleSchema.ts` to reflect the changes you made.
 
 4. Generate a migration file with a descriptive name to describe your changes:
 
