@@ -15,9 +15,8 @@
         "buildType": "apk",
         "cache": {
           "key": "android-native-v1"
-        },
+        }
         // "developmentClient": true,
-        "gradleCommand": ":app:assembleRelease"
       },
       "prebuildCommand": "npx expo prebuild --platform android --clean",
       "channel": "preview"

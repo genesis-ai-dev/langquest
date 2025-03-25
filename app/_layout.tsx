@@ -10,7 +10,6 @@ import { ProjectProvider } from '@/contexts/ProjectContext';
 import { TermsGuard } from '@/guards/TermsGuard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSystem } from '../db/powersync/system';
-import '../global.css';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
