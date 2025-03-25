@@ -100,7 +100,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     return {
       state: AttachmentState.QUEUED_UPLOAD,
       id: filename,
-      filename: filenameWithoutPath,
+      filename: filename,
       local_uri: localUri,
       ...record
     };

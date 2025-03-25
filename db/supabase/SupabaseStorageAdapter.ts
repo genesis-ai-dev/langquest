@@ -56,6 +56,9 @@ export class SupabaseStorageAdapter implements StorageAdapter {
   ): Promise<void> {
     const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
 
+    const dir = fileURI.split('/').slice(0, -1).join('/');
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+
     await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
   }
 
