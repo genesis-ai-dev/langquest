@@ -23,4 +23,4 @@ jobs:
           ORG_ID: ${{ secrets.POWERSYNC_ORG }}
           PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
           INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
-        run: npx powersync instance sync-rules deploy ./supabase/config/sync-rules.yml
+        run: npx powersync instance sync-rules deploy -f ./supabase/config/sync-rules.yml
