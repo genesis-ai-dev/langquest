@@ -25,9 +25,12 @@ const getEnvironmentSuffix = () => {
   }
 };
 
+const environmentSuffix = getEnvironmentSuffix();
 const appSlug = 'langquest';
-const appPackage = `com.etengenesis.${appSlug}.${getEnvironmentSuffix()}`;
-const appScheme = `langquest-${getEnvironmentSuffix()}`;
+const appPackage = `com.etengenesis.${appSlug}${
+  environmentSuffix ? `.${environmentSuffix}` : ''
+}`;
+const appScheme = `langquest${environmentSuffix ? `-${environmentSuffix}` : ''}`;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
