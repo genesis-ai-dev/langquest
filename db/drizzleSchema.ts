@@ -356,6 +356,11 @@ export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
   })
 }));
 
+export const flag = sqliteTable('flag', {
+  ...baseColumns,
+  name: text().notNull().unique()
+});
+
 // export const notification = sqliteTable('notification', {
 //   ...baseColumns,
 //   id: text().notNull(),

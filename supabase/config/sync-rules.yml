@@ -14,6 +14,7 @@ bucket_definitions:
       - SELECT quest_id || '_' || asset_id as id, quest_id, asset_id FROM quest_asset_link
       - SELECT * FROM "translation"
       - SELECT * FROM "vote"
+      - SELECT * FROM "flag"
 
   user_downloads:
     parameters: SELECT request.user_id() AS profile_id
