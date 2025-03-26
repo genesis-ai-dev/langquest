@@ -90,13 +90,13 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   npm run env
   ```
 
-- Run the app as normal:
+- In another terminal, run the app as normal:
 
   ```bash
   npm run android
   ```
 
-- Run this command to reset your local dev environment (please start it up first):
+- Run this command **if necessary** to reset your local dev environment (please make sure its running first):
 
   ```bash
   npm run env:clean
