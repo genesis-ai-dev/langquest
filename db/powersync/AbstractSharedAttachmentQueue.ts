@@ -123,4 +123,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Abstract method to be implemented by subclasses
   abstract getStorageType(): 'permanent' | 'temporary';
+
+  async record(id: string): Promise<AttachmentRecord | null> {
+    return this.powersync.getOptional<ExtendedAttachmentRecord>(
+      `SELECT * FROM ${this.table} WHERE id = ? AND storage_type = ?`,
+      [id, this.getStorageType()]
+    );
+  }
 }
