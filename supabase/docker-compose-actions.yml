@@ -13,7 +13,7 @@ services:
     ports:
       - '1080:1080'
     environment:
-      - WARP_SLEEP=2
+      - WARP_SLEEP=4
       # - WARP_LICENSE_KEY= # optional
       # - WARP_ENABLE_NAT=1 # enable nat
     cap_add:
@@ -114,7 +114,7 @@ networks:
       driver: default
       config:
         - subnet: 172.20.0.0/16
-        - subnet: 2606:4700:d0::/64
+        - subnet: 2606:4700:7::/64
 
 volumes:
   mongo_storage:
