@@ -1,43 +1,43 @@
 name: powersync
 
 services:
-  warp:
-    image: caomingjun/warp
-    container_name: warp
-    restart: always
-    networks:
-      - powersync_network
-    # add removed rule back (https://github.com/opencontainers/runc/pull/3468)
-    device_cgroup_rules:
-      - 'c 10:200 rwm'
-    ports:
-      - '1080:1080'
-    environment:
-      - WARP_SLEEP=10
-      # - WARP_LICENSE_KEY= # optional
-      # - WARP_ENABLE_NAT=1 # enable nat
-    cap_add:
-      # Docker already have them, these are for podman users
-      - MKNOD
-      - AUDIT_WRITE
-      # additional required cap for warp, both for podman and docker
-      - NET_ADMIN
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv4.conf.all.src_valid_mark=1
-      # Enable IPv6 forwarding
-      - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1
-      - net.ipv6.conf.all.accept_ra=2
-    volumes:
-      - ./data:/var/lib/cloudflare-warp
+  # warp:
+  #   image: caomingjun/warp
+  #   container_name: warp
+  #   restart: always
+  #   networks:
+  #     - powersync_network
+  #   # add removed rule back (https://github.com/opencontainers/runc/pull/3468)
+  #   device_cgroup_rules:
+  #     - 'c 10:200 rwm'
+  #   ports:
+  #     - '1080:1080'
+  #   environment:
+  #     - WARP_SLEEP=2
+  #     # - WARP_LICENSE_KEY= # optional
+  #     # - WARP_ENABLE_NAT=1 # enable nat
+  #   cap_add:
+  #     # Docker already have them, these are for podman users
+  #     - MKNOD
+  #     - AUDIT_WRITE
+  #     # additional required cap for warp, both for podman and docker
+  #     - NET_ADMIN
+  #   sysctls:
+  #     - net.ipv6.conf.all.disable_ipv6=0
+  #     - net.ipv4.conf.all.src_valid_mark=1
+  #     # Enable IPv6 forwarding
+  #     - net.ipv4.ip_forward=1
+  #     - net.ipv6.conf.all.forwarding=1
+  #     - net.ipv6.conf.all.accept_ra=2
+  #   volumes:
+  #     - ./data:/var/lib/cloudflare-warp
 
   mongo:
     image: mongo:7.0
     command: --replSet rs0 --bind_ip_all --quiet
     restart: unless-stopped
-    networks:
-      - powersync_network
+    # networks:
+    #   - powersync_network
     ports:
       - 27017:27017
     volumes:
@@ -48,8 +48,8 @@ services:
   # Initializes the MongoDB replica set. This service will not usually be actively running
   mongo-rs-init:
     image: mongo:7.0
-    networks:
-      - powersync_network
+    # networks:
+    #   - powersync_network
     depends_on:
       mongo:
         condition: service_started
@@ -63,8 +63,8 @@ services:
     restart: unless-stopped
     image: journeyapps/powersync-service:latest
     command: ['start', '-r', 'unified']
-    networks:
-      - powersync_network
+    # networks:
+    #   - powersync_network
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync-actions.yml
       NODE_OPTIONS: --max-old-space-size=1000
@@ -107,14 +107,14 @@ services:
   #     - 4170:4173
 
 networks:
-  powersync_network:
-    enable_ipv6: true
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
-        - subnet: 2606:4700:7::/64
+  # powersync_network:
+  #   enable_ipv6: true
+  #   driver: bridge
+  #   ipam:
+  #     driver: default
+  #     config:
+  #       - subnet: 172.20.0.0/16
+  #       - subnet: 2606:4700:7::/64
 
 volumes:
   mongo_storage:
