@@ -95,77 +95,46 @@ jobs:
           # Set container name
           POWERSYNC_CONTAINER=powersync-powersync-1
 
-          # Debug: Check if container is running and healthy
-          echo "Checking container status..."
-          docker ps | grep "$POWERSYNC_CONTAINER"
-
-          # Debug: Check container logs
-          echo "Container logs:"
-          docker logs "$POWERSYNC_CONTAINER"
-
-          # Debug: Check if port is accessible
-          echo "Checking if port ${PS_PORT} is accessible..."
-          if ! nc -z localhost ${PS_PORT}; then
-            echo "Error: Port ${PS_PORT} is not accessible"
-            exit 1
-          fi
-
-          # Debug: Try a simple GET request first
-          echo "Testing basic connectivity..."
-          if ! curl -v "http://localhost:${PS_PORT}/probes/liveness"; then
-            echo "Error: Basic connectivity test failed"
-            exit 1
-          fi
-
           # Make the API call and store response
           echo "Making validation API call..."
-          RESPONSE=$(curl -v -X POST \
+          RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer $PS_API_TOKEN" \
             -H "Content-Type: application/yaml" \
             --data-binary "@supabase/config/sync-rules.yml" \
-            "http://localhost:${PS_PORT}/api/sync-rules/v1/validate" || true)
+            "http://localhost:${PS_PORT}/api/sync-rules/v1/validate")
 
           # Debug: Print raw response
           echo "Raw response:"
           echo "$RESPONSE"
 
-          # Check if curl command failed
-          if [ $? -ne 0 ]; then
-            echo "Error: Curl command failed"
-            exit 1
-          fi
+          # Extract the valid field directly using jq
+          VALID=$(echo "$RESPONSE" | jq -r '.valid')
+          echo "Valid: $VALID"
 
-          # Validate JSON format
-          if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
-            echo "Error: Invalid JSON response"
-            echo "Response was: $RESPONSE"
-            exit 1
-          fi
-
-          # Parse the JSON response
-          VALID=$(echo "$RESPONSE" | jq -r '.valid // false')
+          # Store the full response for the PR comment
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
           if [ "$VALID" = "true" ]; then
-            # Escape the response for GitHub Actions output
-            OUTPUT=$(echo "$RESPONSE" | jq -c .)
-            echo "status=passed" >> "$GITHUB_OUTPUT"
-            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
+            echo "✅ PowerSync sync rules validation passed"
+            echo "status=passed" >> $GITHUB_OUTPUT
           else
-            # Get errors array if validation failed, with fallback
-            ERRORS=$(echo "$RESPONSE" | jq -r '.errors | if type == "array" then join(", ") else tostring end')
-            # Escape the response for GitHub Actions output
-            OUTPUT=$(echo "$RESPONSE" | jq -c .)
-            echo "status=failed" >> "$GITHUB_OUTPUT"
-            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
-            echo "Validation failed with errors: $ERRORS"
+            echo "❌ PowerSync sync rules validation failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Comment on PR
-        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: ✅ PowerSync sync rules validation passed.
+          message: |
+            ${{ steps.validate.outputs.status == 'passed' && '✅ PowerSync sync rules validation passed.' || '❌ PowerSync sync rules validation failed.' }}
+
+            ```json
+            ${{ steps.validate.outputs.response }}
+            ```
           comment-tag: validation
 
       - name: Comment on PR Failure
