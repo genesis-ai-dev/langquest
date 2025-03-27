@@ -48,10 +48,11 @@ jobs:
 
       - name: Wait for PowerSync to startup
         run: |
-          # Get the container ID of the PowerSync service
-          POWERSYNC_CONTAINER=$(docker ps -q -f name=powersync)
+          # Set container name
+          POWERSYNC_CONTAINER=powersync-powersync-1
 
-          if [ -z "$POWERSYNC_CONTAINER" ]; then
+          # Check if the container exists
+          if ! docker ps -a | grep -q "$POWERSYNC_CONTAINER"; then
             echo "Error: PowerSync container not found"
             docker ps -a
             exit 1
