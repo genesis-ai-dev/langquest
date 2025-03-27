@@ -13,7 +13,7 @@ services:
     ports:
       - '1080:1080'
     environment:
-      - WARP_SLEEP=4
+      - WARP_SLEEP=10
       # - WARP_LICENSE_KEY= # optional
       # - WARP_ENABLE_NAT=1 # enable nat
     cap_add:
