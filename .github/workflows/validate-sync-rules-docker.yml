@@ -30,13 +30,11 @@ jobs:
         with:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
-          wait-for-migrations: false
-          timeout: 60
 
       - name: Set PowerSync Environment
         run: |
           # Construct database URL from branch info
-          DB_URL="postgresql://${{ steps.supabase-branch.outputs.db_user }}:${{ steps.supabase-branch.outputs.db_pass }}@${{ steps.supabase-branch.outputs.db_host }}:${{ steps.supabase-branch.outputs.db_port }}/postgres"
+          DB_URL="postgresql://${{ steps.supabase-branch.outputs.db_user }}:${{ steps.supabase-branch.outputs.db_pass }}@${{ steps.supabase-branch.outputs.db_host }}:5432/postgres"
 
           # Debug: Print URL (with password masked)
           echo "Database URL (password masked):"
