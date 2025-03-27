@@ -40,9 +40,6 @@ jobs:
         with:
           mode: client
 
-      - name: Test IPv6
-        run: curl -6 https://ifconfig.co/ip
-
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
         env:
@@ -54,65 +51,65 @@ jobs:
           up-flags: -d
           down-flags: -v
 
-      # - name: Wait for PowerSync to startup
-      #   run: |
-      #     for i in {1..30}; do
-      #       if curl -s http://localhost:${PS_PORT}/probes/liveness > /dev/null; then
-      #         echo "PowerSync is ready"
-      #         exit 0
-      #       fi
-      #       echo "Waiting for PowerSync to start... ($i/30)"
-      #       sleep 2
-      #     done
-      #     echo "PowerSync failed to start."
-      #     exit 1
+      - name: Wait for PowerSync to startup
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:${PS_PORT}/probes/liveness > /dev/null; then
+              echo "PowerSync is ready"
+              exit 0
+            fi
+            echo "Waiting for PowerSync to start... ($i/30)"
+            sleep 2
+          done
+          echo "PowerSync failed to start."
+          exit 1
 
-      # - name: Validate Sync Rules
-      #   id: validate
-      #   run: |
-      #     # Make the API call and store response
-      #     RESPONSE=$(curl -s -X POST \
-      #       -H "Authorization: Bearer $PS_API_TOKEN" \
-      #       -H "Content-Type: application/yaml" \
-      #       --data-binary "@supabase/config/sync-rules.yml" \
-      #       http://localhost:${PS_PORT}/api/sync-rules/v1/validate)
+      - name: Validate Sync Rules
+        id: validate
+        run: |
+          # Make the API call and store response
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $PS_API_TOKEN" \
+            -H "Content-Type: application/yaml" \
+            --data-binary "@supabase/config/sync-rules.yml" \
+            http://localhost:${PS_PORT}/api/sync-rules/v1/validate)
 
-      #     # Debug: Print raw response
-      #     echo "Raw response:"
-      #     echo "$RESPONSE"
+          # Debug: Print raw response
+          echo "Raw response:"
+          echo "$RESPONSE"
 
-      #     # Validate JSON format
-      #     if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
-      #       echo "Error: Invalid JSON response"
-      #       echo "Response was: $RESPONSE"
-      #       exit 1
-      #     fi
+          # Validate JSON format
+          if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
+            echo "Error: Invalid JSON response"
+            echo "Response was: $RESPONSE"
+            exit 1
+          fi
 
-      #     # Parse the JSON response
-      #     VALID=$(echo "$RESPONSE" | jq -r '.valid // false')
+          # Parse the JSON response
+          VALID=$(echo "$RESPONSE" | jq -r '.valid // false')
 
-      #     if [ "$VALID" = "true" ]; then
-      #       # Escape the response for GitHub Actions output
-      #       OUTPUT=$(echo "$RESPONSE" | jq -c .)
-      #       echo "status=passed" >> "$GITHUB_OUTPUT"
-      #       echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
-      #     else
-      #       # Get errors array if validation failed, with fallback
-      #       ERRORS=$(echo "$RESPONSE" | jq -r '.errors | if type == "array" then join(", ") else tostring end')
-      #       # Escape the response for GitHub Actions output
-      #       OUTPUT=$(echo "$RESPONSE" | jq -c .)
-      #       echo "status=failed" >> "$GITHUB_OUTPUT"
-      #       echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
-      #       echo "Validation failed with errors: $ERRORS"
-      #       exit 1
-      #     fi
+          if [ "$VALID" = "true" ]; then
+            # Escape the response for GitHub Actions output
+            OUTPUT=$(echo "$RESPONSE" | jq -c .)
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
+          else
+            # Get errors array if validation failed, with fallback
+            ERRORS=$(echo "$RESPONSE" | jq -r '.errors | if type == "array" then join(", ") else tostring end')
+            # Escape the response for GitHub Actions output
+            OUTPUT=$(echo "$RESPONSE" | jq -c .)
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
+            echo "Validation failed with errors: $ERRORS"
+            exit 1
+          fi
 
-      # - name: Comment on PR
-      #   if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     message: ✅ PowerSync sync rules validation passed.
-      #     comment-tag: validation
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ✅ PowerSync sync rules validation passed.
+          comment-tag: validation
 
       - name: Comment on PR Failure
         # if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
@@ -121,7 +118,8 @@ jobs:
           message: |
             ❌ PowerSync sync rules validation failed.
 
-            postgresql://${{ steps.supabase-branch.outputs.db_user }}:${{ steps.supabase-branch.outputs.db_pass }}@${{ steps.supabase-branch.outputs.db_host }}:${{ steps.supabase-branch.outputs.db_port }}/postgres
-
+            ```
+            ${{ steps.validate.outputs.output }}
+            ```
             Please fix the issues before merging.
           comment-tag: validation
