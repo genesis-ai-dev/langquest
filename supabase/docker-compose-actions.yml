@@ -53,8 +53,6 @@ services:
     depends_on:
       mongo-rs-init:
         condition: service_completed_successfully
-      warp:
-        condition: service_started
     volumes:
       - ./config:/config
     network_mode: 'service:warp'
