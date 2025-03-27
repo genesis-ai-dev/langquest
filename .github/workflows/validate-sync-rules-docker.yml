@@ -35,7 +35,7 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      - name: Run PowerSync with Docker Compose
+      - name: Run WARP
         uses: hoverkraft-tech/compose-action@v2.0.1
         with:
           compose-file: ./docker-compose.yml
@@ -44,7 +44,17 @@ jobs:
 
       - name: Check WARP connection
         run: |
-          curl --socks5-hostname 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"
+          echo "Waiting for WARP to be ready..."
+          for i in {1..30}; do
+            if curl --socks5-hostname 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "warp=on" > /dev/null; then
+              echo "WARP is ready and connected"
+              exit 0
+            fi
+            echo "Waiting for WARP to be ready... ($i/30)"
+            sleep 2
+          done
+          echo "WARP failed to connect after 60 seconds"
+          exit 1
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
