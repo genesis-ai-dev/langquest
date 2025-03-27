@@ -9,6 +9,9 @@ services:
       - 27017:27017
     volumes:
       - mongo_storage:/data/db
+    networks:
+      - powersync_network
+    ipv6_address: fd00::1
 
   # Initializes the MongoDB replica set. This service will not usually be actively running
   mongo-rs-init:
@@ -20,6 +23,9 @@ services:
       - bash
       - -c
       - 'mongosh --host mongo:27017 --eval ''try{rs.status().ok && quit(0)} catch {} rs.initiate({_id: "rs0", version: 1, members: [{ _id: 0, host : "mongo:27017" }]})'''
+    networks:
+      - powersync_network
+    ipv6_address: fd00::2
 
   powersync:
     restart: unless-stopped
@@ -55,6 +61,9 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./config:/config
+    networks:
+      - powersync_network
+    ipv6_address: fd00::3
 
   # demo-client:
   #   build:
@@ -65,6 +74,15 @@ services:
   #       VITE_POWERSYNC_URL: ${EXPO_PUBLIC_POWERSYNC_URL}
   #   ports:
   #     - 4170:4173
+
+networks:
+  powersync_network:
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: fd00::/80
+          gateway: fd00::1
 
 volumes:
   mongo_storage:
