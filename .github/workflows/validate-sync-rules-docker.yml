@@ -3,10 +3,10 @@ name: Validate Sync Rules with Docker
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths: ['supabase/config/sync-rules.yml']
+    # paths: ['supabase/config/sync-rules.yml']
   push:
     branches: ['dev']
-    paths: ['supabase/config/sync-rules.yml']
+    # paths: ['supabase/config/sync-rules.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
