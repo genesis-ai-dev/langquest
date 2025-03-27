@@ -32,7 +32,7 @@ jobs:
           # Construct database URL from branch info
           DB_USER="${{ steps.supabase-branch.outputs.db_user }}"
           DB_USER="${DB_USER/db./postgres.}"
-          DB_URL="postgresql://${DB_USER}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:5432/postgres"
+          DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:5432/postgres"
 
           echo "$DB_URL"
 
@@ -120,6 +120,8 @@ jobs:
             ```
             ${{ steps.validate.outputs.output }}
             ```
+
+            $DB_URL
 
             Please fix the issues before merging.
           comment-tag: validation
