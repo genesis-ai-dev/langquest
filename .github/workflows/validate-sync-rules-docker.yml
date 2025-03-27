@@ -14,7 +14,6 @@ concurrency:
 
 env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-  PS_PORT: 8080
 
 jobs:
   validate-sync-rules:
@@ -22,6 +21,7 @@ jobs:
     permissions:
       pull-requests: write
     env:
+      PS_PORT: 8080
       PS_SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
       PS_API_TOKEN: use_a_better_token_in_production
     steps:
@@ -36,7 +36,7 @@ jobs:
             https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}/branches)
 
           BRANCH_ID=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .id')
-          PROJECT_REF=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .project_ref')
+          PROJECT_REF=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .ref')
           echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
 
           if [ -n "$BRANCH_ID" ]; then
@@ -52,14 +52,36 @@ jobs:
               -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
               "https://api.supabase.com/platform/projects/$PROJECT_REF/config/supavisor")
             
+            # Debug: Print raw Supavisor config
+            echo "Raw Supavisor config:"
+            echo "$SUPAVISOR_CONFIG" | jq .
+
             # Extract database connection details from Supavisor config
             DB_HOST=$(echo $SUPAVISOR_CONFIG | jq -r '.db_host')
             DB_PORT=$(echo $SUPAVISOR_CONFIG | jq -r '.db_port')
             DB_USER=$(echo $SUPAVISOR_CONFIG | jq -r '.db_user')
             DB_NAME=$(echo $SUPAVISOR_CONFIG | jq -r '.db_name')
             
+            # Validate port number
+            if ! [[ "$DB_PORT" =~ ^[0-9]+$ ]] || [ "$DB_PORT" -lt 0 ] || [ "$DB_PORT" -gt 65535 ]; then
+              echo "::error::Invalid port number: $DB_PORT"
+              echo "Using default port 5432"
+              DB_PORT=5432
+            fi
+            
+            # Debug: Print extracted values
+            echo "Extracted values:"
+            echo "DB_HOST: $DB_HOST"
+            echo "DB_PORT: $DB_PORT"
+            echo "DB_USER: $DB_USER"
+            echo "DB_NAME: $DB_NAME"
+            
             # Construct database URL using the password from branch details
             DB_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+            # Debug: Print URL (with password masked)
+            echo "Database URL (password masked):"
+            echo "${DB_URL//${DB_PASS}/****}"
+            
             echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           else
             echo "::warning::No Supabase branch found matching git branch '${{ env.BRANCH_NAME }}', using default database URL."
@@ -76,7 +98,7 @@ jobs:
       - name: Wait for PowerSync to startup
         run: |
           for i in {1..30}; do
-            if curl -s "http://localhost:${{ env.PS_PORT }}/probes/liveness" > /dev/null; then
+            if curl -s http://localhost:${PS_PORT}/probes/liveness > /dev/null; then
               echo "PowerSync is ready"
               exit 0
             fi
@@ -94,7 +116,7 @@ jobs:
             -H "Authorization: Bearer $PS_API_TOKEN" \
             -H "Content-Type: application/yaml" \
             --data-binary "@supabase/config/sync-rules.yml" \
-            "http://localhost:${{ env.PS_PORT }}/api/sync-rules/v1/validate")
+            http://localhost:${PS_PORT}/api/sync-rules/v1/validate)
 
           # Debug: Print raw response
           echo "Raw response:"
