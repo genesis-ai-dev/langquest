@@ -27,92 +27,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch Supabase branch info
+      - name: Get Database URL
         id: supabase-branch
+        uses: 0xbigboss/supabase-branch-gh-action@v1
+        with:
+          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+          git-branch: ${{ env.BRANCH_NAME }}
+          wait-for-migrations: true
+          timeout: 60
+
+      - name: Set PowerSync Environment
         run: |
-          # First get the branch data to get the project ref
-          BRANCH_DATA=$(curl -s \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-            https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}/branches)
+          # Construct database URL from branch info
+          DB_URL="postgresql://${{ steps.supabase-branch.outputs.db_user }}:${{ steps.supabase-branch.outputs.db_pass }}@${{ steps.supabase-branch.outputs.db_host }}:${{ steps.supabase-branch.outputs.db_port }}/postgres"
 
-          # Debug: Print branch data (without sensitive info)
-          echo "Branch data structure:"
-          echo "$BRANCH_DATA" | jq 'map(del(.db_pass))'
+          # Debug: Print URL (with password masked)
+          echo "Database URL (password masked):"
+          echo "$DB_URL" | sed -E 's/:[^:@]+@/:*****@/'
 
-          BRANCH_ID=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .id')
-          PROJECT_REF=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .project_ref')
-          echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
-          echo "project_ref=$PROJECT_REF" >> $GITHUB_OUTPUT
-
-          if [ -n "$BRANCH_ID" ] && [ -n "$PROJECT_REF" ]; then
-            echo "Found branch ID: $BRANCH_ID and project ref: $PROJECT_REF"
-
-            # Get branch details to get the database password
-            BRANCH_DETAILS=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-              "https://api.supabase.com/v1/branches/$BRANCH_ID")
-            
-            if [ -z "$(echo $BRANCH_DETAILS | jq -r .db_pass)" ]; then
-              echo "::error::Failed to get database password from branch details"
-              exit 1
-            fi
-            
-            DB_PASS=$(echo $BRANCH_DETAILS | jq -r .db_pass)
-
-            # Get Supavisor config to get the connection details
-            SUPAVISOR_CONFIG=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-              "https://api.supabase.com/platform/projects/$PROJECT_REF/config/supavisor")
-            
-            # Debug: Print raw Supavisor config (without sensitive info)
-            echo "Raw Supavisor config:"
-            echo "$SUPAVISOR_CONFIG" | jq 'del(.connection_string, .connectionString)'
-
-            # Check for API error
-            if [ "$(echo $SUPAVISOR_CONFIG | jq -r '.message // empty')" != "" ]; then
-              echo "::error::Supavisor API error: $(echo $SUPAVISOR_CONFIG | jq -r '.message')"
-              exit 1
-            fi
-
-            # Extract database connection details from Supavisor config
-            DB_HOST=$(echo $SUPAVISOR_CONFIG | jq -r '.db_host')
-            DB_PORT=$(echo $SUPAVISOR_CONFIG | jq -r '.db_port')
-            DB_USER=$(echo $SUPAVISOR_CONFIG | jq -r '.db_user')
-            DB_NAME=$(echo $SUPAVISOR_CONFIG | jq -r '.db_name')
-            
-            # Validate all required fields
-            if [ -z "$DB_HOST" ] || [ "$DB_HOST" = "null" ] || \
-               [ -z "$DB_USER" ] || [ "$DB_USER" = "null" ] || \
-               [ -z "$DB_NAME" ] || [ "$DB_NAME" = "null" ]; then
-              echo "::error::Missing required database connection details"
-              exit 1
-            fi
-            
-            # Validate port number
-            if ! [[ "$DB_PORT" =~ ^[0-9]+$ ]] || [ "$DB_PORT" -lt 0 ] || [ "$DB_PORT" -gt 65535 ]; then
-              echo "::error::Invalid port number: $DB_PORT"
-              echo "Using default port 6543"
-              DB_PORT=6543
-            fi
-            
-            # Debug: Print extracted values
-            echo "Extracted values:"
-            echo "DB_HOST: $DB_HOST"
-            echo "DB_PORT: $DB_PORT"
-            echo "DB_USER: $DB_USER"
-            echo "DB_NAME: $DB_NAME"
-            
-            # Construct database URL using the password from branch details
-            DB_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-            # Debug: Print URL (with password masked)
-            echo "Database URL (password masked):"
-            echo "${DB_URL//${DB_PASS}/****}"
-            
-            echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
-          else
-            echo "::warning::No Supabase branch found matching git branch '${{ env.BRANCH_NAME }}', using default database URL."
-            echo "PS_DATA_SOURCE_URI=postgresql://postgres:postgres@db:5432/postgres" >> $GITHUB_ENV
-          fi
+          echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
+          echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
