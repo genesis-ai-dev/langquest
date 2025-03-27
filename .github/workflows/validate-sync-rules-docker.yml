@@ -53,10 +53,10 @@ jobs:
               "https://api.supabase.com/platform/projects/$PROJECT_REF/config/supavisor")
             
             # Extract database connection details from Supavisor config
-            DB_HOST=$(echo $SUPAVISOR_CONFIG | jq -r '.[0].db_host')
-            DB_PORT=$(echo $SUPAVISOR_CONFIG | jq -r '.[0].db_port')
-            DB_USER=$(echo $SUPAVISOR_CONFIG | jq -r '.[0].db_user')
-            DB_NAME=$(echo $SUPAVISOR_CONFIG | jq -r '.[0].db_name')
+            DB_HOST=$(echo $SUPAVISOR_CONFIG | jq -r '.db_host')
+            DB_PORT=$(echo $SUPAVISOR_CONFIG | jq -r '.db_port')
+            DB_USER=$(echo $SUPAVISOR_CONFIG | jq -r '.db_user')
+            DB_NAME=$(echo $SUPAVISOR_CONFIG | jq -r '.db_name')
             
             # Construct database URL using the password from branch details
             DB_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
