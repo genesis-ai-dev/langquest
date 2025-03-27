@@ -44,12 +44,11 @@ jobs:
             
             # Extract database connection details
             DB_HOST=$(echo $BRANCH_DETAILS | jq -r .db_host)
-            DB_PORT=$(echo $BRANCH_DETAILS | jq -r .db_port)
             DB_USER=$(echo $BRANCH_DETAILS | jq -r .db_user)
             DB_PASS=$(echo $BRANCH_DETAILS | jq -r .db_pass)
             
             # Construct database URL
-            DB_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/postgres"
+            DB_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:6543/postgres"
             echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           else
             echo "::warning::No Supabase branch found matching git branch '${{ env.BRANCH_NAME }}', using default database URL."
