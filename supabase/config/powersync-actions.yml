@@ -10,7 +10,7 @@ replication:
       uri: !env PS_DATA_SOURCE_URI
 
       # SSL settings
-      sslmode: 'verify-ca' # Temporarily changed from 'verify-full' for troubleshooting
+      sslmode: 'verify-full' # Temporarily changed from 'verify-full' for troubleshooting
 
 # Connection settings for sync bucket storage
 storage:

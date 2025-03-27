@@ -38,7 +38,10 @@ services:
           'curl',
           '--socks5-hostname',
           '127.0.0.1:1080',
-          'https://cloudflare.com/cdn-cgi/trace'
+          'https://cloudflare.com/cdn-cgi/trace',
+          '|',
+          'grep',
+          'warp=on'
         ]
       interval: 5s
       timeout: 1s
