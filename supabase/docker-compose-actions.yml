@@ -1,20 +1,67 @@
 name: powersync
 
 services:
+  warp:
+    image: caomingjun/warp
+    container_name: warp
+    restart: always
+    networks:
+      - powersync_network
+    # add removed rule back (https://github.com/opencontainers/runc/pull/3468)
+    device_cgroup_rules:
+      - 'c 10:200 rwm'
+    ports:
+      - '1080:1080'
+    environment:
+      - WARP_SLEEP=4
+      # - WARP_LICENSE_KEY= # optional
+      # - WARP_ENABLE_NAT=1 # enable nat
+    cap_add:
+      # Docker already have them, these are for podman users
+      - MKNOD
+      - AUDIT_WRITE
+      # additional required cap for warp, both for podman and docker
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+      # uncomment for nat
+      # - net.ipv4.ip_forward=1
+      # - net.ipv6.conf.all.forwarding=1
+      # - net.ipv6.conf.all.accept_ra=2
+    volumes:
+      - ./data:/var/lib/cloudflare-warp
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:1080/status']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   mongo:
     image: mongo:7.0
     command: --replSet rs0 --bind_ip_all --quiet
     restart: unless-stopped
+    networks:
+      - powersync_network
     ports:
       - 27017:27017
     volumes:
       - mongo_storage:/data/db
+    depends_on:
+      warp:
+        condition: service_healthy
 
   # Initializes the MongoDB replica set. This service will not usually be actively running
   mongo-rs-init:
     image: mongo:7.0
+    networks:
+      - powersync_network
     depends_on:
-      - mongo
+      mongo:
+        condition: service_started
+      warp:
+        condition: service_healthy
     restart: on-failure
     entrypoint:
       - bash
@@ -25,17 +72,15 @@ services:
     restart: unless-stopped
     image: journeyapps/powersync-service:latest
     command: ['start', '-r', 'unified']
-    network_mode: 'host'
+    networks:
+      - powersync_network
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync-actions.yml
       NODE_OPTIONS: --max-old-space-size=1000
       PS_SUPABASE_JWT_SECRET: ${PS_SUPABASE_JWT_SECRET}
       PS_DATA_SOURCE_URI: ${PS_DATA_SOURCE_URI}
-      PS_MONGO_URI: mongodb://127.0.0.1:27017/powersync_demo
+      PS_MONGO_URI: mongodb://mongo:27017/powersync_demo
       PS_PORT: ${PS_PORT}
-      ALL_PROXY: socks5://127.0.0.1:1080
-      HTTPS_PROXY: socks5://127.0.0.1:1080
-      HTTP_PROXY: socks5://127.0.0.1:1080
     develop:
       watch:
         - action: sync+restart
@@ -52,9 +97,13 @@ services:
       interval: 5s
       timeout: 1s
       retries: 15
+    ports:
+      - ${PS_PORT}:${PS_PORT}
     depends_on:
       mongo-rs-init:
         condition: service_completed_successfully
+      warp:
+        condition: service_healthy
     volumes:
       - ./config:/config
 
@@ -69,15 +118,14 @@ services:
   #     - 4170:4173
 
 networks:
-  default:
-    name: powersync_network
-    driver: bridge
+  powersync_network:
     enable_ipv6: true
+    driver: bridge
     ipam:
       driver: default
       config:
+        - subnet: 172.20.0.0/16
         - subnet: fd00::/80
-          gateway: fd00::1
 
 volumes:
   mongo_storage:
