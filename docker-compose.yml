@@ -29,3 +29,10 @@ services:
       # - net.ipv6.conf.all.accept_ra=2
     volumes:
       - ./data:/var/lib/cloudflare-warp
+    networks:
+      - powersync_network
+
+networks:
+  powersync_network:
+    name: powersync_network
+    external: true
