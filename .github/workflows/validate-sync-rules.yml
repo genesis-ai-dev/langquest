@@ -1,12 +1,15 @@
 name: Validate Sync Rules
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths: ['supabase/config/sync-rules.yml']
-  push:
-    branches: ['dev']
-    paths: ['supabase/config/sync-rules.yml']
+  workflow_dispatch:
+
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#     paths: ['supabase/config/sync-rules.yml']
+#   push:
+#     branches: ['dev']
+#     paths: ['supabase/config/sync-rules.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
