@@ -106,15 +106,15 @@ services:
   #   ports:
   #     - 4170:4173
 
-networks:
-  # powersync_network:
-  #   enable_ipv6: true
-  #   driver: bridge
-  #   ipam:
-  #     driver: default
-  #     config:
-  #       - subnet: 172.20.0.0/16
-  #       - subnet: 2606:4700:7::/64
+# networks:
+# powersync_network:
+#   enable_ipv6: true
+#   driver: bridge
+#   ipam:
+#     driver: default
+#     config:
+#       - subnet: 172.20.0.0/16
+#       - subnet: 2606:4700:7::/64
 
 volumes:
   mongo_storage:
