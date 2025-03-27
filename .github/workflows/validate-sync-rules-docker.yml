@@ -132,5 +132,5 @@ jobs:
           message: |
             ${{ steps.validate.outputs.status == 'passed' && '✅ PowerSync sync rules validation passed.' || '❌ PowerSync sync rules validation failed.' }}
 
-            ${{ steps.validate.outputs.status == 'failed' && format('```json\n{0}\n```', steps.validate.outputs.response) }}
+            ${{ steps.validate.outputs.status == 'failed' && format('```json\n{0}\n```', steps.validate.outputs.response) || '' }}
           comment-tag: validation
