@@ -30,14 +30,14 @@ jobs:
       - name: Set PowerSync Environment
         run: |
           # Construct database URL from branch info
-          DB_USER="${{ steps.supabase-branch.outputs.db_user }}"
-          DB_USER="${DB_USER/db./postgres.}"
           DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:5432/postgres"
 
           echo "$DB_URL"
 
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
+          # Disable replication for validation
+          echo "PS_DISABLE_REPLICATION=true" >> $GITHUB_ENV
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
