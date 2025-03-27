@@ -35,17 +35,12 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      - name: Start WARP Docker container
-        run: |
-          docker run -d \
-            --name warp \
-            --restart always \
-            --device cgroup:/dev/net/tun \
-            --cap-add NET_ADMIN \
-            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
-            --sysctl net.ipv4.conf.all.src_valid_mark=1 \
-            -p 1080:1080 \
-            caomingjun/warp
+      - name: Run PowerSync with Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        with:
+          compose-file: ./docker-compose.yml
+          up-flags: -d
+          down-flags: -v
 
       - name: Check WARP connection
         run: |
