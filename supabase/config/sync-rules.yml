@@ -15,7 +15,7 @@ bucket_definitions:
       - SELECT * FROM "translation"
       - SELECT * FROM "vote"
       - SELECT * FROM "flag"
-      - SELECT * FROM "test"
+      - SELECT *
 
   user_downloads:
     parameters: SELECT request.user_id() AS profile_id
