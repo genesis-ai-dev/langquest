@@ -32,11 +32,6 @@ services:
       PS_DATA_SOURCE_URI: ${PS_DATA_SOURCE_URI}
       PS_MONGO_URI: mongodb://mongo:27017/powersync_demo
       PS_PORT: ${PS_PORT}
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./config
-          target: /config
     healthcheck:
       test:
         [
