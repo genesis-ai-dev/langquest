@@ -132,20 +132,5 @@ jobs:
           message: |
             ${{ steps.validate.outputs.status == 'passed' && '✅ PowerSync sync rules validation passed.' || '❌ PowerSync sync rules validation failed.' }}
 
-            ```json
-            ${{ steps.validate.outputs.response }}
-            ```
-          comment-tag: validation
-
-      - name: Comment on PR Failure
-        if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          message: |
-            ❌ PowerSync sync rules validation failed.
-
-            ```
-            ${{ steps.validate.outputs.output }}
-            ```
-            Please fix the issues before merging.
+            ${{ steps.validate.outputs.status == 'failed' && format('```json\n{0}\n```', steps.validate.outputs.response) }}
           comment-tag: validation
