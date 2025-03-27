@@ -3,7 +3,7 @@ name: Validate Sync Rules on PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    # paths: ['supabase/config/sync-rules.yml']
+    paths: ['supabase/config/sync-rules.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
