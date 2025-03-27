@@ -1,12 +1,15 @@
 name: Validate Sync Rules
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths: ['supabase/config/sync-rules.yml']
-  push:
-    branches: ['dev']
-    paths: ['supabase/config/sync-rules.yml']
+  workflow_dispatch:
+
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#     paths: ['supabase/config/sync-rules.yml']
+#   push:
+#     branches: ['dev']
+#     paths: ['supabase/config/sync-rules.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +24,7 @@ jobs:
       AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
       ORG_ID: ${{ secrets.POWERSYNC_ORG }}
       PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
-      INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
     steps:
       - uses: actions/checkout@v4
 
