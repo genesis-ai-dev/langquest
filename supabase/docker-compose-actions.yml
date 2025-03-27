@@ -31,21 +31,6 @@ services:
       # - net.ipv6.conf.all.accept_ra=2
     volumes:
       - ./data:/var/lib/cloudflare-warp
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'curl',
-          '--socks5-hostname',
-          'warp:1080',
-          'https://cloudflare.com/cdn-cgi/trace',
-          '|',
-          'grep',
-          'warp=on'
-        ]
-      interval: 5s
-      timeout: 1s
-      retries: 15
 
   mongo:
     image: mongo:7.0
@@ -57,9 +42,7 @@ services:
       - 27017:27017
     volumes:
       - mongo_storage:/data/db
-    depends_on:
-      warp:
-        condition: service_healthy
+    depends_on: warp
 
   # Initializes the MongoDB replica set. This service will not usually be actively running
   mongo-rs-init:
@@ -69,8 +52,6 @@ services:
     depends_on:
       mongo:
         condition: service_started
-      warp:
-        condition: service_healthy
     restart: on-failure
     entrypoint:
       - bash
@@ -111,8 +92,6 @@ services:
     depends_on:
       mongo-rs-init:
         condition: service_completed_successfully
-      warp:
-        condition: service_healthy
     volumes:
       - ./config:/config
 
