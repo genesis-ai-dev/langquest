@@ -93,16 +93,48 @@ jobs:
       - name: Validate Sync Rules
         id: validate
         run: |
+          # Set container name
+          POWERSYNC_CONTAINER=powersync-powersync-1
+
+          # Debug: Check if container is running and healthy
+          echo "Checking container status..."
+          docker ps | grep "$POWERSYNC_CONTAINER"
+
+          # Debug: Check container logs
+          echo "Container logs:"
+          docker logs "$POWERSYNC_CONTAINER"
+
+          # Debug: Check if port is accessible
+          echo "Checking if port ${PS_PORT} is accessible..."
+          if ! nc -z localhost ${PS_PORT}; then
+            echo "Error: Port ${PS_PORT} is not accessible"
+            exit 1
+          fi
+
+          # Debug: Try a simple GET request first
+          echo "Testing basic connectivity..."
+          if ! curl -v "http://localhost:${PS_PORT}/probes/liveness"; then
+            echo "Error: Basic connectivity test failed"
+            exit 1
+          fi
+
           # Make the API call and store response
-          RESPONSE=$(curl -s -X POST \
+          echo "Making validation API call..."
+          RESPONSE=$(curl -v -X POST \
             -H "Authorization: Bearer $PS_API_TOKEN" \
             -H "Content-Type: application/yaml" \
             --data-binary "@supabase/config/sync-rules.yml" \
-            http://localhost:${PS_PORT}/api/sync-rules/v1/validate)
+            "http://localhost:${PS_PORT}/api/sync-rules/v1/validate" || true)
 
           # Debug: Print raw response
           echo "Raw response:"
           echo "$RESPONSE"
+
+          # Check if curl command failed
+          if [ $? -ne 0 ]; then
+            echo "Error: Curl command failed"
+            exit 1
+          fi
 
           # Validate JSON format
           if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
