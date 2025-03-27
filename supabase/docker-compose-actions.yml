@@ -13,7 +13,7 @@ services:
     ports:
       - '1080:1080'
     environment:
-      - WARP_SLEEP=6
+      - WARP_SLEEP=2
       # - WARP_LICENSE_KEY= # optional
       # - WARP_ENABLE_NAT=1 # enable nat
     cap_add:
@@ -32,7 +32,14 @@ services:
     volumes:
       - ./data:/var/lib/cloudflare-warp
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:1080/status']
+      test:
+        [
+          'CMD',
+          'curl',
+          '--socks5-hostname',
+          'warp:1080',
+          'https://cloudflare.com/cdn-cgi/trace'
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
