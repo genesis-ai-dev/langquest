@@ -62,7 +62,6 @@ jobs:
           compose-file: ./supabase/docker-compose.yml
           up-flags: -d
           down-flags: -v
-          services: powersync
 
       - name: Wait for PowerSync to startup
         run: |
