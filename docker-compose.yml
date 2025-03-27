@@ -29,10 +29,14 @@ services:
       # - net.ipv6.conf.all.accept_ra=2
     volumes:
       - ./data:/var/lib/cloudflare-warp
-    networks:
-      - powersync_network
 
 networks:
-  powersync_network:
+  default:
     name: powersync_network
-    external: true
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: fd00::/80
+          gateway: fd00::1
