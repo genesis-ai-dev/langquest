@@ -36,7 +36,7 @@ jobs:
             https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}/branches)
 
           BRANCH_ID=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .id')
-          PROJECT_REF=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .ref')
+          PROJECT_REF=$(echo $BRANCH_DATA | jq -r --arg branch "${{ env.BRANCH_NAME }}" '.[] | select(.git_branch == $branch) | .project_ref')
           echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
 
           if [ -n "$BRANCH_ID" ]; then
