@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   validate-sync-rules:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       pull-requests: write
     steps:
@@ -35,8 +35,11 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      - name: Setup WARP
-        uses: boywithkeyboard/warp@v1
+      - name: Set up WARP
+        uses: fscarmen/warp-on-actions@v1.3
+
+      - name: Test IPv6
+        run: curl -6 https://ifconfig.co/ip
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
