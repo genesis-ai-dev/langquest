@@ -26,7 +26,7 @@ services:
     image: journeyapps/powersync-service:latest
     command: ['start', '-r', 'unified']
     environment:
-      POWERSYNC_CONFIG_PATH: /config/powersync.yml
+      POWERSYNC_CONFIG_PATH: /config/powersync-actions.yml
       NODE_OPTIONS: --max-old-space-size=1000
       PS_SUPABASE_JWT_SECRET: ${PS_SUPABASE_JWT_SECRET}
       PS_DATA_SOURCE_URI: ${PS_DATA_SOURCE_URI}

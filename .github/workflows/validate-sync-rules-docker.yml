@@ -35,16 +35,21 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      # - name: Run PowerSync with Docker Compose
-      #   uses: hoverkraft-tech/compose-action@v2.0.1
-      #   env:
-      #     PS_PORT: 8080
-      #     PS_SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
-      #     PS_API_TOKEN: use_a_better_token_in_production
-      #   with:
-      #     compose-file: ./supabase/docker-compose-actions.yml
-      #     up-flags: -d
-      #     down-flags: -v
+      - name: Setup WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv6
+
+      - name: Run PowerSync with Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        env:
+          PS_PORT: 8080
+          PS_SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+          PS_API_TOKEN: use_a_better_token_in_production
+        with:
+          compose-file: ./supabase/docker-compose-actions.yml
+          up-flags: -d
+          down-flags: -v
 
       # - name: Wait for PowerSync to startup
       #   run: |
