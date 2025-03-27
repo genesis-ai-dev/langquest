@@ -138,7 +138,7 @@ jobs:
           comment-tag: validation
 
       - name: Comment on PR Failure
-        # if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
+        if: github.event_name == 'pull_request' && failure() && steps.validate.outputs.status == 'failed'
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: |
