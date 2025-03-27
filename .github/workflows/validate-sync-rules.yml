@@ -24,7 +24,7 @@ jobs:
       AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
       ORG_ID: ${{ secrets.POWERSYNC_ORG }}
       PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
-      INSTANCE_ID: ${{ secrets.POWERSYNC_PROD_INSTANCE }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
     steps:
       - uses: actions/checkout@v4
 
