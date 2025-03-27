@@ -28,14 +28,14 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
 
-      - name: Set PowerSync Environment
+      - name: Setup PowerSync Environment
         run: |
           # Construct database URL from branch info
           DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres"
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      - name: Run PowerSync with Docker Compose
+      - name: Run PowerSync Container
         uses: hoverkraft-tech/compose-action@v2.2.0
         with:
           compose-file: ./supabase/docker-compose-actions.yml

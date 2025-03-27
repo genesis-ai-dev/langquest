@@ -59,16 +59,6 @@ services:
       - default
       - supabase_network_langquest
 
-  # demo-client:
-  #   build:
-  #     dockerfile: demo-client.dockerfile
-  #     args:
-  #       VITE_SUPABASE_URL: ${EXPO_PUBLIC_SUPABASE_URL}
-  #       VITE_SUPABASE_ANON_KEY: ${EXPO_PUBLIC_SUPABASE_ANON_KEY}
-  #       VITE_POWERSYNC_URL: ${EXPO_PUBLIC_POWERSYNC_URL}
-  #   ports:
-  #     - 4170:4173
-
 volumes:
   mongo_storage:
 
