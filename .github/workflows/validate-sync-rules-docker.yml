@@ -48,15 +48,39 @@ jobs:
 
       - name: Wait for PowerSync to startup
         run: |
+          # Get the container ID of the PowerSync service
+          POWERSYNC_CONTAINER=$(docker ps -q -f name=powersync)
+
+          if [ -z "$POWERSYNC_CONTAINER" ]; then
+            echo "Error: PowerSync container not found"
+            docker ps -a
+            exit 1
+          fi
+
+          # Wait for the service to be healthy
+          echo "Waiting for PowerSync to be healthy..."
           for i in {1..30}; do
-            if curl -s http://localhost:${PS_PORT}/probes/liveness > /dev/null; then
-              echo "PowerSync is ready"
+            # Check container health status
+            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $POWERSYNC_CONTAINER)
+            
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
+              echo "PowerSync is healthy and ready"
               exit 0
             fi
-            echo "Waiting for PowerSync to start... ($i/30)"
+            
+            # If unhealthy, check logs for potential issues
+            if [ "$HEALTH_STATUS" = "unhealthy" ]; then
+              echo "PowerSync is unhealthy. Container logs:"
+              docker logs $POWERSYNC_CONTAINER
+              exit 1
+            fi
+            
+            echo "Waiting for PowerSync to be healthy... ($i/30)"
             sleep 2
           done
-          echo "PowerSync failed to start."
+
+          echo "PowerSync failed to become healthy within the timeout period"
+          docker logs $POWERSYNC_CONTAINER
           exit 1
 
       - name: Validate Sync Rules
