@@ -76,10 +76,16 @@ jobs:
             fi
             
             echo "Waiting for PowerSync to be healthy... ($i/30)"
+            if [ $i -eq 15 ]; then
+              echo "Checking container logs for potential issues:"
+              docker logs $POWERSYNC_CONTAINER
+            fi
+            
             sleep 2
           done
 
           echo "PowerSync failed to become healthy within the timeout period"
+          echo "Final container logs:"
           docker logs $POWERSYNC_CONTAINER
           exit 1
 
