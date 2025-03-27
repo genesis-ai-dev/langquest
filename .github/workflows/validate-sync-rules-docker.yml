@@ -35,15 +35,21 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
-      - uses: Boostport/setup-cloudflare-warp@v1
-        with:
-          organization: journeyapps
-          auth_client_id: ${{ secrets.CLOUDFLARE_AUTH_CLIENT_ID }}
-          auth_client_secret: ${{ secrets.CLOUDFLARE_AUTH_CLIENT_SECRET }}
+      - name: Start WARP Docker container
+        run: |
+          docker run -d \
+            --name warp \
+            --restart always \
+            --device cgroup:/dev/net/tun \
+            --cap-add NET_ADMIN \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+            --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+            -p 1080:1080 \
+            caomingjun/warp
 
       - name: Check WARP connection
         run: |
-          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"
+          curl --socks5-hostname 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace | grep "warp=on"
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
