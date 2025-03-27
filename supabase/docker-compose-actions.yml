@@ -25,13 +25,17 @@ services:
     restart: unless-stopped
     image: journeyapps/powersync-service:latest
     command: ['start', '-r', 'unified']
+    network_mode: 'host'
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync-actions.yml
       NODE_OPTIONS: --max-old-space-size=1000
       PS_SUPABASE_JWT_SECRET: ${PS_SUPABASE_JWT_SECRET}
       PS_DATA_SOURCE_URI: ${PS_DATA_SOURCE_URI}
-      PS_MONGO_URI: mongodb://mongo:27017/powersync_demo
+      PS_MONGO_URI: mongodb://127.0.0.1:27017/powersync_demo
       PS_PORT: ${PS_PORT}
+      ALL_PROXY: socks5://127.0.0.1:1080
+      HTTPS_PROXY: socks5://127.0.0.1:1080
+      HTTP_PROXY: socks5://127.0.0.1:1080
     develop:
       watch:
         - action: sync+restart
@@ -48,14 +52,11 @@ services:
       interval: 5s
       timeout: 1s
       retries: 15
-    ports:
-      - ${PS_PORT}:${PS_PORT}
     depends_on:
       mongo-rs-init:
         condition: service_completed_successfully
     volumes:
       - ./config:/config
-    network_mode: 'service:warp'
 
   # demo-client:
   #   build:

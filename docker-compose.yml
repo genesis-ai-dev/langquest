@@ -8,8 +8,7 @@ services:
     # add removed rule back (https://github.com/opencontainers/runc/pull/3468)
     device_cgroup_rules:
       - 'c 10:200 rwm'
-    ports:
-      - '1080:1080'
+    network_mode: 'host'
     environment:
       - WARP_SLEEP=2
       # - WARP_LICENSE_KEY= # optional
