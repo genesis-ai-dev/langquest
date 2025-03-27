@@ -37,13 +37,12 @@ services:
           'CMD',
           'curl',
           '--socks5-hostname',
-          'warp:1080',
+          '127.0.0.1:1080',
           'https://cloudflare.com/cdn-cgi/trace'
         ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 15
 
   mongo:
     image: mongo:7.0
