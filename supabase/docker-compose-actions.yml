@@ -26,9 +26,9 @@ services:
       - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv4.conf.all.src_valid_mark=1
       # Enable IPv6 forwarding
-      - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1
-      - net.ipv6.conf.all.accept_ra=2
+      # - net.ipv4.ip_forward=1
+      # - net.ipv6.conf.all.forwarding=1
+      # - net.ipv6.conf.all.accept_ra=2
     volumes:
       - ./data:/var/lib/cloudflare-warp
     healthcheck:
@@ -37,7 +37,7 @@ services:
           'CMD',
           'curl',
           '--socks5-hostname',
-          '127.0.0.1:1080',
+          'warp:1080',
           'https://cloudflare.com/cdn-cgi/trace',
           '|',
           'grep',
