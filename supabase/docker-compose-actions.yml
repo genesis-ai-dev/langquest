@@ -43,7 +43,7 @@ services:
     volumes:
       - mongo_storage:/data/db
     depends_on:
-      warp:
+      - warp
 
   # Initializes the MongoDB replica set. This service will not usually be actively running
   mongo-rs-init:
