@@ -3,7 +3,6 @@ name: Validate Sync Rules on PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths: ['supabase/config/sync-rules.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +13,20 @@ env:
   PS_API_TOKEN: use_a_better_token_in_production
 
 jobs:
-  validate-sync-rules:
+  files-changed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            sync-rules:
+              - 'supabase/config/sync-rules.yml'
+
+  validate-sync-rules-on-pr:
+    needs: files-changed
+    if: needs.files-changed.outputs.sync-rules == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
