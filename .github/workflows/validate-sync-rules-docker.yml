@@ -14,6 +14,7 @@ concurrency:
 
 env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  PS_PORT: 8080
 
 jobs:
   validate-sync-rules:
@@ -21,7 +22,6 @@ jobs:
     permissions:
       pull-requests: write
     env:
-      PS_PORT: 8080
       PS_SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
       PS_API_TOKEN: use_a_better_token_in_production
     steps:
@@ -76,7 +76,7 @@ jobs:
       - name: Wait for PowerSync to startup
         run: |
           for i in {1..30}; do
-            if curl -s http://localhost:${PS_PORT}/probes/liveness > /dev/null; then
+            if curl -s "http://localhost:${{ env.PS_PORT }}/probes/liveness" > /dev/null; then
               echo "PowerSync is ready"
               exit 0
             fi
@@ -89,23 +89,39 @@ jobs:
       - name: Validate Sync Rules
         id: validate
         run: |
+          # Make the API call and store response
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer $PS_API_TOKEN" \
             -H "Content-Type: application/yaml" \
             --data-binary "@supabase/config/sync-rules.yml" \
-            http://localhost:${PS_PORT}/api/sync-rules/v1/validate)
+            "http://localhost:${{ env.PS_PORT }}/api/sync-rules/v1/validate")
+
+          # Debug: Print raw response
+          echo "Raw response:"
+          echo "$RESPONSE"
+
+          # Validate JSON format
+          if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
+            echo "Error: Invalid JSON response"
+            echo "Response was: $RESPONSE"
+            exit 1
+          fi
 
           # Parse the JSON response
-          VALID=$(echo "$RESPONSE" | jq -r '.valid')
+          VALID=$(echo "$RESPONSE" | jq -r '.valid // false')
 
           if [ "$VALID" = "true" ]; then
+            # Escape the response for GitHub Actions output
+            OUTPUT=$(echo "$RESPONSE" | jq -c .)
             echo "status=passed" >> "$GITHUB_OUTPUT"
-            echo "output=$RESPONSE" >> "$GITHUB_OUTPUT"
+            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
           else
-            # Get errors array if validation failed
-            ERRORS=$(echo "$RESPONSE" | jq -r '.errors | join(", ")')
+            # Get errors array if validation failed, with fallback
+            ERRORS=$(echo "$RESPONSE" | jq -r '.errors | if type == "array" then join(", ") else tostring end')
+            # Escape the response for GitHub Actions output
+            OUTPUT=$(echo "$RESPONSE" | jq -c .)
             echo "status=failed" >> "$GITHUB_OUTPUT"
-            echo "output=$RESPONSE" >> "$GITHUB_OUTPUT"
+            echo "output=${OUTPUT}" >> "$GITHUB_OUTPUT"
             echo "Validation failed with errors: $ERRORS"
             exit 1
           fi
