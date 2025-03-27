@@ -39,6 +39,7 @@ jobs:
         uses: fscarmen/warp-on-actions@v1.3
         with:
           mode: client
+          stack: ipv6
 
       - name: Run PowerSync with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.1
