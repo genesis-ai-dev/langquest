@@ -76,22 +76,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     }
     if (!user) return null;
 
-    // Check local database for profile first
+    // Check local database for profile
     const localProfile = (
       await this.system.db.select().from(profile).where(eq(profile.id, user))
     )[0];
-    if (localProfile) return localProfile;
 
-    // If not found, fetch from supabase
-    const { data, error } = await this.client
-      .from('profile')
-      .select('*')
-      .eq('id', user)
-      .limit(1);
-
-    const cloudProfile = data?.[0] ?? null;
-
-    return cloudProfile;
+    return localProfile;
   }
 
   async login(username: string, password: string) {
