@@ -31,18 +31,12 @@ export class ProfileService {
   async validateCredentials(credentials: { email: string; password: string }) {
     try {
       // 1. Sign in with existing credentials
-      const { data, error: signInError } =
-        await supabaseConnector.client.auth.signInWithPassword({
-          email: credentials.email,
-          password: credentials.password
-        });
+      const { user } = await supabaseConnector.login(
+        credentials.email,
+        credentials.password
+      );
 
-      if (signInError) {
-        console.log('Sign in error:', signInError);
-        return null;
-      }
-
-      if (!data.user) {
+      if (!user) {
         console.log('No user data returned from sign in');
         return null;
       }
@@ -52,7 +46,7 @@ export class ProfileService {
         await supabaseConnector.client
           .from('profile')
           .select()
-          .eq('id', data.user.id)
+          .eq('id', user.id)
           .single();
 
       if (profileError) {

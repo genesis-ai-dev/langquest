@@ -1,15 +1,12 @@
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Drawer } from '@/components/Drawer';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { ProjectProvider } from '@/contexts/ProjectContext';
-import { TermsGuard } from '@/guards/TermsGuard';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSystem } from '../db/powersync/system';
+import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -96,7 +93,7 @@ function DeepLinkHandler() {
           break;
 
         case 'projects':
-          router.push('/projects');
+          router.push('/');
           break;
 
         case 'settings':
@@ -114,18 +111,31 @@ function DeepLinkHandler() {
 }
 
 export default function RootLayout() {
+  const system = useSystem();
+
+  useEffect(() => {
+    system.init();
+  }, []);
+
   return (
-    <AuthProvider>
-      <ProjectProvider>
+    <PowerSyncProvider>
+      <AuthProvider>
+        <DeepLinkHandler />
         <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <DeepLinkHandler />
-            <TermsGuard>
-              <Drawer />
-            </TermsGuard>
-          </GestureHandlerRootView>
+          <Stack
+            screenOptions={{
+              headerShown: false
+            }}
+          >
+            <Stack.Screen
+              name="terms"
+              options={{
+                presentation: 'modal'
+              }}
+            />
+          </Stack>
         </SafeAreaProvider>
-      </ProjectProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </PowerSyncProvider>
   );
 }

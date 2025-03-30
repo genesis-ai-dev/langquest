@@ -19,21 +19,18 @@ export default function MiniAudioPlayer({ audioFile }: MiniAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    const setupAudio = async () => {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true
-      });
-    };
-    setupAudio();
-
     return () => {
       if (sound) sound.unloadAsync();
     };
   }, [sound]);
 
   const loadAndPlaySound = async () => {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true
+    });
+
     if (sound) {
       if (isPlaying) {
         await sound.pauseAsync();
@@ -50,12 +47,12 @@ export default function MiniAudioPlayer({ audioFile }: MiniAudioPlayerProps) {
       setSound(newSound);
       setIsPlaying(true);
 
-      newSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+      newSound.setOnPlaybackStatusUpdate(async (status: AVPlaybackStatus) => {
         if (!status.isLoaded) return;
         if (status.didJustFinish) {
           setIsPlaying(false);
-          newSound.stopAsync();
-          newSound.setPositionAsync(0);
+          await newSound.stopAsync();
+          await newSound.setPositionAsync(0);
         }
       });
     }

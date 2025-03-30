@@ -90,7 +90,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
-    console.log('handleClose', audioUri);
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {
@@ -109,6 +108,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         animationType="slide"
         onDismiss={handleClose}
         onRequestClose={handleClose}
+        hardwareAccelerated
       >
         <TouchableWithoutFeedback onPress={handleClose}>
           <Pressable style={styles.container} onPress={handleClose}>
@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end', // Change from 'center' to 'flex-end'
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingBottom: spacing.large // Add some padding from bottom
+    backgroundColor: 'rgba(0, 0, 0, 0.3)'
+    // paddingBottom: spacing.large // Add some padding from bottom
   },
   modal: {
     display: 'flex',
@@ -181,7 +181,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
-    width: '90%'
+    // width: '90%'
+    width: '100%'
   },
   closeButton: {
     alignSelf: 'flex-end',

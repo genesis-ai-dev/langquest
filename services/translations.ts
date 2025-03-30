@@ -390,10 +390,6 @@ export const translations = {
     english: 'You must agree to the Terms and Conditions',
     spanish: 'Debe aceptar los Términos y Condiciones'
   },
-  termsVersion: {
-    english: 'Terms Version 1.0',
-    spanish: 'Versión de Términos 1.0'
-  },
   status: {
     english: 'Status',
     spanish: 'Estado'

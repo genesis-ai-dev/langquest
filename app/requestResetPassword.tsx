@@ -6,7 +6,7 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -151,12 +151,16 @@ export default function RequestResetPassword() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.bottomLink}
-            onPress={() => router.replace('/')}
+          <Link
+            style={[
+              styles.bottomLink,
+              sharedStyles.link,
+              { textAlign: 'center' }
+            ]}
+            href="/sign-in"
           >
-            <Text style={sharedStyles.link}>{t('backToLogin')}</Text>
-          </TouchableOpacity>
+            {t('backToLogin')}
+          </Link>
         </View>
       </SafeAreaView>
     </LinearGradient>
