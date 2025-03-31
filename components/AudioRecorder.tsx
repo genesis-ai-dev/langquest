@@ -71,7 +71,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     return () => {
       const cleanup = async () => {
         if (sound) {
-          console.log('unloading sound');
           await sound.stopAsync();
           await sound.unloadAsync();
           setSound(null);
