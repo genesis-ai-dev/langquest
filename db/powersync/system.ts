@@ -1,4 +1,5 @@
 import '@azure/core-asynciterator-polyfill';
+import 'react-native-url-polyfill/auto';
 import {
   DrizzleAppSchema,
   PowerSyncSQLiteDatabase,
