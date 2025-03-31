@@ -1,6 +1,5 @@
 import { Profile } from '@/database_services/profileService';
 import { system, useSystem } from '@/db/powersync/system';
-import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
@@ -29,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getSession();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_, session) => {
         // always maintain a session
         if (!session) {
           await supabaseConnector.client.auth.signInAnonymously();

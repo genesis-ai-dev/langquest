@@ -11,7 +11,6 @@ import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import Logger from 'js-logger';
-import { KVStorage } from '../KVStorage';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
@@ -20,7 +19,6 @@ import { AttachmentQueue } from './AttachmentQueue';
 Logger.useDefaults();
 
 export class System {
-  kvStorage: KVStorage;
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
@@ -28,7 +26,6 @@ export class System {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
-    this.kvStorage = new KVStorage();
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
     this.powersync = new PowerSyncDatabase({

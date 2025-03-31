@@ -12,6 +12,8 @@ import { AppConfig } from './AppConfig';
 import { Profile, profileService } from '@/database_services/profileService';
 import { eq } from 'drizzle-orm';
 import { profile } from '../drizzleSchema';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
@@ -43,10 +45,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          storage: this.system.kvStorage
+          storage: AsyncStorage
         }
       }
     );
+
+    // Tells Supabase Auth to continuously refresh the session automatically
+    // if the app is in the foreground. When this is added, you will continue
+    // to receive `onAuthStateChange` events with the `TOKEN_REFRESHED` or
+    // `SIGNED_OUT` event if the user's session is terminated.
+    // This should only be registered once.
+    AppState.addEventListener('change', (state) => {
+      this.client.auth[`${state === 'active' ? 'start' : 'stop'}AutoRefresh`]();
+    });
+
     this.storage = new SupabaseStorageAdapter({ client: this.client });
 
     console.log('Supabase client created: ', this.client);
