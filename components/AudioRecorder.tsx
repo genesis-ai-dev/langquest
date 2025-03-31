@@ -138,7 +138,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   const pauseRecording = async () => {
     if (!recording) return;
-    console.log('pausing recording');
     await recording.pauseAsync();
     setIsRecording(false);
     setIsRecordingPaused(true);
