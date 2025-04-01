@@ -25,16 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
         );
 
-        if (!supabaseAuthKey) return;
+        if (supabaseAuthKey) {
+          const session = JSON.parse(
+            (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
+          ) as unknown as Session | null;
+          const profile = await profileService.getProfileByUserId(
+            session?.user.id ?? ''
+          );
 
-        const session = JSON.parse(
-          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-        ) as unknown as Session | null;
-        const profile = await profileService.getProfileByUserId(
-          session?.user.id ?? ''
-        );
-
-        if (profile) setCurrentUser(profile);
+          if (profile) setCurrentUser(profile);
+        }
       } catch (error) {
         console.error('Error getting session:', error);
       }
