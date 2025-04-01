@@ -1,5 +1,7 @@
-import { Profile } from '@/database_services/profileService';
+import { Profile, profileService } from '@/database_services/profileService';
 import { system, useSystem } from '@/db/powersync/system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
@@ -18,9 +20,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const getSession = async () => {
-      const session = await supabaseConnector.client.auth.getSession();
-      const profile = await supabaseConnector.getUserProfile(
-        session.data.session?.user.id
+      const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
+        (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+      );
+      const session = JSON.parse(
+        (await AsyncStorage.getItem(supabaseAuthKey!)) ?? '{}'
+      ) as unknown as Session | null;
+      const profile = await profileService.getProfileByUserId(
+        session?.user.id ?? ''
       );
       if (profile) setCurrentUser(profile);
       setIsLoading(false);
