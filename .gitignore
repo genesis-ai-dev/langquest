@@ -15,6 +15,7 @@ ios/
 .env
 .env.*
 !.env.*.example
+!supabase/.env.preview
 
 # macOS
 **/.DS_Store
