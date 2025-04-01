@@ -20,16 +20,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const getSession = async () => {
-      const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
-        (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
-      );
-      const session = JSON.parse(
-        (await AsyncStorage.getItem(supabaseAuthKey!)) ?? '{}'
-      ) as unknown as Session | null;
-      const profile = await profileService.getProfileByUserId(
-        session?.user.id ?? ''
-      );
-      if (profile) setCurrentUser(profile);
+      try {
+        const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
+          (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+        );
+
+        if (!supabaseAuthKey) return;
+
+        const session = JSON.parse(
+          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
+        ) as unknown as Session | null;
+        const profile = await profileService.getProfileByUserId(
+          session?.user.id ?? ''
+        );
+
+        if (profile) setCurrentUser(profile);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      }
       setIsLoading(false);
     };
     getSession();
