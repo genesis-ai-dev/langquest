@@ -178,7 +178,7 @@ sender_name = "LangQuest"
 # Uncomment to customize email template
 [auth.email.template.email_change]
 subject = "Confirm Your Account"
-content_path = "./supabase/templates/invite.html"
+content_path = "./supabase/templates/email_change.html"
 
 [auth.email.template.recovery]
 subject = "Reset Your Password"
