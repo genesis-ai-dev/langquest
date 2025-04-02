@@ -13,7 +13,7 @@ import { isNotNull, eq, and } from 'drizzle-orm';
 import { system } from '../powersync/system';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
-export class AttachmentQueue extends AbstractSharedAttachmentQueue {
+export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   // db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
   // Track previous active downloads to detect changes
   // previousActiveDownloads: {
@@ -36,10 +36,10 @@ export class AttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('Override init in AttachmentQueue entered............');
+    console.log('Override init in PermAttachmentQueue entered............');
     if (!AppConfig.supabaseBucket) {
       console.debug(
-        'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
+        'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
       );
       // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
       this.options.syncInterval = 0; // This is weird, shouldn't be here

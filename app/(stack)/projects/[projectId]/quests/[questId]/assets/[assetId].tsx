@@ -132,9 +132,9 @@ export default function AssetView() {
   useEffect(() => {
     loadAssetAndTranslations();
 
-    // Ensure attachments are loaded into temp queue
+    // Load attachments into temp queue
     if (assetId) {
-      ensureAssetLoaded(assetId);
+      system.tempAttachmentQueue?.loadAssetAttachments(assetId);
     }
   }, [assetId]);
 

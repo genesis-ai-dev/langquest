@@ -21,7 +21,7 @@ import * as drizzleSchema from '../drizzleSchema';
 import Constants from 'expo-constants';
 import { AppConfig } from '../supabase/AppConfig';
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
-import { AttachmentQueue } from './AttachmentQueue';
+import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 Logger.useDefaults();
 
@@ -38,8 +38,8 @@ export class System {
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
-  permAttachmentQueue: AttachmentQueue | undefined = undefined;
-  tempAttachmentQueue: AttachmentQueue | undefined = undefined;
+  permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
+  tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
@@ -67,7 +67,7 @@ export class System {
     });
 
     if (AppConfig.supabaseBucket) {
-      this.permAttachmentQueue = new AttachmentQueue({
+      this.permAttachmentQueue = new PermAttachmentQueue({
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
@@ -96,7 +96,7 @@ export class System {
         storage: this.storage,
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
-        maxCacheSize: 6, // Lower limit for temporary browsing
+        cacheLimit: 6, // Lower limit for temporary browsing
         // syncInterval: 5000, // Faster sync for temporary content
 
         onDownloadError: async (

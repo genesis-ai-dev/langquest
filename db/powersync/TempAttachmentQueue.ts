@@ -14,20 +14,18 @@ import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
-  private tempAssetIds: Set<string> = new Set();
-  private lastAccessedAssets: string[] = []; // For FIFO tracking
-  private maxCacheSize: number;
   private _onUpdateCallback: ((ids: string[]) => void) | null = null;
 
   constructor(
     options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
-      maxCacheSize?: number;
+      // maxCacheSize?: number;
     }
   ) {
-    super(options);
-    // this.db = options.db;
-    this.maxCacheSize = options.maxCacheSize || 50; // Default to 50 if not specified
+    super({
+      ...options,
+      cacheLimit: options.cacheLimit || 50 // Default to 50 if not specified
+    });
   }
 
   // Implement the abstract method to identify this queue's storage type
@@ -67,113 +65,38 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     console.log('[TEMP QUEUE] Setting onAttachmentIdsChange callback');
     this._onUpdateCallback = onUpdate;
 
-    // Initialize with empty list (will be populated by addTempAsset calls)
+    // Initialize with empty list
     onUpdate([]);
   }
 
-  // Add a temporary asset to the queue
-  async addTempAsset(assetId: string): Promise<void> {
-    console.log(`[TEMP QUEUE] Adding temporary asset ${assetId}`);
-
-    // Add to tracking set
-    this.tempAssetIds.add(assetId);
-
-    // Update the FIFO queue (remove old assetId if it exists)
-    this.lastAccessedAssets = this.lastAccessedAssets.filter(
-      (id) => id !== assetId
-    );
-    // Add new assetId back, but to the end of the queue
-    this.lastAccessedAssets.push(assetId);
-
-    // Enforce cache size limit
-    await this.enforceCacheLimit();
-
-    // Refresh the attachments for all temp assets
-    await this.refreshTempAttachments();
-  }
-
-  // Refresh attachments for all temporary assets
-  private async refreshTempAttachments(): Promise<void> {
-    console.log('[TEMP QUEUE] Refreshing temporary attachments');
-
-    if (this.tempAssetIds.size === 0) {
-      // If no temp assets, clear the queue
-      if (this._onUpdateCallback) {
-        this._onUpdateCallback([]);
-      }
-      return;
-    }
-
-    // Get all attachment IDs for temp assets
-    const allAttachmentIds: string[] = [];
-
-    for (const assetId of this.tempAssetIds) {
-      const assetAttachments = await this.getAllAssetAttachments(assetId);
-      allAttachmentIds.push(...assetAttachments);
-    }
-
-    console.log(
-      `[TEMP QUEUE] Found ${allAttachmentIds.length} attachments for temporary assets`
-    );
-
-    // Remove duplicates
-    const uniqueAttachmentIds = [...new Set(allAttachmentIds)];
-
-    // Update the queue with these IDs
+  // Simple method to load attachments for an asset
+  async loadAssetAttachments(assetId: string): Promise<void> {
+    console.log(`[TEMP QUEUE] Loading attachments for asset: ${assetId}`);
+    const attachmentIds = await this.getAllAssetAttachments(assetId);
     if (this._onUpdateCallback) {
-      this._onUpdateCallback(uniqueAttachmentIds);
+      this._onUpdateCallback(attachmentIds);
     }
-  }
-
-  // Override the original trigger method to ensure more frequent checks for temp queue
-  trigger() {
-    // Call parent trigger first
-    super.trigger();
-
-    // Also explicitly check for cache expiration
-    this.expireCache().catch((error) => {
-      console.error(
-        '[TEMP QUEUE] Error during explicit cache expiration:',
-        error
-      );
-    });
   }
 
   // Override expireCache to only count temporary attachments
   async expireCache(): Promise<void> {
     console.log('[TEMP QUEUE] Running expireCache');
 
-    // Get all attachments to log their field values
-    const allAttachments = await this.powersync.getAll<AttachmentRecord>(
-      `SELECT * FROM ${this.table}`
-    );
-
-    console.log('[TEMP QUEUE] All attachments in database:');
-    allAttachments.forEach((attachment) => {
-      console.log(JSON.stringify(attachment, null, 2));
-    });
-
     // Get all temporary attachments sorted by timestamp (descending)
     const allTempAttachments = await this.powersync.getAll<AttachmentRecord>(
       `SELECT * FROM ${this.table} 
+       WHERE storage_type = 'temporary'
        ORDER BY timestamp DESC`
     );
 
-    // `SELECT * FROM ${this.table}
-    //    WHERE storage_type = 'temporary' AND (state = ? OR state = ?)
-    //    ORDER BY timestamp DESC`,
-    //   [AttachmentState.SYNCED, AttachmentState.ARCHIVED]
+    const cacheLimit = this.options.cacheLimit ?? 50; // Default to 50 if undefined
 
-    console.log('[TEMP QUEUE] Retrieved temporary attachments:');
-    console.log(JSON.stringify(allTempAttachments, null, 2));
-
-    // If we have more than maxCacheSize, delete the oldest ones
-    //log max cache size
     console.log(
-      `[TEMP QUEUE] Max cache size: ${this.maxCacheSize}, current size: ${allTempAttachments.length}`
+      `[TEMP QUEUE] Max cache size: ${cacheLimit}, current size: ${allTempAttachments.length}`
     );
-    if (allTempAttachments.length > this.maxCacheSize) {
-      const attachmentsToDelete = allTempAttachments.slice(this.maxCacheSize);
+
+    if (allTempAttachments.length > cacheLimit) {
+      const attachmentsToDelete = allTempAttachments.slice(cacheLimit);
 
       console.log(
         `[TEMP QUEUE] Expiring ${attachmentsToDelete.length} temporary attachments`
@@ -187,32 +110,6 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
         }
       });
     }
-  }
-
-  // Enforce the cache size limit using FIFO
-  private async enforceCacheLimit(): Promise<void> {
-    if (this.lastAccessedAssets.length <= this.maxCacheSize) {
-      return;
-    }
-
-    console.log(
-      `[TEMP QUEUE] Enforcing cache limit, current size: ${this.lastAccessedAssets.length}, max: ${this.maxCacheSize}`
-    );
-
-    // Remove oldest assets until we're within the limit
-    while (this.lastAccessedAssets.length > this.maxCacheSize) {
-      const oldestAssetId = this.lastAccessedAssets.shift();
-      if (oldestAssetId) {
-        console.log(`[TEMP QUEUE] Removing oldest asset: ${oldestAssetId}`);
-        this.tempAssetIds.delete(oldestAssetId);
-      }
-    }
-
-    // After enforcing the limit, refresh attachments
-    await this.refreshTempAttachments();
-
-    // Explicitly call expireCache to remove attachments from database and storage
-    await this.expireCache();
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
