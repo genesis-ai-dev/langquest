@@ -94,9 +94,6 @@ export default function AssetView() {
   const [translationLanguages, setTranslationLanguages] = useState<
     Record<string, typeof language.$inferSelect>
   >({});
-  // const [audioUris, setAudioUris] = useState<Record<string, string>>({});
-  // const [imageUris, setImageUris] = useState<string[]>([]);
-  // const [loadingUris, setLoadingUris] = useState(true);
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -140,15 +137,6 @@ export default function AssetView() {
       ensureAssetLoaded(assetId);
     }
   }, [assetId]);
-
-  // Add a debug effect to monitor state changes
-  useEffect(() => {
-    console.log('Translations updated:', translations);
-  }, [translations]);
-
-  useEffect(() => {
-    console.log('Translation votes updated:', translationVotes);
-  }, [translationVotes]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -202,50 +190,6 @@ export default function AssetView() {
     };
   }, [assetId, translations]);
 
-  // useEffect(() => {
-  //   // Only proceed if we have both asset and assetContent loaded
-  //   if (asset && assetContent && assetContent.length > 0) {
-  //     loadAllUris();
-  //   }
-  // }, [asset, assetContent]);
-
-  // const loadTranslationData = async () => {
-  //   if (asset) {
-  //     setActiveTab(getFirstAvailableTab(asset));
-  //   }
-  // }, [asset]);
-
-  // const loadAssetAndTranslations = async () => {
-  //   try {
-  //     const votesMap: Record<string, Vote[]> = {};
-  //     const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
-  //     const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
-
-  //     await Promise.all(translations.map(async (translation) => {
-  //       // Always load votes as they change frequently
-  //       votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-
-  //       // Only load creator and language if not already cached
-  //       if (!creatorsMap[translation.creator_id]) {
-  //         const creator = await userService.getUserById(translation.creator_id);
-  //         if (creator) creatorsMap[translation.creator_id] = creator;
-  //       }
-
-  //       if (!languagesMap[translation.target_language_id]) {
-  //         const targetLang = await languageService.getLanguageById(translation.target_language_id);
-  //         if (targetLang) languagesMap[translation.target_language_id] = targetLang;
-  //       }
-  //     }));
-
-  //     setTranslationVotes(votesMap);
-  //     setTranslationCreators(creatorsMap);
-  //     setTranslationLanguages(languagesMap);
-  //   } catch (error) {
-  //     console.error('Error loading asset and translations:', error);
-  //     Alert.alert('Error', t('failedLoadAsset'));
-  //   }
-  // };
-
   const loadAssetAndTranslations = async () => {
     try {
       if (!assetId) return;
@@ -285,49 +229,6 @@ export default function AssetView() {
       setIsLoading(false);
     }
   };
-
-  // Load all URIs function
-  // const loadAllUris = async () => {
-  //   setLoadingUris(true);
-
-  //   // Ensure the asset is loaded in temp queue if needed
-  //   if (assetId) {
-  //     await ensureAssetLoaded(assetId);
-  //   }
-
-  //   // Load image URIs if asset has images
-  //   if (asset?.images && asset.images.length > 0) {
-  //     const resolvedImageUris = await Promise.all(
-  //       asset.images.map(async (imageId) => {
-  //         const uri = await getLocalUriFromAssetId(imageId);
-  //         return uri || ''; // Fallback to empty string if undefined
-  //       })
-  //     );
-  //     setImageUris(resolvedImageUris.filter((uri) => uri !== ''));
-  //   }
-
-  //   // Load audio URIs for all content items with audio
-  //   if (assetContent && assetContent.length > 0) {
-  //     const audioMap: Record<string, string> = {};
-
-  //     await Promise.all(
-  //       assetContent
-  //         .filter((content) => content.audio_id)
-  //         .map(async (content) => {
-  //           if (content.audio_id) {
-  //             const uri = await getLocalUriFromAssetId(content.audio_id);
-  //             if (uri) {
-  //               audioMap[content.audio_id] = uri;
-  //             }
-  //           }
-  //         })
-  //     );
-
-  //     setAudioUris(audioMap);
-  //   }
-
-  //   setLoadingUris(false);
-  // };
 
   const handleVote = async (
     translation_id: string,
@@ -419,35 +320,6 @@ export default function AssetView() {
 
     loadTranslationData();
   }, [translations]);
-
-  // Add this effect to monitor attachment URI changes
-  useEffect(() => {
-    console.log('[AssetView] attachmentUris changed:', {
-      uriCount: Object.keys(attachmentUris).length,
-      allUris: attachmentUris,
-      contentWithAudio: assetContent
-        .filter((content) => content.audio_id)
-        .map((content) => ({
-          contentId: content.id,
-          audioId: content.audio_id,
-          hasUri: content.audio_id ? !!attachmentUris[content.audio_id] : false
-        }))
-    });
-  }, [attachmentUris]);
-
-  // Add this effect to monitor loading state changes
-  useEffect(() => {
-    console.log('[AssetView] loadingAttachments changed:', loadingAttachments);
-  }, [loadingAttachments]);
-
-  // Add this effect to monitor content changes
-  useEffect(() => {
-    console.log('[AssetView] assetContent changed:', {
-      contentCount: assetContent.length,
-      contentWithAudio: assetContent.filter((content) => content.audio_id)
-        .length
-    });
-  }, [assetContent]);
 
   const renderTranslationCard = ({
     item: translation
@@ -569,27 +441,6 @@ export default function AssetView() {
                     <Carousel
                       items={assetContent}
                       renderItem={(content) => {
-                        // Add logging when rendering each content item
-                        console.log(
-                          `[AssetView] Rendering content ${content.id}:`,
-                          {
-                            hasAudioId: !!content.audio_id,
-                            audioId: content.audio_id,
-                            hasUri: content.audio_id
-                              ? !!attachmentUris[content.audio_id]
-                              : false,
-                            uri: content.audio_id
-                              ? attachmentUris[content.audio_id]
-                              : null,
-                            loadingAttachments,
-                            activeTab,
-                            renderingAudioPlayer: !!(
-                              content.audio_id &&
-                              attachmentUris[content.audio_id]
-                            )
-                          }
-                        );
-
                         return (
                           <View style={styles.sourceTextContainer}>
                             <View>
@@ -605,15 +456,8 @@ export default function AssetView() {
 
                             {content.audio_id &&
                             attachmentUris[content.audio_id]
-                              ? // Log when audio player is rendered
+                              ? // Audio player is rendered
                                 (() => {
-                                  console.log(
-                                    `[AssetView] Rendering audio player for ${content.id}:`,
-                                    {
-                                      audioId: content.audio_id,
-                                      uri: attachmentUris[content.audio_id]
-                                    }
-                                  );
                                   return (
                                     <MiniAudioPlayer
                                       audioFile={{
@@ -625,15 +469,8 @@ export default function AssetView() {
                                   );
                                 })()
                               : content.audio_id && loadingAttachments
-                                ? // Log when showing loading indicator
+                                ? // Showing loading indicator
                                   (() => {
-                                    console.log(
-                                      `[AssetView] Showing loading indicator for ${content.id}:`,
-                                      {
-                                        audioId: content.audio_id,
-                                        loadingAttachments
-                                      }
-                                    );
                                     return (
                                       <View style={styles.audioLoading}>
                                         <Text
@@ -647,7 +484,7 @@ export default function AssetView() {
                                       </View>
                                     );
                                   })()
-                                : // Log when not showing audio player or loading indicator
+                                : // Not showing audio player or loading indicator
                                   (() => {
                                     console.log(
                                       `[AssetView] No audio player/loader for ${content.id}:`,

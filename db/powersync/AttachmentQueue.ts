@@ -42,7 +42,7 @@ export class AttachmentQueue extends AbstractSharedAttachmentQueue {
         'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
       );
       // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
-      this.options.syncInterval = 5000;
+      this.options.syncInterval = 0; // This is weird, shouldn't be here
       return;
     }
 
@@ -280,75 +280,5 @@ export class AttachmentQueue extends AbstractSharedAttachmentQueue {
         await this.delete(record, tx);
       }
     });
-  }
-
-  // Step 2: Identify all attachments related to an asset
-  async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    console.log(
-      `[ASSET ATTACHMENTS] Finding all attachments for asset: ${assetId}`
-    );
-    const attachmentIds: string[] = [];
-
-    try {
-      // 1. Get the asset itself for images
-      const asset = await this.db.query.asset.findFirst({
-        where: (a) => eq(a.id, assetId)
-      });
-
-      if (asset?.images) {
-        console.log(
-          `[ASSET ATTACHMENTS] Found ${asset.images.length} images in asset`
-        );
-        attachmentIds.push(...asset.images);
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
-      });
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-
-      if (contentAudioIds.length > 0) {
-        console.log(
-          `[ASSET ATTACHMENTS] Found ${contentAudioIds.length} audio files in asset_content_link`
-        );
-        attachmentIds.push(...contentAudioIds);
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await this.db.query.translation.findMany({
-        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
-      });
-
-      const translationAudioIds = translations
-        .filter((translation) => translation.audio)
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds.length > 0) {
-        console.log(
-          `[ASSET ATTACHMENTS] Found ${translationAudioIds.length} audio files in translations`
-        );
-        attachmentIds.push(...translationAudioIds);
-      }
-
-      // Log all found attachments
-      console.log(
-        `[ASSET ATTACHMENTS] Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      );
-      attachmentIds.forEach((id) =>
-        console.log(`[ASSET ATTACHMENTS] - Attachment ID: ${id}`)
-      );
-
-      return attachmentIds;
-    } catch (error) {
-      console.error(
-        `[ASSET ATTACHMENTS] Error getting attachments for asset ${assetId}:`,
-        error
-      );
-      return [];
-    }
   }
 }

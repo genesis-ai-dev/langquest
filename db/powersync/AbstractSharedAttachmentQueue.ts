@@ -6,6 +6,7 @@ import {
 } from '@powersync/attachments';
 import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import * as drizzleSchema from '../drizzleSchema';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -18,7 +19,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor(
-    options: AttachmentQueueOptions & {
+    options: Omit<
+      AttachmentQueueOptions,
+      'onDownloadError' | 'onUploadError'
+    > & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
     }
   ) {
@@ -33,6 +37,77 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     // Make sure initialSync is always false before calling parent init
     this.initialSync = false;
     await super.init();
+  }
+
+  async watchAttachmentIds() {
+    this.onAttachmentIdsChange(async (ids) => {
+      const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
+      console.log(
+        'watchAttachmentIds running from AbstractSharedAttachmentQueue'
+      );
+      console.debug(`Queuing for sync, attachment IDs: [${_ids}]`);
+
+      if (this.initialSync) {
+        this.initialSync = false;
+        // Mark AttachmentIds for sync
+        await this.powersync.execute(
+          `UPDATE
+                ${this.table}
+              SET state = ${AttachmentState.QUEUED_SYNC}
+              WHERE
+                state < ${AttachmentState.SYNCED}
+              AND
+               id IN (${_ids})`
+        );
+      }
+
+      const attachmentsInDatabase =
+        await this.powersync.getAll<AttachmentRecord>(
+          `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
+        );
+
+      for (const id of ids) {
+        const record = attachmentsInDatabase.find((r) => r.id == id);
+        // 1. ID is not in the database
+        if (!record) {
+          const newRecord = await this.newAttachmentRecord({
+            id: id,
+            state: AttachmentState.QUEUED_SYNC
+          });
+          console.debug(
+            `Attachment (${id}) not found in database, creating new record`
+          );
+          await this.saveToQueue(newRecord);
+        } else if (
+          record.local_uri == null ||
+          !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
+        ) {
+          // 2. Attachment in database but no local file, mark as queued download
+          console.debug(
+            `Attachment (${id}) found in database but no local file, marking as queued download`
+          );
+          await this.update({
+            ...record,
+            state: AttachmentState.QUEUED_DOWNLOAD
+          });
+        }
+      }
+
+      // 3. Handle archiving based on storage type
+      // const storageType = this.getStorageType();
+      // if (storageType === 'temporary') {
+      //   // For temporary attachments, only archive other temporary attachments that are SYNCED
+      //   await this.powersync.execute(
+      //     `UPDATE ${this.table}
+      //       SET state = ${AttachmentState.ARCHIVED}
+      //       WHERE
+      //         state = ${AttachmentState.SYNCED}
+      //         AND storage_type = 'temporary'
+      //         AND id NOT IN (${ids.map((id) => `'${id}'`).join(',')})`
+      //   );
+      // }
+      // For permanent attachments, we don't archive anything
+    });
   }
 
   // Override getLocalFilePathSuffix to use shared directory
@@ -129,5 +204,72 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       `SELECT * FROM ${this.table} WHERE id = ? AND storage_type = ?`,
       [id, this.getStorageType()]
     );
+  }
+
+  // Common method to identify all attachments related to an asset
+  async getAllAssetAttachments(assetId: string): Promise<string[]> {
+    const queueType =
+      this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
+    console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
+    const attachmentIds: string[] = [];
+
+    try {
+      // 1. Get the asset itself for images
+      const asset = await this.db.query.asset.findFirst({
+        where: (a) => eq(a.id, assetId)
+      });
+
+      if (asset?.images) {
+        console.log(
+          `${queueType} Found ${asset.images.length} images in asset`
+        );
+        attachmentIds.push(...asset.images);
+      }
+
+      // 2. Get asset_content_link entries for audio
+      const assetContents = await this.db.query.asset_content_link.findMany({
+        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
+      });
+
+      const contentAudioIds = assetContents
+        .filter((content) => content.audio_id)
+        .map((content) => content.audio_id!);
+
+      if (contentAudioIds.length > 0) {
+        console.log(
+          `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
+        );
+        attachmentIds.push(...contentAudioIds);
+      }
+
+      // 3. Get translations for the asset and their audio
+      const translations = await this.db.query.translation.findMany({
+        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
+      });
+
+      const translationAudioIds = translations
+        .filter((translation) => translation.audio)
+        .map((translation) => translation.audio!);
+
+      if (translationAudioIds.length > 0) {
+        console.log(
+          `${queueType} Found ${translationAudioIds.length} audio files in translations`
+        );
+        attachmentIds.push(...translationAudioIds);
+      }
+
+      // Log all found attachments
+      console.log(
+        `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
+      );
+
+      return attachmentIds;
+    } catch (error) {
+      console.error(
+        `${queueType} Error getting attachments for asset ${assetId}:`,
+        error
+      );
+      return [];
+    }
   }
 }

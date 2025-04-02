@@ -78,10 +78,11 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     // Add to tracking set
     this.tempAssetIds.add(assetId);
 
-    // Update the FIFO queue
+    // Update the FIFO queue (remove old assetId if it exists)
     this.lastAccessedAssets = this.lastAccessedAssets.filter(
       (id) => id !== assetId
     );
+    // Add new assetId back, but to the end of the queue
     this.lastAccessedAssets.push(assetId);
 
     // Enforce cache size limit
@@ -155,10 +156,13 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     // Get all temporary attachments sorted by timestamp (descending)
     const allTempAttachments = await this.powersync.getAll<AttachmentRecord>(
       `SELECT * FROM ${this.table} 
-       WHERE storage_type = 'temporary' AND (state = ? OR state = ?)
-       ORDER BY timestamp DESC`,
-      [AttachmentState.SYNCED, AttachmentState.ARCHIVED]
+       ORDER BY timestamp DESC`
     );
+
+    // `SELECT * FROM ${this.table}
+    //    WHERE storage_type = 'temporary' AND (state = ? OR state = ?)
+    //    ORDER BY timestamp DESC`,
+    //   [AttachmentState.SYNCED, AttachmentState.ARCHIVED]
 
     console.log('[TEMP QUEUE] Retrieved temporary attachments:');
     console.log(JSON.stringify(allTempAttachments, null, 2));
@@ -267,83 +271,5 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     return this.saveToQueue(audioAttachment);
-  }
-
-  // Step 2: Identify all attachments related to an asset
-  async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    console.log(`[TEMP QUEUE] Finding all attachments for asset: ${assetId}`);
-    const attachmentIds: string[] = [];
-
-    try {
-      // 1. Get the asset itself for images
-      const asset = await this.db.query.asset.findFirst({
-        where: (a) => eq(a.id, assetId)
-      });
-
-      if (asset?.images) {
-        console.log(
-          `[TEMP QUEUE] Found ${asset.images.length} images in asset`
-        );
-        attachmentIds.push(...asset.images);
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
-      });
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-
-      if (contentAudioIds.length > 0) {
-        console.log(
-          `[TEMP QUEUE] Found ${contentAudioIds.length} audio files in asset_content_link`
-        );
-        attachmentIds.push(...contentAudioIds);
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await this.db.query.translation.findMany({
-        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
-      });
-
-      const translationAudioIds = translations
-        .filter((translation) => translation.audio)
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds.length > 0) {
-        console.log(
-          `[TEMP QUEUE] Found ${translationAudioIds.length} audio files in translations`
-        );
-        attachmentIds.push(...translationAudioIds);
-      }
-
-      // Log all found attachments
-      console.log(
-        `[TEMP QUEUE] Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      );
-
-      return attachmentIds;
-    } catch (error) {
-      console.error(
-        `[TEMP QUEUE] Error getting attachments for asset ${assetId}:`,
-        error
-      );
-      return [];
-    }
-  }
-
-  // Clear all temporary assets
-  async clearTempAssets(): Promise<void> {
-    console.log('[TEMP QUEUE] Clearing all temporary assets');
-
-    this.tempAssetIds.clear();
-    this.lastAccessedAssets = [];
-
-    // Update the queue to empty
-    if (this._onUpdateCallback) {
-      this._onUpdateCallback([]);
-    }
   }
 }
