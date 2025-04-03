@@ -27,6 +27,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
 }) => {
   const { db } = useSystem();
   const [showLanguages, setShowLanguages] = useState(false);
+  const [savedLanguage, setSavedLanguage] = useState<Language | null>(null);
   const { t } = useTranslation();
 
   const { data: languages } = useQuery(
@@ -38,7 +39,8 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   );
 
   const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
-  const selectedLanguage = languages?.find((l) => l.id === value);
+  const selectedLanguage =
+    languages?.find((l) => l.id === value) ?? savedLanguage;
 
   // Save language when it changes
   useEffect(() => {
@@ -53,6 +55,19 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     };
     saveLanguage();
   }, [value]);
+
+  useEffect(() => {
+    const loadSavedLanguage = async () => {
+      try {
+        const savedId = await AsyncStorage.getItem('selectedLanguageId');
+        const fetchedLanguage = languages?.find((l) => l.id === savedId);
+        if (fetchedLanguage) setSavedLanguage(fetchedLanguage);
+      } catch (error) {
+        console.error('Error loading saved language:', error);
+      }
+    };
+    loadSavedLanguage();
+  }, [languages]);
 
   return (
     <CustomDropdown

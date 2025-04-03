@@ -145,59 +145,6 @@ export default function Profile() {
               )}
             </View>
 
-            {/* Terms and Conditions Section */}
-            <View style={styles.termsSection}>
-              <Text style={styles.sectionTitle}>
-                {t('termsAndConditionsTitle')}
-              </Text>
-
-              <View style={styles.termsStatus}>
-                <Text style={styles.label}>
-                  v1.0: {currentUser?.terms_version || t('notAccepted')}
-                </Text>
-                <Text style={styles.label}>
-                  {t('status')}:{' '}
-                  {currentUser?.terms_accepted
-                    ? t('accepted')
-                    : t('notAccepted')}
-                </Text>
-              </View>
-
-              <View style={styles.controllerContainer}>
-                <Controller
-                  control={control}
-                  name="termsAccepted"
-                  render={({ field: { onChange, value } }) => (
-                    <TouchableOpacity
-                      onPress={() => onChange(!value)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.small
-                      }}
-                    >
-                      <Ionicons
-                        name={value ? 'checkbox' : 'square-outline'}
-                        size={24}
-                        color={colors.text}
-                      />
-                      <Text style={{ color: colors.text }}>
-                        {t('agreeToTerms')}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-
-              <Link
-                href="/terms"
-                style={[sharedStyles.link, { fontSize: 14 }]}
-                push
-              >
-                {t('viewTerms')}
-              </Link>
-            </View>
-
             {/* Password Change - Only when online */}
             {isOnline ? (
               <View style={styles.passwordSection}>
@@ -299,6 +246,18 @@ export default function Profile() {
             >
               <Text style={styles.saveButtonText}>{t('submit')}</Text>
             </TouchableOpacity>
+          </View>
+          <View style={styles.termsSection}>
+            <Link
+              href="/terms"
+              style={[
+                sharedStyles.link,
+                { fontSize: 14, textAlign: 'center', marginTop: spacing.medium }
+              ]}
+              push
+            >
+              {t('viewTerms')}
+            </Link>
           </View>
         </ScrollView>
       </SafeAreaView>

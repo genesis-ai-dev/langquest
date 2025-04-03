@@ -71,7 +71,6 @@ export default function Terms() {
     <View style={styles.modalContainer}>
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>{t('termsAndConditionsTitle')}</Text>
-        <Text style={styles.modalVersion}>v1.0</Text>
         {currentUser?.terms_accepted && (
           <TouchableOpacity
             style={styles.closeButton}
@@ -97,7 +96,6 @@ export default function Terms() {
         style={styles.modalBody}
         contentContainerStyle={styles.modalBodyContent}
       >
-        <Text style={styles.modalText}>{t('termsAndConditionsContent')}</Text>
         <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
         <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
         <TouchableOpacity

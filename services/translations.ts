@@ -372,12 +372,6 @@ export const translations = {
     english: 'Terms and Conditions',
     spanish: 'Términos y Condiciones'
   },
-  termsAndConditionsContent: {
-    english:
-      'LangQuest is dedicated to language preservation and making language data freely available to everyone. All contributions to LangQuest are licensed under CC0 1.0 Universal Public Domain Dedication. Once content is dedicated to the public domain, it cannot be removed or revoked. Future versions of these terms will not change this dedication.',
-    spanish:
-      'LangQuest está dedicado a la preservación de idiomas y a hacer que los datos lingüísticos estén disponibles gratuitamente para todos. Todas las contribuciones a LangQuest están licenciadas bajo la Dedicación de Dominio Público CC0 1.0 Universal. Una vez que el contenido se dedica al dominio público, no se puede eliminar ni revocar. Las versiones futuras de estos términos no cambiarán esta dedicación.'
-  },
   agreeToTerms: {
     english: 'I have read and agree to the Terms and Conditions',
     spanish: 'He leído y acepto los Términos y Condiciones'
