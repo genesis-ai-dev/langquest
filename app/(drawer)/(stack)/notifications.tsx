@@ -1,6 +1,5 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -135,42 +134,40 @@ export default function Notifications() {
   // }, [currentUser]);
 
   return (
-    <AuthGuard>
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={{ flex: 1 }}
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView
+        style={{
+          flex: 1,
+          paddingHorizontal: spacing.medium,
+          paddingTop: spacing.medium,
+          gap: spacing.medium
+        }}
       >
-        <SafeAreaView
-          style={{
-            flex: 1,
-            paddingHorizontal: spacing.medium,
-            paddingTop: spacing.medium,
-            gap: spacing.medium
+        <PageHeader title={t('notifications')} />
+        <FlashList
+          data={notifications}
+          stickyHeaderIndices={stickyHeaderIndices}
+          getItemType={(item) => {
+            // To achieve better performance, specify the type based on the item
+            return typeof item === 'string' ? 'sectionHeader' : 'row';
           }}
-        >
-          <PageHeader title={t('notifications')} />
-          <FlashList
-            data={notifications}
-            stickyHeaderIndices={stickyHeaderIndices}
-            getItemType={(item) => {
-              // To achieve better performance, specify the type based on the item
-              return typeof item === 'string' ? 'sectionHeader' : 'row';
-            }}
-            renderItem={({ item }) => {
-              if (typeof item === 'string') {
-                // Rendering header
-                return <Text style={sharedStyles.cardTitle}>{item}</Text>;
-              } else {
-                // Render item
-                return <InviteRequestNotification inviteRequest={item} />;
-              }
-            }}
-            keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}
-            estimatedItemSize={200}
-          />
-        </SafeAreaView>
-      </LinearGradient>
-    </AuthGuard>
+          renderItem={({ item }) => {
+            if (typeof item === 'string') {
+              // Rendering header
+              return <Text style={sharedStyles.cardTitle}>{item}</Text>;
+            } else {
+              // Render item
+              return <InviteRequestNotification inviteRequest={item} />;
+            }
+          }}
+          keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}
+          estimatedItemSize={200}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 

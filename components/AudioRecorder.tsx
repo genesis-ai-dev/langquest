@@ -76,30 +76,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           setSound(null);
           setIsPlaying(false);
         }
-        if (recording) {
-          try {
-            await recording.stopAndUnloadAsync();
-            await Audio.setAudioModeAsync({
-              allowsRecordingIOS: false
-            });
-
-            const uri = recording.getURI();
-            if (recordingUri) {
-              await FileSystem.deleteAsync(recordingUri);
-              console.log('Deleting previous recording attempt', recordingUri);
-            }
-            if (uri) {
-              await FileSystem.deleteAsync(uri);
-              console.log('Deleting current recording attempt', uri);
-            }
-            setRecordingUri(null);
-            setRecording(null);
-            setIsRecording(false);
-            setIsRecordingPaused(false);
-          } catch (error) {
-            console.error('Failed to stop recording:', error);
-          }
-        }
+        if (!recording?._isDoneRecording) await stopRecording();
       };
       cleanup();
     };
@@ -121,19 +98,24 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       if (recording) {
         await recording.startAsync();
         setIsRecording(true);
+        setIsRecordingPaused(false);
         return;
       }
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets[quality]
-      );
+      console.log('recording');
 
-      setRecording(newRecording);
+      const activeRecording = (
+        await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets[quality]
+        )
+      ).recording;
+
+      setRecording(activeRecording);
       setIsRecording(true);
       setIsRecordingPaused(false);
       setShowWarning(false);
       // Start monitoring recording status
-      newRecording.setOnRecordingStatusUpdate((status) => {
+      activeRecording.setOnRecordingStatusUpdate((status) => {
         if (status.isRecording) {
           const duration = status.durationMillis || 0;
           setRecordingDuration(duration);

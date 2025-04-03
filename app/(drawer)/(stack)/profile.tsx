@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
 import { PageHeader } from '@/components/PageHeader';
+import { Link } from 'expo-router';
 
 type Language = typeof language.$inferSelect;
 
@@ -144,61 +145,6 @@ export default function Profile() {
               )}
             </View>
 
-            {/* Terms and Conditions Section */}
-            <View style={styles.termsSection}>
-              <Text style={styles.sectionTitle}>
-                {t('termsAndConditionsTitle')}
-              </Text>
-
-              <View style={styles.termsStatus}>
-                <Text style={styles.label}>
-                  {t('termsVersion')}:{' '}
-                  {currentUser?.terms_version || t('notAccepted')}
-                </Text>
-                <Text style={styles.label}>
-                  {t('status')}:{' '}
-                  {currentUser?.terms_accepted
-                    ? t('accepted')
-                    : t('notAccepted')}
-                </Text>
-              </View>
-
-              <View style={styles.controllerContainer}>
-                <Controller
-                  control={control}
-                  name="termsAccepted"
-                  render={({ field: { onChange, value } }) => (
-                    <TouchableOpacity
-                      onPress={() => onChange(!value)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.small
-                      }}
-                    >
-                      <Ionicons
-                        name={value ? 'checkbox' : 'square-outline'}
-                        size={24}
-                        color={colors.text}
-                      />
-                      <Text style={{ color: colors.text }}>
-                        {t('agreeToTerms')}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setTermsModalVisible(true)}
-                style={{ marginTop: spacing.small }}
-              >
-                <Text style={[sharedStyles.link, { fontSize: 14 }]}>
-                  {t('viewTerms')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Password Change - Only when online */}
             {isOnline ? (
               <View style={styles.passwordSection}>
@@ -301,56 +247,19 @@ export default function Profile() {
               <Text style={styles.saveButtonText}>{t('submit')}</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-
-        {/* Terms and Conditions Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={termsModalVisible}
-          onRequestClose={() => setTermsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {t('termsAndConditionsTitle')}
-                </Text>
-                <Text style={styles.modalVersion}>{t('termsVersion')}</Text>
-                <TouchableOpacity
-                  onPress={() => setTermsModalVisible(false)}
-                  style={styles.closeButton}
-                >
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.modalBody}>
-                <Text style={styles.modalText}>
-                  {t('termsAndConditionsContent')}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    // Open the full data policy in browser
-                    Linking.openURL('https://www.langquest.org/data-policy');
-                  }}
-                  style={{ marginTop: spacing.medium }}
-                >
-                  <Text style={sharedStyles.link}>View Full Data Policy</Text>
-                </TouchableOpacity>
-              </ScrollView>
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={[sharedStyles.button, { flex: 1 }]}
-                  onPress={() => {
-                    setTermsModalVisible(false);
-                  }}
-                >
-                  <Text style={sharedStyles.buttonText}>{t('ok')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+          <View style={styles.termsSection}>
+            <Link
+              href="/terms"
+              style={[
+                sharedStyles.link,
+                { fontSize: 14, textAlign: 'center', marginTop: spacing.medium }
+              ]}
+              push
+            >
+              {t('viewTerms')}
+            </Link>
           </View>
-        </Modal>
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );

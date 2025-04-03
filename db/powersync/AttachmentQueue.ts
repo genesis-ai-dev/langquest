@@ -7,9 +7,9 @@ import {
 import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { randomUUID } from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
-import { AppConfig } from '../supabase/AppConfig';
 import * as drizzleSchema from '../drizzleSchema';
 import { isNotNull } from 'drizzle-orm';
+import { AppConfig } from '../supabase/AppConfig';
 
 export class AttachmentQueue extends AbstractAttachmentQueue {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
@@ -23,16 +23,24 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     this.db = options.db;
   }
 
+  private initialized = false;
+
   async init() {
+    if (this.initialized) {
+      console.log('AttachmentQueue already initialized');
+      return;
+    }
+
     if (!AppConfig.supabaseBucket) {
       console.debug(
-        'No Supabase bucket configured, skip setting up PhotoAttachmentQueue watches.'
+        'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
       );
       // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
       this.options.syncInterval = 0;
       return;
     }
 
+    this.initialized = true;
     await super.init();
   }
 

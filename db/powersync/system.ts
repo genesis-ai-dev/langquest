@@ -1,4 +1,5 @@
 import '@azure/core-asynciterator-polyfill';
+import 'react-native-url-polyfill/auto';
 import {
   DrizzleAppSchema,
   PowerSyncSQLiteDatabase,
@@ -9,26 +10,16 @@ import { PowerSyncDatabase, Schema } from '@powersync/react-native';
 import React from 'react';
 import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
+import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import Logger from 'js-logger';
-import { KVStorage } from '../KVStorage';
-import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
-import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
+import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AttachmentQueue } from './AttachmentQueue';
 
 Logger.useDefaults();
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const powersyncUrl = process.env.EXPO_PUBLIC_POWERSYNC_URL;
-
-if (!supabaseUrl || !supabaseAnonKey || !powersyncUrl) {
-  throw new Error('Supabase URL, Anon Key, or PowerSync URL is not defined');
-}
-
 export class System {
-  kvStorage: KVStorage;
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
@@ -36,7 +27,6 @@ export class System {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
-    this.kvStorage = new KVStorage();
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
     this.powersync = new PowerSyncDatabase({
@@ -66,10 +56,15 @@ export class System {
           attachment: AttachmentRecord,
           exception: any
         ) => {
+          console.log('onDownloadError', attachment, exception);
           if (exception.toString() === 'StorageApiError: Object not found') {
             return { retry: false };
           }
 
+          return { retry: true };
+        },
+        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+          console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
       });
@@ -81,6 +76,7 @@ export class System {
 
   async init() {
     if (this.initialized || this.connecting) {
+      console.log('System already initialized or connecting');
       return;
     }
 
@@ -89,9 +85,9 @@ export class System {
       await this.powersync.init();
       await this.powersync.connect(this.supabaseConnector);
 
-      if (this.attachmentQueue) {
-        await this.attachmentQueue.init();
-      }
+      // if (this.attachmentQueue) {
+      //   await this.attachmentQueue.init();
+      // }
 
       this.initialized = true;
     } catch (error) {

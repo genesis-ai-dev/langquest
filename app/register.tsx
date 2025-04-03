@@ -1,6 +1,5 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { TermsModal } from '@/components/TermsModal';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/db/powersync/system';
@@ -8,7 +7,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -148,7 +147,6 @@ export default function Register() {
 
               {/* Language section */}
               <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                <Ionicons name="language" size={32} color={colors.text} />
                 <Controller
                   control={control}
                   name="selectedLanguageId"
@@ -399,42 +397,31 @@ export default function Register() {
                     {errors.termsAccepted.message}
                   </Text>
                 )}
-                <TouchableOpacity
-                  onPress={() => setTermsModalVisible(true)}
-                  style={{ marginTop: spacing.small }}
+                <Link
+                  href="/terms"
+                  style={[sharedStyles.link, { fontSize: 14 }]}
                 >
-                  <Text style={[sharedStyles.link, { fontSize: 14 }]}>
-                    {t('viewTerms')}
-                  </Text>
-                </TouchableOpacity>
+                  {t('viewTerms')}
+                </Link>
               </View>
 
               <TouchableOpacity
-                style={[sharedStyles.button, { marginTop: 'auto' }]}
+                style={[
+                  sharedStyles.button,
+                  { marginTop: 'auto', marginBottom: 0 }
+                ]}
                 onPress={handleSubmit(onSubmit)}
               >
                 <Text style={sharedStyles.buttonText}>{t('register')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={{ marginTop: spacing.medium }}
-                onPress={() => router.replace('/')}
-              >
+              <TouchableOpacity onPress={() => router.replace('/sign-in')}>
                 <Text style={sharedStyles.link}>{t('returningHero')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-
-      {/* Terms and Conditions Modal */}
-      <TermsModal
-        visible={termsModalVisible}
-        onClose={() => setTermsModalVisible(false)}
-        canDismiss={true}
-        showAcceptButton={false}
-        initialLanguage={currentLanguage}
-      />
     </LinearGradient>
   );
 }

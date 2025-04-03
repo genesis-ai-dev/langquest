@@ -1,15 +1,14 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { PageHeader } from '@/components/PageHeader';
-import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { languageService } from '@/database_services/languageService';
 import { projectService } from '@/database_services/projectService';
 import { language, project } from '@/db/drizzleSchema';
-import { AuthGuard } from '@/guards/AuthGuard';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -72,7 +71,7 @@ export default function Projects() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
-  const { signOut } = useAuth();
+  const router = useRouter();
 
   // Load stored filter settings on component mount
   useEffect(() => {
@@ -257,53 +256,51 @@ export default function Projects() {
   };
 
   return (
-    <AuthGuard>
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          <View
-            style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
-          >
-            <PageHeader title={t('projects')} />
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <View
+          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
+        >
+          <PageHeader title={t('projects')} />
 
-            <View style={sharedStyles.filtersContainer}>
-              <CustomDropdown
-                label={t('source')}
-                value={sourceFilter}
-                options={[t('all'), ...sourceLanguages]}
-                onSelect={handleSourceFilterChange}
-                isOpen={openDropdown === 'source'}
-                onToggle={() => toggleDropdown('source')}
-                fullWidth={false}
-                search={true}
-              />
-              <CustomDropdown
-                label={t('target')}
-                value={targetFilter}
-                options={[t('all'), ...targetLanguages]}
-                onSelect={handleTargetFilterChange}
-                isOpen={openDropdown === 'target'}
-                onToggle={() => toggleDropdown('target')}
-                fullWidth={false}
-                search={true}
-              />
-            </View>
-
-            <FlatList
-              data={filteredProjects}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => handleExplore(item)}>
-                  <ProjectCard project={item} />
-                </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id}
-              style={sharedStyles.list}
+          <View style={sharedStyles.filtersContainer}>
+            <CustomDropdown
+              label={t('source')}
+              value={sourceFilter}
+              options={[t('all'), ...sourceLanguages]}
+              onSelect={handleSourceFilterChange}
+              isOpen={openDropdown === 'source'}
+              onToggle={() => toggleDropdown('source')}
+              fullWidth={false}
+              search={true}
+            />
+            <CustomDropdown
+              label={t('target')}
+              value={targetFilter}
+              options={[t('all'), ...targetLanguages]}
+              onSelect={handleTargetFilterChange}
+              isOpen={openDropdown === 'target'}
+              onToggle={() => toggleDropdown('target')}
+              fullWidth={false}
+              search={true}
             />
           </View>
-        </SafeAreaView>
-      </LinearGradient>
-    </AuthGuard>
+
+          <FlatList
+            data={filteredProjects}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleExplore(item)}>
+                <ProjectCard project={item} />
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id}
+            style={sharedStyles.list}
+          />
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }

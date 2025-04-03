@@ -44,14 +44,10 @@ type LoginFormData = {
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-export default function Index() {
+export default function SignIn() {
   const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
   const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
-  const { setCurrentUser, isAuthenticated } = useAuth();
-  const [dbStatus, setDbStatus] = useState('Initializing...');
-  // const [username, setUsername] = useState('');
-  // const [password, setPassword] = useState('');
 
   const {
     control,
@@ -72,52 +68,6 @@ export default function Index() {
       reset();
     };
   }, [reset]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const initializeDatabase = async () => {
-      if (system.isInitialized()) {
-        console.log('System is already initialized');
-        return;
-      }
-
-      try {
-        const { data: sessionData } =
-          await supabaseConnector.client.auth.getSession();
-
-        if (!sessionData.session) {
-          console.log('No session - signing in anonymously');
-          const { data, error: signInError } =
-            await supabaseConnector.client.auth.signInAnonymously();
-          if (signInError) {
-            console.error('Error signing in anonymously:', signInError);
-            return;
-          }
-        } else {
-          const isAnonymous = await supabaseConnector.isAnonymousSession();
-          if (!isAnonymous && mounted) {
-            await system.init();
-            router.replace('/projects');
-            return;
-          }
-        }
-
-        await system.init();
-      } catch (error) {
-        console.error('Session check error:', error);
-        if (mounted) {
-          router.replace('/register');
-        }
-      }
-    };
-
-    initializeDatabase();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -140,15 +90,10 @@ export default function Index() {
         return;
       }
 
-      const user = await profileService.getProfileByUserId(signInData.user.id);
-      if (user) {
-        setCurrentUser(user);
-      }
-
       // Email is verified, proceed with login
-      await system.init();
+      // await system.init();
       reset();
-      router.replace('/projects');
+      router.replace('/');
     } catch (error) {
       console.error('Error during sign in:', error);
       Alert.alert(
@@ -178,7 +123,6 @@ export default function Index() {
                 { backgroundColor: 'transparent', gap: spacing.medium }
               ]}
             >
-              {dbStatus && <Text>{dbStatus}</Text>}
               <View style={{ alignItems: 'center', width: '100%' }}>
                 <Text style={sharedStyles.appTitle}>LangQuest</Text>
                 <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
@@ -193,7 +137,6 @@ export default function Index() {
                     gap: spacing.medium
                   }}
                 >
-                  <Ionicons name="language" size={32} color={colors.text} />
                   <Controller
                     control={control}
                     name="selectedLanguageId"

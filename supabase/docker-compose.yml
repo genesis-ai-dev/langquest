@@ -34,7 +34,7 @@ services:
       PS_PORT: ${PS_PORT}
     develop:
       watch:
-        - action: sync+restart
+        - action: restart
           path: ./config
           target: /config
     healthcheck:

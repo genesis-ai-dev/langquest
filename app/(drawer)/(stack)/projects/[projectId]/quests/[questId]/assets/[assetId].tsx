@@ -50,7 +50,7 @@ function debug(...args: any[]) {
   }
 }
 
-const ASSET_VIEWER_PROPORTION = 0.38;
+const ASSET_VIEWER_PROPORTION = 0.4;
 
 const getFirstAvailableTab = (
   asset: Asset | null,

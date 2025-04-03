@@ -95,7 +95,7 @@ export default function ResetPassword() {
       Alert.alert(t('success'), t('passwordResetSuccess'), [
         {
           text: t('ok'),
-          onPress: () => router.replace('/projects')
+          onPress: () => router.replace('/')
         }
       ]);
     } catch (error) {

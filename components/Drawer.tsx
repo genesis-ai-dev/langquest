@@ -1,4 +1,3 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
 import { type Project } from '@/database_services/projectService';
@@ -11,17 +10,10 @@ import {
   type DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Href,
-  Link,
-  useGlobalSearchParams,
-  usePathname,
-  useRouter
-} from 'expo-router';
+import { Href, Link, usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
-import { forwardRef, Fragment, useCallback, useState } from 'react';
+import { Fragment, forwardRef, useCallback, useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -38,18 +30,11 @@ type DrawerItem = {
 
 function DrawerItems() {
   const pathname = usePathname();
-  const { isAuthenticated, signOut } = useAuth();
   const { t } = useTranslation();
 
   const drawerItems: DrawerItem[] = [
-    { name: t('projects'), icon: 'home', path: '/projects' },
-    // {
-    //   name: t('notifications'),
-    //   icon: 'notifications',
-    //   path: '/notifications'
-    // },
+    { name: t('projects'), icon: 'home', path: '/' },
     { name: t('profile'), icon: 'person', path: '/profile' }
-    // { name: t('settings'), icon: 'settings', path: '/settings' }
   ] as const;
 
   return (
@@ -59,28 +44,17 @@ function DrawerItems() {
           <DrawerItem item={item} active={pathname === item.path} />
         </Link>
       ))}
-      {isAuthenticated && (
-        <DrawerItem
-          item={{
-            name: t('logOut'),
-            icon: 'log-out'
-          }}
-          onPress={() => signOut()}
-        />
-      )}
     </View>
   );
 }
 
-export function Drawer() {
-  const pathname = usePathname();
+export function Drawer({ children }: { children: React.ReactNode }) {
   return (
     <ExpoDrawer
       screenOptions={{
         headerShown: false,
         drawerType: 'slide',
-        swipeEdgeWidth: 100,
-        swipeEnabled: pathname !== '/' && pathname !== '/register' // no drawer on auth pages
+        swipeEdgeWidth: 100
       }}
       drawerContent={DrawerContent}
     />
@@ -210,13 +184,12 @@ function DrawerFooter() {
   const { goToProject, goToQuest, activeProject, activeQuest } =
     useProjectContext();
 
-  if (!pathname.startsWith('/projects') || !activeProject || !activeQuest)
-    return null;
+  if (!pathname.startsWith('/') || !activeProject || !activeQuest) return null;
 
   return (
     <View style={styles.drawerFooterNav}>
-      {pathname.startsWith('/projects') && (
-        <TouchableOpacity onPress={() => router.navigate('/projects')}>
+      {pathname.startsWith('/') && (
+        <TouchableOpacity onPress={() => router.navigate('/')}>
           <Ionicons name="home" size={20} color={colors.text} />
         </TouchableOpacity>
       )}

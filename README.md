@@ -128,9 +128,17 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
      alter publication "powersync" add table only "<schema>"."<table_name>";
      ```
 
-5. Review the generated migration file to ensure it captures your intended changes.
+5. (Optional) If you want to preserve any test data you've inserted across database resets (recommended if adding new tables or columns), run this command to save your local database's current data:
 
-6. Commit the migration file to your repository to track database schema changes.
+   ```bash
+   npx supabase@beta db dump --local --schema public --data-only > supabase/seeds/public.sql
+   ```
+
+   This creates a SQL file containing all the data from your local database's public schema, which will be automatically loaded when you reset your database using `npm run env:clean`.
+
+6. Review the generated migration file to ensure it captures your intended changes.
+
+7. Commit the migration file to your repository to track database schema changes.
 
 #### Making Sync Rule Changes
 
