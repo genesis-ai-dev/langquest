@@ -7,6 +7,7 @@ import {
 import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import * as drizzleSchema from '../drizzleSchema';
 import { eq, and, isNotNull } from 'drizzle-orm';
+import { Alert } from 'react-native';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -66,6 +67,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
         );
 
+      const storageType = this.getStorageType();
+
       for (const id of ids) {
         const record = attachmentsInDatabase.find((r) => r.id == id);
         // 1. ID is not in the database
@@ -106,7 +109,19 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       //         AND id NOT IN (${ids.map((id) => `'${id}'`).join(',')})`
       //   );
       // }
-      // For permanent attachments, we don't archive anything
+
+      // Handle archiving of permanent attachments
+      if (storageType === 'permanent') {
+        // For permanent attachments, only archive other permanent attachments that are SYNCED
+        await this.powersync.execute(
+          `UPDATE ${this.table}
+            SET state = ${AttachmentState.ARCHIVED}
+            WHERE
+              state = ${AttachmentState.SYNCED}
+              AND storage_type = 'permanent'
+              AND id NOT IN (${ids.map((id) => `'${id}'`).join(',')})`
+        );
+      }
     });
   }
 

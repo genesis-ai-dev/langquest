@@ -264,10 +264,10 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     const res = await this.powersync
       .getAll<AttachmentRecord>(`SELECT * FROM ${this.table}
           WHERE
-           state = ${AttachmentState.SYNCED} OR state = ${AttachmentState.ARCHIVED}
+           state = ${AttachmentState.ARCHIVED} AND storage_type = 'permanent'
          ORDER BY
            timestamp DESC
-         LIMIT 100 OFFSET ${this.options.cacheLimit}`);
+         LIMIT 100`);
 
     if (res.length == 0) {
       return;

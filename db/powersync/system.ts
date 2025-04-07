@@ -72,7 +72,7 @@ export class System {
         storage: this.storage,
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
-        cacheLimit: 500, // Higher limit for permanent downloads
+        cacheLimit: 10, // Higher limit for permanent downloads
         // Use this to handle download errors where you can use the attachment
         // and/or the exception to decide if you want to retry the download
         onDownloadError: async (
