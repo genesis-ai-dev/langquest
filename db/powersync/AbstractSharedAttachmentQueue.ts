@@ -223,9 +223,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Common method to identify all attachments related to an asset
   async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    const queueType =
-      this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
-    console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
+    // const queueType =
+    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
+    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
     const attachmentIds: string[] = [];
 
     try {
@@ -235,9 +235,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       });
 
       if (asset?.images) {
-        console.log(
-          `${queueType} Found ${asset.images.length} images in asset`
-        );
+        // console.log(
+        //   `${queueType} Found ${asset.images.length} images in asset`
+        // );
         attachmentIds.push(...asset.images);
       }
 
@@ -251,9 +251,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         .map((content) => content.audio_id!);
 
       if (contentAudioIds.length > 0) {
-        console.log(
-          `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
-        );
+        // console.log(
+        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
+        // );
         attachmentIds.push(...contentAudioIds);
       }
 
@@ -267,23 +267,23 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         .map((translation) => translation.audio!);
 
       if (translationAudioIds.length > 0) {
-        console.log(
-          `${queueType} Found ${translationAudioIds.length} audio files in translations`
-        );
+        // console.log(
+        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
+        // );
         attachmentIds.push(...translationAudioIds);
       }
 
       // Log all found attachments
-      console.log(
-        `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      );
+      // console.log(
+      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
+      // );
 
       return attachmentIds;
     } catch (error) {
-      console.error(
-        `${queueType} Error getting attachments for asset ${assetId}:`,
-        error
-      );
+      // console.error(
+      //   `${queueType} Error getting attachments for asset ${assetId}:`,
+      //   error
+      // );
       return [];
     }
   }

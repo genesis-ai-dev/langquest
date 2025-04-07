@@ -1,6 +1,11 @@
 import { system } from '../db/powersync/system';
-import { and, eq } from 'drizzle-orm';
-import { asset_download } from '../db/drizzleSchema';
+import { and, eq, isNotNull } from 'drizzle-orm';
+import {
+  asset_download,
+  asset,
+  asset_content_link,
+  translation
+} from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 
 export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
@@ -86,5 +91,51 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     console.error(
       `[ensureAssetLoaded] Error ensuring asset is loaded: ${error}`
     );
+  }
+}
+
+export async function calculateTotalAttachments(
+  assetIds: string[]
+): Promise<number> {
+  try {
+    let totalAttachments = 0;
+
+    for (const assetId of assetIds) {
+      // 1. Get the asset itself for images
+      const assetRecord = await system.db.query.asset.findFirst({
+        where: (a) => eq(a.id, assetId)
+      });
+
+      if (assetRecord?.images) {
+        totalAttachments += assetRecord.images.length;
+      }
+
+      // 2. Get asset_content_link entries for audio
+      const assetContents = await system.db.query.asset_content_link.findMany({
+        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
+      });
+
+      const contentAudioIds = assetContents
+        .filter((content) => content.audio_id)
+        .map((content) => content.audio_id!);
+
+      totalAttachments += contentAudioIds.length;
+
+      // 3. Get translations for the asset and their audio
+      const translations = await system.db.query.translation.findMany({
+        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
+      });
+
+      const translationAudioIds = translations
+        .filter((translation) => translation.audio)
+        .map((translation) => translation.audio!);
+
+      totalAttachments += translationAudioIds.length;
+    }
+
+    return totalAttachments;
+  } catch (error) {
+    console.error('Error calculating total attachments:', error);
+    return 0;
   }
 }

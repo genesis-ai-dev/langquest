@@ -9,6 +9,10 @@ import {
 import { system } from '../db/powersync/system';
 import { questService } from './questService';
 import { assetService } from './assetService';
+import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
+import { calculateTotalAttachments } from '../utils/attachmentUtils';
+import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
+import { Alert } from 'react-native';
 
 const { db } = system;
 
@@ -34,8 +38,58 @@ export class DownloadService {
   private isInQuestUpdate = false;
 
   private async canPerformUpdates(): Promise<boolean> {
-    // TODO: Implement your actual check here
-    return true;
+    try {
+      // Get all assets that are currently set to download
+      const currentDownloads = await db
+        .select()
+        .from(asset_download)
+        .where(eq(asset_download.active, true));
+
+      // Get all assets we're trying to download in this update
+      const newDownloads = this.plannedUpdates
+        .filter(
+          (update) => update.table === asset_download && update.values.active
+        )
+        .map((update) => update.values.asset_id!);
+
+      // Calculate total attachments for current downloads
+      const currentAssetIds = currentDownloads.map(
+        (download) => download.asset_id
+      );
+      const totalCurrentAttachments =
+        await calculateTotalAttachments(currentAssetIds);
+
+      // Calculate total attachments for new downloads
+      const totalNewAttachments = await calculateTotalAttachments(newDownloads);
+
+      const totalAttachments = totalCurrentAttachments + totalNewAttachments;
+      console.log(
+        `Total attachments that would be downloaded: ${totalAttachments}`
+      );
+      console.log(
+        `- Current downloads: ${totalCurrentAttachments} attachments`
+      );
+      console.log(`- New downloads: ${totalNewAttachments} attachments`);
+      console.log(
+        `- Permanent queue limit: ${ATTACHMENT_QUEUE_LIMITS.PERMANENT} attachments`
+      );
+
+      if (totalAttachments > ATTACHMENT_QUEUE_LIMITS.PERMANENT) {
+        Alert.alert(
+          'Download Limit Exceeded',
+          `You are trying to download ${totalAttachments} attachments, but the limit is ${ATTACHMENT_QUEUE_LIMITS.PERMANENT}. Please deselect some downloads and try again.`,
+          [{ text: 'OK' }]
+        );
+        this.plannedUpdates = [];
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error calculating total attachments:', error);
+      this.plannedUpdates = [];
+      return false;
+    }
   }
 
   private async executePlannedUpdates() {

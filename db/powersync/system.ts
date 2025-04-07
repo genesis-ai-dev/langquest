@@ -23,6 +23,7 @@ import { AppConfig } from '../supabase/AppConfig';
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
+import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 Logger.useDefaults();
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -72,9 +73,7 @@ export class System {
         storage: this.storage,
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
-        cacheLimit: 100, // Higher limit for permanent downloads
-        // Use this to handle download errors where you can use the attachment
-        // and/or the exception to decide if you want to retry the download
+        cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
         onDownloadError: async (
           attachment: AttachmentRecord,
           exception: any
@@ -96,9 +95,7 @@ export class System {
         storage: this.storage,
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
-        cacheLimit: 6, // Lower limit for temporary browsing
-        // syncInterval: 5000, // Faster sync for temporary content
-
+        cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
         onDownloadError: async (
           attachment: AttachmentRecord,
           exception: any
