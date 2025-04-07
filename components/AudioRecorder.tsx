@@ -2,8 +2,12 @@ import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { calculateTotalAttachments } from '@/utils/attachmentUtils';
+import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
+import { downloadService } from '@/database_services/downloadService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ButtonConfig {
   icon: 'mic' | 'pause' | 'play' | 'checkmark';
@@ -18,6 +22,7 @@ interface AudioRecorderProps {
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onRecordingComplete
 }) => {
+  const { currentUser } = useAuth();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -36,6 +41,28 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   const startRecording = async () => {
     try {
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to record audio');
+        return;
+      }
+
+      // Check attachment limit before starting
+      const downloadedAssets = await downloadService.getAllDownloadedAssets(
+        currentUser.id
+      );
+      const totalAttachments =
+        await calculateTotalAttachments(downloadedAssets);
+      console.log('Total attachments:', totalAttachments);
+
+      if (totalAttachments >= ATTACHMENT_QUEUE_LIMITS.PERMANENT) {
+        Alert.alert(
+          'Attachment Limit Exceeded',
+          `You have reached the maximum number of attachments (${ATTACHMENT_QUEUE_LIMITS.PERMANENT}). Please delete some recordings before creating new ones.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       if (permissionResponse?.status !== 'granted') {
         console.log('Requesting permission..');
         await requestPermission();

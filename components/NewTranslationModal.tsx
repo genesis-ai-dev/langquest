@@ -57,8 +57,8 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
     try {
       // let permanentAudioUri: string | undefined;
-      if (audioUri && system.attachmentQueue) {
-        const attachment = await system.attachmentQueue.saveAudio(audioUri);
+      if (audioUri && system.permAttachmentQueue) {
+        const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
         console.log('attachment', attachment);
 
         await translationService.createTranslation({

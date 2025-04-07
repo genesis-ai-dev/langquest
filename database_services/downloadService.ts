@@ -300,6 +300,25 @@ export class DownloadService {
       assets
     };
   }
+
+  async getAllDownloadedAssets(profileId: string): Promise<string[]> {
+    try {
+      const activeDownloads = await db
+        .select()
+        .from(asset_download)
+        .where(
+          and(
+            eq(asset_download.profile_id, profileId),
+            eq(asset_download.active, true)
+          )
+        );
+
+      return activeDownloads.map((download) => download.asset_id);
+    } catch (error) {
+      console.error('Error getting downloaded assets:', error);
+      return [];
+    }
+  }
 }
 
 export const downloadService = new DownloadService();
