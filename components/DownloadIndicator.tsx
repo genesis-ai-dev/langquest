@@ -2,6 +2,7 @@ import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
+import { useNetworkConnectivity } from '@/hooks/useNetworkConnectivity';
 
 interface DownloadIndicatorProps {
   isDownloaded: boolean;
@@ -14,16 +15,26 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   onPress,
   size = 24
 }) => {
+  const isConnected = useNetworkConnectivity();
+  const isDisabled = !isConnected && !isDownloaded;
+
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={styles.container}
+      style={[styles.container, isDisabled && styles.disabled]}
       hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      disabled={isDisabled}
     >
       <Ionicons
         name={isDownloaded ? 'cloud-done' : 'cloud-download-outline'}
         size={size}
-        color={isDownloaded ? colors.primary : colors.text}
+        color={
+          isDownloaded
+            ? colors.primary
+            : isDisabled
+              ? colors.disabled
+              : colors.text
+        }
       />
     </TouchableOpacity>
   );
@@ -35,5 +46,8 @@ const styles = StyleSheet.create({
     top: spacing.small,
     right: spacing.small,
     zIndex: 1
+  },
+  disabled: {
+    opacity: 0.5
   }
 });
