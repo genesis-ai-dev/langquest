@@ -76,7 +76,7 @@ export const project = sqliteTable('project', {
     .references(() => language.id)
 });
 
-export const projectRelations = relations(project, ({ one }) => ({
+export const projectRelations = relations(project, ({ one, many }) => ({
   source_language: one(language, {
     fields: [project.source_language_id],
     references: [language.id],
@@ -86,7 +86,8 @@ export const projectRelations = relations(project, ({ one }) => ({
     fields: [project.target_language_id],
     references: [language.id],
     relationName: 'targetLanguage'
-  })
+  }),
+  quests: many(quest)
 }));
 
 export const quest = sqliteTable('quest', {

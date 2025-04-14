@@ -9,7 +9,7 @@ export const useNetworkConnectivity = () => {
     console.log('[useNetworkConnectivity] Setting up connectivity check');
 
     const checkConnection = async () => {
-      console.log('[useNetworkConnectivity] Checking connection');
+      // console.log('[useNetworkConnectivity] Checking connection');
       try {
         // Create a timeout promise that rejects after 3 seconds
         const timeoutPromise = new Promise<Error>((_, reject) => {

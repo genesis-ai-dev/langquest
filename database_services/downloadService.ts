@@ -4,7 +4,8 @@ import {
   quest_download,
   asset_download,
   quest,
-  quest_asset_link
+  quest_asset_link,
+  project
 } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 import { questService } from './questService';
@@ -15,6 +16,34 @@ import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
 import { Alert } from 'react-native';
 
 const { db } = system;
+
+// const fetch = async() => {
+//   const attachmentIds = await db.query.project.findFirst({
+//     where: eq(project.id, '1'),
+//     with: {
+//       quests: {
+//         with: {
+//           assets: {
+//             with: {
+//               asset: {
+//                 with: {
+//                   content: {
+//                     columns: {
+//                       audio_id: true
+//                     }
+//                   }
+//                 },
+//                 columns: {
+//                   images: true,
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }Ø
+//     }
+//   })
+// }
 
 interface PlannedUpdate {
   table:

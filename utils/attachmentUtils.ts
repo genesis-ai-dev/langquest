@@ -139,3 +139,47 @@ export async function calculateTotalAttachments(
     return 0;
   }
 }
+
+export async function getAssetAttachmentIds(
+  assetId: string
+): Promise<string[]> {
+  try {
+    const attachmentIds: string[] = [];
+
+    // 1. Get the asset itself for images
+    const assetRecord = await system.db.query.asset.findFirst({
+      where: (a) => eq(a.id, assetId)
+    });
+
+    if (assetRecord?.images) {
+      attachmentIds.push(...assetRecord.images);
+    }
+
+    // 2. Get asset_content_link entries for audio
+    const assetContents = await system.db.query.asset_content_link.findMany({
+      where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
+    });
+
+    const contentAudioIds = assetContents
+      .filter((content) => content.audio_id)
+      .map((content) => content.audio_id!);
+
+    attachmentIds.push(...contentAudioIds);
+
+    // 3. Get translations for the asset and their audio
+    const translations = await system.db.query.translation.findMany({
+      where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
+    });
+
+    const translationAudioIds = translations
+      .filter((translation) => translation.audio)
+      .map((translation) => translation.audio!);
+
+    attachmentIds.push(...translationAudioIds);
+
+    return attachmentIds;
+  } catch (error) {
+    console.error('Error getting asset attachment IDs:', error);
+    return [];
+  }
+}

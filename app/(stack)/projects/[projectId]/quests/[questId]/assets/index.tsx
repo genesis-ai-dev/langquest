@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 
 interface SortingOption {
   field: string;
@@ -38,32 +39,16 @@ interface SortingOption {
 
 const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
   const { currentUser } = useAuth();
-  const [isDownloaded, setIsDownloaded] = useState(false);
+  const isDownloaded = useAssetDownloadStatus(asset.id);
   const [tags, setTags] = useState<Tag[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
       const assetTags = await tagService.getTagsByAssetId(asset.id);
       setTags(assetTags);
-
-      if (currentUser) {
-        console.log('Checking asset download status:', {
-          assetId: asset.id,
-          profileId: currentUser.id
-        });
-        const status = await downloadService.getAssetDownloadStatus(
-          currentUser.id,
-          asset.id
-        );
-        console.log('Asset download status result:', {
-          assetId: asset.id,
-          status
-        });
-        setIsDownloaded(status);
-      }
     };
     loadData();
-  }, [asset.id, currentUser]);
+  }, [asset.id]);
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -73,7 +58,6 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
         asset.id,
         !isDownloaded
       );
-      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling asset download:', error);
     }
