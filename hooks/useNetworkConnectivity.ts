@@ -9,23 +9,32 @@ export const useNetworkConnectivity = () => {
     console.log('[useNetworkConnectivity] Setting up connectivity check');
 
     const checkConnection = async () => {
+      console.log('[useNetworkConnectivity] Checking connection');
       try {
         // Create a timeout promise that rejects after 3 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Connection timeout')), 3000);
+        const timeoutPromise = new Promise<Error>((_, reject) => {
+          setTimeout(
+            () =>
+              reject(new Error('[useNetworkConnectivity] Connection timeout')),
+            3000
+          );
         });
 
         // Create the actual request promise
         const requestPromise = system.supabaseConnector.client
           .from('project_download') // Use a table we know exists
-          .select('id')
+          .select('project_id')
           .limit(1)
           .single();
 
         // Race between the timeout and the request
-        await Promise.race([requestPromise, timeoutPromise]);
+        const result = await Promise.race([requestPromise, timeoutPromise]);
+        if (result instanceof Error) throw result;
+        if (result.error) throw result.error;
+
         setIsConnected(true);
       } catch (error) {
+        console.log('[useNetworkConnectivity] caught error: ', error);
         // If we get here, either the request failed or timed out
         setIsConnected(false);
       }

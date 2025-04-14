@@ -30,3 +30,4 @@ langquest types.xlsx
 .env
 .drizzle
 .idea
+*.vsix
