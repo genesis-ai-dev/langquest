@@ -68,7 +68,7 @@ export default function RequestResetPassword() {
         await supabaseConnector.client.auth.resetPasswordForEmail(
           data.email.toLowerCase().trim(),
           {
-            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/reset-password`
+            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/reset-password${process.env.EXPO_PUBLIC_APP_VARIANT !== 'production' ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}` : ''}`
           }
         );
 
