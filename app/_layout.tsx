@@ -5,6 +5,7 @@ import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
 import { useSystem } from '../db/powersync/system';
@@ -52,22 +53,24 @@ export default function RootLayout() {
 
   return (
     <PowerSyncProvider>
-      <AuthProvider>
-        <SafeAreaProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false
-            }}
-          >
-            <Stack.Screen
-              name="terms"
-              options={{
-                presentation: 'modal'
+      <LanguageProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false
               }}
-            />
-          </Stack>
-        </SafeAreaProvider>
-      </AuthProvider>
+            >
+              <Stack.Screen
+                name="terms"
+                options={{
+                  presentation: 'modal'
+                }}
+              />
+            </Stack>
+          </SafeAreaProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </PowerSyncProvider>
   );
 }

@@ -1,13 +1,11 @@
-import { languageService } from '@/database_services/languageService';
-import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Href, useRouter } from 'expo-router';
+import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -26,11 +24,10 @@ type RequestResetFormData = {
 };
 
 export default function RequestResetPassword() {
-  const [currentLanguage, setCurrentLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const { t } = useTranslation(currentLanguage?.english_name);
+  const { currentLanguage } = useLanguage();
+  const { t } = useTranslation();
   const { supabaseConnector } = useSystem();
+  const router = useRouter();
 
   const {
     control,
@@ -41,26 +38,6 @@ export default function RequestResetPassword() {
       email: ''
     }
   });
-
-  // Load saved language
-  useEffect(() => {
-    const loadLanguage = async () => {
-      try {
-        const savedLanguageId =
-          await AsyncStorage.getItem('selectedLanguageId');
-        if (savedLanguageId) {
-          const languageData =
-            await languageService.getLanguageById(savedLanguageId);
-          if (languageData) {
-            setCurrentLanguage(languageData);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading language:', error);
-      }
-    };
-    loadLanguage();
-  }, []);
 
   const onSubmit = async (data: RequestResetFormData) => {
     try {
@@ -150,16 +127,14 @@ export default function RequestResetPassword() {
             </TouchableOpacity>
           </View>
 
-          <Link
-            style={[
-              styles.bottomLink,
-              sharedStyles.link,
-              { textAlign: 'center' }
-            ]}
-            href="/sign-in"
+          <TouchableOpacity
+            style={[styles.bottomLink, { alignSelf: 'center' }]}
+            onPress={() => router.push('/sign-in' as Href<string>)}
           >
-            {t('backToLogin')}
-          </Link>
+            <Text style={[sharedStyles.link, { textAlign: 'center' }]}>
+              {t('backToLogin')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -179,7 +154,6 @@ const styles = StyleSheet.create({
     marginTop: -spacing.xxxlarge
   },
   bottomLink: {
-    alignItems: 'center',
     marginBottom: spacing.large
   }
 });
