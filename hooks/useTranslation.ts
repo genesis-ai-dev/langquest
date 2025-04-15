@@ -1,11 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { languageService } from '@/database_services/languageService';
 import {
   SupportedLanguage,
   TranslationKey,
   translations
 } from '@/services/translations';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
 // Define a type for interpolation values
@@ -13,6 +13,7 @@ type InterpolationValues = { [key: string]: string | number };
 
 export function useTranslation(languageOverride?: string | null) {
   const { currentUser } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [profileLanguage, setProfileLanguage] = useState<Awaited<
     ReturnType<typeof languageService.getLanguageById>
   > | null>(null);
@@ -28,10 +29,15 @@ export function useTranslation(languageOverride?: string | null) {
     getLanguage();
   }, [currentUser]);
 
-  // Get language from user's uiLanguage relation
+  // Get language with priority:
+  // 1. Manual override (provided as prop)
+  // 2. Authenticated user's profile language
+  // 3. Selected language from LanguageContext (for non-authenticated pages)
+  // 4. Default to English
   const userLanguage =
     (languageOverride?.toLowerCase() as SupportedLanguage) ||
     (profileLanguage?.english_name?.toLowerCase() as SupportedLanguage) ||
+    (currentLanguage?.english_name?.toLowerCase() as SupportedLanguage) ||
     'english';
 
   // Modify t function to accept optional interpolation values

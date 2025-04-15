@@ -26,6 +26,8 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Href } from 'expo-router';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -42,22 +44,30 @@ type LoginFormData = {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignIn() {
-  const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
-  const { t } = useTranslation(currentLanguage?.english_name);
+  const { currentLanguage, setLanguage } = useLanguage();
+  const { t } = useTranslation();
   const router = useRouter();
 
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors }
   } = useForm<LoginFormData>({
     defaultValues: {
       email: '',
       password: '',
-      selectedLanguageId: ''
+      selectedLanguageId: currentLanguage?.id || ''
     }
   });
+
+  // Set language ID in form when it loads from context
+  useEffect(() => {
+    if (currentLanguage?.id) {
+      setValue('selectedLanguageId', currentLanguage.id);
+    }
+  }, [currentLanguage, setValue]);
 
   // Clear form when component unmounts
   useEffect(() => {
@@ -142,7 +152,7 @@ export default function SignIn() {
                         value={value}
                         onChange={(lang) => {
                           onChange(lang.id);
-                          setCurrentLanguage(lang);
+                          setLanguage(lang);
                         }}
                         containerStyle={{ width: '100%' }}
                       />
@@ -200,7 +210,7 @@ export default function SignIn() {
                             />
                             <TextInput
                               style={{ flex: 1, color: colors.text }}
-                              placeholder={t('email')}
+                              placeholder={t('enterYourEmail')}
                               placeholderTextColor={colors.text}
                               value={value}
                               onChangeText={onChange}
@@ -217,68 +227,98 @@ export default function SignIn() {
                       )}
                     </View>
 
-                    <Controller
-                      control={control}
-                      name="password"
-                      rules={{
-                        required: t('passwordRequired')
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('password')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                          />
-                        </View>
+                    <View style={{ gap: spacing.small, width: '100%' }}>
+                      <Controller
+                        control={control}
+                        name="password"
+                        rules={{
+                          required: t('passwordRequired'),
+                          minLength: {
+                            value: 6,
+                            message: t('passwordMinLength')
+                          }
+                        }}
+                        render={({ field: { onChange, value } }) => (
+                          <View
+                            style={[
+                              sharedStyles.input,
+                              {
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                width: '100%',
+                                gap: spacing.medium
+                              }
+                            ]}
+                          >
+                            <Ionicons
+                              name="lock-closed-outline"
+                              size={20}
+                              color={colors.text}
+                            />
+                            <PasswordInput
+                              style={{ flex: 1, color: colors.text }}
+                              placeholder={t('password')}
+                              placeholderTextColor={colors.text}
+                              value={value}
+                              onChangeText={onChange}
+                            />
+                          </View>
+                        )}
+                      />
+                      {errors.password && (
+                        <Text style={styles.errorText}>
+                          {errors.password.message}
+                        </Text>
                       )}
-                    />
-                    {errors.password && (
-                      <Text style={styles.errorText}>
-                        {errors.password.message}
+
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push('/request-reset-password' as Href<string>)
+                        }
+                      >
+                        <Text style={sharedStyles.link}>
+                          {t('forgotPassword')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        sharedStyles.button,
+                        {
+                          width: '100%',
+                          marginTop: spacing.large,
+                          alignSelf: 'center'
+                        }
+                      ]}
+                      onPress={handleSubmit(onSubmit)}
+                    >
+                      <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
+                    </TouchableOpacity>
+
+                    {/* More prominent registration link */}
+                    <TouchableOpacity
+                      style={{
+                        marginTop: spacing.medium,
+                        paddingVertical: spacing.small,
+                        paddingHorizontal: spacing.medium,
+                        borderWidth: 1,
+                        borderColor: colors.primary,
+                        borderRadius: 8,
+                        backgroundColor: 'transparent',
+                        alignSelf: 'center'
+                      }}
+                      onPress={() => router.push('/register' as Href<string>)}
+                    >
+                      <Text
+                        style={[sharedStyles.link, { textAlign: 'center' }]}
+                      >
+                        {t('newUser')} {t('register')}
                       </Text>
-                    )}
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
-
-              <TouchableOpacity
-                style={{ marginTop: spacing.medium, alignSelf: 'center' }}
-                onPress={() => router.push('/request-reset-password')}
-              >
-                <Text style={sharedStyles.link}>{t('forgotPassword')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[sharedStyles.button, { marginTop: 'auto' }]}
-                onPress={handleSubmit(onSubmit)}
-              >
-                <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ marginTop: spacing.medium, alignSelf: 'center' }}
-                onPress={() => router.push('/register')}
-              >
-                <Text style={sharedStyles.link}>{t('newUser')}</Text>
-              </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -289,8 +329,8 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   errorText: {
-    color: colors.error || '#ff0000'
-    // fontSize: 12
-    // alignSelf: 'flex-start'
+    color: colors.error || '#ff0000',
+    fontSize: 12,
+    alignSelf: 'flex-start'
   }
 });
