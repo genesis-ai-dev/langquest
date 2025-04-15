@@ -29,6 +29,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Quest, questService } from '@/database_services/questService';
+import { translationService } from '@/database_services/translationService';
+import { system } from '@/db/powersync/system';
+import { languageService } from '@/database_services/languageService';
+import { Translation } from '@/database_services/translationService';
 
 interface SortingOption {
   field: string;
@@ -37,13 +41,25 @@ interface SortingOption {
 
 const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
   const [tags, setTags] = useState<Tag[]>([]);
+  const [translations, setTranslations] = useState<Translation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadTags = async () => {
-      const assetTags = await tagService.getTagsByAssetId(asset.id);
-      setTags(assetTags);
+    const loadData = async () => {
+      try {
+        const [assetTags, assetTranslations] = await Promise.all([
+          tagService.getTagsByAssetId(asset.id),
+          translationService.getTranslationsByAssetId(asset.id)
+        ]);
+        setTags(assetTags);
+        setTranslations(assetTranslations);
+      } catch (error) {
+        console.error('Error loading asset data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    loadTags();
+    loadData();
   }, [asset.id]);
 
   return (
@@ -65,6 +81,15 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
           )}
         </View>
       )}
+      <View style={styles.translationCount}>
+        {Array(translations.length)
+          .fill('💎')
+          .map((gem, index) => (
+            <Text key={index} style={styles.gem}>
+              {gem}
+            </Text>
+          ))}
+      </View>
     </View>
   );
 };
@@ -617,5 +642,14 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
+  },
+  translationCount: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: spacing.small,
+    gap: spacing.xsmall
+  },
+  gem: {
+    fontSize: fontSizes.medium
   }
 });
