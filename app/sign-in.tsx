@@ -16,19 +16,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useAuth } from '@/contexts/AuthContext';
+import { PasswordInput } from '@/components/PasswordInput';
 import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Session } from '@supabase/supabase-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
-import { PasswordInput } from '@/components/PasswordInput';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
@@ -264,7 +261,7 @@ export default function SignIn() {
 
               <TouchableOpacity
                 style={{ marginTop: spacing.medium, alignSelf: 'center' }}
-                onPress={() => router.push('/requestResetPassword')}
+                onPress={() => router.push('/request-reset-password')}
               >
                 <Text style={sharedStyles.link}>{t('forgotPassword')}</Text>
               </TouchableOpacity>

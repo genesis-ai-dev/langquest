@@ -421,8 +421,8 @@ export const translations = {
     spanish: 'Ver Política de Datos Completa'
   },
   dataPolicyUrl: {
-    english: 'https://www.langquest.org/data-policy',
-    spanish: 'https://www.langquest.org/data-policy'
+    english: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`,
+    spanish: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`
   }
   // Add more translation keys as needed...
 } as const;

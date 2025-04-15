@@ -4,5 +4,6 @@
 
 # dotenvx
 .env.keys
-.env.local
+!.env.local
+!.env.preview
 .env.*.local

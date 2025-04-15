@@ -35,8 +35,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         data: [
           {
             scheme: 'https',
-            host: 'langquest.org',
+            host: process.env.EXPO_PUBLIC_SITE_URL,
             pathPrefix: '/reset-password'
+          },
+          {
+            scheme: 'https',
+            host: process.env.EXPO_PUBLIC_SITE_URL,
+            pathPrefix: '/registration-confirmation'
           },
           {
             scheme: 'langquest',

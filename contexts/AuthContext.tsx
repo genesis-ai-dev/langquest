@@ -13,17 +13,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export const getSupabaseAuthKey = async () => {
+  const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
+    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+  );
+  return supabaseAuthKey;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { supabaseConnector } = useSystem();
 
   useEffect(() => {
-    const getSession = async () => {
+    const setProfile = async () => {
       try {
-        const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
-          (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
-        );
+        const supabaseAuthKey = await getSupabaseAuthKey();
 
         if (supabaseAuthKey) {
           const session = JSON.parse(
@@ -33,14 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session?.user.id ?? ''
           );
 
-          if (profile) setCurrentUser(profile);
+          setCurrentUser(profile ?? null);
         }
       } catch (error) {
         console.error('Error getting session:', error);
       }
       setIsLoading(false);
     };
-    getSession();
+    setProfile();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
       async (_, session) => {

@@ -6,7 +6,7 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -30,7 +30,6 @@ export default function RequestResetPassword() {
     typeof language.$inferSelect | null
   >(null);
   const { t } = useTranslation(currentLanguage?.english_name);
-  const router = useRouter();
   const { supabaseConnector } = useSystem();
 
   const {
@@ -69,7 +68,7 @@ export default function RequestResetPassword() {
         await supabaseConnector.client.auth.resetPasswordForEmail(
           data.email.toLowerCase().trim(),
           {
-            redirectTo: `langquest://reset-password`
+            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/reset-password`
           }
         );
 

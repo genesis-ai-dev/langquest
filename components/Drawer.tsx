@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
 import { type Project } from '@/database_services/projectService';
@@ -31,6 +32,7 @@ type DrawerItem = {
 function DrawerItems() {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { signOut } = useAuth();
 
   const drawerItems: DrawerItem[] = [
     { name: t('projects'), icon: 'home', path: '/' },
@@ -44,6 +46,12 @@ function DrawerItems() {
           <DrawerItem item={item} active={pathname === item.path} />
         </Link>
       ))}
+      {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
+        <DrawerItem
+          item={{ name: t('logOut'), icon: 'log-out' }}
+          onPress={signOut}
+        />
+      )}
     </View>
   );
 }

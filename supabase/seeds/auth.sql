@@ -101,6 +101,11 @@ INSERT INTO "auth"."users" ("instance_id", "id", "aud", "role", "email", "encryp
 
 SELECT pg_catalog.setval('"auth"."refresh_tokens_id_seq"', 1931, true);
 
+create trigger on_auth_user_conversion
+after update on auth.users
+for each row
+execute procedure public.handle_user_conversion();
+
 --
 -- PostgreSQL database dump complete
 --
