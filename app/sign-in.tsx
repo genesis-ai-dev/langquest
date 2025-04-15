@@ -261,7 +261,7 @@ export default function SignIn() {
 
               <TouchableOpacity
                 style={{ marginTop: spacing.medium, alignSelf: 'center' }}
-                onPress={() => router.push('/requestResetPassword')}
+                onPress={() => router.push('/request-reset-password')}
               >
                 <Text style={sharedStyles.link}>{t('forgotPassword')}</Text>
               </TouchableOpacity>
