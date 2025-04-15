@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm';
 import { profile } from '../drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
+import { getSupabaseAuthKey } from '@/contexts/AuthContext';
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
@@ -71,7 +72,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     return session?.user?.is_anonymous === true;
   }
 
-  async getUserProfile(userId?: string): Promise<Profile | null> {
+  async getUserProfile(userId?: string) {
     let user = userId;
     if (!userId) {
       const session = await this.client.auth.getSession();
@@ -84,7 +85,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       await this.system.db.select().from(profile).where(eq(profile.id, user))
     )[0];
 
-    return localProfile;
+    if (localProfile) return localProfile;
+
+    const { data: userData, error: userError } = await this.client
+      .from('profiles')
+      .select('*')
+      .eq('id', user)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user profile:', userError);
+      return null;
+    }
+
+    return userData as Profile;
   }
 
   async login(username: string, password: string) {
@@ -103,6 +117,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async signOut() {
     await this.client.auth.signOut();
+    const supabaseAuthKey = await getSupabaseAuthKey();
+    if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
   }
 
   async fetchCredentials() {

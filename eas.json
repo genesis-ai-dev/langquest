@@ -7,7 +7,11 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "development"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -19,11 +23,19 @@
         // "developmentClient": true,
       },
       "prebuildCommand": "npx expo prebuild --platform android --clean",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "preview"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
     }
   },
   "submit": {}

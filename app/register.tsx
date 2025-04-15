@@ -41,7 +41,6 @@ export default function Register() {
   const { t } = useTranslation(currentLanguage?.english_name);
   const router = useRouter();
   const { supabaseConnector } = useSystem();
-  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   const {
     control,
@@ -97,7 +96,9 @@ export default function Register() {
               terms_version: '1.0'
             }
           },
-          { emailRedirectTo: 'https://langquest.org/registration-confirmation' }
+          {
+            emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/registration-confirmation`
+          }
         );
 
       if (authError) {
