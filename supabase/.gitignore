@@ -7,3 +7,4 @@
 !.env.local
 !.env.preview
 .env.*.local
+.env.local
