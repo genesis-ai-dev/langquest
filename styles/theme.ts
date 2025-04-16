@@ -40,7 +40,8 @@ export const colors = {
   appTitle: adjustColor(getColorHex(themeColor), 130), // Lighten by 30%
   backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
   accent: adjustColor(getColorHex(themeColor), 30),
-  error: '#FF0000'
+  error: '#FF0000',
+  success: '#4CAF50' // Green color for success state
 };
 
 export const fontSizes = {
