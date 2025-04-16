@@ -35,6 +35,7 @@ import { Translation } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/contexts/AuthContext';
+import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 
 interface SortingOption {
   field: string;
@@ -49,38 +50,6 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser } = useAuth();
-
-  const calculateVoteCount = (votes: Vote[]): number => {
-    return votes.reduce(
-      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
-      0
-    );
-  };
-
-  const getGemColor = (
-    translation: Translation,
-    votes: Vote[]
-  ): string | null => {
-    const voteCount = calculateVoteCount(votes);
-
-    // If translation has no votes
-    if (votes.length === 0) {
-      // If translation was made by current user
-      if (currentUser && currentUser.id === translation.creator_id) {
-        return colors.textSecondary;
-      }
-      // If translation was made by another user
-      return colors.alert;
-    }
-
-    // If translation has votes
-    if (voteCount > 0) {
-      return colors.success;
-    }
-
-    // If translation has more downvotes than upvotes, don't show gem
-    return null;
-  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -145,7 +114,8 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
         {translations.map((translation) => {
           const gemColor = getGemColor(
             translation,
-            translationVotes[translation.id] || []
+            translationVotes[translation.id] || [],
+            currentUser?.id || null
           );
           if (gemColor === null) return null;
 
