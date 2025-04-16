@@ -30,9 +30,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Quest, questService } from '@/database_services/questService';
 import { translationService } from '@/database_services/translationService';
-import { system } from '@/db/powersync/system';
-import { languageService } from '@/database_services/languageService';
 import { Translation } from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import Svg, { Path } from 'react-native-svg';
 
 interface SortingOption {
   field: string;
@@ -42,7 +42,24 @@ interface SortingOption {
 const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [translations, setTranslations] = useState<Translation[]>([]);
+  const [translationVotes, setTranslationVotes] = useState<
+    Record<string, Vote[]>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
+
+  const calculateVoteCount = (votes: Vote[]): number => {
+    return votes.reduce(
+      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
+      0
+    );
+  };
+
+  const getGemColor = (votes: Vote[]): string => {
+    const voteCount = calculateVoteCount(votes);
+    if (voteCount > 0) return colors.success;
+    if (voteCount < 0) return colors.error;
+    return colors.textSecondary;
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -53,6 +70,16 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
         ]);
         setTags(assetTags);
         setTranslations(assetTranslations);
+
+        // Load votes for each translation
+        const votesMap: Record<string, Vote[]> = {};
+        await Promise.all(
+          assetTranslations.map(async (translation) => {
+            votesMap[translation.id] =
+              await voteService.getVotesByTranslationId(translation.id);
+          })
+        );
+        setTranslationVotes(votesMap);
       } catch (error) {
         console.error('Error loading asset data:', error);
       } finally {
@@ -61,6 +88,18 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
     };
     loadData();
   }, [asset.id]);
+
+  const GemIcon = ({ color }: { color: string }) => (
+    <Svg
+      viewBox="0 -32 576 576"
+      // width={props.width || 24}
+      // height={props.height || 24}
+      fill={color || 'black'}
+      // {...props}
+    >
+      <Path d="M485.5 0L576 160H474.9L405.7 0h79.8zm-128 0l69.2 160H149.3L218.5 0h139zm-267 0h79.8l-69.2 160H0L90.5 0zM0 192h100.7l123 251.7c1.5 3.1-2.7 5.9-5 3.3L0 192zm148.2 0h279.6l-137 318.2c-1 2.4-4.5 2.4-5.5 0L148.2 192zm204.1 251.7l123-251.7H576L357.3 446.9c-2.3 2.7-6.5-.1-5-3.2z" />
+    </Svg>
+  );
 
   return (
     <View style={sharedStyles.card}>
@@ -82,13 +121,13 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
         </View>
       )}
       <View style={styles.translationCount}>
-        {Array(translations.length)
-          .fill('💎')
-          .map((gem, index) => (
-            <Text key={index} style={styles.gem}>
-              {gem}
-            </Text>
-          ))}
+        {translations.map((translation) => (
+          <View key={translation.id} style={styles.gemContainer}>
+            <GemIcon
+              color={getGemColor(translationVotes[translation.id] || [])}
+            />
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -649,7 +688,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.small,
     gap: spacing.xsmall
   },
-  gem: {
-    fontSize: fontSizes.medium
+  gemContainer: {
+    width: 16,
+    height: 16,
+    marginRight: spacing.xsmall
   }
 });
