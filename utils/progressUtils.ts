@@ -17,6 +17,17 @@ export const calculateVoteCount = (votes: Vote[]): number => {
 };
 
 /**
+ * Determines if a translation should be counted based on its votes
+ * @param votes Array of votes for the translation
+ * @returns boolean indicating if the translation should be counted
+ */
+export const shouldCountTranslation = (votes: Vote[]): boolean => {
+  const voteCount = calculateVoteCount(votes);
+  // Only count translations that have no votes or a positive vote count
+  return votes.length === 0 || voteCount > 0;
+};
+
+/**
  * Determines the color of a gem based on votes and translation ownership
  * @param translation The translation to evaluate
  * @param votes Array of votes for the translation
@@ -28,6 +39,10 @@ export const getGemColor = (
   votes: Vote[],
   currentUserId: string | null
 ): string | null => {
+  if (!shouldCountTranslation(votes)) {
+    return null;
+  }
+
   const voteCount = calculateVoteCount(votes);
 
   // If translation has no votes
@@ -40,13 +55,8 @@ export const getGemColor = (
     return colors.alert;
   }
 
-  // If translation has votes
-  if (voteCount > 0) {
-    return colors.success;
-  }
-
-  // If translation has more downvotes than upvotes, don't show gem
-  return null;
+  // If translation has votes and wasn't excluded by shouldCountTranslation
+  return colors.success;
 };
 
 /**
@@ -81,17 +91,23 @@ export const calculateQuestProgress = (
 
     assetTranslations.forEach((translation) => {
       const translationVotes = votes[translation.id] || [];
+
+      // Skip translations that shouldn't be counted
+      if (!shouldCountTranslation(translationVotes)) {
+        return;
+      }
+
       const voteCount = calculateVoteCount(translationVotes);
 
       // Check if this translation is approved (more upvotes than downvotes)
       if (voteCount > 0) {
         hasApprovedTranslation = true;
       }
-      // Check if this is user's translation that's not voted down
+      // Check if this is user's translation with no votes
       else if (
         currentUserId &&
         translation.creator_id === currentUserId &&
-        voteCount >= 0
+        translationVotes.length === 0
       ) {
         hasUserContribution = true;
       }
