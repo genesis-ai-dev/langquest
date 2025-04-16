@@ -423,7 +423,84 @@ export const translations = {
   dataPolicyUrl: {
     english: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`,
     spanish: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`
-  }
+  },
+  // --- Backup Feature Translations ---
+  backup: {
+    english: 'Backup Data',
+    spanish: 'Hacer copia de seguridad'
+  },
+  backingUp: {
+    english: 'Backing up...',
+    spanish: 'Haciendo copia...'
+  },
+  startBackupTitle: {
+    english: 'Start Backup?',
+    spanish: '¿Iniciar copia de seguridad?'
+  },
+  startBackupMessage: {
+    english: 'This will back up your local database and any unsynced audio files to a location you choose. Make sure you have enough storage space.',
+    spanish: 'Esto creará una copia de seguridad de su base de datos local y de cualquier archivo de audio no sincronizado en una ubicación que elija. Asegúrese de tener suficiente espacio de almacenamiento.'
+  },
+  backupCompleteTitle: {
+    english: 'Backup Complete',
+    spanish: 'Copia de seguridad completa'
+  },
+  backupErrorTitle: {
+    english: 'Backup Finished with Errors',
+    spanish: 'Copia de seguridad finalizada con errores'
+  },
+  backupStatusDB: {
+    english: 'Database backup: {{status}}',
+    spanish: 'Copia de base de datos: {{status}}'
+  },
+  backupStatusFiles: {
+    english: 'Copied {{count}} unsynced audio file(s).',
+    spanish: 'Se copiaron {{count}} archivo(s) de audio no sincronizado(s).'
+  },
+  permissionDenied: {
+    english: 'Permission Denied',
+    spanish: 'Permiso denegado'
+  },
+  storagePermissionDenied: {
+    english: 'Storage permission denied. Backup cancelled.',
+    spanish: 'Permiso de almacenamiento denegado. Copia de seguridad cancelada.'
+  },
+  directoryError: {
+    english: 'Directory Error',
+    spanish: 'Error de directorio'
+  },
+  failedGetPermissions: {
+    english: 'Failed to get directory permissions. Error: {{error}}',
+    spanish: 'Error al obtener permisos de directorio. Error: {{error}}'
+  },
+  backupFailed: {
+    english: 'Backup Failed',
+    spanish: 'Error en la copia de seguridad'
+  },
+  failedGetDirectoryUri: {
+    english: 'Failed to obtain base directory URI. Backup cannot proceed.',
+    spanish: 'Error al obtener URI del directorio base. La copia de seguridad no puede continuar.'
+  },
+  criticalBackupError: {
+    english: 'Backup failed due to a critical error: {{error}}',
+    spanish: 'La copia de seguridad falló debido a un error crítico: {{error}}'
+  },
+  backupDbStatusSuccessful: {
+      english: 'successful',
+      spanish: 'exitosa'
+  },
+  backupDbStatusSkipped: {
+      english: 'skipped (not found)',
+      spanish: 'omitida (no encontrada)'
+  },
+  backupDbStatusFailed: {
+      english: 'failed: {{error}}',
+      spanish: 'fallida: {{error}}'
+  },
+  cancel: {
+    english: 'Cancel',
+    spanish: 'Cancelar'
+  },
   // Add more translation keys as needed...
 } as const;
 

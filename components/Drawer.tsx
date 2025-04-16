@@ -22,7 +22,8 @@ import {
   TouchableOpacityProps,
   View,
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { useSystem } from '@/db/powersync/system';
@@ -30,8 +31,10 @@ import { AttachmentRecord, AttachmentState } from '@powersync/attachments';
 import { eq } from 'drizzle-orm';
 import { StorageAccessFramework } from 'expo-file-system';
 import { PowerSyncDatabase, SyncStatus } from '@powersync/react-native';
-import { translation as translationSchema, asset_content_link as assetContentLinkSchema } from '@/db/drizzleSchema';
+import { translation as translationSchema, asset_content_link as assetContentLinkSchema, asset as assetSchema } from '@/db/drizzleSchema';
 import { isNotNull } from 'drizzle-orm';
+import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
+import { backupDatabase, backupUnsyncedAudio } from '@/utils/backupUtils';
 
 type DrawerItem = {
   name?: string;
@@ -44,6 +47,7 @@ function DrawerItems() {
   const { t } = useTranslation();
   const { signOut } = useAuth();
   const system = useSystem();
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   const drawerItems: DrawerItem[] = [
     { name: t('projects'), icon: 'home', path: '/' },
@@ -51,130 +55,115 @@ function DrawerItems() {
   ] as const;
 
   const handleBackup = async () => {
+    setIsBackingUp(true);
+    let backupSuccess = false;
+    let finalMessage = '';
+
+    // 1. System Init Check
     if (!system.isInitialized()) {
-      Alert.alert('Error', 'System not initialized. Cannot perform backup.');
+      Alert.alert(t('error'), t('databaseNotReady'));
+      setIsBackingUp(false);
+      return;
+    }
+    try {
+      if (system.attachmentQueue) await system.attachmentQueue.init();
+    } catch (initError) {
+      console.error('Failed to initialize AttachmentQueue:', initError);
+      Alert.alert(t('backupErrorTitle'), t('criticalBackupError', { error: 'Failed to initialize attachment queue' }));
+      setIsBackingUp(false);
       return;
     }
 
-    // Ensure the attachment queue is initialized before proceeding
+    // 2. Permissions
+    let baseDirectoryUri: string | null = null;
     try {
-      if (system.attachmentQueue) {
-        await system.attachmentQueue.init();
+      const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (permissions?.granted && permissions.directoryUri) {
+        baseDirectoryUri = permissions.directoryUri;
       } else {
-          // This case is expected if no Supabase bucket is configured.
-          // console.warn('AttachmentQueue not available, cannot back up attachments.'); 
-      }
-    } catch (initError) {
-        console.error('Failed to initialize AttachmentQueue:', initError);
-        Alert.alert('Backup Error', 'Failed to prepare attachment system for backup.');
+        finalMessage = t('storagePermissionDenied');
+        Alert.alert(t('permissionDenied'), finalMessage);
+        setIsBackingUp(false);
         return;
+      }
+    } catch (dirError) {
+      const errorString = dirError instanceof Error ? dirError.message : String(dirError);
+      finalMessage = t('failedGetPermissions', { error: errorString });
+      Alert.alert(t('directoryError'), finalMessage);
+      setIsBackingUp(false);
+      return;
+    }
+    if (!baseDirectoryUri) { // Redundant check but safe
+      finalMessage = t('failedGetDirectoryUri');
+      Alert.alert(t('backupFailed'), finalMessage);
+      setIsBackingUp(false);
+      return;
     }
 
-    let baseDirectoryUri: string | null = null;
+    // 3. Prepare Paths
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const mainBackupDirName = `backup_${timestamp}`;
     const dbFullPathName = `${mainBackupDirName}/database/sqlite.db`;
     const audioBaseDirPath = `${mainBackupDirName}/audio_files`;
+    const dbSourceUri = (FileSystem.documentDirectory || '') + 'sqlite.db';
 
-    // Request Base Directory Permissions
-    try { 
-        const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-        if (permissions?.granted && permissions.directoryUri) {
-          baseDirectoryUri = permissions.directoryUri;
-        } else {
-          // User denied permission or cancelled
-          Alert.alert('Permission Denied', 'Storage permission is required for backup.');
-          return;
-        }
-    } catch (dirError) {
-        console.error('Error during directory permission request:', dirError);
-        Alert.alert('Directory Error', `Failed to get permissions. Error: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
-        return;
-    }
+    // 4. Execute Backups and Collect Results
+    let dbResult: Awaited<ReturnType<typeof backupDatabase>> | null = null;
+    let audioResult: Awaited<ReturnType<typeof backupUnsyncedAudio>> | null = null;
 
-    if (!baseDirectoryUri) {
-      Alert.alert('Backup Failed', 'Failed to obtain base directory URI.');
-      return;
-    }
-
-    // Backup DB file
-    const dbName = 'sqlite.db';
-    const dbDirectoryUri_filesystem = FileSystem.documentDirectory || '';
-    const dbSourceUri = dbDirectoryUri_filesystem + dbName;
-    let dbFileInfo: FileSystem.FileInfo | null = null;
-    try { 
-        dbFileInfo = await FileSystem.getInfoAsync(dbSourceUri);
-        if (dbFileInfo.exists) {
-            const dbContent = await FileSystem.readAsStringAsync(dbSourceUri, { encoding: FileSystem.EncodingType.Base64 });
-            const createdDbFileUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, dbFullPathName, 'application/vnd.sqlite3');
-            await FileSystem.writeAsStringAsync(createdDbFileUri, dbContent, { encoding: FileSystem.EncodingType.Base64 });
-            console.log(`Database backup complete to: ${createdDbFileUri}`);
-        } else {
-            console.warn(`Database file not found at ${dbSourceUri}. Skipping DB backup.`);
-        }
-    } catch (dbBackupError) { 
-        console.error('Error during database backup:', dbBackupError);
-        Alert.alert('Database Backup Failed', `Could not back up the database file. Error: ${dbBackupError instanceof Error ? dbBackupError.message : String(dbBackupError)}`);
-        return; 
-    }
-
-    // Backup audio files (Simplified Direct Check)
-    let filesBackedUpCount = 0;
     try {
-        const translationsWithAudio = await system.db.select({ audioId: translationSchema.audio })
-                                           .from(translationSchema)
-                                           .where(isNotNull(translationSchema.audio))
-                                           .all();
-        const contentLinksWithAudio = await system.db.select({ audioId: assetContentLinkSchema.audio_id })
-                                           .from(assetContentLinkSchema)
-                                           .where(isNotNull(assetContentLinkSchema.audio_id))
-                                           .all();
+      dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri);
+      audioResult = await backupUnsyncedAudio(
+        system, 
+        baseDirectoryUri, 
+        audioBaseDirPath, 
+        timestamp
+      );
+      
+      // Determine overall success - currently succeeds even if individual file copies fail
+      backupSuccess = dbResult.statusKey !== 'backupDbStatusFailed'; 
 
-        const potentialAudioIds = new Set([
-            ...translationsWithAudio.map(t => t.audioId),
-            ...contentLinksWithAudio.map(l => l.audioId)
-        ].filter(id => id));
+      // Construct final message
+      let dbStatusText = dbResult.error 
+          ? t(dbResult.statusKey, { error: dbResult.error }) 
+          : t(dbResult.statusKey);
+      
+      const statusDB = t('backupStatusDB', { status: dbStatusText });
+      const statusFiles = t('backupStatusFiles', { count: audioResult.count });
+      // Optionally add info about copy errors: ${audioResult.errors.length > 0 ? ` (${audioResult.errors.length} file errors)`: ''}
+      finalMessage = `${statusDB}. ${statusFiles}.`;
 
-        console.log(`Found ${potentialAudioIds.size} potential audio files to check for backup.`);
-
-        for (const audioId of potentialAudioIds) {
-            if (!audioId) continue;
-
-            const sourceUri = FileSystem.documentDirectory + 'attachments/' + audioId;
-            const backupFilenameOnly = audioId.split('/').pop() || audioId;
-            const audioFullPathName = `${audioBaseDirPath}/${backupFilenameOnly}`;
-
-            try {
-                const fileInfo = await FileSystem.getInfoAsync(sourceUri);
-                if (fileInfo.exists) {
-                    const fileContent = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
-
-                    let mimeType = 'audio/mpeg';
-                    const extension = backupFilenameOnly.split('.').pop()?.toLowerCase();
-                    if (extension === 'm4a') mimeType = 'audio/aac';
-                    else if (extension === 'mp3') mimeType = 'audio/mpeg';
-
-                    const createdAudioFileUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, audioFullPathName, mimeType);
-                    await FileSystem.writeAsStringAsync(createdAudioFileUri, fileContent, { encoding: FileSystem.EncodingType.Base64 });
-                    console.log(`Audio backup complete to: ${createdAudioFileUri}`);
-                    filesBackedUpCount++;
-                } else {
-                    // File doesn't exist locally, skip silently
-                }
-            } catch (fileCopyError) {
-                // Log error for individual file copy failure, but continue loop
-                console.error(`Failed to copy audio file ${sourceUri}:`, fileCopyError);
-            }
-        }
-    } catch (audioQueryError) {
-        console.error('Error during audio file query/processing:', audioQueryError);
-        Alert.alert('Audio Backup Failed', `Could not process audio files. Error: ${audioQueryError instanceof Error ? audioQueryError.message : String(audioQueryError)}`);
-        // Don't return here, allow the final alert to show
+    } catch (error) {
+      // Catch critical errors (e.g., audio query error)
+      console.error('Critical error during backup process:', error);
+      const errorString = error instanceof Error ? error.message : String(error);
+      finalMessage = t('criticalBackupError', { error: errorString });
+      backupSuccess = false;
+    } finally {
+      // 5. Final Alert
+      setIsBackingUp(false);
+      Alert.alert(
+        backupSuccess ? t('backupCompleteTitle') : t('backupErrorTitle'),
+        finalMessage
+      );
     }
+  };
 
-    Alert.alert('Backup Process Finished', `DB backup ${dbFileInfo?.exists ? 'attempted' : 'skipped (not found)'}. ${filesBackedUpCount} audio file(s) copied. Check logs for errors.`);
-
-    // console.log("Backup function finished execution."); // Removed final redundant log
+  const confirmAndStartBackup = () => {
+    Alert.alert(
+      t('startBackupTitle'),
+      t('startBackupMessage'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('startBackupTitle'),
+          onPress: handleBackup
+        }
+      ]
+    );
   };
 
   return (
@@ -185,13 +174,19 @@ function DrawerItems() {
         </Link>
       ))}
       <DrawerItem
-        item={{ name: 'Backup Data', icon: 'save' }}
-        onPress={handleBackup}
+        item={{
+          name: isBackingUp ? t('backingUp') : t('backup'),
+          icon: isBackingUp ? 'hourglass-outline' : 'save'
+        }}
+        onPress={confirmAndStartBackup}
+        disabled={isBackingUp}
+        style={isBackingUp ? { opacity: 0.5 } : {}}
       />
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
           onPress={signOut}
+          disabled={isBackingUp}
         />
       )}
     </View>
