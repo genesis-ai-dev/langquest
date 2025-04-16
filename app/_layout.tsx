@@ -11,6 +11,7 @@ import { useSystem } from '../db/powersync/system';
 import '../global.css';
 import { Drawer } from '@/components/Drawer';
 import { userService } from '@/database_services/userService';
+import { QueryProvider } from '@/providers/QueryProvider';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -121,15 +122,17 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <DeepLinkHandler />
-            <Drawer />
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </ProjectProvider>
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <ProjectProvider>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <DeepLinkHandler />
+              <Drawer />
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </ProjectProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

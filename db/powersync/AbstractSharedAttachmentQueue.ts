@@ -63,7 +63,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       }
 
       const attachmentsInDatabase =
-        await this.powersync.getAll<AttachmentRecord>(
+        await this.powersync.getAll<ExtendedAttachmentRecord>(
           `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
         );
 
@@ -82,10 +82,21 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           );
           await this.saveToQueue(newRecord);
         } else if (
+          // 2. Attachment exists but needs to be converted to permanent
+          storageType === 'permanent' &&
+          record.storage_type === 'temporary'
+        ) {
+          console.debug(`Converting temporary attachment (${id}) to permanent`);
+          await this.update({
+            ...record,
+            state: AttachmentState.QUEUED_SYNC,
+            storage_type: 'permanent'
+          });
+        } else if (
           record.local_uri == null ||
           !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
         ) {
-          // 2. Attachment in database but no local file, mark as queued download
+          // 3. Attachment in database but no local file, mark as queued download
           console.debug(
             `Attachment (${id}) found in database but no local file, marking as queued download`
           );
@@ -174,7 +185,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   }
 
   // Override update method to preserve storage_type
-  async update(record: Omit<AttachmentRecord, 'timestamp'>): Promise<void> {
+  async update(
+    record: Omit<ExtendedAttachmentRecord, 'timestamp'>
+  ): Promise<void> {
     const timestamp = new Date().getTime();
 
     // Get existing record to retrieve storage_type if not provided
@@ -185,7 +198,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       );
 
     const storageType =
-      (record as any).storage_type ||
+      record.storage_type ||
       (existingRecord ? existingRecord.storage_type : this.getStorageType());
 
     await this.powersync.execute(
