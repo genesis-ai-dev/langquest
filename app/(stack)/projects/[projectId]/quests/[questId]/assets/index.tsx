@@ -1,3 +1,4 @@
+import React, { type FC, useCallback, useEffect, useState } from 'react';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -15,7 +16,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import { type FC, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -40,6 +40,10 @@ import { GemIcon } from '@/components/GemIcon';
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
+}
+
+interface AggregatedGems {
+  [color: string]: number;
 }
 
 const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
@@ -79,40 +83,46 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
     loadData();
   }, [asset.id]);
 
+  // Aggregate translations by gem color
+  const aggregatedGems = translations.reduce<AggregatedGems>(
+    (acc, translation) => {
+      const gemColor = getGemColor(
+        translation,
+        translationVotes[translation.id] || [],
+        currentUser?.id || null
+      );
+
+      if (gemColor !== null) {
+        acc[gemColor] = (acc[gemColor] || 0) + 1;
+      }
+
+      return acc;
+    },
+    {}
+  );
+
   return (
     <View style={sharedStyles.card}>
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
-      {/* {asset.description && (
-        <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
-      )} */}
-      {tags.length > 0 && (
-        <View style={sharedStyles.cardInfo}>
-          {tags.slice(0, 3).map((tag, index) => (
-            <Text key={tag.id} style={sharedStyles.cardInfoText}>
-              {tag.name.split(':')[1]}
-              {index < Math.min(tags.length - 1, 2) && ' • '}
-            </Text>
-          ))}
-          {tags.length > 3 && (
-            <Text style={sharedStyles.cardInfoText}> ...</Text>
-          )}
-        </View>
-      )}
       <View style={styles.translationCount}>
-        {translations.map((translation) => {
-          const gemColor = getGemColor(
-            translation,
-            translationVotes[translation.id] || [],
-            currentUser?.id || null
-          );
-          if (gemColor === null) return null;
-
-          return (
-            <View key={translation.id} style={styles.gemContainer}>
-              <GemIcon color={gemColor} />
-            </View>
-          );
-        })}
+        {Object.entries(aggregatedGems).map(([color, count]) => (
+          <View key={color} style={styles.gemContainer}>
+            {count < 4 ? (
+              // If count is less than 4, display that many gems
+              Array.from({ length: count }).map((_, index) => (
+                <GemIcon key={index} color={color} width={26} height={20} />
+              ))
+            ) : (
+              // If count is 4 or more, display one gem with the count
+              <>
+                <GemIcon color={color} width={26} height={20} />
+                <Text style={{ ...styles.gemCount, marginRight: 8 }}>
+                  {count}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -669,13 +679,18 @@ const styles = StyleSheet.create({
   },
   translationCount: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     marginTop: spacing.small,
     gap: spacing.xsmall
   },
   gemContainer: {
-    width: 16,
-    height: 16,
-    marginRight: spacing.xsmall
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall,
+    justifyContent: 'center'
+  },
+  gemCount: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   }
 });
