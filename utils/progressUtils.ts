@@ -1,6 +1,7 @@
 import { Vote } from '@/database_services/voteService';
 import { Translation } from '@/database_services/translationService';
 import { colors } from '@/styles/theme';
+import { Asset } from '@/database_services/assetService';
 
 /**
  * Calculates the net vote count from an array of votes
@@ -45,4 +46,76 @@ export const getGemColor = (
 
   // If translation has more downvotes than upvotes, don't show gem
   return null;
+};
+
+/**
+ * Calculates the progress statistics for a quest's assets and their translations
+ */
+export interface QuestProgress {
+  approvedPercentage: number; // Percentage of assets with approved translations
+  userContributedPercentage: number; // Percentage of assets with user's pending translations
+  pendingTranslationsCount: number; // Number of translations by others pending review
+}
+
+/**
+ * Calculates progress statistics for a quest based on its assets and translations
+ * @param assets Array of assets in the quest
+ * @param translations Record of asset IDs to their translations
+ * @param votes Record of translation IDs to their votes
+ * @param currentUserId ID of the current user
+ * @returns Progress statistics for the quest
+ */
+export const calculateQuestProgress = (
+  assets: Asset[],
+  translations: Record<string, Translation[]>,
+  votes: Record<string, Vote[]>,
+  currentUserId: string | null
+): QuestProgress => {
+  let approvedCount = 0;
+  let userContributedCount = 0;
+  let pendingCount = 0;
+
+  assets.forEach((asset) => {
+    const assetTranslations = translations[asset.id] || [];
+    let hasApprovedTranslation = false;
+    let hasUserContribution = false;
+
+    assetTranslations.forEach((translation) => {
+      const translationVotes = votes[translation.id] || [];
+      const voteCount = calculateVoteCount(translationVotes);
+
+      // Check if this translation is approved (more upvotes than downvotes)
+      if (voteCount > 0) {
+        hasApprovedTranslation = true;
+      }
+      // Check if this is user's translation that's not voted down
+      else if (
+        currentUserId &&
+        translation.creator_id === currentUserId &&
+        voteCount >= 0
+      ) {
+        hasUserContribution = true;
+      }
+      // Check if this is another user's translation pending review
+      else if (
+        currentUserId &&
+        translation.creator_id !== currentUserId &&
+        translationVotes.length === 0
+      ) {
+        pendingCount++;
+      }
+    });
+
+    if (hasApprovedTranslation) {
+      approvedCount++;
+    } else if (hasUserContribution) {
+      userContributedCount++;
+    }
+  });
+
+  return {
+    approvedPercentage: (approvedCount / assets.length) * 100,
+    userContributedPercentage: (userContributedCount / assets.length) * 100,
+    pendingTranslationsCount: pendingCount
+  };
 };
