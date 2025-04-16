@@ -41,7 +41,8 @@ export const colors = {
   backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
   accent: adjustColor(getColorHex(themeColor), 30),
   error: '#FF0000',
-  success: '#4CAF50' // Green color for success state
+  success: '#16BFC6', // Green color for success state
+  alert: '#C6B216' // yellow color for alert state
 };
 
 export const fontSizes = {

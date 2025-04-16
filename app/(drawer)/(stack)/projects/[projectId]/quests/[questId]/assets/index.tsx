@@ -34,6 +34,7 @@ import { translationService } from '@/database_services/translationService';
 import { Translation } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import Svg, { Path } from 'react-native-svg';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SortingOption {
   field: string;
@@ -47,6 +48,7 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
     Record<string, Vote[]>
   >({});
   const [isLoading, setIsLoading] = useState(true);
+  const { currentUser } = useAuth();
 
   const calculateVoteCount = (votes: Vote[]): number => {
     return votes.reduce(
@@ -55,11 +57,29 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
     );
   };
 
-  const getGemColor = (votes: Vote[]): string => {
+  const getGemColor = (
+    translation: Translation,
+    votes: Vote[]
+  ): string | null => {
     const voteCount = calculateVoteCount(votes);
-    if (voteCount > 0) return colors.success;
-    if (voteCount < 0) return colors.error;
-    return colors.textSecondary;
+
+    // If translation has no votes
+    if (votes.length === 0) {
+      // If translation was made by current user
+      if (currentUser && currentUser.id === translation.creator_id) {
+        return colors.textSecondary;
+      }
+      // If translation was made by another user
+      return colors.alert;
+    }
+
+    // If translation has votes
+    if (voteCount > 0) {
+      return colors.success;
+    }
+
+    // If translation has more downvotes than upvotes, don't show gem
+    return null;
   };
 
   useEffect(() => {
@@ -122,13 +142,19 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
         </View>
       )}
       <View style={styles.translationCount}>
-        {translations.map((translation) => (
-          <View key={translation.id} style={styles.gemContainer}>
-            <GemIcon
-              color={getGemColor(translationVotes[translation.id] || [])}
-            />
-          </View>
-        ))}
+        {translations.map((translation) => {
+          const gemColor = getGemColor(
+            translation,
+            translationVotes[translation.id] || []
+          );
+          if (gemColor === null) return null;
+
+          return (
+            <View key={translation.id} style={styles.gemContainer}>
+              <GemIcon color={gemColor} />
+            </View>
+          );
+        })}
       </View>
     </View>
   );
