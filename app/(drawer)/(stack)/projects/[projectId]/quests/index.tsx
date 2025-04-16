@@ -31,6 +31,15 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Asset, assetService } from '@/database_services/assetService';
+import {
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import { calculateQuestProgress } from '@/utils/progressUtils';
+import { useAuth } from '@/contexts/AuthContext';
+import { GemIcon } from '@/components/GemIcon';
 
 interface SortingOption {
   field: string;
@@ -39,14 +48,61 @@ interface SortingOption {
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const [tags, setTags] = useState<Tag[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [translations, setTranslations] = useState<
+    Record<string, Translation[]>
+  >({});
+  const [votes, setVotes] = useState<Record<string, Vote[]>>({});
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const loadTags = async () => {
-      const questTags = await tagService.getTagsByQuestId(quest.id);
-      setTags(questTags);
+    const loadQuestData = async () => {
+      try {
+        // Load tags
+        const questTags = await tagService.getTagsByQuestId(quest.id);
+        setTags(questTags);
+
+        // Load assets
+        const questAssets = await assetService.getAssetsByQuestId(quest.id);
+        setAssets(questAssets);
+
+        // Load translations and votes for each asset
+        const translationsMap: Record<string, Translation[]> = {};
+        const votesMap: Record<string, Vote[]> = {};
+
+        await Promise.all(
+          questAssets.map(async (asset) => {
+            const assetTranslations =
+              await translationService.getTranslationsByAssetId(asset.id);
+            translationsMap[asset.id] = assetTranslations;
+
+            // Load votes for each translation
+            await Promise.all(
+              assetTranslations.map(async (translation) => {
+                const translationVotes =
+                  await voteService.getVotesByTranslationId(translation.id);
+                votesMap[translation.id] = translationVotes;
+              })
+            );
+          })
+        );
+
+        setTranslations(translationsMap);
+        setVotes(votesMap);
+      } catch (error) {
+        console.error('Error loading quest data:', error);
+      }
     };
-    loadTags();
+
+    loadQuestData();
   }, [quest.id]);
+
+  const progress = calculateQuestProgress(
+    assets,
+    translations,
+    votes,
+    currentUser?.id || null
+  );
 
   return (
     <View style={sharedStyles.card}>
@@ -54,6 +110,39 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
+
+      {/* Progress bars */}
+      <View style={styles.progressContainer}>
+        {/* Approved translations progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              styles.approvedBar,
+              { width: `${progress.approvedPercentage}%` }
+            ]}
+          />
+          {/* User's pending translations progress bar */}
+          <View
+            style={[
+              styles.progressBar,
+              styles.userPendingBar,
+              { width: `${progress.userContributedPercentage}%` }
+            ]}
+          />
+        </View>
+
+        {/* Pending translations gem */}
+        {progress.pendingTranslationsCount > 0 && (
+          <View style={styles.gemContainer}>
+            <GemIcon color={colors.alert} width={16} height={16} />
+            <Text style={styles.gemCount}>
+              {progress.pendingTranslationsCount}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
           {tags.slice(0, 3).map((tag, index) => (
@@ -424,5 +513,37 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+    gap: spacing.small
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: 8,
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.small,
+    overflow: 'hidden',
+    flexDirection: 'row'
+  },
+  progressBar: {
+    height: '100%'
+  },
+  approvedBar: {
+    backgroundColor: colors.success
+  },
+  userPendingBar: {
+    backgroundColor: colors.textSecondary
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  gemCount: {
+    color: colors.text,
+    fontSize: fontSizes.small
   }
 });
