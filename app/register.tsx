@@ -5,9 +5,10 @@ import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { Href, Link, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -22,6 +23,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Language = typeof language.$inferSelect;
 
@@ -37,8 +39,8 @@ type RegisterFormData = {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function Register() {
-  const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
-  const { t } = useTranslation(currentLanguage?.english_name);
+  const { currentLanguage, setLanguage } = useLanguage();
+  const { t } = useTranslation();
   const router = useRouter();
   const { supabaseConnector } = useSystem();
 
@@ -47,6 +49,7 @@ export default function Register() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors }
   } = useForm<RegisterFormData>({
     defaultValues: {
@@ -54,10 +57,17 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      selectedLanguageId: '',
+      selectedLanguageId: currentLanguage?.id || '',
       termsAccepted: false
     }
   });
+
+  // Set language ID in form when it loads from context
+  useEffect(() => {
+    if (currentLanguage?.id) {
+      setValue('selectedLanguageId', currentLanguage.id);
+    }
+  }, [currentLanguage, setValue]);
 
   // Clear form when component unmounts
   useEffect(() => {
@@ -157,7 +167,7 @@ export default function Register() {
                       value={value}
                       onChange={(lang) => {
                         onChange(lang.id);
-                        setCurrentLanguage(lang);
+                        setLanguage(lang);
                       }}
                       containerStyle={{ width: '100%' }}
                     />
@@ -359,65 +369,87 @@ export default function Register() {
                 </View>
               </View>
 
-              {/* Terms and Conditions section */}
-              <View style={{ width: '100%', gap: spacing.small }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: spacing.small
-                  }}
-                >
-                  <Controller
-                    control={control}
-                    name="termsAccepted"
-                    rules={{ required: t('termsRequired') }}
-                    render={({ field: { onChange, value } }) => (
-                      <TouchableOpacity
-                        onPress={() => onChange(!value)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: spacing.small
-                        }}
+              {/* Terms & Privacy section */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: spacing.small
+                }}
+              >
+                <Controller
+                  control={control}
+                  name="termsAccepted"
+                  render={({ field: { onChange, value } }) => (
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.small
+                      }}
+                      onPress={() => onChange(!value)}
+                    >
+                      <View
+                        style={[
+                          styles.checkbox,
+                          value ? styles.checkboxChecked : null
+                        ]}
                       >
-                        <Ionicons
-                          name={value ? 'checkbox' : 'square-outline'}
-                          size={24}
-                          color={colors.text}
-                        />
-                        <Text style={{ color: colors.text }}>
-                          {t('agreeToTerms')}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                </View>
-                {errors.termsAccepted && (
-                  <Text style={styles.errorText}>
-                    {errors.termsAccepted.message}
-                  </Text>
-                )}
-                <Link
-                  href="/terms"
-                  style={[sharedStyles.link, { fontSize: 14 }]}
+                        {value && (
+                          <Ionicons
+                            name="checkmark"
+                            size={16}
+                            color={colors.background}
+                          />
+                        )}
+                      </View>
+                      <Text style={{ color: colors.text, fontSize: 14 }}>
+                        {t('agreeToTerms')}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+                <TouchableOpacity
+                  onPress={() => router.replace('/terms' as Href<string>)}
                 >
-                  {t('viewTerms')}
-                </Link>
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      textDecorationLine: 'underline',
+                      fontSize: 14
+                    }}
+                  >
+                    {t('viewTerms')}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
+              {/* Register button */}
               <TouchableOpacity
-                style={[
-                  sharedStyles.button,
-                  { marginTop: 'auto', marginBottom: 0 }
-                ]}
+                style={[sharedStyles.button, { width: '100%' }]}
                 onPress={handleSubmit(onSubmit)}
               >
                 <Text style={sharedStyles.buttonText}>{t('register')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => router.replace('/sign-in')}>
-                <Text style={sharedStyles.link}>{t('returningHero')}</Text>
+              {/* Sign in link */}
+              <TouchableOpacity
+                style={{
+                  alignSelf: 'center',
+                  marginTop: spacing.medium,
+                  paddingVertical: spacing.small,
+                  paddingHorizontal: spacing.medium,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  borderRadius: 8,
+                  backgroundColor: 'transparent'
+                }}
+                onPress={() => router.replace('/sign-in' as Href<string>)}
+              >
+                <Text style={[sharedStyles.link, { textAlign: 'center' }]}>
+                  {t('returningHero')}
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -432,5 +464,17 @@ const styles = StyleSheet.create({
     color: colors.error || '#ff0000',
     fontSize: 12,
     alignSelf: 'flex-start'
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: colors.text,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  checkboxChecked: {
+    backgroundColor: colors.text
   }
 });
