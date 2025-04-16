@@ -8,6 +8,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
+// Define a type for interpolation values
+type InterpolationValues = { [key: string]: string | number };
+
 export function useTranslation(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const [profileLanguage, setProfileLanguage] = useState<Awaited<
@@ -31,12 +34,23 @@ export function useTranslation(languageOverride?: string | null) {
     (profileLanguage?.english_name?.toLowerCase() as SupportedLanguage) ||
     'english';
 
-  const t = (key: TranslationKey): string => {
+  // Modify t function to accept optional interpolation values
+  const t = (key: TranslationKey, values?: InterpolationValues): string => {
     if (!translations[key]) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    return translations[key][userLanguage] || translations[key]['english'];
+    let translatedString = translations[key][userLanguage] || translations[key]['english'];
+
+    // Replace placeholders like {{key}}
+    if (values) {
+      Object.keys(values).forEach((placeholder) => {
+        const regex = new RegExp(`{{\s*${placeholder}\s*}}`, 'g');
+        translatedString = translatedString.replace(regex, String(values[placeholder]));
+      });
+    }
+
+    return translatedString;
   };
 
   return { t };
