@@ -35,4 +35,4 @@ langquest types.xlsx
 .idea
 supabase/.env.local
 supabase/env.keys
-*.env.local
+**/*.env.local
