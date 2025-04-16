@@ -2,6 +2,7 @@ import { Vote } from '@/database_services/voteService';
 import { Translation } from '@/database_services/translationService';
 import { colors } from '@/styles/theme';
 import { Asset } from '@/database_services/assetService';
+import { Quest } from '@/database_services/questService';
 
 /**
  * Calculates the net vote count from an array of votes
@@ -55,15 +56,13 @@ export interface QuestProgress {
   approvedPercentage: number; // Percentage of assets with approved translations
   userContributedPercentage: number; // Percentage of assets with user's pending translations
   pendingTranslationsCount: number; // Number of translations by others pending review
+  totalAssets: number; // Total number of assets in the quest
+  approvedAssets: number; // Number of assets with approved translations
+  userContributedAssets: number; // Number of assets with user's pending translations
 }
 
 /**
  * Calculates progress statistics for a quest based on its assets and translations
- * @param assets Array of assets in the quest
- * @param translations Record of asset IDs to their translations
- * @param votes Record of translation IDs to their votes
- * @param currentUserId ID of the current user
- * @returns Progress statistics for the quest
  */
 export const calculateQuestProgress = (
   assets: Asset[],
@@ -116,6 +115,56 @@ export const calculateQuestProgress = (
   return {
     approvedPercentage: (approvedCount / assets.length) * 100,
     userContributedPercentage: (userContributedCount / assets.length) * 100,
-    pendingTranslationsCount: pendingCount
+    pendingTranslationsCount: pendingCount,
+    totalAssets: assets.length,
+    approvedAssets: approvedCount,
+    userContributedAssets: userContributedCount
+  };
+};
+
+/**
+ * Calculates the aggregated progress for a project by combining all quest progress
+ */
+export interface ProjectProgress {
+  approvedPercentage: number;
+  userContributedPercentage: number;
+  pendingTranslationsCount: number;
+  totalAssets: number;
+}
+
+/**
+ * Aggregates progress statistics from multiple quests into project-level progress
+ */
+export const calculateProjectProgress = (
+  questProgresses: QuestProgress[]
+): ProjectProgress => {
+  const totalProgress = questProgresses.reduce(
+    (acc, quest) => {
+      acc.totalAssets += quest.totalAssets;
+      acc.approvedAssets += quest.approvedAssets;
+      acc.userContributedAssets += quest.userContributedAssets;
+      acc.pendingTranslationsCount += quest.pendingTranslationsCount;
+      return acc;
+    },
+    {
+      totalAssets: 0,
+      approvedAssets: 0,
+      userContributedAssets: 0,
+      pendingTranslationsCount: 0
+    }
+  );
+
+  return {
+    approvedPercentage:
+      totalProgress.totalAssets > 0
+        ? (totalProgress.approvedAssets / totalProgress.totalAssets) * 100
+        : 0,
+    userContributedPercentage:
+      totalProgress.totalAssets > 0
+        ? (totalProgress.userContributedAssets / totalProgress.totalAssets) *
+          100
+        : 0,
+    pendingTranslationsCount: totalProgress.pendingTranslationsCount,
+    totalAssets: totalProgress.totalAssets
   };
 };
