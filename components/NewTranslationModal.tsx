@@ -5,9 +5,11 @@ import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   StyleSheet,
@@ -18,7 +20,6 @@ import {
   View
 } from 'react-native';
 import AudioRecorder from './AudioRecorder';
-import * as FileSystem from 'expo-file-system';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
@@ -56,36 +57,28 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     }
 
     try {
-      // let permanentAudioUri: string | undefined;
-      if (audioUri && system.permAttachmentQueue) {
-        const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
-        console.log('attachment', attachment);
-
-        await translationService.createTranslation({
-          text: translationText.trim(),
-          target_language_id: activeProject.target_language_id,
-          asset_id,
-          creator_id: currentUser.id,
-          audio: attachment.id
-        });
-
-        setTranslationText('');
-        setAudioUri(null);
-        onSubmit();
-        handleClose();
+      if (!audioUri) return;
+      if (!system.permAttachmentQueue) {
+        console.log(`Error: PermAttachmentQueue doesn't exist.`);
+        return;
       }
-      // // Ensure recordings directory exists
-      // await FileSystem.makeDirectoryAsync(RECORDINGS_DIR, {
-      //   intermediates: true
-      // });
 
-      // // Move audio to permanent storage with unique filename
-      // const fileName = `${Date.now()}_${randomUUID()}.m4a`;
-      // permanentAudioUri = `${RECORDINGS_DIR}${fileName}`;
-      // await FileSystem.moveAsync({
-      //   from: audioUri,
-      //   to: permanentAudioUri
-      // });
+      // let permanentAudioUri: string | undefined;
+      const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
+
+      // Create the translation with or without audio
+      await translationService.createTranslation({
+        text: translationText.trim(),
+        target_language_id: activeProject.target_language_id,
+        asset_id,
+        creator_id: currentUser.id,
+        audio: attachment.id
+      });
+
+      setTranslationText('');
+      setAudioUri(null);
+      onSubmit();
+      handleClose();
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
@@ -97,7 +90,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
-    console.log('handleClose', audioUri);
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {
@@ -109,54 +101,68 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onDismiss={handleClose}
-      onRequestClose={handleClose}
-    >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Pressable style={styles.container} onPress={handleClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modal}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleClose}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
+    <KeyboardAvoidingView>
+      <Modal
+        visible={isVisible}
+        transparent
+        animationType="slide"
+        onDismiss={handleClose}
+        onRequestClose={handleClose}
+        hardwareAccelerated
+      >
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Pressable style={styles.container} onPress={handleClose}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modal}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    // flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Text style={styles.title}>{t('newTranslation')}</Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleClose}
+                  >
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
 
-              <Text style={styles.title}>{t('newTranslation')}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  multiline
+                  placeholder={t('enterTranslation')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={translationText}
+                  onChangeText={setTranslationText}
+                />
 
-              <TextInput
-                style={styles.textInput}
-                multiline
-                placeholder={t('enterTranslation')}
-                placeholderTextColor={colors.textSecondary}
-                value={translationText}
-                onChangeText={setTranslationText}
-              />
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  resetRecording={() => setAudioUri(null)}
+                />
 
-              <AudioRecorder onRecordingComplete={handleRecordingComplete} />
-
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  !translationText.trim() &&
-                    !audioUri &&
-                    styles.submitButtonDisabled
-                ]}
-                onPress={handleSubmit}
-                disabled={!translationText.trim() && !audioUri}
-              >
-                <Text style={styles.submitButtonText}>{t('submit')}</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    !translationText.trim() &&
+                      !audioUri &&
+                      styles.submitButtonDisabled
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={!translationText.trim() && !audioUri}
+                >
+                  <Text style={styles.submitButtonText}>{t('submit')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </Pressable>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -165,15 +171,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end', // Change from 'center' to 'flex-end'
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingBottom: spacing.large // Add some padding from bottom
+    backgroundColor: 'rgba(0, 0, 0, 0.3)'
+    // paddingBottom: spacing.large // Add some padding from bottom
   },
   modal: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.medium,
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
     padding: spacing.large,
-    width: '90%',
-    maxHeight: '80%'
+    // width: '90%'
+    width: '100%'
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -182,8 +191,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSizes.large,
     fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium
+    color: colors.text
   },
   textInput: {
     backgroundColor: colors.inputBackground,
@@ -191,15 +199,13 @@ const styles = StyleSheet.create({
     padding: spacing.medium,
     color: colors.text,
     fontSize: fontSizes.medium,
-    minHeight: 100,
-    marginBottom: spacing.medium
+    minHeight: 100
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    alignItems: 'center',
-    marginTop: spacing.medium
+    alignItems: 'center'
   },
   submitButtonText: {
     color: colors.buttonText,

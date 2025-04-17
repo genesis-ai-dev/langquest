@@ -1,4 +1,5 @@
 import '@azure/core-asynciterator-polyfill';
+import 'react-native-url-polyfill/auto';
 import {
   DrizzleAppSchema,
   PowerSyncSQLiteDatabase,
@@ -15,27 +16,17 @@ import React from 'react';
 import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
 import Logger from 'js-logger';
-import { KVStorage } from '../KVStorage';
-import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import * as drizzleSchema from '../drizzleSchema';
-import Constants from 'expo-constants';
 import { AppConfig } from '../supabase/AppConfig';
 import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
+import { SupabaseConnector } from '../supabase/SupabaseConnector';
+
 Logger.useDefaults();
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
-const powersyncUrl = Constants.expoConfig?.extra?.powersyncUrl;
-
-if (!supabaseUrl || !supabaseAnonKey || !powersyncUrl) {
-  throw new Error('Supabase URL, Anon Key, or PowerSync URL is not defined');
-}
-
 export class System {
-  kvStorage: KVStorage;
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
@@ -44,7 +35,6 @@ export class System {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
-    this.kvStorage = new KVStorage();
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
     this.powersync = new PowerSyncDatabase({
@@ -100,6 +90,7 @@ export class System {
           attachment: AttachmentRecord,
           exception: any
         ) => {
+          console.log('onDownloadError', attachment, exception);
           if (
             exception.toString() === 'StorageApiError: Object not found' ||
             exception.status === 400 ||
@@ -108,6 +99,10 @@ export class System {
             return { retry: false };
           }
 
+          return { retry: true };
+        },
+        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+          console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
       });
@@ -140,14 +135,6 @@ export class System {
       // Connect with the current user credentials
       console.log('Connecting PowerSync with current user credentials');
       await this.powersync.connect(this.supabaseConnector);
-
-      if (this.permAttachmentQueue) {
-        await this.permAttachmentQueue.init();
-      }
-
-      if (this.tempAttachmentQueue) {
-        await this.tempAttachmentQueue.init();
-      }
 
       // Wait for the latest sync to complete
       await this.waitForLatestSync();

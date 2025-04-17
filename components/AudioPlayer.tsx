@@ -57,7 +57,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  const onPlaybackStatusUpdate = async (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setDuration(status.durationMillis || 0);
       setPosition(status.positionMillis || 0);
@@ -73,39 +73,39 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const loadAndPlaySound = async (uri: string) => {
     console.log('Loading and playing sound:', uri);
     try {
-      // Unload previous sound if exists
-      if (sound) {
-        await sound.unloadAsync();
+      let loadedSound: Audio.Sound | null = null;
+
+      // If we already have a sound with the same URI, just play it
+      if (sound && activeUri === uri) {
+        if (position === 0) await sound.setPositionAsync(0);
+        await sound.playAsync();
+        loadedSound = sound;
+      } else {
+        // Unload previous sound if exists
+        if (sound) await sound.unloadAsync();
+
+        const { sound: createdSound } = await Audio.Sound.createAsync(
+          { uri: uri },
+          { shouldPlay: true },
+          onPlaybackStatusUpdate
+        );
+        loadedSound = createdSound;
       }
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: uri },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      setSound(newSound);
+      setSound(loadedSound);
       setIsPlaying(true);
       setActiveUri(uri);
     } catch (error) {
       console.error('Error loading sound:', error);
+      setSound(null);
+      setIsPlaying(false);
+      setActiveUri(null);
     }
   };
 
   const handlePlayPause = async (uri: string) => {
-    if (!sound || uri !== activeUri) {
-      await loadAndPlaySound(uri);
-    } else {
-      if (isPlaying) {
-        await sound.pauseAsync();
-      } else {
-        if (position >= duration) {
-          await sound.setPositionAsync(0);
-          setPosition(0);
-        }
-        await sound.playAsync();
-      }
-    }
+    if (isPlaying) await sound?.pauseAsync();
+    else await loadAndPlaySound(uri);
   };
 
   const handleSliderChange = async (value: number) => {

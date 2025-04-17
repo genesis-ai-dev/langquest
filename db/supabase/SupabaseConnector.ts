@@ -6,10 +6,15 @@ import {
 } from '@powersync/react-native';
 
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
-import { AppConfig } from './AppConfig';
 import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 import { System } from '../powersync/system';
-
+import { AppConfig } from './AppConfig';
+import { Profile, profileService } from '@/database_services/profileService';
+import { eq } from 'drizzle-orm';
+import { profile } from '../drizzleSchema';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
+import { getSupabaseAuthKey } from '@/contexts/AuthContext';
 import * as schema from '../drizzleSchema';
 
 /// Postgres Response codes that we cannot recover from by retrying.
@@ -40,23 +45,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       throw new Error('Supabase URL or Anon Key is not defined');
     }
 
+    if (!AppConfig.powersyncUrl) {
+      throw new Error('PowerSync URL is not defined');
+    }
+
     this.client = createClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          persistSession: true,
-          storage: this.system.kvStorage,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        },
-        realtime: {
-          params: {
-            eventsPerSecond: 10
-          }
+          storage: AsyncStorage
         }
       }
     );
+
     this.storage = new SupabaseStorageAdapter({ client: this.client });
 
     console.log('Supabase client created: ', this.client);
@@ -70,7 +72,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     console.log('Supabase client created: ', this.client);
 
     // Initialize composite key tables
-    this.initCompositeKeyTables();
+    // this.initCompositeKeyTables();
   }
 
   private initCompositeKeyTables() {
@@ -120,6 +122,35 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     return session?.user?.is_anonymous === true;
   }
 
+  async getUserProfile(userId?: string) {
+    let user = userId;
+    if (!userId) {
+      const session = await this.client.auth.getSession();
+      user = session.data.session?.user.id;
+    }
+    if (!user) return null;
+
+    // Check local database for profile
+    const localProfile = (
+      await this.system.db.select().from(profile).where(eq(profile.id, user))
+    )[0];
+
+    if (localProfile) return localProfile;
+
+    const { data: userData, error: userError } = await this.client
+      .from('profiles')
+      .select('*')
+      .eq('id', user)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user profile:', userError);
+      return null;
+    }
+
+    return userData as Profile;
+  }
+
   async login(username: string, password: string) {
     const { data, error } = await this.client.auth.signInWithPassword({
       email: username,
@@ -127,6 +158,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     });
 
     if (error) {
+      console.error('Sign in error:', error);
       throw error;
     }
 
@@ -135,9 +167,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async signOut() {
     await this.client.auth.signOut();
-    const { data, error } = await this.client.auth.signInAnonymously();
-    if (error) throw error;
-    return data;
+    const supabaseAuthKey = await getSupabaseAuthKey();
+    if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
   }
 
   async fetchCredentials() {

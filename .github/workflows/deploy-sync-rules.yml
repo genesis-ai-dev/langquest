@@ -1,0 +1,67 @@
+name: Deploy Sync Rules
+
+on:
+  push:
+    branches: ['dev']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  files-changed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            sync-rules:
+              - 'supabase/config/sync-rules.yml'
+
+  validate-sync-rules:
+    needs: files-changed
+    if: needs.files-changed.outputs.sync-rules == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+      ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+      PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+      INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Validate Sync Rules
+        id: validate
+        run: |
+          OUTPUT=$(npx powersync instance sync-rules validate -f supabase/config/sync-rules.yml)
+          VALID=$(echo "$OUTPUT" | jq -r '.valid')
+          if [ "$VALID" != "true" ]; then
+            echo "::error::Sync rules validation failed: $OUTPUT"
+            exit 1
+          fi
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "output=$OUTPUT" >> $GITHUB_OUTPUT
+
+  deploy-sync-rules:
+    runs-on: ubuntu-latest
+    needs: validate-sync-rules
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Deploy Sync Rules
+        env:
+          AUTH_TOKEN: ${{ secrets.POWERSYNC_TOKEN }}
+          ORG_ID: ${{ secrets.POWERSYNC_ORG }}
+          PROJECT_ID: ${{ secrets.POWERSYNC_PROJECT }}
+          INSTANCE_ID: ${{ secrets.POWERSYNC_DEV_INSTANCE }}
+        run: npx powersync instance sync-rules deploy -f ./supabase/config/sync-rules.yml -s

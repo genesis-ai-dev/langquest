@@ -17,13 +17,11 @@ type Project = typeof project.$inferSelect;
 interface ProjectDetailsProps {
   project: Project;
   onClose: () => void;
-  onExplore: () => void;
 }
 
 export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
-  onClose,
-  onExplore
+  onClose
 }) => {
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
@@ -71,10 +69,6 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
             <Text style={styles.infoText}>{project.description}</Text>
           </View>
         )}
-
-        <TouchableOpacity style={styles.exploreButton} onPress={onExplore}>
-          <Text style={styles.exploreButtonText}>{t('explore')}</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

@@ -331,6 +331,10 @@ export const translations = {
     english: 'Assets',
     spanish: 'Recursos'
   },
+  remaining: {
+    english: 'remaining',
+    spanish: 'restante'
+  },
   notifications: {
     english: 'Notifications',
     spanish: 'Notificaciones'
@@ -367,6 +371,62 @@ export const translations = {
   verificationRequired: {
     english: 'Verification Required',
     spanish: 'Verificación Requerida'
+  },
+  termsAndConditionsTitle: {
+    english: 'Terms and Conditions',
+    spanish: 'Términos y Condiciones'
+  },
+  agreeToTerms: {
+    english: 'I have read and agree to the Terms and Conditions',
+    spanish: 'He leído y acepto los Términos y Condiciones'
+  },
+  viewTerms: {
+    english: 'View Terms and Conditions',
+    spanish: 'Ver Términos y Condiciones'
+  },
+  termsRequired: {
+    english: 'You must agree to the Terms and Conditions',
+    spanish: 'Debe aceptar los Términos y Condiciones'
+  },
+  status: {
+    english: 'Status',
+    spanish: 'Estado'
+  },
+  accepted: {
+    english: 'Accepted',
+    spanish: 'Aceptado'
+  },
+  notAccepted: {
+    english: 'Not Accepted',
+    spanish: 'No Aceptado'
+  },
+  processing: {
+    english: 'Processing...',
+    spanish: 'Procesando...'
+  },
+  accept: {
+    english: 'Accept',
+    spanish: 'Aceptar'
+  },
+  termsContributionInfo: {
+    english:
+      'By accepting these terms, you agree that all content you contribute to LangQuest will be freely available worldwide under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+    spanish:
+      'Al aceptar estos términos, acepta que todo el contenido que aporte a LangQuest estará disponible gratuitamente en todo el mundo bajo la Dedicación de Dominio Público CC0 1.0 Universal (CC0 1.0).'
+  },
+  termsDataInfo: {
+    english:
+      'This means your contributions can be used by anyone for any purpose without attribution. We collect minimal user data: only your email (for account recovery) and newsletter subscription if opted in.',
+    spanish:
+      'Esto significa que sus contribuciones pueden ser utilizadas por cualquier persona para cualquier propósito sin atribución. Recopilamos datos mínimos de usuario: solo su correo electrónico (para recuperación de cuenta) y suscripción al boletín si se inscribe.'
+  },
+  viewFullDataPolicy: {
+    english: 'View Full Data Policy',
+    spanish: 'Ver Política de Datos Completa'
+  },
+  dataPolicyUrl: {
+    english: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`,
+    spanish: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`
   }
   // Add more translation keys as needed...
 } as const;

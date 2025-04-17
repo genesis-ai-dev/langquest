@@ -5,5 +5,11 @@
     "**/app/**/{page,layout,route}.{tsx,jsx,ts,js}": "${dirname} - ${filename}.${extname}"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/expo/vscode-expo/schemas/schema/eas-workflow.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/.eas/workflows/create-development-builds.yml",
+    "https://raw.githubusercontent.com/powersync-ja/self-host-demo/refs/heads/main/schema/schema.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/powersync.yml",
+    "https://unpkg.com/@powersync/service-sync-rules@latest/schema/sync_rules.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/sync-rules.yml"
+  },
+  "yaml.customTags": ["!env scalar"]
 }

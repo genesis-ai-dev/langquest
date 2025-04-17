@@ -63,7 +63,7 @@ npm i
 adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 ```
 
-#### 2. Local Development (`npx expo run:android`)
+#### 2. Local Development (`npm run android`)
 
 ![Local Build](readme_images/no_eas.jpg)
 
@@ -74,7 +74,77 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 - Faster build times for testing changes
 - Requires local Android SDK setup
 
----
+## Local Development Environment
+
+> To disable the local environment and use the cloud environment instead, delete your `.env.local` file.
+
+### Prerequisites
+
+- Download [Docker Desktop](https://www.docker.com/get-started) (version 4.24.0 or greater required)
+
+### Running Local Services
+
+- Run this command to run your local dev environment (Cmd/Ctrl+C to stop or run `npm run env:stop`):
+
+  ```bash
+  npm run env
+  ```
+
+- In another terminal, run the app as normal:
+
+  ```bash
+  npm run android
+  ```
+
+- Run this command **if necessary** to reset your local dev environment (please make sure its running first):
+
+  ```bash
+  npm run env:clean
+  ```
+
+### Usage
+
+#### Making Database Changes
+
+1. Access the Supabase Studio at [http://localhost:54323](http://localhost:54323).
+
+2. Modify tables & columns in the Table Editor and/or SQL Editor.
+
+   > For **any new database tables** you create, make sure to toggle its 'powersync' [publication](http://localhost:54323/project/default/database/publications) before diffing database changes, so that PowerSync can replicate the tables.
+
+3. Update the local drizzle schema in `db/drizzleSchema.ts` to reflect the changes you made.
+
+4. Generate a migration file with a descriptive name to describe your changes:
+
+   ```bash
+   npx supabase@beta db diff -f "your_migration_description"
+   ```
+
+   > This creates a timestamped SQL migration file in the `supabase/migrations` directory
+
+   - For **any new database tables** you create, add a publication statement for each new table, to the end of the new migration file that was just created [(hopefully this will be automatic at some point)](https://github.com/supabase/cli/issues/883):
+
+     ```sql
+     alter publication "powersync" add table only "<schema>"."<table_name>";
+     ```
+
+5. (Optional) If you want to preserve any test data you've inserted across database resets (recommended if adding new tables or columns), run this command to save your local database's current data:
+
+   ```bash
+   npx supabase@beta db dump --local --schema public --data-only > supabase/seeds/public.sql
+   ```
+
+   This creates a SQL file containing all the data from your local database's public schema, which will be automatically loaded when you reset your database using `npm run env:clean`.
+
+6. Review the generated migration file to ensure it captures your intended changes.
+
+7. Commit the migration file to your repository to track database schema changes.
+
+#### Making Sync Rule Changes
+
+1. Edit the sync rules configuration in `/supabase/config/sync_rules.yml`.
+
+> If your local environment is running already, PowerSync will auto restart when you make changes to the sync rules. Otherwise just start the environment and changes will be reflected accordingly.
 
 ### Common issue during setup:
 

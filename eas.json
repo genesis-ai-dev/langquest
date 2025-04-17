@@ -6,7 +6,12 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "development"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -14,25 +19,23 @@
         "buildType": "apk",
         "cache": {
           "key": "android-native-v1"
-        },
-        "developmentClient": true,
-        "gradleCommand": ":app:assembleRelease"
+        }
+        // "developmentClient": true,
       },
-      "prebuildCommand": "npx expo prebuild --platform android --clean"
-    },
-    "preview2": {
-      "android": {
-        "gradleCommand": ":app:assembleRelease"
+      "prebuildCommand": "npx expo prebuild --platform android --clean",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "preview"
       }
     },
-    "preview3": {
-      "developmentClient": true
-    },
-    "preview4": {
-      "distribution": "internal"
-    },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
     }
   },
   "submit": {}

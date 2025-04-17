@@ -1,15 +1,8 @@
-import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
-import { Ionicons } from '@expo/vector-icons';
-import {
-  colors,
-  fontSizes,
-  spacing,
-  borderRadius,
-  sharedStyles
-} from '@/styles/theme';
 import { useTranslation } from '@/hooks/useTranslation';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 
 interface DropdownOption {
   label: string;
@@ -27,6 +20,7 @@ interface CustomDropdownProps {
   search?: boolean;
   searchPlaceholder?: string;
   containerStyle?: object;
+  renderLeftIcon?: (visible?: boolean) => JSX.Element | null | undefined;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
@@ -39,7 +33,8 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   fullWidth = true,
   search = true,
   searchPlaceholder,
-  containerStyle
+  containerStyle,
+  renderLeftIcon
 }) => {
   const { t } = useTranslation();
   const data: DropdownOption[] = options.map((option) => {
@@ -60,6 +55,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
       {label && <Text style={styles.label}>{label}:</Text>}
       <Dropdown
         style={styles.dropdown}
+        renderLeftIcon={renderLeftIcon}
         containerStyle={styles.dropdownContainer}
         placeholderStyle={styles.placeholderStyle}
         selectedTextStyle={styles.selectedTextStyle}

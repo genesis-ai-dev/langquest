@@ -76,7 +76,8 @@ export const sharedStyles = StyleSheet.create({
   container: {
     flex: 1,
     // backgroundColor: colors.background,
-    padding: spacing.large
+    padding: spacing.large,
+    gap: spacing.medium
   },
   appTitle: {
     fontSize: fontSizes.xxxlarge,
@@ -89,7 +90,6 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.xxlarge,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
     textAlign: 'center'
   },
   subtitle: {
@@ -136,6 +136,9 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.medium
   },
   card: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.small,
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
@@ -144,8 +147,7 @@ export const sharedStyles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
+    fontWeight: 'bold'
   },
   cardDescription: {
     color: colors.text,
@@ -162,9 +164,8 @@ export const sharedStyles = StyleSheet.create({
     marginRight: spacing.medium
   },
   cardLanguageText: {
-    color: colors.text,
-    fontSize: fontSizes.small,
-    marginTop: spacing.small
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   },
   iconBar: {
     flexDirection: 'row',

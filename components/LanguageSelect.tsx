@@ -1,9 +1,13 @@
-import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
+import { useSystem } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
+import { colors, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { CustomDropdown } from './CustomDropdown';
 
 type Language = typeof language.$inferSelect;
@@ -21,43 +25,22 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   label = true,
   containerStyle
 }) => {
-  const [languages, setLanguages] = useState<Language[]>([]);
+  const { db } = useSystem();
   const [showLanguages, setShowLanguages] = useState(false);
+  const [savedLanguage, setSavedLanguage] = useState<Language | null>(null);
   const { t } = useTranslation();
 
-  // Load languages
-  useEffect(() => {
-    const loadLanguages = async () => {
-      try {
-        const loadedLanguages = await languageService.getUiReadyLanguages();
-        setLanguages(loadedLanguages);
+  const { data: languages } = useQuery(
+    toCompilableQuery(
+      db.query.language.findMany({
+        where: eq(language.ui_ready, true)
+      })
+    )
+  );
 
-        // If no value is set, try to get saved language ID
-        if (!value) {
-          const savedLanguageId =
-            await AsyncStorage.getItem('selectedLanguageId');
-          const savedLanguage = loadedLanguages.find(
-            (l) => l.id === savedLanguageId
-          );
-          if (savedLanguage) {
-            onChange(savedLanguage);
-          } else if (loadedLanguages.length > 0) {
-            // Fallback to English or first language
-            const englishLang = loadedLanguages.find(
-              (l) =>
-                l.english_name?.toLowerCase() === 'english' ||
-                l.native_name?.toLowerCase() === 'english'
-            );
-            onChange(englishLang || loadedLanguages[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading languages:', error);
-        Alert.alert('Error', t('failedLoadLanguages'));
-      }
-    };
-    loadLanguages();
-  }, []);
+  const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
+  const selectedLanguage =
+    languages?.find((l) => l.id === value) ?? savedLanguage;
 
   // Save language when it changes
   useEffect(() => {
@@ -73,9 +56,32 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     saveLanguage();
   }, [value]);
 
+  useEffect(() => {
+    const loadSavedLanguage = async () => {
+      try {
+        const savedId = await AsyncStorage.getItem('selectedLanguageId');
+        const fetchedLanguage = languages?.find((l) => l.id === savedId);
+        if (fetchedLanguage) setSavedLanguage(fetchedLanguage);
+      } catch (error) {
+        console.error('Error loading saved language:', error);
+      }
+    };
+    loadSavedLanguage();
+  }, [languages]);
+
   return (
     <CustomDropdown
-      value={languages.find((l) => l.id === value)?.native_name || ''}
+      renderLeftIcon={() => (
+        <Ionicons
+          name="language"
+          size={20}
+          color={colors.text}
+          style={{ marginRight: spacing.medium }}
+        />
+      )}
+      value={
+        selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
+      }
       options={languages
         .filter((l) => l.native_name !== null)
         .map((l) => l.native_name!)}

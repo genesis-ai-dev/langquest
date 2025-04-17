@@ -1,77 +1,79 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, userService } from '@/database_services/userService';
+import { Profile, profileService } from '@/database_services/profileService';
+import { system, useSystem } from '@/db/powersync/system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRouter } from 'expo-router';
-import { system } from '@/db/powersync/system';
-import { DrawerActions } from '@react-navigation/native';
+import { Session } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
-  currentUser: User | null;
-  setCurrentUser: (profile: User | null) => void;
-  isAuthenticated: boolean;
+  currentUser: Profile | null;
+  setCurrentUser: (profile: Profile | null) => void;
   signOut: () => Promise<void>;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export const getSupabaseAuthKey = async () => {
+  const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
+    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+  );
+  return supabaseAuthKey;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-  const { supabaseConnector } = system;
-  const navigation = useNavigation();
-  // Check for stored user session on app start
+  const { supabaseConnector } = useSystem();
+
   useEffect(() => {
-    const loadStoredUser = async () => {
+    const setProfile = async () => {
       try {
-        const storedUserId = await AsyncStorage.getItem('userId');
-        if (storedUserId) {
-          const profile = await userService.getUserById(storedUserId);
-          if (profile) {
-            setCurrentUser(profile);
-          }
+        const supabaseAuthKey = await getSupabaseAuthKey();
+
+        if (supabaseAuthKey) {
+          const session = JSON.parse(
+            (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
+          ) as unknown as Session | null;
+          const profile = await profileService.getProfileByUserId(
+            session?.user.id ?? ''
+          );
+
+          setCurrentUser(profile ?? null);
         }
       } catch (error) {
-        console.error('Error loading stored user:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Error getting session:', error);
       }
+      setIsLoading(false);
     };
+    setProfile();
 
-    loadStoredUser();
+    const subscription = supabaseConnector.client.auth.onAuthStateChange(
+      async (_, session) => {
+        // always maintain a session
+        if (!session) {
+          await supabaseConnector.client.auth.signInAnonymously();
+          return;
+        }
+        if (session?.user && !session.user.is_anonymous) {
+          setCurrentUser(
+            await supabaseConnector.getUserProfile(session.user.id)
+          );
+        }
+      }
+    );
+
+    return () => {
+      subscription.data.subscription.unsubscribe();
+    };
   }, []);
-
-  // Update stored user ID whenever currentUser changes
-  useEffect(() => {
-    const updateStoredUser = async () => {
-      try {
-        if (currentUser) {
-          await AsyncStorage.setItem('userId', currentUser.id);
-        } else {
-          await AsyncStorage.removeItem('userId');
-        }
-      } catch (error) {
-        console.error('Error updating stored user:', error);
-      }
-    };
-
-    updateStoredUser();
-  }, [currentUser]);
 
   const signOut = async () => {
     try {
-      await AsyncStorage.removeItem('userId');
+      // will bring you back to the sign-in screen
       setCurrentUser(null);
 
-      // Sign out and get new anonymous session
       await supabaseConnector.signOut();
-
-      // Reinitialize system with new anonymous user
-      await system.init();
-
-      navigation.dispatch(DrawerActions.closeDrawer());
-      router.replace('/'); // Navigate back to sign-in
+      await system.powersync.disconnect();
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -82,7 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUser,
         setCurrentUser,
-        isAuthenticated: currentUser !== null,
         signOut,
         isLoading
       }}

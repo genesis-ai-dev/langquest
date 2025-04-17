@@ -31,7 +31,9 @@ export const profile = sqliteTable('profile', {
   avatar: text(),
   // icon: text().$type<IconName>(),
   // achievements: text(),
-  ui_language_id: text()
+  ui_language_id: text(),
+  terms_accepted: int({ mode: 'boolean' }),
+  terms_version: text()
 });
 
 export const userRelations = relations(profile, ({ many, one }) => ({
@@ -372,6 +374,11 @@ export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
     references: [asset.id]
   })
 }));
+
+export const flag = sqliteTable('flag', {
+  ...baseColumns,
+  name: text().notNull().unique()
+});
 
 // export const notification = sqliteTable('notification', {
 //   ...baseColumns,
