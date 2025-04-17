@@ -49,6 +49,34 @@ async function getAudioAssetMap(system: any): Promise<Map<string, string>> {
     return audioAssetMap;
 }
 
+// --- Permission Helper ---
+export async function requestBackupDirectory(): Promise<string | null> {
+  try {
+    const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (permissions?.granted && permissions.directoryUri) {
+      return permissions.directoryUri;
+    } else {
+      return null; // Permission denied or URI missing
+    }
+  } catch (dirError) {
+    console.error('Error during directory permission request:', dirError);
+    throw dirError; // Re-throw to be handled by the caller
+  }
+}
+
+// --- Path Preparation Helper ---
+export function prepareBackupPaths(timestamp: string): {
+  mainBackupDirName: string;
+  dbFullPathName: string;
+  audioBaseDirPath: string;
+  dbSourceUri: string;
+} {
+  const mainBackupDirName = `backup_${timestamp}`;
+  const dbFullPathName = `${mainBackupDirName}/database/sqlite.db`;
+  const audioBaseDirPath = `${mainBackupDirName}/audio_files`;
+  const dbSourceUri = (FileSystem.documentDirectory || '') + 'sqlite.db';
+  return { mainBackupDirName, dbFullPathName, audioBaseDirPath, dbSourceUri };
+}
 
 // --- Backup Helper: Database ---
 export async function backupDatabase(

@@ -34,7 +34,12 @@ import { PowerSyncDatabase, SyncStatus } from '@powersync/react-native';
 import { translation as translationSchema, asset_content_link as assetContentLinkSchema, asset as assetSchema } from '@/db/drizzleSchema';
 import { isNotNull } from 'drizzle-orm';
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
-import { backupDatabase, backupUnsyncedAudio } from '@/utils/backupUtils';
+import { 
+  backupDatabase, 
+  backupUnsyncedAudio, 
+  requestBackupDirectory, 
+  prepareBackupPaths 
+} from '@/utils/backupUtils';
 
 type DrawerItem = {
   name?: string;
@@ -58,90 +63,66 @@ function DrawerItems() {
     setIsBackingUp(true);
     let backupSuccess = false;
     let finalMessage = '';
-
-    // 1. System Init Check
-    if (!system.isInitialized()) {
-      Alert.alert(t('error'), t('databaseNotReady'));
-      setIsBackingUp(false);
-      return;
-    }
-    try {
-      if (system.attachmentQueue) await system.attachmentQueue.init();
-    } catch (initError) {
-      console.error('Failed to initialize AttachmentQueue:', initError);
-      Alert.alert(t('backupErrorTitle'), t('criticalBackupError', { error: 'Failed to initialize attachment queue' }));
-      setIsBackingUp(false);
-      return;
-    }
-
-    // 2. Permissions
     let baseDirectoryUri: string | null = null;
+
     try {
-      const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-      if (permissions?.granted && permissions.directoryUri) {
-        baseDirectoryUri = permissions.directoryUri;
+      // 1. System Init Check
+      if (!system.isInitialized()) {
+        Alert.alert(t('error'), t('databaseNotReady'));
+        throw new Error('System not initialized'); // Throw to trigger finally block
+      }
+      if (system.attachmentQueue) {
+          await system.attachmentQueue.init();
       } else {
+          throw new Error('Attachment queue not available');
+      }
+
+      // 2. Permissions
+      baseDirectoryUri = await requestBackupDirectory();
+      if (!baseDirectoryUri) {
         finalMessage = t('storagePermissionDenied');
         Alert.alert(t('permissionDenied'), finalMessage);
-        setIsBackingUp(false);
-        return;
+        throw new Error('Permission denied'); // Throw to trigger finally block
       }
-    } catch (dirError) {
-      const errorString = dirError instanceof Error ? dirError.message : String(dirError);
-      finalMessage = t('failedGetPermissions', { error: errorString });
-      Alert.alert(t('directoryError'), finalMessage);
-      setIsBackingUp(false);
-      return;
-    }
-    if (!baseDirectoryUri) { // Redundant check but safe
-      finalMessage = t('failedGetDirectoryUri');
-      Alert.alert(t('backupFailed'), finalMessage);
-      setIsBackingUp(false);
-      return;
-    }
 
-    // 3. Prepare Paths
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const mainBackupDirName = `backup_${timestamp}`;
-    const dbFullPathName = `${mainBackupDirName}/database/sqlite.db`;
-    const audioBaseDirPath = `${mainBackupDirName}/audio_files`;
-    const dbSourceUri = (FileSystem.documentDirectory || '') + 'sqlite.db';
+      // 3. Prepare Paths
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const { dbFullPathName, audioBaseDirPath, dbSourceUri } = prepareBackupPaths(timestamp);
 
-    // 4. Execute Backups and Collect Results
-    let dbResult: Awaited<ReturnType<typeof backupDatabase>> | null = null;
-    let audioResult: Awaited<ReturnType<typeof backupUnsyncedAudio>> | null = null;
-
-    try {
-      dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri);
-      audioResult = await backupUnsyncedAudio(
-        system, 
-        baseDirectoryUri, 
-        audioBaseDirPath, 
-        timestamp
-      );
+      // 4. Execute Backups and Collect Results
+      const dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri);
+      const audioResult = await backupUnsyncedAudio(system, baseDirectoryUri, audioBaseDirPath, timestamp);
       
-      // Determine overall success - currently succeeds even if individual file copies fail
       backupSuccess = dbResult.statusKey !== 'backupDbStatusFailed'; 
 
-      // Construct final message
+      // 5. Construct Final Message
       let dbStatusText = dbResult.error 
           ? t(dbResult.statusKey, { error: dbResult.error }) 
           : t(dbResult.statusKey);
       
       const statusDB = t('backupStatusDB', { status: dbStatusText });
       const statusFiles = t('backupStatusFiles', { count: audioResult.count });
-      // Optionally add info about copy errors: ${audioResult.errors.length > 0 ? ` (${audioResult.errors.length} file errors)`: ''}
       finalMessage = `${statusDB}. ${statusFiles}.`;
+      // Optionally add info about copy errors: ${audioResult.errors.length > 0 ? ` (${audioResult.errors.length} file errors)`: ''}
 
-    } catch (error) {
-      // Catch critical errors (e.g., audio query error)
-      console.error('Critical error during backup process:', error);
-      const errorString = error instanceof Error ? error.message : String(error);
-      finalMessage = t('criticalBackupError', { error: errorString });
+    } catch (error: any) {
+      // Handle errors from init, permissions, or backup helpers
+      console.error('Error during backup process:', error);
       backupSuccess = false;
+      // Use existing finalMessage if set (e.g., permission denied), otherwise create generic error message
+      if (!finalMessage) { 
+        const errorString = error instanceof Error ? error.message : String(error);
+        finalMessage = t('criticalBackupError', { error: errorString });
+      }
     } finally {
-      // 5. Final Alert
+      // 6. Final Alert & State Reset
       setIsBackingUp(false);
+      // Ensure finalMessage has a value before alerting
+      if (!finalMessage) { 
+          finalMessage = backupSuccess 
+              ? t('backupCompleteTitle') 
+              : t('criticalBackupError', { error: 'Unknown error occurred' });
+      } 
       Alert.alert(
         backupSuccess ? t('backupCompleteTitle') : t('backupErrorTitle'),
         finalMessage
