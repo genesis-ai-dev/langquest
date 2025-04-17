@@ -45,6 +45,8 @@ const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
 
+const progressBarHeight = 25;
+
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
@@ -144,17 +146,44 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             style={[
               styles.progressBar,
               styles.approvedBar,
-              { width: `${progress.approvedPercentage}%` }
+              {
+                width: `${progress.approvedPercentage}%`,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                borderRadius: progressBarHeight / 2,
+                zIndex: 2
+              }
             ]}
-          />
+          >
+            <GemIcon
+              color={colors.textSecondary}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
           {/* User's pending translations progress bar */}
           <View
             style={[
               styles.progressBar,
               styles.userPendingBar,
-              { width: `${progress.userContributedPercentage}%` }
+              {
+                width: `${progress.userContributedPercentage}%`,
+                borderRadius: progressBarHeight / 2,
+                marginLeft: -20,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                zIndex: 1
+              }
             ]}
-          />
+          >
+            <GemIcon
+              color={colors.background}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
         </View>
 
         {/* Pending translations gem */}
@@ -430,11 +459,11 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     flex: 1,
-    height: 8,
+    height: progressBarHeight,
     backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.small,
     overflow: 'hidden',
-    flexDirection: 'row'
+    flexDirection: 'row',
+    borderRadius: progressBarHeight / 2
   },
   progressBar: {
     height: '100%'
