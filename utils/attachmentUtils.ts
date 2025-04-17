@@ -143,43 +143,58 @@ export async function calculateTotalAttachments(
 export async function getAssetAttachmentIds(
   assetId: string
 ): Promise<string[]> {
+  const startTime = performance.now();
   try {
     const attachmentIds: string[] = [];
 
-    // 1. Get the asset itself for images
-    const assetRecord = await system.db.query.asset.findFirst({
-      where: (a) => eq(a.id, assetId)
-    });
+    // Execute all queries in parallel using Promise.allSettled
+    const [assetResult, contentResult, translationResult] =
+      await Promise.allSettled([
+        // 1. Get the asset itself for images
+        system.db.query.asset.findFirst({
+          where: (a) => eq(a.id, assetId)
+        }),
+        // 2. Get asset_content_link entries for audio
+        system.db.query.asset_content_link.findMany({
+          where: (acl) =>
+            and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
+        }),
+        // 3. Get translations for the asset and their audio
+        system.db.query.translation.findMany({
+          where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
+        })
+      ]);
 
-    if (assetRecord?.images) {
-      attachmentIds.push(...assetRecord.images);
+    // Process asset images if successful
+    if (assetResult.status === 'fulfilled' && assetResult.value?.images) {
+      attachmentIds.push(...assetResult.value.images);
     }
 
-    // 2. Get asset_content_link entries for audio
-    const assetContents = await system.db.query.asset_content_link.findMany({
-      where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
-    });
+    // Process content audio IDs if successful
+    if (contentResult.status === 'fulfilled') {
+      const contentAudioIds = contentResult.value
+        .filter((content) => content.audio_id)
+        .map((content) => content.audio_id!);
+      attachmentIds.push(...contentAudioIds);
+    }
 
-    const contentAudioIds = assetContents
-      .filter((content) => content.audio_id)
-      .map((content) => content.audio_id!);
+    // Process translation audio IDs if successful
+    if (translationResult.status === 'fulfilled') {
+      const translationAudioIds = translationResult.value
+        .filter((translation) => translation.audio)
+        .map((translation) => translation.audio!);
+      attachmentIds.push(...translationAudioIds);
+    }
 
-    attachmentIds.push(...contentAudioIds);
-
-    // 3. Get translations for the asset and their audio
-    const translations = await system.db.query.translation.findMany({
-      where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
-    });
-
-    const translationAudioIds = translations
-      .filter((translation) => translation.audio)
-      .map((translation) => translation.audio!);
-
-    attachmentIds.push(...translationAudioIds);
+    console.log(`Total execution time: ${performance.now() - startTime}ms`);
+    console.log(
+      `Found ${attachmentIds.length} attachments for asset ${assetId}`
+    );
 
     return attachmentIds;
   } catch (error) {
     console.error('Error getting asset attachment IDs:', error);
+    console.log(`Failed after ${performance.now() - startTime}ms`);
     return [];
   }
 }

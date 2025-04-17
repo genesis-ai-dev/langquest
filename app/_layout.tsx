@@ -12,6 +12,7 @@ import '../global.css';
 import { Drawer } from '@/components/Drawer';
 import { userService } from '@/database_services/userService';
 import { QueryProvider } from '@/providers/QueryProvider';
+import { initializeNetwork } from '@/store/networkStore';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -119,6 +120,13 @@ export default function RootLayout() {
   const system = useSystem();
   const db = useMemo(() => {
     return system.powersync;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = initializeNetwork();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return (

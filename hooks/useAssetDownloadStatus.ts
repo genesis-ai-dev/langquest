@@ -3,21 +3,14 @@ import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 import { AttachmentState } from '@powersync/attachments';
 import { useAttachmentQuery } from './useAttachmentQuery';
 import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { useQuery } from '@tanstack/react-query';
 
 export function useAssetDownloadStatus(assetId: string) {
-  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const { data: attachmentIds = [] } = useQuery({
+    queryKey: ['asset-attachments', assetId],
+    queryFn: () => getAssetAttachmentIds(assetId)
+  });
   const { data: attachments = [] } = useAttachmentQuery(attachmentIds);
-
-  useEffect(() => {
-    if (!assetId) return;
-
-    const fetchAttachmentIds = async () => {
-      const ids = await getAssetAttachmentIds(assetId);
-      setAttachmentIds(ids);
-    };
-
-    fetchAttachmentIds();
-  }, [assetId]);
 
   // If we have no attachments, consider it downloaded
   if (attachmentIds.length === 0) {

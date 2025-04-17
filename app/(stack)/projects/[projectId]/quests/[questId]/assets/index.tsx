@@ -31,24 +31,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useQuery } from '@tanstack/react-query';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
+function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
   const isDownloaded = useAssetDownloadStatus(asset.id);
-  const [tags, setTags] = useState<Tag[]>([]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      const assetTags = await tagService.getTagsByAssetId(asset.id);
-      setTags(assetTags);
-    };
-    loadData();
-  }, [asset.id]);
+  const { data: tags } = useQuery({
+    queryKey: ['asset-tags', asset.id],
+    queryFn: () => tagService.getTagsByAssetId(asset.id)
+  });
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -73,7 +70,7 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
       {/* {asset.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )} */}
-      {tags.length > 0 && (
+      {tags && tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
           {tags.slice(0, 3).map((tag, index) => (
             <Text key={tag.id} style={sharedStyles.cardInfoText}>
@@ -88,7 +85,7 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
       )}
     </View>
   );
-};
+}
 
 export default function Assets() {
   const [assets, setAssets] = useState<Asset[]>([]);
