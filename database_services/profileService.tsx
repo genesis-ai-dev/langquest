@@ -2,7 +2,6 @@ import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import { profile, language, translation, vote } from '../db/drizzleSchema';
 import { hashPassword } from '../utils/passwordUtils';
-import { randomUUID } from 'expo-crypto';
 import { aliasedTable } from 'drizzle-orm';
 import { system } from '../db/powersync/system';
 import { Session } from '@supabase/supabase-js';

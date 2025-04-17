@@ -9,7 +9,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
 import { useSystem } from '../db/powersync/system';
-import '../global.css';
+// import '../global.css';
 import { Drawer } from '@/components/Drawer';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
