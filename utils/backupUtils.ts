@@ -3,6 +3,11 @@ import { StorageAccessFramework } from 'expo-file-system';
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
 import { translation as translationSchema, asset_content_link as assetContentLinkSchema, asset as assetSchema } from '@/db/drizzleSchema';
 import { isNotNull, eq } from 'drizzle-orm';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+// Storage key for the backup directory URI
+const BACKUP_DIRECTORY_URI_KEY = 'BACKUP_DIRECTORY_URI';
 
 // --- Utilities moved from Drawer.tsx ---
 
@@ -51,10 +56,47 @@ async function getAudioAssetMap(system: any): Promise<Map<string, string>> {
 
 // --- Permission Helper ---
 export async function requestBackupDirectory(): Promise<string | null> {
+  // Android-specific permission handling - return null for other platforms
+  if (Platform.OS !== 'android') {
+    return null;
+  }
+
   try {
+    // First, try to get previously saved directory URI
+    const savedDirectoryUri = await AsyncStorage.getItem(BACKUP_DIRECTORY_URI_KEY);
+    
+    // If we have a previously saved URI, verify it's still valid
+    if (savedDirectoryUri) {
+      try {
+        // Try to list files to validate permission is still valid
+        await StorageAccessFramework.readDirectoryAsync(savedDirectoryUri);
+        console.log('Using existing backup directory permission');
+        return savedDirectoryUri;
+      } catch (error) {
+        console.log('Saved directory permission expired, requesting new permissions');
+        // Continue to request new permissions
+      }
+    }
+    
+    // Request new permissions
     const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
     if (permissions?.granted && permissions.directoryUri) {
-      return permissions.directoryUri;
+      try {
+        // Take persistent permissions for this URI - THIS IS HANDLED BY THE SYSTEM/EXPO WHEN REQUESTING
+        // await StorageAccessFramework.persistPermissionsForDirectoryAsync(
+        //   permissions.directoryUri,
+        //   [StorageAccessFramework.Permission.READ, StorageAccessFramework.Permission.WRITE]
+        // );
+        
+        // Store the URI in AsyncStorage for future use
+        await AsyncStorage.setItem(BACKUP_DIRECTORY_URI_KEY, permissions.directoryUri);
+        console.log('Saved new backup directory permission');
+        return permissions.directoryUri;
+      } catch (persistError) {
+        console.error('Failed to persist permissions:', persistError);
+        // Still return the directory URI even if we couldn't persist it
+        return permissions.directoryUri;
+      }
     } else {
       return null; // Permission denied or URI missing
     }
@@ -87,6 +129,19 @@ export async function backupDatabase(
     try {
         const dbFileInfo = await FileSystem.getInfoAsync(dbSourceUri);
         if (dbFileInfo.exists) {
+            // Get directory path from the full file path (everything before the last /)
+            const dbDirPath = dbFullPathName.substring(0, dbFullPathName.lastIndexOf('/'));
+            
+            // Create the directory structure if it doesn't exist
+            try {
+                await StorageAccessFramework.makeDirectoryAsync(baseDirectoryUri, dbDirPath);
+                console.log(`Created database backup directory: ${dbDirPath}`);
+            } catch (dirError) {
+                console.log(`Database directory creation failed or already exists: ${dirError}`);
+                // We'll continue anyway as the directory might already exist
+            }
+            
+            // Now read and write the database file
             const dbContent = await FileSystem.readAsStringAsync(dbSourceUri, { encoding: FileSystem.EncodingType.Base64 });
             const createdDbFileUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, dbFullPathName, 'application/vnd.sqlite3');
             await FileSystem.writeAsStringAsync(createdDbFileUri, dbContent, { encoding: FileSystem.EncodingType.Base64 });
@@ -116,8 +171,18 @@ export async function backupUnsyncedAudio(
         const unsyncedIds = await getFilesInUploadQueue();
 
         if (unsyncedIds.length > 0) {
-            // Consider creating the directory here if needed
-            // await StorageAccessFramework.makeDirectoryAsync(baseDirectoryUri, audioBaseDirPath);
+            // Create the audio directory if there are files to backup
+            try {
+                // Create the audio directory structure
+                await StorageAccessFramework.makeDirectoryAsync(
+                    baseDirectoryUri, 
+                    audioBaseDirPath
+                );
+                console.log(`Created audio backup directory: ${audioBaseDirPath}`);
+            } catch (dirError) {
+                console.log(`Audio directory creation failed or already exists: ${dirError}`);
+                // We'll continue anyway as the directory might already exist
+            }
         }
 
         for (const [audioId, assetId] of audioAssetMap.entries()) {
