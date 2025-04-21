@@ -2,29 +2,29 @@ import {
   AbstractPowerSyncDatabase,
   CrudEntry,
   PowerSyncBackendConnector,
-  UpdateType,
-} from "@powersync/react-native";
+  UpdateType
+} from '@powersync/react-native';
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { SupabaseStorageAdapter } from "./SupabaseStorageAdapter";
-import { System } from "../powersync/system";
-import { AppConfig } from "./AppConfig";
-import { Profile, profileService } from "@/database_services/profileService";
-import { eq } from "drizzle-orm";
-import { profile } from "../drizzleSchema";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AppState } from "react-native";
-import { getSupabaseAuthKey } from "@/contexts/AuthContext";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
+import { System } from '../powersync/system';
+import { AppConfig } from './AppConfig';
+import { Profile, profileService } from '@/database_services/profileService';
+import { eq } from 'drizzle-orm';
+import { profile } from '../drizzleSchema';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
+import { getSupabaseAuthKey } from '@/contexts/AuthContext';
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
   // Examples include data type mismatch.
-  new RegExp("^22...$"),
+  new RegExp('^22...$'),
   // Class 23 — Integrity Constraint Violation.
   // Examples include NOT NULL, FOREIGN KEY and UNIQUE violations.
-  new RegExp("^23...$"),
+  new RegExp('^23...$'),
   // INSUFFICIENT PRIVILEGE - typically a row-level security violation
-  new RegExp("^42501$"),
+  new RegExp('^42501$')
 ];
 
 export class SupabaseConnector implements PowerSyncBackendConnector {
@@ -32,13 +32,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   storage: SupabaseStorageAdapter;
 
   constructor(protected system: System) {
-    console.log("Creating Supabase client (supabaseConnector constructor");
+    console.log('Creating Supabase client (supabaseConnector constructor');
     if (!AppConfig.supabaseUrl || !AppConfig.supabaseAnonKey) {
-      throw new Error("Supabase URL or Anon Key is not defined");
+      throw new Error('Supabase URL or Anon Key is not defined');
     }
 
     if (!AppConfig.powersyncUrl) {
-      throw new Error("PowerSync URL is not defined");
+      throw new Error('PowerSync URL is not defined');
     }
 
     this.client = createClient(
@@ -46,29 +46,29 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          storage: AsyncStorage,
-        },
-      },
+          storage: AsyncStorage
+        }
+      }
     );
 
     this.storage = new SupabaseStorageAdapter({ client: this.client });
 
-    console.log("Supabase client created: ", this.client);
+    console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
-      console.log("------------------------------------");
-      console.log("Auth state changed:", event);
-      console.log("User email:", session?.user?.email);
-      console.log("User ID:", session?.user?.id);
-      console.log("------------------------------------");
+      console.log('------------------------------------');
+      console.log('Auth state changed:', event);
+      console.log('User email:', session?.user?.email);
+      console.log('User ID:', session?.user?.id);
+      console.log('------------------------------------');
     });
-    console.log("Supabase client created: ", this.client);
+    console.log('Supabase client created: ', this.client);
   }
 
   async isAnonymousSession() {
     const {
-      data: { session },
+      data: { session }
     } = await this.client.auth.getSession();
-    console.log("Session:", session);
+    console.log('Session:', session);
     return session?.user?.is_anonymous === true;
   }
 
@@ -88,13 +88,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     if (localProfile) return localProfile;
 
     const { data: userData, error: userError } = await this.client
-      .from("profiles")
-      .select("*")
-      .eq("id", user)
+      .from('profiles')
+      .select('*')
+      .eq('id', user)
       .single();
 
     if (userError) {
-      console.error("Error fetching user profile:", userError);
+      console.error('Error fetching user profile:', userError);
       return null;
     }
 
@@ -104,11 +104,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   async login(username: string, password: string) {
     const { data, error } = await this.client.auth.signInWithPassword({
       email: username,
-      password: password,
+      password: password
     });
 
     if (error) {
-      console.error("Sign in error:", error);
+      console.error('Sign in error:', error);
       throw error;
     }
 
@@ -124,22 +124,22 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   async fetchCredentials() {
     const {
       data: { session },
-      error,
+      error
     } = await this.client.auth.getSession();
 
     if (!session || error) {
       throw new Error(`Could not fetch Supabase credentials: ${error}`);
     }
 
-    console.debug("session expires at", session.expires_at);
+    console.debug('session expires at', session.expires_at);
 
     return {
-      endpoint: AppConfig.powersyncUrl ?? "",
-      token: session.access_token ?? "",
+      endpoint: AppConfig.powersyncUrl ?? '',
+      token: session.access_token ?? '',
       expiresAt: session.expires_at
         ? new Date(session.expires_at * 1000)
         : undefined,
-      userID: session.user.id,
+      userID: session.user.id
     };
   }
 
@@ -165,18 +165,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             result = await table.upsert(record);
             break;
           case UpdateType.PATCH:
-            result = await table.update(op.opData).eq("id", op.id);
+            result = await table.update(op.opData).eq('id', op.id);
             break;
           case UpdateType.DELETE:
-            result = await table.delete().eq("id", op.id);
+            result = await table.delete().eq('id', op.id);
             break;
         }
 
         if (result.error) {
           console.error(result.error);
-          result.error.message = `Could not ${op.op} data to Supabase error: ${
-            JSON.stringify(result)
-          }`;
+          result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
+            result
+          )}`;
           throw result.error;
         }
       }
@@ -185,7 +185,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     } catch (ex: any) {
       console.debug(ex);
       if (
-        typeof ex.code == "string" &&
+        typeof ex.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(ex.code))
       ) {
         /**
@@ -196,7 +196,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * If protecting against data loss is important, save the failing records
          * elsewhere instead of discarding, and/or notify the user.
          */
-        console.error("Data upload error - discarding:", lastOp, ex);
+        console.error('Data upload error - discarding:', lastOp, ex);
         await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
