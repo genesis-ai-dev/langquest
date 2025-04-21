@@ -212,7 +212,7 @@ max_frequency = "5s"
 
 [auth.hook.send_email]
 enabled = true
-uri = "https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/send-email"
+uri = "env(SUPABASE_SEND_EMAIL_HOOK_URL)"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
@@ -286,7 +286,7 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 [edge_runtime]
-enabled = false
+enabled = true
 # Configure one of the supported request policies: `oneshot`, `per_worker`.
 # Use `oneshot` for hot reload, or `per_worker` for load testing.
 policy = "oneshot"
@@ -296,6 +296,7 @@ inspector_port = 8083
 [edge_runtime.secrets]
 secret_key = "env(DOTENV_PRIVATE_KEY_PREVIEW)"
 resend_api_key = "env(RESEND_API_KEY)"
+send_email_hook_secret = "env(SEND_EMAIL_HOOK_SECRET)"
 
 [analytics]
 enabled = false
