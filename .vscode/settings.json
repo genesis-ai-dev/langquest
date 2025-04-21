@@ -11,5 +11,25 @@
     "https://raw.githubusercontent.com/powersync-ja/self-host-demo/refs/heads/main/schema/schema.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/powersync.yml",
     "https://unpkg.com/@powersync/service-sync-rules@latest/schema/sync_rules.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/sync-rules.yml"
   },
-  "yaml.customTags": ["!env scalar"]
+  "yaml.customTags": ["!env scalar"],
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": [
+    "bare-node-builtins",
+    "byonm",
+    "sloppy-imports",
+    "unsafe-proto",
+    "webgpu",
+    "broadcast-channel",
+    "worker-options",
+    "cron",
+    "kv",
+    "ffi",
+    "fs",
+    "http",
+    "net"
+  ]
 }

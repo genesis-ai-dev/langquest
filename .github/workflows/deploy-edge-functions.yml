@@ -1,0 +1,103 @@
+# name: Deploy Function
+
+# # Set up the workflow to trigger on pushes to the main branch
+# # and changes in the `functions` directory.
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - functions/**
+#   # Allow manual triggering of the workflow through the Actions tab.
+#   workflow_dispatch:
+
+# jobs:
+#   deploy:
+#     # Use the latest version of the Ubuntu environment to run the job.
+#     runs-on: ubuntu-latest
+
+#     # Set up environment variables for the Supabase CLI and project ID.
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#       PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Install Supabase CLI
+#         uses: supabase/setup-cli@v1
+#         with:
+#           version: 1.0.0
+
+#       - name: Initialize Supabase CLI
+#         run: supabase init
+
+#       # Get a list of all the files that have changed since the last push.
+#       # Limit the search to files in the `functions` directory.
+#       - name: Get changed files
+#         id: changed-files
+#         uses: tj-actions/changed-files@v35
+#         with:
+#           files: functions/**
+
+#       # Store the list of changed files in an environment variable.
+#       - name: Store changed files
+#         run: echo -n &quot;CHANGED_FILES=${{steps.changed-files.outputs.all_changed_files}}&quot; &gt;&gt; $GITHUB_ENV
+
+#       # Get a list of all the edge functions that may be impacted by the changes.
+#       # This includes functions in the functions directory that have changed and
+#       # any files in the _shared directory that are imported by the edge functions
+#       # in the functions directory.
+#       - name: Get impacted functions
+#         id: impacted_functions
+#         run: |
+#           impactedFunctions=()
+#           checkedFiles=()
+#           filesToCheck=($CHANGED_FILES)
+#           while [ ${#filesToCheck[@]} -gt 0 ]; do
+#             # Get the next file to check.
+#             file=${filesToCheck[0]}
+#             unset filesToCheck[0]
+#             filesToCheck=(${filesToCheck[*]})
+
+#             # Skip files that have already been checked.
+#             if [[ &quot;${checkedFiles[*]}&quot; == *&quot;$file&quot;* ]]; then
+#               continue
+#             fi
+
+#             # Mark the current file as checked.
+#             checkedFiles+=(&quot;$file&quot;)
+
+#             # Get the folder and file names for the current file.
+#             folder=$(dirname &quot;$file&quot;)
+#             folder_name=$(basename &quot;$folder&quot;)
+#             file_name=$(basename &quot;$file&quot;)
+
+#             # If the current file is in the `_shared` directory,
+#             # check for any files that import from it.
+#             if [ &quot;$folder_name&quot; == &quot;_shared&quot; ]; then
+#               # Search for files that import from the current file.
+#               if output=$(grep -r -l &quot;import .* from .*/${file_name}&quot; . --only-matching 2&gt;/dev/null); then
+#                 # Add any matching files to the list of files to check.
+#                 while read -r line; do
+#                   filesToCheck+=(&quot;$line&quot;)
+#                   matched_files+=(&quot;$line&quot;)
+#                 done &lt;&lt;&lt; &quot;$output&quot;
+#               fi
+#             # If the current file is not in the _shared directory, we assume that it&#39;s a function file that
+#             # needs to be deployed. We add the parent folder (i.e. the function name) to the impactedFunctions array.
+#             else
+#               impactedFunctions+=(&quot;$folder_name&quot;)
+#             fi
+#           done
+
+#           # Convert the array to a string and store it in the environment variable
+#           impactedFunctions=$(echo &quot;${impactedFunctions[@]}&quot; | tr &#39; &#39; &#39;\n&#39; | sort -u | tr &#39;\n&#39; &#39; &#39;)
+#           echo -n &quot;IMPACTED_FUNCTIONS=$impactedFunctions&quot; &gt;&gt; $GITHUB_ENV
+
+#       - name: Deploy Functions
+#         run: |
+#           for function in $IMPACTED_FUNCTIONS; do
+#             supabase functions deploy $function --project-ref $PROJECT_ID
+#           done

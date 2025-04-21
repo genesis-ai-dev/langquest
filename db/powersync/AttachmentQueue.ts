@@ -2,14 +2,14 @@ import {
   AbstractAttachmentQueue,
   AttachmentQueueOptions,
   AttachmentRecord,
-  AttachmentState
-} from '@powersync/attachments';
-import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { randomUUID } from 'expo-crypto';
-import * as FileSystem from 'expo-file-system';
-import * as drizzleSchema from '../drizzleSchema';
-import { isNotNull } from 'drizzle-orm';
-import { AppConfig } from '../supabase/AppConfig';
+  AttachmentState,
+} from "@powersync/attachments";
+import { PowerSyncSQLiteDatabase } from "@powersync/drizzle-driver";
+import { randomUUID } from "expo-crypto";
+import * as FileSystem from "expo-file-system";
+import * as drizzleSchema from "../drizzleSchema";
+import { isNotNull } from "drizzle-orm";
+import { AppConfig } from "../supabase/AppConfig";
 
 export class AttachmentQueue extends AbstractAttachmentQueue {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
@@ -17,7 +17,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   constructor(
     options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
-    }
+    },
   ) {
     super(options);
     this.db = options.db;
@@ -27,13 +27,13 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
 
   async init() {
     if (this.initialized) {
-      console.log('AttachmentQueue already initialized');
+      console.log("AttachmentQueue already initialized");
       return;
     }
 
     if (!AppConfig.supabaseBucket) {
       console.debug(
-        'No Supabase bucket configured, skip setting up AttachmentQueue watches.'
+        "No Supabase bucket configured, skip setting up AttachmentQueue watches.",
       );
       // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
       this.options.syncInterval = 0;
@@ -51,7 +51,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
 
     this.db.watch(
       this.db.query.asset_content_link.findMany({
-        where: (asset) => isNotNull(asset.audio_id)
+        where: (asset) => isNotNull(asset.audio_id),
       }),
       {
         onResult(assets) {
@@ -59,58 +59,58 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
           onUpdate([
             ...allAudioAssets,
             ...lastAssetImages,
-            ...lastTranslations
+            ...lastTranslations,
           ]);
           lastAssetAudio = allAudioAssets;
-        }
-      }
+        },
+      },
     );
 
     this.db.watch(
       this.db.query.asset.findMany({
-        where: (asset) => isNotNull(asset.images)
+        where: (asset) => isNotNull(asset.images),
       }),
       {
         onResult(assets) {
-          console.log('watched assets', assets);
+          console.log("watched assets", assets);
           const allImageAssets = assets.flatMap((asset) => asset.images!);
           onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
           lastAssetImages = allImageAssets;
-        }
-      }
+        },
+      },
     );
 
     this.db.watch(
       this.db.query.translation.findMany({
-        where: (translation) => isNotNull(translation.audio)
+        where: (translation) => isNotNull(translation.audio),
       }),
       {
         onResult(translations) {
           const allTranslations = translations.map(
-            (translation) => translation.audio!
+            (translation) => translation.audio!,
           );
           onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
           lastTranslations = allTranslations;
-        }
-      }
+        },
+      },
     );
   }
 
   async newAttachmentRecord(
     record?: Partial<AttachmentRecord>,
-    extension?: string
+    extension?: string,
   ): Promise<AttachmentRecord> {
     const photoId = record?.id ?? randomUUID();
-    const filename =
-      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
-    const filenameWithoutPath = filename.split('/').pop() ?? filename;
+    const filename = record?.filename ??
+      `${photoId}${extension ? `.${extension}` : ""}`;
+    const filenameWithoutPath = filename.split("/").pop() ?? filename;
     const localUri = this.getLocalFilePathSuffix(filename);
     return {
       state: AttachmentState.QUEUED_UPLOAD,
       id: filename,
       filename: filename,
       local_uri: localUri,
-      ...record
+      ...record,
     };
   }
 
@@ -118,7 +118,7 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
     const photoAttachment = await this.newAttachmentRecord();
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
     await this.storage.writeFile(localUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64
+      encoding: FileSystem.EncodingType.Base64,
     });
 
     const fileInfo = await FileSystem.getInfoAsync(localUri);
@@ -130,17 +130,17 @@ export class AttachmentQueue extends AbstractAttachmentQueue {
   }
 
   async saveAudio(tempUri: string): Promise<AttachmentRecord> {
-    const extension = tempUri.split('.').pop();
+    const extension = tempUri.split(".").pop();
     const audioAttachment = await this.newAttachmentRecord(
       {
-        media_type: 'audio/mpeg'
+        media_type: "audio/mpeg",
       },
-      extension
+      extension,
     );
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
     await FileSystem.moveAsync({
       from: tempUri,
-      to: localUri
+      to: localUri,
     });
 
     const fileInfo = await FileSystem.getInfoAsync(localUri);

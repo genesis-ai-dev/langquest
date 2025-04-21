@@ -21,9 +21,12 @@
     "env:start": "npm run supabase start && npm run powersync:start",
     "env:stop": "npm run powersync:stop && npm run supabase stop",
     "env": "npm run generate-env && npm run env:start && npm run env:stop",
+    "env:clean": "npm run supabase:clean && npm run powersync:clean",
     "powersync:clean": "npm run powersync:stop && docker volume rm -f powersync_mongo_storage",
-    "supabase:clean": "git clean -xdf supabase/*/.DS_Store && npx supabase@beta db reset",
-    "supabase": "npx supabase@beta"
+    "supabase:clean": "git clean -xdf supabase/*/.DS_Store && npm run supabase db reset && npm run supabase stop",
+    "supabase": "npx supabase@beta",
+    "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
+    "supabase:deploy-functions": "npm run supabase functions deploy"
   },
   "jest": {
     "preset": "jest-expo"
