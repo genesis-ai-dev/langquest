@@ -1,5 +1,6 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { profileService } from '@/database_services/profileService';
 import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/db/powersync/system';
@@ -21,10 +22,10 @@ type Language = typeof language.$inferSelect;
 
 export default function Terms() {
   const router = useRouter();
-  const [selectedLanguage, setSelectedLanguage] = useState<Language | null>();
+  const { currentLanguage, setLanguage } = useLanguage();
   const { currentUser, setCurrentUser, isLoading } = useAuth();
   const { powersync, supabaseConnector } = useSystem();
-  const { t } = useTranslation(selectedLanguage?.english_name);
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -86,8 +87,8 @@ export default function Terms() {
       {/* Language Selector */}
       <View style={styles.languageSelector}>
         <LanguageSelect
-          value={selectedLanguage?.id || ''}
-          onChange={(lang) => setSelectedLanguage(lang)}
+          value={currentLanguage?.id || ''}
+          onChange={(lang) => setLanguage(lang)}
           containerStyle={{ flex: 1 }}
         />
       </View>
@@ -197,37 +198,38 @@ const styles = StyleSheet.create({
     lineHeight: 24
   },
   linkText: {
-    fontSize: 16,
-    textAlign: 'center'
+    fontSize: 16
   },
   termsCheckbox: {
     width: '100%',
-    marginTop: 20,
-    marginBottom: 10
+    marginVertical: 20,
+    paddingHorizontal: 10
   },
   checkboxContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.small
+    alignItems: 'center'
   },
   checkboxIcon: {
-    marginTop: 2
+    marginRight: 10
   },
   checkboxText: {
     color: colors.text,
+    fontSize: 16,
     flex: 1,
     flexWrap: 'wrap'
   },
+  closeButton: {
+    padding: 8
+  },
   modalFooter: {
-    flexDirection: 'row',
     width: '100%',
-    marginTop: 10
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingBottom: 20
   },
   disabledButton: {
     opacity: 0.5
-  },
-  closeButton: {
-    padding: 5,
-    marginLeft: 10
   }
 });
