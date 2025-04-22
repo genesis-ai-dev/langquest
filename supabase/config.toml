@@ -212,7 +212,7 @@ max_frequency = "5s"
 
 [auth.hook.send_email]
 enabled = true
-uri = "env(SUPABASE_SEND_EMAIL_HOOK_URL)"
+uri = "http://host.docker.internal:54321/functions/v1/send-email"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
@@ -292,6 +292,9 @@ enabled = true
 policy = "oneshot"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
+
+[functions.send-email]
+# verify_jwt = false
 
 [edge_runtime.secrets]
 secret_key = "env(DOTENV_PRIVATE_KEY_PREVIEW)"
