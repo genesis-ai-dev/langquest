@@ -53,15 +53,11 @@ Deno.serve(async (req) => {
       .eq('username', user.user_metadata?.username)
       .single();
 
-    console.log('profile ui language id', profile?.ui_language_id);
-    console.log('user ui language id', user.user_metadata?.ui_language_id);
     const { data: language } = await supabase
       .from('language')
       .select('iso639_3')
       .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
       .single();
-
-    console.log('language', language);
 
     const ui_language = getISO2Language(language?.iso639_3 ?? 'eng');
 
