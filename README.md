@@ -140,6 +140,12 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 7. Commit the migration file to your repository to track database schema changes.
 
+> **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run:
+> ```bash
+> npx supabase@beta migration repair --status reverted --local
+> ```
+> This will prompt you to confirm repairing the entire migration history table to match your local migration files.
+
 #### Making Sync Rule Changes
 
 1. Edit the sync rules configuration in `/supabase/config/sync_rules.yml`.
