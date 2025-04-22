@@ -119,9 +119,9 @@ ALTER TABLE "public"."asset" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."asset_content_link" (
-    "id" "text" NOT NULL,
-    "created_at" "text" DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "last_updated" "text" DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "last_updated" timestamp with time zone DEFAULT "now"() NOT NULL,
     "asset_id" "uuid" NOT NULL,
     "audio_id" "text",
     "text" "text" NOT NULL,

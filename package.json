@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "powersync:start": "docker compose -f supabase/docker-compose.yml --env-file .env.local up -w",
     "powersync:stop": "docker compose -f supabase/docker-compose.yml --env-file .env.local down",
-    "env:start": "npm run supabase start -- --debug && npm run powersync:start",
+    "env:start": "npm run supabase start && npm run powersync:start",
     "env:stop": "npm run powersync:stop && npm run supabase stop",
     "env": "npm run generate-env && npm run env:start && npm run env:stop",
     "env:clean": "npm run supabase:clean && npm run powersync:clean",
