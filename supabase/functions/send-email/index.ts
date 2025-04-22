@@ -29,8 +29,9 @@ Deno.serve(async (req) => {
     } = wh.verify(payload, headers) as {
       user: {
         email: string;
+        new_email?: string;
         user_metadata?: {
-          ui_language?: string;
+          ui_language_id?: string;
           username?: string;
         };
       };
@@ -48,15 +49,21 @@ Deno.serve(async (req) => {
     // Get user profile from database
     const { data: profile } = await supabase
       .from('profile')
-      .select(
-        `
-        language:ui_language_id(iso639_3)
-      `
-      )
+      .select('ui_language_id')
       .eq('username', user.user_metadata?.username)
       .single();
 
-    const ui_language = getISO2Language(profile?.language?.iso639_3 ?? 'eng');
+    console.log('profile ui language id', profile?.ui_language_id);
+    console.log('user ui language id', user.user_metadata?.ui_language_id);
+    const { data: language } = await supabase
+      .from('language')
+      .select('iso639_3')
+      .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
+      .single();
+
+    console.log('language', language);
+
+    const ui_language = getISO2Language(language?.iso639_3 ?? 'eng');
 
     const parsedRedirectTo = new URL(redirect_to);
     const confirmation_url = `${site_url}${
@@ -80,9 +87,9 @@ Deno.serve(async (req) => {
           }) as React.ReactElement
         );
         subject =
-          ui_language === 'spanish'
+          ui_language === 'es'
             ? 'Confirma tu cuenta de LangQuest'
-            : ui_language === 'french'
+            : ui_language === 'fr'
               ? 'Confirmez votre compte LangQuest'
               : 'Confirm Your LangQuest Account';
         break;
@@ -94,9 +101,9 @@ Deno.serve(async (req) => {
           }) as React.ReactElement
         );
         subject =
-          ui_language === 'spanish'
+          ui_language === 'es'
             ? 'Restablece tu contraseña de LangQuest'
-            : ui_language === 'french'
+            : ui_language === 'fr'
               ? 'Réinitialisez votre mot de passe LangQuest'
               : 'Reset Your LangQuest Password';
         break;
@@ -104,9 +111,11 @@ Deno.serve(async (req) => {
         throw new Error('Unsupported email action type');
     }
 
+    const sendEmail = user.new_email ?? user.email;
+
     const { error } = await resend.emails.send({
       from: 'LangQuest <account-security@langquest.org>',
-      to: [user.email],
+      to: [sendEmail],
       subject,
       html
     });
