@@ -1,4 +1,5 @@
 {
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "tailwindCSS.classAttributes": ["class", "className", "headerClassName"],
   "workbench.editor.customLabels.patterns": {
     "*/*/**/index.{ts,js,vue,tsx,jsx}": "${dirname} - ${filename}.${extname}",
@@ -12,9 +13,6 @@
     "https://unpkg.com/@powersync/service-sync-rules@latest/schema/sync_rules.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/sync-rules.yml"
   },
   "yaml.customTags": ["!env scalar"],
-  "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
   "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,
   "deno.unstable": [

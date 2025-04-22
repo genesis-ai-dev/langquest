@@ -26,7 +26,7 @@
     "supabase:clean": "git clean -xdf supabase/*/.DS_Store && npm run supabase db reset && npm run supabase stop",
     "supabase": "npx supabase@beta",
     "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
-    "supabase:deploy-functions": "npm run supabase functions deploy"
+    "supabase:functions:deploy:send-email": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref hjsrpgqyobgfyeinrunx"
   },
   "jest": {
     "preset": "jest-expo"
