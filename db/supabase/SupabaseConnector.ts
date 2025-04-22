@@ -5,7 +5,7 @@ import {
   UpdateType
 } from '@powersync/react-native';
 
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 import { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
@@ -174,7 +174,9 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
         if (result.error) {
           console.error(result.error);
-          result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(result)}`;
+          result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
+            result
+          )}`;
           throw result.error;
         }
       }
