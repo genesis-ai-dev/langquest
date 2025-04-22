@@ -14,9 +14,14 @@ export default function AuthLayout() {
   const system = useSystem();
 
   useEffect(() => {
-    if (currentUser && currentUser.terms_accepted) {
-      system.tempAttachmentQueue?.init();
-      system.permAttachmentQueue?.init();
+    if (currentUser) {
+      const initSystem = async () => {
+        await system.init();
+        console.log('System initialized');
+        system.tempAttachmentQueue?.init();
+        system.permAttachmentQueue?.init();
+      };
+      initSystem();
     }
   }, [currentUser, isLoading]);
 

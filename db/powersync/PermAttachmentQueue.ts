@@ -92,17 +92,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           `Active downloads: ${activeDownloads.length}, Inactive: ${inactiveDownloads.length}`
         );
 
-        // Process inactive downloads - delete their attachments
-        for (const download of inactiveDownloads) {
-          const attachments = await this.getAllAssetAttachments(
-            download.asset_id
-          );
-          for (const attachmentId of attachments) {
-            // Delete each attachment from the queue
-            await this.deleteFromQueue(attachmentId);
-          }
-        }
-
         // Get all attachments for active assets
         const activeAttachments: string[] = [];
         for (const download of activeDownloads) {

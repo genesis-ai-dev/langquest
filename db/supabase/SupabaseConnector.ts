@@ -72,7 +72,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     console.log('Supabase client created: ', this.client);
 
     // Initialize composite key tables
-    // this.initCompositeKeyTables();
+    this.initCompositeKeyTables();
   }
 
   private initCompositeKeyTables() {

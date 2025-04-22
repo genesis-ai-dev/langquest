@@ -81,6 +81,13 @@ export class DownloadService {
         )
         .map((update) => update.values.asset_id!);
 
+      // Get all assets we're trying to undownload in this update
+      const newUndownloads = this.plannedUpdates
+        .filter(
+          (update) => update.table === asset_download && !update.values.active
+        )
+        .map((update) => update.values.asset_id!);
+
       // Calculate total attachments for current downloads
       const currentAssetIds = currentDownloads.map(
         (download) => download.asset_id
@@ -91,7 +98,14 @@ export class DownloadService {
       // Calculate total attachments for new downloads
       const totalNewAttachments = await calculateTotalAttachments(newDownloads);
 
-      const totalAttachments = totalCurrentAttachments + totalNewAttachments;
+      // Calculate total attachments for new undownloads
+      const totalNewUndownloads =
+        await calculateTotalAttachments(newUndownloads);
+
+      // Calculate the net change in attachments
+      const netChange = totalNewAttachments - totalNewUndownloads;
+      const totalAttachments = totalCurrentAttachments + netChange;
+
       console.log(
         `Total attachments that would be downloaded: ${totalAttachments}`
       );
@@ -99,14 +113,21 @@ export class DownloadService {
         `- Current downloads: ${totalCurrentAttachments} attachments`
       );
       console.log(`- New downloads: ${totalNewAttachments} attachments`);
+      console.log(`- New undownloads: ${totalNewUndownloads} attachments`);
+      console.log(`- Net change: ${netChange} attachments`);
       console.log(
         `- Permanent queue limit: ${ATTACHMENT_QUEUE_LIMITS.PERMANENT} attachments`
       );
 
-      if (totalAttachments > ATTACHMENT_QUEUE_LIMITS.PERMANENT) {
+      // Only show the alert if we're trying to increase the total number of attachments
+      // and that would exceed the limit
+      if (
+        netChange > 0 &&
+        totalAttachments > ATTACHMENT_QUEUE_LIMITS.PERMANENT
+      ) {
         Alert.alert(
           'Download Limit Exceeded',
-          `You are trying to download ${totalAttachments} attachments, but the limit is ${ATTACHMENT_QUEUE_LIMITS.PERMANENT}. Please deselect some downloads and try again.`,
+          `You are trying to download ${totalNewAttachments} attachments for a total of ${totalAttachments}, but the limit is ${ATTACHMENT_QUEUE_LIMITS.PERMANENT}. Please deselect some downloads and try again.`,
           [{ text: 'OK' }]
         );
         this.plannedUpdates = [];
