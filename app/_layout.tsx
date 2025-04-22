@@ -3,6 +3,7 @@ import { Href, Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PostHogProvider } from 'posthog-react-native';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -54,22 +55,40 @@ export default function RootLayout() {
   return (
     <PowerSyncProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <SafeAreaProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false
-              }}
-            >
-              <Stack.Screen
-                name="terms"
-                options={{
-                  presentation: 'modal'
+        <PostHogProvider
+          apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY}
+          debug
+          options={{
+            // host: 'https://us.i.posthog.com',
+            host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
+            // check https://posthog.com/docs/session-replay/installation?tab=React+Native
+            // for more config and to learn about how we capture sessions on mobile
+            // and what to expect
+            enableSessionReplay: true,
+            sessionReplayConfig: {
+              maskAllImages: false,
+              maskAllTextInputs: false
+            },
+            enablePersistSessionIdAcrossRestart: true
+          }}
+        >
+          <AuthProvider>
+            <SafeAreaProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false
                 }}
-              />
-            </Stack>
-          </SafeAreaProvider>
-        </AuthProvider>
+              >
+                <Stack.Screen
+                  name="terms"
+                  options={{
+                    presentation: 'modal'
+                  }}
+                />
+              </Stack>
+            </SafeAreaProvider>
+          </AuthProvider>
+        </PostHogProvider>
       </LanguageProvider>
     </PowerSyncProvider>
   );
