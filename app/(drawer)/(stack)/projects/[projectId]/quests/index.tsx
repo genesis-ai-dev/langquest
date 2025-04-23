@@ -34,6 +34,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { assetService } from '@/database_services/assetService';
 
 interface SortingOption {
   field: string;
@@ -42,32 +44,22 @@ interface SortingOption {
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const { currentUser } = useAuth();
-  const [isDownloaded, setIsDownloaded] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [assetIds, setAssetIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
-      const questTags = await tagService.getTagsByQuestId(quest.id);
+      const [questTags, assets] = await Promise.all([
+        tagService.getTagsByQuestId(quest.id),
+        assetService.getAssetsByQuestId(quest.id)
+      ]);
       setTags(questTags);
-
-      if (currentUser) {
-        console.log('Checking quest download status:', {
-          questId: quest.id,
-          profileId: currentUser.id
-        });
-        const status = await downloadService.getQuestDownloadStatus(
-          currentUser.id,
-          quest.id
-        );
-        console.log('Quest download status result:', {
-          questId: quest.id,
-          status
-        });
-        setIsDownloaded(status);
-      }
+      setAssetIds(assets.map((asset) => asset.id));
     };
     loadData();
-  }, [quest.id, currentUser]);
+  }, [quest.id]);
+
+  const { isDownloaded, isLoading } = useAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -77,7 +69,6 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
         quest.id,
         !isDownloaded
       );
-      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling quest download:', error);
     }
@@ -87,6 +78,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
     <View style={sharedStyles.card}>
       <DownloadIndicator
         isDownloaded={isDownloaded}
+        isLoading={isLoading}
         onPress={handleDownloadToggle}
       />
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>

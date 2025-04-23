@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { assetService } from '@/database_services/assetService';
 
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
@@ -26,13 +28,13 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
-  const [isDownloaded, setIsDownloaded] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
   const [targetLanguage, setTargetLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
+  const [assetIds, setAssetIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,25 +45,14 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       setSourceLanguage(source);
       setTargetLanguage(target);
 
-      if (currentUser) {
-        console.log('Checking project download status:', {
-          projectId: project.id,
-          profileId: currentUser.id
-        });
-
-        const status = await downloadService.getProjectDownloadStatus(
-          currentUser.id,
-          project.id
-        );
-        console.log('Project download status result:', {
-          projectId: project.id,
-          status
-        });
-        setIsDownloaded(status);
-      }
+      // Get all assets for this project
+      const assets = await assetService.getAssetsByProjectId(project.id);
+      setAssetIds(assets.map((asset) => asset.id));
     };
     loadData();
-  }, [project.source_language_id, project.target_language_id, currentUser]);
+  }, [project.source_language_id, project.target_language_id, project.id]);
+
+  const { isDownloaded, isLoading } = useAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -71,7 +62,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         project.id,
         !isDownloaded
       );
-      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling project download:', error);
     }
@@ -82,6 +72,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       <View>
         <DownloadIndicator
           isDownloaded={isDownloaded}
+          isLoading={isLoading}
           onPress={handleDownloadToggle}
         />
         <Text style={sharedStyles.cardTitle}>{project.name}</Text>

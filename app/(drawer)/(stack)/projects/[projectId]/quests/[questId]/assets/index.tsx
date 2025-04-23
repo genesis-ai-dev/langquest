@@ -43,7 +43,7 @@ interface SortingOption {
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
-  const isDownloaded = useAssetDownloadStatus(asset.id);
+  const { isDownloaded, isLoading } = useAssetDownloadStatus([asset.id]);
 
   const { data: tags } = useQuery({
     queryKey: ['asset-tags', asset.id],
@@ -67,6 +67,7 @@ function AssetCard({ asset }: { asset: Asset }) {
     <View style={sharedStyles.card}>
       <DownloadIndicator
         isDownloaded={isDownloaded}
+        isLoading={isLoading}
         onPress={handleDownloadToggle}
       />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>

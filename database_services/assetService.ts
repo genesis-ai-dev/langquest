@@ -2,7 +2,8 @@ import { eq } from 'drizzle-orm';
 import {
   asset,
   asset_content_link,
-  quest_asset_link
+  quest_asset_link,
+  quest
 } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -39,6 +40,34 @@ export class AssetService {
     );
 
     return Promise.all(assetPromises);
+  }
+
+  async getAssetsByProjectId(project_id: string) {
+    // First get all quests for this project
+    const quests = await db
+      .select({
+        id: quest.id
+      })
+      .from(quest)
+      .where(eq(quest.project_id, project_id));
+
+    // Then get all assets for each quest
+    const assetPromises = quests.map((quest) =>
+      this.getAssetsByQuestId(quest.id)
+    );
+
+    // Wait for all asset queries to complete
+    const assetsByQuest = await Promise.all(assetPromises);
+
+    // Flatten the array of arrays and remove duplicates
+    const uniqueAssets = new Map<string, Asset>();
+    assetsByQuest.flat().forEach((asset) => {
+      if (asset) {
+        uniqueAssets.set(asset.id, asset);
+      }
+    });
+
+    return Array.from(uniqueAssets.values());
   }
 }
 

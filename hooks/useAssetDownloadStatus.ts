@@ -5,10 +5,10 @@ import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmen
 import { useQuery } from '@powersync/tanstack-react-query';
 import { system } from '@/db/powersync/system';
 
-export function useAssetDownloadStatus(assetId: string) {
+export function useAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useQuery({
-    queryKey: ['asset-attachments', assetId],
-    queryFn: () => getAssetAttachmentIds(assetId)
+    queryKey: ['asset-attachments', assetIds],
+    queryFn: () => getAssetAttachmentIds(assetIds)
   });
 
   const { data: attachments = [] } = useQuery({
@@ -17,33 +17,40 @@ export function useAssetDownloadStatus(assetId: string) {
     enabled: attachmentIds.length > 0
   });
 
-  // If we have no attachments, consider it downloaded
+  // If we have no attachments for any asset, consider it not downloaded
   if (attachmentIds.length === 0) {
     console.log(
-      'Consider as downloaded, no attachments found for asset',
-      assetId
+      'Consider as not downloaded, no attachments found for assets',
+      assetIds
     );
-    return true;
+    return { isDownloaded: false, isLoading: false };
   }
 
   // Check if all attachments are either SYNCED or QUEUED_UPLOAD
   console.log(
-    'Attachment Ids found for asset with getAssetAttachmentIds',
-    assetId,
+    'Attachment Ids found for assets with getAssetAttachmentIds',
+    assetIds,
     attachmentIds
   );
   console.log('Attachments found with query', attachments);
 
-  // If we have attachment IDs but no attachments found in the query,
-  // they are not downloaded
-  if (attachments.length === 0) {
-    console.log('No attachments found in database for asset', assetId);
-    return false;
+  // If we have fewer attachments than attachmentIds, some attachments are missing
+  if (attachments.length < attachmentIds.length) {
+    console.log('Some attachments not found in database for assets', assetIds);
+    return { isDownloaded: false, isLoading: false };
   }
 
-  return (attachments as ExtendedAttachmentRecord[]).every(
+  const isDownloaded = (attachments as ExtendedAttachmentRecord[]).every(
     (attachment) =>
       attachment.state === AttachmentState.SYNCED ||
       attachment.state === AttachmentState.QUEUED_UPLOAD
   );
+
+  const isLoading = (attachments as ExtendedAttachmentRecord[]).some(
+    (attachment) =>
+      attachment.state === AttachmentState.QUEUED_DOWNLOAD ||
+      attachment.state === AttachmentState.QUEUED_SYNC
+  );
+
+  return { isDownloaded, isLoading };
 }

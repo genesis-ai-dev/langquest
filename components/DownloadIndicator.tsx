@@ -1,19 +1,21 @@
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNetworkConnectivity } from '@/hooks/useNetworkConnectivity';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 import { storage } from '@/utils/storage';
 
 interface DownloadIndicatorProps {
   isDownloaded: boolean;
+  isLoading: boolean;
   onPress: () => void;
   size?: number;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   isDownloaded,
+  isLoading,
   onPress,
   size = 24
 }) => {
@@ -50,19 +52,23 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         onPress={handlePress}
         style={[styles.container, isDisabled && styles.disabled]}
         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-        disabled={isDisabled}
+        disabled={isDisabled || isLoading}
       >
-        <Ionicons
-          name={isDownloaded ? 'cloud-done' : 'cloud-download-outline'}
-          size={size}
-          color={
-            isDownloaded
-              ? colors.primary
-              : isDisabled
-                ? colors.disabled
-                : colors.text
-          }
-        />
+        {isLoading ? (
+          <ActivityIndicator size={size} color={colors.primary} />
+        ) : (
+          <Ionicons
+            name={isDownloaded ? 'cloud-done' : 'cloud-download-outline'}
+            size={size}
+            color={
+              isDownloaded
+                ? colors.primary
+                : isDisabled
+                  ? colors.disabled
+                  : colors.text
+            }
+          />
+        )}
       </TouchableOpacity>
       <OfflineUndownloadWarning
         visible={showWarning}

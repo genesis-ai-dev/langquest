@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "generate-icon-types": "ts-node ./scripts/generate-icon-types.ts",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",

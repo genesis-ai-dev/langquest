@@ -1,5 +1,5 @@
 import { system } from '../db/powersync/system';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, inArray } from 'drizzle-orm';
 import {
   asset_download,
   asset,
@@ -141,7 +141,7 @@ export async function calculateTotalAttachments(
 }
 
 export async function getAssetAttachmentIds(
-  assetId: string
+  assetIds: string[]
 ): Promise<string[]> {
   const startTime = performance.now();
   try {
@@ -150,24 +150,28 @@ export async function getAssetAttachmentIds(
     // Execute all queries in parallel using Promise.allSettled
     const [assetResult, contentResult, translationResult] =
       await Promise.allSettled([
-        // 1. Get the asset itself for images
-        system.db.query.asset.findFirst({
-          where: (a) => eq(a.id, assetId)
+        // 1. Get the assets for images
+        system.db.query.asset.findMany({
+          where: (a) => inArray(a.id, assetIds)
         }),
         // 2. Get asset_content_link entries for audio
         system.db.query.asset_content_link.findMany({
           where: (acl) =>
-            and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
+            and(inArray(acl.asset_id, assetIds), isNotNull(acl.audio_id))
         }),
-        // 3. Get translations for the asset and their audio
+        // 3. Get translations for the assets and their audio
         system.db.query.translation.findMany({
-          where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
+          where: (t) => and(inArray(t.asset_id, assetIds), isNotNull(t.audio))
         })
       ]);
 
     // Process asset images if successful
-    if (assetResult.status === 'fulfilled' && assetResult.value?.images) {
-      attachmentIds.push(...assetResult.value.images);
+    if (assetResult.status === 'fulfilled') {
+      assetResult.value.forEach((asset) => {
+        if (asset?.images) {
+          attachmentIds.push(...asset.images);
+        }
+      });
     }
 
     // Process content audio IDs if successful
@@ -186,12 +190,15 @@ export async function getAssetAttachmentIds(
       attachmentIds.push(...translationAudioIds);
     }
 
+    // Return unique attachment IDs
+    const uniqueAttachmentIds = [...new Set(attachmentIds)];
+
     console.log(`Total execution time: ${performance.now() - startTime}ms`);
     console.log(
-      `Found ${attachmentIds.length} attachments for asset ${assetId}`
+      `Found ${uniqueAttachmentIds.length} unique attachments for ${assetIds.length} assets`
     );
 
-    return attachmentIds;
+    return uniqueAttachmentIds;
   } catch (error) {
     console.error('Error getting asset attachment IDs:', error);
     console.log(`Failed after ${performance.now() - startTime}ms`);
