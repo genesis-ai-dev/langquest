@@ -72,16 +72,18 @@ Deno.serve(async (req) => {
     // Determine which template to use and prepare email data
     let subject: string;
     let html: string;
+    let text: string;
 
     switch (email_action_type) {
       case 'email_change':
-      case 'signup':
-        html = await renderAsync(
-          React.createElement(ConfirmEmail, {
-            confirmation_url,
-            ui_language
-          }) as React.ReactElement
-        );
+      case 'signup': {
+        const emailComponent = React.createElement(ConfirmEmail, {
+          confirmation_url,
+          ui_language
+        }) as React.ReactElement;
+
+        html = await renderAsync(emailComponent);
+        text = await renderAsync(emailComponent, { plainText: true });
         subject =
           ui_language === 'es'
             ? 'Confirma tu cuenta de LangQuest'
@@ -89,13 +91,15 @@ Deno.serve(async (req) => {
               ? 'Confirmez votre compte LangQuest'
               : 'Confirm Your LangQuest Account';
         break;
-      case 'recovery':
-        html = await renderAsync(
-          React.createElement(ResetPassword, {
-            confirmation_url,
-            ui_language
-          }) as React.ReactElement
-        );
+      }
+      case 'recovery': {
+        const resetPasswordComponent = React.createElement(ResetPassword, {
+          confirmation_url,
+          ui_language
+        }) as React.ReactElement;
+
+        html = await renderAsync(resetPasswordComponent);
+        text = await renderAsync(resetPasswordComponent, { plainText: true });
         subject =
           ui_language === 'es'
             ? 'Restablece tu contraseña de LangQuest'
@@ -103,6 +107,7 @@ Deno.serve(async (req) => {
               ? 'Réinitialisez votre mot de passe LangQuest'
               : 'Reset Your LangQuest Password';
         break;
+      }
       default:
         throw new Error('Unsupported email action type');
     }
@@ -113,7 +118,8 @@ Deno.serve(async (req) => {
       from: 'LangQuest <account-security@langquest.org>',
       to: [sendEmail],
       subject,
-      html
+      html,
+      text
     });
 
     if (error) throw error;
