@@ -1,5 +1,5 @@
 import '@azure/core-asynciterator-polyfill';
-// import 'react-native-url-polyfill/auto';
+import 'react-native-url-polyfill/auto';
 import {
   DrizzleAppSchema,
   PowerSyncSQLiteDatabase,
@@ -76,6 +76,10 @@ export class System {
             return { retry: false };
           }
 
+          return { retry: true };
+        },
+        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+          console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
       });

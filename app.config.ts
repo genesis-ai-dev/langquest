@@ -64,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-build-properties',
       {
         ios: {
-          deploymentTarget: '15.1'
+          deploymentTarget: '13.4'
         },
         android: {
           compileSdkVersion: 34,
@@ -73,7 +73,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           buildToolsVersion: '24.0.0'
         }
       }
-    ]
+    ],
+    // migrate existing localization to expo-localization
+    'expo-localization'
   ],
   experiments: {
     typedRoutes: true

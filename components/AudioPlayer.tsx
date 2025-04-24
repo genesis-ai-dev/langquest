@@ -71,7 +71,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const loadAndPlaySound = async (uri: string) => {
-    console.log('Loading and playing sound:', uri);
+    console.log('loadAndPlaySound', uri);
     try {
       let loadedSound: Audio.Sound | null = null;
 

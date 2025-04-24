@@ -20,7 +20,7 @@ export const PasswordInput = ({
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} accessibilityLabel="ph-no-capture">
       <TextInput
         value={value}
         onChangeText={onChangeText}

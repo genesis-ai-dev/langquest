@@ -22,9 +22,8 @@ function generateEnvFile() {
   // Read the example file
   const envExample = fs.readFileSync(examplePath, 'utf8');
 
-  // Replace the IP placeholders with actual IP
+  // Replace the IP placeholders with actual IP and add Supabase auth hook URL
   const envContent = envExample.replaceAll('LOCAL_IP', localIP);
-
   // Write the new .env.local file
   fs.writeFileSync(targetPath, envContent);
   console.log(`Generated .env.local with IP: ${localIP}`);
