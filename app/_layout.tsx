@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { Href, Stack, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { Fragment, useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PostHogProvider } from 'posthog-react-native';
@@ -10,7 +10,6 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
 import { useSystem } from '../db/powersync/system';
-// import '../global.css';
 import { Drawer } from '@/components/Drawer';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
@@ -21,6 +20,9 @@ LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 export default function RootLayout() {
   const system = useSystem();
   const router = useRouter();
+
+  console.log('Posthog key:', process.env.EXPO_PUBLIC_POSTHOG_KEY);
+  console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
 
   useEffect(() => {
     system.init();
@@ -71,39 +73,25 @@ export default function RootLayout() {
   return (
     <PowerSyncProvider>
       <LanguageProvider>
-        <PostHogProvider
-          apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY}
-          debug
-          options={{
-            // host: 'https://us.i.posthog.com',
-            host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
-            // check https://posthog.com/docs/session-replay/installation?tab=React+Native
-            // for more config and to learn about how we capture sessions on mobile
-            // and what to expect
-            enableSessionReplay: true,
-            sessionReplayConfig: {
-              maskAllImages: false,
-              maskAllTextInputs: false
-            },
-            enablePersistSessionIdAcrossRestart: true
-          }}
-        >
-          <AuthProvider>
-            <SafeAreaProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false
-                }}
-              >
-                <Stack.Screen
-                  name="terms"
-                  options={{
-                    presentation: 'modal'
+        <PostHogProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <SafeAreaProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false
                   }}
-                />
-              </Stack>
-            </SafeAreaProvider>
-          </AuthProvider>
+                >
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      presentation: 'modal'
+                    }}
+                  />
+                </Stack>
+              </SafeAreaProvider>
+            </AuthProvider>
+          </QueryProvider>
         </PostHogProvider>
       </LanguageProvider>
     </PowerSyncProvider>
