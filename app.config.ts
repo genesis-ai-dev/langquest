@@ -73,7 +73,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           buildToolsVersion: '24.0.0'
         }
       }
-    ]
+    ],
+    // migrate existing localization to expo-localization
+    'expo-localization'
   ],
   experiments: {
     typedRoutes: true
