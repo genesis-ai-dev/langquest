@@ -43,7 +43,23 @@ interface SortingOption {
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
-  const { isDownloaded, isLoading } = useAssetDownloadStatus([asset.id]);
+  const { isDownloaded: assetsDownloaded, isLoading } = useAssetDownloadStatus([
+    asset.id
+  ]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+
+  useEffect(() => {
+    const loadDownloadStatus = async () => {
+      if (currentUser) {
+        const downloadStatus = await downloadService.getAssetDownloadStatus(
+          currentUser.id,
+          asset.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
+    };
+    loadDownloadStatus();
+  }, [asset.id, currentUser]);
 
   const { data: tags } = useQuery({
     queryKey: ['asset-tags', asset.id],
@@ -58,6 +74,7 @@ function AssetCard({ asset }: { asset: Asset }) {
         asset.id,
         !isDownloaded
       );
+      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling asset download:', error);
     }
@@ -66,8 +83,8 @@ function AssetCard({ asset }: { asset: Asset }) {
   return (
     <View style={sharedStyles.card}>
       <DownloadIndicator
-        isDownloaded={isDownloaded}
-        isLoading={isLoading}
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoading && isDownloaded}
         onPress={handleDownloadToggle}
       />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>

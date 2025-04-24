@@ -46,6 +46,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const { currentUser } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -55,11 +56,21 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       ]);
       setTags(questTags);
       setAssetIds(assets.map((asset) => asset.id));
+
+      // Get quest download status
+      if (currentUser) {
+        const downloadStatus = await downloadService.getQuestDownloadStatus(
+          currentUser.id,
+          quest.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
     };
     loadData();
-  }, [quest.id]);
+  }, [quest.id, currentUser]);
 
-  const { isDownloaded, isLoading } = useAssetDownloadStatus(assetIds);
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -69,6 +80,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
         quest.id,
         !isDownloaded
       );
+      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling quest download:', error);
     }
@@ -77,8 +89,8 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   return (
     <View style={sharedStyles.card}>
       <DownloadIndicator
-        isDownloaded={isDownloaded}
-        isLoading={isLoading}
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoading && isDownloaded}
         onPress={handleDownloadToggle}
       />
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>

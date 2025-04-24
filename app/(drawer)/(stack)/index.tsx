@@ -35,6 +35,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     typeof language.$inferSelect | null
   >(null);
   const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -48,11 +49,26 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       // Get all assets for this project
       const assets = await assetService.getAssetsByProjectId(project.id);
       setAssetIds(assets.map((asset) => asset.id));
+
+      // Get project download status
+      if (currentUser) {
+        const downloadStatus = await downloadService.getProjectDownloadStatus(
+          currentUser.id,
+          project.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
     };
     loadData();
-  }, [project.source_language_id, project.target_language_id, project.id]);
+  }, [
+    project.source_language_id,
+    project.target_language_id,
+    project.id,
+    currentUser
+  ]);
 
-  const { isDownloaded, isLoading } = useAssetDownloadStatus(assetIds);
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -62,6 +78,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         project.id,
         !isDownloaded
       );
+      setIsDownloaded(!isDownloaded);
     } catch (error) {
       console.error('Error toggling project download:', error);
     }
@@ -71,8 +88,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     <View style={sharedStyles.card}>
       <View>
         <DownloadIndicator
-          isDownloaded={isDownloaded}
-          isLoading={isLoading}
+          isDownloaded={isDownloaded && assetsDownloaded}
+          isLoading={isLoading && isDownloaded}
           onPress={handleDownloadToggle}
         />
         <Text style={sharedStyles.cardTitle}>{project.name}</Text>

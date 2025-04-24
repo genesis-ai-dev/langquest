@@ -34,7 +34,7 @@ export function useAssetDownloadStatus(assetIds: string[]) {
   );
   console.log('Attachments found with query', attachments);
 
-  // If we have fewer attachments than attachmentIds, some attachments are missing
+  // If we have fewer attachments than attachmentIds, some attachments are missing from attachments table
   if (attachments.length < attachmentIds.length) {
     console.log('Some attachments not found in database for assets', assetIds);
     return { isDownloaded: false, isLoading: false };
