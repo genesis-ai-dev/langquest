@@ -42,7 +42,7 @@ export const colors = {
   accent: adjustColor(getColorHex(themeColor), 30),
   error: '#FF0000',
   success: '#16BFC6', // Green color for success state
-  alert: '#CA59E5' // yellow color for alert state
+  alert: '#CA59E5' // purple color for alert state
 };
 
 export const fontSizes = {

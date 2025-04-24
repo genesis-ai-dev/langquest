@@ -40,7 +40,7 @@ import { Vote, voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { GemIcon } from '@/components/GemIcon';
-
+import PickaxeIcon from '@/components/PickaxeIcon';
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -163,7 +163,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
         {/* Pending translations gem */}
         {progress.pendingTranslationsCount > 0 && (
           <View style={styles.gemContainer}>
-            <GemIcon color={colors.alert} width={16} height={16} />
+            <PickaxeIcon color={colors.alert} width={18} height={18} />
             <Text style={styles.gemCount}>
               {progress.pendingTranslationsCount}
             </Text>

@@ -39,6 +39,7 @@ import {
 } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
 import { useAuth } from '@/contexts/AuthContext';
+import PickaxeIcon from '@/components/PickaxeIcon';
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
 const TARGET_FILTER_KEY = 'project_target_filter';
@@ -189,7 +190,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         {/* Pending translations gem */}
         {progress.pendingTranslationsCount > 0 && (
           <View style={styles.gemContainer}>
-            <GemIcon color={colors.alert} width={16} height={16} />
+            <PickaxeIcon color={colors.alert} width={16} height={16} />
             <Text style={styles.gemCount}>
               {progress.pendingTranslationsCount}
             </Text>

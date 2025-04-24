@@ -37,6 +37,7 @@ import { Vote, voteService } from '@/database_services/voteService';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
 
 interface SortingOption {
   field: string;
@@ -110,13 +111,26 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
           <View key={color} style={styles.gemContainer}>
             {count < 4 ? (
               // If count is less than 4, display that many gems
-              Array.from({ length: count }).map((_, index) => (
-                <GemIcon key={index} color={color} width={26} height={20} />
-              ))
+              Array.from({ length: count }).map((_, index) =>
+                color === colors.alert ? (
+                  <PickaxeIcon
+                    key={index}
+                    color={color}
+                    width={26}
+                    height={20}
+                  />
+                ) : (
+                  <GemIcon key={index} color={color} width={26} height={20} />
+                )
+              )
             ) : (
               // If count is 4 or more, display one gem with the count
               <>
-                <GemIcon color={color} width={26} height={20} />
+                {color === colors.alert ? (
+                  <PickaxeIcon color={color} width={26} height={20} />
+                ) : (
+                  <GemIcon color={color} width={26} height={20} />
+                )}
                 <Text style={{ ...styles.gemCount, marginRight: 8 }}>
                   {count}
                 </Text>
