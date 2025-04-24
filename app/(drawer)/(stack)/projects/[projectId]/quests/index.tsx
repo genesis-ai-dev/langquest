@@ -35,12 +35,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { assetService } from '@/database_services/assetService';
 
+import { Asset, assetService } from '@/database_services/assetService';
+import {
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import { calculateQuestProgress } from '@/utils/progressUtils';
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
+const progressBarHeight = 25;
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const { currentUser } = useAuth();
@@ -85,6 +94,60 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       console.error('Error toggling quest download:', error);
     }
   };
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [translations, setTranslations] = useState<
+    Record<string, Translation[]>
+  >({});
+  const [votes, setVotes] = useState<Record<string, Vote[]>>({});
+
+  useEffect(() => {
+    const loadQuestData = async () => {
+      try {
+        // Load tags
+        const questTags = await tagService.getTagsByQuestId(quest.id);
+        setTags(questTags);
+
+        // Load assets
+        const questAssets = await assetService.getAssetsByQuestId(quest.id);
+        setAssets(questAssets);
+
+        // Load translations and votes for each asset
+        const translationsMap: Record<string, Translation[]> = {};
+        const votesMap: Record<string, Vote[]> = {};
+
+        await Promise.all(
+          questAssets.map(async (asset) => {
+            const assetTranslations =
+              await translationService.getTranslationsByAssetId(asset.id);
+            translationsMap[asset.id] = assetTranslations;
+
+            // Load votes for each translation
+            await Promise.all(
+              assetTranslations.map(async (translation) => {
+                const translationVotes =
+                  await voteService.getVotesByTranslationId(translation.id);
+                votesMap[translation.id] = translationVotes;
+              })
+            );
+          })
+        );
+
+        setTranslations(translationsMap);
+        setVotes(votesMap);
+      } catch (error) {
+        console.error('Error loading quest data:', error);
+      }
+    };
+
+    loadQuestData();
+  }, [quest.id]);
+
+  const progress = calculateQuestProgress(
+    assets,
+    translations,
+    votes,
+    currentUser?.id || null
+  );
 
   return (
     <View style={sharedStyles.card}>
@@ -97,6 +160,66 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
+
+      {/* Progress bars */}
+      <View style={styles.progressContainer}>
+        {/* Approved translations progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              styles.approvedBar,
+              {
+                width: `${progress.approvedPercentage}%`,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                borderRadius: progressBarHeight / 2,
+                zIndex: 2
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.textSecondary}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+          {/* User's pending translations progress bar */}
+          <View
+            style={[
+              styles.progressBar,
+              styles.userPendingBar,
+              {
+                width: `${progress.userContributedPercentage}%`,
+                borderRadius: progressBarHeight / 2,
+                marginLeft: -20,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                zIndex: 1
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.background}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+        </View>
+
+        {/* Pending translations gem */}
+        {progress.pendingTranslationsCount > 0 && (
+          <View style={styles.gemContainer}>
+            <PickaxeIcon color={colors.alert} width={18} height={18} />
+            <Text style={styles.gemCount}>
+              {progress.pendingTranslationsCount}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
           {tags.slice(0, 3).map((tag, index) => (
@@ -467,5 +590,37 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+    gap: spacing.small
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: progressBarHeight,
+    backgroundColor: colors.inputBackground,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    borderRadius: progressBarHeight / 2
+  },
+  progressBar: {
+    height: '100%'
+  },
+  approvedBar: {
+    backgroundColor: colors.success
+  },
+  userPendingBar: {
+    backgroundColor: colors.textSecondary
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  gemCount: {
+    color: colors.text,
+    fontSize: fontSizes.small
   }
 });

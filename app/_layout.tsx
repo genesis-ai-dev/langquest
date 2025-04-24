@@ -3,10 +3,10 @@ import { Href, Stack, useRouter } from 'expo-router';
 import React, { Fragment, useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { PostHogProvider } from 'posthog-react-native';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import PostHogProvider from '@/contexts/PostHogProvider';
 import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
 import { useSystem } from '../db/powersync/system';

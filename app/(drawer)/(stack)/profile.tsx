@@ -16,13 +16,19 @@ import {
   TouchableOpacity,
   View,
   Modal,
-  Linking
+  Linking,
+  Switch
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Link } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePostHog } from 'posthog-react-native';
+
+// Analytics storage key
+export const ANALYTICS_OPT_OUT_KEY = 'analytics_opt_out';
 
 type Language = typeof language.$inferSelect;
 
@@ -33,6 +39,7 @@ type ProfileFormData = {
   selectedLanguageId: string;
   // selectedAvatar: string;
   termsAccepted: boolean;
+  analyticsOptOut: boolean;
 };
 
 export default function Profile() {
@@ -40,6 +47,34 @@ export default function Profile() {
   const { t } = useTranslation();
   const isOnline = useNetworkStatus();
   const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
+  const posthog = usePostHog();
+
+  // Load analytics preference from AsyncStorage
+  useEffect(() => {
+    const loadAnalyticsPreference = async () => {
+      try {
+        const value = await AsyncStorage.getItem(ANALYTICS_OPT_OUT_KEY);
+        setAnalyticsOptOut(value === 'true');
+      } catch (error) {
+        console.error('Error loading analytics preference:', error);
+      }
+    };
+
+    loadAnalyticsPreference();
+  }, []);
+
+  // Handle analytics opt-out toggle
+  const handleAnalyticsToggle = async (value: boolean) => {
+    try {
+      setAnalyticsOptOut(value);
+      await AsyncStorage.setItem(ANALYTICS_OPT_OUT_KEY, value.toString());
+      posthog[`opt${value ? 'Out' : 'In'}`]();
+    } catch (error) {
+      console.error('Error saving analytics preference:', error);
+      Alert.alert('Error', 'Failed to save analytics preference');
+    }
+  };
 
   const {
     control,
@@ -70,7 +105,7 @@ export default function Profile() {
         termsAccepted: !!currentUser.terms_accepted
       });
     }
-  }, [currentUser, reset]);
+  }, [currentUser, reset, analyticsOptOut]);
 
   const onSubmit = async (data: ProfileFormData) => {
     if (!currentUser) return;
@@ -87,6 +122,8 @@ export default function Profile() {
           return;
         }
       }
+
+      // Update analytics preference
 
       // Update user profile
       const updatedUser = await profileService.updateProfile({
@@ -144,6 +181,23 @@ export default function Profile() {
                 </Text>
               )}
             </View>
+
+            {/* Analytics Opt-Out */}
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Opt out of analytics</Text>
+              <Switch
+                value={analyticsOptOut}
+                onValueChange={handleAnalyticsToggle}
+                thumbColor={colors.primary}
+                trackColor={{
+                  true: colors.textSecondary,
+                  false: colors.textSecondary
+                }}
+              />
+            </View>
+            <Text style={styles.settingDescription}>
+              When enabled, we will not collect usage data to improve the app.
+            </Text>
 
             {/* Password Change - Only when online */}
             {isOnline ? (
@@ -372,5 +426,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     marginTop: 20
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    padding: spacing.medium,
+    borderRadius: 8
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: colors.text
+  },
+  settingDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: spacing.small
   }
 });

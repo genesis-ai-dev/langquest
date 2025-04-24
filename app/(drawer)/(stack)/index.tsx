@@ -5,12 +5,26 @@ import { languageService } from '@/database_services/languageService';
 import { projectService } from '@/database_services/projectService';
 import { language, project } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
-import { colors, sharedStyles } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  colors,
+  sharedStyles,
+  spacing,
+  borderRadius,
+  fontSizes
+} from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  View,
+  StyleSheet
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { downloadService } from '@/database_services/downloadService';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
@@ -18,11 +32,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { assetService } from '@/database_services/assetService';
 
+import { questService } from '@/database_services/questService';
+import {
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import {
+  calculateQuestProgress,
+  calculateProjectProgress
+} from '@/utils/progressUtils';
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
 const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
+
+const progressBarHeight = 25;
 
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
@@ -36,6 +64,12 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   >(null);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
+  const [progress, setProgress] = useState({
+    approvedPercentage: 0,
+    userContributedPercentage: 0,
+    pendingTranslationsCount: 0,
+    totalAssets: 0
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -84,6 +118,56 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     }
   };
 
+  useEffect(() => {
+    const loadProgress = async () => {
+      try {
+        // Load all quests for this project
+        const quests = await questService.getQuestsByProjectId(project.id);
+
+        // For each quest, load its assets and calculate progress
+        const questProgresses = await Promise.all(
+          quests.map(async (quest) => {
+            const assets = await assetService.getAssetsByQuestId(quest.id);
+            const translations: Record<string, Translation[]> = {};
+            const votes: Record<string, Vote[]> = {};
+
+            // Load translations and votes for each asset
+            await Promise.all(
+              assets.map(async (asset) => {
+                const assetTranslations =
+                  await translationService.getTranslationsByAssetId(asset.id);
+                translations[asset.id] = assetTranslations;
+
+                // Load votes for each translation
+                await Promise.all(
+                  assetTranslations.map(async (translation) => {
+                    votes[translation.id] =
+                      await voteService.getVotesByTranslationId(translation.id);
+                  })
+                );
+              })
+            );
+
+            return calculateQuestProgress(
+              assets,
+              translations,
+              votes,
+              currentUser?.id || null
+            );
+          })
+        );
+
+        // Calculate aggregated project progress
+        const projectProgress = calculateProjectProgress(questProgresses);
+        setProgress(projectProgress);
+      } catch (error) {
+        console.error('Error loading project progress:', error);
+      }
+    };
+
+    loadProgress();
+  }, [project.id, currentUser?.id]);
+
   return (
     <View style={sharedStyles.card}>
       <View>
@@ -98,6 +182,66 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
           {targetLanguage?.native_name || targetLanguage?.english_name}
         </Text>
       </View>
+
+      {/* Progress bars */}
+      <View style={styles.progressContainer}>
+        {/* Approved translations progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              styles.approvedBar,
+              {
+                width: `${progress.approvedPercentage}%`,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                borderRadius: progressBarHeight / 2,
+                zIndex: 2
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.textSecondary}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+          {/* User's pending translations progress bar */}
+          <View
+            style={[
+              styles.progressBar,
+              styles.userPendingBar,
+              {
+                width: `${progress.userContributedPercentage}%`,
+                borderRadius: progressBarHeight / 2,
+                marginLeft: -20,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                zIndex: 1
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.background}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+        </View>
+
+        {/* Pending translations gem */}
+        {progress.pendingTranslationsCount > 0 && (
+          <View style={styles.gemContainer}>
+            <PickaxeIcon color={colors.alert} width={16} height={16} />
+            <Text style={styles.gemCount}>
+              {progress.pendingTranslationsCount}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>
       )}
@@ -350,3 +494,38 @@ export default function Projects() {
     </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+    gap: spacing.small
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: progressBarHeight,
+    backgroundColor: colors.inputBackground,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    borderRadius: progressBarHeight / 2
+  },
+  progressBar: {
+    height: '100%'
+  },
+  approvedBar: {
+    backgroundColor: colors.success
+  },
+  userPendingBar: {
+    backgroundColor: colors.textSecondary
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  gemCount: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  }
+});

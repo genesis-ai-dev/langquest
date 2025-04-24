@@ -1,4 +1,4 @@
-// import { ANALYTICS_OPT_OUT_KEY } from '@/app/(drawer)/(stack)/profile';
+import { ANALYTICS_OPT_OUT_KEY } from '@/app/(drawer)/(stack)/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
 import { Suspense, useState, useEffect } from 'react';
@@ -28,10 +28,10 @@ function PostHog({ children }: { children: React.ReactNode }) {
 
   return (
     <PostHogProviderBase
-      apiKey={process.env.EXPO_PUBLIC_POSTHOGKEY ?? 'phc'}
+      apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_'}
       debug
       options={{
-        host: ${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest,
+        host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
         enableSessionReplay: true,
         sessionReplayConfig: {
           maskAllImages: false,
@@ -40,8 +40,8 @@ function PostHog({ children }: { children: React.ReactNode }) {
         enablePersistSessionIdAcrossRestart: true,
         defaultOptIn: optedIn === 'false',
         disabled:
-          process.env.EXPO_PUBLIC_APP_VARIANT === 'development' 
-          process.env.EXPO_PUBLIC_POSTHOG_HOST === undefined 
+          process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
+          process.env.EXPO_PUBLIC_POSTHOG_HOST === undefined ||
           process.env.EXPO_PUBLIC_POSTHOG_KEY === undefined
       }}
     >

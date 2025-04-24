@@ -128,9 +128,7 @@ export const quest_tag_link = sqliteTable(
     quest_id: text().notNull(),
     tag_id: text().notNull()
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.quest_id, t.tag_id] })
-  })
+  (t) => [primaryKey({ columns: [t.quest_id, t.tag_id] })]
 );
 
 export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
@@ -172,9 +170,7 @@ export const asset_tag_link = sqliteTable(
     asset_id: text().notNull(),
     tag_id: text().notNull()
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.asset_id, t.tag_id] })
-  })
+  (t) => [primaryKey({ columns: [t.asset_id, t.tag_id] })]
 );
 
 export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
@@ -196,9 +192,7 @@ export const quest_asset_link = sqliteTable(
     quest_id: text().notNull(),
     asset_id: text().notNull()
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.quest_id, t.asset_id] })
-  })
+  (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
 );
 
 export const quest_asset_linkRelations = relations(
@@ -300,9 +294,7 @@ export const project_download = sqliteTable(
       .notNull()
       .references(() => project.id)
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.profile_id, t.project_id] })
-  })
+  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
 );
 
 export const project_downloadRelations = relations(
@@ -331,9 +323,7 @@ export const quest_download = sqliteTable(
       .notNull()
       .references(() => quest.id)
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.profile_id, t.quest_id] })
-  })
+  (t) => [primaryKey({ columns: [t.profile_id, t.quest_id] })]
 );
 
 export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
@@ -359,9 +349,7 @@ export const asset_download = sqliteTable(
       .notNull()
       .references(() => asset.id)
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.profile_id, t.asset_id] })
-  })
+  (t) => [primaryKey({ columns: [t.profile_id, t.asset_id] })]
 );
 
 export const asset_downloadRelations = relations(asset_download, ({ one }) => ({

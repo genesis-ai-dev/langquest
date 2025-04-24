@@ -1,3 +1,4 @@
+import React, { type FC, useCallback, useEffect, useState } from 'react';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -15,7 +16,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import { type FC, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -35,18 +35,34 @@ import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useQuery } from '@tanstack/react-query';
 import { Quest, questService } from '@/database_services/questService';
 import { PageHeader } from '@/components/PageHeader';
+import { translationService } from '@/database_services/translationService';
+import { Translation } from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+
+import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
+interface AggregatedGems {
+  [color: string]: number;
+}
+
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
-  const { isDownloaded: assetsDownloaded, isLoading } = useAssetDownloadStatus([
-    asset.id
-  ]);
+  const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
+    useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
+  // const [tags, setTags] = useState<Tag[]>([]);
+  const [translations, setTranslations] = useState<Translation[]>([]);
+  const [translationVotes, setTranslationVotes] = useState<
+    Record<string, Vote[]>
+  >({});
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadDownloadStatus = async () => {
@@ -60,6 +76,34 @@ function AssetCard({ asset }: { asset: Asset }) {
     };
     loadDownloadStatus();
   }, [asset.id, currentUser]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [assetTags, assetTranslations] = await Promise.all([
+          tagService.getTagsByAssetId(asset.id),
+          translationService.getTranslationsByAssetId(asset.id)
+        ]);
+        // setTags(assetTags);
+        setTranslations(assetTranslations);
+
+        // Load votes for each translation
+        const votesMap: Record<string, Vote[]> = {};
+        await Promise.all(
+          assetTranslations.map(async (translation) => {
+            votesMap[translation.id] =
+              await voteService.getVotesByTranslationId(translation.id);
+          })
+        );
+        setTranslationVotes(votesMap);
+      } catch (error) {
+        console.error('Error loading asset data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [asset.id]);
 
   const { data: tags } = useQuery({
     queryKey: ['asset-tags', asset.id],
@@ -80,30 +124,65 @@ function AssetCard({ asset }: { asset: Asset }) {
     }
   };
 
+  // Aggregate translations by gem color
+  const aggregatedGems = translations.reduce<AggregatedGems>(
+    (acc, translation) => {
+      const gemColor = getGemColor(
+        translation,
+        translationVotes[translation.id] || [],
+        currentUser?.id || null
+      );
+
+      if (gemColor !== null) {
+        acc[gemColor] = (acc[gemColor] || 0) + 1;
+      }
+
+      return acc;
+    },
+    {}
+  );
+
   return (
     <View style={sharedStyles.card}>
       <DownloadIndicator
         isDownloaded={isDownloaded && assetsDownloaded}
-        isLoading={isLoading && isDownloaded}
+        isLoading={isLoadingDownloadStatus && isDownloaded}
         onPress={handleDownloadToggle}
       />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
-      {/* {asset.description && (
-        <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
-      )} */}
-      {tags && tags.length > 0 && (
-        <View style={sharedStyles.cardInfo}>
-          {tags.slice(0, 3).map((tag, index) => (
-            <Text key={tag.id} style={sharedStyles.cardInfoText}>
-              {tag.name.split(':')[1]}
-              {index < Math.min(tags.length - 1, 2) && ' • '}
-            </Text>
-          ))}
-          {tags.length > 3 && (
-            <Text style={sharedStyles.cardInfoText}> ...</Text>
-          )}
-        </View>
-      )}
+      <View style={styles.translationCount}>
+        {Object.entries(aggregatedGems).map(([color, count]) => (
+          <View key={color} style={styles.gemContainer}>
+            {count < 4 ? (
+              // If count is less than 4, display that many gems
+              Array.from({ length: count }).map((_, index) =>
+                color === colors.alert ? (
+                  <PickaxeIcon
+                    key={index}
+                    color={color}
+                    width={26}
+                    height={20}
+                  />
+                ) : (
+                  <GemIcon key={index} color={color} width={26} height={20} />
+                )
+              )
+            ) : (
+              // If count is 4 or more, display one gem with the count
+              <>
+                {color === colors.alert ? (
+                  <PickaxeIcon color={color} width={26} height={20} />
+                ) : (
+                  <GemIcon color={color} width={26} height={20} />
+                )}
+                <Text style={{ ...styles.gemCount, marginRight: 8 }}>
+                  {count}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -656,5 +735,21 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
+  },
+  translationCount: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    marginTop: spacing.small,
+    gap: spacing.xsmall
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall,
+    justifyContent: 'center'
+  },
+  gemCount: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   }
 });
