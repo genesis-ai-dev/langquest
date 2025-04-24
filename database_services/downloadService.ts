@@ -14,6 +14,7 @@ import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAtt
 import { calculateTotalAttachments } from '../utils/attachmentUtils';
 import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
 import { Alert } from 'react-native';
+import { TranslationUtils } from '@/utils/translationUtils';
 
 const { db } = system;
 
@@ -126,8 +127,15 @@ export class DownloadService {
         totalAttachments > ATTACHMENT_QUEUE_LIMITS.PERMANENT
       ) {
         Alert.alert(
-          'Download Limit Exceeded',
-          `You are trying to download ${totalNewAttachments} attachments for a total of ${totalAttachments}, but the limit is ${ATTACHMENT_QUEUE_LIMITS.PERMANENT}. Please deselect some downloads and try again.`,
+          TranslationUtils.t('downloadLimitExceeded'),
+          TranslationUtils.formatMessage(
+            TranslationUtils.t('downloadLimitMessage'),
+            {
+              newDownloads: totalNewAttachments.toString(),
+              totalDownloads: totalAttachments.toString(),
+              limit: ATTACHMENT_QUEUE_LIMITS.PERMANENT.toString()
+            }
+          ),
           [{ text: 'OK' }]
         );
         this.plannedUpdates = [];

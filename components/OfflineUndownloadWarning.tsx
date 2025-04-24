@@ -9,6 +9,7 @@ import {
   Modal
 } from 'react-native';
 import { storage } from '@/utils/storage';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface OfflineUndownloadWarningProps {
   visible: boolean;
@@ -20,6 +21,7 @@ export const OfflineUndownloadWarning: React.FC<
   OfflineUndownloadWarningProps
 > = ({ visible, onConfirm, onCancel }) => {
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const { t } = useTranslation();
 
   const handleConfirm = async () => {
     if (dontShowAgain) {
@@ -37,16 +39,10 @@ export const OfflineUndownloadWarning: React.FC<
     >
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          <Text style={styles.title}>Offline Undownload Warning</Text>
-          <Text style={styles.message}>
-            You are currently offline. If you remove this download, you won't be
-            able to redownload it until you're back online. Your unsynced
-            contributions will not be affected.
-          </Text>
+          <Text style={styles.title}>{t('offlineUndownloadWarning')}</Text>
+          <Text style={styles.message}>{t('offlineUndownloadMessage')}</Text>
           <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>
-              Don't show this message again
-            </Text>
+            <Text style={styles.switchLabel}>{t('dontShowAgain')}</Text>
             <Switch
               value={dontShowAgain}
               onValueChange={setDontShowAgain}
@@ -58,13 +54,13 @@ export const OfflineUndownloadWarning: React.FC<
               style={[styles.button, styles.cancelButton]}
               onPress={onCancel}
             >
-              <Text style={styles.buttonText}>Cancel</Text>
+              <Text style={styles.buttonText}>{t('cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.confirmButton]}
               onPress={handleConfirm}
             >
-              <Text style={styles.buttonText}>Confirm</Text>
+              <Text style={styles.buttonText}>{t('confirm')}</Text>
             </TouchableOpacity>
           </View>
         </View>

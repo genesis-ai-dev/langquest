@@ -13,6 +13,7 @@ import { useSystem } from '../db/powersync/system';
 import { Drawer } from '@/components/Drawer';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
+import { TranslationUtils } from '@/utils/translationUtils';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -44,6 +45,10 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
+  }, []);
+
+  useEffect(() => {
+    TranslationUtils.initialize();
   }, []);
 
   const handleAuthDeepLink = async (url: string) => {
