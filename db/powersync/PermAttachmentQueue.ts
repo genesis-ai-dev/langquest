@@ -10,7 +10,7 @@ import * as FileSystem from 'expo-file-system';
 import { AppConfig } from '../supabase/AppConfig';
 import * as drizzleSchema from '../drizzleSchema';
 import { isNotNull, eq, and } from 'drizzle-orm';
-import { system } from '../powersync/system';
+// import { system } from '../powersync/system';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -50,41 +50,41 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   // Helper method to get the current user's ID
-  async getCurrentUserId(): Promise<string | null> {
-    try {
-      const {
-        data: { session }
-      } = await system.supabaseConnector.client.auth.getSession();
-      return session?.user?.id || null;
-    } catch (error) {
-      console.error('[DOWNLOAD WATCH] Error getting current user ID:', error);
-      return null;
-    }
-  }
+  // async getCurrentUserId(): Promise<string | null> {
+  //   try {
+  //     const {
+  //       data: { session }
+  //     } = await system.supabaseConnector.client.auth.getSession();
+  //     return session?.user?.id || null;
+  //   } catch (error) {
+  //     console.error('[DOWNLOAD WATCH] Error getting current user ID:', error);
+  //     return null;
+  //   }
+  // }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
     // Watch for changes in ALL download records
     this.db.watch(this.db.query.asset_download.findMany(), {
       onResult: async (downloads) => {
         console.log('Download records changed:', downloads.length);
-        const currentUserId = await this.getCurrentUserId();
-        if (!currentUserId) {
-          // User is logged out - don't delete anything, just stop syncing
-          onUpdate([]);
-          return;
-        }
+        // const currentUserId = await this.getCurrentUserId();
+        // if (!currentUserId) {
+        //   // User is logged out - don't delete anything, just stop syncing
+        //   onUpdate([]);
+        //   return;
+        // }
 
         // Filter to current user's downloads
-        const userDownloads = downloads.filter(
-          (download) => download.profile_id === currentUserId
-        );
-        console.log(`User downloads: ${userDownloads.length}`);
+        // const userDownloads = downloads.filter(
+        //   (download) => download.profile_id === currentUserId
+        // );
+        // console.log(`User downloads: ${userDownloads.length}`);
 
         // Split into active and inactive downloads
-        const activeDownloads = userDownloads.filter(
+        const activeDownloads = downloads.filter(
           (download) => download.active === true
         );
-        const inactiveDownloads = userDownloads.filter(
+        const inactiveDownloads = downloads.filter(
           (download) => download.active === false
         );
 
@@ -122,19 +122,19 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           console.log(`Asset content links updated: ${assets.length}`);
 
           // Get current user ID
-          const currentUserId = await this.getCurrentUserId();
-          if (!currentUserId) {
-            onUpdate([]);
-            return;
-          }
+          // const currentUserId = await this.getCurrentUserId();
+          // if (!currentUserId) {
+          //   onUpdate([]);
+          //   return;
+          // }
 
           // Get active downloads for current user
           const activeDownloads = await this.db.query.asset_download.findMany({
             where: (download) =>
-              and(
-                eq(download.profile_id, currentUserId),
-                eq(download.active, true)
-              )
+              // and(
+              //   eq(download.profile_id, currentUserId),
+              eq(download.active, true)
+            // )
           });
 
           const activeAssetIds = activeDownloads.map(

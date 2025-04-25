@@ -9,7 +9,7 @@ import { randomUUID } from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
 import * as drizzleSchema from '../drizzleSchema';
 import { isNotNull, eq, and } from 'drizzle-orm';
-import { system } from '../powersync/system';
+// import { system } from '../powersync/system';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
@@ -48,17 +48,17 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   // Helper method to get the current user's ID
-  async getCurrentUserId(): Promise<string | null> {
-    try {
-      const {
-        data: { session }
-      } = await system.supabaseConnector.client.auth.getSession();
-      return session?.user?.id || null;
-    } catch (error) {
-      console.error('[TEMP QUEUE] Error getting current user ID:', error);
-      return null;
-    }
-  }
+  // async getCurrentUserId(): Promise<string | null> {
+  //   try {
+  //     const {
+  //       data: { session }
+  //     } = await system.supabaseConnector.client.auth.getSession();
+  //     return session?.user?.id || null;
+  //   } catch (error) {
+  //     console.error('[TEMP QUEUE] Error getting current user ID:', error);
+  //     return null;
+  //   }
+  // }
 
   // Modified to store the callback and initialize empty list
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {

@@ -22,7 +22,10 @@ git checkout dev
 npm i
 ```
 
-4. Obtain the .env file from another developer, and place in the project root. Make sure the file name includes the dot (`.env`) when copying or dragging the file into your project directory, as some systems may hide or remove the dot.
+4. **To obtain the .env file**, request an invite from an existing admin developer to the existing eten-genesis expo organization (secrets required the the APK build to be built in EAS are in the organization)
+  ![EAS Login](readme_images/eas_login.jpg)
+
+Obtain the .env file by logging into EAS and running the `eas env:pull --environment environment` command, and change the newly created `.env.local` file to `.env`.
 
 5. If you're using a physical android device, enable USB debugging before connecting to your machine:
 
@@ -53,9 +56,6 @@ npm i
 - Builds in Expo's cloud infrastructure (no local SDK needed)
 - Takes longer to build but can be shared with team members
 - Requires EAS account and configuration
-
-- **Before logging into eas**, request an invite from an existing admin developer to the existing eten-genesis expo organization (secrets required the the APK build to be built in EAS are in the organization)
-  ![EAS Login](readme_images/eas_login.jpg)
 
 - To see the console log output from the APK, run
 
