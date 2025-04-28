@@ -198,24 +198,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
   }
 
-  async newAttachmentRecord(
-    record?: Partial<AttachmentRecord>
-  ): Promise<AttachmentRecord> {
-    const photoId = record?.id ?? randomUUID();
-    return {
-      state: AttachmentState.QUEUED_UPLOAD,
-      id: photoId,
-      filename: photoId,
-      ...record
-    };
-  }
-
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
-    photoAttachment.local_uri = this.getLocalFilePathSuffix(
-      photoAttachment.filename
-    );
-    const localUri = this.getLocalUri(photoAttachment.local_uri);
+    const localUri = this.getLocalUri(photoAttachment.local_uri!);
     await this.storage.writeFile(localUri, base64Data, {
       encoding: FileSystem.EncodingType.Base64
     });
@@ -229,13 +214,14 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async saveAudio(tempUri: string): Promise<AttachmentRecord> {
-    const audioAttachment = await this.newAttachmentRecord({
-      media_type: 'audio/mpeg'
-    });
-    audioAttachment.local_uri = this.getLocalFilePathSuffix(
-      audioAttachment.filename
+    const extension = tempUri.split('.').pop();
+    const audioAttachment = await this.newAttachmentRecord(
+      {
+        media_type: 'audio/mpeg'
+      },
+      extension
     );
-    const localUri = this.getLocalUri(audioAttachment.local_uri);
+    const localUri = this.getLocalUri(audioAttachment.local_uri!);
     await FileSystem.moveAsync({
       from: tempUri,
       to: localUri

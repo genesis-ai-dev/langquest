@@ -13,7 +13,6 @@ import {
 import { Profile, profileService } from '@/database_services/profileService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link, language } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import {
@@ -44,6 +43,7 @@ import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel from '@/components/Carousel';
 import { PageHeader } from '@/components/PageHeader';
+import { useSystem } from '@/contexts/SystemContext';
 
 // Debug flag
 const DEBUG = false;
@@ -74,6 +74,7 @@ type TabType = 'text' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
+  const system = useSystem();
   const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();

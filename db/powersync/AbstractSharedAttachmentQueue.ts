@@ -8,6 +8,7 @@ import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import * as drizzleSchema from '../drizzleSchema';
 import { eq, and, isNotNull } from 'drizzle-orm';
 import { Alert } from 'react-native';
+import { randomUUID } from 'expo-crypto';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -38,6 +39,24 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     // Make sure initialSync is always false before calling parent init
     this.initialSync = false;
     await super.init();
+  }
+
+  async newAttachmentRecord(
+    record?: Partial<AttachmentRecord>,
+    extension?: string
+  ): Promise<AttachmentRecord> {
+    const photoId = record?.id ?? randomUUID();
+    const filename =
+      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
+    const filenameWithoutPath = filename.split('/').pop() ?? filename;
+    const localUri = this.getLocalFilePathSuffix(filename);
+    return {
+      state: AttachmentState.QUEUED_UPLOAD,
+      id: filename,
+      filename: filename,
+      local_uri: localUri,
+      ...record
+    };
   }
 
   async watchAttachmentIds() {

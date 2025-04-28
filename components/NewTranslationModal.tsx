@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { translationService } from '@/database_services/translationService';
-import { system } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +37,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
+  const system = useSystem();
   const [translationText, setTranslationText] = useState('');
   const [audioUri, setAudioUri] = useState<string | null>(null);
 
@@ -65,14 +66,14 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
       // let permanentAudioUri: string | undefined;
       const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
-
+      console.log('new translation', attachment);
       // Create the translation with or without audio
       await translationService.createTranslation({
         text: translationText.trim(),
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
-        audio: attachment.id
+        audio: attachment.filename
       });
 
       setTranslationText('');

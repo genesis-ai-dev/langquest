@@ -3,7 +3,6 @@ import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 import { AttachmentState } from '@powersync/attachments';
 import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { useQuery } from '@powersync/tanstack-react-query';
-import { system } from '@/db/powersync/system';
 
 export function useAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useQuery({

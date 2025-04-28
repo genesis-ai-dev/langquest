@@ -7,26 +7,21 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
-import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
-import { useSystem } from '../db/powersync/system';
 import { Drawer } from '@/components/Drawer';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
 import { TranslationUtils } from '@/utils/translationUtils';
+import { SystemProvider } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
 export default function RootLayout() {
-  const system = useSystem();
   const router = useRouter();
 
   console.log('Posthog key:', process.env.EXPO_PUBLIC_POSTHOG_KEY);
   console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
-
-  useEffect(() => {
-    system.init();
-  }, []);
 
   useEffect(() => {
     const unsubscribe = initializeNetwork();
@@ -71,11 +66,11 @@ export default function RootLayout() {
   };
 
   return (
-    <PowerSyncProvider>
+    <SystemProvider>
       <LanguageProvider>
         <PostHogProvider>
-          <QueryProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <QueryProvider>
               <SafeAreaProvider>
                 <Stack
                   screenOptions={{
@@ -90,10 +85,10 @@ export default function RootLayout() {
                   />
                 </Stack>
               </SafeAreaProvider>
-            </AuthProvider>
-          </QueryProvider>
+            </QueryProvider>
+          </AuthProvider>
         </PostHogProvider>
       </LanguageProvider>
-    </PowerSyncProvider>
+    </SystemProvider>
   );
 }

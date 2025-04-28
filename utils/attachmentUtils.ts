@@ -36,16 +36,9 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
   }
 
   try {
-    // Check if user has actively downloaded this asset
-    const currentUserId = await system.permAttachmentQueue?.getCurrentUserId();
-    if (!currentUserId) {
-      return;
-    }
-
     // First check if the asset is already in permanent downloads
     const activeDownload = await system.db.query.asset_download.findFirst({
       where: and(
-        eq(asset_download.profile_id, currentUserId),
         eq(asset_download.asset_id, assetId),
         eq(asset_download.active, true)
       )

@@ -5,7 +5,7 @@ import {
 } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { vote } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [votes, setVotes] = useState<Vote[]>([]);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const system = useSystem();
 
   useEffect(() => {
     const loadAudioUri = async () => {

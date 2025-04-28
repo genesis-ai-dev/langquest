@@ -1,4 +1,4 @@
-import { useSystem } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { useLanguage } from '@/contexts/LanguageContext';

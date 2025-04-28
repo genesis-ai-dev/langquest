@@ -125,10 +125,10 @@ export class System {
       this.connecting = true;
 
       // First initialize the database if not already done
-      await this.powersync.init();
+      if (!this.initialized) await this.powersync.init();
 
-      // If we're already connected, disconnect first
-      // This is to ensure that we can access user-specific sync bucket records with current user credentials
+      // // If we're already connected, disconnect first
+      // // This is to ensure that we can access user-specific sync bucket records with current user credentials
       if (this.powersync.connected) {
         console.log(
           'Disconnecting existing PowerSync connection before reconnecting'
@@ -184,5 +184,3 @@ export class System {
 }
 
 export const system = new System();
-export const SystemContext = React.createContext(system);
-export const useSystem = () => React.useContext(SystemContext);

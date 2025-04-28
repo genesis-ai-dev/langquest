@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
@@ -28,9 +27,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Href } from 'expo-router';
+import { useSystem } from '@/contexts/SystemContext';
 
 // const { profile, language } = schema;
-const { supabaseConnector } = system;
 
 // const userRepository = new UserRepository();
 type Language = typeof language.$inferSelect;
@@ -44,6 +43,7 @@ type LoginFormData = {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignIn() {
+  const { supabaseConnector } = useSystem();
   const { currentLanguage, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const router = useRouter();

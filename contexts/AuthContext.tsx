@@ -1,5 +1,6 @@
 import { Profile, profileService } from '@/database_services/profileService';
-import { system, useSystem } from '@/db/powersync/system';
+import { system } from '@/db/powersync/system';
+import { useSystem } from './SystemContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';

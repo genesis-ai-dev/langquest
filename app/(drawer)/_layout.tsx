@@ -1,13 +1,13 @@
 import { Drawer } from '@/components/Drawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
-import { useSystem } from '@/db/powersync/system';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Slot } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSystem } from '@/contexts/SystemContext';
 
 export default function AuthLayout() {
   const { isLoading, currentUser } = useAuth();
@@ -17,9 +17,9 @@ export default function AuthLayout() {
     if (currentUser) {
       const initSystem = async () => {
         await system.init();
-        console.log('System initialized');
         system.tempAttachmentQueue?.init();
         system.permAttachmentQueue?.init();
+        console.log('System initialized');
       };
       initSystem();
     }
