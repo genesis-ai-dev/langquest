@@ -1,4 +1,4 @@
-import { reasonOptions } from '@/components/ReportTranslationModal';
+import { reasonOptions } from '@/db/constants';
 import { translation_reports } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 

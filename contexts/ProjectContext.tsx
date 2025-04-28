@@ -6,17 +6,15 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface ProjectContextType {
   activeProject: Project | null;
-  recentProjects: (Project & { path: Href<string> })[];
+  recentProjects: (Project & { path: Href })[];
   activeQuest: Quest | null;
-  recentQuests: (Quest & { path: Href<string> })[];
+  recentQuests: (Quest & { path: Href })[];
   activeAsset: Asset | null;
-  recentAssets: (Asset & { path: Href<string> })[];
+  recentAssets: (Asset & { path: Href })[];
   goToProject: (project: Project, navigate?: boolean) => void;
   goToQuest: (quest: Quest, navigate?: boolean) => void;
   goToAsset: (
-    href:
-      | { asset: Asset; projectId: string; questId: string }
-      | { path: Href<string> },
+    href: { asset: Asset; projectId: string; questId: string } | { path: Href },
     navigate?: boolean
   ) => void;
 }
@@ -26,14 +24,14 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [recentProjects, setRecentProjects] = useState<
-    (Project & { path: Href<string> })[]
+    (Project & { path: Href })[]
   >([]);
-  const [recentQuests, setRecentQuests] = useState<
-    (Quest & { path: Href<string> })[]
-  >([]);
-  const [recentAssets, setRecentAssets] = useState<
-    (Asset & { path: Href<string> })[]
-  >([]);
+  const [recentQuests, setRecentQuests] = useState<(Quest & { path: Href })[]>(
+    []
+  );
+  const [recentAssets, setRecentAssets] = useState<(Asset & { path: Href })[]>(
+    []
+  );
 
   const { projectId, questId, assetId } = useGlobalSearchParams<{
     projectId: string;
@@ -70,7 +68,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [assetId]);
 
   function goToProject(project: Project, navigate?: boolean) {
-    const path: Href<string> = {
+    const path: Href = {
       pathname: '/projects/[projectId]/quests',
       params: { projectId: project.id, projectName: project.name }
     };
@@ -89,7 +87,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }
 
   function goToQuest(quest: Quest, navigate?: boolean) {
-    const path: Href<string> = {
+    const path: Href = {
       pathname: '/projects/[projectId]/quests/[questId]/assets',
       params: {
         projectId: quest.project_id,
@@ -111,12 +109,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }
 
   function goToAsset(
-    href:
-      | { asset: Asset; projectId: string; questId: string }
-      | { path: Href<string> },
+    href: { asset: Asset; projectId: string; questId: string } | { path: Href },
     navigate?: boolean
   ) {
-    const path: Href<string> =
+    const path: Href =
       'path' in href
         ? href.path
         : {

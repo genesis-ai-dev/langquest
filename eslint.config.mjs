@@ -3,6 +3,7 @@ import hooksPlugin from 'eslint-plugin-react-hooks';
 import eslint from '@eslint/js';
 import importPlugin from 'eslint-plugin-import';
 import tseslint from 'typescript-eslint';
+import expoConfig from 'eslint-config-expo';
 
 // From https://github.com/t3-oss/create-t3-turbo/tree/main/tooling/eslint (react + base)
 export default tseslint.config(
@@ -19,7 +20,7 @@ export default tseslint.config(
       ...tseslint.configs.recommended,
       ...tseslint.configs.recommendedTypeChecked,
       ...tseslint.configs.stylisticTypeChecked,
-      'expo'
+      expoConfig
     ],
     rules: {
       '@typescript-eslint/no-unused-vars': [

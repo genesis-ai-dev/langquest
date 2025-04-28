@@ -56,7 +56,7 @@ export default function Terms() {
         });
       }
       // Close the modal
-      router.navigate('/(root)');
+      router.navigate('/');
 
       // Resume syncing
       if (!powersync.connected) {

@@ -45,7 +45,7 @@ export default function RootLayout() {
           access_token: params.access_token,
           refresh_token: params.refresh_token
         });
-        router.replace(path as Href<string>);
+        router.replace(path as Href);
       };
       handleRedirect();
     }

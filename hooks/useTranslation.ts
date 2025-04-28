@@ -38,11 +38,12 @@ export function useTranslation(languageOverride?: string | null) {
     'english';
 
   const t = (key: TranslationKey): string => {
-    if (!translations[key]) {
+    if (!(key in translations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    return translations[key][userLanguage] || translations[key]['english'];
+    const translation = translations[key as keyof typeof translations];
+    return translation[userLanguage] || translation['english'];
   };
 
   return { t };
