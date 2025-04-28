@@ -54,7 +54,7 @@ export class VoteService {
             translation_id: data.translation_id,
             creator_id: data.creator_id,
             polarity: data.polarity,
-            comment: data.comment || ''
+            comment: data.comment ?? ''
           })
           .returning();
 

@@ -1,5 +1,5 @@
-import { language } from '@/db/drizzleSchema';
 import { languageService } from '@/database_services/languageService';
+import type { language } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
@@ -18,7 +18,6 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const loadLanguage = async () => {
       try {
@@ -36,7 +35,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    loadLanguage();
+    void loadLanguage();
   }, []);
 
   const setLanguage = async (lang: Language) => {

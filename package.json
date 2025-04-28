@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "generate-icon-types": "ts-node ./scripts/generate-icon-types.ts",
     "generate-env": "npx tsx ./scripts/generate-env.ts",
     "reset-project": "node ./scripts/reset-project.js",
@@ -36,10 +36,11 @@
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@expo/vector-icons": "^14.0.2",
     "@journeyapps/react-native-quick-sqlite": "^2.4.0",
-    "@powersync/attachments": "^2.2.1",
-    "@powersync/drizzle-driver": "^0.3.2",
-    "@powersync/react-native": "^1.18.1",
-    "@powersync/web": "^1.15.1",
+    "@powersync/attachments": "^2.3.1",
+    "@powersync/drizzle-driver": "^0.4.0",
+    "@powersync/react-native": "^1.19.3",
+    "@powersync/tanstack-react-query": "^0.0.21",
+    "@powersync/web": "^1.19.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/netinfo": "11.3.1",
     "@react-native-community/slider": "4.5.2",
@@ -85,7 +86,9 @@
     "react-native-screens": "3.31.1",
     "react-native-svg": "^15.11.2",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-web": "~0.19.10"
+    "react-native-web": "~0.19.10",
+    "tailwindcss": "^3.4.13",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

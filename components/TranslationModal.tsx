@@ -5,13 +5,14 @@ import {
 } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { vote } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -40,6 +41,29 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [audioUri, setAudioUri] = useState<string | null>(null);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  const system = useSystem();
+
+  useEffect(() => {
+    const loadAudioUri = async () => {
+      if (translation.audio) {
+        setLoadingAudio(true);
+        try {
+          const uri = await getLocalUriFromAssetId(translation.audio);
+          setAudioUri(uri);
+        } catch (error) {
+          console.error('Error loading audio URI:', error);
+        } finally {
+          setLoadingAudio(false);
+        }
+      } else {
+        setAudioUri(null);
+      }
+    };
+
+    loadAudioUri();
+  }, [translation.audio]);
 
   useEffect(() => {
     const loadVotes = async () => {
@@ -157,12 +181,17 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         )}
 
         <View style={styles.audioPlayerContainer}>
-          {translation.audio && (
-            <AudioPlayer
-              audioUri={getLocalUriFromAssetId(translation.audio)}
-              useCarousel={false}
-              mini={true}
-            />
+          {loadingAudio ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            translation.audio &&
+            audioUri && (
+              <AudioPlayer
+                audioUri={audioUri}
+                useCarousel={false}
+                mini={true}
+              />
+            )
           )}
         </View>
 

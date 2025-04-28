@@ -1,24 +1,36 @@
 import * as Linking from 'expo-linking';
-import { Href, Stack, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import type { Href } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import React, { Fragment, useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
-import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
-import { useSystem } from '../db/powersync/system';
+import { Drawer } from '@/components/Drawer';
+import { QueryProvider } from '@/providers/QueryProvider';
+import { initializeNetwork } from '@/store/networkStore';
+import { TranslationUtils } from '@/utils/translationUtils';
+import { SystemProvider } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
 export default function RootLayout() {
-  const system = useSystem();
   const router = useRouter();
 
+  console.log('Posthog key:', process.env.EXPO_PUBLIC_POSTHOG_KEY);
+  console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+
   useEffect(() => {
-    system.init();
+    const unsubscribe = initializeNetwork();
+    TranslationUtils.initialize();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -53,27 +65,29 @@ export default function RootLayout() {
   };
 
   return (
-    <PowerSyncProvider>
+    <SystemProvider>
       <LanguageProvider>
         <PostHogProvider>
           <AuthProvider>
-            <SafeAreaProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false
-                }}
-              >
-                <Stack.Screen
-                  name="terms"
-                  options={{
-                    presentation: 'modal'
+            <QueryProvider>
+              <SafeAreaProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false
                   }}
-                />
-              </Stack>
-            </SafeAreaProvider>
+                >
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      presentation: 'modal'
+                    }}
+                  />
+                </Stack>
+              </SafeAreaProvider>
+            </QueryProvider>
           </AuthProvider>
         </PostHogProvider>
       </LanguageProvider>
-    </PowerSyncProvider>
+    </SystemProvider>
   );
 }
