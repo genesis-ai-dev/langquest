@@ -3,7 +3,7 @@ import { PasswordInput } from '@/components/PasswordInput';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
-import { useSystem } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';

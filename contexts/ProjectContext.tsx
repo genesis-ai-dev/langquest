@@ -1,7 +1,11 @@
-import { Asset, assetService } from '@/database_services/assetService';
-import { Project, projectService } from '@/database_services/projectService';
-import { Quest, questService } from '@/database_services/questService';
-import { Href, useGlobalSearchParams, useRouter } from 'expo-router';
+import type { Asset } from '@/database_services/assetService';
+import { assetService } from '@/database_services/assetService';
+import type { Project } from '@/database_services/projectService';
+import { projectService } from '@/database_services/projectService';
+import type { Quest } from '@/database_services/questService';
+import { questService } from '@/database_services/questService';
+import type { Href } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface ProjectContextType {
@@ -48,7 +52,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const project = await projectService.getProjectById(projectId);
       setActiveProject(project);
     };
-    loadProject();
+    void loadProject();
   }, [projectId]);
 
   useEffect(() => {
@@ -56,7 +60,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const quest = await questService.getQuestById(questId);
       setActiveQuest(quest);
     };
-    loadQuest();
+    void loadQuest();
   }, [questId]);
 
   useEffect(() => {
@@ -64,7 +68,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const asset = await assetService.getAssetById(assetId);
       setActiveAsset(asset);
     };
-    loadAsset();
+    void loadAsset();
   }, [assetId]);
 
   function goToProject(project: Project, navigate?: boolean) {

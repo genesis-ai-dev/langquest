@@ -2,17 +2,13 @@
 export type SupportedLanguage = 'english' | 'spanish';
 
 // Define the structure for translations
-export type TranslationKey =
-  | keyof typeof translations
-  | `reportReason.${string}`;
+export type TranslationKey = keyof typeof translations;
 
 // Type to ensure all translations have all supported languages
-type TranslationSet = {
-  [key in SupportedLanguage]: string;
-};
+type TranslationSet = Record<SupportedLanguage, string>;
 
 // All UI translations
-export const translations = {
+export const translations: Record<string, TranslationSet> = {
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
@@ -374,6 +370,14 @@ export const translations = {
     english: 'Terms & Privacy',
     spanish: 'Términos y Privacidad'
   },
+  verificationRequired: {
+    english: 'Verification Required',
+    spanish: 'Verificación Requerida'
+  },
+  termsAndConditionsTitle: {
+    english: 'Terms and Conditions',
+    spanish: 'Términos y Condiciones'
+  },
   agreeToTerms: {
     english: 'I have read and agree to the Terms & Privacy',
     spanish: 'He leído y acepto los Términos y Privacidad'
@@ -496,12 +500,44 @@ export const translations = {
   'reportReason.other': {
     english: 'Other',
     spanish: 'Otro'
+  },
+  downloadLimitExceeded: {
+    english: 'Download Limit Exceeded',
+    spanish: 'Límite de descarga excedido'
+  },
+  downloadLimitMessage: {
+    english:
+      'You are trying to download {newDownloads} attachments for a total of {totalDownloads}, but the limit is {limit}. Please deselect some downloads and try again.',
+    spanish:
+      'Está intentando descargar {newDownloads} archivos adjuntos para un total de {totalDownloads}, pero el límite es {limit}. Por favor, deseleccione algunas descargas e intente nuevamente.'
+  },
+  offlineUndownloadWarning: {
+    english: 'Offline Undownload Warning',
+    spanish: 'Advertencia de eliminación sin conexión'
+  },
+  offlineUndownloadMessage: {
+    english:
+      "You are currently offline. If you remove this download, you won't be able to redownload it until you're back online. Your unsynced contributions will not be affected.",
+    spanish:
+      'Actualmente estás sin conexión. Si eliminas esta descarga, no podrás volver a descargarla hasta que vuelvas a estar en línea. Tus contribuciones no sincronizadas no se verán afectadas.'
+  },
+  dontShowAgain: {
+    english: "Don't show this message again",
+    spanish: 'No mostrar este mensaje nuevamente'
+  },
+  cancel: {
+    english: 'Cancel',
+    spanish: 'Cancelar'
+  },
+  confirm: {
+    english: 'Confirm',
+    spanish: 'Confirmar'
   }
   // Add more translation keys as needed...
 } as const;
 
 // Type check to ensure all translation keys have all supported languages
-type ValidateTranslations<T> = {
-  [K in keyof T]: T[K] extends TranslationSet ? true : never;
-};
-type ValidationResult = ValidateTranslations<typeof translations>;
+// type ValidateTranslations<T> = {
+//   [K in keyof T]: T[K] extends TranslationSet ? true : never;
+// };
+// type ValidationResult = ValidateTranslations<typeof translations>;

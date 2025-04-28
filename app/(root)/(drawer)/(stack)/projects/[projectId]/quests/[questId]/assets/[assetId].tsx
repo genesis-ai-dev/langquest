@@ -13,8 +13,8 @@ import {
 import { Profile, profileService } from '@/database_services/profileService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link, language } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import {
   borderRadius,
   colors,
@@ -22,23 +22,28 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
+import {
+  getLocalUriFromAssetId,
+  ensureAssetLoaded
+} from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Alert,
   Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Carousel from '@/components/Carousel';
 import { PageHeader } from '@/components/PageHeader';
+import { useSystem } from '@/contexts/SystemContext';
 
 // Debug flag
 const DEBUG = false;
@@ -69,6 +74,7 @@ type TabType = 'text' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
+  const system = useSystem();
   const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -112,18 +118,37 @@ export default function AssetView() {
     );
   };
 
+  const allAttachmentIds = React.useMemo(() => {
+    if (!asset || !assetContent) return [];
+
+    // Collect all attachment IDs
+    const contentAudioIds = assetContent
+      .filter((content) => content.audio_id)
+      .map((content) => content.audio_id!)
+      .filter(Boolean); // Remove any undefined values
+
+    const imageIds = asset?.images || [];
+
+    const translationAudioIds = translations
+      .filter((translation) => translation.audio)
+      .map((translation) => translation.audio!)
+      .filter(Boolean);
+
+    return [...contentAudioIds, ...imageIds, ...translationAudioIds];
+  }, [asset, assetContent, translations]);
+
+  // Use the hook to watch attachment states
+  const { attachmentUris, loadingAttachments } =
+    useAttachmentStates(allAttachmentIds);
+
   useEffect(() => {
     loadAssetAndTranslations();
+
+    // Load attachments into temp queue
+    if (assetId) {
+      system.tempAttachmentQueue?.loadAssetAttachments(assetId);
+    }
   }, [assetId]);
-
-  // Add a debug effect to monitor state changes
-  useEffect(() => {
-    console.log('Translations updated:', translations);
-  }, [translations]);
-
-  useEffect(() => {
-    console.log('Translation votes updated:', translationVotes);
-  }, [translationVotes]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -136,6 +161,7 @@ export default function AssetView() {
           loadAssetAndTranslations();
         }
       },
+
       { signal: abortController.signal }
     );
 
@@ -176,48 +202,12 @@ export default function AssetView() {
     };
   }, [assetId, translations]);
 
-  // const loadTranslationData = async () => {
-  //   if (asset) {
-  //     setActiveTab(getFirstAvailableTab(asset));
-  //   }
-  // }, [asset]);
-
-  // const loadAssetAndTranslations = async () => {
-  //   try {
-  //     const votesMap: Record<string, Vote[]> = {};
-  //     const creatorsMap: Record<string, User> = { ...translationCreators }; // Preserve existing creators
-  //     const languagesMap: Record<string, typeof language.$inferSelect> = { ...translationLanguages }; // Preserve existing languages
-
-  //     await Promise.all(translations.map(async (translation) => {
-  //       // Always load votes as they change frequently
-  //       votesMap[translation.id] = await voteService.getVotesByTranslationId(translation.id);
-
-  //       // Only load creator and language if not already cached
-  //       if (!creatorsMap[translation.creator_id]) {
-  //         const creator = await userService.getUserById(translation.creator_id);
-  //         if (creator) creatorsMap[translation.creator_id] = creator;
-  //       }
-
-  //       if (!languagesMap[translation.target_language_id]) {
-  //         const targetLang = await languageService.getLanguageById(translation.target_language_id);
-  //         if (targetLang) languagesMap[translation.target_language_id] = targetLang;
-  //       }
-  //     }));
-
-  //     setTranslationVotes(votesMap);
-  //     setTranslationCreators(creatorsMap);
-  //     setTranslationLanguages(languagesMap);
-  //   } catch (error) {
-  //     console.error('Error loading asset and translations:', error);
-  //     Alert.alert('Error', t('failedLoadAsset'));
-  //   }
-  // };
-
   const loadAssetAndTranslations = async () => {
     try {
       if (!assetId) return;
       setIsLoading(true);
 
+      // Load asset to retrieve images from its image_ids field
       const loadedAsset = await assetService.getAssetById(assetId);
       if (!loadedAsset) {
         Alert.alert('Error', 'Asset not found');
@@ -226,7 +216,7 @@ export default function AssetView() {
 
       setAsset(loadedAsset);
 
-      // Load asset content
+      // Load asset content to get asset audio and text
       const content = await assetService.getAssetContent(assetId);
       setAssetContent(content);
       setActiveTab(getFirstAvailableTab(loadedAsset, content));
@@ -241,6 +231,9 @@ export default function AssetView() {
       const loadedTranslations =
         await translationService.getTranslationsByAssetId(assetId);
       setTranslations(loadedTranslations);
+
+      // After loading asset data, load the URIs
+      // await loadAllUris();
     } catch (error) {
       console.error('Error loading asset and translations:', error, assetId);
       Alert.alert('Error', 'Failed to load asset data');
@@ -504,45 +497,89 @@ export default function AssetView() {
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-              {activeTab === 'text' && assetContent.length > 0 && (
-                <View style={styles.carouselWrapper}>
-                  <Carousel
-                    items={assetContent}
-                    renderItem={(content) => (
-                      <View style={styles.sourceTextContainer}>
-                        <View>
-                          <Text style={styles.source_languageLabel}>
-                            {sourceLanguage?.native_name ||
-                              sourceLanguage?.english_name}
-                            :
-                          </Text>
-                          <Text style={styles.sourceText}>{content.text}</Text>
-                        </View>
-                        {content.audio_id && (
-                          <MiniAudioPlayer
-                            audioFile={{
-                              id: content.id,
-                              title: content.text,
-                              uri: getLocalUriFromAssetId(content.audio_id)!
-                            }}
-                          />
-                        )}
-                      </View>
-                    )}
+            {isLoading ? (
+              <ActivityIndicator size="large" />
+            ) : (
+              <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+                {activeTab === 'text' && assetContent.length > 0 && (
+                  <View style={styles.carouselWrapper}>
+                    <Carousel
+                      items={assetContent}
+                      renderItem={(content) => {
+                        return (
+                          <View style={styles.sourceTextContainer}>
+                            <View>
+                              <Text style={styles.source_languageLabel}>
+                                {sourceLanguage?.native_name ||
+                                  sourceLanguage?.english_name}
+                                :
+                              </Text>
+                              <Text style={styles.sourceText}>
+                                {content.text}
+                              </Text>
+                            </View>
+
+                            {content.audio_id &&
+                            attachmentUris[content.audio_id]
+                              ? // Audio player is rendered
+                                (() => {
+                                  return (
+                                    <MiniAudioPlayer
+                                      audioFile={{
+                                        id: content.id,
+                                        title: content.text,
+                                        uri: attachmentUris[content.audio_id]
+                                      }}
+                                    />
+                                  );
+                                })()
+                              : content.audio_id && loadingAttachments
+                                ? // Showing loading indicator
+                                  (() => {
+                                    return (
+                                      <View style={styles.audioLoading}>
+                                        <Text
+                                          style={{
+                                            color: colors.textSecondary
+                                          }}
+                                        >
+                                          Loading audio...
+                                        </Text>
+                                        <ActivityIndicator size="small" />
+                                      </View>
+                                    );
+                                  })()
+                                : // Not showing audio player or loading indicator
+                                  (() => {
+                                    console.log(
+                                      `[AssetView] No audio player/loader for ${content.id}:`,
+                                      {
+                                        audioId: content.audio_id,
+                                        hasUri: content.audio_id
+                                          ? !!attachmentUris[content.audio_id]
+                                          : false,
+                                        loadingAttachments
+                                      }
+                                    );
+                                    return null;
+                                  })()}
+                          </View>
+                        );
+                      }}
+                    />
+                  </View>
+                )}
+                {activeTab === 'image' && (
+                  <ImageCarousel
+                    uris={
+                      asset?.images
+                        ?.map((imageId) => attachmentUris[imageId])
+                        .filter(Boolean) || []
+                    }
                   />
-                </View>
-              )}
-              {activeTab === 'image' && (
-                <ImageCarousel
-                  uris={
-                    asset?.images?.map(
-                      (imageId) => getLocalUriFromAssetId(imageId)!
-                    ) ?? []
-                  }
-                />
-              )}
-            </View>
+                )}
+              </View>
+            )}
 
             <View style={styles.horizontalLine} />
 
@@ -629,6 +666,11 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1
+  },
+  audioLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   title: {
     fontSize: fontSizes.large,

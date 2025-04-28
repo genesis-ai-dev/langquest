@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { tag, quest_tag_link, asset_tag_link } from '../db/drizzleSchema';
+import { asset_tag_link, quest_tag_link, tag } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 export type Tag = typeof tag.$inferSelect;

@@ -8,7 +8,9 @@ const { db } = system;
 
 export class ProjectService {
   async getAllProjects(): Promise<Project[]> {
+    console.log('getAllProjects trying to fetch projects');
     const results = await db.select().from(project);
+    console.log('getAllProjects fetched projects', results);
     return results;
   }
 

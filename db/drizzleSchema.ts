@@ -1,9 +1,6 @@
-import { int, sqliteTable, text, primaryKey } from 'drizzle-orm/sqlite-core';
-import { sql, relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
+import { int, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { reasonOptions } from './constants';
-
-// Create a type from your actual icon files
-type IconName = `${string}.png`; // Matches any .png filename
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
@@ -79,7 +76,7 @@ export const project = sqliteTable('project', {
     .references(() => language.id)
 });
 
-export const projectRelations = relations(project, ({ one }) => ({
+export const projectRelations = relations(project, ({ one, many }) => ({
   source_language: one(language, {
     fields: [project.source_language_id],
     references: [language.id],
@@ -89,7 +86,8 @@ export const projectRelations = relations(project, ({ one }) => ({
     fields: [project.target_language_id],
     references: [language.id],
     relationName: 'targetLanguage'
-  })
+  }),
+  quests: many(quest)
 }));
 
 export const quest = sqliteTable('quest', {
@@ -123,6 +121,7 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     tag_id: text().notNull()
@@ -164,6 +163,7 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
 export const asset_tag_link = sqliteTable(
   'asset_tag_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     asset_id: text().notNull(),
     tag_id: text().notNull()
@@ -185,6 +185,7 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
 export const quest_asset_link = sqliteTable(
   'quest_asset_link',
   {
+    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull()
@@ -309,9 +310,14 @@ export const asset_content_linkRelations = relations(
 export const project_download = sqliteTable(
   'project_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    project_id: text().notNull()
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id)
   },
   (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
 );
@@ -333,9 +339,14 @@ export const project_downloadRelations = relations(
 export const quest_download = sqliteTable(
   'quest_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    quest_id: text().notNull() // Changed from project_id to quest_id
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    quest_id: text()
+      .notNull()
+      .references(() => quest.id)
   },
   (t) => [primaryKey({ columns: [t.profile_id, t.quest_id] })]
 );
@@ -354,9 +365,14 @@ export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
 export const asset_download = sqliteTable(
   'asset_download',
   {
+    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
-    profile_id: text().notNull(),
-    asset_id: text().notNull() // Changed from project_id to asset_id
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id)
   },
   (t) => [primaryKey({ columns: [t.profile_id, t.asset_id] })]
 );

@@ -28,13 +28,17 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useQuery } from '@tanstack/react-query';
 import { Quest, questService } from '@/database_services/questService';
 import { PageHeader } from '@/components/PageHeader';
 import { translationService } from '@/database_services/translationService';
 import { Translation } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
@@ -48,14 +52,30 @@ interface AggregatedGems {
   [color: string]: number;
 }
 
-const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
-  const [tags, setTags] = useState<Tag[]>([]);
+function AssetCard({ asset }: { asset: Asset }) {
+  const { currentUser } = useAuth();
+  const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
+    useAssetDownloadStatus([asset.id]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  // const [tags, setTags] = useState<Tag[]>([]);
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [translationVotes, setTranslationVotes] = useState<
     Record<string, Vote[]>
   >({});
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    const loadDownloadStatus = async () => {
+      if (currentUser) {
+        const downloadStatus = await downloadService.getAssetDownloadStatus(
+          currentUser.id,
+          asset.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
+    };
+    loadDownloadStatus();
+  }, [asset.id, currentUser]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -64,7 +84,7 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
           tagService.getTagsByAssetId(asset.id),
           translationService.getTranslationsByAssetId(asset.id)
         ]);
-        setTags(assetTags);
+        // setTags(assetTags);
         setTranslations(assetTranslations);
 
         // Load votes for each translation
@@ -84,6 +104,25 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
     };
     loadData();
   }, [asset.id]);
+
+  const { data: tags } = useQuery({
+    queryKey: ['asset-tags', asset.id],
+    queryFn: () => tagService.getTagsByAssetId(asset.id)
+  });
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setAssetDownload(
+        currentUser.id,
+        asset.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling asset download:', error);
+    }
+  };
 
   // Aggregate translations by gem color
   const aggregatedGems = translations.reduce<AggregatedGems>(
@@ -105,6 +144,11 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoadingDownloadStatus && isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
       <View style={styles.translationCount}>
         {Object.entries(aggregatedGems).map(([color, count]) => (
@@ -141,7 +185,7 @@ const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
       </View>
     </View>
   );
-};
+}
 
 export default function Assets() {
   const [assets, setAssets] = useState<Asset[]>([]);

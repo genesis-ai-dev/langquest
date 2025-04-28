@@ -1,29 +1,36 @@
 import '@azure/core-asynciterator-polyfill';
-import 'react-native-url-polyfill/auto';
+import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import {
   DrizzleAppSchema,
-  PowerSyncSQLiteDatabase,
-  toPowerSyncTable,
   wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
+import 'react-native-url-polyfill/auto';
 
-import { PowerSyncDatabase, Schema, Table } from '@powersync/react-native';
-import React from 'react';
-import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
+import {
+  Column,
+  ColumnType,
+  PowerSyncDatabase,
+  Schema
+} from '@powersync/react-native';
+import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
-import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
+import type { AttachmentRecord } from '@powersync/attachments';
+import { AttachmentTable } from '@powersync/attachments';
 import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
-import { AttachmentQueue } from './AttachmentQueue';
+import { PermAttachmentQueue } from './PermAttachmentQueue';
+import { TempAttachmentQueue } from './TempAttachmentQueue';
+import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 Logger.useDefaults();
 
 export class System {
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
-  attachmentQueue: AttachmentQueue | undefined = undefined;
+  permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
+  tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
@@ -32,7 +39,11 @@ export class System {
     this.powersync = new PowerSyncDatabase({
       schema: new Schema([
         ...new DrizzleAppSchema(drizzleSchema).tables,
-        new AttachmentTable()
+        new AttachmentTable({
+          additionalColumns: [
+            new Column({ name: 'storage_type', type: ColumnType.TEXT })
+          ]
+        })
       ]),
       database: {
         dbFilename: 'sqlite.db',
@@ -46,24 +57,68 @@ export class System {
     });
 
     if (AppConfig.supabaseBucket) {
-      this.attachmentQueue = new AttachmentQueue({
+      this.permAttachmentQueue = new PermAttachmentQueue({
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
-        // Use this to handle download errors where you can use the attachment
-        // and/or the exception to decide if you want to retry the download
+        attachmentDirectoryName: 'shared_attachments',
+        cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
+        // eslint-disable-next-line
         onDownloadError: async (
           attachment: AttachmentRecord,
-          exception: any
+          exception: { toString: () => string; status?: number }
         ) => {
-          console.log('onDownloadError', attachment, exception);
-          if (exception.toString() === 'StorageApiError: Object not found') {
+          if (
+            exception.toString() === 'StorageApiError: Object not found' ||
+            exception.status === 400 ||
+            exception.toString().includes('status":400')
+          ) {
             return { retry: false };
           }
 
           return { retry: true };
         },
-        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+        // eslint-disable-next-line
+        onUploadError: async (
+          attachment: AttachmentRecord,
+          exception: unknown
+        ) => {
+          console.log('onUploadError', attachment, exception);
+          return { retry: true };
+        }
+      });
+
+      this.tempAttachmentQueue = new TempAttachmentQueue({
+        powersync: this.powersync,
+        storage: this.storage,
+        db: this.db,
+        attachmentDirectoryName: 'shared_attachments',
+        cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
+        // eslint-disable-next-line
+        onDownloadError: async (
+          attachment: AttachmentRecord,
+          exception: { toString: () => string; status?: number }
+        ) => {
+          console.log(
+            'TempAttachmentQueue onDownloadError',
+            attachment,
+            exception
+          );
+          if (
+            exception.toString() === 'StorageApiError: Object not found' ||
+            exception.status === 400 ||
+            exception.toString().includes('status":400')
+          ) {
+            return { retry: false };
+          }
+
+          return { retry: true };
+        },
+        // eslint-disable-next-line
+        onUploadError: async (
+          attachment: AttachmentRecord,
+          exception: unknown
+        ) => {
           console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
@@ -75,19 +130,31 @@ export class System {
   private connecting = false;
 
   async init() {
-    if (this.initialized || this.connecting) {
-      console.log('System already initialized or connecting');
+    if (this.connecting) {
       return;
     }
 
     try {
       this.connecting = true;
-      await this.powersync.init();
+
+      // First initialize the database if not already done
+      if (!this.initialized) await this.powersync.init();
+
+      // // If we're already connected, disconnect first
+      // // This is to ensure that we can access user-specific sync bucket records with current user credentials
+      if (this.powersync.connected) {
+        console.log(
+          'Disconnecting existing PowerSync connection before reconnecting'
+        );
+        await this.powersync.disconnect();
+      }
+
+      // Connect with the current user credentials
+      console.log('Connecting PowerSync with current user credentials');
       await this.powersync.connect(this.supabaseConnector);
 
-      // if (this.attachmentQueue) {
-      //   await this.attachmentQueue.init();
-      // }
+      // Wait for the latest sync to complete
+      await this.waitForLatestSync();
 
       this.initialized = true;
     } catch (error) {
@@ -101,8 +168,32 @@ export class System {
   isInitialized() {
     return this.initialized;
   }
+
+  async waitForLatestSync() {
+    console.log('Waiting for latest PowerSync data sync to complete...');
+
+    // Create a promise that resolves when a new sync completes after this point
+    return new Promise<void>((resolve) => {
+      const initialTimestamp =
+        this.powersync.currentStatus.lastSyncedAt?.getTime() ?? 0;
+      console.log(`Current lastSyncedAt timestamp: ${initialTimestamp}`);
+
+      const unsubscribe = this.powersync.registerListener({
+        statusChanged: (status) => {
+          // Check if we have a new sync completion timestamp
+          const newTimestamp = status.lastSyncedAt?.getTime() ?? 0;
+
+          if (newTimestamp > initialTimestamp) {
+            console.log(
+              `New sync completed at: ${status.lastSyncedAt?.toISOString()}`
+            );
+            unsubscribe(); // Remove the listener
+            resolve();
+          }
+        }
+      });
+    });
+  }
 }
 
 export const system = new System();
-export const SystemContext = React.createContext(system);
-export const useSystem = () => React.useContext(SystemContext);

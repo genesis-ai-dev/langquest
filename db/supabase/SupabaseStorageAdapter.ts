@@ -95,15 +95,15 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       throw new Error('Supabase bucket not configured in AppConfig.ts');
     }
 
-    const { data, error } = await this.options.client.storage
-      .from(AppConfig.supabaseBucket)
-      .remove([filename]);
-    if (error) {
-      console.debug('Failed to delete file from Cloud Storage', error);
-      throw error;
-    }
+    // const { data, error } = await this.options.client.storage
+    //   .from(AppConfig.supabaseBucket)
+    //   .remove([filename]);
+    // if (error) {
+    //   console.debug('Failed to delete file from Cloud Storage', error);
+    //   throw error;
+    // }
 
-    console.debug('Deleted file from storage', data);
+    // console.debug('Deleted file from storage', data);
   }
 
   async fileExists(fileURI: string): Promise<boolean> {

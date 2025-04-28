@@ -1,9 +1,8 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSystem } from '@/contexts/SystemContext';
 import { profileService } from '@/database_services/profileService';
-import { language } from '@/db/drizzleSchema';
-import { useSystem } from '@/db/powersync/system';
 import { useAcceptedTerms } from '@/hooks/useAcceptedTerms';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
@@ -20,8 +19,6 @@ import {
   View
 } from 'react-native';
 
-type Language = typeof language.$inferSelect;
-
 export default function Terms() {
   const router = useRouter();
   const { currentLanguage, setLanguage } = useLanguage();
@@ -34,8 +31,8 @@ export default function Terms() {
 
   useEffect(() => {
     if (!isLoading && currentUser) {
-      if (!currentUser.terms_accepted) powersync.disconnect();
-      else if (!powersync.connected) powersync.connect(supabaseConnector);
+      if (!currentUser.terms_accepted) void powersync.disconnect();
+      else if (!powersync.connected) void powersync.connect(supabaseConnector);
     }
   }, [currentUser, isLoading, powersync, supabaseConnector]);
 
@@ -60,7 +57,7 @@ export default function Terms() {
 
       // Resume syncing
       if (!powersync.connected) {
-        powersync.connect(supabaseConnector);
+        void powersync.connect(supabaseConnector);
       }
 
       // Refresh the current user
@@ -95,7 +92,7 @@ export default function Terms() {
       {/* Language Selector */}
       <View style={styles.languageSelector}>
         <LanguageSelect
-          value={currentLanguage?.id || ''}
+          value={currentLanguage?.id ?? ''}
           onChange={(lang) => setLanguage(lang)}
           containerStyle={{ flex: 1 }}
         />

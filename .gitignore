@@ -9,7 +9,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-llm_supporting_files/
+llm_supp_files/
 android/
 ios/
 .env
@@ -33,3 +33,6 @@ app/sqlite_in_expo.md
 langquest types.xlsx
 .drizzle
 .idea
+*.vsix
+
+llm_supp_files

@@ -31,6 +31,11 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+
 import { Asset, assetService } from '@/database_services/assetService';
 import {
   Translation,
@@ -38,7 +43,6 @@ import {
 } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
-import { useAuth } from '@/contexts/AuthContext';
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
 interface SortingOption {
@@ -48,13 +52,53 @@ interface SortingOption {
 const progressBarHeight = 25;
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+  const { currentUser } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const [questTags, assets] = await Promise.all([
+        tagService.getTagsByQuestId(quest.id),
+        assetService.getAssetsByQuestId(quest.id)
+      ]);
+      setTags(questTags);
+      setAssetIds(assets.map((asset) => asset.id));
+
+      // Get quest download status
+      if (currentUser) {
+        const downloadStatus = await downloadService.getQuestDownloadStatus(
+          currentUser.id,
+          quest.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
+    };
+    loadData();
+  }, [quest.id, currentUser]);
+
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAssetDownloadStatus(assetIds);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setQuestDownload(
+        currentUser.id,
+        quest.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling quest download:', error);
+    }
+  };
   const [assets, setAssets] = useState<Asset[]>([]);
   const [translations, setTranslations] = useState<
     Record<string, Translation[]>
   >({});
   const [votes, setVotes] = useState<Record<string, Vote[]>>({});
-  const { currentUser } = useAuth();
 
   useEffect(() => {
     const loadQuestData = async () => {
@@ -107,6 +151,11 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoading && isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>

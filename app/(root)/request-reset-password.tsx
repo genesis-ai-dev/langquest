@@ -1,10 +1,9 @@
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useSystem } from '@/db/powersync/system';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -19,15 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-type RequestResetFormData = {
+interface RequestResetFormData {
   email: string;
-};
+}
 
 export default function RequestResetPassword() {
-  const { currentLanguage } = useLanguage();
   const { t } = useTranslation();
   const { supabaseConnector } = useSystem();
-  const router = useRouter();
 
   const {
     control,

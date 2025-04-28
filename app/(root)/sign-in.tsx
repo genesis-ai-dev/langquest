@@ -16,30 +16,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { initDatabase } from '@/database_services/dbInit';
 
 // import { userd, languaged } from '../db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 
 // const { profile, language } = schema;
-const { supabaseConnector } = system;
 
-type LoginFormData = {
+interface LoginFormData {
   email: string;
   password: string;
   selectedLanguageId: string;
-};
+}
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignIn() {
+  const { supabaseConnector } = useSystem();
   const { currentLanguage, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const router = useRouter();
@@ -54,7 +53,7 @@ export default function SignIn() {
     defaultValues: {
       email: '',
       password: '',
-      selectedLanguageId: currentLanguage?.id || ''
+      selectedLanguageId: currentLanguage?.id ?? ''
     }
   });
 
@@ -86,8 +85,8 @@ export default function SignIn() {
       }
 
       // Check if email is verified
-      if (!signInData.user?.email_confirmed_at) {
-        Alert.alert('Verification Required', t('accountNotVerified'), [
+      if (!signInData.user.email_confirmed_at) {
+        Alert.alert(t('verificationRequired'), t('accountNotVerified'), [
           { text: 'OK' }
         ]);
         return;
@@ -148,7 +147,7 @@ export default function SignIn() {
                         value={value}
                         onChange={(lang) => {
                           onChange(lang.id);
-                          setLanguage(lang);
+                          void setLanguage(lang);
                         }}
                         containerStyle={{ width: '100%' }}
                       />

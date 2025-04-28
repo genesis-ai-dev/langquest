@@ -26,8 +26,13 @@ import {
   StyleSheet
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { questService } from '@/database_services/questService';
+import { downloadService } from '@/database_services/downloadService';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { assetService } from '@/database_services/assetService';
+
+import { questService } from '@/database_services/questService';
 import {
   Translation,
   translationService
@@ -38,7 +43,6 @@ import {
   calculateProjectProgress
 } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
-import { useAuth } from '@/contexts/AuthContext';
 import PickaxeIcon from '@/components/PickaxeIcon';
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
@@ -51,33 +55,68 @@ const progressBarHeight = 25;
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
+  const { currentUser } = useAuth();
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
   const [targetLanguage, setTargetLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
     pendingTranslationsCount: 0,
     totalAssets: 0
   });
-  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const loadLanguages = async () => {
-      const source = await languageService.getLanguageById(
-        project.source_language_id
-      );
-      const target = await languageService.getLanguageById(
-        project.target_language_id
-      );
+    const loadData = async () => {
+      const [source, target] = await Promise.all([
+        languageService.getLanguageById(project.source_language_id),
+        languageService.getLanguageById(project.target_language_id)
+      ]);
       setSourceLanguage(source);
       setTargetLanguage(target);
+
+      // Get all assets for this project
+      const assets = await assetService.getAssetsByProjectId(project.id);
+      setAssetIds(assets.map((asset) => asset.id));
+
+      // Get project download status
+      if (currentUser) {
+        const downloadStatus = await downloadService.getProjectDownloadStatus(
+          currentUser.id,
+          project.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
     };
-    loadLanguages();
-  }, [project.source_language_id, project.target_language_id]);
+    loadData();
+  }, [
+    project.source_language_id,
+    project.target_language_id,
+    project.id,
+    currentUser
+  ]);
+
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAssetDownloadStatus(assetIds);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setProjectDownload(
+        currentUser.id,
+        project.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling project download:', error);
+    }
+  };
 
   useEffect(() => {
     const loadProgress = async () => {
@@ -132,6 +171,11 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   return (
     <View style={sharedStyles.card}>
       <View>
+        <DownloadIndicator
+          isDownloaded={isDownloaded && assetsDownloaded}
+          isLoading={isLoading && isDownloaded}
+          onPress={handleDownloadToggle}
+        />
         <Text style={sharedStyles.cardTitle}>{project.name}</Text>
         <Text style={sharedStyles.cardLanguageText}>
           {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}

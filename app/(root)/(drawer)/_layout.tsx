@@ -1,8 +1,8 @@
 import { Drawer } from '@/components/Drawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
+import { useSystem } from '@/contexts/SystemContext';
 import { profile } from '@/db/drizzleSchema';
-import { useSystem } from '@/db/powersync/system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eq } from 'drizzle-orm';
 import { Redirect, Slot, SplashScreen } from 'expo-router';
@@ -35,11 +35,17 @@ export default function AuthLayout() {
         }
         setSyncingTerms(false);
       };
-      fetchTermsAcceptance();
+      void fetchTermsAcceptance();
+
+      const initSystem = async () => {
+        await system.init();
+        await system.tempAttachmentQueue?.init();
+        await system.permAttachmentQueue?.init();
+        console.log('System initialized');
+      };
+      void initSystem();
     }
-    if (currentUser && currentUser.terms_accepted)
-      system.attachmentQueue?.init();
-    SplashScreen.hideAsync();
+    void SplashScreen.hideAsync();
   }, [currentUser, isLoading]);
 
   // Show loading state while checking authentication

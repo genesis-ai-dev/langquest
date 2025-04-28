@@ -1,33 +1,44 @@
 import * as Linking from 'expo-linking';
-import { Href, SplashScreen, Stack, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { SplashScreen, Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
+import { SystemProvider } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
+import { QueryProvider } from '@/providers/QueryProvider';
+import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
-import { useSystem } from '../db/powersync/system';
+import { TranslationUtils } from '@/utils/translationUtils';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const system = useSystem();
   const router = useRouter();
 
+  console.log('Posthog key:', process.env.EXPO_PUBLIC_POSTHOG_KEY);
+  console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+
   useEffect(() => {
-    system.init();
+    const unsubscribe = initializeNetwork();
+    void TranslationUtils.initialize();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
-      handleAuthDeepLink(event.url);
+      void handleAuthDeepLink(event.url);
     });
 
     // Check for initial URL (app opened via link)
-    Linking.getInitialURL().then((url) => {
-      if (url) handleAuthDeepLink(url);
+    void Linking.getInitialURL().then((url) => {
+      if (url) void handleAuthDeepLink(url);
     });
 
     return () => {
@@ -47,28 +58,30 @@ export default function RootLayout() {
         });
         router.replace(path as Href);
       };
-      handleRedirect();
+      void handleRedirect();
     }
   };
 
   return (
-    <PowerSyncProvider>
+    <SystemProvider>
       <LanguageProvider>
         <AuthProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false
-            }}
-          >
-            <Stack.Screen
-              name="terms"
-              options={{
-                presentation: 'modal'
+          <QueryProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false
               }}
-            />
-          </Stack>
+            >
+              <Stack.Screen
+                name="terms"
+                options={{
+                  presentation: 'modal'
+                }}
+              />
+            </Stack>
+          </QueryProvider>
         </AuthProvider>
       </LanguageProvider>
-    </PowerSyncProvider>
+    </SystemProvider>
   );
 }
