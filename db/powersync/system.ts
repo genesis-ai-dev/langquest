@@ -3,10 +3,11 @@ import 'react-native-url-polyfill/auto';
 import {
   DrizzleAppSchema,
   PowerSyncSQLiteDatabase,
+  toPowerSyncTable,
   wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
 
-import { PowerSyncDatabase, Schema } from '@powersync/react-native';
+import { PowerSyncDatabase, Schema, Table } from '@powersync/react-native';
 import React from 'react';
 import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
@@ -16,7 +17,6 @@ import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AttachmentQueue } from './AttachmentQueue';
-
 Logger.useDefaults();
 
 export class System {

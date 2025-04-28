@@ -21,6 +21,7 @@ import {
 import AudioPlayer from './AudioPlayer';
 import { VoteCommentModal } from './VoteCommentModal';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
+import { ReportTranslationModal } from './ReportTranslationModal';
 
 interface TranslationModalProps {
   translation: Translation;
@@ -37,6 +38,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const { currentUser } = useAuth();
   const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -138,6 +140,20 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     }
   };
 
+  const handleReportPress = () => {
+    if (!currentUser) {
+      Alert.alert('Error', t('logInToReport'));
+      return;
+    }
+
+    if (isOwnTranslation) {
+      Alert.alert('Error', 'You cannot report your own translation');
+      return;
+    }
+
+    setShowReportModal(true);
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.overlay} onPress={onClose} />
@@ -166,41 +182,56 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           )}
         </View>
 
-        <View style={styles.feedbackContainer}>
+        <View style={styles.actionsContainer}>
+          <View style={styles.feedbackContainer}>
+            <TouchableOpacity
+              style={[
+                styles.feedbackButton,
+                isOwnTranslation && styles.feedbackButtonDisabled
+              ]}
+              onPress={() => handleVote('up')}
+              disabled={isOwnTranslation}
+            >
+              <Ionicons
+                name={
+                  userVote?.polarity === 'up'
+                    ? 'thumbs-up'
+                    : 'thumbs-up-outline'
+                }
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+            <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
+            <TouchableOpacity
+              style={[
+                styles.feedbackButton,
+                isOwnTranslation && styles.feedbackButtonDisabled
+              ]}
+              onPress={() => handleVote('down')}
+              disabled={isOwnTranslation}
+            >
+              <Ionicons
+                name={
+                  userVote?.polarity === 'down'
+                    ? 'thumbs-down'
+                    : 'thumbs-down-outline'
+                }
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[
-              styles.feedbackButton,
+              styles.reportButton,
               isOwnTranslation && styles.feedbackButtonDisabled
             ]}
-            onPress={() => handleVote('up')}
+            onPress={handleReportPress}
             disabled={isOwnTranslation}
           >
-            <Ionicons
-              name={
-                userVote?.polarity === 'up' ? 'thumbs-up' : 'thumbs-up-outline'
-              }
-              size={24}
-              color={colors.text}
-            />
-          </TouchableOpacity>
-          <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
-          <TouchableOpacity
-            style={[
-              styles.feedbackButton,
-              isOwnTranslation && styles.feedbackButtonDisabled
-            ]}
-            onPress={() => handleVote('down')}
-            disabled={isOwnTranslation}
-          >
-            <Ionicons
-              name={
-                userVote?.polarity === 'down'
-                  ? 'thumbs-down'
-                  : 'thumbs-down-outline'
-              }
-              size={24}
-              color={colors.text}
-            />
+            <Ionicons name="flag-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -211,78 +242,90 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         onSubmit={handleVoteSubmit}
         voteType={currentVoteType}
       />
+
+      {showReportModal && (
+        <ReportTranslationModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          translation={translation}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    top: 0,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0
+  },
   modal: {
+    width: '80%',
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '90%',
-    maxHeight: '80%',
-    paddingTop: spacing.xlarge,
-    paddingBottom: spacing.small
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
+    padding: spacing.medium,
+    maxHeight: '80%'
   },
   closeButton: {
-    position: 'absolute',
-    top: spacing.small,
-    right: spacing.small,
-    padding: spacing.small
+    alignSelf: 'flex-end',
+    padding: spacing.xsmall
   },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
+  scrollView: {
+    marginVertical: spacing.medium,
+    maxHeight: 200
+  },
+  text: {
+    fontSize: fontSizes.medium,
     color: colors.text,
     marginBottom: spacing.medium
   },
-  scrollView: {
-    maxHeight: '70%'
+  translatorInfo: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary,
+    marginBottom: spacing.small
   },
   audioPlayerContainer: {
-    marginTop: spacing.medium // Add space above the audio player
+    marginBottom: spacing.medium
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   feedbackContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.medium,
-    paddingHorizontal: spacing.large
-  },
-  voteRank: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    fontWeight: 'bold'
+    alignItems: 'center'
   },
   feedbackButton: {
-    padding: spacing.medium,
-    marginHorizontal: spacing.large
+    padding: spacing.xsmall
   },
   feedbackButtonDisabled: {
     opacity: 0.5
   },
-  text: {
+  voteRank: {
+    marginHorizontal: spacing.small,
     fontSize: fontSizes.medium,
-    color: colors.text
+    color: colors.text,
+    fontWeight: 'bold'
+  },
+  reportButton: {
+    padding: spacing.xsmall,
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
   }
 });

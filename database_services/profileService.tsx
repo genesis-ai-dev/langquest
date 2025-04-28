@@ -1,11 +1,7 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { profile, language, translation, vote } from '../db/drizzleSchema';
-import { hashPassword } from '../utils/passwordUtils';
-import { randomUUID } from 'expo-crypto';
-import { aliasedTable } from 'drizzle-orm';
+import { profile } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
-import { Session } from '@supabase/supabase-js';
 
 export type Profile = typeof profile.$inferSelect;
 
@@ -118,7 +114,7 @@ export class ProfileService {
     // avatar?: string;
     password?: string;
     terms_accepted?: boolean;
-    terms_version?: string;
+    terms_accepted_at?: string;
   }): Promise<Profile | null> {
     try {
       // Update auth if password is changing
@@ -137,7 +133,9 @@ export class ProfileService {
         ...(data.terms_accepted !== undefined && {
           terms_accepted: data.terms_accepted
         }),
-        ...(data.terms_version && { terms_version: data.terms_version })
+        ...(data.terms_accepted_at && {
+          terms_accepted_at: data.terms_accepted_at
+        })
       };
 
       console.log('Updating profile with data:', updateData);

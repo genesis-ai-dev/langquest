@@ -1,10 +1,10 @@
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useSystem } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, useRouter } from 'expo-router';
+import { Href, Link, useRouter } from 'expo-router';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -111,6 +111,7 @@ export default function RequestResetPassword() {
                     onChangeText={onChange}
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    accessibilityLabel="ph-no-capture"
                   />
                 </View>
               )}
@@ -127,14 +128,13 @@ export default function RequestResetPassword() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.bottomLink, { alignSelf: 'center' }]}
-            onPress={() => router.push('/sign-in' as Href<string>)}
+          <Link
+            href="/sign-in"
+            style={[sharedStyles.link, { textAlign: 'center' }]}
+            push
           >
-            <Text style={[sharedStyles.link, { textAlign: 'center' }]}>
-              {t('backToLogin')}
-            </Text>
-          </TouchableOpacity>
+            {t('backToLogin')}
+          </Link>
         </View>
       </SafeAreaView>
     </LinearGradient>

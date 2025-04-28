@@ -24,7 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/images/langquest_icon_v1.png',
+      foregroundImage: iconPath,
       backgroundColor: '#ffffff'
     },
     package: 'com.etengenesis.langquest',
@@ -60,22 +60,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
-    [
-      'expo-build-properties',
-      {
-        ios: {
-          deploymentTarget: '13.4'
-        },
-        android: {
-          compileSdkVersion: 34,
-          targetSdkVersion: 31,
-          minSdkVersion: 26,
-          buildToolsVersion: '24.0.0'
-        }
-      }
-    ],
     // migrate existing localization to expo-localization
-    'expo-localization'
+    'expo-localization',
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#232323',
+        image: iconPath,
+        dark: {
+          image: iconPath,
+          backgroundColor: '#000000'
+        },
+        imageWidth: 200
+      }
+    ]
   ],
   experiments: {
     typedRoutes: true

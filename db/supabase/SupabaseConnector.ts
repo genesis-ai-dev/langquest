@@ -5,16 +5,15 @@ import {
   UpdateType
 } from '@powersync/react-native';
 
+import { getSupabaseAuthKey } from '@/contexts/AuthContext';
+import { Profile } from '@/database_services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
-import { System } from '../powersync/system';
-import { AppConfig } from './AppConfig';
-import { Profile, profileService } from '@/database_services/profileService';
 import { eq } from 'drizzle-orm';
 import { profile } from '../drizzleSchema';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
-import { getSupabaseAuthKey } from '@/contexts/AuthContext';
+import { type System } from '../powersync/system';
+import { AppConfig } from './AppConfig';
+import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception

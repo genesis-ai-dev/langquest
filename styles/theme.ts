@@ -41,6 +41,7 @@ export const colors = {
   backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
   accent: adjustColor(getColorHex(themeColor), 30),
   error: '#FF0000',
+  disabled: '#999999',
   success: '#16BFC6', // Green color for success state
   alert: '#CA59E5' // purple color for alert state
 };

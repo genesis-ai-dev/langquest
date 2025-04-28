@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Link, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -20,20 +20,16 @@ import { system } from '@/db/powersync/system';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { language } from '@/db/drizzleSchema';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Controller, useForm } from 'react-hook-form';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { Href } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
 
 // const { profile, language } = schema;
 const { supabaseConnector } = system;
-
-// const userRepository = new UserRepository();
-type Language = typeof language.$inferSelect;
 
 type LoginFormData = {
   email: string;
@@ -216,6 +212,7 @@ export default function SignIn() {
                               onChangeText={onChange}
                               autoCapitalize="none"
                               keyboardType="email-address"
+                              accessibilityLabel="ph-no-capture"
                             />
                           </View>
                         )}
@@ -271,15 +268,13 @@ export default function SignIn() {
                         </Text>
                       )}
 
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push('/request-reset-password' as Href<string>)
-                        }
+                      <Link
+                        href="/request-reset-password"
+                        style={[sharedStyles.link]}
+                        push
                       >
-                        <Text style={sharedStyles.link}>
-                          {t('forgotPassword')}
-                        </Text>
-                      </TouchableOpacity>
+                        {t('forgotPassword')}
+                      </Link>
                     </View>
 
                     <TouchableOpacity
@@ -297,25 +292,29 @@ export default function SignIn() {
                     </TouchableOpacity>
 
                     {/* More prominent registration link */}
-                    <TouchableOpacity
-                      style={{
-                        marginTop: spacing.medium,
-                        paddingVertical: spacing.small,
-                        paddingHorizontal: spacing.medium,
-                        borderWidth: 1,
-                        borderColor: colors.primary,
-                        borderRadius: 8,
-                        backgroundColor: 'transparent',
-                        alignSelf: 'center'
-                      }}
-                      onPress={() => router.push('/register' as Href<string>)}
+                    <Link
+                      href="/register"
+                      style={[
+                        sharedStyles.link,
+                        {
+                          marginTop: spacing.medium,
+                          paddingVertical: spacing.small,
+                          paddingHorizontal: spacing.medium,
+                          borderWidth: 1,
+                          borderColor: colors.primary,
+                          borderRadius: 8,
+                          backgroundColor: 'transparent',
+                          alignSelf: 'center'
+                        }
+                      ]}
+                      push
                     >
                       <Text
                         style={[sharedStyles.link, { textAlign: 'center' }]}
                       >
                         {t('newUser')} {t('register')}
                       </Text>
-                    </TouchableOpacity>
+                    </Link>
                   </View>
                 </View>
               </View>

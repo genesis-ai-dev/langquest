@@ -1,5 +1,6 @@
 import { int, sqliteTable, text, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql, relations } from 'drizzle-orm';
+import { reasonOptions } from './constants';
 
 // Create a type from your actual icon files
 type IconName = `${string}.png`; // Matches any .png filename
@@ -33,7 +34,7 @@ export const profile = sqliteTable('profile', {
   // achievements: text(),
   ui_language_id: text(),
   terms_accepted: int({ mode: 'boolean' }),
-  terms_version: text()
+  terms_accepted_at: text()
 });
 
 export const userRelations = relations(profile, ({ many, one }) => ({
@@ -233,8 +234,35 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
     fields: [translation.creator_id],
     references: [profile.id]
   }),
-  votes: many(vote)
+  votes: many(vote),
+  reports: many(translation_reports)
 }));
+
+export const translation_reports = sqliteTable('translation_reports', {
+  ...baseColumns,
+  translation_id: text()
+    .notNull()
+    .references(() => translation.id),
+  reporter_id: text().references(() => profile.id),
+  reason: text({
+    enum: reasonOptions
+  }).notNull(),
+  details: text()
+});
+
+export const translationReportRelations = relations(
+  translation_reports,
+  ({ one }) => ({
+    translation: one(translation, {
+      fields: [translation_reports.translation_id],
+      references: [translation.id]
+    }),
+    reporter: one(profile, {
+      fields: [translation_reports.reporter_id],
+      references: [profile.id]
+    })
+  })
+);
 
 export const vote = sqliteTable('vote', {
   ...baseColumns,
