@@ -1,7 +1,7 @@
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import type { AVPlaybackStatus } from 'expo-av';
+import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
 import {
   Platform,
@@ -12,12 +12,13 @@ import {
   Alert
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { RecordingOptions } from 'expo-av/build/Audio';
+import type { RecordingOptions } from 'expo-av/build/Audio';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateTotalAttachments } from '@/utils/attachmentUtils';
 import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
 import { downloadService } from '@/database_services/downloadService';
+import { TranslationUtils } from '@/utils/translationUtils';
 
 // Maximum file size in bytes (50MB)
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -38,7 +39,7 @@ const calculateMaxDuration = (options: RecordingOptions): number => {
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   const platformSpecificOptions = options[platform];
   // Using the exact bit rates from RecordingOptionsPresets
-  const bitRate = platformSpecificOptions.bitRate!; // bits per second
+  const bitRate = platformSpecificOptions.bitRate ?? 128000; // bits per second
 
   // Convert bit rate to bytes per second
   const bytesPerSecond = bitRate / 8;
@@ -84,7 +85,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         }
         if (!recording?._isDoneRecording) await stopRecording();
       };
-      cleanup();
+      void cleanup();
     };
   }, [recording, sound]);
 
@@ -102,14 +103,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
       if (totalAttachments >= ATTACHMENT_QUEUE_LIMITS.PERMANENT) {
         Alert.alert(
-          'Attachment Limit Exceeded',
-          `You have reached the maximum number of attachments (${ATTACHMENT_QUEUE_LIMITS.PERMANENT}). Please delete some recordings before creating new ones.`,
+          TranslationUtils.t('downloadLimitExceeded'),
+          TranslationUtils.formatMessage(
+            TranslationUtils.t('downloadLimitMessage'),
+            {
+              newDownloads: (totalAttachments + 1).toString(),
+              totalDownloads: totalAttachments.toString(),
+              limit: ATTACHMENT_QUEUE_LIMITS.PERMANENT.toString()
+            }
+          ),
           [{ text: 'OK' }]
         );
         return;
       }
 
-      if (permissionResponse?.status !== 'granted') {
+      if (permissionResponse.status !== 'granted') {
         console.log('Requesting permission..');
         await requestPermission();
       }

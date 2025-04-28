@@ -7,6 +7,9 @@
   },
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
   "yaml.schemas": {
     "https://raw.githubusercontent.com/expo/vscode-expo/schemas/schema/eas-workflow.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/.eas/workflows/create-development-builds.yml",
     "https://raw.githubusercontent.com/powersync-ja/self-host-demo/refs/heads/main/schema/schema.json": "file:///Users/dingo/Desktop/Projects/Native/langquest/supabase/config/powersync.yml",
