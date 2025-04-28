@@ -1,7 +1,7 @@
 import { ANALYTICS_OPT_OUT_KEY } from '@/app/(drawer)/(stack)/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 function PostHogProvider({ children }: { children: React.ReactNode }) {
   return <PostHog>{children}</PostHog>;

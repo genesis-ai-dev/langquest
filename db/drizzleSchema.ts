@@ -1,8 +1,5 @@
-import { int, sqliteTable, text, primaryKey } from 'drizzle-orm/sqlite-core';
-import { sql, relations } from 'drizzle-orm';
-
-// Create a type from your actual icon files
-type IconName = `${string}.png`; // Matches any .png filename
+import { relations, sql } from 'drizzle-orm';
+import { int, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;

@@ -1,14 +1,10 @@
-import {
+import type {
   // AbstractAttachmentQueue,
   AttachmentQueueOptions,
-  AttachmentRecord,
-  AttachmentState
+  AttachmentRecord
 } from '@powersync/attachments';
-import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { randomUUID } from 'expo-crypto';
-import * as FileSystem from 'expo-file-system';
-import * as drizzleSchema from '../drizzleSchema';
-import { isNotNull, eq, and } from 'drizzle-orm';
+import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import type * as drizzleSchema from '../drizzleSchema';
 // import { system } from '../powersync/system';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
@@ -24,7 +20,7 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   ) {
     super({
       ...options,
-      cacheLimit: options.cacheLimit || 50 // Default to 50 if not specified
+      cacheLimit: options.cacheLimit ?? 50 // Default to 50 if not specified
     });
   }
 

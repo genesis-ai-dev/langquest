@@ -1,28 +1,28 @@
 import '@azure/core-asynciterator-polyfill';
-import 'react-native-url-polyfill/auto';
+import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import {
   DrizzleAppSchema,
-  PowerSyncSQLiteDatabase,
   wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
+import 'react-native-url-polyfill/auto';
 
 import {
-  PowerSyncDatabase,
-  Schema,
   Column,
-  ColumnType
+  ColumnType,
+  PowerSyncDatabase,
+  Schema
 } from '@powersync/react-native';
-import React from 'react';
-import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
+import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
+import type { AttachmentRecord } from '@powersync/attachments';
+import { AttachmentTable } from '@powersync/attachments';
 import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
-import { AttachmentTable, type AttachmentRecord } from '@powersync/attachments';
+import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
-import { SupabaseConnector } from '../supabase/SupabaseConnector';
 
 Logger.useDefaults();
 
@@ -64,9 +64,10 @@ export class System {
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
+        // eslint-disable-next-line
         onDownloadError: async (
           attachment: AttachmentRecord,
-          exception: any
+          exception: { toString: () => string; status?: number }
         ) => {
           if (
             exception.toString() === 'StorageApiError: Object not found' ||
@@ -78,7 +79,11 @@ export class System {
 
           return { retry: true };
         },
-        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+        // eslint-disable-next-line
+        onUploadError: async (
+          attachment: AttachmentRecord,
+          exception: unknown
+        ) => {
           console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
@@ -90,11 +95,16 @@ export class System {
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
+        // eslint-disable-next-line
         onDownloadError: async (
           attachment: AttachmentRecord,
-          exception: any
+          exception: { toString: () => string; status?: number }
         ) => {
-          console.log('onDownloadError', attachment, exception);
+          console.log(
+            'TempAttachmentQueue onDownloadError',
+            attachment,
+            exception
+          );
           if (
             exception.toString() === 'StorageApiError: Object not found' ||
             exception.status === 400 ||
@@ -105,7 +115,11 @@ export class System {
 
           return { retry: true };
         },
-        onUploadError: async (attachment: AttachmentRecord, exception: any) => {
+        // eslint-disable-next-line
+        onUploadError: async (
+          attachment: AttachmentRecord,
+          exception: unknown
+        ) => {
           console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
@@ -161,14 +175,14 @@ export class System {
 
     // Create a promise that resolves when a new sync completes after this point
     return new Promise<void>((resolve) => {
-      let initialTimestamp =
-        this.powersync.currentStatus?.lastSyncedAt?.getTime() || 0;
+      const initialTimestamp =
+        this.powersync.currentStatus.lastSyncedAt?.getTime() ?? 0;
       console.log(`Current lastSyncedAt timestamp: ${initialTimestamp}`);
 
       const unsubscribe = this.powersync.registerListener({
         statusChanged: (status) => {
           // Check if we have a new sync completion timestamp
-          const newTimestamp = status.lastSyncedAt?.getTime() || 0;
+          const newTimestamp = status.lastSyncedAt?.getTime() ?? 0;
 
           if (newTimestamp > initialTimestamp) {
             console.log(

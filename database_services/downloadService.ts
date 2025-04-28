@@ -1,20 +1,16 @@
-import { eq, and } from 'drizzle-orm';
-import {
-  project_download,
-  quest_download,
-  asset_download,
-  quest,
-  quest_asset_link,
-  project
-} from '../db/drizzleSchema';
-import { system } from '../db/powersync/system';
-import { questService } from './questService';
-import { assetService } from './assetService';
-import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
-import { calculateTotalAttachments } from '../utils/attachmentUtils';
-import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
-import { Alert } from 'react-native';
 import { TranslationUtils } from '@/utils/translationUtils';
+import { and, eq } from 'drizzle-orm';
+import { Alert } from 'react-native';
+import {
+  asset_download,
+  project_download,
+  quest_download
+} from '../db/drizzleSchema';
+import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
+import { system } from '../db/powersync/system';
+import { calculateTotalAttachments } from '../utils/attachmentUtils';
+import { assetService } from './assetService';
+import { questService } from './questService';
 
 const { db } = system;
 

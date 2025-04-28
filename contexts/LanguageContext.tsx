@@ -1,8 +1,7 @@
-import { language } from '@/db/drizzleSchema';
 import { languageService } from '@/database_services/languageService';
+import type { language } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { usePowerSync } from '@powersync/react-native';
 
 type Language = typeof language.$inferSelect;
 
@@ -36,7 +35,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    loadLanguage();
+    void loadLanguage();
   }, []);
 
   const setLanguage = async (lang: Language) => {

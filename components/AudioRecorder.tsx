@@ -117,7 +117,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         return;
       }
 
-      if (permissionResponse.status !== 'granted') {
+      if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
         console.log('Requesting permission..');
         await requestPermission();
       }

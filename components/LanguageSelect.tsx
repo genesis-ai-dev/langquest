@@ -1,5 +1,5 @@
-import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/contexts/SystemContext';
+import { language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,9 +21,7 @@ interface LanguageSelectProps {
 
 export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   value,
-  onChange,
-  label = true,
-  containerStyle
+  onChange
 }) => {
   const { db } = useSystem();
   const [showLanguages, setShowLanguages] = useState(false);
@@ -38,9 +36,9 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     )
   );
 
-  const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
+  const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
   const selectedLanguage =
-    languages?.find((l) => l.id === value) ?? savedLanguage;
+    languages.find((l) => l.id === value) ?? savedLanguage;
 
   // Save language when it changes
   useEffect(() => {
@@ -53,20 +51,20 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         console.error('Error saving language:', error);
       }
     };
-    saveLanguage();
+    void saveLanguage();
   }, [value]);
 
   useEffect(() => {
     const loadSavedLanguage = async () => {
       try {
         const savedId = await AsyncStorage.getItem('selectedLanguageId');
-        const fetchedLanguage = languages?.find((l) => l.id === savedId);
+        const fetchedLanguage = languages.find((l) => l.id === savedId);
         if (fetchedLanguage) setSavedLanguage(fetchedLanguage);
       } catch (error) {
         console.error('Error loading saved language:', error);
       }
     };
-    loadSavedLanguage();
+    void loadSavedLanguage();
   }, [languages]);
 
   return (
@@ -83,7 +81,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
       }
       options={languages
-        .filter((l) => l.native_name !== null)
+        .filter((l) => l.native_name)
         .map((l) => l.native_name!)}
       onSelect={(langName) => {
         const lang = languages.find((l) => l.native_name === langName);

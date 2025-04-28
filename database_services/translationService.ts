@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { randomUUID } from 'expo-crypto';
-import { asset_content_link, translation } from '../db/drizzleSchema';
+import { translation } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;

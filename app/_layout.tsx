@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
-import { Href, Stack, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { Fragment, useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -25,6 +26,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     const unsubscribe = initializeNetwork();
+    TranslationUtils.initialize();
+
     return () => {
       unsubscribe();
     };
@@ -43,10 +46,6 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, []);
-
-  useEffect(() => {
-    TranslationUtils.initialize();
   }, []);
 
   const handleAuthDeepLink = async (url: string) => {

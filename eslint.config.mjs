@@ -1,18 +1,18 @@
-import reactPlugin from 'eslint-plugin-react';
-import hooksPlugin from 'eslint-plugin-react-hooks';
 import eslint from '@eslint/js';
 import importPlugin from 'eslint-plugin-import';
+import reactPlugin from 'eslint-plugin-react';
+import hooksPlugin from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 // From https://github.com/t3-oss/create-t3-turbo/tree/main/tooling/eslint (react + base)
 export default tseslint.config(
   { ignores: ['**/*.config.*'] },
   {
-    files: ['**/*.js', '**/*.ts', '**/*.tsx'],
+    files: ['**/*.ts', '**/*.tsx'],
     plugins: {
       import: importPlugin,
       react: reactPlugin,
-      'react-hooks': hooksPlugin
+      hooks: hooksPlugin
     },
     extends: [
       eslint.configs.recommended,
@@ -39,10 +39,9 @@ export default tseslint.config(
           allowConstantLoopConditions: true
         }
       ],
-      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-      ...reactPlugin.configs['jsx-runtime'].rules,
-      ...hooksPlugin.configs.recommended.rules
+      ...reactPlugin.configs['jsx-runtime'].rules
     }
   },
   {

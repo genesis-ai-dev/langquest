@@ -1,15 +1,13 @@
-import {
-  AbstractAttachmentQueue,
+import type {
   AttachmentQueueOptions,
-  AttachmentRecord,
-  AttachmentState
+  AttachmentRecord
 } from '@powersync/attachments';
-import { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { randomUUID } from 'expo-crypto';
+import { AttachmentState } from '@powersync/attachments';
+import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import { eq, isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
+import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
-import * as drizzleSchema from '../drizzleSchema';
-import { isNotNull, eq, and } from 'drizzle-orm';
 // import { system } from '../powersync/system';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
@@ -65,7 +63,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
     // Watch for changes in ALL download records
     this.db.watch(this.db.query.asset_download.findMany(), {
-      onResult: async (downloads) => {
+      onResult: (downloads) => {
         console.log('Download records changed:', downloads.length);
         // const currentUserId = await this.getCurrentUserId();
         // if (!currentUserId) {
@@ -81,34 +79,38 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         // console.log(`User downloads: ${userDownloads.length}`);
 
         // Split into active and inactive downloads
-        const activeDownloads = downloads.filter(
-          (download) => download.active === true
-        );
-        const inactiveDownloads = downloads.filter(
-          (download) => download.active === false
-        );
-
-        console.log(
-          `Active downloads: ${activeDownloads.length}, Inactive: ${inactiveDownloads.length}`
-        );
-
-        // Get all attachments for active assets
-        const activeAttachments: string[] = [];
-        for (const download of activeDownloads) {
-          const attachments = await this.getAllAssetAttachments(
-            download.asset_id
+        const runAsync = async () => {
+          const activeDownloads = downloads.filter(
+            (download) => download.active === true
           );
-          activeAttachments.push(...attachments);
-        }
+          const inactiveDownloads = downloads.filter(
+            (download) => download.active === false
+          );
 
-        // Remove duplicates
-        const uniqueActiveAttachments = [...new Set(activeAttachments)];
-        console.log(
-          `Total active attachments to sync: ${uniqueActiveAttachments.length}`
-        );
+          console.log(
+            `Active downloads: ${activeDownloads.length}, Inactive: ${inactiveDownloads.length}`
+          );
 
-        // Tell PowerSync which attachments to keep synced
-        onUpdate(uniqueActiveAttachments);
+          // Get all attachments for active assets
+          const activeAttachments: string[] = [];
+          for (const download of activeDownloads) {
+            const attachments = await this.getAllAssetAttachments(
+              download.asset_id
+            );
+            activeAttachments.push(...attachments);
+          }
+
+          // Remove duplicates
+          const uniqueActiveAttachments = [...new Set(activeAttachments)];
+          console.log(
+            `Total active attachments to sync: ${uniqueActiveAttachments.length}`
+          );
+
+          // Tell PowerSync which attachments to keep synced
+          onUpdate(uniqueActiveAttachments);
+        };
+
+        void runAsync();
       }
     });
 
@@ -118,44 +120,50 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         where: (asset) => isNotNull(asset.audio_id)
       }),
       {
-        onResult: async (assets) => {
+        onResult: (assets) => {
           console.log(`Asset content links updated: ${assets.length}`);
+          const runAsync = async () => {
+            // Get current user ID
+            // const currentUserId = await this.getCurrentUserId();
+            // if (!currentUserId) {
+            //   onUpdate([]);
+            //   return;
+            // }
 
-          // Get current user ID
-          // const currentUserId = await this.getCurrentUserId();
-          // if (!currentUserId) {
-          //   onUpdate([]);
-          //   return;
-          // }
+            // Get active downloads for current user
+            const activeDownloads = await this.db.query.asset_download.findMany(
+              {
+                where: (download) =>
+                  // and(
+                  //   eq(download.profile_id, currentUserId),
+                  eq(download.active, true)
+                // )
+              }
+            );
 
-          // Get active downloads for current user
-          const activeDownloads = await this.db.query.asset_download.findMany({
-            where: (download) =>
-              // and(
-              //   eq(download.profile_id, currentUserId),
-              eq(download.active, true)
-            // )
-          });
+            const activeAssetIds = activeDownloads.map(
+              (download) => download.asset_id
+            );
 
-          const activeAssetIds = activeDownloads.map(
-            (download) => download.asset_id
-          );
+            // Get all attachments for active assets
+            const allAttachments: string[] = [];
+            for (const assetId of activeAssetIds) {
+              const assetAttachments =
+                await this.getAllAssetAttachments(assetId);
+              allAttachments.push(...assetAttachments);
+            }
 
-          // Get all attachments for active assets
-          const allAttachments: string[] = [];
-          for (const assetId of activeAssetIds) {
-            const assetAttachments = await this.getAllAssetAttachments(assetId);
-            allAttachments.push(...assetAttachments);
-          }
+            // Remove duplicates
+            const uniqueAttachments = [...new Set(allAttachments)];
+            console.log(
+              `Total unique attachments to sync: ${uniqueAttachments.length}`
+            );
 
-          // Remove duplicates
-          const uniqueAttachments = [...new Set(allAttachments)];
-          console.log(
-            `Total unique attachments to sync: ${uniqueAttachments.length}`
-          );
+            // Update PowerSync
+            onUpdate(uniqueAttachments);
+          };
 
-          // Update PowerSync
-          onUpdate(uniqueAttachments);
+          void runAsync();
         }
       }
     );

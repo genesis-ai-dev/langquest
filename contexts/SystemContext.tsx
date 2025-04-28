@@ -1,15 +1,13 @@
-import { System, system } from '@/db/powersync/system';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import type { System } from '@/db/powersync/system';
+import { system } from '@/db/powersync/system';
 import { PowerSyncContext } from '@powersync/react';
-import { ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '@/styles/theme';
+import { createContext, useContext, useEffect } from 'react';
 
 export const SystemContext = createContext<System | undefined>(undefined);
 
 export function SystemProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    system.init();
+    void system.init();
   }, []);
 
   return (

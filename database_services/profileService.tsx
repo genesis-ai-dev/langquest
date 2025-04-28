@@ -1,10 +1,7 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { profile, language, translation, vote } from '../db/drizzleSchema';
-import { hashPassword } from '../utils/passwordUtils';
-import { aliasedTable } from 'drizzle-orm';
+import { profile } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
-import { Session } from '@supabase/supabase-js';
 
 export type Profile = typeof profile.$inferSelect;
 
@@ -14,7 +11,8 @@ const { supabaseConnector, db } = system;
 const DEBUG = false;
 
 // Custom debug function
-function debug(...args: any[]) {
+function debug(...args: unknown[]) {
+  // eslint-disable-next-line
   if (DEBUG) {
     console.log('[DEBUG userService]', ...args);
   }
@@ -35,18 +33,13 @@ export class ProfileService {
         credentials.password
       );
 
-      if (!user) {
-        console.log('No user data returned from sign in');
-        return null;
-      }
-
       // 2. Fetch the profile data directly from Supabase
       const { data: profile, error: profileError } =
         await supabaseConnector.client
           .from('profile')
           .select()
           .eq('id', user.id)
-          .single();
+          .single<Profile>();
 
       if (profileError) {
         console.log('Profile fetch error:', profileError);
@@ -79,7 +72,6 @@ export class ProfileService {
         });
 
       if (updateError) throw updateError;
-      if (!updateData.user) throw new Error('No user returned from update');
 
       // Update profile with username and ui_language_id
       const { error: profileError } = await supabaseConnector.client
@@ -87,8 +79,8 @@ export class ProfileService {
         .update({
           username: input.credentials.username,
           ui_language_id: input.ui_language_id,
-          terms_accepted: input.terms_accepted || false,
-          terms_version: input.terms_version || null
+          terms_accepted: input.terms_accepted ?? false,
+          terms_version: input.terms_version ?? null
         })
         .eq('id', updateData.user.id);
 
@@ -100,7 +92,7 @@ export class ProfileService {
           .from('profile')
           .select()
           .eq('id', updateData.user.id)
-          .single();
+          .single<Profile>();
 
       if (fetchError) throw fetchError;
 
@@ -148,7 +140,7 @@ export class ProfileService {
           .update(updateData)
           .eq('id', data.id)
           .select()
-          .single();
+          .single<Profile>();
 
       if (profileError) {
         console.error('Error updating profile:', profileError);

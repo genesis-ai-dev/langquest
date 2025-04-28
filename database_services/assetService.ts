@@ -2,8 +2,8 @@ import { eq } from 'drizzle-orm';
 import {
   asset,
   asset_content_link,
-  quest_asset_link,
-  quest
+  quest,
+  quest_asset_link
 } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -62,9 +62,7 @@ export class AssetService {
     // Flatten the array of arrays and remove duplicates
     const uniqueAssets = new Map<string, Asset>();
     assetsByQuest.flat().forEach((asset) => {
-      if (asset) {
-        uniqueAssets.set(asset.id, asset);
-      }
+      uniqueAssets.set(asset.id, asset);
     });
 
     return Array.from(uniqueAssets.values());
