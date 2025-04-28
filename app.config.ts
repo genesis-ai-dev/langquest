@@ -58,6 +58,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: iconPath
   },
   plugins: [
+    'expo-build-properties',
+    'expo-font',
     'expo-router',
     'expo-secure-store',
     // migrate existing localization to expo-localization
