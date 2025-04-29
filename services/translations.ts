@@ -532,6 +532,38 @@ export const translations: Record<string, TranslationSet> = {
   confirm: {
     english: 'Confirm',
     spanish: 'Confirmar'
+  },
+  blockThisContent: {
+    english: 'Block this content',
+    spanish: 'Bloquear este contenido'
+  },
+  blockThisUser: {
+    english: 'Block this user',
+    spanish: 'Bloquear este usuario'
+  },
+  contentBlocked: {
+    english: 'Content has been blocked',
+    spanish: 'El contenido ha sido bloqueado'
+  },
+  userBlocked: {
+    english: 'User has been blocked',
+    spanish: 'El usuario ha sido bloqueado'
+  },
+  blockedUsers: {
+    english: 'Blocked Users',
+    spanish: 'Usuarios Bloqueados'
+  },
+  blockedContent: {
+    english: 'Blocked Content',
+    spanish: 'Contenido Bloqueado'
+  },
+  unblockUser: {
+    english: 'Unblock User',
+    spanish: 'Desbloquear Usuario'
+  },
+  unblockContent: {
+    english: 'Unblock Content',
+    spanish: 'Desbloquear Contenido'
   }
   // Add more translation keys as needed...
 } as const;

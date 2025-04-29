@@ -16,10 +16,10 @@ export default function AuthLayout() {
   const system = useSystem();
 
   useEffect(() => {
-    console.log('isLoading', isLoading);
+    console.log('useAuth isLoading', isLoading);
     // if (isLoading) return;
     if (currentUser) {
-      const fetchTermsAcceptance = async () => {
+      const asyncFunction = async () => {
         setSyncingTerms(true);
         const localTermsAcceptedAt =
           await AsyncStorage.getItem('terms_accepted');
@@ -34,22 +34,21 @@ export default function AuthLayout() {
             .where(eq(profile.id, currentUser.id));
         }
         setSyncingTerms(false);
-      };
-      void fetchTermsAcceptance();
 
-      const initSystem = async () => {
         await system.init();
         await system.tempAttachmentQueue?.init();
         await system.permAttachmentQueue?.init();
         console.log('System initialized');
+
+        await SplashScreen.hideAsync();
       };
-      void initSystem();
+      void asyncFunction();
     }
-    void SplashScreen.hideAsync();
   }, [currentUser, isLoading]);
 
   // Show loading state while checking authentication
   if (isLoading || syncingTerms) {
+    console.log('AuthLayout is loading', isLoading, syncingTerms);
     return null;
   }
 
@@ -59,7 +58,7 @@ export default function AuthLayout() {
     return <Redirect href="/sign-in" />;
   }
 
-  if (currentUser && !currentUser.terms_accepted) {
+  if (!currentUser.terms_accepted) {
     return <Redirect href="/terms" />;
   }
 

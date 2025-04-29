@@ -2,7 +2,6 @@ import { LanguageSelect } from '@/components/LanguageSelect';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
-import { language } from '@/db/drizzleSchema';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
@@ -27,9 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Analytics storage key
 export const ANALYTICS_OPT_OUT_KEY = 'analytics_opt_out';
 
-type Language = typeof language.$inferSelect;
-
-type ProfileFormData = {
+interface ProfileFormData {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
@@ -37,7 +34,7 @@ type ProfileFormData = {
   // selectedAvatar: string;
   termsAccepted: boolean;
   analyticsOptOut: boolean;
-};
+}
 
 export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
@@ -57,7 +54,7 @@ export default function Profile() {
       }
     };
 
-    loadAnalyticsPreference();
+    void loadAnalyticsPreference();
   }, []);
 
   // Handle analytics opt-out toggle
@@ -65,7 +62,7 @@ export default function Profile() {
     try {
       setAnalyticsOptOut(value);
       await AsyncStorage.setItem(ANALYTICS_OPT_OUT_KEY, value.toString());
-      posthog[`opt${value ? 'Out' : 'In'}`]();
+      await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);
       Alert.alert('Error', 'Failed to save analytics preference');
@@ -83,7 +80,7 @@ export default function Profile() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: (currentUser?.ui_language_id as string) ?? '',
+      selectedLanguageId: currentUser?.ui_language_id ?? '',
       // selectedAvatar: 'cat',
       termsAccepted: !!currentUser?.terms_accepted
     }
@@ -93,7 +90,7 @@ export default function Profile() {
   useEffect(() => {
     if (currentUser) {
       reset({
-        selectedLanguageId: (currentUser.ui_language_id as string) ?? '',
+        selectedLanguageId: currentUser.ui_language_id ?? '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
@@ -180,10 +177,9 @@ export default function Profile() {
               <Switch
                 value={analyticsOptOut}
                 onValueChange={handleAnalyticsToggle}
-                thumbColor={colors.primary}
                 trackColor={{
-                  true: colors.textSecondary,
-                  false: colors.textSecondary
+                  false: colors.inputBorder,
+                  true: colors.primary
                 }}
               />
             </View>

@@ -1,7 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { translationReportService } from '@/database_services/translationReportService';
-import { Translation } from '@/database_services/translationService';
 import { reasonOptions } from '@/db/constants';
+import { useReports } from '@/hooks/useReports';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +11,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -19,24 +19,33 @@ import {
   View
 } from 'react-native';
 
-interface ReportTranslationModalProps {
+interface ReportModalProps {
   isVisible: boolean;
   onClose: () => void;
-  translation: Translation;
+  recordId: string;
+  recordTable: string;
+  creatorId?: string;
+  onReportSubmitted?: () => void;
 }
 
-export const ReportTranslationModal: React.FC<ReportTranslationModalProps> = ({
+export const ReportModal: React.FC<ReportModalProps> = ({
   isVisible,
   onClose,
-  translation
+  recordId,
+  recordTable,
+  creatorId,
+  onReportSubmitted
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
+  const { createReport, isCreatingReport, blockUser, blockContent } =
+    useReports(recordId, recordTable, currentUser?.id);
   const [reason, setReason] = useState<(typeof reasonOptions)[number] | null>(
     null
   );
   const [details, setDetails] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [blockUserOption, setBlockUserOption] = useState(false);
+  const [blockContentOption, setBlockContentOption] = useState(false);
 
   const handleReasonSelect = (
     selectedReason: (typeof reasonOptions)[number]
@@ -56,23 +65,50 @@ export const ReportTranslationModal: React.FC<ReportTranslationModalProps> = ({
     }
 
     try {
-      setIsSubmitting(true);
-      await translationReportService.createReport({
-        translation_id: translation.id,
+      await createReport({
+        record_id: recordId,
+        record_table: recordTable,
         reporter_id: currentUser.id,
         reason,
         details
       });
 
+      // Handle blocking if options are selected
+      if (blockContentOption) {
+        try {
+          await blockContent({
+            profile_id: currentUser.id,
+            content_id: recordId,
+            content_table: recordTable
+          });
+          console.log('Content blocked successfully');
+        } catch (error) {
+          console.error('Failed to block content:', error);
+        }
+      }
+
+      if (blockUserOption && creatorId) {
+        try {
+          await blockUser({
+            blocker_id: currentUser.id,
+            blocked_id: creatorId
+          });
+          console.log('User blocked successfully');
+        } catch (error) {
+          console.error('Failed to block user:', error);
+        }
+      }
+
       setReason(null);
       setDetails('');
+      setBlockUserOption(false);
+      setBlockContentOption(false);
       onClose();
       Alert.alert('Success', t('reportSubmitted'));
+      onReportSubmitted?.();
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', t('failedToSubmitReport'));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -135,16 +171,47 @@ export const ReportTranslationModal: React.FC<ReportTranslationModalProps> = ({
                   onChangeText={setDetails}
                 />
 
+                {/* Blocking options */}
+                <View style={styles.blockingOptions}>
+                  <View style={styles.blockOption}>
+                    <Text style={styles.blockText}>
+                      {t('blockThisContent')}
+                    </Text>
+                    <Switch
+                      value={blockContentOption}
+                      onValueChange={setBlockContentOption}
+                      trackColor={{
+                        false: colors.inputBorder,
+                        true: colors.primary
+                      }}
+                    />
+                  </View>
+
+                  {creatorId && creatorId !== currentUser?.id && (
+                    <View style={styles.blockOption}>
+                      <Text style={styles.blockText}>{t('blockThisUser')}</Text>
+                      <Switch
+                        value={blockUserOption}
+                        onValueChange={setBlockUserOption}
+                        trackColor={{
+                          false: colors.inputBorder,
+                          true: colors.primary
+                        }}
+                      />
+                    </View>
+                  )}
+                </View>
+
                 <TouchableOpacity
                   style={[
                     styles.submitButton,
-                    (!reason || isSubmitting) && styles.submitButtonDisabled
+                    (!reason || isCreatingReport) && styles.submitButtonDisabled
                   ]}
                   onPress={handleSubmit}
-                  disabled={!reason || isSubmitting}
+                  disabled={!reason || isCreatingReport}
                 >
                   <Text style={styles.submitButtonText}>
-                    {isSubmitting ? t('submitting') : t('submitReport')}
+                    {isCreatingReport ? t('submitting') : t('submitReport')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -221,6 +288,21 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     color: colors.text,
     marginBottom: spacing.medium
+  },
+  blockingOptions: {
+    marginBottom: spacing.medium
+  },
+  blockOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder
+  },
+  blockText: {
+    fontSize: fontSizes.medium,
+    color: colors.text
   },
   submitButton: {
     backgroundColor: colors.primary,

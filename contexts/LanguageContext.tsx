@@ -7,44 +7,39 @@ type Language = typeof language.$inferSelect;
 
 interface LanguageContextType {
   currentLanguage: Language | null;
-  setLanguage: (language: Language) => Promise<void>;
+  setLanguage: (lang: Language) => Promise<void>;
   isLoading: boolean;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(
+export const LanguageContext = createContext<LanguageContextType | undefined>(
   undefined
 );
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
+export const LanguageProvider = ({
+  children
+}: {
+  children: React.ReactNode;
+}) => {
   const [currentLanguage, setCurrentLanguage] = useState<Language | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
-    const loadLanguage = async () => {
-      try {
-        const savedId = await AsyncStorage.getItem('selectedLanguageId');
-        if (savedId) {
-          const lang = await languageService.getLanguageById(savedId);
-          if (lang) {
-            setCurrentLanguage(lang);
-          }
+    const loadSavedLanguage = async () => {
+      const savedId = await AsyncStorage.getItem('selectedLanguageId');
+      if (savedId) {
+        const lang = await languageService.getLanguageById(savedId);
+        if (lang) {
+          setCurrentLanguage(lang);
         }
-      } catch (error) {
-        console.error('Error loading language:', error);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
-    void loadLanguage();
+    void loadSavedLanguage();
   }, []);
 
   const setLanguage = async (lang: Language) => {
-    try {
-      setCurrentLanguage(lang);
-      await AsyncStorage.setItem('selectedLanguageId', lang.id);
-    } catch (error) {
-      console.error('Error saving language:', error);
-    }
+    setCurrentLanguage(lang);
+    await AsyncStorage.setItem('selectedLanguageId', lang.id);
   };
 
   return (
@@ -58,7 +53,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       {children}
     </LanguageContext.Provider>
   );
-}
+};
 
 export function useLanguage() {
   const context = useContext(LanguageContext);

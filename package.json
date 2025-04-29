@@ -35,9 +35,10 @@
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@expo/vector-icons": "^14.0.2",
-    "@journeyapps/react-native-quick-sqlite": "^2.4.0",
+    "@op-engineering/op-sqlite": "^11.2.13",
     "@powersync/attachments": "^2.3.1",
     "@powersync/drizzle-driver": "^0.4.0",
+    "@powersync/op-sqlite": "^0.5.3",
     "@powersync/react-native": "^1.19.3",
     "@powersync/tanstack-react-query": "^0.0.21",
     "@powersync/web": "^1.19.0",

@@ -1,11 +1,23 @@
-import React, { type FC, useCallback, useEffect, useState } from 'react';
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { PageHeader } from '@/components/PageHeader';
 import { QuestDetails } from '@/components/QuestDetails';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { Asset, assetService } from '@/database_services/assetService';
-import { Tag, tagService } from '@/database_services/tagService';
+import type { Asset } from '@/database_services/assetService';
+import { assetService } from '@/database_services/assetService';
+import { downloadService } from '@/database_services/downloadService';
+import type { Quest } from '@/database_services/questService';
+import { questService } from '@/database_services/questService';
+import type { Tag } from '@/database_services/tagService';
+import { tagService } from '@/database_services/tagService';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import type { asset_content_link } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
-import { asset_content_link } from '@/db/drizzleSchema';
 import {
   borderRadius,
   colors,
@@ -14,8 +26,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams, useRouter } from 'expo-router';
+import { useGlobalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -28,29 +42,17 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { downloadService } from '@/database_services/downloadService';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useQuery } from '@tanstack/react-query';
-import { Quest, questService } from '@/database_services/questService';
-import { PageHeader } from '@/components/PageHeader';
-import { translationService } from '@/database_services/translationService';
-import { Translation } from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
 
-import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { getGemColor } from '@/utils/progressUtils';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-interface AggregatedGems {
-  [color: string]: number;
-}
+type AggregatedGems = Record<string, number>;
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
@@ -82,7 +84,7 @@ function AssetCard({ asset }: { asset: Asset }) {
       try {
         const [assetTags, assetTranslations] = await Promise.all([
           tagService.getTagsByAssetId(asset.id),
-          translationService.getTranslationsByAssetId(asset.id)
+          translationService.getTranslationsByAssetId(asset.id, currentUser?.id)
         ]);
         // setTags(assetTags);
         setTranslations(assetTranslations);
@@ -103,7 +105,7 @@ function AssetCard({ asset }: { asset: Asset }) {
       }
     };
     loadData();
-  }, [asset.id]);
+  }, [asset.id, currentUser]);
 
   const { data: tags } = useQuery({
     queryKey: ['asset-tags', asset.id],

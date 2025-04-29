@@ -117,7 +117,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       { table: 'quest_asset_link', keys: ['quest_id', 'asset_id'] },
       { table: 'project_download', keys: ['profile_id', 'project_id'] },
       { table: 'quest_download', keys: ['profile_id', 'quest_id'] },
-      { table: 'asset_download', keys: ['profile_id', 'asset_id'] }
+      { table: 'asset_download', keys: ['profile_id', 'asset_id'] },
+      { table: 'blocked_users', keys: ['blocker_id', 'blocked_id'] }
     ];
 
     console.log('Final composite key tables:', this.compositeKeyTables);

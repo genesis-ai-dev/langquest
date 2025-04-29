@@ -10,7 +10,7 @@ function PostHogProvider({ children }: { children: React.ReactNode }) {
   const { termsAccepted, termsLoading } = useAcceptedTerms();
 
   useEffect(() => {
-    AsyncStorage.getItem(ANALYTICS_OPT_OUT_KEY)
+    void AsyncStorage.getItem(ANALYTICS_OPT_OUT_KEY)
       .then((value) => {
         if (value) setOptedOut(Boolean(value));
       })
@@ -20,6 +20,7 @@ function PostHogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (isLoading || termsLoading) {
+    console.log('PostHogProvider is loading');
     return null;
   }
 

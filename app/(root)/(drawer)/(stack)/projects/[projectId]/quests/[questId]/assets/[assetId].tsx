@@ -1,55 +1,47 @@
-import MiniAudioPlayer from '@/components/MiniAudioPlayer';
+import Carousel from '@/components/Carousel';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import ImageCarousel from '@/components/ImageCarousel';
+import MiniAudioPlayer from '@/components/MiniAudioPlayer';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
+import { PageHeader } from '@/components/PageHeader';
 import { TranslationModal } from '@/components/TranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { Asset, assetService } from '@/database_services/assetService';
+import { useSystem } from '@/contexts/SystemContext';
+import type { Asset } from '@/database_services/assetService';
+import { assetService } from '@/database_services/assetService';
 import { languageService } from '@/database_services/languageService';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Profile, profileService } from '@/database_services/profileService';
-import { Vote, voteService } from '@/database_services/voteService';
-import { asset_content_link, language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
+import type { Profile } from '@/database_services/profileService';
+import { profileService } from '@/database_services/profileService';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import {
-  getLocalUriFromAssetId,
-  ensureAssetLoaded
-} from '@/utils/attachmentUtils';
+import { useTranslation } from '@/hooks/useTranslation';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useGlobalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  ActivityIndicator
+  View
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Carousel from '@/components/Carousel';
-import { PageHeader } from '@/components/PageHeader';
-import { useSystem } from '@/contexts/SystemContext';
 
 // Debug flag
 const DEBUG = false;
 
 // Custom debug function
-function debug(...args: any[]) {
+function debug(...args: unknown[]) {
+  // eslint-disable-next-line
   if (DEBUG) {
     console.log('[DEBUG assetView]', ...args);
   }
@@ -63,7 +55,7 @@ const getFirstAvailableTab = (
 ): TabType => {
   if (!asset) return 'text';
   const hasText = assetContent.length > 0;
-  const hasImages = (asset?.images?.length ?? 0) > 0;
+  const hasImages = (asset.images?.length ?? 0) > 0;
 
   if (hasText) return 'text';
   if (hasImages) return 'image';
@@ -76,16 +68,14 @@ type SortOption = 'voteCount' | 'dateSubmitted';
 export default function AssetView() {
   const system = useSystem();
   const { t } = useTranslation();
-  const router = useRouter();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const [currentPage, setCurrentPage] = useState(0);
   const { assetId } = useGlobalSearchParams<{
     assetId: string;
   }>();
-  const [asset, setAsset] = useState<Asset>();
+  const [asset, setAsset] = useState<Asset | undefined>();
   const [assetContent, setAssetContent] = useState<
-    (typeof asset_content_link.$inferSelect)[]
+    (typeof asset_content_link.$inferSelect)[] | undefined
   >([]);
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
@@ -98,13 +88,13 @@ export default function AssetView() {
     typeof language.$inferSelect | null
   >(null);
   const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[]>
+    Record<string, Vote[] | undefined>
   >({});
   const [translationCreators, setTranslationCreators] = useState<
-    Record<string, Profile>
+    Record<string, Profile | undefined>
   >({});
   const [translationLanguages, setTranslationLanguages] = useState<
-    Record<string, typeof language.$inferSelect>
+    Record<string, typeof language.$inferSelect | undefined>
   >({});
 
   const screenHeight = Dimensions.get('window').height;
@@ -127,7 +117,7 @@ export default function AssetView() {
       .map((content) => content.audio_id!)
       .filter(Boolean); // Remove any undefined values
 
-    const imageIds = asset?.images || [];
+    const imageIds = asset.images ?? [];
 
     const translationAudioIds = translations
       .filter((translation) => translation.audio)
@@ -142,11 +132,11 @@ export default function AssetView() {
     useAttachmentStates(allAttachmentIds);
 
   useEffect(() => {
-    loadAssetAndTranslations();
+    void loadAssetAndTranslations();
 
     // Load attachments into temp queue
     if (assetId) {
-      system.tempAttachmentQueue?.loadAssetAttachments(assetId);
+      void system.tempAttachmentQueue?.loadAssetAttachments(assetId);
     }
   }, [assetId]);
 
@@ -158,7 +148,7 @@ export default function AssetView() {
       [assetId],
       {
         onResult: () => {
-          loadAssetAndTranslations();
+          void loadAssetAndTranslations();
         }
       },
 
@@ -177,21 +167,24 @@ export default function AssetView() {
       `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
       [assetId],
       {
-        onResult: async () => {
+        onResult: () => {
           // Instead of trying to use the result directly, let's fetch the votes again
-          try {
-            const votesMap: Record<string, Vote[]> = {};
-            await Promise.all(
-              translations.map(async (translation) => {
-                votesMap[translation.id] =
-                  await voteService.getVotesByTranslationId(translation.id);
-              })
-            );
-            console.log('Updated votes map:', votesMap); // Debug log
-            setTranslationVotes(votesMap);
-          } catch (error) {
-            console.error('Error updating votes:', error);
-          }
+          const asyncLoadVotes = async () => {
+            try {
+              const votesMap: Record<string, Vote[]> = {};
+              await Promise.all(
+                translations.map(async (translation) => {
+                  votesMap[translation.id] =
+                    await voteService.getVotesByTranslationId(translation.id);
+                })
+              );
+              console.log('Updated votes map:', votesMap); // Debug log
+              setTranslationVotes(votesMap);
+            } catch (error) {
+              console.error('Error updating votes:', error);
+            }
+          };
+          void asyncLoadVotes();
         }
       },
       { signal: abortController.signal }
@@ -229,7 +222,10 @@ export default function AssetView() {
 
       // Load translations
       const loadedTranslations =
-        await translationService.getTranslationsByAssetId(assetId);
+        await translationService.getTranslationsByAssetId(
+          assetId,
+          currentUser?.id
+        );
       setTranslations(loadedTranslations);
 
       // After loading asset data, load the URIs
@@ -273,7 +269,7 @@ export default function AssetView() {
     }
   };
 
-  const getPreviewText = (fullText: string, maxLength: number = 50) => {
+  const getPreviewText = (fullText: string, maxLength = 50) => {
     if (fullText.length <= maxLength) return fullText;
     return fullText.substring(0, maxLength).trim() + '...';
   };
@@ -290,7 +286,7 @@ export default function AssetView() {
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
-    const votes = translationVotes[translationId] || [];
+    const votes = translationVotes[translationId] ?? [];
     const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
 
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
@@ -380,7 +376,7 @@ export default function AssetView() {
       setTranslationLanguages(languagesMap);
     };
 
-    loadTranslationData();
+    void loadTranslationData();
   }, [translations]);
 
   const renderTranslationCard = ({
@@ -388,10 +384,10 @@ export default function AssetView() {
   }: {
     item: Translation;
   }) => {
-    const votes = translationVotes[translation.id] || [];
+    const votes = translationVotes[translation.id];
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
-    const voteCount = calculateVoteCount(votes);
+    const voteCount = calculateVoteCount(votes ?? []);
     debug('asset translation', {
       translationCreators,
       translationLanguages,
@@ -414,7 +410,8 @@ export default function AssetView() {
               {currentUser && currentUser.id === translation.creator_id
                 ? `${creator?.username} => `
                 : ''}
-              {targetLanguage?.native_name || targetLanguage?.english_name}
+              {targetLanguage &&
+                (targetLanguage.native_name ?? targetLanguage.english_name)}
             </Text>
           </View>
           <View style={styles.translationCardRight}>
@@ -461,16 +458,16 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !assetContent.length && styles.disabledTab
+                  !assetContent?.length && styles.disabledTab
                 ]}
                 onPress={() => setActiveTab('text')}
-                disabled={!assetContent.length}
+                disabled={!assetContent?.length}
               >
                 <Ionicons
                   name="text"
                   size={24}
                   color={
-                    assetContent.length ? colors.text : colors.textSecondary
+                    assetContent?.length ? colors.text : colors.textSecondary
                   }
                 />
               </TouchableOpacity>
@@ -501,80 +498,82 @@ export default function AssetView() {
               <ActivityIndicator size="large" />
             ) : (
               <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-                {activeTab === 'text' && assetContent.length > 0 && (
-                  <View style={styles.carouselWrapper}>
-                    <Carousel
-                      items={assetContent}
-                      renderItem={(content) => {
-                        return (
-                          <View style={styles.sourceTextContainer}>
-                            <View>
-                              <Text style={styles.source_languageLabel}>
-                                {sourceLanguage?.native_name ||
-                                  sourceLanguage?.english_name}
-                                :
-                              </Text>
-                              <Text style={styles.sourceText}>
-                                {content.text}
-                              </Text>
-                            </View>
+                {activeTab === 'text' &&
+                  assetContent?.length &&
+                  assetContent.length > 0 && (
+                    <View style={styles.carouselWrapper}>
+                      <Carousel
+                        items={assetContent}
+                        renderItem={(content) => {
+                          return (
+                            <View style={styles.sourceTextContainer}>
+                              <View>
+                                <Text style={styles.source_languageLabel}>
+                                  {sourceLanguage?.native_name ??
+                                    sourceLanguage?.english_name}
+                                  :
+                                </Text>
+                                <Text style={styles.sourceText}>
+                                  {content.text}
+                                </Text>
+                              </View>
 
-                            {content.audio_id &&
-                            attachmentUris[content.audio_id]
-                              ? // Audio player is rendered
-                                (() => {
-                                  return (
-                                    <MiniAudioPlayer
-                                      audioFile={{
-                                        id: content.id,
-                                        title: content.text,
-                                        uri: attachmentUris[content.audio_id]
-                                      }}
-                                    />
-                                  );
-                                })()
-                              : content.audio_id && loadingAttachments
-                                ? // Showing loading indicator
+                              {content.audio_id &&
+                              attachmentUris[content.audio_id]
+                                ? // Audio player is rendered
                                   (() => {
                                     return (
-                                      <View style={styles.audioLoading}>
-                                        <Text
-                                          style={{
-                                            color: colors.textSecondary
-                                          }}
-                                        >
-                                          Loading audio...
-                                        </Text>
-                                        <ActivityIndicator size="small" />
-                                      </View>
+                                      <MiniAudioPlayer
+                                        audioFile={{
+                                          id: content.id,
+                                          title: content.text,
+                                          uri: attachmentUris[content.audio_id]
+                                        }}
+                                      />
                                     );
                                   })()
-                                : // Not showing audio player or loading indicator
-                                  (() => {
-                                    console.log(
-                                      `[AssetView] No audio player/loader for ${content.id}:`,
-                                      {
-                                        audioId: content.audio_id,
-                                        hasUri: content.audio_id
-                                          ? !!attachmentUris[content.audio_id]
-                                          : false,
-                                        loadingAttachments
-                                      }
-                                    );
-                                    return null;
-                                  })()}
-                          </View>
-                        );
-                      }}
-                    />
-                  </View>
-                )}
+                                : content.audio_id && loadingAttachments
+                                  ? // Showing loading indicator
+                                    (() => {
+                                      return (
+                                        <View style={styles.audioLoading}>
+                                          <Text
+                                            style={{
+                                              color: colors.textSecondary
+                                            }}
+                                          >
+                                            Loading audio...
+                                          </Text>
+                                          <ActivityIndicator size="small" />
+                                        </View>
+                                      );
+                                    })()
+                                  : // Not showing audio player or loading indicator
+                                    (() => {
+                                      console.log(
+                                        `[AssetView] No audio player/loader for ${content.id}:`,
+                                        {
+                                          audioId: content.audio_id,
+                                          hasUri: content.audio_id
+                                            ? !!attachmentUris[content.audio_id]
+                                            : false,
+                                          loadingAttachments
+                                        }
+                                      );
+                                      return null;
+                                    })()}
+                            </View>
+                          );
+                        }}
+                      />
+                    </View>
+                  )}
                 {activeTab === 'image' && (
                   <ImageCarousel
                     uris={
                       asset?.images
                         ?.map((imageId) => attachmentUris[imageId])
-                        .filter(Boolean) || []
+                        .filter(Boolean) ?? []
                     }
                   />
                 )}
@@ -618,8 +617,8 @@ export default function AssetView() {
                 <FlatList
                   data={translations.sort((a, b) => {
                     if (sortOption === 'voteCount') {
-                      const votesA = translationVotes[a.id] || [];
-                      const votesB = translationVotes[b.id] || [];
+                      const votesA = translationVotes[a.id] ?? [];
+                      const votesB = translationVotes[b.id] ?? [];
                       return (
                         calculateVoteCount(votesB) - calculateVoteCount(votesA)
                       );
@@ -650,7 +649,7 @@ export default function AssetView() {
           isVisible={isNewTranslationModalVisible}
           onClose={() => setIsNewTranslationModalVisible(false)}
           onSubmit={handleNewTranslation}
-          asset_id={assetId!}
+          asset_id={assetId}
         />
       </LinearGradient>
     </GestureHandlerRootView>

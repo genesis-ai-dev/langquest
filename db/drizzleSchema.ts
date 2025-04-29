@@ -236,14 +236,13 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
     references: [profile.id]
   }),
   votes: many(vote),
-  reports: many(translation_reports)
+  reports: many(reports, { relationName: 'translation_reports' })
 }));
 
-export const translation_reports = sqliteTable('translation_reports', {
+export const reports = sqliteTable('reports', {
   ...baseColumns,
-  translation_id: text()
-    .notNull()
-    .references(() => translation.id),
+  record_id: text().notNull(),
+  record_table: text().notNull(),
   reporter_id: text().references(() => profile.id),
   reason: text({
     enum: reasonOptions
@@ -251,19 +250,63 @@ export const translation_reports = sqliteTable('translation_reports', {
   details: text()
 });
 
-export const translationReportRelations = relations(
-  translation_reports,
+export const blocked_users = sqliteTable(
+  'blocked_users',
+  {
+    ...linkColumns,
+    blocker_id: text()
+      .notNull()
+      .references(() => profile.id),
+    blocked_id: text()
+      .notNull()
+      .references(() => profile.id)
+  },
+  (t) => [primaryKey({ columns: [t.blocker_id, t.blocked_id] })]
+);
+
+export const blocked_usersRelations = relations(blocked_users, ({ one }) => ({
+  blocker: one(profile, {
+    fields: [blocked_users.blocker_id],
+    references: [profile.id],
+    relationName: 'blocker'
+  }),
+  blocked: one(profile, {
+    fields: [blocked_users.blocked_id],
+    references: [profile.id],
+    relationName: 'blocked'
+  })
+}));
+
+export const blocked_content = sqliteTable('blocked_content', {
+  ...baseColumns,
+  profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  content_id: text().notNull(),
+  content_table: text().notNull()
+});
+
+export const blocked_contentRelations = relations(
+  blocked_content,
   ({ one }) => ({
-    translation: one(translation, {
-      fields: [translation_reports.translation_id],
-      references: [translation.id]
-    }),
-    reporter: one(profile, {
-      fields: [translation_reports.reporter_id],
+    profile: one(profile, {
+      fields: [blocked_content.profile_id],
       references: [profile.id]
     })
   })
 );
+
+export const reportRelations = relations(reports, ({ one }) => ({
+  reporter: one(profile, {
+    fields: [reports.reporter_id],
+    references: [profile.id]
+  }),
+  translation: one(translation, {
+    fields: [reports.record_id],
+    references: [translation.id],
+    relationName: 'translation_reports'
+  })
+}));
 
 export const vote = sqliteTable('vote', {
   ...baseColumns,

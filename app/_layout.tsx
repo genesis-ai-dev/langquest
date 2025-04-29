@@ -14,6 +14,7 @@ import { getQueryParams } from '@/utils/supabaseQueryParams';
 import { TranslationUtils } from '@/utils/translationUtils';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
+
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -46,7 +47,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  const handleAuthDeepLink = async (url: string) => {
+  const handleAuthDeepLink = (url: string) => {
     console.log('[handleAuthDeepLink] URL:', url);
     const { params, path } = getQueryParams(url);
 

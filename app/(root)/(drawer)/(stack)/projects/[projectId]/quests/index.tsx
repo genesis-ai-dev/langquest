@@ -1,13 +1,18 @@
-import { QuestDetails } from '@/components/QuestDetails';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { ProjectDetails } from '@/components/ProjectDetails';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { ProjectDetails } from '@/components/ProjectDetails';
+import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { Quest, questService } from '@/database_services/questService';
-import { Project, projectService } from '@/database_services/projectService';
-import { Tag, tagService } from '@/database_services/tagService';
+import { downloadService } from '@/database_services/downloadService';
+import { projectService } from '@/database_services/projectService';
+import type { Quest } from '@/database_services/questService';
+import { questService } from '@/database_services/questService';
+import type { Tag } from '@/database_services/tagService';
+import { tagService } from '@/database_services/tagService';
+import type { project } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
-import { project } from '@/db/drizzleSchema';
 import {
   borderRadius,
   colors,
@@ -31,20 +36,16 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { downloadService } from '@/database_services/downloadService';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 
-import { Asset, assetService } from '@/database_services/assetService';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
-import { calculateQuestProgress } from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import type { Asset } from '@/database_services/assetService';
+import { assetService } from '@/database_services/assetService';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import { calculateQuestProgress } from '@/utils/progressUtils';
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -118,7 +119,10 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
         await Promise.all(
           questAssets.map(async (asset) => {
             const assetTranslations =
-              await translationService.getTranslationsByAssetId(asset.id);
+              await translationService.getTranslationsByAssetId(
+                asset.id,
+                currentUser?.id
+              );
             translationsMap[asset.id] = assetTranslations;
 
             // Load votes for each translation
@@ -140,7 +144,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
     };
 
     loadQuestData();
-  }, [quest.id]);
+  }, [quest.id, currentUser]);
 
   const progress = calculateQuestProgress(
     assets,

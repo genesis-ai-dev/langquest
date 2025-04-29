@@ -27,27 +27,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { supabaseConnector, powersync } = useSystem();
 
   useEffect(() => {
-    const setProfile = async () => {
-      try {
-        const supabaseAuthKey = await getSupabaseAuthKey();
+    const loadAuthData = async () => {
+      setIsLoading(true);
+      const supabaseAuthKey = await getSupabaseAuthKey();
 
-        if (supabaseAuthKey) {
-          const session = JSON.parse(
-            (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-          ) as Session | null;
-          const profile = await profileService.getProfileByUserId(
-            session?.user.id ?? ''
-          );
+      if (supabaseAuthKey) {
+        const session = JSON.parse(
+          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
+        ) as Session | null;
+        const profile = await profileService.getProfileByUserId(
+          session?.user.id ?? ''
+        );
 
-          setCurrentUser(profile ?? null);
-        }
-      } catch (error) {
-        console.error('Error getting session:', error);
-      } finally {
+        setCurrentUser(profile ?? null);
         setIsLoading(false);
       }
     };
-    void setProfile();
+
+    void loadAuthData();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
       async (_, session) => {

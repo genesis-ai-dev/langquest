@@ -1,18 +1,18 @@
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
-import { vote } from '@/db/drizzleSchema';
-import { useSystem } from '@/contexts/SystemContext';
+import type { Translation } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import type { vote } from '@/db/drizzleSchema';
+import { useReports } from '@/hooks/useReports';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,9 +20,8 @@ import {
   View
 } from 'react-native';
 import AudioPlayer from './AudioPlayer';
+import { ReportModal } from './ReportModal';
 import { VoteCommentModal } from './VoteCommentModal';
-import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
-import { ReportTranslationModal } from './ReportTranslationModal';
 
 interface TranslationModalProps {
   translation: Translation;
@@ -37,40 +36,36 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
-  const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
+  const [currentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
-  const [audioUri, setAudioUri] = useState<string | null>(null);
-  const [loadingAudio, setLoadingAudio] = useState(false);
-  const system = useSystem();
+  const { hasReported } = useReports(
+    initialTranslation.id,
+    'translations',
+    currentUser!.id
+  );
 
-  useEffect(() => {
-    const loadAudioUri = async () => {
-      if (translation.audio) {
-        setLoadingAudio(true);
-        try {
-          const uri = await getLocalUriFromAssetId(translation.audio);
-          setAudioUri(uri);
-        } catch (error) {
-          console.error('Error loading audio URI:', error);
-        } finally {
-          setLoadingAudio(false);
-        }
-      } else {
-        setAudioUri(null);
+  // Use TanStack Query to load audio URI
+  const { data: audioUri, isLoading: loadingAudio } = useQuery({
+    queryKey: ['audio', initialTranslation.audio],
+    queryFn: async () => {
+      if (!initialTranslation.audio) return null;
+      try {
+        return await getLocalUriFromAssetId(initialTranslation.audio);
+      } catch (error) {
+        console.error('Error loading audio URI:', error);
+        return null;
       }
-    };
-
-    loadAudioUri();
-  }, [translation.audio]);
+    },
+    enabled: !!initialTranslation.audio
+  });
 
   useEffect(() => {
     const loadVotes = async () => {
       const translationVotes = await voteService.getVotesByTranslationId(
-        translation.id
+        initialTranslation.id
       );
       setVotes(translationVotes);
       if (currentUser) {
@@ -80,17 +75,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         setUserVote(userVote);
       }
     };
-    loadVotes();
-  }, [translation.id, currentUser]);
-
-  useEffect(() => {
-    setTranslation(initialTranslation);
-  }, [initialTranslation]);
+    void loadVotes();
+  }, [initialTranslation.id, currentUser]);
 
   const loadUserVote = async () => {
     try {
       const vote = await voteService.getUserVoteForTranslation(
-        translation.id,
+        initialTranslation.id,
         currentUser!.id
       );
       setUserVote(vote);
@@ -106,7 +97,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     );
   };
 
-  const isOwnTranslation = currentUser?.id === translation.creator_id;
+  const isOwnTranslation = currentUser?.id === initialTranslation.creator_id;
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
@@ -116,14 +107,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
     try {
       await voteService.addVote({
-        translation_id: translation.id,
+        translation_id: initialTranslation.id,
         creator_id: currentUser.id,
         polarity: voteType
       });
       onVoteSubmitted();
-      // Update local state to reflect the vote
       const updatedVotes = await voteService.getVotesByTranslationId(
-        translation.id
+        initialTranslation.id
       );
       setVotes(updatedVotes);
       const newUserVote = updatedVotes.find(
@@ -139,21 +129,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const handleVoteSubmit = async (comment: string) => {
     try {
       await voteService.addVote({
-        translation_id: translation.id,
+        translation_id: initialTranslation.id,
         creator_id: currentUser!.id,
         polarity: currentVoteType,
         comment: comment || undefined
       });
-
-      // Get updated translation data after vote
-      const updatedTranslations =
-        await translationService.getTranslationsByAssetId(translation.asset_id);
-      const updatedTranslation = updatedTranslations.find(
-        (t) => t.id === translation.id
-      );
-      if (updatedTranslation) {
-        setTranslation(updatedTranslation);
-      }
 
       onVoteSubmitted();
       await loadUserVote();
@@ -175,7 +155,17 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       return;
     }
 
+    if (hasReported) {
+      Alert.alert('Error', 'You have already reported this translation');
+      return;
+    }
+
     setShowReportModal(true);
+  };
+
+  // Update to match ReportModal's expected callback signature
+  const handleReportSubmitted = () => {
+    setShowReportModal(false);
   };
 
   return (
@@ -186,13 +176,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        {translation.text && (
+        {initialTranslation.text && (
           <ScrollView style={styles.scrollView}>
-            {/* <Text style={styles.translatorInfo}>
-              Translated by {translation.creator.username} in{' '}
-              {translation.target_language.native_name || translation.target_language.english_name}
-            </Text> */}
-            <Text style={styles.text}>{translation.text}</Text>
+            <Text style={styles.text}>{initialTranslation.text}</Text>
           </ScrollView>
         )}
 
@@ -200,7 +186,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           {loadingAudio ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            translation.audio &&
+            initialTranslation.audio &&
             audioUri && (
               <AudioPlayer
                 audioUri={audioUri}
@@ -255,12 +241,16 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <TouchableOpacity
             style={[
               styles.reportButton,
-              isOwnTranslation && styles.feedbackButtonDisabled
+              (isOwnTranslation || hasReported) && styles.feedbackButtonDisabled
             ]}
             onPress={handleReportPress}
-            disabled={isOwnTranslation}
+            disabled={isOwnTranslation || hasReported}
           >
-            <Ionicons name="flag-outline" size={20} color={colors.text} />
+            <Ionicons
+              name={hasReported ? 'flag' : 'flag-outline'}
+              size={20}
+              color={colors.text}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -273,10 +263,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       />
 
       {showReportModal && (
-        <ReportTranslationModal
+        <ReportModal
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
-          translation={translation}
+          recordId={initialTranslation.id}
+          recordTable="translations"
+          creatorId={initialTranslation.creator_id}
+          onReportSubmitted={handleReportSubmitted}
         />
       )}
     </View>

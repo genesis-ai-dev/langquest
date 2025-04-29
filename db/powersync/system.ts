@@ -16,6 +16,7 @@ import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter'
 
 import type { AttachmentRecord } from '@powersync/attachments';
 import { AttachmentTable } from '@powersync/attachments';
+import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
 import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
@@ -23,6 +24,7 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
+
 Logger.useDefaults();
 
 export class System {
@@ -36,6 +38,12 @@ export class System {
   constructor() {
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
+
+    const factory = new OPSqliteOpenFactory({
+      dbFilename: 'sqlite.db',
+      debugMode: true
+    });
+
     this.powersync = new PowerSyncDatabase({
       schema: new Schema([
         ...new DrizzleAppSchema(drizzleSchema).tables,
@@ -45,10 +53,7 @@ export class System {
           ]
         })
       ]),
-      database: {
-        dbFilename: 'sqlite.db',
-        debugMode: true
-      }
+      database: factory
     });
 
     console.log('Wrapping PowerSync with Drizzle');
@@ -81,7 +86,7 @@ export class System {
         // eslint-disable-next-line
         onUploadError: async (
           attachment: AttachmentRecord,
-          exception: unknown
+          exception: { error: string; message: string; statusCode: number }
         ) => {
           console.log('onUploadError', attachment, exception);
           return { retry: true };
