@@ -22,7 +22,7 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -46,6 +46,8 @@ import { translationService } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
+
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -60,23 +62,27 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [questTags, assets] = await Promise.all([
-        tagService.getTagsByQuestId(quest.id),
-        assetService.getAssetsByQuestId(quest.id)
-      ]);
-      setTags(questTags);
-      setAssetIds(assets.map((asset) => asset.id));
+      try {
+        const [questTags, assets] = await Promise.all([
+          tagService.getTagsByQuestId(quest.id),
+          assetService.getAssetsByQuestId(quest.id)
+        ]);
+        setTags(questTags);
+        setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
 
-      // Get quest download status
-      if (currentUser) {
-        const downloadStatus = await downloadService.getQuestDownloadStatus(
-          currentUser.id,
-          quest.id
-        );
-        setIsDownloaded(downloadStatus);
+        // Get quest download status
+        if (currentUser) {
+          const downloadStatus = await downloadService.getQuestDownloadStatus(
+            currentUser.id,
+            quest.id
+          );
+          setIsDownloaded(downloadStatus);
+        }
+      } catch (error) {
+        console.error('Error loading quest data:', error);
       }
     };
-    loadData();
+    void loadData();
   }, [quest.id, currentUser]);
 
   const { isDownloaded: assetsDownloaded, isLoading } =
@@ -110,14 +116,14 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
         // Load assets
         const questAssets = await assetService.getAssetsByQuestId(quest.id);
-        setAssets(questAssets);
+        setAssets(questAssets.filter(Boolean));
 
         // Load translations and votes for each asset
         const translationsMap: Record<string, Translation[]> = {};
         const votesMap: Record<string, Vote[]> = {};
 
         await Promise.all(
-          questAssets.map(async (asset) => {
+          questAssets.filter(Boolean).map(async (asset) => {
             const assetTranslations =
               await translationService.getTranslationsByAssetId(
                 asset.id,
@@ -143,14 +149,14 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       }
     };
 
-    loadQuestData();
+    void loadQuestData();
   }, [quest.id, currentUser]);
 
   const progress = calculateQuestProgress(
     assets,
     translations,
     votes,
-    currentUser?.id || null
+    currentUser?.id ?? null
   );
 
   return (
@@ -243,7 +249,6 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
 export default function Quests() {
   const { t } = useTranslation();
-  const router = useRouter();
   const { projectId, projectName } = useLocalSearchParams<{
     projectId: string;
     projectName: string;
@@ -267,8 +272,8 @@ export default function Quests() {
   const { goToQuest } = useProjectContext();
 
   useEffect(() => {
-    loadQuests();
-    loadProject();
+    void loadQuests();
+    void loadProject();
   }, [projectId]);
 
   const loadQuests = async () => {
@@ -316,7 +321,7 @@ export default function Quests() {
             false);
 
         // Tag filters
-        const questTags = questToTags[quest.id] || [];
+        const questTags = questToTags[quest.id] ?? [];
         const matchesFilters = Object.entries(filters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
@@ -340,29 +345,11 @@ export default function Quests() {
 
   const applySorting = useCallback(
     (questsToSort: Quest[], sorting: SortingOption[]) => {
-      return [...questsToSort].sort((a, b) => {
-        for (const { field, order } of sorting) {
-          if (field === 'name') {
-            const comparison = a.name.localeCompare(b.name);
-            return order === 'asc' ? comparison : -comparison;
-          } else {
-            const tagsA = questTags[a.id] || [];
-            const tagsB = questTags[b.id] || [];
-            const tagA =
-              tagsA
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const tagB =
-              tagsB
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const comparison = tagA.localeCompare(tagB);
-            if (comparison !== 0)
-              return order === 'asc' ? comparison : -comparison;
-          }
-        }
-        return 0;
-      });
+      return sortItems(
+        questsToSort,
+        sorting,
+        (questId: string) => questTags[questId] ?? []
+      );
     },
     [questTags]
   );
@@ -370,15 +357,19 @@ export default function Quests() {
   // Load tags when quests change
   useEffect(() => {
     const loadTags = async () => {
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        quests.map(async (quest) => {
-          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
-        })
-      );
-      setQuestToTags(tagsMap);
+      try {
+        const tagsMap: Record<string, Tag[]> = {};
+        await Promise.all(
+          quests.map(async (quest) => {
+            tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+          })
+        );
+        setQuestToTags(tagsMap);
+      } catch (error) {
+        console.error('Error loading tags:', error);
+      }
     };
-    loadTags();
+    void loadTags();
   }, [quests]);
 
   // Update filtered quests when search query changes

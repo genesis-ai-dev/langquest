@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
 import type { vote } from '@/db/drizzleSchema';
@@ -16,6 +17,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -41,6 +43,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [currentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { hasReported } = useReports(
     initialTranslation.id,
     'translations',
@@ -77,6 +82,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     };
     void loadVotes();
   }, [initialTranslation.id, currentUser]);
+
+  useEffect(() => {
+    setEditedText(initialTranslation.text ?? '');
+  }, [initialTranslation]);
 
   const loadUserVote = async () => {
     try {
@@ -163,9 +172,44 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     setShowReportModal(true);
   };
 
-  // Update to match ReportModal's expected callback signature
   const handleReportSubmitted = () => {
     setShowReportModal(false);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!currentUser) {
+      Alert.alert('Error', t('logInToTranslate'));
+      return;
+    }
+
+    if (!editedText.trim()) {
+      Alert.alert('Error', t('fillFields'));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Create a new translation linked to the same audio file
+      await translationService.createTranslation({
+        text: editedText.trim(),
+        target_language_id: initialTranslation.target_language_id,
+        asset_id: initialTranslation.asset_id,
+        creator_id: currentUser.id,
+        audio: initialTranslation.audio ?? ''
+      });
+
+      onVoteSubmitted();
+      onClose();
+    } catch (error) {
+      console.error('Error creating edited translation:', error);
+      Alert.alert('Error', t('failedCreateTranslation'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleEdit = () => {
+    setIsEditing(!isEditing);
   };
 
   return (
@@ -176,9 +220,39 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        {initialTranslation.text && (
+        {(initialTranslation.text ?? isEditing) ? (
           <ScrollView style={styles.scrollView}>
-            <Text style={styles.text}>{initialTranslation.text}</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                multiline
+                placeholder={t('enterTranslation')}
+                placeholderTextColor={colors.textSecondary}
+                value={editedText}
+                onChangeText={setEditedText}
+              />
+            ) : (
+              <View style={styles.textContainer}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={toggleEdit}
+                >
+                  <Ionicons name="pencil" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.text}>{initialTranslation.text}</Text>
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.textContainer}>
+              <TouchableOpacity style={styles.editButton} onPress={toggleEdit}>
+                <Ionicons name="pencil" size={18} color={colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.placeholderText}>
+                {t('enterTranslation')}
+              </Text>
+            </View>
           </ScrollView>
         )}
 
@@ -197,62 +271,77 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           )}
         </View>
 
-        <View style={styles.actionsContainer}>
-          <View style={styles.feedbackContainer}>
+        {isEditing ? (
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleEditSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={colors.buttonText} />
+            ) : (
+              <Text style={styles.submitButtonText}>{t('submit')}</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.actionsContainer}>
+            <View style={styles.feedbackContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackButton,
+                  isOwnTranslation && styles.feedbackButtonDisabled
+                ]}
+                onPress={() => handleVote('up')}
+                disabled={isOwnTranslation}
+              >
+                <Ionicons
+                  name={
+                    userVote?.polarity === 'up'
+                      ? 'thumbs-up'
+                      : 'thumbs-up-outline'
+                  }
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackButton,
+                  isOwnTranslation && styles.feedbackButtonDisabled
+                ]}
+                onPress={() => handleVote('down')}
+                disabled={isOwnTranslation}
+              >
+                <Ionicons
+                  name={
+                    userVote?.polarity === 'down'
+                      ? 'thumbs-down'
+                      : 'thumbs-down-outline'
+                  }
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               style={[
-                styles.feedbackButton,
-                isOwnTranslation && styles.feedbackButtonDisabled
+                styles.reportButton,
+                (isOwnTranslation || hasReported) &&
+                  styles.feedbackButtonDisabled
               ]}
-              onPress={() => handleVote('up')}
-              disabled={isOwnTranslation}
+              onPress={handleReportPress}
+              disabled={isOwnTranslation || hasReported}
             >
               <Ionicons
-                name={
-                  userVote?.polarity === 'up'
-                    ? 'thumbs-up'
-                    : 'thumbs-up-outline'
-                }
-                size={24}
-                color={colors.text}
-              />
-            </TouchableOpacity>
-            <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
-            <TouchableOpacity
-              style={[
-                styles.feedbackButton,
-                isOwnTranslation && styles.feedbackButtonDisabled
-              ]}
-              onPress={() => handleVote('down')}
-              disabled={isOwnTranslation}
-            >
-              <Ionicons
-                name={
-                  userVote?.polarity === 'down'
-                    ? 'thumbs-down'
-                    : 'thumbs-down-outline'
-                }
-                size={24}
+                name={hasReported ? 'flag' : 'flag-outline'}
+                size={20}
                 color={colors.text}
               />
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={[
-              styles.reportButton,
-              (isOwnTranslation || hasReported) && styles.feedbackButtonDisabled
-            ]}
-            onPress={handleReportPress}
-            disabled={isOwnTranslation || hasReported}
-          >
-            <Ionicons
-              name={hasReported ? 'flag' : 'flag-outline'}
-              size={20}
-              color={colors.text}
-            />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
       <VoteCommentModal
@@ -310,17 +399,41 @@ const styles = StyleSheet.create({
     marginVertical: spacing.medium,
     maxHeight: 200
   },
-  text: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginBottom: spacing.medium
-  },
   translatorInfo: {
     fontSize: fontSizes.small,
     color: colors.textSecondary,
     marginBottom: spacing.small
   },
+  textContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start'
+  },
+  text: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1
+  },
+  placeholderText: {
+    fontSize: fontSizes.medium,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    flex: 1
+  },
+  editButton: {
+    padding: spacing.xsmall,
+    marginRight: spacing.small
+  },
+  textInput: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    padding: spacing.medium,
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    minHeight: 100
+  },
   audioPlayerContainer: {
+    marginTop: spacing.medium,
     marginBottom: spacing.medium
   },
   actionsContainer: {
@@ -349,5 +462,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colors.inputBorder
+  },
+  submitButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.medium,
+    padding: spacing.medium,
+    alignItems: 'center',
+    marginTop: spacing.medium
+  },
+  submitButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
   }
 });
