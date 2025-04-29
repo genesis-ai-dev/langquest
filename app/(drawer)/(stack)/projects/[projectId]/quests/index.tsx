@@ -1,13 +1,16 @@
-import { QuestDetails } from '@/components/QuestDetails';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { ProjectDetails } from '@/components/ProjectDetails';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { ProjectDetails } from '@/components/ProjectDetails';
+import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { downloadService } from '@/database_services/downloadService';
+import { projectService } from '@/database_services/projectService';
 import { Quest, questService } from '@/database_services/questService';
-import { Project, projectService } from '@/database_services/projectService';
 import { Tag, tagService } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
 import { project } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
   colors,
@@ -31,11 +34,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { downloadService } from '@/database_services/downloadService';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
 import { Asset, assetService } from '@/database_services/assetService';
 import {
   Translation,
@@ -43,8 +44,8 @@ import {
 } from '@/database_services/translationService';
 import { Vote, voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
+import { sortItems } from '@/utils/sortingUtils';
+
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -336,29 +337,11 @@ export default function Quests() {
 
   const applySorting = useCallback(
     (questsToSort: Quest[], sorting: SortingOption[]) => {
-      return [...questsToSort].sort((a, b) => {
-        for (const { field, order } of sorting) {
-          if (field === 'name') {
-            const comparison = a.name.localeCompare(b.name);
-            return order === 'asc' ? comparison : -comparison;
-          } else {
-            const tagsA = questTags[a.id] || [];
-            const tagsB = questTags[b.id] || [];
-            const tagA =
-              tagsA
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const tagB =
-              tagsB
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const comparison = tagA.localeCompare(tagB);
-            if (comparison !== 0)
-              return order === 'asc' ? comparison : -comparison;
-          }
-        }
-        return 0;
-      });
+      return sortItems(
+        questsToSort,
+        sorting,
+        (questId) => questTags[questId] || []
+      );
     },
     [questTags]
   );
