@@ -1,10 +1,10 @@
-import { StyleSheet } from 'react-native';
 import { adjustColor } from '@/utils/colorUtils';
+import { StyleSheet } from 'react-native';
 
 const themeColor = 'purple'; // Change this to 'green', 'yellow', or any other color
 
 const getColorHex = (color: string) => {
-  const colorMap: { [key: string]: string } = {
+  const colorMap: Record<string, string> = {
     purple: '#8B5CF6',
     green: '#4CAF50',
     yellow: '#FFEB3B',
@@ -43,8 +43,7 @@ export const colors = {
   error: '#FF0000',
   disabled: '#999999',
   success: '#16BFC6', // Green color for success state
-  alert: '#CA59E5', // purple color for alert state
-  disabled: '#999999'
+  alert: '#CA59E5' // purple color for alert state
 };
 
 export const fontSizes = {

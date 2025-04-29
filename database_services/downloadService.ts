@@ -230,7 +230,7 @@ export class DownloadService {
       // Cascade to all assets in the quest
       const assets = await assetService.getAssetsByQuestId(questId);
       for (const asset of assets) {
-        await this.setAssetDownload(profileId, asset.id, active);
+        if (asset) await this.setAssetDownload(profileId, asset.id, active);
       }
 
       // If this is a direct call (not part of project update), execute immediately

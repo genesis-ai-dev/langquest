@@ -66,7 +66,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadAsset = async () => {
       const asset = await assetService.getAssetById(assetId);
-      setActiveAsset(asset);
+      setActiveAsset(asset ?? null);
     };
     void loadAsset();
   }, [assetId]);

@@ -126,6 +126,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             // Load translations and votes for each asset
             await Promise.all(
               assets.map(async (asset) => {
+                if (!asset) return;
                 const assetTranslations =
                   await translationService.getTranslationsByAssetId(
                     asset.id,
@@ -144,10 +145,10 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             );
 
             return calculateQuestProgress(
-              assets,
+              assets.filter(Boolean),
               translations,
               votes,
-              currentUser?.id || null
+              currentUser?.id ?? null
             );
           })
         );
