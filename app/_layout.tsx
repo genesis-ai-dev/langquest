@@ -8,7 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
-import { useSystem } from '../db/powersync/system';
+import { useSystem } from '@/db/powersync/system';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
@@ -17,7 +17,17 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    system.init();
+    console.log('[RootLayout] Effect triggered');
+    const initialize = async () => {
+      try {
+        console.log('[RootLayout] Calling system.init()...');
+        await system.init();
+        console.log('[RootLayout] system.init() completed.');
+      } catch (error) {
+        console.error('[RootLayout] system.init() FAILED:', error);
+      }
+    };
+    initialize();
   }, []);
 
   useEffect(() => {
@@ -50,6 +60,8 @@ export default function RootLayout() {
       handleRedirect();
     }
   };
+
+  console.log('[RootLayout] Rendering...');
 
   return (
     <PowerSyncProvider>

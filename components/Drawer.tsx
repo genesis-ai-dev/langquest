@@ -40,6 +40,7 @@ import {
   requestBackupDirectory, 
   prepareBackupPaths 
 } from '@/utils/backupUtils';
+import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 
 type DrawerItem = {
   name?: string;
@@ -53,13 +54,14 @@ function DrawerItems() {
   const { signOut } = useAuth();
   const system = useSystem();
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const drawerItems: DrawerItem[] = [
     { name: t('projects'), icon: 'home', path: '/' },
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
-  const handleBackup = async () => {
+  const handleBackup = async (audioOnly = false) => {
     setIsBackingUp(true);
     let backupSuccess = false;
     let finalMessage = '';
@@ -90,15 +92,20 @@ function DrawerItems() {
       const { dbFullPathName, audioBaseDirPath, dbSourceUri } = prepareBackupPaths(timestamp);
 
       // 4. Execute Backups and Collect Results
-      const dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri);
+      const dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri, audioOnly);
       const audioResult = await backupUnsyncedAudio(system, baseDirectoryUri, audioBaseDirPath, timestamp);
       
       backupSuccess = dbResult.statusKey !== 'backupDbStatusFailed'; 
 
       // 5. Construct Final Message
-      let dbStatusText = dbResult.error 
-          ? t(dbResult.statusKey, { error: dbResult.error }) 
-          : t(dbResult.statusKey);
+      let dbStatusText = '';
+      if (audioOnly) {
+        dbStatusText = t('backupDbSkipped');
+      } else {
+        dbStatusText = dbResult.error 
+            ? t(dbResult.statusKey, { error: dbResult.error }) 
+            : t(dbResult.statusKey);
+      }
       
       const statusDB = t('backupStatusDB', { status: dbStatusText });
       const statusFiles = t('backupStatusFiles', { count: audioResult.count });
@@ -140,11 +147,23 @@ function DrawerItems() {
           style: 'cancel'
         },
         {
-          text: t('startBackupTitle'),
-          onPress: handleBackup
+          text: t('backupAudioOnly'),
+          onPress: () => handleBackup(true)
+        },
+        {
+          text: t('backupEverything'),
+          onPress: () => handleBackup(false)
         }
       ]
     );
+  };
+
+  const handleRestore = () => {
+    // Define callbacks to manage the restoring state
+    const onStart = () => setIsRestoring(true);
+    const onFinish = () => setIsRestoring(false);
+    // Pass system, t, and callbacks to the restore initiation function
+    selectAndInitiateRestore(system, t, onStart, onFinish);
   };
 
   return (
@@ -160,14 +179,23 @@ function DrawerItems() {
           icon: isBackingUp ? 'hourglass-outline' : 'save'
         }}
         onPress={confirmAndStartBackup}
-        disabled={isBackingUp}
-        style={isBackingUp ? { opacity: 0.5 } : {}}
+        disabled={isBackingUp || isRestoring}
+        style={(isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
+      />
+      <DrawerItem
+        item={{
+          name: isRestoring ? t('restoring') : t('restoreBackup'),
+          icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline'
+        }}
+        onPress={handleRestore}
+        disabled={isBackingUp || isRestoring}
+        style={(isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
       />
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
           onPress={signOut}
-          disabled={isBackingUp}
+          disabled={isBackingUp || isRestoring}
         />
       )}
     </View>

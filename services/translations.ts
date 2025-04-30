@@ -433,13 +433,65 @@ export const translations = {
     english: 'Backing up...',
     spanish: 'Haciendo copia...'
   },
+  restoreBackup: {
+    english: 'Restore Data',
+    spanish: 'Restaurar datos'
+  },
+  restoring: {
+    english: 'Restoring...',
+    spanish: 'Restaurando...'
+  },
+  restoreOptions: {
+    english: 'Restore Options',
+    spanish: 'Opciones de restauración'
+  },
+  whatToRestore: {
+    english: 'What would you like to restore?',
+    spanish: '¿Qué desea restaurar?'
+  },
+  restoreAudioOnly: {
+    english: 'Audio Files Only',
+    spanish: 'Solo Archivos de Audio'
+  },
+  restoreEverything: {
+    english: 'Everything (DB + Audio)',
+    spanish: 'Todo (BD + Audio)'
+  },
+  confirmAudioRestore: {
+    english: 'Confirm Audio Restore',
+    spanish: 'Confirmar restauración de audio'
+  },
+  confirmAudioRestoreMessage: {
+    english: 'Restore only audio files from the selected backup?',
+    spanish: '¿Restaurar solo archivos de audio desde la copia de seguridad seleccionada?'
+  },
+  confirmFullRestore: {
+    english: 'Confirm Full Restore',
+    spanish: 'Confirmar restauración completa'
+  },
+  confirmFullRestoreMessage: {
+    english: 'Restore all data (database + audio files) from the selected backup?',
+    spanish: '¿Restaurar todos los datos (base de datos + archivos de audio) desde la copia de seguridad seleccionada?'
+  },
   startBackupTitle: {
     english: 'Start Backup?',
     spanish: '¿Iniciar copia de seguridad?'
   },
   startBackupMessage: {
-    english: 'This will back up your local database and any unsynced audio files to a location you choose. Make sure you have enough storage space.',
-    spanish: 'Esto creará una copia de seguridad de su base de datos local y de cualquier archivo de audio no sincronizado en una ubicación que elija. Asegúrese de tener suficiente espacio de almacenamiento.'
+    english: 'This will back up your local data to a location you choose. Make sure you have enough storage space.',
+    spanish: 'Esto creará una copia de seguridad de sus datos locales en una ubicación que elija. Asegúrese de tener suficiente espacio de almacenamiento.'
+  },
+  backupAudioOnly: {
+    english: 'Audio Files Only',
+    spanish: 'Solo Archivos de Audio'
+  },
+  backupEverything: {
+    english: 'Everything (DB + Audio)',
+    spanish: 'Todo (BD + Audio)'
+  },
+  backupDbSkipped: {
+    english: 'skipped (audio-only mode)',
+    spanish: 'omitida (modo solo audio)'
   },
   backupCompleteTitle: {
     english: 'Backup Complete',
@@ -500,6 +552,14 @@ export const translations = {
   cancel: {
     english: 'Cancel',
     spanish: 'Cancelar'
+  },
+  restoreAndroidOnly: {
+    english: 'Restore is only supported on Android.',
+    spanish: 'La restauración solo es compatible con Android.'
+  },
+  failedRestore: {
+    english: 'Failed to initiate restore: {{error}}',
+    spanish: 'Error al iniciar la restauración: {{error}}'
   },
   // Add more translation keys as needed...
 } as const;

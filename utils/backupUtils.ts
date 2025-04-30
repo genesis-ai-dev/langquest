@@ -5,7 +5,7 @@ import { translation as translationSchema, asset_content_link as assetContentLin
 import { isNotNull, eq } from 'drizzle-orm';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-
+// 
 // Storage key for the backup directory URI
 const BACKUP_DIRECTORY_URI_KEY = 'BACKUP_DIRECTORY_URI';
 
@@ -58,51 +58,29 @@ async function getAudioAssetMap(system: any): Promise<Map<string, string>> {
 export async function requestBackupDirectory(): Promise<string | null> {
   // Android-specific permission handling - return null for other platforms
   if (Platform.OS !== 'android') {
+    console.warn('Requesting backup directory is only supported on Android.');
     return null;
   }
 
   try {
-    // First, try to get previously saved directory URI
-    const savedDirectoryUri = await AsyncStorage.getItem(BACKUP_DIRECTORY_URI_KEY);
-    
-    // If we have a previously saved URI, verify it's still valid
-    if (savedDirectoryUri) {
-      try {
-        // Try to list files to validate permission is still valid
-        await StorageAccessFramework.readDirectoryAsync(savedDirectoryUri);
-        console.log('Using existing backup directory permission');
-        return savedDirectoryUri;
-      } catch (error) {
-        console.log('Saved directory permission expired, requesting new permissions');
-        // Continue to request new permissions
-      }
-    }
-    
-    // Request new permissions
+    // Always request new permissions from the user
+    console.log('Requesting directory permissions from user...');
     const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    
     if (permissions?.granted && permissions.directoryUri) {
-      try {
-        // Take persistent permissions for this URI - THIS IS HANDLED BY THE SYSTEM/EXPO WHEN REQUESTING
-        // await StorageAccessFramework.persistPermissionsForDirectoryAsync(
-        //   permissions.directoryUri,
-        //   [StorageAccessFramework.Permission.READ, StorageAccessFramework.Permission.WRITE]
-        // );
-        
-        // Store the URI in AsyncStorage for future use
-        await AsyncStorage.setItem(BACKUP_DIRECTORY_URI_KEY, permissions.directoryUri);
-        console.log('Saved new backup directory permission');
-        return permissions.directoryUri;
-      } catch (persistError) {
-        console.error('Failed to persist permissions:', persistError);
-        // Still return the directory URI even if we couldn't persist it
-        return permissions.directoryUri;
-      }
+      console.log('Directory permission granted:', permissions.directoryUri);
+      // We DO NOT save this to AsyncStorage anymore.
+      // The user will be prompted each time.
+      return permissions.directoryUri;
     } else {
+      console.log('Directory permission denied or URI missing.');
       return null; // Permission denied or URI missing
     }
   } catch (dirError) {
     console.error('Error during directory permission request:', dirError);
-    throw dirError; // Re-throw to be handled by the caller
+    // Optionally, inform the user with an Alert here
+    // Alert.alert('Error', 'Failed to get directory permissions.');
+    throw dirError; // Re-throw to be handled by the caller (e.g., backup/restore function)
   }
 }
 
@@ -120,103 +98,130 @@ export function prepareBackupPaths(timestamp: string): {
   return { mainBackupDirName, dbFullPathName, audioBaseDirPath, dbSourceUri };
 }
 
+async function ensureDirectoryStructure(baseUri: string, segments: string[]): Promise<string> {
+    console.log(`[ensureDirectoryStructure] Base URI: ${baseUri}, Segments: ${segments.join('/')}`);
+    let currentUri = baseUri;
+    for (const segment of segments) {
+        console.log(`[ensureDirectoryStructure] Ensuring segment: ${segment} under URI: ${currentUri}`);
+        try {
+            const newUri = await StorageAccessFramework.makeDirectoryAsync(currentUri, segment);
+            console.log(`[ensureDirectoryStructure] Created directory for segment ${segment}: ${newUri}`);
+            currentUri = newUri;
+        } catch (e: any) {
+            console.warn(`[ensureDirectoryStructure] makeDirectoryAsync failed for segment ${segment} (may already exist):`, e.message || e);
+            try {
+                const children = await StorageAccessFramework.readDirectoryAsync(currentUri);
+                console.log(`[ensureDirectoryStructure] Children of ${currentUri}: ${children.join(', ')}`);
+                const foundUri = children.find(uri => {
+                    const decodedChildName = decodeURIComponent(uri.split('/').pop()!);
+                    console.log(`[ensureDirectoryStructure] Comparing segment '${segment}' with decoded child '${decodedChildName}' from URI '${uri}'`);
+                    return decodedChildName === segment;
+                });
+                if (!foundUri) {
+                    console.error(`[ensureDirectoryStructure] Directory ${segment} not found among children after makeDirectoryAsync failed.`);
+                    throw new Error(`Failed to create or find directory segment: ${segment}`);
+                }
+                console.log(`[ensureDirectoryStructure] Found existing directory for segment ${segment}: ${foundUri}`);
+                currentUri = foundUri;
+            } catch (readError: any) {
+                console.error(`[ensureDirectoryStructure] Error reading directory ${currentUri} after makeDirectoryAsync failed for ${segment}:`, readError.message || readError);
+                throw readError; // Re-throw the error that occurred during the check
+            }
+        }
+    }
+    console.log(`[ensureDirectoryStructure] Final URI after ensuring segments: ${currentUri}`);
+    return currentUri;
+}
+
 // --- Backup Helper: Database ---
 export async function backupDatabase(
     baseDirectoryUri: string,
-    dbFullPathName: string,
-    dbSourceUri: string
-): Promise<{ statusKey: 'backupDbStatusSkipped' | 'backupDbStatusSuccessful' | 'backupDbStatusFailed', error?: string }> {
+    _dbFullPathName: string, // unused for flat backup
+    dbSourceUri: string,
+    backupOnlyAudio: boolean = false
+): Promise<{ statusKey: 'backupDbStatusSkipped' | 'backupDbStatusSuccessful' | 'backupDbStatusFailed'; error?: string }> {
+    if (backupOnlyAudio) {
+        console.log('[backupDatabase] Skipping database backup (audio-only mode)');
+        return { statusKey: 'backupDbStatusSkipped' };
+    }
+    
+    console.log('[backupDatabase] Starting flat DB backup...');
     try {
-        const dbFileInfo = await FileSystem.getInfoAsync(dbSourceUri);
-        if (dbFileInfo.exists) {
-            // Get directory path from the full file path (everything before the last /)
-            const dbDirPath = dbFullPathName.substring(0, dbFullPathName.lastIndexOf('/'));
-            
-            // Create the directory structure if it doesn't exist
-            try {
-                await StorageAccessFramework.makeDirectoryAsync(baseDirectoryUri, dbDirPath);
-                console.log(`Created database backup directory: ${dbDirPath}`);
-            } catch (dirError) {
-                console.log(`Database directory creation failed or already exists: ${dirError}`);
-                // We'll continue anyway as the directory might already exist
-            }
-            
-            // Now read and write the database file
-            const dbContent = await FileSystem.readAsStringAsync(dbSourceUri, { encoding: FileSystem.EncodingType.Base64 });
-            const createdDbFileUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, dbFullPathName, 'application/vnd.sqlite3');
-            await FileSystem.writeAsStringAsync(createdDbFileUri, dbContent, { encoding: FileSystem.EncodingType.Base64 });
-            return { statusKey: 'backupDbStatusSuccessful' };
-        } else {
+        // Check source database file
+        const dbFileInfo = await FileSystem.getInfoAsync(dbSourceUri, { size: true });
+        console.log(`[backupDatabase] Source DB info: exists=${dbFileInfo.exists}, uri=${dbFileInfo.uri}`);
+        if (!dbFileInfo.exists) {
+            console.warn('[backupDatabase] No source DB file found, skipping.');
             return { statusKey: 'backupDbStatusSkipped' };
         }
-    } catch (dbBackupError) {
-        console.error('Error during database backup:', dbBackupError);
-        const errorString = dbBackupError instanceof Error ? dbBackupError.message : String(dbBackupError);
-        return { statusKey: 'backupDbStatusFailed', error: errorString };
+        // Read DB content
+        console.log('[backupDatabase] Reading source DB content...');
+        const dbContent = await FileSystem.readAsStringAsync(dbSourceUri, { encoding: FileSystem.EncodingType.Base64 });
+        // Create backup file flat in selected directory
+        const backupDbFileName = 'sqlite.db';
+        console.log(`[backupDatabase] Creating backup DB file '${backupDbFileName}' in ${baseDirectoryUri}`);
+        const backupDbUri = await StorageAccessFramework.createFileAsync(
+            baseDirectoryUri,
+            backupDbFileName,
+            'application/vnd.sqlite3'
+        );
+        console.log(`[backupDatabase] Writing DB content to ${backupDbUri}`);
+        await FileSystem.writeAsStringAsync(backupDbUri, dbContent, { encoding: FileSystem.EncodingType.Base64 });
+        console.log('[backupDatabase] DB backup successful.');
+        return { statusKey: 'backupDbStatusSuccessful' };
+    } catch (error: any) {
+        console.error('[backupDatabase] Error during DB backup:', error);
+        return { statusKey: 'backupDbStatusFailed', error: error instanceof Error ? error.message : String(error) };
     }
 }
 
 // --- Backup Helper: Unsynced Audio ---
 export async function backupUnsyncedAudio(
-    system: any, // Pass system explicitly
+    system: any,
     baseDirectoryUri: string,
-    audioBaseDirPath: string,
-    timestamp: string
-): Promise<{ count: number, errors: string[] }> {
-    let filesBackedUpCount = 0;
-    const copyErrors: string[] = [];
+    _audioBaseDirPath: string, // unused for flat backup
+    _timestamp: string // unused for flat backup
+): Promise<{ count: number; errors: string[] }> {
+    let count = 0;
+    const errors: string[] = [];
+    console.log('[backupUnsyncedAudio] Starting flat audio backup...');
     try {
-        // Use functions defined within this module
         const audioAssetMap = await getAudioAssetMap(system);
         const unsyncedIds = await getFilesInUploadQueue();
-
-        if (unsyncedIds.length > 0) {
-            // Create the audio directory if there are files to backup
-            try {
-                // Create the audio directory structure
-                await StorageAccessFramework.makeDirectoryAsync(
-                    baseDirectoryUri, 
-                    audioBaseDirPath
-                );
-                console.log(`Created audio backup directory: ${audioBaseDirPath}`);
-            } catch (dirError) {
-                console.log(`Audio directory creation failed or already exists: ${dirError}`);
-                // We'll continue anyway as the directory might already exist
-            }
-        }
-
-        for (const [audioId, assetId] of audioAssetMap.entries()) {
-            if (!audioId || !unsyncedIds.includes(audioId)) continue;
-
+        const entriesToBackup = Array.from(audioAssetMap.entries()).filter(
+            ([audioId]) => audioId && unsyncedIds.includes(audioId)
+        );
+        console.log(`[backupUnsyncedAudio] ${entriesToBackup.length} unsynced audio files to back up.`);
+        for (const [audioId] of entriesToBackup) {
             const sourceUri = FileSystem.documentDirectory + 'attachments/' + audioId;
-            const originalExtension = audioId.split('.').pop()?.toLowerCase() || 'm4a';
-            // Use functions defined within this module
-            const assetName = await getAssetName(system, assetId);
-            const sanitizedAssetName = sanitizeAssetName(assetName);
-            const backupFilenameWithAsset = `${sanitizedAssetName}_${timestamp}.${originalExtension}`;
-            const audioFullPathName = `${audioBaseDirPath}/${backupFilenameWithAsset}`;
-
             try {
-                const fileInfo = await FileSystem.getInfoAsync(sourceUri);
-                if (fileInfo.exists) {
-                    const fileContent = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
-                    let mimeType = 'audio/mpeg';
-                    if (originalExtension === 'm4a') mimeType = 'audio/aac';
-                    else if (originalExtension === 'mp3') mimeType = 'audio/mpeg';
-                    const createdAudioFileUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, audioFullPathName, mimeType);
-                    await FileSystem.writeAsStringAsync(createdAudioFileUri, fileContent, { encoding: FileSystem.EncodingType.Base64 });
-                    filesBackedUpCount++;
+                const fileInfo = await FileSystem.getInfoAsync(sourceUri, { size: true });
+                if (!fileInfo.exists) {
+                    console.warn(`[backupUnsyncedAudio] Source file not found: ${sourceUri}`);
+                    continue;
                 }
-            } catch (fileCopyError) {
-                const errorString = `Failed to copy ${audioId}: ${fileCopyError instanceof Error ? fileCopyError.message : String(fileCopyError)}`;
-                console.error(errorString);
-                copyErrors.push(errorString);
+                console.log(`[backupUnsyncedAudio] Reading ${audioId}...`);
+                const content = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
+                // Determine mime type
+                const ext = audioId.split('.').pop()?.toLowerCase() || '';
+                let mimeType = 'application/octet-stream';
+                if (ext === 'm4a') mimeType = 'audio/aac';
+                else if (ext === 'mp3') mimeType = 'audio/mpeg';
+                console.log(`[backupUnsyncedAudio] Creating backup file '${audioId}' in ${baseDirectoryUri}`);
+                const destUri = await StorageAccessFramework.createFileAsync(baseDirectoryUri, audioId, mimeType);
+                await FileSystem.writeAsStringAsync(destUri, content, { encoding: FileSystem.EncodingType.Base64 });
+                console.log(`[backupUnsyncedAudio] ${audioId} backed up.`);
+                count++;
+            } catch (err: any) {
+                const msg = `Failed to back up ${audioId}: ${err.message || err}`;
+                console.error(`[backupUnsyncedAudio] ${msg}`);
+                errors.push(msg);
             }
         }
-    } catch (audioQueryError) {
-        console.error('Error retrieving audio file list:', audioQueryError);
-        // Re-throw critical errors related to getting the list itself
-        throw audioQueryError;
+        console.log(`[backupUnsyncedAudio] Completed audio backup. Count=${count}, Errors=${errors.length}`);
+        return { count, errors };
+    } catch (err: any) {
+        console.error('[backupUnsyncedAudio] Error setting up audio backup:', err);
+        throw err;
     }
-    return { count: filesBackedUpCount, errors: copyErrors };
 } 
