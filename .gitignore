@@ -9,7 +9,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-llm_supporting_files/
+llm_supp_files/
 android/
 ios/
 .env
@@ -36,3 +36,6 @@ langquest types.xlsx
 supabase/.env.local
 supabase/env.keys
 **/*.env.local
+*.vsix
+
+llm_supp_files

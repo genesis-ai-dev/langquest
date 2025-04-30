@@ -368,6 +368,10 @@ export const translations = {
     spanish:
       'Los cambios de contraseña solo están disponibles cuando está en línea'
   },
+  verificationRequired: {
+    english: 'Verification Required',
+    spanish: 'Verificación Requerida'
+  },
   termsAndConditionsTitle: {
     english: 'Terms and Conditions',
     spanish: 'Términos y Condiciones'
@@ -549,6 +553,30 @@ export const translations = {
       english: 'failed: {{error}}',
       spanish: 'fallida: {{error}}'
   },
+  downloadLimitExceeded: {
+    english: 'Download Limit Exceeded',
+    spanish: 'Límite de descarga excedido'
+  },
+  downloadLimitMessage: {
+    english:
+      'You are trying to download {newDownloads} attachments for a total of {totalDownloads}, but the limit is {limit}. Please deselect some downloads and try again.',
+    spanish:
+      'Está intentando descargar {newDownloads} archivos adjuntos para un total de {totalDownloads}, pero el límite es {limit}. Por favor, deseleccione algunas descargas e intente nuevamente.'
+  },
+  offlineUndownloadWarning: {
+    english: 'Offline Undownload Warning',
+    spanish: 'Advertencia de eliminación sin conexión'
+  },
+  offlineUndownloadMessage: {
+    english:
+      "You are currently offline. If you remove this download, you won't be able to redownload it until you're back online. Your unsynced contributions will not be affected.",
+    spanish:
+      'Actualmente estás sin conexión. Si eliminas esta descarga, no podrás volver a descargarla hasta que vuelvas a estar en línea. Tus contribuciones no sincronizadas no se verán afectadas.'
+  },
+  dontShowAgain: {
+    english: "Don't show this message again",
+    spanish: 'No mostrar este mensaje nuevamente'
+  },
   cancel: {
     english: 'Cancel',
     spanish: 'Cancelar'
@@ -561,6 +589,10 @@ export const translations = {
     english: 'Failed to initiate restore: {{error}}',
     spanish: 'Error al iniciar la restauración: {{error}}'
   },
+  confirm: {
+    english: 'Confirm',
+    spanish: 'Confirmar'
+  }
   // Add more translation keys as needed...
 } as const;
 

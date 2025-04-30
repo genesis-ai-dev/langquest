@@ -69,11 +69,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         android: {
           compileSdkVersion: 34,
           targetSdkVersion: 31,
-          minSdkVersion: 24,
+          minSdkVersion: 26,
           buildToolsVersion: '24.0.0'
         }
       }
-    ]
+    ],
+    // migrate existing localization to expo-localization
+    'expo-localization'
   ],
   experiments: {
     typedRoutes: true

@@ -1,0 +1,33 @@
+import { create } from 'zustand';
+import NetInfo from '@react-native-community/netinfo';
+
+interface NetworkState {
+  isConnected: boolean;
+  setIsConnected: (connected: boolean) => void;
+  initializeNetworkListener: () => () => void;
+}
+
+export const useNetworkStore = create<NetworkState>((set) => ({
+  isConnected: true,
+  setIsConnected: (connected) => set({ isConnected: connected }),
+  initializeNetworkListener: () => {
+    // Initial check
+    NetInfo.fetch().then((state) => {
+      set({ isConnected: state.isConnected ?? false });
+    });
+
+    // Subscribe to network state updates
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      set({ isConnected: state.isConnected ?? false });
+    });
+
+    // Return the unsubscribe function
+    return unsubscribe;
+  }
+}));
+
+// Initialize the network listener in a separate component or at app startup
+export const initializeNetwork = () => {
+  const unsubscribe = useNetworkStore.getState().initializeNetworkListener();
+  return unsubscribe;
+};

@@ -1,10 +1,21 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { PageHeader } from '@/components/PageHeader';
 import { QuestDetails } from '@/components/QuestDetails';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset, assetService } from '@/database_services/assetService';
+import { downloadService } from '@/database_services/downloadService';
+import { Quest, questService } from '@/database_services/questService';
 import { Tag, tagService } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
+import {
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
 import { asset_content_link } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
   colors,
@@ -13,9 +24,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams, useRouter } from 'expo-router';
-import { type FC, useCallback, useEffect, useState } from 'react';
+import { useGlobalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -28,47 +40,155 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Quest, questService } from '@/database_services/questService';
-import { PageHeader } from '@/components/PageHeader';
+
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
+import { getGemColor } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const AssetCard: FC<{ asset: Asset }> = ({ asset }) => {
-  const [tags, setTags] = useState<Tag[]>([]);
+interface AggregatedGems {
+  [color: string]: number;
+}
+
+function AssetCard({ asset }: { asset: Asset }) {
+  const { currentUser } = useAuth();
+  const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
+    useAssetDownloadStatus([asset.id]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  // const [tags, setTags] = useState<Tag[]>([]);
+  const [translations, setTranslations] = useState<Translation[]>([]);
+  const [translationVotes, setTranslationVotes] = useState<
+    Record<string, Vote[]>
+  >({});
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadTags = async () => {
-      const assetTags = await tagService.getTagsByAssetId(asset.id);
-      setTags(assetTags);
+    const loadDownloadStatus = async () => {
+      if (currentUser) {
+        const downloadStatus = await downloadService.getAssetDownloadStatus(
+          currentUser.id,
+          asset.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
     };
-    loadTags();
+    loadDownloadStatus();
+  }, [asset.id, currentUser]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [assetTags, assetTranslations] = await Promise.all([
+          tagService.getTagsByAssetId(asset.id),
+          translationService.getTranslationsByAssetId(asset.id)
+        ]);
+        // setTags(assetTags);
+        setTranslations(assetTranslations);
+
+        // Load votes for each translation
+        const votesMap: Record<string, Vote[]> = {};
+        await Promise.all(
+          assetTranslations.map(async (translation) => {
+            votesMap[translation.id] =
+              await voteService.getVotesByTranslationId(translation.id);
+          })
+        );
+        setTranslationVotes(votesMap);
+      } catch (error) {
+        console.error('Error loading asset data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, [asset.id]);
+
+  const { data: tags } = useQuery({
+    queryKey: ['asset-tags', asset.id],
+    queryFn: () => tagService.getTagsByAssetId(asset.id)
+  });
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setAssetDownload(
+        currentUser.id,
+        asset.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling asset download:', error);
+    }
+  };
+
+  // Aggregate translations by gem color
+  const aggregatedGems = translations.reduce<AggregatedGems>(
+    (acc, translation) => {
+      const gemColor = getGemColor(
+        translation,
+        translationVotes[translation.id] || [],
+        currentUser?.id || null
+      );
+
+      if (gemColor !== null) {
+        acc[gemColor] = (acc[gemColor] || 0) + 1;
+      }
+
+      return acc;
+    },
+    {}
+  );
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoadingDownloadStatus && isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
-      {/* {asset.description && (
-        <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
-      )} */}
-      {tags.length > 0 && (
-        <View style={sharedStyles.cardInfo}>
-          {tags.slice(0, 3).map((tag, index) => (
-            <Text key={tag.id} style={sharedStyles.cardInfoText}>
-              {tag.name.split(':')[1]}
-              {index < Math.min(tags.length - 1, 2) && ' • '}
-            </Text>
-          ))}
-          {tags.length > 3 && (
-            <Text style={sharedStyles.cardInfoText}> ...</Text>
-          )}
-        </View>
-      )}
+      <View style={styles.translationCount}>
+        {Object.entries(aggregatedGems).map(([color, count]) => (
+          <View key={color} style={styles.gemContainer}>
+            {count < 4 ? (
+              // If count is less than 4, display that many gems
+              Array.from({ length: count }).map((_, index) =>
+                color === colors.alert ? (
+                  <PickaxeIcon
+                    key={index}
+                    color={color}
+                    width={26}
+                    height={20}
+                  />
+                ) : (
+                  <GemIcon key={index} color={color} width={26} height={20} />
+                )
+              )
+            ) : (
+              // If count is 4 or more, display one gem with the count
+              <>
+                {color === colors.alert ? (
+                  <PickaxeIcon color={color} width={26} height={20} />
+                ) : (
+                  <GemIcon color={color} width={26} height={20} />
+                )}
+                <Text style={{ ...styles.gemCount, marginRight: 8 }}>
+                  {count}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
+      </View>
     </View>
   );
-};
+}
 
 export default function Assets() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -205,179 +325,11 @@ export default function Assets() {
 
   const applySorting = useCallback(
     (assetsToSort: Asset[], sorting: SortingOption[]) => {
-      // Helper function to extract and parse numeric references from text
-      const extractNumericReferences = (text: string): number[] | null => {
-        // First split by whitespace to get tokens
-        const tokens = text.split(/\s+/);
-
-        // Look for tokens that might contain numeric references (with : or .)
-        for (const token of tokens) {
-          // Remove any parentheses and their contents
-          const cleanToken = token.replace(/\([^)]*\)/g, '').trim();
-
-          if (cleanToken.includes(':') || cleanToken.includes('.')) {
-            const separator = cleanToken.includes(':') ? ':' : '.';
-            const parts = cleanToken.split(separator).map((part) => {
-              // Try to parse as integer, handling non-numeric characters
-              const num = parseInt(part.replace(/\D/g, ''), 10);
-              return isNaN(num) ? null : num;
-            });
-
-            // Make sure all parts are valid numbers
-            if (parts.length > 1 && parts[0] !== null && parts[1] !== null) {
-              return parts.filter((part): part is number => part !== null);
-            }
-          }
-        }
-
-        // If no valid reference found, look for any numeric token
-        for (const token of tokens) {
-          // Skip tokens that are likely part of parenthetical content
-          if (token.startsWith('(') || token.endsWith(')')) continue;
-
-          const num = parseInt(token.replace(/\D/g, ''), 10);
-          if (!isNaN(num)) {
-            return [num];
-          }
-        }
-
-        return null; // No numeric reference found
-      };
-
-      // If no sorting options are provided, apply default sorting
-      if (sorting.length === 0) {
-        // Default sorting based on numeric references in asset names or tags
-        return [...assetsToSort].sort((a, b) => {
-          // First try to extract numeric references from asset names
-          const refsA = extractNumericReferences(a.name);
-          const refsB = extractNumericReferences(b.name);
-
-          // Debug log to see what's being extracted
-          if (a.name.includes('Lucas') || b.name.includes('Lucas')) {
-            console.log(
-              `Comparing: "${a.name}" (${refsA}) vs "${b.name}" (${refsB})`
-            );
-          }
-
-          // If both have numeric references, compare them
-          if (refsA && refsB) {
-            // Compare first parts (chapters)
-            if (refsA[0] !== refsB[0]) {
-              return refsA[0] - refsB[0];
-            }
-
-            // If first parts are the same and there are second parts, compare them (verses)
-            if (refsA.length > 1 && refsB.length > 1) {
-              return refsA[1] - refsB[1];
-            }
-          }
-
-          // If one has numeric references and the other doesn't, prioritize the one with references
-          if (refsA && !refsB) return -1;
-          if (!refsA && refsB) return 1;
-
-          // If no numeric references in names or they're equal, try tags
-          const tagsA = assetTags[a.id] || [];
-          const tagsB = assetTags[b.id] || [];
-
-          // Look for tags with numeric references
-          for (const tagA of tagsA) {
-            for (const tagB of tagsB) {
-              const [categoryA, valueA] = tagA.name.split(':');
-              const [categoryB, valueB] = tagB.name.split(':');
-
-              // If categories match, compare values
-              if (categoryA === categoryB && valueA && valueB) {
-                const tagRefsA = extractNumericReferences(valueA);
-                const tagRefsB = extractNumericReferences(valueB);
-
-                if (tagRefsA && tagRefsB) {
-                  // Compare first parts
-                  if (tagRefsA[0] !== tagRefsB[0]) {
-                    return tagRefsA[0] - tagRefsB[0];
-                  }
-
-                  // Compare second parts if available
-                  if (tagRefsA.length > 1 && tagRefsB.length > 1) {
-                    return tagRefsA[1] - tagRefsB[1];
-                  }
-                }
-              }
-            }
-          }
-
-          // Fallback to sorting by name
-          return a.name.localeCompare(b.name);
-        });
-      }
-
-      // If custom sorting options are provided, use them
-      return [...assetsToSort].sort((a, b) => {
-        for (const { field, order } of sorting) {
-          if (field === 'name') {
-            // For name sorting, try to extract and compare numeric references first
-            const refsA = extractNumericReferences(a.name);
-            const refsB = extractNumericReferences(b.name);
-
-            let comparison = 0;
-
-            if (refsA && refsB) {
-              // Compare first parts
-              if (refsA[0] !== refsB[0]) {
-                comparison = refsA[0] - refsB[0];
-              } else if (refsA.length > 1 && refsB.length > 1) {
-                // Compare second parts
-                comparison = refsA[1] - refsB[1];
-              } else {
-                // Fallback to string comparison
-                comparison = a.name.localeCompare(b.name);
-              }
-            } else {
-              // Standard string comparison
-              comparison = a.name.localeCompare(b.name);
-            }
-
-            return order === 'asc' ? comparison : -comparison;
-          } else {
-            const tagsA = assetTags[a.id] || [];
-            const tagsB = assetTags[b.id] || [];
-            const tagValueA =
-              tagsA
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const tagValueB =
-              tagsB
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-
-            // Extract numeric references from tag values
-            const tagRefsA = extractNumericReferences(tagValueA);
-            const tagRefsB = extractNumericReferences(tagValueB);
-
-            let comparison = 0;
-
-            if (tagRefsA && tagRefsB) {
-              // Compare first parts
-              if (tagRefsA[0] !== tagRefsB[0]) {
-                comparison = tagRefsA[0] - tagRefsB[0];
-              } else if (tagRefsA.length > 1 && tagRefsB.length > 1) {
-                // Compare second parts
-                comparison = tagRefsA[1] - tagRefsB[1];
-              } else {
-                // Fallback to string comparison
-                comparison = tagValueA.localeCompare(tagValueB);
-              }
-            } else {
-              // Standard string comparison
-              comparison = tagValueA.localeCompare(tagValueB);
-            }
-
-            if (comparison !== 0)
-              return order === 'asc' ? comparison : -comparison;
-          }
-        }
-        return 0;
-      });
+      return sortItems(
+        assetsToSort,
+        sorting,
+        (assetId) => assetTags[assetId] || []
+      );
     },
     [assetTags]
   );
@@ -618,5 +570,21 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingHorizontal: spacing.small,
     marginRight: spacing.small
+  },
+  translationCount: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    marginTop: spacing.small,
+    gap: spacing.xsmall
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall,
+    justifyContent: 'center'
+  },
+  gemCount: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   }
 });

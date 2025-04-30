@@ -1,5 +1,3 @@
-import { system } from '../db/powersync/system';
-
 export class NotificationService {
   // async getAllNotifications(profile_id: string) {
   //   return await db.query.notification.findMany({

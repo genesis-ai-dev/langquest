@@ -1,33 +1,36 @@
 import * as Linking from 'expo-linking';
-import { Href, Stack, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import type { Href } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import React, { Fragment, useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { PowerSyncProvider } from '@/contexts/PowerSyncContext';
+import PostHogProvider from '@/contexts/PostHogProvider';
 import { getQueryParams } from '@/utils/supabaseQueryParams';
-import { useSystem } from '@/db/powersync/system';
+import { Drawer } from '@/components/Drawer';
+import { QueryProvider } from '@/providers/QueryProvider';
+import { initializeNetwork } from '@/store/networkStore';
+import { TranslationUtils } from '@/utils/translationUtils';
+import { SystemProvider } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
 export default function RootLayout() {
-  const system = useSystem();
   const router = useRouter();
 
+  console.log('Posthog key:', process.env.EXPO_PUBLIC_POSTHOG_KEY);
+  console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+
   useEffect(() => {
-    console.log('[RootLayout] Effect triggered');
-    const initialize = async () => {
-      try {
-        console.log('[RootLayout] Calling system.init()...');
-        await system.init();
-        console.log('[RootLayout] system.init() completed.');
-      } catch (error) {
-        console.error('[RootLayout] system.init() FAILED:', error);
-      }
+    const unsubscribe = initializeNetwork();
+    TranslationUtils.initialize();
+
+    return () => {
+      unsubscribe();
     };
-    initialize();
   }, []);
 
   useEffect(() => {
@@ -64,25 +67,29 @@ export default function RootLayout() {
   console.log('[RootLayout] Rendering...');
 
   return (
-    <PowerSyncProvider>
+    <SystemProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <SafeAreaProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false
-              }}
-            >
-              <Stack.Screen
-                name="terms"
-                options={{
-                  presentation: 'modal'
-                }}
-              />
-            </Stack>
-          </SafeAreaProvider>
-        </AuthProvider>
+        <PostHogProvider>
+          <AuthProvider>
+            <QueryProvider>
+              <SafeAreaProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false
+                  }}
+                >
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      presentation: 'modal'
+                    }}
+                  />
+                </Stack>
+              </SafeAreaProvider>
+            </QueryProvider>
+          </AuthProvider>
+        </PostHogProvider>
       </LanguageProvider>
-    </PowerSyncProvider>
+    </SystemProvider>
   );
 }

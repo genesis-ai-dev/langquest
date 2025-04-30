@@ -22,7 +22,10 @@ git checkout dev
 npm i
 ```
 
-4. Obtain the .env file from another developer, and place in the project root.
+4. **To obtain the .env file**, request an invite from an existing admin developer to the existing eten-genesis expo organization (secrets required the the APK build to be built in EAS are in the organization)
+  ![EAS Login](readme_images/eas_login.jpg)
+
+Obtain the .env file by logging into EAS and running the `eas env:pull --environment environment` command, and change the newly created `.env.local` file to `.env`.
 
 5. If you're using a physical android device, enable USB debugging before connecting to your machine:
 
@@ -53,9 +56,6 @@ npm i
 - Builds in Expo's cloud infrastructure (no local SDK needed)
 - Takes longer to build but can be shared with team members
 - Requires EAS account and configuration
-
-- **Before logging into eas**, request an invite from an existing admin developer to the existing eten-genesis expo organization (secrets required the the APK build to be built in EAS are in the organization)
-  ![EAS Login](readme_images/eas_login.jpg)
 
 - To see the console log output from the APK, run
 
@@ -139,6 +139,12 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 6. Review the generated migration file to ensure it captures your intended changes.
 
 7. Commit the migration file to your repository to track database schema changes.
+
+> **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run:
+> ```bash
+> npx supabase@beta migration repair --status reverted --local
+> ```
+> This will prompt you to confirm repairing the entire migration history table to match your local migration files.
 
 #### Making Sync Rule Changes
 

@@ -14,15 +14,7 @@
       }
     },
     "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "cache": {
-          "key": "android-native-v1"
-        }
-        // "developmentClient": true,
-      },
-      "prebuildCommand": "npx expo prebuild --platform android --clean",
+      "distribution": "store",
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",

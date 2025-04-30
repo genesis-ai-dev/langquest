@@ -1,13 +1,16 @@
-import { QuestDetails } from '@/components/QuestDetails';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { ProjectDetails } from '@/components/ProjectDetails';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { ProjectDetails } from '@/components/ProjectDetails';
+import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { downloadService } from '@/database_services/downloadService';
+import { projectService } from '@/database_services/projectService';
 import { Quest, questService } from '@/database_services/questService';
-import { Project, projectService } from '@/database_services/projectService';
 import { Tag, tagService } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
 import { project } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
   colors,
@@ -32,28 +35,192 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GemIcon } from '@/components/GemIcon';
+import PickaxeIcon from '@/components/PickaxeIcon';
+import { Asset, assetService } from '@/database_services/assetService';
+import {
+  Translation,
+  translationService
+} from '@/database_services/translationService';
+import { Vote, voteService } from '@/database_services/voteService';
+import { calculateQuestProgress } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
+
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
+const progressBarHeight = 25;
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+  const { currentUser } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
   useEffect(() => {
-    const loadTags = async () => {
-      const questTags = await tagService.getTagsByQuestId(quest.id);
+    const loadData = async () => {
+      const [questTags, assets] = await Promise.all([
+        tagService.getTagsByQuestId(quest.id),
+        assetService.getAssetsByQuestId(quest.id)
+      ]);
       setTags(questTags);
+      setAssetIds(assets.map((asset) => asset.id));
+
+      // Get quest download status
+      if (currentUser) {
+        const downloadStatus = await downloadService.getQuestDownloadStatus(
+          currentUser.id,
+          quest.id
+        );
+        setIsDownloaded(downloadStatus);
+      }
     };
-    loadTags();
+    loadData();
+  }, [quest.id, currentUser]);
+
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAssetDownloadStatus(assetIds);
+
+  const handleDownloadToggle = async () => {
+    if (!currentUser) return;
+    try {
+      await downloadService.setQuestDownload(
+        currentUser.id,
+        quest.id,
+        !isDownloaded
+      );
+      setIsDownloaded(!isDownloaded);
+    } catch (error) {
+      console.error('Error toggling quest download:', error);
+    }
+  };
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [translations, setTranslations] = useState<
+    Record<string, Translation[]>
+  >({});
+  const [votes, setVotes] = useState<Record<string, Vote[]>>({});
+
+  useEffect(() => {
+    const loadQuestData = async () => {
+      try {
+        // Load tags
+        const questTags = await tagService.getTagsByQuestId(quest.id);
+        setTags(questTags);
+
+        // Load assets
+        const questAssets = await assetService.getAssetsByQuestId(quest.id);
+        setAssets(questAssets);
+
+        // Load translations and votes for each asset
+        const translationsMap: Record<string, Translation[]> = {};
+        const votesMap: Record<string, Vote[]> = {};
+
+        await Promise.all(
+          questAssets.map(async (asset) => {
+            const assetTranslations =
+              await translationService.getTranslationsByAssetId(asset.id);
+            translationsMap[asset.id] = assetTranslations;
+
+            // Load votes for each translation
+            await Promise.all(
+              assetTranslations.map(async (translation) => {
+                const translationVotes =
+                  await voteService.getVotesByTranslationId(translation.id);
+                votesMap[translation.id] = translationVotes;
+              })
+            );
+          })
+        );
+
+        setTranslations(translationsMap);
+        setVotes(votesMap);
+      } catch (error) {
+        console.error('Error loading quest data:', error);
+      }
+    };
+
+    loadQuestData();
   }, [quest.id]);
+
+  const progress = calculateQuestProgress(
+    assets,
+    translations,
+    votes,
+    currentUser?.id || null
+  );
 
   return (
     <View style={sharedStyles.card}>
+      <DownloadIndicator
+        isDownloaded={isDownloaded && assetsDownloaded}
+        isLoading={isLoading && isDownloaded}
+        onPress={handleDownloadToggle}
+      />
       <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
+
+      {/* Progress bars */}
+      <View style={styles.progressContainer}>
+        {/* Approved translations progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              styles.approvedBar,
+              {
+                width: `${progress.approvedPercentage}%`,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                borderRadius: progressBarHeight / 2,
+                zIndex: 2
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.textSecondary}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+          {/* User's pending translations progress bar */}
+          <View
+            style={[
+              styles.progressBar,
+              styles.userPendingBar,
+              {
+                width: `${progress.userContributedPercentage}%`,
+                borderRadius: progressBarHeight / 2,
+                marginLeft: -20,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                zIndex: 1
+              }
+            ]}
+          >
+            <GemIcon
+              color={colors.background}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            />
+          </View>
+        </View>
+
+        {/* Pending translations gem */}
+        {progress.pendingTranslationsCount > 0 && (
+          <View style={styles.gemContainer}>
+            <PickaxeIcon color={colors.alert} width={18} height={18} />
+            <Text style={styles.gemCount}>
+              {progress.pendingTranslationsCount}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
           {tags.slice(0, 3).map((tag, index) => (
@@ -170,29 +337,11 @@ export default function Quests() {
 
   const applySorting = useCallback(
     (questsToSort: Quest[], sorting: SortingOption[]) => {
-      return [...questsToSort].sort((a, b) => {
-        for (const { field, order } of sorting) {
-          if (field === 'name') {
-            const comparison = a.name.localeCompare(b.name);
-            return order === 'asc' ? comparison : -comparison;
-          } else {
-            const tagsA = questTags[a.id] || [];
-            const tagsB = questTags[b.id] || [];
-            const tagA =
-              tagsA
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const tagB =
-              tagsB
-                .find((tag) => tag.name.startsWith(`${field}:`))
-                ?.name.split(':')[1] || '';
-            const comparison = tagA.localeCompare(tagB);
-            if (comparison !== 0)
-              return order === 'asc' ? comparison : -comparison;
-          }
-        }
-        return 0;
-      });
+      return sortItems(
+        questsToSort,
+        sorting,
+        (questId) => questTags[questId] || []
+      );
     },
     [questTags]
   );
@@ -424,5 +573,37 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.small,
+    gap: spacing.small
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: progressBarHeight,
+    backgroundColor: colors.inputBackground,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    borderRadius: progressBarHeight / 2
+  },
+  progressBar: {
+    height: '100%'
+  },
+  approvedBar: {
+    backgroundColor: colors.success
+  },
+  userPendingBar: {
+    backgroundColor: colors.textSecondary
+  },
+  gemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  gemCount: {
+    color: colors.text,
+    fontSize: fontSizes.small
   }
 });

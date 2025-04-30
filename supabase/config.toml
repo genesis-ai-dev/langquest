@@ -176,13 +176,13 @@ admin_email = "team@langquest.org"
 sender_name = "LangQuest"
 
 # Uncomment to customize email template
-[auth.email.template.email_change]
-subject = "Confirm Your Account"
-content_path = "./supabase/templates/email_change.html"
+# [auth.email.template.email_change]
+# subject = "Confirm Your Account"
+# content_path = "./supabase/templates/email_change.html"
 
-[auth.email.template.recovery]
-subject = "Reset Your Password"
-content_path = "./supabase/templates/reset_password.html"
+# [auth.email.template.recovery]
+# subject = "Reset Your Password"
+# content_path = "./supabase/templates/reset_password.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
@@ -209,6 +209,12 @@ max_frequency = "5s"
 # [auth.hook.custom_access_token]
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
+
+[auth.hook.send_email]
+enabled = true
+# we don't want it to change to this url after a merge into prod, check
+uri = "https://hjsrpgqyobgfyeinrunx.supabase.co/functions/v1/send-email"
+secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -288,8 +294,10 @@ policy = "oneshot"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+[edge_runtime.secrets]
+secret_key = "env(DOTENV_PRIVATE_KEY_PREVIEW)"
+resend_api_key = "env(RESEND_API_KEY)"
+send_email_hook_secret = "env(SEND_EMAIL_HOOK_SECRET)"
 
 [analytics]
 enabled = false

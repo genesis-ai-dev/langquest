@@ -1,8 +1,10 @@
-import { Profile, profileService } from '@/database_services/profileService';
-import { system, useSystem } from '@/db/powersync/system';
+import type { Profile } from '@/database_services/profileService';
+import { profileService } from '@/database_services/profileService';
+import { system } from '@/db/powersync/system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useSystem } from './SystemContext';
 
 interface AuthContextType {
   currentUser: Profile | null;
@@ -33,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (supabaseAuthKey) {
           const session = JSON.parse(
             (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-          ) as unknown as Session | null;
+          ) as Session | null;
           const profile = await profileService.getProfileByUserId(
             session?.user.id ?? ''
           );
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
     };
-    setProfile();
+    void setProfile();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
       async (_, session) => {
@@ -54,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabaseConnector.client.auth.signInAnonymously();
           return;
         }
-        if (session?.user && !session.user.is_anonymous) {
+        if (!session.user.is_anonymous) {
           setCurrentUser(
             await supabaseConnector.getUserProfile(session.user.id)
           );
