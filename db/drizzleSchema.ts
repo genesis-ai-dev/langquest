@@ -253,6 +253,7 @@ export const reports = sqliteTable('reports', {
 export const blocked_users = sqliteTable(
   'blocked_users',
   {
+    id: text().notNull(),
     ...linkColumns,
     blocker_id: text()
       .notNull()

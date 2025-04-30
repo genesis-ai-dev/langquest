@@ -40,8 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         setCurrentUser(profile ?? null);
-        setIsLoading(false);
       }
+      // console.log('setting auth isLoading to false', isLoading);
+      setIsLoading(false);
     };
 
     void loadAuthData();

@@ -148,7 +148,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     if (localProfile) return localProfile;
 
     const { data: userData, error: userError } = await this.client
-      .from('profiles')
+      .from('profile')
       .select('*')
       .eq('id', user)
       .single<Profile>();

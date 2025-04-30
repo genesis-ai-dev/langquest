@@ -3,11 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { profile } from '@/db/drizzleSchema';
+import { colors } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eq } from 'drizzle-orm';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Slot, SplashScreen } from 'expo-router';
 import { PostHogSurveyProvider } from 'posthog-react-native';
 import { useEffect, useState } from 'react';
+import { ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function AuthLayout() {
@@ -49,7 +52,14 @@ export default function AuthLayout() {
   // Show loading state while checking authentication
   if (isLoading || syncingTerms) {
     console.log('AuthLayout is loading', isLoading, syncingTerms);
-    return null;
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <ActivityIndicator size="large" color={colors.text} />
+      </LinearGradient>
+    );
   }
 
   // Redirect to index if not authenticated
