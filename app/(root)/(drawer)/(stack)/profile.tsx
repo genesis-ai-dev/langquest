@@ -1,38 +1,32 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
-import { language } from '@/db/drizzleSchema';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Link } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Modal,
-  Linking,
-  Switch
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useForm, Controller } from 'react-hook-form';
-import { Ionicons } from '@expo/vector-icons';
-import { PageHeader } from '@/components/PageHeader';
-import { Link } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePostHog } from 'posthog-react-native';
 
 // Analytics storage key
 export const ANALYTICS_OPT_OUT_KEY = 'analytics_opt_out';
 
-type Language = typeof language.$inferSelect;
-
-type ProfileFormData = {
+interface ProfileFormData {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
@@ -40,13 +34,12 @@ type ProfileFormData = {
   // selectedAvatar: string;
   termsAccepted: boolean;
   analyticsOptOut: boolean;
-};
+}
 
 export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
   const { t } = useTranslation();
   const isOnline = useNetworkStatus();
-  const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const posthog = usePostHog();
 
@@ -61,7 +54,7 @@ export default function Profile() {
       }
     };
 
-    loadAnalyticsPreference();
+    void loadAnalyticsPreference();
   }, []);
 
   // Handle analytics opt-out toggle
@@ -69,7 +62,7 @@ export default function Profile() {
     try {
       setAnalyticsOptOut(value);
       await AsyncStorage.setItem(ANALYTICS_OPT_OUT_KEY, value.toString());
-      posthog[`opt${value ? 'Out' : 'In'}`]();
+      await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);
       Alert.alert('Error', 'Failed to save analytics preference');
@@ -87,7 +80,7 @@ export default function Profile() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: (currentUser?.ui_language_id as string) ?? '',
+      selectedLanguageId: currentUser?.ui_language_id ?? '',
       // selectedAvatar: 'cat',
       termsAccepted: !!currentUser?.terms_accepted
     }
@@ -97,7 +90,7 @@ export default function Profile() {
   useEffect(() => {
     if (currentUser) {
       reset({
-        selectedLanguageId: (currentUser.ui_language_id as string) ?? '',
+        selectedLanguageId: currentUser.ui_language_id ?? '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
@@ -131,7 +124,9 @@ export default function Profile() {
         ui_language_id: data.selectedLanguageId,
         ...(isOnline && data.newPassword ? { password: data.newPassword } : {}),
         terms_accepted: data.termsAccepted,
-        terms_version: data.termsAccepted ? '1.0' : undefined
+        terms_accepted_at: data.termsAccepted
+          ? new Date().toISOString()
+          : undefined
       });
 
       if (updatedUser) {
@@ -162,6 +157,36 @@ export default function Profile() {
           <View style={styles.contentContainer}>
             <PageHeader title={t('profile')} />
 
+            {!posthog.isDisabled && (
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={async () => {
+                  posthog.capture('feedback button pressed');
+                  await posthog.flush();
+                }}
+              >
+                <Text style={styles.saveButtonText}>{t('submitFeedback')}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Analytics Opt-Out */}
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>
+                {t('analyticsOptOutLabel')}
+              </Text>
+              <Switch
+                value={analyticsOptOut}
+                onValueChange={handleAnalyticsToggle}
+                trackColor={{
+                  false: colors.inputBorder,
+                  true: colors.primary
+                }}
+              />
+            </View>
+            <Text style={styles.settingDescription}>
+              {t('analyticsOptOutDescription')}
+            </Text>
+
             {/* Language Selection - Always available */}
             <View style={styles.controllerContainer}>
               <Controller
@@ -181,24 +206,6 @@ export default function Profile() {
                 </Text>
               )}
             </View>
-
-            {/* Analytics Opt-Out */}
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Opt out of analytics</Text>
-              <Switch
-                value={analyticsOptOut}
-                onValueChange={handleAnalyticsToggle}
-                thumbColor={colors.primary}
-                trackColor={{
-                  true: colors.textSecondary,
-                  false: colors.textSecondary
-                }}
-              />
-            </View>
-            <Text style={styles.settingDescription}>
-              When enabled, we will not collect usage data to improve the app.
-            </Text>
-
             {/* Password Change - Only when online */}
             {isOnline ? (
               <View style={styles.passwordSection}>

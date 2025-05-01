@@ -1,6 +1,5 @@
 import type { Profile } from '@/database_services/profileService';
 import { profileService } from '@/database_services/profileService';
-import { system } from '@/db/powersync/system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -25,29 +24,28 @@ export const getSupabaseAuthKey = async () => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { supabaseConnector } = useSystem();
+  const { supabaseConnector, powersync } = useSystem();
 
   useEffect(() => {
-    const setProfile = async () => {
-      try {
-        const supabaseAuthKey = await getSupabaseAuthKey();
+    const loadAuthData = async () => {
+      setIsLoading(true);
+      const supabaseAuthKey = await getSupabaseAuthKey();
 
-        if (supabaseAuthKey) {
-          const session = JSON.parse(
-            (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-          ) as Session | null;
-          const profile = await profileService.getProfileByUserId(
-            session?.user.id ?? ''
-          );
+      if (supabaseAuthKey) {
+        const session = JSON.parse(
+          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
+        ) as Session | null;
+        const profile = await profileService.getProfileByUserId(
+          session?.user.id ?? ''
+        );
 
-          setCurrentUser(profile ?? null);
-        }
-      } catch (error) {
-        console.error('Error getting session:', error);
+        setCurrentUser(profile ?? null);
       }
+      // console.log('setting auth isLoading to false', isLoading);
       setIsLoading(false);
     };
-    void setProfile();
+
+    void loadAuthData();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
       async (_, session) => {
@@ -75,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(null);
 
       await supabaseConnector.signOut();
-      await system.powersync.disconnect();
+      await powersync.disconnect();
     } catch (error) {
       console.error('Error signing out:', error);
     }

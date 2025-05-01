@@ -4,7 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "noUncheckedIndexedAccess": true
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "exclude": ["llm_supp_files", "node_modules", "supabase/functions/**/*"]

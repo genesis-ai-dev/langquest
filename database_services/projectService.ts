@@ -14,7 +14,7 @@ export class ProjectService {
     return results;
   }
 
-  async getProjectById(id: string): Promise<Project | null> {
+  async getProjectById(id: string) {
     const [result] = await db.select().from(project).where(eq(project.id, id));
     return result;
   }

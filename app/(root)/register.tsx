@@ -1,15 +1,15 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { languageService } from '@/database_services/languageService';
 import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Href, Link, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -23,7 +23,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Language = typeof language.$inferSelect;
 
@@ -103,7 +102,7 @@ export default function Register() {
               ui_language:
                 selectedLanguage.english_name?.toLowerCase() || 'english',
               terms_accepted: true,
-              terms_version: '1.0'
+              terms_accepted_at: new Date().toISOString()
             }
           },
           {
@@ -224,6 +223,7 @@ export default function Register() {
                           placeholderTextColor={colors.text}
                           value={value}
                           onChangeText={onChange}
+                          accessibilityLabel="ph-no-capture"
                         />
                       </View>
                     )}
@@ -271,6 +271,7 @@ export default function Register() {
                           onChangeText={onChange}
                           autoCapitalize="none"
                           keyboardType="email-address"
+                          accessibilityLabel="ph-no-capture"
                         />
                       </View>
                     )}
@@ -410,19 +411,20 @@ export default function Register() {
                     </TouchableOpacity>
                   )}
                 />
-                <TouchableOpacity
-                  onPress={() => router.replace('/terms' as Href<string>)}
+                <Link
+                  href="/terms"
+                  style={[
+                    sharedStyles.link,
+                    {
+                      fontSize: 14,
+                      textAlign: 'center',
+                      marginTop: spacing.medium
+                    }
+                  ]}
+                  push
                 >
-                  <Text
-                    style={{
-                      color: colors.primary,
-                      textDecorationLine: 'underline',
-                      fontSize: 14
-                    }}
-                  >
-                    {t('viewTerms')}
-                  </Text>
-                </TouchableOpacity>
+                  {t('viewTerms')}
+                </Link>
               </View>
 
               {/* Register button */}
@@ -434,7 +436,25 @@ export default function Register() {
               </TouchableOpacity>
 
               {/* Sign in link */}
-              <TouchableOpacity
+              <Link
+                href="/sign-in"
+                style={[
+                  sharedStyles.link,
+                  {
+                    alignSelf: 'center',
+                    paddingVertical: spacing.small,
+                    paddingHorizontal: spacing.medium,
+                    borderWidth: 1,
+                    borderColor: colors.primary,
+                    borderRadius: 8,
+                    backgroundColor: 'transparent'
+                  }
+                ]}
+                push
+              >
+                {t('returningHero')}
+              </Link>
+              {/* <TouchableOpacity
                 style={{
                   alignSelf: 'center',
                   marginTop: spacing.medium,
@@ -450,7 +470,7 @@ export default function Register() {
                 <Text style={[sharedStyles.link, { textAlign: 'center' }]}>
                   {t('returningHero')}
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

@@ -26,7 +26,7 @@ import {
 type DrawerItem = {
   name?: string;
   icon: keyof typeof Ionicons.glyphMap;
-  path: Href<string>;
+  path: Href;
 };
 
 function DrawerItems() {
@@ -117,8 +117,8 @@ function Category({
   onPress
 }: {
   title: string;
-  items: ((Project | Quest | Asset) & { path: Href<string> })[];
-  onPress: (item: (Project | Quest | Asset) & { path: Href<string> }) => void;
+  items: ((Project | Quest | Asset) & { path: Href })[];
+  onPress: (item: (Project | Quest | Asset) & { path: Href }) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -162,10 +162,10 @@ function Category({
 }
 
 const DrawerItem = forwardRef<
-  TouchableOpacity,
+  View,
   {
     active?: boolean;
-    item: Omit<DrawerItem, 'path'> & { path?: Href<string> };
+    item: Omit<DrawerItem, 'path'> & { path?: Href };
   } & TouchableOpacityProps
 >(({ active, item, style, ...props }, ref) => {
   return (

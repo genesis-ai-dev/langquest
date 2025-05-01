@@ -1,12 +1,9 @@
-import { system } from '../db/powersync/system';
-import { and, eq, isNotNull, inArray } from 'drizzle-orm';
-import {
-  asset_download,
-  asset,
-  asset_content_link,
-  translation
-} from '../db/drizzleSchema';
+import type { TempAttachmentQueue } from '@/db/powersync/TempAttachmentQueue';
+import { AttachmentState } from '@powersync/attachments';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { asset_download } from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
+import { system } from '../db/powersync/system';
 
 export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
   // With the shared directory approach, we just need to check
@@ -51,7 +48,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
 
     // Check if the attachment already exists in the database
     const attachmentIds =
-      (await system.permAttachmentQueue?.getAllAssetAttachments(assetId)) || [];
+      (await system.permAttachmentQueue?.getAllAssetAttachments(assetId)) ?? [];
 
     // For each attachment, check if it's already in the database with any storage type
     let allAlreadyDownloaded = attachmentIds.length > 0;
@@ -61,7 +58,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
         await system.permAttachmentQueue?.getExtendedRecord(attachmentId);
 
       // If any attachment doesn't exist or isn't synced, we need to add to temp queue
-      if (!record || record.state !== 3) {
+      if (!record || record.state !== AttachmentState.SYNCED) {
         // 3 = SYNCED
         allAlreadyDownloaded = false;
         break;
@@ -74,7 +71,11 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     }
 
     // Otherwise, add to temp queue
-    const tempQueue = system.tempAttachmentQueue as any;
+    const tempQueue = system.tempAttachmentQueue as
+      | (TempAttachmentQueue & {
+          addTempAsset: (assetId: string) => Promise<void>;
+        })
+      | undefined;
     if (tempQueue && typeof tempQueue.addTempAsset === 'function') {
       await tempQueue.addTempAsset(assetId);
     } else {
@@ -82,7 +83,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     }
   } catch (error) {
     console.error(
-      `[ensureAssetLoaded] Error ensuring asset is loaded: ${error}`
+      `[ensureAssetLoaded] Error ensuring asset is loaded: ${String(error)}`
     );
   }
 }
@@ -161,7 +162,7 @@ export async function getAssetAttachmentIds(
     // Process asset images if successful
     if (assetResult.status === 'fulfilled') {
       assetResult.value.forEach((asset) => {
-        if (asset?.images) {
+        if (asset.images) {
           attachmentIds.push(...asset.images);
         }
       });

@@ -6,9 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { downloadService } from '@/database_services/downloadService';
 import { projectService } from '@/database_services/projectService';
-import { Quest, questService } from '@/database_services/questService';
-import { Tag, tagService } from '@/database_services/tagService';
-import { project } from '@/db/drizzleSchema';
+import type { Quest } from '@/database_services/questService';
+import { questService } from '@/database_services/questService';
+import type { Tag } from '@/database_services/tagService';
+import { tagService } from '@/database_services/tagService';
+import type { project } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -20,7 +22,7 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -37,12 +39,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
-import { Asset, assetService } from '@/database_services/assetService';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
+import type { Asset } from '@/database_services/assetService';
+import { assetService } from '@/database_services/assetService';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 
@@ -60,23 +62,27 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [questTags, assets] = await Promise.all([
-        tagService.getTagsByQuestId(quest.id),
-        assetService.getAssetsByQuestId(quest.id)
-      ]);
-      setTags(questTags);
-      setAssetIds(assets.map((asset) => asset.id));
+      try {
+        const [questTags, assets] = await Promise.all([
+          tagService.getTagsByQuestId(quest.id),
+          assetService.getAssetsByQuestId(quest.id)
+        ]);
+        setTags(questTags.filter(Boolean));
+        setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
 
-      // Get quest download status
-      if (currentUser) {
-        const downloadStatus = await downloadService.getQuestDownloadStatus(
-          currentUser.id,
-          quest.id
-        );
-        setIsDownloaded(downloadStatus);
+        // Get quest download status
+        if (currentUser) {
+          const downloadStatus = await downloadService.getQuestDownloadStatus(
+            currentUser.id,
+            quest.id
+          );
+          setIsDownloaded(downloadStatus);
+        }
+      } catch (error) {
+        console.error('Error loading quest data:', error);
       }
     };
-    loadData();
+    void loadData();
   }, [quest.id, currentUser]);
 
   const { isDownloaded: assetsDownloaded, isLoading } =
@@ -106,20 +112,23 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       try {
         // Load tags
         const questTags = await tagService.getTagsByQuestId(quest.id);
-        setTags(questTags);
+        setTags(questTags.filter(Boolean));
 
         // Load assets
         const questAssets = await assetService.getAssetsByQuestId(quest.id);
-        setAssets(questAssets);
+        setAssets(questAssets.filter(Boolean));
 
         // Load translations and votes for each asset
         const translationsMap: Record<string, Translation[]> = {};
         const votesMap: Record<string, Vote[]> = {};
 
         await Promise.all(
-          questAssets.map(async (asset) => {
+          questAssets.filter(Boolean).map(async (asset) => {
             const assetTranslations =
-              await translationService.getTranslationsByAssetId(asset.id);
+              await translationService.getTranslationsByAssetId(
+                asset.id,
+                currentUser?.id
+              );
             translationsMap[asset.id] = assetTranslations;
 
             // Load votes for each translation
@@ -140,14 +149,14 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       }
     };
 
-    loadQuestData();
-  }, [quest.id]);
+    void loadQuestData();
+  }, [quest.id, currentUser]);
 
   const progress = calculateQuestProgress(
     assets,
     translations,
     votes,
-    currentUser?.id || null
+    currentUser?.id ?? null
   );
 
   return (
@@ -240,7 +249,6 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
 
 export default function Quests() {
   const { t } = useTranslation();
-  const router = useRouter();
   const { projectId, projectName } = useLocalSearchParams<{
     projectId: string;
     projectName: string;
@@ -264,8 +272,8 @@ export default function Quests() {
   const { goToQuest } = useProjectContext();
 
   useEffect(() => {
-    loadQuests();
-    loadProject();
+    void loadQuests();
+    void loadProject();
   }, [projectId]);
 
   const loadQuests = async () => {
@@ -279,7 +287,9 @@ export default function Quests() {
       const tagsMap: Record<string, Tag[]> = {};
       await Promise.all(
         loadedQuests.map(async (quest) => {
-          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+          tagsMap[quest.id] = (
+            await tagService.getTagsByQuestId(quest.id)
+          ).filter(Boolean);
         })
       );
       setQuestTags(tagsMap);
@@ -293,7 +303,7 @@ export default function Quests() {
     try {
       if (!projectId) return;
       const project = await projectService.getProjectById(projectId);
-      setSelectedProject(project);
+      setSelectedProject(project ?? null);
     } catch (error) {
       console.error('Error loading project:', error);
     }
@@ -313,16 +323,16 @@ export default function Quests() {
             false);
 
         // Tag filters
-        const questTags = questToTags[quest.id] || [];
+        const questTags = questToTags[quest.id] ?? [];
         const matchesFilters = Object.entries(filters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
             return questTags.some((tag) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
-                tagCategory.toLowerCase() === category.toLowerCase() &&
+                tagCategory?.toLowerCase() === category.toLowerCase() &&
                 selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`
+                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
                 )
               );
             });
@@ -340,7 +350,7 @@ export default function Quests() {
       return sortItems(
         questsToSort,
         sorting,
-        (questId) => questTags[questId] || []
+        (questId: string) => questTags[questId] ?? []
       );
     },
     [questTags]
@@ -349,15 +359,21 @@ export default function Quests() {
   // Load tags when quests change
   useEffect(() => {
     const loadTags = async () => {
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        quests.map(async (quest) => {
-          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
-        })
-      );
-      setQuestToTags(tagsMap);
+      try {
+        const tagsMap: Record<string, Tag[]> = {};
+        await Promise.all(
+          quests.map(async (quest) => {
+            tagsMap[quest.id] = (
+              await tagService.getTagsByQuestId(quest.id)
+            ).filter(Boolean);
+          })
+        );
+        setQuestToTags(tagsMap);
+      } catch (error) {
+        console.error('Error loading tags:', error);
+      }
     };
-    loadTags();
+    void loadTags();
   }, [quests]);
 
   // Update filtered quests when search query changes
@@ -496,7 +512,6 @@ export default function Quests() {
       >
         <View style={{ flex: 1 }}>
           <QuestFilterModal
-            visible={isFilterModalVisible}
             onClose={() => setIsFilterModalVisible(false)}
             quests={quests}
             // questTags={questTags}

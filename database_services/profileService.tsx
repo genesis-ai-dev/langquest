@@ -19,7 +19,7 @@ function debug(...args: unknown[]) {
 }
 
 export class ProfileService {
-  async getProfileByUserId(id: string): Promise<Profile | null> {
+  async getProfileByUserId(id: string) {
     debug('Getting user by ID:', id);
     const results = await db.select().from(profile).where(eq(profile.id, id));
     return results[0];
@@ -109,7 +109,7 @@ export class ProfileService {
     // avatar?: string;
     password?: string;
     terms_accepted?: boolean;
-    terms_version?: string;
+    terms_accepted_at?: string;
   }): Promise<Profile | null> {
     try {
       // Update auth if password is changing
@@ -128,7 +128,9 @@ export class ProfileService {
         ...(data.terms_accepted !== undefined && {
           terms_accepted: data.terms_accepted
         }),
-        ...(data.terms_version && { terms_version: data.terms_version })
+        ...(data.terms_accepted_at && {
+          terms_accepted_at: data.terms_accepted_at
+        })
       };
 
       console.log('Updating profile with data:', updateData);

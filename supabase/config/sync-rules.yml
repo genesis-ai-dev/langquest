@@ -36,3 +36,25 @@ bucket_definitions:
         *
         FROM asset_download
         WHERE "asset_download".profile_id = bucket.profile_id
+
+  user_reports:
+    parameters: SELECT request.user_id() AS profile_id
+    data:
+      - SELECT
+        *
+        FROM reports
+        WHERE "reports".reporter_id = bucket.profile_id
+
+  user_blocks:
+    parameters: SELECT request.user_id() AS profile_id
+    data:
+      - SELECT
+        blocker_id || '_' || blocked_id as id,
+        *
+        FROM blocked_users
+        WHERE "blocked_users".blocker_id = bucket.profile_id
+
+      - SELECT
+        *
+        FROM blocked_content
+        WHERE "blocked_content".profile_id = bucket.profile_id
