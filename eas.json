@@ -38,16 +38,10 @@
     "production": {
       "android": {
         "track": "production"
-      },
-      "ios": {
-        "track": "production"
       }
     },
     "preview": {
       "android": {
-        "track": "beta"
-      },
-      "ios": {
         "track": "beta"
       }
     }
