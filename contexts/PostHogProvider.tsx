@@ -42,8 +42,8 @@ function PostHogProvider({ children }: { children: React.ReactNode }) {
         defaultOptIn,
         disabled:
           process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
-          process.env.EXPO_PUBLIC_POSTHOG_HOST === undefined ||
-          process.env.EXPO_PUBLIC_POSTHOG_KEY === undefined
+          !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
+          !process.env.EXPO_PUBLIC_POSTHOG_KEY
       }}
     >
       {children}

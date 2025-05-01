@@ -1,5 +1,6 @@
 import type { Profile } from '@/database_services/profileService';
 import { profileService } from '@/database_services/profileService';
+import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -13,13 +14,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const getSupabaseAuthKey = async () => {
-  const supabaseAuthKey = (await AsyncStorage.getAllKeys()).find(
-    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
-  );
-  return supabaseAuthKey;
-};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
@@ -41,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setCurrentUser(profile ?? null);
       }
-      // console.log('setting auth isLoading to false', isLoading);
+      console.log('setting auth isLoading to false', isLoading);
       setIsLoading(false);
     };
 

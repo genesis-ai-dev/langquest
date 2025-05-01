@@ -80,7 +80,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 ### Prerequisites
 
-- Download [Docker Desktop](https://www.docker.com/get-started) (version 4.24.0 or greater required)
+- Download [Docker Desktop](https://www.docker.com/get-started) (docker compose version 4.24.0 or greater required)
 
 ### Running Local Services
 

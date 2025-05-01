@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
-import { SplashScreen, Stack, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 
@@ -10,12 +10,13 @@ import { SystemProvider } from '@/contexts/SystemContext';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
-import { getQueryParams } from '@/utils/supabaseQueryParams';
+import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
-void SplashScreen.preventAutoHideAsync();
+// void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const router = useRouter();
@@ -26,6 +27,9 @@ export default function RootLayout() {
   useEffect(() => {
     const unsubscribe = initializeNetwork();
     void TranslationUtils.initialize();
+    void ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT
+    );
 
     return () => {
       unsubscribe();
