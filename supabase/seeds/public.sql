@@ -22,7 +22,7 @@ SET row_security = off;
 -- Data for Name: profile; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "ui_language_id", "active", "terms_accepted", "terms_version") VALUES
+INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "ui_language_id", "active", "terms_accepted", "terms_accepted_at") VALUES
 	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
 	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
 	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
@@ -44,8 +44,8 @@ INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", 
 	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
 	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
 	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, '1.0'),
-	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, '1.0');
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
+	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
 
 
 --
