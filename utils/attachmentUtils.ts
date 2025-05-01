@@ -3,9 +3,6 @@ import { AttachmentState } from '@powersync/attachments';
 import { and, eq, isNotNull, inArray } from 'drizzle-orm';
 import {
   asset_download,
-  asset,
-  asset_content_link,
-  translation
 } from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 
@@ -52,7 +49,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
 
     // Check if the attachment already exists in the database
     const attachmentIds =
-      (await system.permAttachmentQueue?.getAllAssetAttachments(assetId)) || [];
+      (await system.permAttachmentQueue?.getAllAssetAttachments(assetId)) ?? [];
 
     // For each attachment, check if it's already in the database with any storage type
     let allAlreadyDownloaded = attachmentIds.length > 0;
@@ -75,7 +72,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     }
 
     // Otherwise, add to temp queue
-    const tempQueue = system.tempAttachmentQueue as any;
+    const tempQueue = system.tempAttachmentQueue;
     if (tempQueue && typeof tempQueue.addTempAsset === 'function') {
       await tempQueue.addTempAsset(assetId);
     } else {
@@ -83,7 +80,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     }
   } catch (error) {
     console.error(
-      `[ensureAssetLoaded] Error ensuring asset is loaded: ${error}`
+      `[ensureAssetLoaded] Error ensuring asset is loaded: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -205,7 +202,8 @@ export async function getAssetAttachmentIds(
  * @returns Promise resolving to array of file IDs that need to be synced
  */
 export async function getFilesInUploadQueue(): Promise<string[]> {
-  if (!system.powersync || !system.permAttachmentQueue) {
+  if (!system.powersync) {
+    console.log('[getFilesInUploadQueue] PowerSync system not available, returning empty array.');
     return [];
   }
   
@@ -216,12 +214,12 @@ export async function getFilesInUploadQueue(): Promise<string[]> {
       [String(AttachmentState.QUEUED_UPLOAD)]
     );
     
-    const files = [];
+    const files: string[] = [];
     // Add null check for rows
     if (result.rows) {
       for (let i = 0; i < result.rows.length; i++) {
         // Add null check for item before accessing id
-        const item = result.rows.item(i);
+        const item: { id?: string | null } | null = result.rows.item(i);
         if (item?.id) {
           files.push(item.id);
         }
@@ -249,7 +247,7 @@ export async function areAllFilesSynced(): Promise<boolean> {
  * @returns Promise resolving to a boolean indicating sync status
  */
 export async function isFileSynced(fileId: string): Promise<boolean> {
-  if (!system.powersync || !system.permAttachmentQueue) {
+  if (!system.powersync) {
     return false;
   }
   
@@ -265,8 +263,8 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
       return false; // File not found in attachments table
     }
     
-    const item = result.rows.item(0);
-    const state = item?.state;
+    const item: { state?: number | null } | null = result.rows.item(0);
+    const state: number | null | undefined = item?.state;
     // File is synced if state is SYNCED
     return state === AttachmentState.SYNCED;
   } catch (error) {
@@ -279,8 +277,8 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
  * Gets all files with their sync status
  * @returns Promise resolving to an array of {id, state} objects
  */
-export async function getAllFilesSyncStatus(): Promise<Array<{id: string, synced: boolean}>> {
-  if (!system.powersync || !system.permAttachmentQueue) {
+export async function getAllFilesSyncStatus(): Promise<{id: string, synced: boolean}[]> {
+  if (!system.powersync) {
     return [];
   }
   
@@ -290,11 +288,11 @@ export async function getAllFilesSyncStatus(): Promise<Array<{id: string, synced
       'SELECT id, state FROM attachments'
     );
     
-    const files = [];
+    const files: {id: string, synced: boolean}[] = [];
     // Add null check for rows
     if (result.rows) {
       for (let i = 0; i < result.rows.length; i++) {
-        const item = result.rows.item(i);
+        const item: { id?: string | null, state?: number | null } | null = result.rows.item(i);
         if (item?.id) { // Ensure item and id exist
           files.push({
             id: item.id,

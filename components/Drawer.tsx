@@ -1,14 +1,14 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
-import { type Project } from '@/database_services/projectService';
+import type { Project } from '@/database_services/projectService';
 import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
-  type DrawerContentComponentProps
+  DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Href, Link, usePathname, useRouter } from 'expo-router';
@@ -21,153 +21,128 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
   View,
-  Platform,
   Alert,
   ActivityIndicator
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import { useSystem } from '@/db/powersync/system';
-import { AttachmentRecord, AttachmentState } from '@powersync/attachments';
-import { eq } from 'drizzle-orm';
-import { StorageAccessFramework } from 'expo-file-system';
-import { PowerSyncDatabase, SyncStatus } from '@powersync/react-native';
-import { translation as translationSchema, asset_content_link as assetContentLinkSchema, asset as assetSchema } from '@/db/drizzleSchema';
-import { isNotNull } from 'drizzle-orm';
-import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
+import { useSystem } from '@/contexts/SystemContext';
 import { 
-  backupDatabase, 
   backupUnsyncedAudio, 
   requestBackupDirectory, 
   prepareBackupPaths 
 } from '@/utils/backupUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 
-type DrawerItem = {
+interface DrawerItemType {
   name?: string;
   icon: keyof typeof Ionicons.glyphMap;
   path: Href<string>;
-};
+}
 
 function DrawerItems() {
   const pathname = usePathname();
   const { t } = useTranslation();
   const { signOut } = useAuth();
   const system = useSystem();
+  const systemReady = system.isInitialized();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  const drawerItems: DrawerItem[] = [
+  const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
-  const handleBackup = async (audioOnly = false) => {
+  const handleBackup = async (/* audioOnly = false */) => {
     setIsBackingUp(true);
-    let backupSuccess = false;
-    let finalMessage = '';
-    let baseDirectoryUri: string | null = null;
+    let finalAlertTitle = t('backupErrorTitle'); // Default to error
+    let finalAlertMessage = '';
 
     try {
-      // 1. System Init Check
-      if (!system.isInitialized()) {
-        Alert.alert(t('error'), t('databaseNotReady'));
-        throw new Error('System not initialized'); // Throw to trigger finally block
+      // 1. System & Queue Init Checks
+      if (!systemReady) {
+        throw new Error(t('databaseNotReady'));
       }
-      if (system.attachmentQueue) {
-          await system.attachmentQueue.init();
-      } else {
-          throw new Error('Attachment queue not available');
+      // Attempt to initialize queues, warn if not available but don't throw
+      try {
+        await system.permAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing permanent attachment queue:', qError);
+      }
+      try {
+        await system.tempAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing temporary attachment queue:', qError);
       }
 
       // 2. Permissions
-      baseDirectoryUri = await requestBackupDirectory();
+      console.log('[handleBackup] Requesting directory permissions...');
+      const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
       if (!baseDirectoryUri) {
-        finalMessage = t('storagePermissionDenied');
-        Alert.alert(t('permissionDenied'), finalMessage);
-        throw new Error('Permission denied'); // Throw to trigger finally block
+         throw new Error(t('storagePermissionDenied')); 
       }
+      console.log('[handleBackup] Permissions granted, preparing paths...');
 
       // 3. Prepare Paths
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const { dbFullPathName, audioBaseDirPath, dbSourceUri } = prepareBackupPaths(timestamp);
+      prepareBackupPaths(timestamp); // Call it but don't store result if unneeded
+      console.log('[handleBackup] Paths prepared, attempting audio backup...');
 
-      // 4. Execute Backups and Collect Results
-      const dbResult = await backupDatabase(baseDirectoryUri, dbFullPathName, dbSourceUri, audioOnly);
-      const audioResult = await backupUnsyncedAudio(system, baseDirectoryUri, audioBaseDirPath, timestamp);
-      
-      backupSuccess = dbResult.statusKey !== 'backupDbStatusFailed'; 
+      // 4. Execute Backup (Audio Only)
+      const audioResult = await backupUnsyncedAudio(system, baseDirectoryUri /*, audioBaseDirPath, timestamp */);
 
-      // 5. Construct Final Message
-      let dbStatusText = '';
-      if (audioOnly) {
-        dbStatusText = t('backupDbSkipped');
-      } else {
-        dbStatusText = dbResult.error 
-            ? t(dbResult.statusKey, { error: dbResult.error }) 
-            : t(dbResult.statusKey);
-      }
-      
-      const statusDB = t('backupStatusDB', { status: dbStatusText });
-      const statusFiles = t('backupStatusFiles', { count: audioResult.count });
-      finalMessage = `${statusDB}. ${statusFiles}.`;
-      // Optionally add info about copy errors: ${audioResult.errors.length > 0 ? ` (${audioResult.errors.length} file errors)`: ''}
+      // 5. Construct Success Message (Audio Only)
+      finalAlertTitle = t('backupCompleteTitle');
+      finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
 
-    } catch (error: any) {
-      // Handle errors from init, permissions, or backup helpers
+    } catch (error: unknown) {
+      // Handle errors from any awaited step above
+      console.log('[handleBackup] Entered CATCH block.');
       console.error('Error during backup process:', error);
-      backupSuccess = false;
-      // Use existing finalMessage if set (e.g., permission denied), otherwise create generic error message
-      if (!finalMessage) { 
-        const errorString = error instanceof Error ? error.message : String(error);
-        finalMessage = t('criticalBackupError', { error: errorString });
-      }
+      const errorString = error instanceof Error ? error.message : String(error);
+      finalAlertMessage = t('criticalBackupError', { error: errorString || 'Unknown error occurred' });
     } finally {
       // 6. Final Alert & State Reset
+      console.log('[handleBackup] Entered FINALLY block.');
       setIsBackingUp(false);
-      // Ensure finalMessage has a value before alerting
-      if (!finalMessage) { 
-          finalMessage = backupSuccess 
-              ? t('backupCompleteTitle') 
-              : t('criticalBackupError', { error: 'Unknown error occurred' });
-      } 
-      Alert.alert(
-        backupSuccess ? t('backupCompleteTitle') : t('backupErrorTitle'),
-        finalMessage
-      );
+      // Ensure message isn't empty if something went wrong before catch block assignment
+      if (!finalAlertMessage) {
+           finalAlertMessage = t('criticalBackupError', { error: 'Backup failed unexpectedly' });
+      }
+      Alert.alert(finalAlertTitle, finalAlertMessage);
     }
   };
 
   const confirmAndStartBackup = () => {
     Alert.alert(
       t('startBackupTitle'),
-      t('startBackupMessage'),
+      t('startBackupMessageAudioOnly'),
       [
         {
           text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: t('backupAudioOnly'),
-          onPress: () => handleBackup(true)
-        },
-        {
-          text: t('backupEverything'),
-          onPress: () => handleBackup(false)
+          text: t('backupAudioAction'),
+          onPress: () => void handleBackup(/* false */)
         }
       ]
     );
   };
 
   const handleRestore = () => {
-    // Define callbacks to manage the restoring state
     const onStart = () => setIsRestoring(true);
     const onFinish = () => setIsRestoring(false);
-    // Pass system, t, and callbacks to the restore initiation function
-    selectAndInitiateRestore(system, t, onStart, onFinish);
+    void selectAndInitiateRestore(system, t, onStart, onFinish);
   };
 
   return (
     <View style={styles.drawerItems}>
+      {!systemReady && (
+        <View style={styles.initializingIndicator}> 
+          <ActivityIndicator size="small" color={colors.text} />
+          <Text style={styles.initializingText}>{t('initializing')}...</Text>
+        </View>
+      )} 
       {drawerItems.map((item, index) => (
         <Link href={item.path} key={index} asChild>
           <DrawerItem item={item} active={pathname === item.path} />
@@ -179,8 +154,8 @@ function DrawerItems() {
           icon: isBackingUp ? 'hourglass-outline' : 'save'
         }}
         onPress={confirmAndStartBackup}
-        disabled={isBackingUp || isRestoring}
-        style={(isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
+        disabled={!systemReady || isBackingUp || isRestoring}
+        style={(!systemReady || isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
       />
       <DrawerItem
         item={{
@@ -188,21 +163,22 @@ function DrawerItems() {
           icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline'
         }}
         onPress={handleRestore}
-        disabled={isBackingUp || isRestoring}
-        style={(isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
+        disabled={!systemReady || isBackingUp || isRestoring}
+        style={(!systemReady || isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
       />
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
           onPress={signOut}
-          disabled={isBackingUp || isRestoring}
+          disabled={!systemReady || isBackingUp || isRestoring}
+          style={(!systemReady || isBackingUp || isRestoring) ? { opacity: 0.5 } : {}}
         />
       )}
     </View>
   );
 }
 
-export function Drawer({ children }: { children: React.ReactNode }) {
+export function Drawer(/*{ children }: { children: React.ReactNode }*/) {
   return (
     <ExpoDrawer
       screenOptions={{
@@ -257,15 +233,13 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   );
 }
 
-function Category({
-  title,
-  items,
-  onPress
-}: {
+interface CategoryProps {
   title: string;
   items: ((Project | Quest | Asset) & { path: Href<string> })[];
   onPress: (item: (Project | Quest | Asset) & { path: Href<string> }) => void;
-}) {
+}
+
+function Category({ title, items, onPress }: CategoryProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const toggleExpand = useCallback(() => {
@@ -311,7 +285,7 @@ const DrawerItem = forwardRef<
   TouchableOpacity,
   {
     active?: boolean;
-    item: Omit<DrawerItem, 'path'> & { path?: Href<string> };
+    item: Omit<DrawerItemType, 'path'> & { path?: Href<string> };
   } & TouchableOpacityProps
 >(({ active, item, style, ...props }, ref) => {
   return (
@@ -321,7 +295,8 @@ const DrawerItem = forwardRef<
         styles.drawerItem,
         active && {
           backgroundColor: colors.primary
-        }
+        },
+        style
       ]}
       {...props}
     >
@@ -337,7 +312,7 @@ function DrawerFooter() {
   const { goToProject, goToQuest, activeProject, activeQuest } =
     useProjectContext();
 
-  if (!pathname.startsWith('/') || !activeProject || !activeQuest) return null;
+  if (!pathname.startsWith('/')) return null;
 
   return (
     <View style={styles.drawerFooterNav}>
@@ -347,24 +322,23 @@ function DrawerFooter() {
         </TouchableOpacity>
       )}
       <View style={styles.footerTextContainer}>
-        {activeProject && (
-          <Fragment>
-            <Ionicons name="chevron-forward" size={14} color={colors.text} />
-            <TouchableOpacity
-              onPress={() => goToProject(activeProject, true)}
-              style={styles.footerTextItem}
+        <Fragment>
+          <Ionicons name="chevron-forward" size={14} color={colors.text} />
+          <TouchableOpacity
+            onPress={() => goToProject(activeProject!, true)}
+            style={styles.footerTextItem}
+          >
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ color: colors.text }}
             >
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ color: colors.text }}
-              >
-                {activeProject.name}
-              </Text>
-            </TouchableOpacity>
-          </Fragment>
-        )}
-        {activeQuest && activeProject && (
+              {activeProject?.name}
+            </Text>
+          </TouchableOpacity>
+        </Fragment>
+        
+        {activeQuest && (
           <Fragment>
             <Ionicons name="chevron-forward" size={14} color={colors.text} />
             <TouchableOpacity
@@ -467,5 +441,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingVertical: spacing.xsmall,
     paddingHorizontal: spacing.small
+  },
+  initializingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.medium, 
+    gap: spacing.small,
+    opacity: 0.7
+  },
+  initializingText: {
+    color: colors.text,
+    fontSize: fontSizes.small
   }
 });

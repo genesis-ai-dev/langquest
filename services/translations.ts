@@ -4,10 +4,12 @@ export type SupportedLanguage = 'english' | 'spanish';
 // Define the structure for translations
 export type TranslationKey = keyof typeof translations;
 
+// Removed unused TranslationSet type
+/*
 // Type to ensure all translations have all supported languages
-type TranslationSet = {
-  [key in SupportedLanguage]: string;
-};
+// Use Record for preferred type definition
+type TranslationSet = Record<SupportedLanguage, string>;
+*/
 
 // All UI translations
 export const translations = {
@@ -63,8 +65,8 @@ export const translations = {
     spanish: 'Confirmar contraseña'
   },
   databaseNotReady: {
-    english: 'Database is not ready yet. Please wait.',
-    spanish: 'La base de datos aún no está lista. Por favor espere.'
+    english: 'Database not ready. Please wait for initialization.',
+    spanish: 'Base de datos no lista. Espere la inicialización.'
   },
   date: {
     english: 'Date',
@@ -428,141 +430,82 @@ export const translations = {
     english: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`,
     spanish: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`
   },
-  // --- Backup Feature Translations ---
+  // --- Backup Feature Translations (Audio Only) ---
   backup: {
-    english: 'Backup Data',
-    spanish: 'Hacer copia de seguridad'
+    english: 'Backup Audio',
+    spanish: 'Hacer copia de audio'
   },
   backingUp: {
-    english: 'Backing up...',
-    spanish: 'Haciendo copia...'
+    english: 'Backing up audio...',
+    spanish: 'Haciendo copia de audio...'
   },
   restoreBackup: {
-    english: 'Restore Data',
-    spanish: 'Restaurar datos'
+    english: 'Restore Audio',
+    spanish: 'Restaurar audio'
   },
   restoring: {
-    english: 'Restoring...',
-    spanish: 'Restaurando...'
-  },
-  restoreOptions: {
-    english: 'Restore Options',
-    spanish: 'Opciones de restauración'
-  },
-  whatToRestore: {
-    english: 'What would you like to restore?',
-    spanish: '¿Qué desea restaurar?'
+    english: 'Restoring audio...',
+    spanish: 'Restaurando audio...'
   },
   restoreAudioOnly: {
-    english: 'Audio Files Only',
-    spanish: 'Solo Archivos de Audio'
-  },
-  restoreEverything: {
-    english: 'Everything (DB + Audio)',
-    spanish: 'Todo (BD + Audio)'
+    english: 'Audio Files',
+    spanish: 'Archivos de Audio'
   },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
     spanish: 'Confirmar restauración de audio'
   },
   confirmAudioRestoreMessage: {
-    english: 'Restore only audio files from the selected backup?',
-    spanish: '¿Restaurar solo archivos de audio desde la copia de seguridad seleccionada?'
-  },
-  confirmFullRestore: {
-    english: 'Confirm Full Restore',
-    spanish: 'Confirmar restauración completa'
-  },
-  confirmFullRestoreMessage: {
-    english: 'Restore all data (database + audio files) from the selected backup?',
-    spanish: '¿Restaurar todos los datos (base de datos + archivos de audio) desde la copia de seguridad seleccionada?'
+    english: 'Restore audio files from the selected backup?',
+    spanish: '¿Restaurar archivos de audio desde la copia de seguridad seleccionada?'
   },
   startBackupTitle: {
-    english: 'Start Backup?',
-    spanish: '¿Iniciar copia de seguridad?'
+    english: 'Start Audio Backup?',
+    spanish: '¿Iniciar copia de seguridad de audio?'
   },
-  startBackupMessage: {
-    english: 'This will back up your local data to a location you choose. Make sure you have enough storage space.',
-    spanish: 'Esto creará una copia de seguridad de sus datos locales en una ubicación que elija. Asegúrese de tener suficiente espacio de almacenamiento.'
+  startBackupMessageAudioOnly: {
+    english: 'This will back up your locally recorded audio files to a location you choose. Make sure you have enough storage space.',
+    spanish: 'Esto creará una copia de seguridad de sus archivos de audio grabados localmente en una ubicación que elija. Asegúrese de tener suficiente espacio de almacenamiento.'
   },
-  backupAudioOnly: {
-    english: 'Audio Files Only',
-    spanish: 'Solo Archivos de Audio'
-  },
-  backupEverything: {
-    english: 'Everything (DB + Audio)',
-    spanish: 'Todo (BD + Audio)'
-  },
-  backupDbSkipped: {
-    english: 'skipped (audio-only mode)',
-    spanish: 'omitida (modo solo audio)'
+  backupAudioAction: {
+    english: 'Backup Audio Files',
+    spanish: 'Hacer Copia de Audio'
   },
   backupCompleteTitle: {
-    english: 'Backup Complete',
-    spanish: 'Copia de seguridad completa'
+    english: 'Audio Backup Complete',
+    spanish: 'Copia de seguridad de audio completa'
   },
   backupErrorTitle: {
-    english: 'Backup Finished with Errors',
-    spanish: 'Copia de seguridad finalizada con errores'
+    english: 'Audio Backup Finished with Errors',
+    spanish: 'Copia de seguridad de audio finalizada con errores'
   },
-  backupStatusDB: {
-    english: 'Database backup: {{status}}',
-    spanish: 'Copia de base de datos: {{status}}'
-  },
-  backupStatusFiles: {
-    english: 'Copied {{count}} unsynced audio file(s).',
-    spanish: 'Se copiaron {{count}} archivo(s) de audio no sincronizado(s).'
-  },
-  permissionDenied: {
-    english: 'Permission Denied',
-    spanish: 'Permiso denegado'
-  },
-  storagePermissionDenied: {
-    english: 'Storage permission denied. Backup cancelled.',
-    spanish: 'Permiso de almacenamiento denegado. Copia de seguridad cancelada.'
-  },
-  directoryError: {
-    english: 'Directory Error',
-    spanish: 'Error de directorio'
-  },
-  failedGetPermissions: {
-    english: 'Failed to get directory permissions. Error: {{error}}',
-    spanish: 'Error al obtener permisos de directorio. Error: {{error}}'
-  },
-  backupFailed: {
-    english: 'Backup Failed',
-    spanish: 'Error en la copia de seguridad'
-  },
-  failedGetDirectoryUri: {
-    english: 'Failed to obtain base directory URI. Backup cannot proceed.',
-    spanish: 'Error al obtener URI del directorio base. La copia de seguridad no puede continuar.'
+  audioBackupStatus: {
+    english: 'Audio files backed up: {{count}}',
+    spanish: 'Archivos de audio respaldados: {{count}}'
   },
   criticalBackupError: {
-    english: 'Backup failed due to a critical error: {{error}}',
-    spanish: 'La copia de seguridad falló debido a un error crítico: {{error}}'
+    english: 'Critical backup error: {{error}}',
+    spanish: 'Error crítico de copia de seguridad: {{error}}'
   },
-  backupDbStatusSuccessful: {
-      english: 'successful',
-      spanish: 'exitosa'
+  // Add other keys as needed...
+  // --- Sync Feature Translations ---
+  storagePermissionDenied: {
+    english: 'Storage permission denied. Cannot proceed.',
+    spanish: 'Permiso de almacenamiento denegado. No se puede continuar.'
   },
-  backupDbStatusSkipped: {
-      english: 'skipped (not found)',
-      spanish: 'omitida (no encontrada)'
+  restoreAndroidOnly: {
+    english: 'Restore feature is only available on Android.',
+    spanish: 'La función de restauración solo está disponible en Android.'
   },
-  backupDbStatusFailed: {
-      english: 'failed: {{error}}',
-      spanish: 'fallida: {{error}}'
+  failedRestore: {
+    english: 'Failed to restore data: {{error}}',
+    spanish: 'Error al restaurar datos: {{error}}'
   },
-  downloadLimitExceeded: {
-    english: 'Download Limit Exceeded',
-    spanish: 'Límite de descarga excedido'
+  initializing: {
+    english: 'Initializing',
+    spanish: 'Inicializando'
   },
-  downloadLimitMessage: {
-    english:
-      'You are trying to download {newDownloads} attachments for a total of {totalDownloads}, but the limit is {limit}. Please deselect some downloads and try again.',
-    spanish:
-      'Está intentando descargar {newDownloads} archivos adjuntos para un total de {totalDownloads}, pero el límite es {limit}. Por favor, deseleccione algunas descargas e intente nuevamente.'
-  },
+  // Re-added keys needed elsewhere
   offlineUndownloadWarning: {
     english: 'Offline Undownload Warning',
     spanish: 'Advertencia de eliminación sin conexión'
@@ -581,23 +524,16 @@ export const translations = {
     english: 'Cancel',
     spanish: 'Cancelar'
   },
-  restoreAndroidOnly: {
-    english: 'Restore is only supported on Android.',
-    spanish: 'La restauración solo es compatible con Android.'
-  },
-  failedRestore: {
-    english: 'Failed to initiate restore: {{error}}',
-    spanish: 'Error al iniciar la restauración: {{error}}'
-  },
   confirm: {
     english: 'Confirm',
     spanish: 'Confirmar'
   }
-  // Add more translation keys as needed...
 } as const;
 
-// Type check to ensure all translation keys have all supported languages
+// Type check removed as it was unused and causing a lint error
+/*
 type ValidateTranslations<T> = {
   [K in keyof T]: T[K] extends TranslationSet ? true : never;
 };
 type ValidationResult = ValidateTranslations<typeof translations>;
+*/
