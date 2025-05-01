@@ -227,8 +227,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         if (isCompositeTable && op.id) {
           const [firstId, secondId] = op.id.split('_');
           compositeKeys = {
-            [compositeConfig.keys[0]]: firstId,
-            [compositeConfig.keys[1]]: secondId
+            [compositeConfig.keys[0]!]: firstId,
+            [compositeConfig.keys[1]!]: secondId
           };
         }
 

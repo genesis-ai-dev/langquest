@@ -1,24 +1,25 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import type { Asset } from '@/database_services/assetService';
+import type { Tag } from '@/database_services/tagService';
+import { tagService } from '@/database_services/tagService';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
-import {
+  borderRadius,
   colors,
   fontSizes,
-  spacing,
-  borderRadius,
-  sharedStyles
+  sharedStyles,
+  spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Asset } from '@/database_services/assetService';
-import { tagService, Tag } from '@/database_services/tagService';
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { useTranslation } from '@/hooks/useTranslation';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 
 interface AssetFilterModalProps {
   visible: boolean;
@@ -36,7 +37,6 @@ interface SortingOption {
 }
 
 export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
-  visible,
   onClose,
   assets,
   onApplyFilters,
@@ -57,12 +57,15 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
       const tagsMap: Record<string, Tag[]> = {};
       await Promise.all(
         assets.map(async (asset) => {
-          tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
+          const tags = (await tagService.getTagsByAssetId(asset.id)).filter(
+            Boolean
+          );
+          tagsMap[asset.id] = tags;
         })
       );
       setAssetTags(tagsMap);
     };
-    loadAllTags();
+    void loadAllTags();
   }, [assets]);
   const { t } = useTranslation();
 
@@ -73,10 +76,9 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
       .flat()
       .forEach((tag) => {
         const [heading, option] = tag.name.split(':');
-        if (!sections[heading]) {
-          sections[heading] = new Set();
-        }
-        sections[heading].add(option);
+        if (!heading) return;
+        sections[heading] ??= new Set();
+        if (option) sections[heading]!.add(option);
       });
 
     return Object.entries(sections).map(([heading, options]) => ({
@@ -95,7 +97,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
       .flat()
       .forEach((tag) => {
         const category = tag.name.split(':')[0];
-        fields.add(category);
+        if (category) fields.add(category);
       });
     return Array.from(fields);
   }, [assetTags]);
@@ -123,7 +125,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
 
   const toggleOption = (sectionId: string, optionId: string) => {
     setSelectedOptions((prev) => {
-      const updatedSection = prev[sectionId] || [];
+      const updatedSection = prev[sectionId] ?? [];
       const updatedOptions = updatedSection.includes(optionId)
         ? updatedSection.filter((id) => id !== optionId)
         : [...updatedSection, optionId];
@@ -138,12 +140,12 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   const handleSortingChange = (
     index: number,
     field: string | null,
-    order: 'asc' | 'desc'
+    order?: 'asc' | 'desc'
   ) => {
     setSortingOptions((prev) => {
       const newOptions = [...prev];
       if (field) {
-        newOptions[index] = { field, order: order || 'asc' };
+        newOptions[index] = { field, order: order ?? 'asc' };
       } else {
         newOptions.splice(index, 1);
       }
@@ -259,13 +261,13 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                     <View key={index} style={styles.sortingRow}>
                       <CustomDropdown
                         label={`Sort ${index + 1}`}
-                        value={sortingOptions[index]?.field || ''}
+                        value={sortingOptions[index]?.field ?? ''}
                         options={sortingFields}
                         onSelect={(field) =>
                           handleSortingChange(
                             index,
                             field,
-                            sortingOptions[index]?.order || 'asc'
+                            sortingOptions[index]?.order
                           )
                         }
                         fullWidth={false}
@@ -276,7 +278,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                         onPress={() =>
                           handleSortingChange(
                             index,
-                            sortingOptions[index]?.field,
+                            sortingOptions[index]?.field ?? null,
                             sortingOptions[index]?.order === 'asc'
                               ? 'desc'
                               : 'asc'

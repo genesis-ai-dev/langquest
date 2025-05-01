@@ -4,8 +4,8 @@ import { translationService } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
 import type { vote } from '@/db/drizzleSchema';
-import { useReports } from '@/hooks/useReports';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,12 +29,14 @@ interface TranslationModalProps {
   translation: Translation;
   onClose: () => void;
   onVoteSubmitted: () => void;
+  onReportSubmitted: () => void;
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
   translation: initialTranslation,
   onClose,
-  onVoteSubmitted
+  onVoteSubmitted,
+  onReportSubmitted
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
@@ -46,9 +48,8 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { hasReported } = useReports(
+  const { hasReported } = useTranslationReports(
     initialTranslation.id,
-    'translations',
     currentUser!.id
   );
 
@@ -174,6 +175,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const handleReportSubmitted = () => {
     setShowReportModal(false);
+    onReportSubmitted();
   };
 
   const handleEditSubmit = async () => {

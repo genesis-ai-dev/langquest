@@ -7,8 +7,10 @@ export type BlockedContent = typeof blocked_content.$inferSelect;
 
 const { db } = system;
 
+export type BlockedUserInsert = Omit<typeof blocked_users.$inferInsert, 'id'>;
+
 export class BlockService {
-  async blockUser(data: typeof blocked_users.$inferInsert) {
+  async blockUser(data: BlockedUserInsert) {
     // Check if already blocked to avoid duplicates
     const existingBlock = await db.query.blocked_users.findFirst({
       where: and(
@@ -22,7 +24,10 @@ export class BlockService {
     }
 
     // With composite primary key, returning the inserted record directly
-    await db.insert(blocked_users).values(data);
+    await db.insert(blocked_users).values({
+      ...data,
+      id: `${data.blocker_id}_${data.blocked_id}`
+    });
 
     return data;
   }
@@ -58,41 +63,6 @@ export class BlockService {
     return db.query.blocked_content.findMany({
       where: eq(blocked_content.profile_id, profileId)
     });
-  }
-
-  async unblockUser(blockerId: string, blockedId: string) {
-    await db
-      .delete(blocked_users)
-      .where(
-        and(
-          eq(blocked_users.blocker_id, blockerId),
-          eq(blocked_users.blocked_id, blockedId)
-        )
-      );
-
-    return { blocker_id: blockerId, blocked_id: blockedId };
-  }
-
-  async unblockContent(
-    profileId: string,
-    contentId: string,
-    contentTable: string
-  ) {
-    await db
-      .delete(blocked_content)
-      .where(
-        and(
-          eq(blocked_content.profile_id, profileId),
-          eq(blocked_content.content_id, contentId),
-          eq(blocked_content.content_table, contentTable)
-        )
-      );
-
-    return {
-      profile_id: profileId,
-      content_id: contentId,
-      content_table: contentTable
-    };
   }
 }
 

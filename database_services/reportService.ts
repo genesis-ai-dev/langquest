@@ -19,7 +19,7 @@ export class ReportService {
       })
       .returning();
 
-    return newReport;
+    return newReport!;
   }
 
   async hasUserReported(

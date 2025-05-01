@@ -9,11 +9,11 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface ProjectContextType {
-  activeProject: Project | null;
+  activeProject?: Project;
   recentProjects: (Project & { path: Href })[];
-  activeQuest: Quest | null;
+  activeQuest?: Quest;
   recentQuests: (Quest & { path: Href })[];
-  activeAsset: Asset | null;
+  activeAsset?: Asset;
   recentAssets: (Asset & { path: Href })[];
   goToProject: (project: Project, navigate?: boolean) => void;
   goToQuest: (quest: Quest, navigate?: boolean) => void;
@@ -43,9 +43,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     assetId: string;
   }>();
 
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
-  const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
+  const [activeProject, setActiveProject] = useState<Project>();
+  const [activeQuest, setActiveQuest] = useState<Quest>();
+  const [activeAsset, setActiveAsset] = useState<Asset>();
 
   useEffect(() => {
     const loadProject = async () => {
@@ -66,7 +66,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadAsset = async () => {
       const asset = await assetService.getAssetById(assetId);
-      setActiveAsset(asset ?? null);
+      setActiveAsset(asset);
     };
     void loadAsset();
   }, [assetId]);

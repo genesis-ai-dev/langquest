@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Audio, AVPlaybackStatus } from 'expo-av';
-import Slider from '@react-native-community/slider';
-import { colors, fontSizes, spacing } from '@/styles/theme';
-import Carousel from './Carousel';
 import { useTranslation } from '@/hooks/useTranslation';
+import { colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
+import type { AVPlaybackStatus } from 'expo-av';
+import { Audio } from 'expo-av';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Carousel from './Carousel';
 
 interface AudioFile {
   id: string;
@@ -35,7 +36,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   useEffect(() => {
     return () => {
-      if (sound) sound.unloadAsync();
+      if (sound) void sound.unloadAsync();
     };
   }, [sound]);
 
@@ -47,7 +48,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         staysActiveInBackground: true
       });
     };
-    setupAudio();
+    void setupAudio();
   }, []);
 
   const formatTime = (milliseconds: number) => {
@@ -57,10 +58,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const onPlaybackStatusUpdate = async (status: AVPlaybackStatus) => {
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
-      setDuration(status.durationMillis || 0);
-      setPosition(status.positionMillis || 0);
+      setDuration(status.durationMillis ?? 0);
+      setPosition(status.positionMillis);
       setIsPlaying(status.isPlaying);
 
       if (status.didJustFinish) {
@@ -112,7 +113,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (sound) await sound.setPositionAsync(value);
   };
 
-  const renderAudioItem = (item: AudioFile, index: number) => (
+  const renderAudioItem = (item: AudioFile) => (
     <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
       <TouchableOpacity
         style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
@@ -171,9 +172,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     ? [{ id: 'single', title: t('recording'), uri: audioUri }]
     : audioFiles;
 
-  if (audioFilesOrSingle.length === 0) return null;
+  if (!audioFilesOrSingle[0]) return null;
 
-  return renderAudioItem(audioFilesOrSingle[0], 0);
+  return renderAudioItem(audioFilesOrSingle[0]);
 };
 
 const styles = StyleSheet.create({

@@ -19,7 +19,7 @@ function debug(...args: unknown[]) {
 }
 
 export class ProfileService {
-  async getProfileByUserId(id: string): Promise<Profile | null> {
+  async getProfileByUserId(id: string) {
     debug('Getting user by ID:', id);
     const results = await db.select().from(profile).where(eq(profile.id, id));
     return results[0];

@@ -59,12 +59,12 @@ export const compareByNumericReference = (a: string, b: string): number => {
   if (refsA && refsB) {
     // Compare first parts (chapters)
     if (refsA[0] !== refsB[0]) {
-      return refsA[0] - refsB[0];
+      return refsA[0]! - refsB[0]!;
     }
 
     // If first parts are the same and there are second parts, compare them (verses)
     if (refsA.length > 1 && refsB.length > 1) {
-      return refsA[1] - refsB[1];
+      return refsA[1]! - refsB[1]!;
     }
   }
 
@@ -82,11 +82,11 @@ export const compareByNumericReference = (a: string, b: string): number => {
  */
 export function sortItems<T extends { id: string; name: string }>(
   items: T[],
-  sorting: Array<{ field: string; order: 'asc' | 'desc' }>,
+  sorting: { field: string; order: 'asc' | 'desc' }[],
   getTags: (itemId: string) => { name: string }[]
 ): T[] {
   // If no sorting options are provided, apply default sorting by name with numeric reference awareness
-  if (!sorting || sorting.length === 0) {
+  if (sorting.length === 0) {
     return [...items].sort((a, b) => {
       return compareByNumericReference(a.name, b.name);
     });
@@ -101,17 +101,17 @@ export function sortItems<T extends { id: string; name: string }>(
         return order === 'asc' ? comparison : -comparison;
       } else {
         // For tag-based sorting
-        const tagsA = getTags(a.id) || [];
-        const tagsB = getTags(b.id) || [];
+        const tagsA = getTags(a.id);
+        const tagsB = getTags(b.id);
 
         const tagValueA =
           tagsA
             .find((tag) => tag.name.startsWith(`${field}:`))
-            ?.name.split(':')[1] || '';
+            ?.name.split(':')[1] ?? '';
         const tagValueB =
           tagsB
             .find((tag) => tag.name.startsWith(`${field}:`))
-            ?.name.split(':')[1] || '';
+            ?.name.split(':')[1] ?? '';
 
         // Use numeric reference comparison for tag values too
         const comparison = compareByNumericReference(tagValueA, tagValueB);

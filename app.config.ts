@@ -1,4 +1,4 @@
-import { ExpoConfig, ConfigContext } from 'expo/config';
+import { ConfigContext, ExpoConfig } from 'expo/config';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
@@ -61,7 +61,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-build-properties',
     'expo-font',
     'expo-router',
-    'expo-secure-store',
     // migrate existing localization to expo-localization
     'expo-localization',
     [

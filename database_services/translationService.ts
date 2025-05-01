@@ -30,7 +30,7 @@ export class TranslationService {
     const blockedContent = await db.query.blocked_content.findMany({
       where: and(
         eq(blocked_content.profile_id, current_user_id),
-        eq(blocked_content.content_table, 'translation')
+        eq(blocked_content.content_table, 'translations')
       ),
       columns: { content_id: true }
     });
@@ -40,7 +40,7 @@ export class TranslationService {
     const blockedContentIds = blockedContent.map((item) => item.content_id);
 
     // Query translations excluding blocked content
-    const translations = await db.query.translation.findMany({
+    const fetchedTranslations = await db.query.translation.findMany({
       where: and(
         eq(translation.asset_id, asset_id),
         blockedUserIds.length > 0
@@ -52,7 +52,7 @@ export class TranslationService {
       )
     });
 
-    return translations;
+    return fetchedTranslations;
   }
 
   async getTranslationById(translation_id: string, current_user_id?: string) {

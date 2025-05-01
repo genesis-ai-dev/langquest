@@ -13,7 +13,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -85,7 +84,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         setIsDownloaded(downloadStatus);
       }
     };
-    loadData();
+    void loadData();
   }, [
     project.source_language_id,
     project.target_language_id,
@@ -161,7 +160,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       }
     };
 
-    loadProgress();
+    void loadProgress();
   }, [project.id, currentUser?.id]);
 
   return (
@@ -174,8 +173,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         />
         <Text style={sharedStyles.cardTitle}>{project.name}</Text>
         <Text style={sharedStyles.cardLanguageText}>
-          {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}
-          {targetLanguage?.native_name || targetLanguage?.english_name}
+          {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
+          {targetLanguage?.native_name ?? targetLanguage?.english_name}
         </Text>
       </View>
 
@@ -257,7 +256,6 @@ export default function Projects() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
-  const router = useRouter();
 
   // Load stored filter settings on component mount
   useEffect(() => {
@@ -278,7 +276,7 @@ export default function Projects() {
       }
     };
 
-    loadSavedFilters();
+    void loadSavedFilters();
   }, []);
 
   // Save filter settings when they change
@@ -292,18 +290,18 @@ export default function Projects() {
       }
     };
 
-    saveFilters();
+    void saveFilters();
   }, [sourceFilter, targetFilter]);
 
   // Load projects and languages on mount
   useEffect(() => {
-    loadProjects();
-    loadLanguages();
+    void loadProjects();
+    void loadLanguages();
   }, []);
 
   // Filter projects when filters change
   useEffect(() => {
-    filterProjects();
+    void filterProjects();
   }, [sourceFilter, targetFilter, projects]);
 
   const loadProjects = async () => {
@@ -336,7 +334,7 @@ export default function Projects() {
       const sourceLanguageNames = uniqueSourceLanguageIds
         .map((id) => {
           const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name || lang?.english_name;
+          return lang?.native_name ?? lang?.english_name;
         })
         .filter((name): name is string => name !== null);
 
@@ -344,7 +342,7 @@ export default function Projects() {
       const targetLanguageNames = uniqueTargetLanguageIds
         .map((id) => {
           const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name || lang?.english_name;
+          return lang?.native_name ?? lang?.english_name;
         })
         .filter((name): name is string => name !== null);
 
@@ -358,7 +356,7 @@ export default function Projects() {
   // Update language lists when projects change
   useEffect(() => {
     if (projects.length > 0) {
-      loadLanguages();
+      void loadLanguages();
     }
   }, [projects]);
 
@@ -385,9 +383,9 @@ export default function Projects() {
 
         // Get language names (prefer native name, fall back to English name)
         const sourceName =
-          sourceLanguage?.native_name || sourceLanguage?.english_name || '';
+          sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
         const targetName =
-          targetLanguage?.native_name || targetLanguage?.english_name || '';
+          targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
 
         // Check if this project matches the filters
         const sourceMatch =
@@ -416,7 +414,7 @@ export default function Projects() {
   };
 
   const handleExplore = (project: Project) => {
-    if (project) goToProject(project);
+    goToProject(project);
   };
 
   // Custom setSourceFilter function that validates against available options

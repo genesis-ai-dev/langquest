@@ -16,7 +16,7 @@ export class QuestService {
     return db.select().from(quest).where(eq(quest.project_id, project_id));
   }
 
-  async getQuestById(quest_id: string): Promise<Quest | null> {
+  async getQuestById(quest_id: string) {
     return (
       await db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
     )[0];

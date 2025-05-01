@@ -1,24 +1,24 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { downloadService } from '@/database_services/downloadService';
+import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
+import { useTranslation } from '@/hooks/useTranslation';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { calculateTotalAttachments } from '@/utils/attachmentUtils';
+import { TranslationUtils } from '@/utils/translationUtils';
 import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
+import type { RecordingOptions } from 'expo-av/build/Audio';
+import * as FileSystem from 'expo-file-system';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Alert
+  View
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import type { RecordingOptions } from 'expo-av/build/Audio';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useAuth } from '@/contexts/AuthContext';
-import { calculateTotalAttachments } from '@/utils/attachmentUtils';
-import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
-import { downloadService } from '@/database_services/downloadService';
-import { TranslationUtils } from '@/utils/translationUtils';
 
 // Maximum file size in bytes (50MB)
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -35,7 +35,7 @@ interface AudioRecorderProps {
   resetRecording?: () => void;
 }
 
-const calculateMaxDuration = (options: RecordingOptions): number => {
+function calculateMaxDuration(options: RecordingOptions) {
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   const platformSpecificOptions = options[platform];
   // Using the exact bit rates from RecordingOptionsPresets
@@ -48,7 +48,7 @@ const calculateMaxDuration = (options: RecordingOptions): number => {
   const maxDurationSeconds = MAX_FILE_SIZE / bytesPerSecond;
 
   return maxDurationSeconds * 1000; // Convert to milliseconds
-};
+}
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onRecordingComplete,
@@ -70,7 +70,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   // Calculate max duration and warning threshold based on quality
   const maxDuration = calculateMaxDuration(
-    Audio.RecordingOptionsPresets[quality]
+    Audio.RecordingOptionsPresets[quality]!
   );
   const warningThreshold = maxDuration * 0.85; // Warning at 85% of max duration
 
@@ -160,7 +160,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
           // Stop recording if we've reached the maximum duration
           if (duration >= maxDuration) {
-            stopRecording();
+            void stopRecording();
           }
         }
       });
@@ -191,7 +191,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         console.log('Deleting previous recording attempt', recordingUri);
       }
       console.log('Recording stopped and stored at', uri);
-      setRecordingUri(uri || null);
+      setRecordingUri(uri ?? null);
       setRecording(null);
       setIsRecording(false);
       setIsRecordingPaused(false);
@@ -281,7 +281,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       ];
     }
 
-    if (recordingUri && !isRecordingPaused) {
+    if (recordingUri) {
       return [
         {
           icon: 'mic',

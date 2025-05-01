@@ -26,7 +26,6 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -104,10 +103,10 @@ function AssetCard({ asset }: { asset: Asset }) {
     void loadData();
   }, [asset.id, currentUser]);
 
-  const { data: tags } = useQuery({
-    queryKey: ['asset-tags', asset.id],
-    queryFn: () => tagService.getTagsByAssetId(asset.id)
-  });
+  // const { data: tags } = useQuery({
+  //   queryKey: ['asset-tags', asset.id],
+  //   queryFn: () => tagService.getTagsByAssetId(asset.id)
+  // });
 
   const handleDownloadToggle = async () => {
     if (!currentUser) return;
@@ -133,7 +132,7 @@ function AssetCard({ asset }: { asset: Asset }) {
       );
 
       if (gemColor !== null) {
-        acc[gemColor] = (acc[gemColor] || 0) + 1;
+        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
       }
 
       return acc;
@@ -213,8 +212,8 @@ export default function Assets() {
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   useEffect(() => {
-    loadAssets();
-    loadQuest();
+    void loadAssets();
+    void loadQuest();
   }, [questId]);
 
   const loadAssets = async () => {
@@ -240,7 +239,7 @@ export default function Assets() {
             tagService.getTagsByAssetId(asset.id),
             assetService.getAssetContent(asset.id)
           ]);
-          tagsMap[asset.id] = tags;
+          tagsMap[asset.id] = tags.filter(Boolean);
           contentsMap[asset.id] = content;
         })
       );
@@ -274,14 +273,14 @@ export default function Assets() {
     try {
       if (!questId) return;
       const quest = await questService.getQuestById(questId);
-      setSelectedQuest(quest);
+      setSelectedQuest(quest ?? null);
     } catch (error) {
       console.error('Error loading quest:', error);
     }
   };
 
   const applyFilters = useCallback(
-    async (
+    (
       assetsToFilter: Asset[],
       filters: Record<string, string[]>,
       search: string
@@ -289,7 +288,7 @@ export default function Assets() {
       const filteredAssets = [];
       for (const asset of assetsToFilter) {
         // Search filter
-        const assetContent = assetContents[asset.id] || [];
+        const assetContent = assetContents[asset.id] ?? [];
         const matchesSearch =
           asset.name.toLowerCase().includes(search.toLowerCase()) ||
           assetContent.some((content) =>
@@ -297,16 +296,16 @@ export default function Assets() {
           );
 
         // Tag filters
-        const assetTags = assetToTags[asset.id] || [];
+        const assetTags = assetToTags[asset.id] ?? [];
         const matchesFilters = Object.entries(filters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
             return assetTags.some((tag) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
-                tagCategory.toLowerCase() === category.toLowerCase() &&
+                tagCategory?.toLowerCase() === category.toLowerCase() &&
                 selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`
+                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
                 )
               );
             });
@@ -327,7 +326,7 @@ export default function Assets() {
       return sortItems(
         assetsToSort,
         sorting,
-        (assetId: string) => assetTags[assetId] || []
+        (assetId: string) => assetTags[assetId] ?? []
       );
     },
     [assetTags]
@@ -339,7 +338,9 @@ export default function Assets() {
       const tagsMap: Record<string, Tag[]> = {};
       await Promise.all(
         assets.map(async (asset) => {
-          tagsMap[asset.id] = await tagService.getTagsByAssetId(asset.id);
+          tagsMap[asset.id] = (
+            await tagService.getTagsByAssetId(asset.id)
+          ).filter(Boolean);
         })
       );
       setAssetToTags(tagsMap);
@@ -348,8 +349,8 @@ export default function Assets() {
   }, [assets]);
 
   useEffect(() => {
-    const updateFilteredAssets = async () => {
-      const filtered = await applyFilters(assets, activeFilters, searchQuery);
+    const updateFilteredAssets = () => {
+      const filtered = applyFilters(assets, activeFilters, searchQuery);
       // Always apply sorting, even if activeSorting is empty (which will trigger default sorting)
       const sorted = applySorting(filtered, activeSorting);
       console.log(
@@ -383,9 +384,9 @@ export default function Assets() {
     setShowQuestStats(false);
   };
 
-  const handleApplyFilters = async (filters: Record<string, string[]>) => {
+  const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
-    const filtered = await applyFilters(assets, filters, searchQuery);
+    const filtered = applyFilters(assets, filters, searchQuery);
     const sorted = applySorting(filtered, activeSorting);
     console.log(
       'Sorted assets 2: ',
@@ -395,9 +396,9 @@ export default function Assets() {
     setIsFilterModalVisible(false);
   };
 
-  const handleApplySorting = async (sorting: SortingOption[]) => {
+  const handleApplySorting = (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
-    const filtered = await applyFilters(assets, activeFilters, searchQuery);
+    const filtered = applyFilters(assets, activeFilters, searchQuery);
     const sorted = applySorting(filtered, sorting);
     console.log(
       'Sorted assets 3: ',

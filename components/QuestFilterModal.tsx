@@ -1,27 +1,27 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { CustomDropdown } from '@/components/CustomDropdown';
+import type { Quest } from '@/database_services/questService';
+import type { Tag } from '@/database_services/tagService';
+import { tagService } from '@/database_services/tagService';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
-import {
+  borderRadius,
   colors,
   fontSizes,
-  spacing,
-  borderRadius,
-  sharedStyles
+  sharedStyles,
+  spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Quest } from '@/database_services/questService';
-import { tagService, Tag } from '@/database_services/tagService';
-import { CustomDropdown } from '@/components/CustomDropdown';
-import { useTranslation } from '@/hooks/useTranslation';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 
 interface QuestFilterModalProps {
-  visible: boolean;
   onClose: () => void;
   quests: Quest[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
@@ -36,7 +36,6 @@ interface SortingOption {
 }
 
 export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
-  visible,
   onClose,
   quests,
   onApplyFilters,
@@ -58,12 +57,15 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
       const tagsMap: Record<string, Tag[]> = {};
       await Promise.all(
         quests.map(async (quest) => {
-          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+          const questTags = (
+            await tagService.getTagsByQuestId(quest.id)
+          ).filter(Boolean);
+          tagsMap[quest.id] = questTags;
         })
       );
       setQuestTags(tagsMap);
     };
-    loadAllTags();
+    void loadAllTags();
   }, [quests]);
 
   const filterData = useMemo(() => {
@@ -73,10 +75,9 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
       .flat()
       .forEach((tag) => {
         const [heading, option] = tag.name.split(':');
-        if (!sections[heading]) {
-          sections[heading] = new Set();
-        }
-        sections[heading].add(option);
+        if (!heading) return;
+        sections[heading] ??= new Set();
+        if (option) sections[heading]!.add(option);
       });
 
     return Object.entries(sections).map(([heading, options]) => ({
@@ -95,7 +96,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
       .flat()
       .forEach((tag) => {
         const category = tag.name.split(':')[0];
-        fields.add(category);
+        if (category) fields.add(category);
       });
     return Array.from(fields);
   }, [questTags]);
@@ -123,7 +124,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
 
   const toggleOption = (sectionId: string, optionId: string) => {
     setSelectedOptions((prev) => {
-      const updatedSection = prev[sectionId] || [];
+      const updatedSection = prev[sectionId] ?? [];
       const updatedOptions = updatedSection.includes(optionId)
         ? updatedSection.filter((id) => id !== optionId)
         : [...updatedSection, optionId];
@@ -138,12 +139,12 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   const handleSortingChange = (
     index: number,
     field: string | null,
-    order: 'asc' | 'desc'
+    order?: 'asc' | 'desc'
   ) => {
     setSortingOptions((prev) => {
       const newOptions = [...prev];
       if (field) {
-        newOptions[index] = { field, order: order || 'asc' };
+        newOptions[index] = { field, order: order ?? 'asc' };
       } else {
         newOptions.splice(index, 1);
       }
@@ -259,13 +260,13 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                     <View key={index} style={styles.sortingRow}>
                       <CustomDropdown
                         label={`Sort ${index + 1}`}
-                        value={sortingOptions[index]?.field || ''}
+                        value={sortingOptions[index]?.field ?? ''}
                         options={sortingFields}
                         onSelect={(field) =>
                           handleSortingChange(
                             index,
                             field,
-                            sortingOptions[index]?.order || 'asc'
+                            sortingOptions[index]?.order
                           )
                         }
                         fullWidth={false}
@@ -276,7 +277,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                         onPress={() =>
                           handleSortingChange(
                             index,
-                            sortingOptions[index]?.field,
+                            sortingOptions[index]?.field ?? null,
                             sortingOptions[index]?.order === 'asc'
                               ? 'desc'
                               : 'asc'

@@ -41,7 +41,7 @@ export function useTranslation(languageOverride?: string | null) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    const translation = translations[key];
+    const translation = translations[key]!;
     return translation[userLanguage] || translation.english;
   };
 

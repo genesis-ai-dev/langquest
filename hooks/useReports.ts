@@ -1,10 +1,7 @@
+import type { BlockedUserInsert } from '@/database_services/blockService';
 import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
-import type {
-  blocked_content,
-  blocked_users,
-  reports
-} from '@/db/drizzleSchema';
+import type { blocked_content, reports } from '@/db/drizzleSchema';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useReports = (
@@ -42,7 +39,7 @@ export const useReports = (
   });
 
   const blockUserMutation = useMutation({
-    mutationFn: async (data: typeof blocked_users.$inferInsert) => {
+    mutationFn: async (data: BlockedUserInsert) => {
       try {
         const result = await blockService.blockUser(data);
         return result;

@@ -67,7 +67,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
           tagService.getTagsByQuestId(quest.id),
           assetService.getAssetsByQuestId(quest.id)
         ]);
-        setTags(questTags);
+        setTags(questTags.filter(Boolean));
         setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
 
         // Get quest download status
@@ -112,7 +112,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       try {
         // Load tags
         const questTags = await tagService.getTagsByQuestId(quest.id);
-        setTags(questTags);
+        setTags(questTags.filter(Boolean));
 
         // Load assets
         const questAssets = await assetService.getAssetsByQuestId(quest.id);
@@ -287,7 +287,9 @@ export default function Quests() {
       const tagsMap: Record<string, Tag[]> = {};
       await Promise.all(
         loadedQuests.map(async (quest) => {
-          tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+          tagsMap[quest.id] = (
+            await tagService.getTagsByQuestId(quest.id)
+          ).filter(Boolean);
         })
       );
       setQuestTags(tagsMap);
@@ -301,7 +303,7 @@ export default function Quests() {
     try {
       if (!projectId) return;
       const project = await projectService.getProjectById(projectId);
-      setSelectedProject(project);
+      setSelectedProject(project ?? null);
     } catch (error) {
       console.error('Error loading project:', error);
     }
@@ -328,9 +330,9 @@ export default function Quests() {
             return questTags.some((tag) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
-                tagCategory.toLowerCase() === category.toLowerCase() &&
+                tagCategory?.toLowerCase() === category.toLowerCase() &&
                 selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue.toLowerCase()}`
+                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
                 )
               );
             });
@@ -361,7 +363,9 @@ export default function Quests() {
         const tagsMap: Record<string, Tag[]> = {};
         await Promise.all(
           quests.map(async (quest) => {
-            tagsMap[quest.id] = await tagService.getTagsByQuestId(quest.id);
+            tagsMap[quest.id] = (
+              await tagService.getTagsByQuestId(quest.id)
+            ).filter(Boolean);
           })
         );
         setQuestToTags(tagsMap);
@@ -508,7 +512,6 @@ export default function Quests() {
       >
         <View style={{ flex: 1 }}>
           <QuestFilterModal
-            visible={isFilterModalVisible}
             onClose={() => setIsFilterModalVisible(false)}
             quests={quests}
             // questTags={questTags}

@@ -527,7 +527,7 @@ export default function AssetView() {
                                         audioFile={{
                                           id: content.id,
                                           title: content.text,
-                                          uri: attachmentUris[content.audio_id]
+                                          uri: attachmentUris[content.audio_id]!
                                         }}
                                       />
                                     );
@@ -642,6 +642,7 @@ export default function AssetView() {
             translation={selectedTranslation}
             onClose={() => setSelectedTranslation(null)}
             onVoteSubmitted={loadAssetAndTranslations}
+            onReportSubmitted={loadAssetAndTranslations}
           />
         )}
 

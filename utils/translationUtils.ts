@@ -1,6 +1,6 @@
-import { translations } from '@/services/translations';
 import { languageService } from '@/database_services/languageService';
-import { SupportedLanguage } from '@/services/translations';
+import type { SupportedLanguage } from '@/services/translations';
+import { translations } from '@/services/translations';
 
 export class TranslationUtils {
   private static currentLanguage: SupportedLanguage = 'english';
@@ -17,14 +17,13 @@ export class TranslationUtils {
     }
   }
 
-  static t(key: keyof typeof translations): string {
-    if (!translations[key]) {
+  static t(key: keyof typeof translations) {
+    const translation = translations[key];
+    if (!translation) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    return (
-      translations[key][this.currentLanguage] || translations[key]['english']
-    );
+    return translation[this.currentLanguage];
   }
 
   static formatMessage(

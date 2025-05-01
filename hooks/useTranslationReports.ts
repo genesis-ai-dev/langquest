@@ -4,5 +4,5 @@ export const useTranslationReports = (
   translationId: string,
   reporterId?: string
 ) => {
-  return useReports(translationId, 'translations', reporterId);
+  return useReports(translationId, 'translation', reporterId);
 };
