@@ -12,10 +12,7 @@ export function getQueryParams(input: string): {
   url.searchParams.delete('errorCode');
 
   // Merge search and hash
-  const params = Object.fromEntries(
-    // @ts-ignore: [Symbol.iterator] is indeed, available on every platform.
-    url.searchParams
-  );
+  const params = Object.fromEntries(url.searchParams);
 
   // Get hash (#abc=example)
   if (url.hash) {
@@ -27,6 +24,6 @@ export function getQueryParams(input: string): {
   return {
     errorCode,
     params,
-    path
+    path: path ?? ''
   };
 }

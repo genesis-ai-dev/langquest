@@ -1,49 +1,40 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { assetService } from '@/database_services/assetService';
+import { downloadService } from '@/database_services/downloadService';
 import { languageService } from '@/database_services/languageService';
 import { projectService } from '@/database_services/projectService';
-import { language, project } from '@/db/drizzleSchema';
+import type { language, project } from '@/db/drizzleSchema';
+import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
+import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  colors,
-  sharedStyles,
-  spacing,
-  borderRadius,
-  fontSizes
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  StyleSheet
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { downloadService } from '@/database_services/downloadService';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { assetService } from '@/database_services/assetService';
 
-import { questService } from '@/database_services/questService';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
-import {
-  calculateQuestProgress,
-  calculateProjectProgress
-} from '@/utils/progressUtils';
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { questService } from '@/database_services/questService';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import {
+  calculateProjectProgress,
+  calculateQuestProgress
+} from '@/utils/progressUtils';
 // Constants for storage keys
 const SOURCE_FILTER_KEY = 'project_source_filter';
 const TARGET_FILTER_KEY = 'project_target_filter';
@@ -93,7 +84,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         setIsDownloaded(downloadStatus);
       }
     };
-    loadData();
+    void loadData();
   }, [
     project.source_language_id,
     project.target_language_id,
@@ -134,8 +125,12 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             // Load translations and votes for each asset
             await Promise.all(
               assets.map(async (asset) => {
+                if (!asset) return;
                 const assetTranslations =
-                  await translationService.getTranslationsByAssetId(asset.id);
+                  await translationService.getTranslationsByAssetId(
+                    asset.id,
+                    currentUser?.id
+                  );
                 translations[asset.id] = assetTranslations;
 
                 // Load votes for each translation
@@ -149,10 +144,10 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             );
 
             return calculateQuestProgress(
-              assets,
+              assets.filter(Boolean),
               translations,
               votes,
-              currentUser?.id || null
+              currentUser?.id ?? null
             );
           })
         );
@@ -165,7 +160,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       }
     };
 
-    loadProgress();
+    void loadProgress();
   }, [project.id, currentUser?.id]);
 
   return (
@@ -178,8 +173,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         />
         <Text style={sharedStyles.cardTitle}>{project.name}</Text>
         <Text style={sharedStyles.cardLanguageText}>
-          {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}
-          {targetLanguage?.native_name || targetLanguage?.english_name}
+          {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
+          {targetLanguage?.native_name ?? targetLanguage?.english_name}
         </Text>
       </View>
 
@@ -261,7 +256,6 @@ export default function Projects() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
-  const router = useRouter();
 
   // Load stored filter settings on component mount
   useEffect(() => {
@@ -282,7 +276,7 @@ export default function Projects() {
       }
     };
 
-    loadSavedFilters();
+    void loadSavedFilters();
   }, []);
 
   // Save filter settings when they change
@@ -296,18 +290,18 @@ export default function Projects() {
       }
     };
 
-    saveFilters();
+    void saveFilters();
   }, [sourceFilter, targetFilter]);
 
   // Load projects and languages on mount
   useEffect(() => {
-    loadProjects();
-    loadLanguages();
+    void loadProjects();
+    void loadLanguages();
   }, []);
 
   // Filter projects when filters change
   useEffect(() => {
-    filterProjects();
+    void filterProjects();
   }, [sourceFilter, targetFilter, projects]);
 
   const loadProjects = async () => {
@@ -340,7 +334,7 @@ export default function Projects() {
       const sourceLanguageNames = uniqueSourceLanguageIds
         .map((id) => {
           const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name || lang?.english_name;
+          return lang?.native_name ?? lang?.english_name;
         })
         .filter((name): name is string => name !== null);
 
@@ -348,7 +342,7 @@ export default function Projects() {
       const targetLanguageNames = uniqueTargetLanguageIds
         .map((id) => {
           const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name || lang?.english_name;
+          return lang?.native_name ?? lang?.english_name;
         })
         .filter((name): name is string => name !== null);
 
@@ -362,14 +356,14 @@ export default function Projects() {
   // Update language lists when projects change
   useEffect(() => {
     if (projects.length > 0) {
-      loadLanguages();
+      void loadLanguages();
     }
   }, [projects]);
 
   const filterProjects = async () => {
     try {
       // Start with all projects
-      let filtered = [...projects];
+      const filtered = [...projects];
 
       // Get all languages to avoid repeated calls
       const allLanguages = await languageService.getAllLanguages();
@@ -389,9 +383,9 @@ export default function Projects() {
 
         // Get language names (prefer native name, fall back to English name)
         const sourceName =
-          sourceLanguage?.native_name || sourceLanguage?.english_name || '';
+          sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
         const targetName =
-          targetLanguage?.native_name || targetLanguage?.english_name || '';
+          targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
 
         // Check if this project matches the filters
         const sourceMatch =
@@ -420,7 +414,7 @@ export default function Projects() {
   };
 
   const handleExplore = (project: Project) => {
-    if (project) goToProject(project);
+    goToProject(project);
   };
 
   // Custom setSourceFilter function that validates against available options

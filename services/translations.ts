@@ -4,15 +4,11 @@ export type SupportedLanguage = 'english' | 'spanish';
 // Define the structure for translations
 export type TranslationKey = keyof typeof translations;
 
-// Removed unused TranslationSet type
-/*
-// Type to ensure all translations have all supported languages
-// Use Record for preferred type definition
+// Define the translation set type
 type TranslationSet = Record<SupportedLanguage, string>;
-*/
 
 // All UI translations
-export const translations = {
+export const translations: Record<string, TranslationSet> = {
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
@@ -370,6 +366,10 @@ export const translations = {
     spanish:
       'Los cambios de contraseña solo están disponibles cuando está en línea'
   },
+  termsAndPrivacyTitle: {
+    english: 'Terms & Privacy',
+    spanish: 'Términos y Privacidad'
+  },
   verificationRequired: {
     english: 'Verification Required',
     spanish: 'Verificación Requerida'
@@ -379,16 +379,16 @@ export const translations = {
     spanish: 'Términos y Condiciones'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the Terms and Conditions',
-    spanish: 'He leído y acepto los Términos y Condiciones'
+    english: 'I have read and agree to the Terms & Privacy',
+    spanish: 'He leído y acepto los Términos y Privacidad'
   },
   viewTerms: {
-    english: 'View Terms and Conditions',
-    spanish: 'Ver Términos y Condiciones'
+    english: 'View Terms and Privacy',
+    spanish: 'Ver Términos y Privacidad'
   },
   termsRequired: {
-    english: 'You must agree to the Terms and Conditions',
-    spanish: 'Debe aceptar los Términos y Condiciones'
+    english: 'You must agree to the Terms and Privacy',
+    spanish: 'Debe aceptar los Términos y Privacidad'
   },
   status: {
     english: 'Status',
@@ -422,13 +422,84 @@ export const translations = {
     spanish:
       'Esto significa que sus contribuciones pueden ser utilizadas por cualquier persona para cualquier propósito sin atribución. Recopilamos datos mínimos de usuario: solo su correo electrónico (para recuperación de cuenta) y suscripción al boletín si se inscribe.'
   },
-  viewFullDataPolicy: {
-    english: 'View Full Data Policy',
-    spanish: 'Ver Política de Datos Completa'
+  analyticsInfo: {
+    english:
+      'We collect analytics and diagnostic data to improve the app and your experience. You can opt out of analytics at any time in your profile settings. Your data is processed and stored in the United States.',
+    spanish:
+      'Recopilamos datos de análisis y diagnóstico para mejorar la aplicación y su experiencia. Puede optar por no participar en el análisis en cualquier momento en sus ajustes. Sus datos se procesan y almacenan en los Estados Unidos.'
   },
-  dataPolicyUrl: {
-    english: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`,
-    spanish: `${process.env.EXPO_PUBLIC_SITE_URL}/data-policy`
+  viewFullTerms: {
+    english: 'View Full Terms',
+    spanish: 'Ver Términos Completos'
+  },
+  viewFullPrivacy: {
+    english: 'View Full Privacy',
+    spanish: 'Ver Privacidad Completa'
+  },
+  submitFeedback: {
+    english: 'Submit App Feedback',
+    spanish: 'Enviar Feedback de la App'
+  },
+  reportTranslation: {
+    english: 'Report Translation',
+    spanish: 'Reportar Traducción'
+  },
+  selectReasonLabel: {
+    english: 'Select a reason',
+    spanish: 'Seleccione un motivo'
+  },
+  additionalDetails: {
+    english: 'Additional Details',
+    spanish: 'Detalles Adicionales'
+  },
+  additionalDetailsPlaceholder: {
+    english: 'Provide any additional information...',
+    spanish: 'Proporcionar cualquier información adicional...'
+  },
+  submitReport: {
+    english: 'Submit Report',
+    spanish: 'Enviar Reporte'
+  },
+  submitting: {
+    english: 'Submitting...',
+    spanish: 'Enviando...'
+  },
+  reportSubmitted: {
+    english: 'Report submitted successfully',
+    spanish: 'Reporte enviado con éxito'
+  },
+  failedToSubmitReport: {
+    english: 'Failed to submit report',
+    spanish: 'Error al enviar el reporte'
+  },
+  logInToReport: {
+    english: 'You must be logged in to report translations',
+    spanish: 'Debe iniciar sesión para reportar traducciones'
+  },
+  selectReason: {
+    english: 'Please select a reason for the report',
+    spanish: 'Por favor seleccione un motivo para el reporte'
+  },
+  analyticsOptOutLabel: {
+    english: 'Opt out of analytics',
+    spanish: 'Desactivar el análisis'
+  },
+  analyticsOptOutDescription: {
+    english: 'When enabled, we will not collect usage data to improve the app.',
+    spanish:
+      'Cuando está habilitado, no recopilaremos datos de uso para mejorar la aplicación.'
+  },
+  'reportReason.inappropriate_content': {
+    english: 'Inappropriate Content',
+    spanish: 'Contenido Inapropiado'
+  },
+  'reportReason.spam': {
+    english: 'Spam',
+    spanish: 'Spam'
+  },
+  'reportReason.other': {
+    english: 'Other',
+    spanish: 'Otro'
   },
   // --- Backup Feature Translations (Audio Only) ---
   backup: {
@@ -527,13 +598,39 @@ export const translations = {
   confirm: {
     english: 'Confirm',
     spanish: 'Confirmar'
+  },
+  blockThisContent: {
+    english: 'Block this content',
+    spanish: 'Bloquear este contenido'
+  },
+  blockThisUser: {
+    english: 'Block this user',
+    spanish: 'Bloquear este usuario'
+  },
+  contentBlocked: {
+    english: 'Content has been blocked',
+    spanish: 'El contenido ha sido bloqueado'
+  },
+  userBlocked: {
+    english: 'User has been blocked',
+    spanish: 'El usuario ha sido bloqueado'
+  },
+  blockedUsers: {
+    english: 'Blocked Users',
+    spanish: 'Usuarios Bloqueados'
+  },
+  blockedContent: {
+    english: 'Blocked Content',
+    spanish: 'Contenido Bloqueado'
+  },
+  unblockUser: {
+    english: 'Unblock User',
+    spanish: 'Desbloquear Usuario'
+  },
+  unblockContent: {
+    english: 'Unblock Content',
+    spanish: 'Desbloquear Contenido'
   }
 } as const;
 
-// Type check removed as it was unused and causing a lint error
-/*
-type ValidateTranslations<T> = {
-  [K in keyof T]: T[K] extends TranslationSet ? true : never;
-};
-type ValidationResult = ValidateTranslations<typeof translations>;
-*/
+// Validation code removed as it was unused and causing lint errors

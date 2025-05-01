@@ -1,15 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
-import {
-  Translation,
-  translationService
-} from '@/database_services/translationService';
-import { Vote, voteService } from '@/database_services/voteService';
-import { vote } from '@/db/drizzleSchema';
+import type { Translation } from '@/database_services/translationService';
+import { translationService } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
+import { voteService } from '@/database_services/voteService';
+import type { vote } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,57 +22,56 @@ import {
   View
 } from 'react-native';
 import AudioPlayer from './AudioPlayer';
+import { ReportModal } from './ReportModal';
 import { VoteCommentModal } from './VoteCommentModal';
 
 interface TranslationModalProps {
   translation: Translation;
   onClose: () => void;
   onVoteSubmitted: () => void;
+  onReportSubmitted: () => void;
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
   translation: initialTranslation,
   onClose,
-  onVoteSubmitted
+  onVoteSubmitted,
+  onReportSubmitted
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
-  const [translation, setTranslation] = useState(initialTranslation);
   const [showVoteModal, setShowVoteModal] = useState(false);
-  const [currentVoteType, setCurrentVoteType] = useState<'up' | 'down'>('up');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [currentVoteType] = useState<'up' | 'down'>('up');
   const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
   const [votes, setVotes] = useState<Vote[]>([]);
-  const [audioUri, setAudioUri] = useState<string | null>(null);
-  const [loadingAudio, setLoadingAudio] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const system = useSystem();
+  const { hasReported } = useTranslationReports(
+    initialTranslation.id,
+    currentUser!.id
+  );
 
-  useEffect(() => {
-    const loadAudioUri = async () => {
-      if (translation.audio) {
-        setLoadingAudio(true);
-        try {
-          const uri = await getLocalUriFromAssetId(translation.audio);
-          setAudioUri(uri);
-        } catch (error) {
-          console.error('Error loading audio URI:', error);
-        } finally {
-          setLoadingAudio(false);
-        }
-      } else {
-        setAudioUri(null);
+  // Use TanStack Query to load audio URI
+  const { data: audioUri, isLoading: loadingAudio } = useQuery({
+    queryKey: ['audio', initialTranslation.audio],
+    queryFn: async () => {
+      if (!initialTranslation.audio) return null;
+      try {
+        return await getLocalUriFromAssetId(initialTranslation.audio);
+      } catch (error) {
+        console.error('Error loading audio URI:', error);
+        return null;
       }
-    };
-
-    loadAudioUri();
-  }, [translation.audio]);
+    },
+    enabled: !!initialTranslation.audio
+  });
 
   useEffect(() => {
     const loadVotes = async () => {
       const translationVotes = await voteService.getVotesByTranslationId(
-        translation.id
+        initialTranslation.id
       );
       setVotes(translationVotes);
       if (currentUser) {
@@ -82,18 +81,17 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         setUserVote(userVote);
       }
     };
-    loadVotes();
-  }, [translation.id, currentUser]);
+    void loadVotes();
+  }, [initialTranslation.id, currentUser]);
 
   useEffect(() => {
-    setTranslation(initialTranslation);
-    setEditedText(initialTranslation.text || '');
+    setEditedText(initialTranslation.text ?? '');
   }, [initialTranslation]);
 
   const loadUserVote = async () => {
     try {
       const vote = await voteService.getUserVoteForTranslation(
-        translation.id,
+        initialTranslation.id,
         currentUser!.id
       );
       setUserVote(vote);
@@ -109,7 +107,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     );
   };
 
-  const isOwnTranslation = currentUser?.id === translation.creator_id;
+  const isOwnTranslation = currentUser?.id === initialTranslation.creator_id;
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!currentUser || isOwnTranslation) {
@@ -119,14 +117,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
     try {
       await voteService.addVote({
-        translation_id: translation.id,
+        translation_id: initialTranslation.id,
         creator_id: currentUser.id,
         polarity: voteType
       });
       onVoteSubmitted();
-      // Update local state to reflect the vote
       const updatedVotes = await voteService.getVotesByTranslationId(
-        translation.id
+        initialTranslation.id
       );
       setVotes(updatedVotes);
       const newUserVote = updatedVotes.find(
@@ -142,21 +139,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const handleVoteSubmit = async (comment: string) => {
     try {
       await voteService.addVote({
-        translation_id: translation.id,
+        translation_id: initialTranslation.id,
         creator_id: currentUser!.id,
         polarity: currentVoteType,
         comment: comment || undefined
       });
-
-      // Get updated translation data after vote
-      const updatedTranslations =
-        await translationService.getTranslationsByAssetId(translation.asset_id);
-      const updatedTranslation = updatedTranslations.find(
-        (t) => t.id === translation.id
-      );
-      if (updatedTranslation) {
-        setTranslation(updatedTranslation);
-      }
 
       onVoteSubmitted();
       await loadUserVote();
@@ -165,6 +152,30 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       console.error('Error submitting vote:', error);
       Alert.alert('Error', t('failedToVote'));
     }
+  };
+
+  const handleReportPress = () => {
+    if (!currentUser) {
+      Alert.alert('Error', t('logInToReport'));
+      return;
+    }
+
+    if (isOwnTranslation) {
+      Alert.alert('Error', 'You cannot report your own translation');
+      return;
+    }
+
+    if (hasReported) {
+      Alert.alert('Error', 'You have already reported this translation');
+      return;
+    }
+
+    setShowReportModal(true);
+  };
+
+  const handleReportSubmitted = () => {
+    setShowReportModal(false);
+    onReportSubmitted();
   };
 
   const handleEditSubmit = async () => {
@@ -183,10 +194,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       // Create a new translation linked to the same audio file
       await translationService.createTranslation({
         text: editedText.trim(),
-        target_language_id: translation.target_language_id,
-        asset_id: translation.asset_id,
+        target_language_id: initialTranslation.target_language_id,
+        asset_id: initialTranslation.asset_id,
         creator_id: currentUser.id,
-        audio: translation.audio || ''
+        audio: initialTranslation.audio ?? ''
       });
 
       onVoteSubmitted();
@@ -211,7 +222,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        {translation.text || isEditing ? (
+        {(initialTranslation.text ?? isEditing) ? (
           <ScrollView style={styles.scrollView}>
             {isEditing ? (
               <TextInput
@@ -230,7 +241,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                 >
                   <Ionicons name="pencil" size={18} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.text}>{translation.text}</Text>
+                <Text style={styles.text}>{initialTranslation.text}</Text>
               </View>
             )}
           </ScrollView>
@@ -251,7 +262,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           {loadingAudio ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            translation.audio &&
+            initialTranslation.audio &&
             audioUri && (
               <AudioPlayer
                 audioUri={audioUri}
@@ -275,41 +286,59 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             )}
           </TouchableOpacity>
         ) : (
-          <View style={styles.feedbackContainer}>
+          <View style={styles.actionsContainer}>
+            <View style={styles.feedbackContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackButton,
+                  isOwnTranslation && styles.feedbackButtonDisabled
+                ]}
+                onPress={() => handleVote('up')}
+                disabled={isOwnTranslation}
+              >
+                <Ionicons
+                  name={
+                    userVote?.polarity === 'up'
+                      ? 'thumbs-up'
+                      : 'thumbs-up-outline'
+                  }
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackButton,
+                  isOwnTranslation && styles.feedbackButtonDisabled
+                ]}
+                onPress={() => handleVote('down')}
+                disabled={isOwnTranslation}
+              >
+                <Ionicons
+                  name={
+                    userVote?.polarity === 'down'
+                      ? 'thumbs-down'
+                      : 'thumbs-down-outline'
+                  }
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               style={[
-                styles.feedbackButton,
-                isOwnTranslation && styles.feedbackButtonDisabled
+                styles.reportButton,
+                (isOwnTranslation || hasReported) &&
+                  styles.feedbackButtonDisabled
               ]}
-              onPress={() => handleVote('up')}
-              disabled={isOwnTranslation}
+              onPress={handleReportPress}
+              disabled={isOwnTranslation || hasReported}
             >
               <Ionicons
-                name={
-                  userVote?.polarity === 'up'
-                    ? 'thumbs-up'
-                    : 'thumbs-up-outline'
-                }
-                size={24}
-                color={colors.text}
-              />
-            </TouchableOpacity>
-            <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
-            <TouchableOpacity
-              style={[
-                styles.feedbackButton,
-                isOwnTranslation && styles.feedbackButtonDisabled
-              ]}
-              onPress={() => handleVote('down')}
-              disabled={isOwnTranslation}
-            >
-              <Ionicons
-                name={
-                  userVote?.polarity === 'down'
-                    ? 'thumbs-down'
-                    : 'thumbs-down-outline'
-                }
-                size={24}
+                name={hasReported ? 'flag' : 'flag-outline'}
+                size={20}
                 color={colors.text}
               />
             </TouchableOpacity>
@@ -323,53 +352,59 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         onSubmit={handleVoteSubmit}
         voteType={currentVoteType}
       />
+
+      {showReportModal && (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={initialTranslation.id}
+          recordTable="translations"
+          creatorId={initialTranslation.creator_id}
+          onReportSubmitted={handleReportSubmitted}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    top: 0,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0
+  },
   modal: {
+    width: '80%',
     backgroundColor: colors.background,
     borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '90%',
-    maxHeight: '80%',
-    paddingTop: spacing.xlarge,
-    paddingBottom: spacing.small
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
+    padding: spacing.medium,
+    maxHeight: '80%'
   },
   closeButton: {
-    position: 'absolute',
-    top: spacing.small,
-    right: spacing.small,
-    padding: spacing.small
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium
+    alignSelf: 'flex-end',
+    padding: spacing.xsmall
   },
   scrollView: {
-    maxHeight: '70%'
+    marginVertical: spacing.medium,
+    maxHeight: 200
+  },
+  translatorInfo: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary,
+    marginBottom: spacing.small
   },
   textContainer: {
     flexDirection: 'row',
@@ -400,26 +435,35 @@ const styles = StyleSheet.create({
     minHeight: 100
   },
   audioPlayerContainer: {
-    marginTop: spacing.medium
+    marginTop: spacing.medium,
+    marginBottom: spacing.medium
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   feedbackContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.medium,
-    paddingHorizontal: spacing.large
+    alignItems: 'center'
+  },
+  feedbackButton: {
+    padding: spacing.xsmall
+  },
+  feedbackButtonDisabled: {
+    opacity: 0.5
   },
   voteRank: {
+    marginHorizontal: spacing.small,
     fontSize: fontSizes.medium,
     color: colors.text,
     fontWeight: 'bold'
   },
-  feedbackButton: {
-    padding: spacing.medium,
-    marginHorizontal: spacing.large
-  },
-  feedbackButtonDisabled: {
-    opacity: 0.5
+  reportButton: {
+    padding: spacing.xsmall,
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
   },
   submitButton: {
     backgroundColor: colors.primary,

@@ -1,12 +1,13 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { profileService } from '@/database_services/profileService';
-import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/contexts/SystemContext';
+import { profileService } from '@/database_services/profileService';
+import { useAcceptedTerms } from '@/hooks/useAcceptedTerms';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -18,8 +19,6 @@ import {
   View
 } from 'react-native';
 
-type Language = typeof language.$inferSelect;
-
 export default function Terms() {
   const router = useRouter();
   const { currentLanguage, setLanguage } = useLanguage();
@@ -28,33 +27,37 @@ export default function Terms() {
   const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const { termsAccepted: hasAcceptedTerms } = useAcceptedTerms();
 
   useEffect(() => {
     if (!isLoading && currentUser) {
-      if (!currentUser.terms_accepted) powersync.disconnect();
-      else if (!powersync.connected) powersync.connect(supabaseConnector);
+      if (!currentUser.terms_accepted) void powersync.disconnect();
+      else if (!powersync.connected) void powersync.connect(supabaseConnector);
     }
   }, [currentUser, isLoading, powersync, supabaseConnector]);
 
   const handleAcceptTerms = async () => {
-    if (!currentUser) return;
-
     try {
       console.log('Accepting terms...');
+      setIsProcessing(true);
 
-      // Update the user's metadata in auth
-      const updatedUser = await profileService.updateProfile({
-        id: currentUser.id,
-        terms_accepted: true,
-        terms_version: '1.0'
-      });
-
+      let updatedUser;
+      if (!currentUser)
+        await AsyncStorage.setItem('terms_accepted', new Date().toISOString());
+      else {
+        // Update the user's metadata in auth
+        updatedUser = await profileService.updateProfile({
+          id: currentUser.id,
+          terms_accepted: true,
+          terms_accepted_at: new Date().toISOString()
+        });
+      }
       // Close the modal
       router.navigate('/');
 
       // Resume syncing
       if (!powersync.connected) {
-        powersync.connect(supabaseConnector);
+        void powersync.connect(supabaseConnector);
       }
 
       // Refresh the current user
@@ -63,15 +66,17 @@ export default function Terms() {
       }
     } catch (error) {
       console.error('Error accepting terms:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const canAcceptTerms = currentUser && !currentUser.terms_accepted;
+  const canAcceptTerms = !hasAcceptedTerms;
 
   return (
     <View style={styles.modalContainer}>
       <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>{t('termsAndConditionsTitle')}</Text>
+        <Text style={styles.modalTitle}>{t('termsAndPrivacyTitle')}</Text>
         {currentUser?.terms_accepted && (
           <TouchableOpacity
             style={styles.closeButton}
@@ -87,7 +92,7 @@ export default function Terms() {
       {/* Language Selector */}
       <View style={styles.languageSelector}>
         <LanguageSelect
-          value={currentLanguage?.id || ''}
+          value={currentLanguage?.id ?? ''}
           onChange={(lang) => setLanguage(lang)}
           containerStyle={{ flex: 1 }}
         />
@@ -99,15 +104,25 @@ export default function Terms() {
       >
         <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
         <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
+        <Text style={styles.modalText}>{t('analyticsInfo')}</Text>
         <TouchableOpacity
-          onPress={() => {
-            // Open the full data policy in browser
-            Linking.openURL(t('dataPolicyUrl'));
-          }}
+          onPress={() =>
+            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
+          }
           style={{ marginTop: spacing.medium }}
         >
           <Text style={[sharedStyles.link, styles.linkText]}>
-            {t('viewFullDataPolicy')}
+            {t('viewFullTerms')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
+          }
+          style={{ marginTop: spacing.medium }}
+        >
+          <Text style={[sharedStyles.link, styles.linkText]}>
+            {t('viewFullPrivacy')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

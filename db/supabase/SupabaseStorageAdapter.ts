@@ -1,8 +1,8 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { AppConfig } from '@/db/supabase/AppConfig';
+import type { StorageAdapter } from '@powersync/attachments';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { decode as decodeBase64 } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system';
-import { StorageAdapter } from '@powersync/attachments';
-import { AppConfig } from '@/db/supabase/AppConfig';
 
 export interface SupabaseStorageAdapterOptions {
   client: SupabaseClient;
@@ -44,7 +44,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       throw error;
     }
 
-    return data as Blob;
+    return data;
   }
 
   async writeFile(
@@ -126,6 +126,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     return FileSystem.documentDirectory!;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async stringToArrayBuffer(str: string) {
     const encoder = new TextEncoder();
     return encoder.encode(str).buffer as ArrayBuffer;
@@ -134,6 +135,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
   /**
    * Converts a base64 string to an ArrayBuffer
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
     return decodeBase64(base64);
   }

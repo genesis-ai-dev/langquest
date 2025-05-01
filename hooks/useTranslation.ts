@@ -1,11 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { languageService } from '@/database_services/languageService';
-import {
+import type {
   SupportedLanguage,
-  TranslationKey,
-  translations
+  TranslationKey
 } from '@/services/translations';
+import { translations } from '@/services/translations';
 import { useEffect, useState } from 'react';
 
 // Define a type for interpolation values
@@ -26,7 +26,7 @@ export function useTranslation(languageOverride?: string | null) {
       );
       setProfileLanguage(language);
     };
-    getLanguage();
+    void getLanguage();
   }, [currentUser]);
 
   // Get language with priority:
@@ -34,11 +34,10 @@ export function useTranslation(languageOverride?: string | null) {
   // 2. Authenticated user's profile language
   // 3. Selected language from LanguageContext (for non-authenticated pages)
   // 4. Default to English
-  const userLanguage =
-    (languageOverride?.toLowerCase() as SupportedLanguage) ||
-    (profileLanguage?.english_name?.toLowerCase() as SupportedLanguage) ||
-    (currentLanguage?.english_name?.toLowerCase() as SupportedLanguage) ||
-    'english';
+  const userLanguage = (languageOverride?.toLowerCase() ??
+    profileLanguage?.english_name?.toLowerCase() ??
+    currentLanguage?.english_name?.toLowerCase() ??
+    'english') as SupportedLanguage;
 
   // Modify t function to accept optional interpolation values
   const t = (key: TranslationKey, values?: InterpolationValues): string => {

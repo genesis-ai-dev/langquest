@@ -1,10 +1,9 @@
-import { system } from '../db/powersync/system';
+import type { TempAttachmentQueue } from '@/db/powersync/TempAttachmentQueue';
 import { AttachmentState } from '@powersync/attachments';
-import { and, eq, isNotNull, inArray } from 'drizzle-orm';
-import {
-  asset_download,
-} from '../db/drizzleSchema';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { asset_download } from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
+import { system } from '../db/powersync/system';
 
 export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
   // With the shared directory approach, we just need to check
@@ -59,7 +58,7 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
         await system.permAttachmentQueue?.getExtendedRecord(attachmentId);
 
       // If any attachment doesn't exist or isn't synced, we need to add to temp queue
-      if (!record || record.state !== 3) {
+      if (!record || record.state !== AttachmentState.SYNCED) {
         // 3 = SYNCED
         allAlreadyDownloaded = false;
         break;
@@ -72,7 +71,11 @@ export async function ensureAssetLoaded(assetId: string): Promise<void> {
     }
 
     // Otherwise, add to temp queue
-    const tempQueue = system.tempAttachmentQueue;
+    const tempQueue = system.tempAttachmentQueue as
+      | (TempAttachmentQueue & {
+          addTempAsset: (assetId: string) => Promise<void>;
+        })
+      | undefined;
     if (tempQueue && typeof tempQueue.addTempAsset === 'function') {
       await tempQueue.addTempAsset(assetId);
     } else {
@@ -159,7 +162,7 @@ export async function getAssetAttachmentIds(
     // Process asset images if successful
     if (assetResult.status === 'fulfilled') {
       assetResult.value.forEach((asset) => {
-        if (asset?.images) {
+        if (asset.images) {
           attachmentIds.push(...asset.images);
         }
       });

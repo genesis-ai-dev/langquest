@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Link, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -19,26 +19,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { language } from '@/db/drizzleSchema';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Href } from 'expo-router';
-import { useSystem } from '@/contexts/SystemContext';
 
 // const { profile, language } = schema;
 
-// const userRepository = new UserRepository();
-type Language = typeof language.$inferSelect;
-
-type LoginFormData = {
+interface LoginFormData {
   email: string;
   password: string;
   selectedLanguageId: string;
-};
+}
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
@@ -58,7 +53,7 @@ export default function SignIn() {
     defaultValues: {
       email: '',
       password: '',
-      selectedLanguageId: currentLanguage?.id || ''
+      selectedLanguageId: currentLanguage?.id ?? ''
     }
   });
 
@@ -90,7 +85,7 @@ export default function SignIn() {
       }
 
       // Check if email is verified
-      if (!signInData.user?.email_confirmed_at) {
+      if (!signInData.user.email_confirmed_at) {
         Alert.alert(t('verificationRequired'), t('accountNotVerified'), [
           { text: 'OK' }
         ]);
@@ -152,7 +147,7 @@ export default function SignIn() {
                         value={value}
                         onChange={(lang) => {
                           onChange(lang.id);
-                          setLanguage(lang);
+                          void setLanguage(lang);
                         }}
                         containerStyle={{ width: '100%' }}
                       />
@@ -216,6 +211,7 @@ export default function SignIn() {
                               onChangeText={onChange}
                               autoCapitalize="none"
                               keyboardType="email-address"
+                              accessibilityLabel="ph-no-capture"
                             />
                           </View>
                         )}
@@ -271,15 +267,13 @@ export default function SignIn() {
                         </Text>
                       )}
 
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push('/request-reset-password' as Href<string>)
-                        }
+                      <Link
+                        href="/request-reset-password"
+                        style={[sharedStyles.link]}
+                        push
                       >
-                        <Text style={sharedStyles.link}>
-                          {t('forgotPassword')}
-                        </Text>
-                      </TouchableOpacity>
+                        {t('forgotPassword')}
+                      </Link>
                     </View>
 
                     <TouchableOpacity
@@ -297,25 +291,29 @@ export default function SignIn() {
                     </TouchableOpacity>
 
                     {/* More prominent registration link */}
-                    <TouchableOpacity
-                      style={{
-                        marginTop: spacing.medium,
-                        paddingVertical: spacing.small,
-                        paddingHorizontal: spacing.medium,
-                        borderWidth: 1,
-                        borderColor: colors.primary,
-                        borderRadius: 8,
-                        backgroundColor: 'transparent',
-                        alignSelf: 'center'
-                      }}
-                      onPress={() => router.push('/register' as Href<string>)}
+                    <Link
+                      href="/register"
+                      style={[
+                        sharedStyles.link,
+                        {
+                          marginTop: spacing.medium,
+                          paddingVertical: spacing.small,
+                          paddingHorizontal: spacing.medium,
+                          borderWidth: 1,
+                          borderColor: colors.primary,
+                          borderRadius: 8,
+                          backgroundColor: 'transparent',
+                          alignSelf: 'center'
+                        }
+                      ]}
+                      push
                     >
                       <Text
                         style={[sharedStyles.link, { textAlign: 'center' }]}
                       >
                         {t('newUser')} {t('register')}
                       </Text>
-                    </TouchableOpacity>
+                    </Link>
                   </View>
                 </View>
               </View>

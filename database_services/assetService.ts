@@ -15,7 +15,7 @@ export type AssetContent = typeof asset_content_link.$inferSelect;
 export class AssetService {
   async getAssetById(id: string) {
     const results = await db.select().from(asset).where(eq(asset.id, id));
-    return results[0];
+    return results[0] as Asset | undefined;
   }
 
   async getAssetContent(asset_id: string): Promise<AssetContent[]> {
@@ -62,7 +62,7 @@ export class AssetService {
     // Flatten the array of arrays and remove duplicates
     const uniqueAssets = new Map<string, Asset>();
     assetsByQuest.flat().forEach((asset) => {
-      uniqueAssets.set(asset.id, asset);
+      if (asset) uniqueAssets.set(asset.id, asset);
     });
 
     return Array.from(uniqueAssets.values());

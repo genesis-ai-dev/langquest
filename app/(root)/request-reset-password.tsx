@@ -1,10 +1,9 @@
 import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -19,15 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-type RequestResetFormData = {
+interface RequestResetFormData {
   email: string;
-};
+}
 
 export default function RequestResetPassword() {
-  const { currentLanguage } = useLanguage();
   const { t } = useTranslation();
   const { supabaseConnector } = useSystem();
-  const router = useRouter();
 
   const {
     control,
@@ -111,6 +108,7 @@ export default function RequestResetPassword() {
                     onChangeText={onChange}
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    accessibilityLabel="ph-no-capture"
                   />
                 </View>
               )}
@@ -127,14 +125,13 @@ export default function RequestResetPassword() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.bottomLink, { alignSelf: 'center' }]}
-            onPress={() => router.push('/sign-in' as Href<string>)}
+          <Link
+            href="/sign-in"
+            style={[sharedStyles.link, { textAlign: 'center' }]}
+            push
           >
-            <Text style={[sharedStyles.link, { textAlign: 'center' }]}>
-              {t('backToLogin')}
-            </Text>
-          </TouchableOpacity>
+            {t('backToLogin')}
+          </Link>
         </View>
       </SafeAreaView>
     </LinearGradient>
