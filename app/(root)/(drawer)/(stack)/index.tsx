@@ -1,6 +1,7 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { assetService } from '@/database_services/assetService';
@@ -10,22 +11,13 @@ import { projectService } from '@/database_services/projectService';
 import type { language, project } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { colors, sharedStyles } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
 import { questService } from '@/database_services/questService';
 import type { Translation } from '@/database_services/translationService';
 import { translationService } from '@/database_services/translationService';
@@ -40,8 +32,6 @@ const SOURCE_FILTER_KEY = 'project_source_filter';
 const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
-
-const progressBarHeight = 25;
 
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
@@ -178,64 +168,11 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         </Text>
       </View>
 
-      {/* Progress bars */}
-      <View style={styles.progressContainer}>
-        {/* Approved translations progress bar */}
-        <View style={styles.progressBarContainer}>
-          <View
-            style={[
-              styles.progressBar,
-              styles.approvedBar,
-              {
-                width: `${progress.approvedPercentage}%`,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                borderRadius: progressBarHeight / 2,
-                zIndex: 2
-              }
-            ]}
-          >
-            <GemIcon
-              color={colors.textSecondary}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
-              style={{ marginRight: 10 }}
-            />
-          </View>
-          {/* User's pending translations progress bar */}
-          <View
-            style={[
-              styles.progressBar,
-              styles.userPendingBar,
-              {
-                width: `${progress.userContributedPercentage}%`,
-                borderRadius: progressBarHeight / 2,
-                marginLeft: -20,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                zIndex: 1
-              }
-            ]}
-          >
-            <GemIcon
-              color={colors.background}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
-              style={{ marginRight: 10 }}
-            />
-          </View>
-        </View>
-
-        {/* Pending translations gem */}
-        {progress.pendingTranslationsCount > 0 && (
-          <View style={styles.gemContainer}>
-            <PickaxeIcon color={colors.alert} width={16} height={16} />
-            <Text style={styles.gemCount}>
-              {progress.pendingTranslationsCount}
-            </Text>
-          </View>
-        )}
-      </View>
+      <ProgressBars
+        approvedPercentage={progress.approvedPercentage}
+        userContributedPercentage={progress.userContributedPercentage}
+        pickaxeCount={progress.pendingTranslationsCount}
+      />
 
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>
@@ -488,38 +425,3 @@ export default function Projects() {
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-    gap: spacing.small
-  },
-  progressBarContainer: {
-    flex: 1,
-    height: progressBarHeight,
-    backgroundColor: colors.inputBackground,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    borderRadius: progressBarHeight / 2
-  },
-  progressBar: {
-    height: '100%'
-  },
-  approvedBar: {
-    backgroundColor: colors.success
-  },
-  userPendingBar: {
-    backgroundColor: colors.textSecondary
-  },
-  gemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  gemCount: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  }
-});
