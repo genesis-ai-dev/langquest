@@ -1,9 +1,11 @@
 import Carousel from '@/components/Carousel';
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
 import MiniAudioPlayer from '@/components/MiniAudioPlayer';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
+import PickaxeIcon from '@/components/PickaxeIcon';
 import { TranslationModal } from '@/components/TranslationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
@@ -20,6 +22,7 @@ import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
@@ -88,7 +91,7 @@ export default function AssetView() {
     typeof language.$inferSelect | null
   >(null);
   const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[] | undefined>
+    Record<string, Vote[]>
   >({});
   const [translationCreators, setTranslationCreators] = useState<
     Record<string, Profile | undefined>
@@ -286,7 +289,7 @@ export default function AssetView() {
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
-    const votes = translationVotes[translationId] ?? [];
+    const votes: Vote[] = translationVotes[translationId] ?? [];
     const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
 
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
@@ -384,10 +387,17 @@ export default function AssetView() {
   }: {
     item: Translation;
   }) => {
-    const votes = translationVotes[translation.id];
+    const votes: Vote[] = translationVotes[translation.id] ?? [];
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
-    const voteCount = calculateVoteCount(votes ?? []);
+    const voteCount = calculateVoteCount(votes);
+    if (!currentUser) {
+      return null;
+    }
+    const gemColor = getGemColor(translation, votes, currentUser.id);
+    if (gemColor === null) {
+      return null;
+    }
     debug('asset translation', {
       translationCreators,
       translationLanguages,
@@ -403,11 +413,22 @@ export default function AssetView() {
       >
         <View style={styles.translationCardContent}>
           <View style={styles.translationCardLeft}>
-            <Text style={styles.translationPreview} numberOfLines={2}>
-              {getPreviewText(translation.text ?? '')}
-            </Text>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              {/* Gem or Pickaxe icon */}
+              {gemColor === colors.alert ? (
+                <PickaxeIcon color={gemColor} width={20} height={20} />
+              ) : (
+                <GemIcon color={gemColor} width={20} height={20} />
+              )}
+
+              <Text style={styles.translationPreview} numberOfLines={2}>
+                {getPreviewText(translation.text ?? '')}
+              </Text>
+            </View>
             <Text style={styles.translatorInfo}>
-              {currentUser && currentUser.id === translation.creator_id
+              {currentUser.id === translation.creator_id
                 ? `${creator?.username} => `
                 : ''}
               {targetLanguage &&
