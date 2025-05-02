@@ -13,7 +13,7 @@ interface ProgressBarsProps {
 export const ProgressBars = ({
   approvedPercentage,
   userContributedPercentage,
-  progressBarHeight = 25,
+  progressBarHeight = 30,
   pickaxeCount
 }: ProgressBarsProps) => {
   return (
@@ -23,10 +23,19 @@ export const ProgressBars = ({
       <View
         style={[
           styles.progressContainer,
-          { height: progressBarHeight, flex: 1 }
+          {
+            height: progressBarHeight,
+            flex: 1,
+            borderRadius: progressBarHeight / 2
+          }
         ]}
       >
-        <View style={styles.progressBarContainer}>
+        <View
+          style={[
+            styles.progressBarContainer,
+            { borderRadius: progressBarHeight / 2 }
+          ]}
+        >
           <View
             style={[
               styles.progressBar,
@@ -83,7 +92,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: spacing.small,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     backgroundColor: colors.background
@@ -93,8 +101,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.inputBackground,
     overflow: 'hidden',
-    flexDirection: 'row',
-    borderRadius: 8
+    flexDirection: 'row'
   },
   progressBar: {
     height: '100%'
