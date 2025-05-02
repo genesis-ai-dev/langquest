@@ -407,59 +407,67 @@ export default function AssetView() {
       voteCount
     });
     return (
-      <TouchableOpacity
-        style={styles.translationCard}
-        onPress={() => setSelectedTranslation(translation)}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          flex: 1
+        }}
       >
-        <View style={styles.translationCardContent}>
-          <View style={styles.translationCardLeft}>
-            <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-            >
-              {/* Gem or Pickaxe icon */}
-              {gemColor === colors.alert ? (
-                <PickaxeIcon color={gemColor} width={20} height={20} />
-              ) : (
-                <GemIcon color={gemColor} width={20} height={20} />
-              )}
-
-              <Text style={styles.translationPreview} numberOfLines={2}>
-                {getPreviewText(translation.text ?? '')}
+        {/* Gem or Pickaxe icon */}
+        {gemColor === colors.alert ? (
+          <PickaxeIcon color={gemColor} width={20} height={20} />
+        ) : (
+          <GemIcon color={gemColor} width={20} height={20} />
+        )}
+        <TouchableOpacity
+          style={[styles.translationCard, { flex: 1 }]}
+          onPress={() => setSelectedTranslation(translation)}
+        >
+          <View style={styles.translationCardContent}>
+            <View style={styles.translationCardLeft}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Text style={styles.translationPreview} numberOfLines={2}>
+                  {getPreviewText(translation.text ?? '')}
+                </Text>
+              </View>
+              <Text style={styles.translatorInfo}>
+                {currentUser.id === translation.creator_id
+                  ? `${creator?.username} => `
+                  : ''}
+                {targetLanguage &&
+                  (targetLanguage.native_name ?? targetLanguage.english_name)}
               </Text>
             </View>
-            <Text style={styles.translatorInfo}>
-              {currentUser.id === translation.creator_id
-                ? `${creator?.username} => `
-                : ''}
-              {targetLanguage &&
-                (targetLanguage.native_name ?? targetLanguage.english_name)}
-            </Text>
-          </View>
-          <View style={styles.translationCardRight}>
-            <View style={styles.voteContainer}>
-              <TouchableOpacity
-                onPress={() => handleVote(translation.id, 'up')}
-              >
-                <Ionicons
-                  name={getVoteIconName(translation.id, 'up')}
-                  size={16}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
-              <Text style={styles.voteCount}>{voteCount}</Text>
-              <TouchableOpacity
-                onPress={() => handleVote(translation.id, 'down')}
-              >
-                <Ionicons
-                  name={getVoteIconName(translation.id, 'down')}
-                  size={16}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
+            <View style={styles.translationCardRight}>
+              <View style={styles.voteContainer}>
+                <TouchableOpacity
+                  onPress={() => handleVote(translation.id, 'up')}
+                >
+                  <Ionicons
+                    name={getVoteIconName(translation.id, 'up')}
+                    size={16}
+                    color={colors.text}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.voteCount}>{voteCount}</Text>
+                <TouchableOpacity
+                  onPress={() => handleVote(translation.id, 'down')}
+                >
+                  <Ionicons
+                    name={getVoteIconName(translation.id, 'down')}
+                    size={16}
+                    color={colors.text}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     );
   };
 
