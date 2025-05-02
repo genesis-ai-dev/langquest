@@ -34,5 +34,16 @@
       }
     }
   },
-  "submit": {}
+  "submit": {
+    "production": {
+      "android": {
+        "track": "production"
+      }
+    },
+    "preview": {
+      "android": {
+        "track": "beta"
+      }
+    }
+  }
 }
