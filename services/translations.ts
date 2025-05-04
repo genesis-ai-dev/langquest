@@ -558,6 +558,19 @@ export const translations: Record<string, TranslationSet> = {
     english: 'Critical backup error: {{error}}',
     spanish: 'Error crítico de copia de seguridad: {{error}}'
   },
+  // New sync progress translations
+  syncProgress: {
+    english: 'Progress: {{current}}/{{total}}',
+    spanish: 'Progreso: {{current}}/{{total}}'
+  },
+  syncComplete: {
+    english: 'Complete',
+    spanish: 'Completo'
+  },
+  syncFailed: {
+    english: 'Failed',
+    spanish: 'Fallido'
+  },
   // Add other keys as needed...
   // --- Sync Feature Translations ---
   storagePermissionDenied: {

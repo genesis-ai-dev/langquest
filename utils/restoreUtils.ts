@@ -2,8 +2,10 @@ import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Alert, Platform, AlertButton } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
-import { requestBackupDirectory } from '@/utils/backupUtils';
+import { requestBackupDirectory, ProgressCallback } from '@/utils/backupUtils';
 import type { System } from '@/db/powersync/system'; // actual System instance type
+import { project, quest, quest_asset_link, translation } from '@/db/drizzleSchema';
+import { eq } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
 import type { TranslationKey } from '@/services/translations';
@@ -46,6 +48,7 @@ type TFunction = (key: TranslationKey, options?: number | InterpolationOptions) 
 type RestoreCallbacks = {
   onStart?: () => void;
   onFinish?: () => void;
+  onProgress?: ProgressCallback;
 };
 
 // --- Main Restore Logic ---
@@ -54,10 +57,12 @@ type RestoreCallbacks = {
  * Initiates the backup selection process for AUDIO ONLY.
  */
 export async function selectAndInitiateRestore(
-  system: System, // Keep system if needed for future audio checks?
+  system: System, // Keep system for restore logic
+  currentUserId: string, // Add userId parameter
   t: TFunction, // Use the specific TFunction type
   onStart?: () => void,
-  onFinish?: () => void
+  onFinish?: () => void,
+  onProgress?: ProgressCallback
 ) {
   if (Platform.OS !== 'android') {
     Alert.alert(t('error'), t('restoreAndroidOnly'));
@@ -84,10 +89,11 @@ export async function selectAndInitiateRestore(
         {
           text: t('restoreAudioOnly'), // Button text confirms action
           onPress: () => restoreFromBackup(
-            // system, // Pass system only if needed later
+            system,
+            currentUserId, // Pass userId down
             directoryUri,
-            { restoreDb: false, restoreAudio: true }, // Options are now fixed
-            { onStart: undefined, onFinish }
+            { restoreDb: false, restoreAudio: true },
+            { onStart: undefined, onFinish, onProgress }
           )
         }
       ],
@@ -105,7 +111,8 @@ export async function selectAndInitiateRestore(
  * Performs the AUDIO-ONLY restore from a chosen backup directory.
  */
 async function restoreFromBackup(
-  // system: System, // Removed system if not needed
+  system: System,
+  currentUserId: string, // Add userId parameter
   backupDirectoryUri: string,
   options: { restoreDb?: boolean; restoreAudio?: boolean } = { restoreDb: false, restoreAudio: true }, // Keep structure, but restoreDb is always false
   callbacks?: RestoreCallbacks
@@ -142,45 +149,84 @@ async function restoreFromBackup(
       try { await FileSystem.makeDirectoryAsync(localAttachmentsDir, { intermediates: true }); } catch {}
       
       // No need to filter out sqlite.db anymore, but filtering non-audio might be good?
-      const audioUris = fileUris; // Keep it simple for now, assume backup dir is clean
+      const totalFiles = fileUris.length;
       
-      for (const fileUri of audioUris) {
-        // Extract actual filename
+      // Report initial progress
+      callbacks?.onProgress?.(0, totalFiles);
+      
+      for (const [index, fileUri] of fileUris.entries()) {
         const encoded = fileUri.split('/').pop()!;
-        const decoded = decodeURIComponent(encoded);
-        const fileName = decoded.split('/').pop()!;
-        const destPath = localAttachmentsDir + fileName;
+        const decodedSegment = decodeURIComponent(encoded);
+        // Extract the actual filename after the last '/' if present
+        const fileName = decodedSegment.includes('/') 
+          ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
+          : decodedSegment;
 
-        // Skip potential db files explicitly if they exist
-        if (fileName === 'sqlite.db' || fileName.startsWith('sqlite.db (')) {
-             console.log(`[restoreFromBackup] Skipping potential DB file: ${fileName}`);
-             continue;
+        // Extract the 36-char assetId UUID from the start of the filename
+        const fileBase = fileName.split('.')[0]; // Remove extensions
+        const idMatch = fileBase.match(/^([0-9a-fA-F-]{36})(?:_|-)/);
+        if (!idMatch) {
+          console.warn(`[restoreFromBackup] Could not parse assetId from filename: ${fileName}`);
+          audioSkipped++;
+          callbacks?.onProgress?.(index + 1, totalFiles);
+          continue;
         }
+        const assetIdFromFile = idMatch[1];
 
         try {
-          // Check if file already exists in the target directory
-          const fileExists = (await FileSystem.getInfoAsync(destPath, { size: true })).exists;
-          
-          let finalDestPath = destPath;
-          if (fileExists) {
-            // If file exists, create a unique name by adding a timestamp suffix
-            const fileExt = fileName.includes('.') ? '.' + fileName.split('.').pop() : '';
-            const baseName = fileName.includes('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
-            const timestamp = Date.now();
-            finalDestPath = localAttachmentsDir + baseName + '_restored_' + timestamp + fileExt;
-            console.log(`[restoreFromBackup] File ${fileName} already exists, saving as ${baseName}_restored_${timestamp}${fileExt}`);
+          // Use the passed-in userId
+          const creatorId = currentUserId;
+
+          // Get target language ID via Asset -> Quest Link -> Quest -> Project
+          const questLink = await system.db.query.quest_asset_link.findFirst({
+            where: (q) => eq(q.asset_id, assetIdFromFile),
+            columns: { quest_id: true }
+          });
+          if (!questLink) {
+            throw new Error(`Could not find quest link for asset ${assetIdFromFile}`);
           }
+          const questRecord = await system.db.query.quest.findFirst({
+            where: (q) => eq(q.id, questLink.quest_id),
+            columns: { project_id: true }
+          });
+          if (!questRecord) {
+            throw new Error(`Could not find quest ${questLink.quest_id} linked to asset ${assetIdFromFile}`);
+          }
+          const projectRecord = await system.db.query.project.findFirst({
+            where: (p) => eq(p.id, questRecord.project_id),
+            columns: { target_language_id: true }
+          });
+          if (!projectRecord || !projectRecord.target_language_id) {
+            throw new Error(`Could not find target language for asset ${assetIdFromFile}`);
+          }
+          const targetLanguageId = projectRecord.target_language_id;
+
+          const contentBase64 = await StorageAccessFramework.readAsStringAsync(fileUri, {
+            encoding: FileSystem.EncodingType.Base64
+          });
+          const tempFileUri = (FileSystem.cacheDirectory || '') + fileName;
+          await FileSystem.writeAsStringAsync(tempFileUri, contentBase64, {
+            encoding: FileSystem.EncodingType.Base64
+          });
+          if (!system.permAttachmentQueue) {
+            throw new Error('Permanent attachment queue not initialized');
+          }
+          const attachmentRecord = await system.permAttachmentQueue.saveAudio(tempFileUri);
           
-          // Copy the file (assuming Base64 encoding from backup, might need adjustment)
-          // If backup used FileSystem.copyAsync, restore should use that too.
-          // Let's assume Base64 for now based on previous code.
-          const content = await StorageAccessFramework.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
-          await FileSystem.writeAsStringAsync(finalDestPath, content, { encoding: FileSystem.EncodingType.Base64 });
+          // Insert into translation table instead of asset_content_link
+          await system.db.insert(translation).values({
+            asset_id: assetIdFromFile,
+            audio: attachmentRecord.id, // Use the new audio ID
+            creator_id: creatorId,
+            target_language_id: targetLanguageId,
+            text: '[Restored Audio]' // Placeholder text
+          });
           audioCopied++;
         } catch (err: any) {
           console.error(`[restoreFromBackup] Failed to restore audio ${fileName}:`, err);
-          audioSkipped++; // Increment skipped count on error
+          audioSkipped++;
         }
+        callbacks?.onProgress?.(index + 1, totalFiles);
       }
       console.log(`[restoreFromBackup] Audio restore completed: ${audioCopied} copied, ${audioSkipped} skipped.`);
     } else {
