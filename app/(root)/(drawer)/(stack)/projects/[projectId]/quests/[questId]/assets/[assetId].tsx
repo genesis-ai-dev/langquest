@@ -9,6 +9,7 @@ import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
 import { TranslationModal } from '@/components/TranslationModal';
+import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
@@ -86,6 +87,13 @@ export default function AssetView() {
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslation, setSelectedTranslation] =
     useState<Translation | null>(null);
+
+  enum TranslationModalType {
+    TEXT = 'text',
+    AUDIO = 'audio'
+  }
+  const [translationModalType, setTranslationModalType] =
+    useState<TranslationModalType>(TranslationModalType.TEXT);
   const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] =
     useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -240,28 +248,6 @@ export default function AssetView() {
       Alert.alert('Error', 'Failed to load asset data');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleVote = async (
-    translation_id: string,
-    polarity: 'up' | 'down'
-  ) => {
-    if (!currentUser) {
-      Alert.alert('Error', t('logInToVote'));
-      return;
-    }
-
-    try {
-      await voteService.addVote({
-        translation_id,
-        creator_id: currentUser.id,
-        polarity
-      });
-      await loadAssetAndTranslations(); // Reload to get updated vote counts
-    } catch (error) {
-      console.error('Error voting:', error);
-      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -437,7 +423,19 @@ export default function AssetView() {
           style={[styles.translationCard, { flex: 1 }]}
           onPress={() => setSelectedTranslation(translation)}
         >
-          <View style={styles.translationCardContent}>
+          <View
+            style={[
+              styles.translationCardContent,
+              { gap: 12, alignItems: 'center', flex: 1 }
+            ]}
+          >
+            {translationHasAudio && (
+              <WaveformIcon
+                color={colors.text}
+                width={translationHasText ? 30 : 80}
+                opacity={audioIconOpacity}
+              />
+            )}
             <View style={styles.translationCardLeft}>
               <View
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
@@ -446,40 +444,25 @@ export default function AssetView() {
                   {getPreviewText(translation.text ?? '')}
                 </Text>
               </View>
-              <Text style={styles.translatorInfo}>
-                {currentUser.id === translation.creator_id
-                  ? `${creator?.username} => `
-                  : ''}
-                {targetLanguage &&
-                  (targetLanguage.native_name ?? targetLanguage.english_name)}
-              </Text>
             </View>
             <View style={styles.translationCardRight}>
               <View style={styles.voteContainer}>
-                <TouchableOpacity
-                  onPress={() => handleVote(translation.id, 'up')}
-                >
-                  <Ionicons
-                    name={getVoteIconName(translation.id, 'up')}
-                    size={16}
-                    color={colors.text}
-                  />
-                </TouchableOpacity>
+                <Ionicons
+                  name={getVoteIconName(translation.id, 'up')}
+                  size={16}
+                  color={colors.text}
+                />
                 <Text style={styles.voteCount}>{voteCount}</Text>
-                <TouchableOpacity
-                  onPress={() => handleVote(translation.id, 'down')}
-                >
-                  <Ionicons
-                    name={getVoteIconName(translation.id, 'down')}
-                    size={16}
-                    color={colors.text}
-                  />
-                </TouchableOpacity>
+                <Ionicons
+                  name={getVoteIconName(translation.id, 'down')}
+                  size={16}
+                  color={colors.text}
+                />
               </View>
             </View>
           </View>
         </TouchableOpacity>
-        <View style={{ flexDirection: 'column', gap: 8 }}>
+        <View style={{ flexDirection: 'column', gap: 6 }}>
           <View
             style={{
               flexDirection: 'column',
@@ -668,10 +651,15 @@ export default function AssetView() {
               ]}
             >
               <View style={styles.translationHeader}>
-                <View style={styles.alignmentContainer}>
+                <View
+                  style={[
+                    styles.alignmentContainer,
+                    { gap: 12, flexDirection: 'row', alignItems: 'center' }
+                  ]}
+                >
                   <View style={styles.dropdownContainer}>
                     <CustomDropdown
-                      label={t('sortBy')}
+                      // label={t('sortBy')}
                       value={sortOption}
                       options={[
                         { label: t('votes'), value: 'voteCount' },
@@ -682,12 +670,29 @@ export default function AssetView() {
                   </View>
                   <TouchableOpacity
                     style={styles.newTranslationButton}
-                    onPress={() => setIsNewTranslationModalVisible(true)}
+                    onPress={() => {
+                      setIsNewTranslationModalVisible(true);
+                      setTranslationModalType(TranslationModalType.AUDIO);
+                    }}
                   >
-                    <Ionicons name="add" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>
-                      {t('newTranslation')}
-                    </Text>
+                    <MicrophoneIcon
+                      fill={colors.buttonText}
+                      width={24}
+                      height={24}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.newTranslationButton}
+                    onPress={() => {
+                      setIsNewTranslationModalVisible(true);
+                      setTranslationModalType(TranslationModalType.TEXT);
+                    }}
+                  >
+                    <KeyboardIcon
+                      fill={colors.buttonText}
+                      width={24}
+                      height={24}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -730,6 +735,7 @@ export default function AssetView() {
           onClose={() => setIsNewTranslationModalVisible(false)}
           onSubmit={handleNewTranslation}
           asset_id={assetId}
+          translationType={translationModalType}
         />
       </LinearGradient>
     </GestureHandlerRootView>
@@ -831,8 +837,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end'
   },
   dropdownContainer: {
-    flex: 1,
-    marginRight: spacing.medium
+    flex: 1
   },
   newTranslationButton: {
     backgroundColor: colors.primary,
