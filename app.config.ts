@@ -6,6 +6,8 @@ const iconPath = './assets/images/langquest_icon_v1.png';
 const IS_DEV = process.env.APP_VARIANT === 'development';
 const IS_PREVIEW = process.env.APP_VARIANT === 'preview';
 
+const siteHost = process.env.EXPO_PUBLIC_SITE_URL!.replace('https://', '');
+
 const getSlug = () => {
   if (IS_DEV) {
     return 'langquest-dev';
@@ -42,8 +44,6 @@ const getAppName = () => {
   return 'LangQuest';
 };
 
-const siteUrl = new URL(process.env.EXPO_PUBLIC_SITE_URL!);
-
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
@@ -75,18 +75,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         autoVerify: true,
         data: [
           {
-            scheme: siteUrl.protocol.replace(':', ''),
-            host: siteUrl.host,
+            scheme: 'https',
+            host: siteHost,
             pathPrefix: '/reset-password'
           },
           {
-            scheme: siteUrl.protocol.replace(':', ''),
-            host: siteUrl.host,
+            scheme: 'https',
+            host: siteHost,
             pathPrefix: '/registration-confirmation'
           },
           {
             scheme: 'langquest',
-            host: siteUrl.host
+            host: siteHost
           }
         ],
         category: ['BROWSABLE', 'DEFAULT']
