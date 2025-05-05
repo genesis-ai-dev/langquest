@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
+import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,13 +21,19 @@ import {
   View
 } from 'react-native';
 import AudioRecorder from './AudioRecorder';
+import { SourceContent } from './SourceContent';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (translation: typeof asset_content_link.$inferSelect) => void;
   asset_id: string;
   translationType: 'text' | 'audio';
+  assetContent: typeof asset_content_link.$inferSelect;
+  sourceLanguage: typeof language.$inferSelect | null;
+  // targetLanguage: typeof language.$inferSelect | null;
+  attachmentUris: Record<string, string>;
+  loadingAttachments: boolean;
 }
 
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
@@ -34,8 +41,15 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   onClose,
   onSubmit,
   asset_id,
-  translationType
+  translationType,
+  assetContent,
+  sourceLanguage,
+  // targetLanguage,
+  attachmentUris,
+  loadingAttachments
 }) => {
+  console.log('assetContent', assetContent);
+
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
@@ -82,7 +96,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
       setTranslationText('');
       setAudioUri(null);
-      onSubmit();
+      onSubmit(assetContent);
       void handleClose();
     } catch (error) {
       console.error('Error creating translation:', error);
@@ -135,23 +149,45 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                {translationType === 'text' && (
-                  <TextInput
-                    style={styles.textInput}
-                    multiline
-                    placeholder={t('enterTranslation')}
-                    placeholderTextColor={colors.textSecondary}
-                    value={translationText}
-                    onChangeText={setTranslationText}
-                  />
-                )}
+                <View style={styles.modalContent}>
+                  <View style={styles.sourceContent}>
+                    <SourceContent
+                      content={assetContent}
+                      sourceLanguage={sourceLanguage}
+                      audioUri={
+                        assetContent.audio_id
+                          ? attachmentUris[assetContent.audio_id]
+                          : null
+                      }
+                      isLoading={loadingAttachments}
+                    />
+                  </View>
 
-                {translationType === 'audio' && (
-                  <AudioRecorder
-                    onRecordingComplete={handleRecordingComplete}
-                    resetRecording={() => setAudioUri(null)}
-                  />
-                )}
+                  <View style={styles.translationInput}>
+                    {/* <Text style={styles.languageLabel}>
+                      {targetLanguage?.native_name ??
+                        targetLanguage?.english_name}
+                      :
+                    </Text> */}
+                    {translationType === 'text' && (
+                      <TextInput
+                        style={styles.textInput}
+                        multiline
+                        placeholder={t('enterTranslation')}
+                        placeholderTextColor={colors.textSecondary}
+                        value={translationText}
+                        onChangeText={setTranslationText}
+                      />
+                    )}
+
+                    {translationType === 'audio' && (
+                      <AudioRecorder
+                        onRecordingComplete={handleRecordingComplete}
+                        resetRecording={() => setAudioUri(null)}
+                      />
+                    )}
+                  </View>
+                </View>
 
                 <TouchableOpacity
                   style={[
@@ -225,5 +261,22 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     backgroundColor: colors.backgroundSecondary
+  },
+  modalContent: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  sourceContent: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  translationInput: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  languageLabel: {
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold',
+    color: colors.text
   }
 });

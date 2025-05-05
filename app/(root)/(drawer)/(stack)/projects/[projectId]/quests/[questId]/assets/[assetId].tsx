@@ -4,10 +4,10 @@ import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
-import MiniAudioPlayer from '@/components/MiniAudioPlayer';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { SourceContent } from '@/components/SourceContent';
 import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,12 +94,15 @@ export default function AssetView() {
   }
   const [translationModalType, setTranslationModalType] =
     useState<TranslationModalType>(TranslationModalType.TEXT);
-  const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] =
+  const [isTranslationModalVisible, setIsTranslationModalVisible] =
     useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
+  // const [targetLanguage, setTargetLanguage] = useState<
+  //   typeof language.$inferSelect | null
+  // >(null);
   const [translationVotes, setTranslationVotes] = useState<
     Record<string, Vote[]>
   >({});
@@ -568,63 +571,16 @@ export default function AssetView() {
                         items={assetContent}
                         renderItem={(content) => {
                           return (
-                            <View style={styles.sourceTextContainer}>
-                              <View>
-                                <Text style={styles.source_languageLabel}>
-                                  {sourceLanguage?.native_name ??
-                                    sourceLanguage?.english_name}
-                                  :
-                                </Text>
-                                <Text style={styles.sourceText}>
-                                  {content.text}
-                                </Text>
-                              </View>
-
-                              {content.audio_id &&
-                              attachmentUris[content.audio_id]
-                                ? // Audio player is rendered
-                                  (() => {
-                                    return (
-                                      <MiniAudioPlayer
-                                        audioFile={{
-                                          id: content.id,
-                                          title: content.text,
-                                          uri: attachmentUris[content.audio_id]!
-                                        }}
-                                      />
-                                    );
-                                  })()
-                                : content.audio_id && loadingAttachments
-                                  ? // Showing loading indicator
-                                    (() => {
-                                      return (
-                                        <View style={styles.audioLoading}>
-                                          <Text
-                                            style={{
-                                              color: colors.textSecondary
-                                            }}
-                                          >
-                                            Loading audio...
-                                          </Text>
-                                          <ActivityIndicator size="small" />
-                                        </View>
-                                      );
-                                    })()
-                                  : // Not showing audio player or loading indicator
-                                    (() => {
-                                      console.log(
-                                        `[AssetView] No audio player/loader for ${content.id}:`,
-                                        {
-                                          audioId: content.audio_id,
-                                          hasUri: content.audio_id
-                                            ? !!attachmentUris[content.audio_id]
-                                            : false,
-                                          loadingAttachments
-                                        }
-                                      );
-                                      return null;
-                                    })()}
-                            </View>
+                            <SourceContent
+                              content={content}
+                              sourceLanguage={sourceLanguage}
+                              audioUri={
+                                content.audio_id
+                                  ? attachmentUris[content.audio_id]
+                                  : null
+                              }
+                              isLoading={loadingAttachments}
+                            />
                           );
                         }}
                       />
@@ -671,7 +627,7 @@ export default function AssetView() {
                   <TouchableOpacity
                     style={styles.newTranslationButton}
                     onPress={() => {
-                      setIsNewTranslationModalVisible(true);
+                      setIsTranslationModalVisible(true);
                       setTranslationModalType(TranslationModalType.AUDIO);
                     }}
                   >
@@ -684,7 +640,7 @@ export default function AssetView() {
                   <TouchableOpacity
                     style={styles.newTranslationButton}
                     onPress={() => {
-                      setIsNewTranslationModalVisible(true);
+                      setIsTranslationModalVisible(true);
                       setTranslationModalType(TranslationModalType.TEXT);
                     }}
                   >
@@ -730,13 +686,22 @@ export default function AssetView() {
           />
         )}
 
-        <NewTranslationModal
-          isVisible={isNewTranslationModalVisible}
-          onClose={() => setIsNewTranslationModalVisible(false)}
-          onSubmit={handleNewTranslation}
-          asset_id={assetId}
-          translationType={translationModalType}
-        />
+        {isTranslationModalVisible &&
+          assetContent &&
+          assetContent.length > 0 && (
+            <NewTranslationModal
+              isVisible={isTranslationModalVisible}
+              onClose={() => setIsTranslationModalVisible(false)}
+              onSubmit={handleNewTranslation}
+              asset_id={assetId}
+              translationType={translationModalType}
+              assetContent={assetContent[activeTab === 'text' ? 0 : 1]!}
+              sourceLanguage={sourceLanguage}
+              // targetLanguage={targetLanguage}
+              attachmentUris={attachmentUris}
+              loadingAttachments={loadingAttachments}
+            />
+          )}
       </LinearGradient>
     </GestureHandlerRootView>
   );
