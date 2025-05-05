@@ -3,10 +3,10 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
 
-const IS_DEV = process.env.APP_VARIANT === 'development';
-const IS_PREVIEW = process.env.APP_VARIANT === 'preview';
+const IS_DEV = process.env.EXPO_PUBLIC_APP_VARIANT === 'development';
+const IS_PREVIEW = process.env.EXPO_PUBLIC_APP_VARIANT === 'preview';
 
-const siteHost = process.env.EXPO_PUBLIC_SITE_URL!.replace('https://', '');
+const siteHost = 'langquest.org';
 
 const getSlug = () => {
   if (IS_DEV) {
