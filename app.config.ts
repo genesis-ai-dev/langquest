@@ -6,6 +6,8 @@ const iconPath = './assets/images/langquest_icon_v1.png';
 const IS_DEV = process.env.APP_VARIANT === 'development';
 const IS_PREVIEW = process.env.APP_VARIANT === 'preview';
 
+const siteHost = process.env.EXPO_PUBLIC_SITE_URL!.replace('https://', '');
+
 const getSlug = () => {
   if (IS_DEV) {
     return 'langquest-dev';
@@ -74,17 +76,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         data: [
           {
             scheme: 'https',
-            host: process.env.EXPO_PUBLIC_SITE_URL,
+            host: siteHost,
             pathPrefix: '/reset-password'
           },
           {
             scheme: 'https',
-            host: process.env.EXPO_PUBLIC_SITE_URL,
+            host: siteHost,
             pathPrefix: '/registration-confirmation'
           },
           {
             scheme: 'langquest',
-            host: '*'
+            host: siteHost
           }
         ],
         category: ['BROWSABLE', 'DEFAULT']

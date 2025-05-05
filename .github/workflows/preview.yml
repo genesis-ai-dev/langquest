@@ -28,7 +28,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Pull environment variables
-        run: eas env:pull --environment development
+        run: eas env:pull --environment preview
 
       - name: Rename .env.local to .env
         run: |
