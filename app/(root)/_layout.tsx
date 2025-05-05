@@ -19,9 +19,9 @@ export default function TermsLayout() {
       </LinearGradient>
     );
   }
-  console.log('termsAccepted', termsAccepted);
 
   if (!termsAccepted) {
+    console.log('redirecting to terms');
     return <Redirect href="/terms" />;
   }
 
