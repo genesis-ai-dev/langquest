@@ -42,6 +42,8 @@ const getAppName = () => {
   return 'LangQuest';
 };
 
+const siteUrl = new URL(process.env.EXPO_PUBLIC_SITE_URL!);
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
@@ -73,18 +75,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         autoVerify: true,
         data: [
           {
-            scheme: 'https',
-            host: process.env.EXPO_PUBLIC_SITE_URL,
+            scheme: siteUrl.protocol.replace(':', ''),
+            host: siteUrl.host,
             pathPrefix: '/reset-password'
           },
           {
-            scheme: 'https',
-            host: process.env.EXPO_PUBLIC_SITE_URL,
+            scheme: siteUrl.protocol.replace(':', ''),
+            host: siteUrl.host,
             pathPrefix: '/registration-confirmation'
           },
           {
             scheme: 'langquest',
-            host: '*'
+            host: siteUrl.host
           }
         ],
         category: ['BROWSABLE', 'DEFAULT']
