@@ -2,6 +2,8 @@ import Carousel from '@/components/Carousel';
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
+import KeyboardIcon from '@/components/KeyboardIcon';
+import MicrophoneIcon from '@/components/MicrophoneIcon';
 import MiniAudioPlayer from '@/components/MiniAudioPlayer';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
@@ -406,6 +408,16 @@ export default function AssetView() {
       targetLanguage,
       voteCount
     });
+
+    const translationHasAudio = !!translation.audio;
+    const audioIconOpacity = translationHasAudio ? 1 : 0.5;
+
+    const translationHasText = !!translation.text;
+    const textIconOpacity = translationHasText ? 1 : 0.5;
+
+    debug('translationHasAudio', { translationHasAudio });
+    debug('translationHasText', { translationHasText });
+
     return (
       <View
         style={{
@@ -467,6 +479,44 @@ export default function AssetView() {
             </View>
           </View>
         </TouchableOpacity>
+        <View style={{ flexDirection: 'column', gap: 8 }}>
+          <View
+            style={{
+              flexDirection: 'column',
+              // gap: 8,
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            <MicrophoneIcon
+              fill={colors.text}
+              opacity={audioIconOpacity}
+              width={16}
+              height={16}
+            />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 10,
+                opacity: audioIconOpacity
+              }}
+            >
+              {'00:00'}
+            </Text>
+          </View>
+          <View
+            style={{
+              flexDirection: 'column',
+              // gap: 8,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: textIconOpacity
+            }}
+          >
+            <KeyboardIcon fill={colors.text} width={16} height={16} />
+            <Text style={{ color: colors.text, fontSize: 10 }}>...</Text>
+          </View>
+        </View>
       </View>
     );
   };
