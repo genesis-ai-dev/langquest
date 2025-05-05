@@ -10,7 +10,6 @@
       "channel": "development",
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "development"
       }
     },
@@ -20,7 +19,6 @@
       "channel": "preview",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "preview"
       }
     },
@@ -29,7 +27,6 @@
       "channel": "production",
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "production"
       }
     }
