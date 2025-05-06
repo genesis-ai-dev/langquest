@@ -42,13 +42,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void loadAuthData();
 
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
-      async (_, session) => {
+      async (state, session) => {
         // always maintain a session
         if (!session) {
           await supabaseConnector.client.auth.signInAnonymously();
+          setCurrentUser(null);
           return;
         }
-        if (!session.user.is_anonymous) {
+        if (!session.user.is_anonymous && state !== 'TOKEN_REFRESHED') {
           setCurrentUser(
             await supabaseConnector.getUserProfile(session.user.id)
           );
