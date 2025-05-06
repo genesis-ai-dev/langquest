@@ -368,7 +368,7 @@ function Category({ title, items, onPress }: CategoryProps) {
 }
 
 const DrawerItem = forwardRef<
-  TouchableOpacity,
+  View,
   {
     active?: boolean;
     item: Omit<DrawerItemType, 'path'> & { path?: Href };
