@@ -52,13 +52,13 @@ INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", 
 -- Data for Name: language; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."language" ("id", "created_at", "last_updated", "native_name", "english_name", "iso639_3", "ui_ready", "creator_id", "active") VALUES
-	('bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'English', 'English', 'eng', true, NULL, true),
-	('7c37870b-7d52-4589-934f-576f03781263', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Español', 'Spanish', 'spa', true, NULL, true),
-	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Tu''un Savi', 'Mixteco de Penasco', 'mil', false, NULL, true),
-	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Diidxazá', 'Zapoteco de Santiago', 'zas', false, NULL, true),
-	('2f1e3d4c-5b6a-7890-1234-567890abcdef', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Nuntajɨ̃yi', 'Popoluca', 'poi', false, NULL, true),
-	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', '2025-03-13 00:31:36.819037+00', '2025-03-13 00:31:36.819037+00', 'Universal', 'Universal', 'unv', false, NULL, true);
+INSERT INTO "public"."language" ("id", "created_at", "last_updated", "native_name", "english_name", "iso639_3", "ui_ready", "creator_id", "active", "locale") VALUES
+	('bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'English', 'English', 'eng', true, NULL, true, 'en'),
+	('7c37870b-7d52-4589-934f-576f03781263', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Español', 'Spanish', 'spa', true, NULL, true, 'es'),
+	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Tu''un Savi', 'Mixteco de Penasco', 'mil', false, NULL, true, NULL),
+	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Diidxazá', 'Zapoteco de Santiago', 'zas', false, NULL, true, NULL),
+	('2f1e3d4c-5b6a-7890-1234-567890abcdef', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Nuntajɨ̃yi', 'Popoluca', 'poi', false, NULL, true, NULL),
+	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', '2025-03-13 00:31:36.819037+00', '2025-03-13 00:31:36.819037+00', 'Universal', 'Universal', 'unv', false, NULL, true, NULL);
 
 
 --

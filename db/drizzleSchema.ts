@@ -49,6 +49,7 @@ export const language = sqliteTable('language', {
   native_name: text(), // Enforce uniqueness across chains in the app
   english_name: text(), // Enforce uniqueness across chains in the app
   iso639_3: text(), // Enforce uniqueness across chains in the app
+  locale: text(),
   ui_ready: int({ mode: 'boolean' }).notNull(),
   creator_id: text().references(() => profile.id)
 });
