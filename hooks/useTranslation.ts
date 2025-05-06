@@ -4,8 +4,8 @@ import { languageService } from '@/database_services/languageService';
 import type {
   SupportedLanguage,
   TranslationKey
-} from '@/services/translations';
-import { translations } from '@/services/translations';
+} from '@/services/localizations';
+import { localizations } from '@/services/localizations';
 import { useEffect, useState } from 'react';
 
 export function useTranslation(languageOverride?: string | null) {
@@ -31,18 +31,20 @@ export function useTranslation(languageOverride?: string | null) {
   // 2. Authenticated user's profile language
   // 3. Selected language from LanguageContext (for non-authenticated pages)
   // 4. Default to English
-  const userLanguage = (languageOverride?.toLowerCase() ??
+  const userLanguage = (
+    languageOverride?.toLowerCase() ??
     profileLanguage?.english_name?.toLowerCase() ??
     currentLanguage?.english_name?.toLowerCase() ??
-    'english') as SupportedLanguage;
+    'english'
+  ).replace(/ /g, '_') as SupportedLanguage;
 
   const t = (key: TranslationKey): string => {
-    if (!(key in translations)) {
+    if (!(key in localizations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    const translation = translations[key]!;
-    return translation[userLanguage] || translation.english;
+    const localization = localizations[key]!;
+    return localization[userLanguage] || localization.english;
   };
 
   return { t };
