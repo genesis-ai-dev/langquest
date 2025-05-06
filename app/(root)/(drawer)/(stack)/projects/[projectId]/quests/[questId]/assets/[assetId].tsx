@@ -616,38 +616,48 @@ export default function AssetView() {
                     { gap: 12, flexDirection: 'row', alignItems: 'center' }
                   ]}
                 >
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    {/* <CustomDropdown
-                      // label={t('sortBy')}
-                      value={sortOption}
-                      options={[
-                        { label: t('votes'), value: 'voteCount' },
-                        { label: t('date'), value: 'dateSubmitted' }
-                      ]}
-                      onSelect={(value) => setSortOption(value as SortOption)}
-                    /> */}
+                  <View style={[{ flexDirection: 'row', gap: 8 }]}>
                     <TouchableOpacity
-                      style={[]}
+                      style={[
+                        styles.sortButton,
+                        styles.sortButtonBorder,
+                        sortOption === 'voteCount' && styles.sortButtonSelected
+                      ]}
                       onPress={() => {
                         setSortOption('voteCount');
                       }}
                     >
                       <ThumbsUpIcon
+                        stroke={
+                          sortOption === 'voteCount'
+                            ? colors.background
+                            : colors.buttonText
+                        }
                         fill={colors.buttonText}
-                        width={24}
-                        height={24}
+                        width={16}
+                        height={16}
                       />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[]}
+                      style={[
+                        styles.sortButton,
+                        styles.sortButtonBorder,
+                        sortOption === 'dateSubmitted' &&
+                          styles.sortButtonSelected
+                      ]}
                       onPress={() => {
                         setSortOption('dateSubmitted');
                       }}
                     >
                       <CalendarIcon
+                        stroke={
+                          sortOption === 'dateSubmitted'
+                            ? colors.background
+                            : colors.buttonText
+                        }
                         fill={colors.buttonText}
-                        width={24}
-                        height={24}
+                        width={16}
+                        height={16}
                       />
                     </TouchableOpacity>
                   </View>
@@ -929,5 +939,16 @@ const styles = StyleSheet.create({
   carouselWrapper: {
     flex: 1,
     paddingHorizontal: spacing.medium
+  },
+  sortButton: {
+    padding: 8
+  },
+  sortButtonBorder: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.buttonText
+  },
+  sortButtonSelected: {
+    backgroundColor: colors.buttonText
   }
 });
