@@ -1,8 +1,8 @@
-import { Audio, AVPlaybackStatus } from 'expo-av';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface AudioFile {
   id: string;
@@ -15,54 +15,25 @@ interface MiniAudioPlayerProps {
 }
 
 export default function MiniAudioPlayer({ audioFile }: MiniAudioPlayerProps) {
-  const [sound, setSound] = useState<Audio.Sound>();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
 
-  useEffect(() => {
-    return () => {
-      if (sound) sound.unloadAsync();
-    };
-  }, [sound]);
-
-  const loadAndPlaySound = async () => {
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true
-    });
-
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
+  const handlePlayPause = async () => {
+    if (isPlaying && currentAudioId === audioFile.id) {
+      // Currently playing this audio, so stop it
+      await stopCurrentSound();
     } else {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioFile.uri },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate(async (status: AVPlaybackStatus) => {
-        if (!status.isLoaded) return;
-        if (status.didJustFinish) {
-          setIsPlaying(false);
-          await newSound.stopAsync();
-          await newSound.setPositionAsync(0);
-        }
-      });
+      // Either no audio is playing, or a different one is playing
+      await playSound(audioFile.uri, audioFile.id);
     }
   };
 
+  const isThisAudioPlaying = isPlaying && currentAudioId === audioFile.id;
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={loadAndPlaySound} style={styles.playButton}>
+      <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
         <Ionicons
-          name={isPlaying ? 'pause' : 'play'}
+          name={isThisAudioPlaying ? 'pause' : 'play'}
           size={24}
           color={colors.text}
         />

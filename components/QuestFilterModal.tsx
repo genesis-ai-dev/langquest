@@ -294,6 +294,18 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                           color={colors.text}
                         />
                       </TouchableOpacity>
+                      {sortingOptions[index]?.field && (
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => handleSortingChange(index, null)}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={24}
+                            color={colors.error}
+                          />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ))}
             </ScrollView>
@@ -373,6 +385,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: borderRadius.small
+  },
+  removeButton: {
+    marginLeft: spacing.small,
+    padding: spacing.small
   },
   tabIconContainer: {
     position: 'relative'

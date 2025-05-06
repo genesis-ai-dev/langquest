@@ -4,12 +4,13 @@ import { languageService } from '@/database_services/languageService';
 import type {
   SupportedLanguage,
   TranslationKey
-} from '@/services/translations';
-import { translations } from '@/services/translations';
+} from '@/services/localizations';
+import { localizations } from '@/services/localizations';
 import { useEffect, useState } from 'react';
 
 // Define a type for interpolation values
-type InterpolationValues = { [key: string]: string | number };
+// Use a Record as preferred by linter
+export type InterpolationValues = Record<string, string | number>;
 
 export function useTranslation(languageOverride?: string | null) {
   const { currentUser } = useAuth();
@@ -34,23 +35,26 @@ export function useTranslation(languageOverride?: string | null) {
   // 2. Authenticated user's profile language
   // 3. Selected language from LanguageContext (for non-authenticated pages)
   // 4. Default to English
-  const userLanguage = (languageOverride?.toLowerCase() ??
+  const userLanguage = (
+    languageOverride?.toLowerCase() ??
     profileLanguage?.english_name?.toLowerCase() ??
     currentLanguage?.english_name?.toLowerCase() ??
-    'english') as SupportedLanguage;
+    'english'
+  ).replace(/ /g, '_') as SupportedLanguage;
 
-  // Modify t function to accept optional interpolation values
+  // t function to accept optional interpolation values and use 'localizations'
   const t = (key: TranslationKey, values?: InterpolationValues): string => {
-    if (!translations[key]) {
+    if (!(key in localizations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString = translations[key][userLanguage] || translations[key]['english'];
+    let translatedString = localizations[key]![userLanguage] || localizations[key]!.english;
 
     // Replace placeholders like {{key}}
     if (values) {
       Object.keys(values).forEach((placeholder) => {
-        const regex = new RegExp(`{{\s*${placeholder}\s*}}`, 'g');
+        // Remove unnecessary escape characters in regex
+        const regex = new RegExp(`{{ *${placeholder} *}}`, 'g');
         translatedString = translatedString.replace(regex, String(values[placeholder]));
       });
     }
