@@ -49,6 +49,15 @@ export const ConfirmEmail = ({
       button: 'Confirmer le compte',
       orCopy: 'Ou copiez et collez ce lien dans votre navigateur :',
       expiry: 'Ce lien expirera dans 24 heures.'
+    },
+    'pt-BR': {
+      preview: 'Confirme sua conta LangQuest',
+      title: 'Confirme Sua Conta',
+      description:
+        'Siga este link para confirmar sua conta e completar seu registro:',
+      button: 'Confirmar Conta',
+      orCopy: 'Ou você pode copiar e colar este link no seu navegador:',
+      expiry: 'Este link vai expirar em 24 horas.'
     }
   };
 
