@@ -6,8 +6,11 @@ import KeyboardIcon from '@/components/KeyboardIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
+import { PendingCount } from '@/components/PendingCount';
+import { PickaxeCount } from '@/components/PickaxeCount';
 import PickaxeIcon from '@/components/PickaxeIcon';
 import { SourceContent } from '@/components/SourceContent';
+import { SuccessCount } from '@/components/SuccessCount';
 import ThumbsUpIcon from '@/components/ThumbsUpIcon';
 import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
@@ -603,12 +606,7 @@ export default function AssetView() {
 
             <View style={styles.horizontalLine} />
 
-            <ScrollView
-              style={[
-                styles.translationsContainer,
-                { height: translationsContainerHeight }
-              ]}
-            >
+            <ScrollView style={[{ height: translationsContainerHeight }]}>
               <View style={styles.translationHeader}>
                 <View
                   style={[
@@ -616,6 +614,48 @@ export default function AssetView() {
                     { gap: 12, flexDirection: 'row', alignItems: 'center' }
                   ]}
                 >
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <SuccessCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.success;
+                        }).length
+                      }
+                    />
+                    <PendingCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.textSecondary;
+                        }).length
+                      }
+                    />
+
+                    <PickaxeCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.alert;
+                        }).length
+                      }
+                    />
+                  </View>
                   <View style={[{ flexDirection: 'row', gap: 8 }]}>
                     <TouchableOpacity
                       style={[
@@ -822,15 +862,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  translationsContainer: {
-    // flex: 1,
-  },
   translationsList: {
-    padding: spacing.medium
+    paddingHorizontal: spacing.large,
+    paddingBottom: spacing.medium,
+    paddingTop: spacing.medium
   },
   translationHeader: {
-    paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium
+    paddingHorizontal: spacing.large
   },
   alignmentContainer: {
     flexDirection: 'row',
