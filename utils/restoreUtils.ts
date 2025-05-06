@@ -8,7 +8,7 @@ import { translation } from '@/db/drizzleSchema'; // Removed unused project, que
 import { eq } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
-import type { TranslationKey } from '@/services/translations';
+import type { TranslationKey } from '@/services/localizations';
 // Removed InterpolationOptions as node-polyglot is not a direct/typed dependency here or its types are missing
 
 // Removed Drizzle schema imports
