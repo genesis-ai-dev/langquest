@@ -59,8 +59,8 @@ export default function RootLayout() {
     if (params.access_token && params.refresh_token) {
       const handleRedirect = async () => {
         await system.supabaseConnector.client.auth.setSession({
-          access_token: params.access_token,
-          refresh_token: params.refresh_token
+          access_token: params.access_token!,
+          refresh_token: params.refresh_token!
         });
         router.replace(path as Href);
       };

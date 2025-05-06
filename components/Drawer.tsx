@@ -32,11 +32,12 @@ import {
   prepareBackupPaths
 } from '@/utils/backupUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
+import type { ReactNode } from 'react';
 
 interface DrawerItemType {
   name?: string;
   icon: keyof typeof Ionicons.glyphMap;
-  path: Href<string>;
+  path: Href;
 }
 
 function DrawerItems() {
@@ -261,7 +262,7 @@ function DrawerItems() {
   );
 }
 
-export function Drawer(/*{ children }: { children: React.ReactNode }*/) {
+export function Drawer({ children }: { children?: ReactNode }) {
   return (
     <ExpoDrawer
       screenOptions={{
@@ -270,7 +271,9 @@ export function Drawer(/*{ children }: { children: React.ReactNode }*/) {
         swipeEdgeWidth: 100
       }}
       drawerContent={DrawerContent}
-    />
+    >
+      {children}
+    </ExpoDrawer>
   );
 }
 
@@ -318,8 +321,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
 interface CategoryProps {
   title: string;
-  items: ((Project | Quest | Asset) & { path: Href<string> })[];
-  onPress: (item: (Project | Quest | Asset) & { path: Href<string> }) => void;
+  items: ((Project | Quest | Asset) & { path: Href })[];
+  onPress: (item: (Project | Quest | Asset) & { path: Href }) => void;
 }
 
 function Category({ title, items, onPress }: CategoryProps) {
@@ -368,7 +371,7 @@ const DrawerItem = forwardRef<
   TouchableOpacity,
   {
     active?: boolean;
-    item: Omit<DrawerItemType, 'path'> & { path?: Href<string> };
+    item: Omit<DrawerItemType, 'path'> & { path?: Href };
   } & TouchableOpacityProps
 >(({ active, item, style, ...props }, ref) => {
   return (

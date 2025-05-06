@@ -43,23 +43,20 @@ export function useTranslation(languageOverride?: string | null) {
   ).replace(/ /g, '_') as SupportedLanguage;
 
   // t function to accept optional interpolation values and use 'localizations'
-  const t = (key: TranslationKey, values?: InterpolationValues): string => {
+  const t = (key: TranslationKey, options?: InterpolationValues | number): string => {
     if (!(key in localizations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString =
-      localizations[key]![userLanguage] || localizations[key]!.english;
+    let translatedString = localizations[key]![userLanguage] || localizations[key]!.english;
 
-    // Replace placeholders like {{key}}
-    if (values) {
-      Object.keys(values).forEach((placeholder) => {
-        // Remove unnecessary escape characters in regex
+    // If options is a number, treat as a single value for a placeholder like {{value}}
+    if (typeof options === 'number') {
+      translatedString = translatedString.replace(/{{ *value *}}/g, String(options));
+    } else if (options) {
+      Object.keys(options).forEach((placeholder) => {
         const regex = new RegExp(`{{ *${placeholder} *}}`, 'g');
-        translatedString = translatedString.replace(
-          regex,
-          String(values[placeholder])
-        );
+        translatedString = translatedString.replace(regex, String(options[placeholder]));
       });
     }
 
