@@ -20,4 +20,4 @@ export function AuthHandler({ children }: { children: React.ReactNode }) {
   // }
 
   return <>{children}</>;
-} 
+}

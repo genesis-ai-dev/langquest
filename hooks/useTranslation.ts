@@ -48,14 +48,18 @@ export function useTranslation(languageOverride?: string | null) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString = localizations[key]![userLanguage] || localizations[key]!.english;
+    let translatedString =
+      localizations[key]![userLanguage] || localizations[key]!.english;
 
     // Replace placeholders like {{key}}
     if (values) {
       Object.keys(values).forEach((placeholder) => {
         // Remove unnecessary escape characters in regex
         const regex = new RegExp(`{{ *${placeholder} *}}`, 'g');
-        translatedString = translatedString.replace(regex, String(values[placeholder]));
+        translatedString = translatedString.replace(
+          regex,
+          String(values[placeholder])
+        );
       });
     }
 

@@ -206,17 +206,19 @@ export async function getAssetAttachmentIds(
  */
 export async function getFilesInUploadQueue(): Promise<string[]> {
   if (!system.powersync) {
-    console.log('[getFilesInUploadQueue] PowerSync system not available, returning empty array.');
+    console.log(
+      '[getFilesInUploadQueue] PowerSync system not available, returning empty array.'
+    );
     return [];
   }
-  
+
   try {
     // Get files that are in QUEUED_UPLOAD state (pending sync)
     const result = await system.powersync.execute(
       'SELECT id FROM attachments WHERE state = ?',
       [String(AttachmentState.QUEUED_UPLOAD)]
     );
-    
+
     const files: string[] = [];
     // Add null check for rows
     if (result.rows) {
@@ -253,19 +255,19 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
   if (!system.powersync) {
     return false;
   }
-  
+
   try {
     // Query the PowerSync attachment table
     const result = await system.powersync.execute(
       'SELECT state FROM attachments WHERE id = ?',
       [fileId]
     );
-    
+
     // Add null check for rows
     if (!result.rows || result.rows.length === 0) {
       return false; // File not found in attachments table
     }
-    
+
     const item: { state?: number | null } | null = result.rows.item(0);
     const state: number | null | undefined = item?.state;
     // File is synced if state is SYNCED
@@ -280,23 +282,27 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
  * Gets all files with their sync status
  * @returns Promise resolving to an array of {id, state} objects
  */
-export async function getAllFilesSyncStatus(): Promise<{id: string, synced: boolean}[]> {
+export async function getAllFilesSyncStatus(): Promise<
+  { id: string; synced: boolean }[]
+> {
   if (!system.powersync) {
     return [];
   }
-  
+
   try {
     // Correct execute call signature
     const result = await system.powersync.execute(
       'SELECT id, state FROM attachments'
     );
-    
-    const files: {id: string, synced: boolean}[] = [];
+
+    const files: { id: string; synced: boolean }[] = [];
     // Add null check for rows
     if (result.rows) {
       for (let i = 0; i < result.rows.length; i++) {
-        const item: { id?: string | null, state?: number | null } | null = result.rows.item(i);
-        if (item?.id) { // Ensure item and id exist
+        const item: { id?: string | null; state?: number | null } | null =
+          result.rows.item(i);
+        if (item?.id) {
+          // Ensure item and id exist
           files.push({
             id: item.id,
             // File is synced if state is SYNCED
@@ -305,7 +311,7 @@ export async function getAllFilesSyncStatus(): Promise<{id: string, synced: bool
         }
       }
     }
-    
+
     return files;
   } catch (error) {
     console.error('Error getting files sync status:', error);

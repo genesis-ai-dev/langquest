@@ -26,10 +26,10 @@ import {
   ProgressBarAndroid
 } from 'react-native';
 import { useSystem } from '@/contexts/SystemContext';
-import { 
-  backupUnsyncedAudio, 
-  requestBackupDirectory, 
-  prepareBackupPaths 
+import {
+  backupUnsyncedAudio,
+  requestBackupDirectory,
+  prepareBackupPaths
 } from '@/utils/backupUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 
@@ -50,7 +50,9 @@ function DrawerItems() {
   // Progress tracking states
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncTotal, setSyncTotal] = useState(0);
-  const [syncOperation, setSyncOperation] = useState<'backup' | 'restore' | null>(null);
+  const [syncOperation, setSyncOperation] = useState<
+    'backup' | 'restore' | null
+  >(null);
 
   const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
@@ -67,7 +69,7 @@ function DrawerItems() {
     setSyncOperation('backup');
     setSyncProgress(0);
     setSyncTotal(1); // Default to 1 to avoid division by zero
-    
+
     let finalAlertTitle = t('backupErrorTitle'); // Default to error
     let finalAlertMessage = '';
 
@@ -92,7 +94,7 @@ function DrawerItems() {
       console.log('[handleBackup] Requesting directory permissions...');
       const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
       if (!baseDirectoryUri) {
-         throw new Error(t('storagePermissionDenied')); 
+        throw new Error(t('storagePermissionDenied'));
       }
       console.log('[handleBackup] Permissions granted, preparing paths...');
 
@@ -103,7 +105,7 @@ function DrawerItems() {
 
       // 4. Execute Backup (Audio Only) with progress callback
       const audioResult = await backupUnsyncedAudio(
-        system, 
+        system,
         baseDirectoryUri,
         handleProgress
       );
@@ -111,13 +113,15 @@ function DrawerItems() {
       // 5. Construct Success Message (Audio Only)
       finalAlertTitle = t('backupCompleteTitle');
       finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
-
     } catch (error: unknown) {
       // Handle errors from any awaited step above
       console.log('[handleBackup] Entered CATCH block.');
       console.error('Error during backup process:', error);
-      const errorString = error instanceof Error ? error.message : String(error);
-      finalAlertMessage = t('criticalBackupError', { error: errorString || 'Unknown error occurred' });
+      const errorString =
+        error instanceof Error ? error.message : String(error);
+      finalAlertMessage = t('criticalBackupError', {
+        error: errorString || 'Unknown error occurred'
+      });
     } finally {
       // 6. Final Alert & State Reset
       console.log('[handleBackup] Entered FINALLY block.');
@@ -126,30 +130,28 @@ function DrawerItems() {
       setTimeout(() => {
         setSyncOperation(null);
       }, 1500);
-      
+
       // Ensure message isn't empty if something went wrong before catch block assignment
       if (!finalAlertMessage) {
-           finalAlertMessage = t('criticalBackupError', { error: 'Backup failed unexpectedly' });
+        finalAlertMessage = t('criticalBackupError', {
+          error: 'Backup failed unexpectedly'
+        });
       }
       Alert.alert(finalAlertTitle, finalAlertMessage);
     }
   };
 
   const confirmAndStartBackup = () => {
-    Alert.alert(
-      t('startBackupTitle'),
-      t('startBackupMessageAudioOnly'),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('backupAudioAction'),
-          onPress: () => void handleBackup(/* false */)
-        }
-      ]
-    );
+    Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('backupAudioAction'),
+        onPress: () => void (handleBackup(/* false */))
+      }
+    ]);
   };
 
   const handleRestore = () => {
@@ -159,7 +161,7 @@ function DrawerItems() {
       setSyncProgress(0);
       setSyncTotal(1); // Default until we know the total
     };
-    
+
     const onFinish = () => {
       setIsRestoring(false);
       // Set operation to null after a delay to allow seeing the final progress
@@ -167,39 +169,46 @@ function DrawerItems() {
         setSyncOperation(null);
       }, 1500);
     };
-    
+
     if (!currentUser?.id) {
       Alert.alert(t('error'), t('userNotLoggedIn'));
       return;
     }
 
-    void selectAndInitiateRestore(system, currentUser.id, t, onStart, onFinish, handleProgress);
+    void selectAndInitiateRestore(
+      system,
+      currentUser.id,
+      t,
+      onStart,
+      onFinish,
+      handleProgress
+    );
   };
 
   // Calculate progress percentage for the progress bar
   const progressPercentage = syncTotal > 0 ? syncProgress / syncTotal : 0;
   const isOperationActive = isBackingUp || isRestoring;
-  
+
   // Progress status text
   const getProgressText = () => {
     if (!syncOperation) return '';
-    
+
     if (syncProgress === syncTotal && syncTotal > 0) {
       return t('syncComplete');
     }
-    
+
     return t('syncProgress', { current: syncProgress, total: syncTotal });
   };
 
   return (
     <View style={styles.drawerItems}>
       {!systemReady && (
-        <View style={styles.initializingIndicator}> 
+        <View style={styles.initializingIndicator}>
           <ActivityIndicator size="small" color={colors.text} />
           <Text style={styles.initializingText}>{t('initializing')}...</Text>
         </View>
-      )} 
-      
+      )}
+
       {/* File sync progress indicator */}
       {syncOperation && (
         <View style={styles.syncProgressContainer}>
@@ -216,7 +225,7 @@ function DrawerItems() {
           <Text style={styles.syncProgressText}>{getProgressText()}</Text>
         </View>
       )}
-      
+
       {drawerItems.map((item, index) => (
         <Link href={item.path} key={index} asChild>
           <DrawerItem item={item} active={pathname === item.path} />
@@ -229,7 +238,7 @@ function DrawerItems() {
         }}
         onPress={confirmAndStartBackup}
         disabled={!systemReady || isOperationActive}
-        style={(!systemReady || isOperationActive) ? { opacity: 0.5 } : {}}
+        style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
       <DrawerItem
         item={{
@@ -238,14 +247,14 @@ function DrawerItems() {
         }}
         onPress={handleRestore}
         disabled={!systemReady || isOperationActive}
-        style={(!systemReady || isOperationActive) ? { opacity: 0.5 } : {}}
+        style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
           onPress={signOut}
           disabled={!systemReady || isOperationActive}
-          style={(!systemReady || isOperationActive) ? { opacity: 0.5 } : {}}
+          style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
         />
       )}
     </View>
@@ -411,7 +420,7 @@ function DrawerFooter() {
             </Text>
           </TouchableOpacity>
         </Fragment>
-        
+
         {activeQuest && (
           <Fragment>
             <Ionicons name="chevron-forward" size={14} color={colors.text} />
@@ -520,7 +529,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.medium, 
+    paddingVertical: spacing.medium,
     gap: spacing.small,
     opacity: 0.7
   },
