@@ -413,7 +413,8 @@ export default function AssetView() {
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
-          flex: 1
+          flex: 1,
+          minHeight: 100
         }}
       >
         {/* Gem or Pickaxe icon */}
@@ -624,32 +625,6 @@ export default function AssetView() {
                       onSelect={(value) => setSortOption(value as SortOption)}
                     />
                   </View>
-                  <TouchableOpacity
-                    style={styles.newTranslationButton}
-                    onPress={() => {
-                      setIsTranslationModalVisible(true);
-                      setTranslationModalType(TranslationModalType.AUDIO);
-                    }}
-                  >
-                    <MicrophoneIcon
-                      fill={colors.buttonText}
-                      width={24}
-                      height={24}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.newTranslationButton}
-                    onPress={() => {
-                      setIsTranslationModalVisible(true);
-                      setTranslationModalType(TranslationModalType.TEXT);
-                    }}
-                  >
-                    <KeyboardIcon
-                      fill={colors.buttonText}
-                      width={24}
-                      height={24}
-                    />
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -674,6 +649,29 @@ export default function AssetView() {
                 />
               </GestureHandlerRootView>
             </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 0 }}>
+            <TouchableOpacity
+              style={[
+                styles.newTranslationButton,
+                { flex: 1, backgroundColor: '#6545B6' }
+              ]}
+              onPress={() => {
+                setIsTranslationModalVisible(true);
+                setTranslationModalType(TranslationModalType.AUDIO);
+              }}
+            >
+              <MicrophoneIcon fill={colors.buttonText} width={24} height={24} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.newTranslationButton, { flex: 1 }]}
+              onPress={() => {
+                setIsTranslationModalVisible(true);
+                setTranslationModalType(TranslationModalType.TEXT);
+              }}
+            >
+              <KeyboardIcon fill={colors.buttonText} width={24} height={24} />
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
 
@@ -734,7 +732,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: spacing.medium // Add padding to the top
+    paddingTop: spacing.medium,
+    paddingBottom: spacing.medium
   },
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
@@ -759,6 +758,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium
   },
   assetViewer: {
+    minHeight: 250,
     flex: 1,
     width: '100%'
   },
@@ -810,8 +810,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.medium,
-    height: 50,
-    borderRadius: borderRadius.medium
+    height: 50
+    // borderRadius: borderRadius.medium
   },
   newTranslationButtonText: {
     color: colors.buttonText,

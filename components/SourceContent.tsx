@@ -22,7 +22,6 @@ export const SourceContent: React.FC<SourceContentProps> = ({
   audioUri,
   isLoading = false
 }) => {
-  console.log('content124', { content, sourceLanguage, audioUri, isLoading });
   return (
     <View style={styles.container}>
       <ScrollView>
@@ -57,7 +56,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.medium,
     paddingBottom: spacing.large,
     marginHorizontal: spacing.small,
-    maxHeight: 200
+    maxHeight: 300
     // width: '100%',
     // flex: 1,
     // justifyContent: 'space-between'
