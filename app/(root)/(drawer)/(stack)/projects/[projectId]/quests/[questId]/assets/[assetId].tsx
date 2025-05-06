@@ -1,5 +1,5 @@
+import CalendarIcon from '@/components/CalendarIcon';
 import Carousel from '@/components/Carousel';
-import { CustomDropdown } from '@/components/CustomDropdown';
 import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
@@ -8,6 +8,7 @@ import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
 import { SourceContent } from '@/components/SourceContent';
+import ThumbsUpIcon from '@/components/ThumbsUpIcon';
 import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -601,7 +603,7 @@ export default function AssetView() {
 
             <View style={styles.horizontalLine} />
 
-            <View
+            <ScrollView
               style={[
                 styles.translationsContainer,
                 { height: translationsContainerHeight }
@@ -614,8 +616,8 @@ export default function AssetView() {
                     { gap: 12, flexDirection: 'row', alignItems: 'center' }
                   ]}
                 >
-                  <View style={styles.dropdownContainer}>
-                    <CustomDropdown
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {/* <CustomDropdown
                       // label={t('sortBy')}
                       value={sortOption}
                       options={[
@@ -623,7 +625,31 @@ export default function AssetView() {
                         { label: t('date'), value: 'dateSubmitted' }
                       ]}
                       onSelect={(value) => setSortOption(value as SortOption)}
-                    />
+                    /> */}
+                    <TouchableOpacity
+                      style={[]}
+                      onPress={() => {
+                        setSortOption('voteCount');
+                      }}
+                    >
+                      <ThumbsUpIcon
+                        fill={colors.buttonText}
+                        width={24}
+                        height={24}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[]}
+                      onPress={() => {
+                        setSortOption('dateSubmitted');
+                      }}
+                    >
+                      <CalendarIcon
+                        fill={colors.buttonText}
+                        width={24}
+                        height={24}
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -648,9 +674,9 @@ export default function AssetView() {
                   style={styles.translationsList}
                 />
               </GestureHandlerRootView>
-            </View>
+            </ScrollView>
           </View>
-          <View style={{ flexDirection: 'row', gap: 0 }}>
+          <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity
               style={[
                 styles.newTranslationButton,
@@ -695,7 +721,7 @@ export default function AssetView() {
               translationType={translationModalType}
               assetContent={assetContent[activeTab === 'text' ? 0 : 1]!}
               sourceLanguage={sourceLanguage}
-              // targetLanguage={targetLanguage}
+              // targetLanguage={targetLanguage}z
               attachmentUris={attachmentUris}
               loadingAttachments={loadingAttachments}
             />
@@ -731,9 +757,9 @@ const styles = StyleSheet.create({
     opacity: 0.5
   },
   content: {
-    flex: 1,
-    paddingTop: spacing.medium,
-    paddingBottom: spacing.medium
+    flex: 1
+    // paddingTop: spacing.medium,
+    // paddingBottom: spacing.medium
   },
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
