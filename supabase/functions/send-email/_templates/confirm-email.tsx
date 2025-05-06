@@ -6,8 +6,8 @@ import {
   Html,
   Link,
   Preview,
-  Text,
-  Tailwind
+  Tailwind,
+  Text
 } from 'npm:@react-email/components';
 
 import * as React from 'npm:react';
@@ -22,7 +22,7 @@ export const ConfirmEmail = ({
   ui_language = 'en'
 }: ConfirmEmailProps) => {
   // Translations
-  const translations = {
+  const localizations = {
     en: {
       preview: 'Confirm your LangQuest account',
       title: 'Confirm Your Account',
@@ -53,7 +53,8 @@ export const ConfirmEmail = ({
   };
 
   const t =
-    translations[ui_language as keyof typeof translations] || translations.en;
+    localizations[ui_language as keyof typeof localizations] ||
+    localizations.en;
 
   return (
     <Html>
