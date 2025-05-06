@@ -1,7 +1,8 @@
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { translationService } from '@/database_services/translationService';
 import { useSystem } from '@/contexts/SystemContext';
+import { translationService } from '@/database_services/translationService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
+  const { stopCurrentSound } = useAudio();
   const system = useSystem();
   const [translationText, setTranslationText] = useState('');
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -91,6 +93,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
+    // Stop any playing audio when modal closes
+    void stopCurrentSound();
+
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {

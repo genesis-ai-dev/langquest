@@ -1,3 +1,4 @@
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Translation } from '@/database_services/translationService';
 import { translationService } from '@/database_services/translationService';
@@ -40,6 +41,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
+  const { stopCurrentSound } = useAudio();
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentVoteType] = useState<'up' | 'down'>('up');
@@ -214,11 +216,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     setIsEditing(!isEditing);
   };
 
+  // Handle closing the modal
+  const handleClose = () => {
+    // Stop any playing audio when the modal closes
+    void stopCurrentSound();
+    onClose();
+  };
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.overlay} onPress={onClose} />
+      <TouchableOpacity style={styles.overlay} onPress={handleClose} />
       <View style={styles.modal}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
 
