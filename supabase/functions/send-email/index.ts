@@ -1,11 +1,10 @@
-import React from 'npm:react';
-import { Webhook } from 'npm:standardwebhooks';
-import { Resend } from 'npm:resend';
 import { renderAsync } from 'npm:@react-email/components';
 import { createClient } from 'npm:@supabase/supabase-js';
+import React from 'npm:react';
+import { Resend } from 'npm:resend';
+import { Webhook } from 'npm:standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
-import { getISO2Language } from './_utils/iso-converter.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
 const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
@@ -55,11 +54,11 @@ Deno.serve(async (req) => {
 
     const { data: language } = await supabase
       .from('language')
-      .select('iso639_3')
+      .select('locale')
       .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
       .single();
 
-    const ui_language = getISO2Language(language?.iso639_3 ?? 'eng');
+    const ui_language = language?.locale ?? 'en';
 
     const parsedRedirectTo = new URL(redirect_to);
     const confirmation_url = `${site_url}${
