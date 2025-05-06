@@ -1,8 +1,9 @@
-import React, { useState, useRef, ReactNode } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import PagerView from 'react-native-pager-view';
 import { borderRadius, colors, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import PagerView from 'react-native-pager-view';
 
 interface CarouselProps<T> {
   items: T[];
@@ -14,11 +15,9 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
   const [currentPage, setCurrentPage] = useState(0);
   const pagerRef = useRef<PagerView>(null);
 
-  if (!items || items.length === 0) {
-    return null;
-  }
+  if (items.length === 0) return null;
 
-  const handlePageChange = (e: any) => {
+  const handlePageChange = (e: { nativeEvent: { position: number } }) => {
     const newPage = e.nativeEvent.position;
     setCurrentPage(newPage);
     if (onPageChange) {

@@ -6,8 +6,8 @@ import {
   Html,
   Link,
   Preview,
-  Text,
-  Tailwind
+  Tailwind,
+  Text
 } from 'npm:@react-email/components';
 
 import * as React from 'npm:react';
@@ -22,7 +22,7 @@ export const ConfirmEmail = ({
   ui_language = 'en'
 }: ConfirmEmailProps) => {
   // Translations
-  const translations = {
+  const localizations = {
     en: {
       preview: 'Confirm your LangQuest account',
       title: 'Confirm Your Account',
@@ -49,11 +49,21 @@ export const ConfirmEmail = ({
       button: 'Confirmer le compte',
       orCopy: 'Ou copiez et collez ce lien dans votre navigateur :',
       expiry: 'Ce lien expirera dans 24 heures.'
+    },
+    'pt-BR': {
+      preview: 'Confirme sua conta LangQuest',
+      title: 'Confirme Sua Conta',
+      description:
+        'Siga este link para confirmar sua conta e completar seu registro:',
+      button: 'Confirmar Conta',
+      orCopy: 'Ou você pode copiar e colar este link no seu navegador:',
+      expiry: 'Este link vai expirar em 24 horas.'
     }
   };
 
   const t =
-    translations[ui_language as keyof typeof translations] || translations.en;
+    localizations[ui_language as keyof typeof localizations] ||
+    localizations.en;
 
   return (
     <Html>

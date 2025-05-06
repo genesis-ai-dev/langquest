@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 
+import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { SystemProvider } from '@/contexts/SystemContext';
@@ -71,20 +72,22 @@ export default function RootLayout() {
     <SystemProvider>
       <LanguageProvider>
         <AuthProvider>
-          <QueryProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false
-              }}
-            >
-              <Stack.Screen
-                name="terms"
-                options={{
-                  presentation: 'modal'
+          <AudioProvider>
+            <QueryProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false
                 }}
-              />
-            </Stack>
-          </QueryProvider>
+              >
+                <Stack.Screen
+                  name="terms"
+                  options={{
+                    presentation: 'modal'
+                  }}
+                />
+              </Stack>
+            </QueryProvider>
+          </AudioProvider>
         </AuthProvider>
       </LanguageProvider>
     </SystemProvider>

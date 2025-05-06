@@ -6,8 +6,8 @@ import {
   Html,
   Link,
   Preview,
-  Text,
-  Tailwind
+  Tailwind,
+  Text
 } from 'npm:@react-email/components';
 import * as React from 'npm:react';
 
@@ -56,6 +56,17 @@ export const ResetPassword = ({
       button: 'Réinitialiser le mot de passe',
       orCopy: 'Ou copiez et collez ce lien dans votre navigateur :',
       expiry: 'Ce lien expirera dans 24 heures.'
+    },
+    'pt-BR': {
+      preview: 'Redefina sua senha do LangQuest',
+      title: 'Redefinir Sua Senha',
+      greeting: 'Olá,',
+      description:
+        'Alguém solicitou uma redefinição de senha para sua conta do LangQuest. Se não foi você, por favor ignore este email.',
+      instruction: 'Clique no botão abaixo para redefinir sua senha:',
+      button: 'Redefinir Senha',
+      orCopy: 'Ou copie e cole este link no seu navegador:',
+      expiry: 'Este link vai expirar em 24 horas.'
     }
   };
 

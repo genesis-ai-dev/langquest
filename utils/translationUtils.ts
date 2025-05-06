@@ -1,6 +1,6 @@
 import { languageService } from '@/database_services/languageService';
-import type { SupportedLanguage } from '@/services/translations';
-import { translations } from '@/services/translations';
+import type { SupportedLanguage } from '@/services/localizations';
+import { localizations } from '@/services/localizations';
 
 export class TranslationUtils {
   private static currentLanguage: SupportedLanguage = 'english';
@@ -13,17 +13,17 @@ export class TranslationUtils {
           language.english_name.toLowerCase() as SupportedLanguage;
       }
     } catch (error) {
-      console.error('Error initializing translations:', error);
+      console.error('Error initializing localizations:', error);
     }
   }
 
-  static t(key: keyof typeof translations) {
-    const translation = translations[key];
-    if (!translation) {
-      console.warn(`Translation key "${key}" not found`);
+  static t(key: keyof typeof localizations) {
+    const localization = localizations[key];
+    if (!localization) {
+      console.warn(`Localization key "${key}" not found`);
       return key;
     }
-    return translation[this.currentLanguage];
+    return localization[this.currentLanguage];
   }
 
   static formatMessage(

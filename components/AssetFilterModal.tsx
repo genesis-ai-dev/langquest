@@ -81,14 +81,31 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
         if (option) sections[heading]!.add(option);
       });
 
-    return Object.entries(sections).map(([heading, options]) => ({
-      id: heading.toLowerCase(),
-      heading,
-      options: Array.from(options).map((option) => ({
-        id: `${heading.toLowerCase()}:${option.toLowerCase()}`,
-        label: option
-      }))
-    }));
+    return Object.entries(sections).map(([heading, options]) => {
+      // Convert options to array and sort them properly
+      const sortedOptions = Array.from(options).sort((a, b) => {
+        // Check if both values can be parsed as numbers
+        const numA = parseInt(a, 10);
+        const numB = parseInt(b, 10);
+
+        if (!isNaN(numA) && !isNaN(numB)) {
+          // Numeric sort
+          return numA - numB;
+        } else {
+          // Alphabetical sort
+          return a.localeCompare(b);
+        }
+      });
+
+      return {
+        id: heading.toLowerCase(),
+        heading,
+        options: sortedOptions.map((option) => ({
+          id: `${heading.toLowerCase()}:${option.toLowerCase()}`,
+          label: option
+        }))
+      };
+    });
   }, [assetTags]);
 
   const sortingFields = useMemo(() => {

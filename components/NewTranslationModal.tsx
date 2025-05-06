@@ -1,3 +1,4 @@
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
@@ -53,6 +54,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
+  const { stopCurrentSound } = useAudio();
   const system = useSystem();
   const [translationText, setTranslationText] = useState('');
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -109,6 +111,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   }
 
   async function handleClose() {
+    // Stop any playing audio when modal closes
+    void stopCurrentSound();
+
     if (audioUri) {
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
       if (fileInfo.exists) {

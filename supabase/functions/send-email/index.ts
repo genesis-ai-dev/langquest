@@ -1,17 +1,32 @@
-import React from 'npm:react';
-import { Webhook } from 'npm:standardwebhooks';
-import { Resend } from 'npm:resend';
 import { renderAsync } from 'npm:@react-email/components';
 import { createClient } from 'npm:@supabase/supabase-js';
+import React from 'npm:react';
+import { Resend } from 'npm:resend';
+import { Webhook } from 'npm:standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
-import { getISO2Language } from './_utils/iso-converter.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
 const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Email subject translations
+const emailSubjects = {
+  signup: {
+    en: 'Confirm Your LangQuest Account',
+    es: 'Confirma tu cuenta de LangQuest',
+    fr: 'Confirmez votre compte LangQuest',
+    'pt-BR': 'Confirme sua conta LangQuest'
+  },
+  recovery: {
+    en: 'Reset Your LangQuest Password',
+    es: 'Restablece tu contraseña de LangQuest',
+    fr: 'Réinitialisez votre mot de passe LangQuest',
+    'pt-BR': 'Redefina sua senha do LangQuest'
+  }
+};
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
@@ -55,11 +70,11 @@ Deno.serve(async (req) => {
 
     const { data: language } = await supabase
       .from('language')
-      .select('iso639_3')
+      .select('locale')
       .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
       .single();
 
-    const ui_language = getISO2Language(language?.iso639_3 ?? 'eng');
+    const ui_language = language?.locale ?? 'en';
 
     const parsedRedirectTo = new URL(redirect_to);
     const confirmation_url = `${site_url}${
@@ -85,11 +100,9 @@ Deno.serve(async (req) => {
         html = await renderAsync(emailComponent);
         text = await renderAsync(emailComponent, { plainText: true });
         subject =
-          ui_language === 'es'
-            ? 'Confirma tu cuenta de LangQuest'
-            : ui_language === 'fr'
-              ? 'Confirmez votre compte LangQuest'
-              : 'Confirm Your LangQuest Account';
+          emailSubjects.signup[
+            ui_language as keyof typeof emailSubjects.signup
+          ] || emailSubjects.signup.en;
         break;
       }
       case 'recovery': {
@@ -101,11 +114,9 @@ Deno.serve(async (req) => {
         html = await renderAsync(resetPasswordComponent);
         text = await renderAsync(resetPasswordComponent, { plainText: true });
         subject =
-          ui_language === 'es'
-            ? 'Restablece tu contraseña de LangQuest'
-            : ui_language === 'fr'
-              ? 'Réinitialisez votre mot de passe LangQuest'
-              : 'Reset Your LangQuest Password';
+          emailSubjects.recovery[
+            ui_language as keyof typeof emailSubjects.recovery
+          ] || emailSubjects.recovery.en;
         break;
       }
       default:
