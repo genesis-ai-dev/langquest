@@ -122,16 +122,16 @@ export async function backupUnsyncedAudio(
                 const timestamp = Date.now();
                 const backupFileName = `${assetId}_${baseAudioId}_${timestamp}.${extension}`;
                 const backupFileUri = await StorageAccessFramework.createFileAsync(
-                  baseDirectoryUri,
-                  backupFileName,
+                    baseDirectoryUri,
+                    backupFileName,
                   'audio/aac'
                 );
                 // Read source file content as Base64 and write it under the new name
                 const fileContentBase64 = await FileSystem.readAsStringAsync(sourceUri, {
-                  encoding: FileSystem.EncodingType.Base64,
+                    encoding: FileSystem.EncodingType.Base64,
                 });
                 await FileSystem.writeAsStringAsync(backupFileUri, fileContentBase64, {
-                  encoding: FileSystem.EncodingType.Base64,
+                    encoding: FileSystem.EncodingType.Base64,
                 });
                 count++;
                 onProgress?.(index + 1, totalFiles);

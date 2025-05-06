@@ -1,15 +1,15 @@
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
-import { Alert, Platform, AlertButton } from 'react-native';
+import { Alert, Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import { requestBackupDirectory, ProgressCallback } from '@/utils/backupUtils';
 import type { System } from '@/db/powersync/system'; // actual System instance type
-import { project, quest, quest_asset_link, translation } from '@/db/drizzleSchema';
+import { translation } from '@/db/drizzleSchema'; // Removed unused project, quest, quest_asset_link
 import { eq } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
 import type { TranslationKey } from '@/services/translations';
-import type { InterpolationOptions } from 'node-polyglot';
+// Removed InterpolationOptions as node-polyglot is not a direct/typed dependency here or its types are missing
 
 // Removed Drizzle schema imports
 /*
@@ -42,14 +42,14 @@ async function getAudioAssetMapFromBackupDb(backupDb: SQLite.WebSQLDatabase): Pr
 */
 
 // Type for the translation function based on useTranslation hook
-type TFunction = (key: TranslationKey, options?: number | InterpolationOptions) => string;
+type TFunction = (key: TranslationKey, options?: Record<string, string | number> | number) => string;
 
 // Type for callbacks
-type RestoreCallbacks = {
+interface RestoreCallbacks {
   onStart?: () => void;
   onFinish?: () => void;
   onProgress?: ProgressCallback;
-};
+}
 
 // --- Main Restore Logic ---
 
@@ -88,9 +88,10 @@ export async function selectAndInitiateRestore(
         { text: t('cancel'), style: 'cancel', onPress: onFinish },
         {
           text: t('restoreAudioOnly'), // Button text confirms action
-          onPress: () => restoreFromBackup(
+          onPress: () => void restoreFromBackup(
             system,
             currentUserId, // Pass userId down
+            t, // Pass t function down
             directoryUri,
             { restoreDb: false, restoreAudio: true },
             { onStart: undefined, onFinish, onProgress }
@@ -100,9 +101,10 @@ export async function selectAndInitiateRestore(
       { cancelable: true, onDismiss: onFinish }
     );
 
-  } catch (error: any) {
-    console.error('[selectAndInitiateRestore] Error:', error);
-    Alert.alert(t('error'), t('failedRestore', { error: error.message }));
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[selectAndInitiateRestore] Error:', errorMessage);
+    Alert.alert(t('error'), t('failedRestore', { error: errorMessage }));
     onFinish?.();
   }
 }
@@ -113,6 +115,7 @@ export async function selectAndInitiateRestore(
 async function restoreFromBackup(
   system: System,
   currentUserId: string, // Add userId parameter
+  t: TFunction, // Add t parameter
   backupDirectoryUri: string,
   options: { restoreDb?: boolean; restoreAudio?: boolean } = { restoreDb: false, restoreAudio: true }, // Keep structure, but restoreDb is always false
   callbacks?: RestoreCallbacks
@@ -142,11 +145,13 @@ async function restoreFromBackup(
     console.log('[restoreFromBackup] Skipping database restore (audio-only).');
 
     // --- Audio Files Restore (Now the main part) ---
-    let audioCopied = 0, audioSkipped = 0; // Renamed audioSkipped for clarity
+    let audioCopied = 0, audioSkippedDueToError = 0, audioSkippedLocally = 0;
     if (options.restoreAudio) { // This will always be true now
       console.log('[restoreFromBackup] Starting audio file restore');
-      const localAttachmentsDir = (FileSystem.documentDirectory || '') + 'shared_attachments/'; // Target shared_attachments
-      try { await FileSystem.makeDirectoryAsync(localAttachmentsDir, { intermediates: true }); } catch {}
+      const localAttachmentsDir = (FileSystem.documentDirectory ?? '') + 'shared_attachments/'; // Target shared_attachments
+      try { await FileSystem.makeDirectoryAsync(localAttachmentsDir, { intermediates: true }); } catch (e) {
+        console.warn('[restoreFromBackup] Failed to ensure attachments directory, may already exist:', e instanceof Error ? e.message : String(e));
+      }
       
       // No need to filter out sqlite.db anymore, but filtering non-audio might be good?
       const totalFiles = fileUris.length;
@@ -158,20 +163,68 @@ async function restoreFromBackup(
         const encoded = fileUri.split('/').pop()!;
         const decodedSegment = decodeURIComponent(encoded);
         // Extract the actual filename after the last '/' if present
-        const fileName = decodedSegment.includes('/') 
+        const fileName = decodedSegment.includes('/')
           ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
           : decodedSegment;
 
-        // Extract the 36-char assetId UUID from the start of the filename
-        const fileBase = fileName.split('.')[0]; // Remove extensions
-        const idMatch = fileBase.match(/^([0-9a-fA-F-]{36})(?:_|-)/);
-        if (!idMatch) {
-          console.warn(`[restoreFromBackup] Could not parse assetId from filename: ${fileName}`);
-          audioSkipped++;
+        // 1. Extract Asset ID (first 36 chars, should be a UUID)
+        if (fileName.length < 36 + 1 + 1 + 1 + 1) { // assetId(36) + _ + baseId(1) + _ + timestamp(1) + . + ext(1)
+          console.warn(`[restoreFromBackup] Filename too short to be a valid backup: ${fileName}`);
+          audioSkippedDueToError++;
           callbacks?.onProgress?.(index + 1, totalFiles);
           continue;
         }
-        const assetIdFromFile = idMatch[1];
+        const assetIdFromFile = fileName.substring(0, 36);
+        if (fileName.charAt(36) !== '_') { // Check for underscore after assetId
+          console.warn(`[restoreFromBackup] Backup filename missing underscore after assetId: ${fileName}`);
+          audioSkippedDueToError++;
+          callbacks?.onProgress?.(index + 1, totalFiles);
+          continue;
+        }
+
+        // 2. Isolate the part after "assetId_" and before the original extension
+        const remainingAfterAssetId = fileName.substring(37);
+
+        let coreNamePart = remainingAfterAssetId;
+        const firstDotInRemaining = remainingAfterAssetId.indexOf('.');
+        if (firstDotInRemaining !== -1) {
+            coreNamePart = remainingAfterAssetId.substring(0, firstDotInRemaining);
+        }
+
+        const lastUnderscoreInCore = coreNamePart.lastIndexOf('_');
+        if (lastUnderscoreInCore === -1 || lastUnderscoreInCore === 0 || lastUnderscoreInCore === coreNamePart.length -1 ) {
+            console.warn(`[restoreFromBackup] Could not parse originalBaseAudioId and timestamp from: ${coreNamePart} in ${fileName}`);
+            audioSkippedDueToError++;
+            callbacks?.onProgress?.(index + 1, totalFiles);
+            continue;
+        }
+
+        const originalBaseAudioId = coreNamePart.substring(0, lastUnderscoreInCore);
+        // const timestampFromFile = coreNamePart.substring(lastUnderscoreInCore + 1); // Not strictly needed for local check
+
+        // 3. Extract Original Extension (ensure it defaults correctly if parsing fails)
+        let originalExtension = 'm4a'; // Default
+        const firstDotIndexInRemainingAfterAssetId = remainingAfterAssetId.indexOf('.');
+        if (firstDotIndexInRemainingAfterAssetId !== -1) {
+            const extensionsString = remainingAfterAssetId.substring(firstDotIndexInRemainingAfterAssetId + 1);
+            const firstExtPart = extensionsString.split('.')[0];
+            if (firstExtPart && firstExtPart.length > 0) { // Ensure it's a valid extension part
+              originalExtension = firstExtPart;
+            }
+        }
+
+        // Check if this audio is already logically linked as a translation for this asset
+        const originalAudioFullId = `${originalBaseAudioId}.${originalExtension}`;
+        const existingTranslation = await system.db.query.translation.findFirst({
+          where: (tr) => eq(tr.asset_id, assetIdFromFile) && eq(tr.audio, originalAudioFullId)
+        });
+
+        if (existingTranslation) {
+          console.log(`[restoreFromBackup] Translation with audio ID ${originalAudioFullId} already exists for asset ${assetIdFromFile}. Skipping restore.`);
+          audioSkippedLocally++;
+          callbacks?.onProgress?.(index + 1, totalFiles);
+          continue;
+        }
 
         try {
           // Use the passed-in userId
@@ -196,7 +249,7 @@ async function restoreFromBackup(
             where: (p) => eq(p.id, questRecord.project_id),
             columns: { target_language_id: true }
           });
-          if (!projectRecord || !projectRecord.target_language_id) {
+          if (!projectRecord?.target_language_id) {
             throw new Error(`Could not find target language for asset ${assetIdFromFile}`);
           }
           const targetLanguageId = projectRecord.target_language_id;
@@ -204,7 +257,7 @@ async function restoreFromBackup(
           const contentBase64 = await StorageAccessFramework.readAsStringAsync(fileUri, {
             encoding: FileSystem.EncodingType.Base64
           });
-          const tempFileUri = (FileSystem.cacheDirectory || '') + fileName;
+          const tempFileUri = (FileSystem.cacheDirectory ?? '') + fileName;
           await FileSystem.writeAsStringAsync(tempFileUri, contentBase64, {
             encoding: FileSystem.EncodingType.Base64
           });
@@ -219,28 +272,39 @@ async function restoreFromBackup(
             audio: attachmentRecord.id, // Use the new audio ID
             creator_id: creatorId,
             target_language_id: targetLanguageId,
-            text: '[Restored Audio]' // Placeholder text
+            // text: '[Restored Audio]' // Removed placeholder text
           });
           audioCopied++;
-        } catch (err: any) {
-          console.error(`[restoreFromBackup] Failed to restore audio ${fileName}:`, err);
-          audioSkipped++;
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error(`[restoreFromBackup] Failed to restore audio ${fileName}:`, errorMessage);
+          audioSkippedDueToError++;
         }
         callbacks?.onProgress?.(index + 1, totalFiles);
       }
-      console.log(`[restoreFromBackup] Audio restore completed: ${audioCopied} copied, ${audioSkipped} skipped.`);
+      console.log(`[restoreFromBackup] Audio restore completed: ${audioCopied} copied, ${audioSkippedDueToError} skipped due to errors, ${audioSkippedLocally} skipped (local).`);
     } else {
       // This block should technically not be reachable if options.restoreAudio is always true
       console.log('[restoreFromBackup] Audio files restore skipped? (This shouldn\'t happen)')
     }
     
-    // Simplified completion message
-    const completeMessage = `Audio files: ${audioCopied} restored, ${audioSkipped} skipped.`;
+    let completeMessage = t('restoreCompleteBase', { 
+      audioCopied: audioCopied.toString(), 
+      audioSkippedDueToError: audioSkippedDueToError.toString() 
+    });
+
+    if (audioSkippedLocally > 0) {
+      const locallySkippedMessage = t('restoreSkippedLocallyPart', { 
+        audioSkippedLocally: audioSkippedLocally.toString() 
+      });
+      completeMessage += ` ${locallySkippedMessage}`;
+    }
     
-    Alert.alert('Restore Complete', completeMessage);
-  } catch (error: any) {
-    console.error('[restoreFromBackup] Error during restore:', error);
-    Alert.alert('Restore Failed', `An error occurred: ${error.message}`);
+    Alert.alert(t('restoreCompleteTitle'), completeMessage);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[restoreFromBackup] Error during restore:', errorMessage);
+    Alert.alert(t('restoreFailedTitle', { error: errorMessage }));
   } finally {
     // Cleanup temp DB file (removed)
     /*

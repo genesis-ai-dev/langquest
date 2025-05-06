@@ -589,6 +589,26 @@ export const translations: Record<string, TranslationSet> = {
     english: 'Initializing',
     spanish: 'Inicializando'
   },
+  userNotLoggedIn: {
+    english: 'User not logged in. Please log in to continue.',
+    spanish: 'Usuario no autenticado. Por favor, inicie sesión para continuar.'
+  },
+  restoreCompleteTitle: {
+    english: 'Restore Complete',
+    spanish: 'Restauración Completa'
+  },
+  restoreCompleteBase: {
+    english: 'Audio files: {{audioCopied}} restored, {{audioSkippedDueToError}} skipped due to errors.',
+    spanish: 'Archivos de audio: {{audioCopied}} restaurados, {{audioSkippedDueToError}} omitidos por errores.'
+  },
+  restoreSkippedLocallyPart: {
+    english: '{{audioSkippedLocally}} skipped as they already exist locally.',
+    spanish: '{{audioSkippedLocally}} omitidos por ya existir localmente.'
+  },
+  restoreFailedTitle: {
+    english: 'Restore Failed',
+    spanish: 'Restauración Fallida'
+  },
   // Re-added keys needed elsewhere
   offlineUndownloadWarning: {
     english: 'Offline Undownload Warning',
