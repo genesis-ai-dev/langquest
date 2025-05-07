@@ -8,18 +8,6 @@ const IS_PREVIEW = process.env.EXPO_PUBLIC_APP_VARIANT === 'preview';
 
 const siteHost = 'langquest.org';
 
-const getSlug = () => {
-  if (IS_DEV) {
-    return 'langquest-dev';
-  }
-
-  if (IS_PREVIEW) {
-    return 'langquest-preview';
-  }
-
-  return 'langquest';
-};
-
 const getUniqueIdentifier = () => {
   if (IS_DEV) {
     return 'com.etengenesis.langquest.dev';
@@ -48,7 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
   name: getAppName(),
-  slug: getSlug(),
+  slug: 'langquest',
   version: '1.0.0',
   orientation: 'portrait',
   icon: iconPath,
