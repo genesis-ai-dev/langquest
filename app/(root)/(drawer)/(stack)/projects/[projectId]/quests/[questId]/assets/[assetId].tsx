@@ -1,10 +1,19 @@
+import CalendarIcon from '@/components/CalendarIcon';
 import Carousel from '@/components/Carousel';
-import { CustomDropdown } from '@/components/CustomDropdown';
+import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
-import MiniAudioPlayer from '@/components/MiniAudioPlayer';
+import KeyboardIcon from '@/components/KeyboardIcon';
+import MicrophoneIcon from '@/components/MicrophoneIcon';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
+import { PendingCount } from '@/components/PendingCount';
+import { PickaxeCount } from '@/components/PickaxeCount';
+import PickaxeIcon from '@/components/PickaxeIcon';
+import { SourceContent } from '@/components/SourceContent';
+import { SuccessCount } from '@/components/SuccessCount';
+import ThumbsUpIcon from '@/components/ThumbsUpIcon';
 import { TranslationModal } from '@/components/TranslationModal';
+import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
@@ -20,6 +29,7 @@ import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
@@ -28,6 +38,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -81,14 +92,24 @@ export default function AssetView() {
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslation, setSelectedTranslation] =
     useState<Translation | null>(null);
-  const [isNewTranslationModalVisible, setIsNewTranslationModalVisible] =
+
+  enum TranslationModalType {
+    TEXT = 'text',
+    AUDIO = 'audio'
+  }
+  const [translationModalType, setTranslationModalType] =
+    useState<TranslationModalType>(TranslationModalType.TEXT);
+  const [isTranslationModalVisible, setIsTranslationModalVisible] =
     useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
+  // const [targetLanguage, setTargetLanguage] = useState<
+  //   typeof language.$inferSelect | null
+  // >(null);
   const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[] | undefined>
+    Record<string, Vote[]>
   >({});
   const [translationCreators, setTranslationCreators] = useState<
     Record<string, Profile | undefined>
@@ -238,28 +259,6 @@ export default function AssetView() {
     }
   };
 
-  const handleVote = async (
-    translation_id: string,
-    polarity: 'up' | 'down'
-  ) => {
-    if (!currentUser) {
-      Alert.alert('Error', t('logInToVote'));
-      return;
-    }
-
-    try {
-      await voteService.addVote({
-        translation_id,
-        creator_id: currentUser.id,
-        polarity
-      });
-      await loadAssetAndTranslations(); // Reload to get updated vote counts
-    } catch (error) {
-      console.error('Error voting:', error);
-      Alert.alert('Error', t('failedToVote'));
-    }
-  };
-
   const handleNewTranslation = async () => {
     try {
       await loadAssetAndTranslations();
@@ -286,7 +285,7 @@ export default function AssetView() {
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
-    const votes = translationVotes[translationId] ?? [];
+    const votes: Vote[] = translationVotes[translationId] ?? [];
     const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
 
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
@@ -384,10 +383,17 @@ export default function AssetView() {
   }: {
     item: Translation;
   }) => {
-    const votes = translationVotes[translation.id];
+    const votes: Vote[] = translationVotes[translation.id] ?? [];
     const creator = translationCreators[translation.creator_id];
     const targetLanguage = translationLanguages[translation.target_language_id];
-    const voteCount = calculateVoteCount(votes ?? []);
+    const voteCount = calculateVoteCount(votes);
+    if (!currentUser) {
+      return null;
+    }
+    const gemColor = getGemColor(translation, votes, currentUser.id);
+    if (gemColor === null) {
+      return null;
+    }
     debug('asset translation', {
       translationCreators,
       translationLanguages,
@@ -396,49 +402,114 @@ export default function AssetView() {
       targetLanguage,
       voteCount
     });
+
+    const translationHasAudio = !!translation.audio;
+    const audioIconOpacity = translationHasAudio ? 1 : 0.5;
+
+    const translationHasText = !!translation.text;
+    const textIconOpacity = translationHasText ? 1 : 0.5;
+
+    debug('translationHasAudio', { translationHasAudio });
+    debug('translationHasText', { translationHasText });
+
     return (
-      <TouchableOpacity
-        style={styles.translationCard}
-        onPress={() => setSelectedTranslation(translation)}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          flex: 1,
+          minHeight: 100
+        }}
       >
-        <View style={styles.translationCardContent}>
-          <View style={styles.translationCardLeft}>
-            <Text style={styles.translationPreview} numberOfLines={2}>
-              {getPreviewText(translation.text ?? '')}
-            </Text>
-            <Text style={styles.translatorInfo}>
-              {currentUser && currentUser.id === translation.creator_id
-                ? `${creator?.username} => `
-                : ''}
-              {targetLanguage &&
-                (targetLanguage.native_name ?? targetLanguage.english_name)}
-            </Text>
-          </View>
-          <View style={styles.translationCardRight}>
-            <View style={styles.voteContainer}>
-              <TouchableOpacity
-                onPress={() => handleVote(translation.id, 'up')}
+        {/* Gem or Pickaxe icon */}
+        {gemColor === colors.alert ? (
+          <PickaxeIcon color={gemColor} width={20} height={20} />
+        ) : (
+          <GemIcon color={gemColor} width={20} height={20} />
+        )}
+        <TouchableOpacity
+          style={[styles.translationCard, { flex: 1 }]}
+          onPress={() => setSelectedTranslation(translation)}
+        >
+          <View
+            style={[
+              styles.translationCardContent,
+              { gap: 12, alignItems: 'center', flex: 1 }
+            ]}
+          >
+            {translationHasAudio && (
+              <WaveformIcon
+                color={colors.text}
+                width={translationHasText ? 30 : 80}
+                opacity={audioIconOpacity}
+              />
+            )}
+            <View style={styles.translationCardLeft}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
               >
+                <Text style={styles.translationPreview} numberOfLines={2}>
+                  {getPreviewText(translation.text ?? '')}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.translationCardRight}>
+              <View style={styles.voteContainer}>
                 <Ionicons
                   name={getVoteIconName(translation.id, 'up')}
                   size={16}
                   color={colors.text}
                 />
-              </TouchableOpacity>
-              <Text style={styles.voteCount}>{voteCount}</Text>
-              <TouchableOpacity
-                onPress={() => handleVote(translation.id, 'down')}
-              >
+                <Text style={styles.voteCount}>{voteCount}</Text>
                 <Ionicons
                   name={getVoteIconName(translation.id, 'down')}
                   size={16}
                   color={colors.text}
                 />
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'column', gap: 6 }}>
+          <View
+            style={{
+              flexDirection: 'column',
+              // gap: 8,
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            <MicrophoneIcon
+              fill={colors.text}
+              opacity={audioIconOpacity}
+              width={16}
+              height={16}
+            />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 10,
+                opacity: audioIconOpacity
+              }}
+            >
+              {'00:00'}
+            </Text>
+          </View>
+          <View
+            style={{
+              flexDirection: 'column',
+              // gap: 8,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: textIconOpacity
+            }}
+          >
+            <KeyboardIcon fill={colors.text} width={16} height={16} />
+            <Text style={{ color: colors.text, fontSize: 10 }}>...</Text>
+          </View>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -506,63 +577,16 @@ export default function AssetView() {
                         items={assetContent}
                         renderItem={(content) => {
                           return (
-                            <View style={styles.sourceTextContainer}>
-                              <View>
-                                <Text style={styles.source_languageLabel}>
-                                  {sourceLanguage?.native_name ??
-                                    sourceLanguage?.english_name}
-                                  :
-                                </Text>
-                                <Text style={styles.sourceText}>
-                                  {content.text}
-                                </Text>
-                              </View>
-
-                              {content.audio_id &&
-                              attachmentUris[content.audio_id]
-                                ? // Audio player is rendered
-                                  (() => {
-                                    return (
-                                      <MiniAudioPlayer
-                                        audioFile={{
-                                          id: content.id,
-                                          title: content.text,
-                                          uri: attachmentUris[content.audio_id]!
-                                        }}
-                                      />
-                                    );
-                                  })()
-                                : content.audio_id && loadingAttachments
-                                  ? // Showing loading indicator
-                                    (() => {
-                                      return (
-                                        <View style={styles.audioLoading}>
-                                          <Text
-                                            style={{
-                                              color: colors.textSecondary
-                                            }}
-                                          >
-                                            Loading audio...
-                                          </Text>
-                                          <ActivityIndicator size="small" />
-                                        </View>
-                                      );
-                                    })()
-                                  : // Not showing audio player or loading indicator
-                                    (() => {
-                                      console.log(
-                                        `[AssetView] No audio player/loader for ${content.id}:`,
-                                        {
-                                          audioId: content.audio_id,
-                                          hasUri: content.audio_id
-                                            ? !!attachmentUris[content.audio_id]
-                                            : false,
-                                          loadingAttachments
-                                        }
-                                      );
-                                      return null;
-                                    })()}
-                            </View>
+                            <SourceContent
+                              content={content}
+                              sourceLanguage={sourceLanguage}
+                              audioUri={
+                                content.audio_id
+                                  ? attachmentUris[content.audio_id]
+                                  : null
+                              }
+                              isLoading={loadingAttachments}
+                            />
                           );
                         }}
                       />
@@ -582,34 +606,101 @@ export default function AssetView() {
 
             <View style={styles.horizontalLine} />
 
-            <View
-              style={[
-                styles.translationsContainer,
-                { height: translationsContainerHeight }
-              ]}
-            >
+            <ScrollView style={[{ height: translationsContainerHeight }]}>
               <View style={styles.translationHeader}>
-                <View style={styles.alignmentContainer}>
-                  <View style={styles.dropdownContainer}>
-                    <CustomDropdown
-                      label={t('sortBy')}
-                      value={sortOption}
-                      options={[
-                        { label: t('votes'), value: 'voteCount' },
-                        { label: t('date'), value: 'dateSubmitted' }
-                      ]}
-                      onSelect={(value) => setSortOption(value as SortOption)}
+                <View
+                  style={[
+                    styles.alignmentContainer,
+                    { gap: 12, flexDirection: 'row', alignItems: 'center' }
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <SuccessCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.success;
+                        }).length
+                      }
+                    />
+                    <PendingCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.textSecondary;
+                        }).length
+                      }
+                    />
+
+                    <PickaxeCount
+                      count={
+                        translations.filter((translation) => {
+                          const votes = translationVotes[translation.id] ?? [];
+                          const gemColor = getGemColor(
+                            translation,
+                            votes,
+                            currentUser?.id ?? null
+                          );
+                          return gemColor === colors.alert;
+                        }).length
+                      }
                     />
                   </View>
-                  <TouchableOpacity
-                    style={styles.newTranslationButton}
-                    onPress={() => setIsNewTranslationModalVisible(true)}
-                  >
-                    <Ionicons name="add" size={24} color={colors.buttonText} />
-                    <Text style={styles.newTranslationButtonText}>
-                      {t('newTranslation')}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={[{ flexDirection: 'row', gap: 8 }]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.sortButton,
+                        styles.sortButtonBorder,
+                        sortOption === 'voteCount' && styles.sortButtonSelected
+                      ]}
+                      onPress={() => {
+                        setSortOption('voteCount');
+                      }}
+                    >
+                      <ThumbsUpIcon
+                        stroke={
+                          sortOption === 'voteCount'
+                            ? colors.background
+                            : colors.buttonText
+                        }
+                        fill={colors.buttonText}
+                        width={16}
+                        height={16}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.sortButton,
+                        styles.sortButtonBorder,
+                        sortOption === 'dateSubmitted' &&
+                          styles.sortButtonSelected
+                      ]}
+                      onPress={() => {
+                        setSortOption('dateSubmitted');
+                      }}
+                    >
+                      <CalendarIcon
+                        stroke={
+                          sortOption === 'dateSubmitted'
+                            ? colors.background
+                            : colors.buttonText
+                        }
+                        fill={colors.buttonText}
+                        width={16}
+                        height={16}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -633,7 +724,30 @@ export default function AssetView() {
                   style={styles.translationsList}
                 />
               </GestureHandlerRootView>
-            </View>
+            </ScrollView>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity
+              style={[
+                styles.newTranslationButton,
+                { flex: 1, backgroundColor: '#6545B6' }
+              ]}
+              onPress={() => {
+                setIsTranslationModalVisible(true);
+                setTranslationModalType(TranslationModalType.AUDIO);
+              }}
+            >
+              <MicrophoneIcon fill={colors.buttonText} width={24} height={24} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.newTranslationButton, { flex: 1 }]}
+              onPress={() => {
+                setIsTranslationModalVisible(true);
+                setTranslationModalType(TranslationModalType.TEXT);
+              }}
+            >
+              <KeyboardIcon fill={colors.buttonText} width={24} height={24} />
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
 
@@ -646,12 +760,22 @@ export default function AssetView() {
           />
         )}
 
-        <NewTranslationModal
-          isVisible={isNewTranslationModalVisible}
-          onClose={() => setIsNewTranslationModalVisible(false)}
-          onSubmit={handleNewTranslation}
-          asset_id={assetId}
-        />
+        {isTranslationModalVisible &&
+          assetContent &&
+          assetContent.length > 0 && (
+            <NewTranslationModal
+              isVisible={isTranslationModalVisible}
+              onClose={() => setIsTranslationModalVisible(false)}
+              onSubmit={handleNewTranslation}
+              asset_id={assetId}
+              translationType={translationModalType}
+              assetContent={assetContent[activeTab === 'text' ? 0 : 1]!}
+              sourceLanguage={sourceLanguage}
+              // targetLanguage={targetLanguage}z
+              attachmentUris={attachmentUris}
+              loadingAttachments={loadingAttachments}
+            />
+          )}
       </LinearGradient>
     </GestureHandlerRootView>
   );
@@ -683,8 +807,9 @@ const styles = StyleSheet.create({
     opacity: 0.5
   },
   content: {
-    flex: 1,
-    paddingTop: spacing.medium // Add padding to the top
+    flex: 1
+    // paddingTop: spacing.medium,
+    // paddingBottom: spacing.medium
   },
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
@@ -709,6 +834,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium
   },
   assetViewer: {
+    minHeight: 250,
     flex: 1,
     width: '100%'
   },
@@ -736,15 +862,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  translationsContainer: {
-    // flex: 1,
-  },
   translationsList: {
-    padding: spacing.medium
+    paddingHorizontal: spacing.large,
+    paddingBottom: spacing.medium,
+    paddingTop: spacing.medium
   },
   translationHeader: {
-    paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium
+    paddingHorizontal: spacing.large
   },
   alignmentContainer: {
     flexDirection: 'row',
@@ -752,8 +876,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end'
   },
   dropdownContainer: {
-    flex: 1,
-    marginRight: spacing.medium
+    flex: 1
   },
   newTranslationButton: {
     backgroundColor: colors.primary,
@@ -761,8 +884,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.medium,
-    height: 50,
-    borderRadius: borderRadius.medium
+    height: 50
+    // borderRadius: borderRadius.medium
   },
   newTranslationButtonText: {
     color: colors.buttonText,
@@ -854,5 +977,16 @@ const styles = StyleSheet.create({
   carouselWrapper: {
     flex: 1,
     paddingHorizontal: spacing.medium
+  },
+  sortButton: {
+    padding: 8
+  },
+  sortButtonBorder: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.buttonText
+  },
+  sortButtonSelected: {
+    backgroundColor: colors.buttonText
   }
 });

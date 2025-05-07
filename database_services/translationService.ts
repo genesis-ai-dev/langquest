@@ -101,11 +101,11 @@ export class TranslationService {
   }
 
   async createTranslation(data: {
-    text: string;
+    text: string | null;
     target_language_id: string;
     asset_id: string;
     creator_id: string;
-    audio: string;
+    audio: string | null;
   }) {
     const [newTranslation] = await db
       .insert(translation)

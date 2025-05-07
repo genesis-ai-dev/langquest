@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,8 +38,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
 import type { Asset } from '@/database_services/assetService';
 import { assetService } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
@@ -52,7 +51,6 @@ interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
-const progressBarHeight = 25;
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const { currentUser } = useAuth();
@@ -171,64 +169,11 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
 
-      {/* Progress bars */}
-      <View style={styles.progressContainer}>
-        {/* Approved translations progress bar */}
-        <View style={styles.progressBarContainer}>
-          <View
-            style={[
-              styles.progressBar,
-              styles.approvedBar,
-              {
-                width: `${progress.approvedPercentage}%`,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                borderRadius: progressBarHeight / 2,
-                zIndex: 2
-              }
-            ]}
-          >
-            <GemIcon
-              color={colors.textSecondary}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
-              style={{ marginRight: 10 }}
-            />
-          </View>
-          {/* User's pending translations progress bar */}
-          <View
-            style={[
-              styles.progressBar,
-              styles.userPendingBar,
-              {
-                width: `${progress.userContributedPercentage}%`,
-                borderRadius: progressBarHeight / 2,
-                marginLeft: -20,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                zIndex: 1
-              }
-            ]}
-          >
-            <GemIcon
-              color={colors.background}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
-              style={{ marginRight: 10 }}
-            />
-          </View>
-        </View>
-
-        {/* Pending translations gem */}
-        {progress.pendingTranslationsCount > 0 && (
-          <View style={styles.gemContainer}>
-            <PickaxeIcon color={colors.alert} width={18} height={18} />
-            <Text style={styles.gemCount}>
-              {progress.pendingTranslationsCount}
-            </Text>
-          </View>
-        )}
-      </View>
+      <ProgressBars
+        approvedPercentage={progress.approvedPercentage}
+        userContributedPercentage={progress.userContributedPercentage}
+        pickaxeCount={progress.pendingTranslationsCount}
+      />
 
       {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
@@ -588,37 +533,5 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.small,
-    gap: spacing.small
-  },
-  progressBarContainer: {
-    flex: 1,
-    height: progressBarHeight,
-    backgroundColor: colors.inputBackground,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    borderRadius: progressBarHeight / 2
-  },
-  progressBar: {
-    height: '100%'
-  },
-  approvedBar: {
-    backgroundColor: colors.success
-  },
-  userPendingBar: {
-    backgroundColor: colors.textSecondary
-  },
-  gemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  gemCount: {
-    color: colors.text,
-    fontSize: fontSizes.small
   }
 });

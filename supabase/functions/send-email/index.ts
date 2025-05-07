@@ -7,10 +7,30 @@ import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
-const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
+// const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
+const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
+const hookSecret = rawHookSecret.startsWith('v1,whsec_')
+  ? rawHookSecret.substring(3) // Remove the 'v1,' prefix
+  : rawHookSecret;
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Email subject translations
+const emailSubjects = {
+  signup: {
+    en: 'Confirm Your LangQuest Account',
+    es: 'Confirma tu cuenta de LangQuest',
+    fr: 'Confirmez votre compte LangQuest',
+    'pt-BR': 'Confirme sua conta LangQuest'
+  },
+  recovery: {
+    en: 'Reset Your LangQuest Password',
+    es: 'Restablece tu contraseña de LangQuest',
+    fr: 'Réinitialisez votre mot de passe LangQuest',
+    'pt-BR': 'Redefina sua senha do LangQuest'
+  }
+};
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
@@ -84,11 +104,9 @@ Deno.serve(async (req) => {
         html = await renderAsync(emailComponent);
         text = await renderAsync(emailComponent, { plainText: true });
         subject =
-          ui_language === 'es'
-            ? 'Confirma tu cuenta de LangQuest'
-            : ui_language === 'fr'
-              ? 'Confirmez votre compte LangQuest'
-              : 'Confirm Your LangQuest Account';
+          emailSubjects.signup[
+            ui_language as keyof typeof emailSubjects.signup
+          ] || emailSubjects.signup.en;
         break;
       }
       case 'recovery': {
@@ -100,11 +118,9 @@ Deno.serve(async (req) => {
         html = await renderAsync(resetPasswordComponent);
         text = await renderAsync(resetPasswordComponent, { plainText: true });
         subject =
-          ui_language === 'es'
-            ? 'Restablece tu contraseña de LangQuest'
-            : ui_language === 'fr'
-              ? 'Réinitialisez votre mot de passe LangQuest'
-              : 'Reset Your LangQuest Password';
+          emailSubjects.recovery[
+            ui_language as keyof typeof emailSubjects.recovery
+          ] || emailSubjects.recovery.en;
         break;
       }
       default:

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
+import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,20 +22,35 @@ import {
   View
 } from 'react-native';
 import AudioRecorder from './AudioRecorder';
+import { SourceContent } from './SourceContent';
 
 interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (translation: typeof asset_content_link.$inferSelect) => void;
   asset_id: string;
+  translationType: 'text' | 'audio';
+  assetContent: typeof asset_content_link.$inferSelect;
+  sourceLanguage: typeof language.$inferSelect | null;
+  // targetLanguage: typeof language.$inferSelect | null;
+  attachmentUris: Record<string, string>;
+  loadingAttachments: boolean;
 }
 
 export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
-  asset_id
+  asset_id,
+  translationType,
+  assetContent,
+  sourceLanguage,
+  // targetLanguage,
+  attachmentUris,
+  loadingAttachments
 }) => {
+  console.log('assetContent', assetContent);
+
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
@@ -54,34 +70,36 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       return;
     }
 
-    if (!translationText.trim() && !audioUri) {
+    if (translationType === 'text' && !translationText.trim()) {
+      Alert.alert('Error', t('fillFields'));
+      return;
+    }
+
+    if (translationType === 'audio' && !audioUri) {
       Alert.alert('Error', t('fillFields'));
       return;
     }
 
     try {
-      if (!audioUri) return;
-      if (!system.permAttachmentQueue) {
-        console.log(`Error: PermAttachmentQueue doesn't exist.`);
-        return;
+      let audioAttachment: string | undefined = undefined;
+      if (audioUri && system.permAttachmentQueue) {
+        const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
+        audioAttachment = attachment.filename;
       }
 
-      // let permanentAudioUri: string | undefined;
-      const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
-      console.log('new translation', attachment);
       // Create the translation with or without audio
       await translationService.createTranslation({
-        text: translationText.trim(),
+        text: translationType === 'text' ? translationText.trim() : '',
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
-        audio: attachment.filename
+        audio: audioAttachment ?? ''
       });
 
       setTranslationText('');
       setAudioUri(null);
-      onSubmit();
-      handleClose();
+      onSubmit(assetContent);
+      void handleClose();
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
@@ -124,7 +142,6 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
-                    // flexDirection: 'row',
                     alignItems: 'center'
                   }}
                 >
@@ -137,29 +154,58 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                <TextInput
-                  style={styles.textInput}
-                  multiline
-                  placeholder={t('enterTranslation')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={translationText}
-                  onChangeText={setTranslationText}
-                />
+                <View style={styles.modalContent}>
+                  <View style={styles.sourceContent}>
+                    <SourceContent
+                      content={assetContent}
+                      sourceLanguage={sourceLanguage}
+                      audioUri={
+                        assetContent.audio_id
+                          ? attachmentUris[assetContent.audio_id]
+                          : null
+                      }
+                      isLoading={loadingAttachments}
+                    />
+                  </View>
 
-                <AudioRecorder
-                  onRecordingComplete={handleRecordingComplete}
-                  resetRecording={() => setAudioUri(null)}
-                />
+                  <View style={styles.translationInput}>
+                    {/* <Text style={styles.languageLabel}>
+                      {targetLanguage?.native_name ??
+                        targetLanguage?.english_name}
+                      :
+                    </Text> */}
+                    {translationType === 'text' && (
+                      <TextInput
+                        style={styles.textInput}
+                        multiline
+                        placeholder={t('enterTranslation')}
+                        placeholderTextColor={colors.textSecondary}
+                        value={translationText}
+                        onChangeText={setTranslationText}
+                      />
+                    )}
+
+                    {translationType === 'audio' && (
+                      <AudioRecorder
+                        onRecordingComplete={handleRecordingComplete}
+                        resetRecording={() => setAudioUri(null)}
+                      />
+                    )}
+                  </View>
+                </View>
 
                 <TouchableOpacity
                   style={[
                     styles.submitButton,
-                    !translationText.trim() &&
-                      !audioUri &&
+                    ((translationType === 'text' && !translationText.trim()) ||
+                      (translationType === 'audio' && !audioUri)) &&
                       styles.submitButtonDisabled
                   ]}
                   onPress={handleSubmit}
-                  disabled={!translationText.trim() && !audioUri}
+                  disabled={
+                    (translationType === 'text' && !translationText.trim()) ||
+                    (translationType === 'audio' && !audioUri)
+                  }
                 >
                   <Text style={styles.submitButtonText}>{t('submit')}</Text>
                 </TouchableOpacity>
@@ -220,5 +266,22 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     backgroundColor: colors.backgroundSecondary
+  },
+  modalContent: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  sourceContent: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  translationInput: {
+    flexDirection: 'column',
+    gap: spacing.medium
+  },
+  languageLabel: {
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold',
+    color: colors.text
   }
 });
