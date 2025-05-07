@@ -5,6 +5,7 @@ const themeColor = 'purple'; // Change this to 'green', 'yellow', or any other c
 
 const getColorHex = (color: string) => {
   const colorMap: Record<string, string> = {
+    purpleDark: '#6545B6',
     purple: '#8B5CF6',
     green: '#4CAF50',
     yellow: '#FFEB3B',
@@ -26,6 +27,7 @@ const getColorHex = (color: string) => {
 
 export const colors = {
   primary: getColorHex(themeColor),
+  primaryDark: getColorHex(`${themeColor}Dark`),
   primaryLight: adjustColor(getColorHex(themeColor), 30),
   background: '#1E1E1E', // Dark background
   text: '#FFFFFF',

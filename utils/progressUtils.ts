@@ -1,8 +1,7 @@
-import { Vote } from '@/database_services/voteService';
-import { Translation } from '@/database_services/translationService';
+import type { Asset } from '@/database_services/assetService';
+import type { Translation } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
 import { colors } from '@/styles/theme';
-import { Asset } from '@/database_services/assetService';
-import { Quest } from '@/database_services/questService';
 
 /**
  * Calculates the net vote count from an array of votes
@@ -42,8 +41,6 @@ export const getGemColor = (
   if (!shouldCountTranslation(votes)) {
     return null;
   }
-
-  const voteCount = calculateVoteCount(votes);
 
   // If translation has no votes
   if (votes.length === 0) {
@@ -120,7 +117,6 @@ export const calculateQuestProgress = (
         pendingCount++;
       }
     });
-
     if (hasApprovedTranslation) {
       approvedCount++;
     } else if (hasUserContribution) {
