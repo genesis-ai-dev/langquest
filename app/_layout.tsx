@@ -26,11 +26,11 @@ export default function RootLayout() {
   console.log(process.env.EXPO_PUBLIC_POSTHOG_HOST);
 
   useEffect(() => {
-    const unsubscribe = initializeNetwork();
-    void TranslationUtils.initialize();
     void ScreenOrientation.lockAsync(
       ScreenOrientation.OrientationLock.PORTRAIT
     );
+    const unsubscribe = initializeNetwork();
+    void TranslationUtils.initialize();
 
     return () => {
       unsubscribe();
