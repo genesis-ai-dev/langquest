@@ -10,7 +10,7 @@ const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
 // const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
 const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
-  ? rawHookSecret.substring(3) // Remove the 'v1,' prefix
+  ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
   : rawHookSecret;
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
