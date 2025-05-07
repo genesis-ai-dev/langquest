@@ -1,14 +1,14 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { Asset } from '@/database_services/assetService';
-import { type Project } from '@/database_services/projectService';
+import type { Project } from '@/database_services/projectService';
 import { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   DrawerContentScrollView,
-  type DrawerContentComponentProps
+  DrawerContentComponentProps
 } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Href, Link, usePathname, useRouter } from 'expo-router';
@@ -20,43 +20,249 @@ import {
   Text,
   TouchableOpacity,
   TouchableOpacityProps,
-  View
+  View,
+  Alert,
+  ActivityIndicator,
+  ProgressBarAndroid
 } from 'react-native';
+import { useSystem } from '@/contexts/SystemContext';
+import {
+  backupUnsyncedAudio,
+  requestBackupDirectory,
+  prepareBackupPaths
+} from '@/utils/backupUtils';
+import { selectAndInitiateRestore } from '@/utils/restoreUtils';
+import type { ReactNode } from 'react';
 
-type DrawerItem = {
+interface DrawerItemType {
   name?: string;
   icon: keyof typeof Ionicons.glyphMap;
   path: Href;
-};
+}
 
 function DrawerItems() {
   const pathname = usePathname();
   const { t } = useTranslation();
-  const { signOut } = useAuth();
+  const { signOut, currentUser } = useAuth();
+  const system = useSystem();
+  const systemReady = system.isInitialized();
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  // Progress tracking states
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncTotal, setSyncTotal] = useState(0);
+  const [syncOperation, setSyncOperation] = useState<
+    'backup' | 'restore' | null
+  >(null);
 
-  const drawerItems: DrawerItem[] = [
+  const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
+  const handleProgress = (current: number, total: number) => {
+    setSyncProgress(current);
+    setSyncTotal(total);
+  };
+
+  const handleBackup = async (/* audioOnly = false */) => {
+    setIsBackingUp(true);
+    setSyncOperation('backup');
+    setSyncProgress(0);
+    setSyncTotal(1); // Default to 1 to avoid division by zero
+
+    let finalAlertTitle = t('backupErrorTitle'); // Default to error
+    let finalAlertMessage = '';
+
+    try {
+      // 1. System & Queue Init Checks
+      if (!systemReady) {
+        throw new Error(t('databaseNotReady'));
+      }
+      // Attempt to initialize queues, warn if not available but don't throw
+      try {
+        await system.permAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing permanent attachment queue:', qError);
+      }
+      try {
+        await system.tempAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing temporary attachment queue:', qError);
+      }
+
+      // 2. Permissions
+      console.log('[handleBackup] Requesting directory permissions...');
+      const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
+      if (!baseDirectoryUri) {
+        throw new Error(t('storagePermissionDenied'));
+      }
+      console.log('[handleBackup] Permissions granted, preparing paths...');
+
+      // 3. Prepare Paths
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      prepareBackupPaths(timestamp); // Call it but don't store result if unneeded
+      console.log('[handleBackup] Paths prepared, attempting audio backup...');
+
+      // 4. Execute Backup (Audio Only) with progress callback
+      const audioResult = await backupUnsyncedAudio(
+        system,
+        baseDirectoryUri,
+        handleProgress
+      );
+
+      // 5. Construct Success Message (Audio Only)
+      finalAlertTitle = t('backupCompleteTitle');
+      finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
+    } catch (error: unknown) {
+      // Handle errors from any awaited step above
+      console.log('[handleBackup] Entered CATCH block.');
+      console.error('Error during backup process:', error);
+      const errorString =
+        error instanceof Error ? error.message : String(error);
+      finalAlertMessage = t('criticalBackupError', {
+        error: errorString || 'Unknown error occurred'
+      });
+    } finally {
+      // 6. Final Alert & State Reset
+      console.log('[handleBackup] Entered FINALLY block.');
+      setIsBackingUp(false);
+      // Set operation to null after a delay to allow seeing the final progress
+      setTimeout(() => {
+        setSyncOperation(null);
+      }, 1500);
+
+      // Ensure message isn't empty if something went wrong before catch block assignment
+      if (!finalAlertMessage) {
+        finalAlertMessage = t('criticalBackupError', {
+          error: 'Backup failed unexpectedly'
+        });
+      }
+      Alert.alert(finalAlertTitle, finalAlertMessage);
+    }
+  };
+
+  const confirmAndStartBackup = () => {
+    Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('backupAudioAction'),
+        onPress: () => void (handleBackup(/* false */))
+      }
+    ]);
+  };
+
+  const handleRestore = () => {
+    const onStart = () => {
+      setIsRestoring(true);
+      setSyncOperation('restore');
+      setSyncProgress(0);
+      setSyncTotal(1); // Default until we know the total
+    };
+
+    const onFinish = () => {
+      setIsRestoring(false);
+      // Set operation to null after a delay to allow seeing the final progress
+      setTimeout(() => {
+        setSyncOperation(null);
+      }, 1500);
+    };
+
+    if (!currentUser?.id) {
+      Alert.alert(t('error'), t('userNotLoggedIn'));
+      return;
+    }
+
+    void selectAndInitiateRestore(
+      system,
+      currentUser.id,
+      t,
+      onStart,
+      onFinish,
+      handleProgress
+    );
+  };
+
+  // Calculate progress percentage for the progress bar
+  const progressPercentage = syncTotal > 0 ? syncProgress / syncTotal : 0;
+  const isOperationActive = isBackingUp || isRestoring;
+
+  // Progress status text
+  const getProgressText = () => {
+    if (!syncOperation) return '';
+
+    if (syncProgress === syncTotal && syncTotal > 0) {
+      return t('syncComplete');
+    }
+
+    return t('syncProgress', { current: syncProgress, total: syncTotal });
+  };
+
   return (
     <View style={styles.drawerItems}>
+      {!systemReady && (
+        <View style={styles.initializingIndicator}>
+          <ActivityIndicator size="small" color={colors.text} />
+          <Text style={styles.initializingText}>{t('initializing')}...</Text>
+        </View>
+      )}
+
+      {/* File sync progress indicator */}
+      {syncOperation && (
+        <View style={styles.syncProgressContainer}>
+          <Text style={styles.syncProgressText}>
+            {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
+          </Text>
+          <ProgressBarAndroid
+            styleAttr="Horizontal"
+            indeterminate={syncTotal === 0}
+            progress={progressPercentage}
+            color={colors.primary}
+            style={styles.progressBar}
+          />
+          <Text style={styles.syncProgressText}>{getProgressText()}</Text>
+        </View>
+      )}
+
       {drawerItems.map((item, index) => (
         <Link href={item.path} key={index} asChild>
           <DrawerItem item={item} active={pathname === item.path} />
         </Link>
       ))}
+      <DrawerItem
+        item={{
+          name: isBackingUp ? t('backingUp') : t('backup'),
+          icon: isBackingUp ? 'hourglass-outline' : 'save'
+        }}
+        onPress={confirmAndStartBackup}
+        disabled={!systemReady || isOperationActive}
+        style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
+      />
+      <DrawerItem
+        item={{
+          name: isRestoring ? t('restoring') : t('restoreBackup'),
+          icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline'
+        }}
+        onPress={handleRestore}
+        disabled={!systemReady || isOperationActive}
+        style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
+      />
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
           onPress={signOut}
+          disabled={!systemReady || isOperationActive}
+          style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
         />
       )}
     </View>
   );
 }
 
-export function Drawer({ children }: { children: React.ReactNode }) {
+export function Drawer({ children }: { children?: ReactNode }) {
   return (
     <ExpoDrawer
       screenOptions={{
@@ -65,7 +271,9 @@ export function Drawer({ children }: { children: React.ReactNode }) {
         swipeEdgeWidth: 100
       }}
       drawerContent={DrawerContent}
-    />
+    >
+      {children}
+    </ExpoDrawer>
   );
 }
 
@@ -111,15 +319,13 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   );
 }
 
-function Category({
-  title,
-  items,
-  onPress
-}: {
+interface CategoryProps {
   title: string;
   items: ((Project | Quest | Asset) & { path: Href })[];
   onPress: (item: (Project | Quest | Asset) & { path: Href }) => void;
-}) {
+}
+
+function Category({ title, items, onPress }: CategoryProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const toggleExpand = useCallback(() => {
@@ -165,18 +371,18 @@ const DrawerItem = forwardRef<
   View,
   {
     active?: boolean;
-    item: Omit<DrawerItem, 'path'> & { path?: Href };
+    item: Omit<DrawerItemType, 'path'> & { path?: Href };
   } & TouchableOpacityProps
 >(({ active, item, style, ...props }, ref) => {
   return (
     <TouchableOpacity
       ref={ref}
       style={[
-        // typeof style === 'function' ? style({ pressed }) : style,
         styles.drawerItem,
         active && {
           backgroundColor: colors.primary
-        }
+        },
+        style
       ]}
       {...props}
     >
@@ -192,7 +398,7 @@ function DrawerFooter() {
   const { goToProject, goToQuest, activeProject, activeQuest } =
     useProjectContext();
 
-  if (!pathname.startsWith('/') || !activeProject || !activeQuest) return null;
+  if (!pathname.startsWith('/')) return null;
 
   return (
     <View style={styles.drawerFooterNav}>
@@ -202,24 +408,23 @@ function DrawerFooter() {
         </TouchableOpacity>
       )}
       <View style={styles.footerTextContainer}>
-        {activeProject && (
-          <Fragment>
-            <Ionicons name="chevron-forward" size={14} color={colors.text} />
-            <TouchableOpacity
-              onPress={() => goToProject(activeProject, true)}
-              style={styles.footerTextItem}
+        <Fragment>
+          <Ionicons name="chevron-forward" size={14} color={colors.text} />
+          <TouchableOpacity
+            onPress={() => goToProject(activeProject!, true)}
+            style={styles.footerTextItem}
+          >
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ color: colors.text }}
             >
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ color: colors.text }}
-              >
-                {activeProject.name}
-              </Text>
-            </TouchableOpacity>
-          </Fragment>
-        )}
-        {activeQuest && activeProject && (
+              {activeProject?.name}
+            </Text>
+          </TouchableOpacity>
+        </Fragment>
+
+        {activeQuest && (
           <Fragment>
             <Ionicons name="chevron-forward" size={14} color={colors.text} />
             <TouchableOpacity
@@ -298,7 +503,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small
   },
   drawerFooter: {
-    // padding: spacing.small,
     borderTopWidth: 1,
     borderTopColor: colors.inputBackground,
     position: 'static',
@@ -323,5 +527,34 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.small,
     paddingVertical: spacing.xsmall,
     paddingHorizontal: spacing.small
+  },
+  initializingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.medium,
+    gap: spacing.small,
+    opacity: 0.7
+  },
+  initializingText: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  },
+  // New styles for progress indicator
+  syncProgressContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.small
+  },
+  progressBar: {
+    height: 8,
+    width: '100%',
+    marginVertical: spacing.xsmall
+  },
+  syncProgressText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    textAlign: 'center'
   }
 });
