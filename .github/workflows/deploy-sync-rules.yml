@@ -9,20 +9,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  files-changed:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            sync-rules:
-              - 'supabase/config/sync-rules.yml'
-
   validate-sync-rules:
-    needs: files-changed
-    if: needs.files-changed.outputs.sync-rules == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
