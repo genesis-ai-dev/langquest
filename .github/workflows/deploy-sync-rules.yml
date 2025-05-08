@@ -35,6 +35,7 @@ jobs:
           fi
           echo "status=passed" >> $GITHUB_OUTPUT
           echo "output=$OUTPUT" >> $GITHUB_OUTPUT
+          echo $OUTPUT
 
   deploy-sync-rules:
     runs-on: ubuntu-latest
