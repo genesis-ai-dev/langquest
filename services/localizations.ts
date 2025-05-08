@@ -594,6 +594,78 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Block this user',
     spanish: 'Bloquear este usuario',
     brazilian_portuguese: 'Bloquear este usuário'
+  },
+  // New backup-related translations
+  backup: {
+    english: 'Backup',
+    spanish: 'Respaldo',
+    brazilian_portuguese: 'Backup'
+  },
+  backingUp: {
+    english: 'Backing Up...',
+    spanish: 'Respaldando...',
+    brazilian_portuguese: 'Fazendo Backup...'
+  },
+  restoreBackup: {
+    english: 'Restore Backup',
+    spanish: 'Restaurar Respaldo',
+    brazilian_portuguese: 'Restaurar Backup'
+  },
+  restoring: {
+    english: 'Restoring...',
+    spanish: 'Restaurando...',
+    brazilian_portuguese: 'Restaurando...'
+  },
+  startBackupTitle: {
+    english: 'Create Backup',
+    spanish: 'Crear Respaldo',
+    brazilian_portuguese: 'Criar Backup'
+  },
+  startBackupMessageAudioOnly: {
+    english: 'Would you like to back up your unsynced audio recordings?',
+    spanish:
+      '¿Desea hacer una copia de seguridad de sus grabaciones de audio no sincronizadas?',
+    brazilian_portuguese:
+      'Gostaria de fazer backup das suas gravações de áudio não sincronizadas?'
+  },
+  backupAudioAction: {
+    english: 'Backup Audio',
+    spanish: 'Respaldar Audio',
+    brazilian_portuguese: 'Backup de Áudio'
+  },
+  backupErrorTitle: {
+    english: 'Backup Error',
+    spanish: 'Error de Respaldo',
+    brazilian_portuguese: 'Erro de Backup'
+  },
+  backupCompleteTitle: {
+    english: 'Backup Complete',
+    spanish: 'Respaldo Completado',
+    brazilian_portuguese: 'Backup Concluído'
+  },
+  audioBackupStatus: {
+    english: 'Successfully backed up {count} audio recordings',
+    spanish: 'Se respaldaron con éxito {count} grabaciones de audio',
+    brazilian_portuguese:
+      'Backup de {count} gravações de áudio concluído com sucesso'
+  },
+  criticalBackupError: {
+    english: 'A critical error occurred: {error}',
+    spanish: 'Ocurrió un error crítico: {error}',
+    brazilian_portuguese: 'Ocorreu um erro crítico: {error}'
+  },
+  databaseNotReady: {
+    english: 'Database is not ready. Please try again later.',
+    spanish: 'La base de datos no está lista. Por favor, inténtelo más tarde.',
+    brazilian_portuguese:
+      'O banco de dados não está pronto. Por favor, tente novamente mais tarde.'
+  },
+  storagePermissionDenied: {
+    english: 'Storage permission denied. Backup cannot proceed.',
+    spanish:
+      'Permiso de almacenamiento denegado. El respaldo no puede continuar.',
+    brazilian_portuguese:
+      'Permissão de armazenamento negada. O backup não pode prosseguir.'
   }
   // Add more translation keys as needed...
 } as const;
