@@ -1,38 +1,37 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { Asset } from '@/database_services/assetService';
+import { useSystem } from '@/contexts/SystemContext';
+import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
-import { Quest } from '@/database_services/questService';
+import type { Quest } from '@/database_services/questService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import {
+  backupUnsyncedAudio,
+  prepareBackupPaths,
+  requestBackupDirectory
+} from '@/utils/backupUtils';
+import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  DrawerContentScrollView,
-  DrawerContentComponentProps
-} from '@react-navigation/drawer';
+import type { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, Link, usePathname, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { Link, usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
+import type { ReactNode } from 'react';
 import { Fragment, forwardRef, useCallback, useState } from 'react';
+import type { TouchableOpacityProps } from 'react-native';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
+  ProgressBarAndroid,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableOpacityProps,
-  View,
-  Alert,
-  ActivityIndicator,
-  ProgressBarAndroid
+  View
 } from 'react-native';
-import { useSystem } from '@/contexts/SystemContext';
-import {
-  backupUnsyncedAudio,
-  requestBackupDirectory,
-  prepareBackupPaths
-} from '@/utils/backupUtils';
-import { selectAndInitiateRestore } from '@/utils/restoreUtils';
-import type { ReactNode } from 'react';
 
 interface DrawerItemType {
   name?: string;
