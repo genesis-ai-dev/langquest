@@ -24,7 +24,7 @@ jobs:
       - name: Setup
         uses: ./tooling/github/setup-ci
 
-      - name: Run Sync Rules Validate
+      - name: Validate Sync Rules
         id: validate-sync-rules
         run: npx powersync instance sync-rules validate -f supabase/config/sync-rules.yml
 
