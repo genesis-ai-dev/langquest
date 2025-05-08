@@ -27,7 +27,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     void ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.PORTRAIT
+      ScreenOrientation.OrientationLock.PORTRAIT_UP
     );
     const unsubscribe = initializeNetwork();
     void TranslationUtils.initialize();

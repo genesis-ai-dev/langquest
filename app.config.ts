@@ -95,7 +95,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-screen-orientation',
       {
-        initialOrientation: 'DEFAULT'
+        initialOrientation: 'PORTRAIT_UP'
       }
     ],
     [
