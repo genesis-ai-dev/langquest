@@ -8,6 +8,10 @@ import type {
 import { localizations } from '@/services/localizations';
 import { useEffect, useState } from 'react';
 
+// Define a type for interpolation values
+// Use a Record as preferred by linter
+export type InterpolationValues = Record<string, string | number>;
+
 export function useTranslation(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const { currentLanguage } = useLanguage();
@@ -38,13 +42,35 @@ export function useTranslation(languageOverride?: string | null) {
     'english'
   ).replace(/ /g, '_') as SupportedLanguage;
 
-  const t = (key: TranslationKey): string => {
+  // t function to accept optional interpolation values and use 'localizations'
+  const t = (
+    key: TranslationKey,
+    options?: InterpolationValues | number
+  ): string => {
     if (!(key in localizations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    const localization = localizations[key]!;
-    return localization[userLanguage] || localization.english;
+    let translatedString =
+      localizations[key]![userLanguage] || localizations[key]!.english;
+
+    // If options is a number, treat as a single value for a placeholder like {{value}}
+    if (typeof options === 'number') {
+      translatedString = translatedString.replace(
+        /{{ *value *}}/g,
+        String(options)
+      );
+    } else if (options) {
+      Object.keys(options).forEach((placeholder) => {
+        const regex = new RegExp(`{{ *${placeholder} *}}`, 'g');
+        translatedString = translatedString.replace(
+          regex,
+          String(options[placeholder])
+        );
+      });
+    }
+
+    return translatedString;
   };
 
   return { t };

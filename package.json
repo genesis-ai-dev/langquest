@@ -72,7 +72,9 @@
     "expo-manifests": "^0.15.8",
     "expo-random": "^14.0.1",
     "expo-router": "~4.0.20",
+    "expo-screen-orientation": "~8.0.4",
     "expo-splash-screen": "~0.29.24",
+    "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
     "expo-updates": "~0.27.4",
@@ -93,14 +95,14 @@
     "react-native-web": "~0.19.10",
     "react-native-webview": "~13.13.1",
     "tailwindcss": "^3.4.13",
-    "zustand": "^5.0.3",
-    "expo-screen-orientation": "~8.0.4"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@babel/plugin-syntax-import-meta": "^7.10.4",
     "@babel/plugin-transform-async-generator-functions": "^7.26.8",
     "@libsql/client": "^0.14.0",
+    "@react-native-community/cli": "latest",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/crypto-js": "^4.2.2",
     "@types/jest": "^29.5.12",
@@ -125,6 +127,10 @@
     "tsx": "^4.19.2",
     "typescript": "~5.3.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "overrides": {
+    "ajv": "^6.12.6",
+    "schema-utils": "3.1.1"
   },
   "expo": {
     "install": {

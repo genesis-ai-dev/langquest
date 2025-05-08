@@ -3,7 +3,7 @@ import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
-
+import { AuthHandler } from '@/components/AuthHandler';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -68,24 +68,28 @@ export default function RootLayout() {
     }
   };
 
+  console.log('[RootLayout] Rendering...');
+
   return (
     <SystemProvider>
       <LanguageProvider>
         <AuthProvider>
           <AudioProvider>
             <QueryProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false
-                }}
-              >
-                <Stack.Screen
-                  name="terms"
-                  options={{
-                    presentation: 'modal'
+              <AuthHandler>
+                <Stack
+                  screenOptions={{
+                    headerShown: false
                   }}
-                />
-              </Stack>
+                >
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      presentation: 'modal'
+                    }}
+                  />
+                </Stack>
+              </AuthHandler>
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>
