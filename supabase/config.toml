@@ -101,7 +101,7 @@ file_size_limit = "50MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4", "application/octet-stream"]
 objects_path = "./assets"
 
-local[auth]
+[auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
@@ -166,7 +166,7 @@ otp_length = 6
 otp_expiry = 86400
 
 # Use a production-ready SMTP server
-local[auth.email.smtp]
+[auth.email.smtp]
 enabled = true
 host = "smtp.resend.com"
 port = 465
@@ -210,8 +210,9 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
-local[auth.hook.send_email]
+[auth.hook.send_email]
 enabled = true
+# we don't want it to change to this url after a merge into prod, check
 uri = "https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/send-email"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
