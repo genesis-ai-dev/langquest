@@ -2,7 +2,7 @@ name: Deploy Sync Rules
 
 on:
   push:
-    branches: ['dev']
+    branches: ['main', 'dev']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -294,6 +294,12 @@ policy = "oneshot"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
 
+
+[edge_runtime.secrets]
+resend_api_key = "env(RESEND_API_KEY)"
+send_email_hook_secret = "env(SEND_EMAIL_HOOK_SECRET)"
+
+
 [analytics]
 enabled = false
 port = 54327
