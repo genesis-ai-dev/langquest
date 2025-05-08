@@ -8,5 +8,3 @@
 !.env.production
 .env.*.local
 .env.local
-
-.env.preview
