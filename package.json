@@ -74,7 +74,6 @@
     "expo-router": "~4.0.20",
     "expo-screen-orientation": "~8.0.4",
     "expo-splash-screen": "~0.29.24",
-    "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
     "expo-updates": "~0.27.4",
