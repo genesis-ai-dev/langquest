@@ -666,6 +666,72 @@ export const localizations: Record<string, TranslationSet> = {
       'Permiso de almacenamiento denegado. El respaldo no puede continuar.',
     brazilian_portuguese:
       'Permissão de armazenamento negada. O backup não pode prosseguir.'
+  },
+  // Adding missing translation keys
+  initializing: {
+    english: 'Initializing',
+    spanish: 'Inicializando',
+    brazilian_portuguese: 'Inicializando'
+  },
+  syncComplete: {
+    english: 'Sync complete',
+    spanish: 'Sincronización completa',
+    brazilian_portuguese: 'Sincronização completa'
+  },
+  syncProgress: {
+    english: '{current} of {total} files',
+    spanish: '{current} de {total} archivos',
+    brazilian_portuguese: '{current} de {total} arquivos'
+  },
+  userNotLoggedIn: {
+    english: 'You must be logged in to perform this action',
+    spanish: 'Debe iniciar sesión para realizar esta acción',
+    brazilian_portuguese: 'Você deve estar logado para realizar esta ação'
+  },
+  cannotReportOwnTranslation: {
+    english: 'You cannot report your own translation',
+    spanish: 'No puede reportar su propia traducción',
+    brazilian_portuguese: 'Você não pode reportar sua própria tradução'
+  },
+  alreadyReportedTranslation: {
+    english: 'You have already reported this translation',
+    spanish: 'Ya ha reportado esta traducción',
+    brazilian_portuguese: 'Você já reportou esta tradução'
+  },
+  failedSaveAnalyticsPreference: {
+    english: 'Failed to save analytics preference',
+    spanish: 'Error al guardar la preferencia de análisis',
+    brazilian_portuguese: 'Falha ao salvar preferência de análise'
+  },
+  currentPasswordRequired: {
+    english: 'Current password is required',
+    spanish: 'Se requiere la contraseña actual',
+    brazilian_portuguese: 'A senha atual é obrigatória'
+  },
+  profileUpdateSuccess: {
+    english: 'Profile updated successfully',
+    spanish: 'Perfil actualizado con éxito',
+    brazilian_portuguese: 'Perfil atualizado com sucesso'
+  },
+  failedUpdateProfile: {
+    english: 'Failed to update profile',
+    spanish: 'Error al actualizar el perfil',
+    brazilian_portuguese: 'Falha ao atualizar perfil'
+  },
+  assetNotFound: {
+    english: 'Asset not found',
+    spanish: 'Recurso no encontrado',
+    brazilian_portuguese: 'Recurso não encontrado'
+  },
+  failedLoadAssetData: {
+    english: 'Failed to load asset data',
+    spanish: 'Error al cargar datos del recurso',
+    brazilian_portuguese: 'Falha ao carregar dados do recurso'
+  },
+  failedLoadAssets: {
+    english: 'Failed to load assets',
+    spanish: 'Error al cargar recursos',
+    brazilian_portuguese: 'Falha ao carregar recursos'
   }
   // Add more translation keys as needed...
 } as const;

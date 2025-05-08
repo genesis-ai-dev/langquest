@@ -65,7 +65,7 @@ export default function Profile() {
       await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);
-      Alert.alert('Error', 'Failed to save analytics preference');
+      Alert.alert('Error', t('failedSaveAnalyticsPreference'));
     }
   };
 
@@ -107,7 +107,7 @@ export default function Profile() {
       // Validate password change if attempted
       if (data.newPassword || data.confirmPassword || data.currentPassword) {
         if (!data.currentPassword) {
-          Alert.alert('Error', 'Current password is required');
+          Alert.alert('Error', t('currentPasswordRequired'));
           return;
         }
         if (data.newPassword !== data.confirmPassword) {
@@ -131,7 +131,7 @@ export default function Profile() {
 
       if (updatedUser) {
         setCurrentUser(updatedUser);
-        Alert.alert('Success', 'Profile updated successfully');
+        Alert.alert('Success', t('profileUpdateSuccess'));
 
         // Clear password fields
         reset({
@@ -143,7 +143,7 @@ export default function Profile() {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile');
+      Alert.alert('Error', t('failedUpdateProfile'));
     }
   };
 

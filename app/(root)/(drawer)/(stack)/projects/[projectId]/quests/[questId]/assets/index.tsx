@@ -265,7 +265,7 @@ export default function Assets() {
       }, 0);
     } catch (error) {
       console.error('Error loading assets:', error);
-      Alert.alert('Error', 'Failed to load assets');
+      Alert.alert('Error', t('failedLoadAssets'));
     }
   };
 
