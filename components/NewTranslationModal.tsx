@@ -30,7 +30,7 @@ interface NewTranslationModalProps {
   onSubmit: (translation: typeof asset_content_link.$inferSelect) => void;
   asset_id: string;
   translationType: 'text' | 'audio';
-  assetContent: typeof asset_content_link.$inferSelect;
+  assetContent?: typeof asset_content_link.$inferSelect;
   sourceLanguage: typeof language.$inferSelect | null;
   // targetLanguage: typeof language.$inferSelect | null;
   attachmentUris: Record<string, string>;
@@ -98,7 +98,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
       setTranslationText('');
       setAudioUri(null);
-      onSubmit(assetContent);
+      if (assetContent) {
+        onSubmit(assetContent);
+      }
       void handleClose();
     } catch (error) {
       console.error('Error creating translation:', error);
@@ -155,18 +157,20 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
                 </View>
 
                 <View style={styles.modalContent}>
-                  <View style={styles.sourceContent}>
-                    <SourceContent
-                      content={assetContent}
-                      sourceLanguage={sourceLanguage}
-                      audioUri={
-                        assetContent.audio_id
-                          ? attachmentUris[assetContent.audio_id]
-                          : null
-                      }
-                      isLoading={loadingAttachments}
-                    />
-                  </View>
+                  {assetContent && (
+                    <View style={styles.sourceContent}>
+                      <SourceContent
+                        content={assetContent}
+                        sourceLanguage={sourceLanguage}
+                        audioUri={
+                          assetContent.audio_id
+                            ? attachmentUris[assetContent.audio_id]
+                            : null
+                        }
+                        isLoading={loadingAttachments}
+                      />
+                    </View>
+                  )}
 
                   <View style={styles.translationInput}>
                     {/* <Text style={styles.languageLabel}>
