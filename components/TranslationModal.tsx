@@ -269,9 +269,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
         {isEditing ? (
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              (isSubmitting || !editedText.trim()) && {
+                backgroundColor: colors.disabled
+              }
+            ]}
             onPress={handleEditSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !editedText.trim()}
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color={colors.buttonText} />
