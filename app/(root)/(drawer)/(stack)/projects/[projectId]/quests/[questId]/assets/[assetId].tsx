@@ -224,7 +224,7 @@ export default function AssetView() {
       // Load asset to retrieve images from its image_ids field
       const loadedAsset = await assetService.getAssetById(assetId);
       if (!loadedAsset) {
-        Alert.alert('Error', 'Asset not found');
+        Alert.alert('Error', t('assetNotFound'));
         return;
       }
 
@@ -253,7 +253,7 @@ export default function AssetView() {
       // await loadAllUris();
     } catch (error) {
       console.error('Error loading asset and translations:', error, assetId);
-      Alert.alert('Error', 'Failed to load asset data');
+      Alert.alert('Error', t('failedLoadAssetData'));
     } finally {
       setIsLoading(false);
     }
