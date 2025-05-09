@@ -4,7 +4,13 @@ import { DrawerActions } from '@react-navigation/native';
 import { useNavigation } from 'expo-router';
 import { Text, TouchableOpacity, View } from 'react-native';
 
-export function PageHeader({ title }: { title: string }) {
+export function PageHeader({
+  title,
+  showBackButton = true
+}: {
+  title: string;
+  showBackButton?: boolean;
+}) {
   const navigation = useNavigation();
   return (
     <View
@@ -15,17 +21,11 @@ export function PageHeader({ title }: { title: string }) {
         gap: spacing.small
       }}
     >
-      <TouchableOpacity
-        onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
-      >
-        <Ionicons
-          name="menu-outline"
-          size={32}
-          style={{
-            color: colors.text
-          }}
-        />
-      </TouchableOpacity>
+      {showBackButton && (
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={32} color={colors.text} />
+        </TouchableOpacity>
+      )}
       <Text
         style={{
           ...sharedStyles.title,
@@ -38,6 +38,17 @@ export function PageHeader({ title }: { title: string }) {
       >
         {title}
       </Text>
+      <TouchableOpacity
+        onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+      >
+        <Ionicons
+          name="menu-outline"
+          size={32}
+          style={{
+            color: colors.text
+          }}
+        />
+      </TouchableOpacity>
     </View>
   );
 }

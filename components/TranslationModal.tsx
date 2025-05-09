@@ -134,7 +134,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       setUserVote(newUserVote);
     } catch (error) {
       console.error('Error handling vote:', error);
-      Alert.alert('Error', 'Failed to submit vote');
+      Alert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -163,12 +163,12 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     }
 
     if (isOwnTranslation) {
-      Alert.alert('Error', 'You cannot report your own translation');
+      Alert.alert('Error', t('cannotReportOwnTranslation'));
       return;
     }
 
     if (hasReported) {
-      Alert.alert('Error', 'You have already reported this translation');
+      Alert.alert('Error', t('alreadyReportedTranslation'));
       return;
     }
 

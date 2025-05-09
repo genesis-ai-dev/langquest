@@ -385,7 +385,7 @@ export default function Projects() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <PageHeader title={t('projects')} />
+          <PageHeader title={t('projects')} showBackButton={false} />
 
           <View style={sharedStyles.filtersContainer}>
             <CustomDropdown

@@ -594,6 +594,144 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Block this user',
     spanish: 'Bloquear este usuario',
     brazilian_portuguese: 'Bloquear este usuário'
+  },
+  // New backup-related translations
+  backup: {
+    english: 'Backup',
+    spanish: 'Respaldo',
+    brazilian_portuguese: 'Backup'
+  },
+  backingUp: {
+    english: 'Backing Up...',
+    spanish: 'Respaldando...',
+    brazilian_portuguese: 'Fazendo Backup...'
+  },
+  restoreBackup: {
+    english: 'Restore Backup',
+    spanish: 'Restaurar Respaldo',
+    brazilian_portuguese: 'Restaurar Backup'
+  },
+  restoring: {
+    english: 'Restoring...',
+    spanish: 'Restaurando...',
+    brazilian_portuguese: 'Restaurando...'
+  },
+  startBackupTitle: {
+    english: 'Create Backup',
+    spanish: 'Crear Respaldo',
+    brazilian_portuguese: 'Criar Backup'
+  },
+  startBackupMessageAudioOnly: {
+    english: 'Would you like to back up your unsynced audio recordings?',
+    spanish:
+      '¿Desea hacer una copia de seguridad de sus grabaciones de audio no sincronizadas?',
+    brazilian_portuguese:
+      'Gostaria de fazer backup das suas gravações de áudio não sincronizadas?'
+  },
+  backupAudioAction: {
+    english: 'Backup Audio',
+    spanish: 'Respaldar Audio',
+    brazilian_portuguese: 'Backup de Áudio'
+  },
+  backupErrorTitle: {
+    english: 'Backup Error',
+    spanish: 'Error de Respaldo',
+    brazilian_portuguese: 'Erro de Backup'
+  },
+  backupCompleteTitle: {
+    english: 'Backup Complete',
+    spanish: 'Respaldo Completado',
+    brazilian_portuguese: 'Backup Concluído'
+  },
+  audioBackupStatus: {
+    english: 'Successfully backed up {count} audio recordings',
+    spanish: 'Se respaldaron con éxito {count} grabaciones de audio',
+    brazilian_portuguese:
+      'Backup de {count} gravações de áudio concluído com sucesso'
+  },
+  criticalBackupError: {
+    english: 'A critical error occurred: {error}',
+    spanish: 'Ocurrió un error crítico: {error}',
+    brazilian_portuguese: 'Ocorreu um erro crítico: {error}'
+  },
+  databaseNotReady: {
+    english: 'Database is not ready. Please try again later.',
+    spanish: 'La base de datos no está lista. Por favor, inténtelo más tarde.',
+    brazilian_portuguese:
+      'O banco de dados não está pronto. Por favor, tente novamente mais tarde.'
+  },
+  storagePermissionDenied: {
+    english: 'Storage permission denied. Backup cannot proceed.',
+    spanish:
+      'Permiso de almacenamiento denegado. El respaldo no puede continuar.',
+    brazilian_portuguese:
+      'Permissão de armazenamento negada. O backup não pode prosseguir.'
+  },
+  // Adding missing translation keys
+  initializing: {
+    english: 'Initializing',
+    spanish: 'Inicializando',
+    brazilian_portuguese: 'Inicializando'
+  },
+  syncComplete: {
+    english: 'Sync complete',
+    spanish: 'Sincronización completa',
+    brazilian_portuguese: 'Sincronização completa'
+  },
+  syncProgress: {
+    english: '{current} of {total} files',
+    spanish: '{current} de {total} archivos',
+    brazilian_portuguese: '{current} de {total} arquivos'
+  },
+  userNotLoggedIn: {
+    english: 'You must be logged in to perform this action',
+    spanish: 'Debe iniciar sesión para realizar esta acción',
+    brazilian_portuguese: 'Você deve estar logado para realizar esta ação'
+  },
+  cannotReportOwnTranslation: {
+    english: 'You cannot report your own translation',
+    spanish: 'No puede reportar su propia traducción',
+    brazilian_portuguese: 'Você não pode reportar sua própria tradução'
+  },
+  alreadyReportedTranslation: {
+    english: 'You have already reported this translation',
+    spanish: 'Ya ha reportado esta traducción',
+    brazilian_portuguese: 'Você já reportou esta tradução'
+  },
+  failedSaveAnalyticsPreference: {
+    english: 'Failed to save analytics preference',
+    spanish: 'Error al guardar la preferencia de análisis',
+    brazilian_portuguese: 'Falha ao salvar preferência de análise'
+  },
+  currentPasswordRequired: {
+    english: 'Current password is required',
+    spanish: 'Se requiere la contraseña actual',
+    brazilian_portuguese: 'A senha atual é obrigatória'
+  },
+  profileUpdateSuccess: {
+    english: 'Profile updated successfully',
+    spanish: 'Perfil actualizado con éxito',
+    brazilian_portuguese: 'Perfil atualizado com sucesso'
+  },
+  failedUpdateProfile: {
+    english: 'Failed to update profile',
+    spanish: 'Error al actualizar el perfil',
+    brazilian_portuguese: 'Falha ao atualizar perfil'
+  },
+  assetNotFound: {
+    english: 'Asset not found',
+    spanish: 'Recurso no encontrado',
+    brazilian_portuguese: 'Recurso não encontrado'
+  },
+  failedLoadAssetData: {
+    english: 'Failed to load asset data',
+    spanish: 'Error al cargar datos del recurso',
+    brazilian_portuguese: 'Falha ao carregar dados do recurso'
+  },
+  failedLoadAssets: {
+    english: 'Failed to load assets',
+    spanish: 'Error al cargar recursos',
+    brazilian_portuguese: 'Falha ao carregar recursos'
   }
   // Add more translation keys as needed...
 } as const;
