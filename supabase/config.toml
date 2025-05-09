@@ -95,7 +95,7 @@ file_size_limit = "50MiB"
 # enabled = true
 
 # Uncomment to configure local storage buckets
-[storage.buckets.assets]
+[storage.buckets.local]
 public = true
 file_size_limit = "50MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4", "application/octet-stream"]
