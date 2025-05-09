@@ -40,6 +40,7 @@ export default tseslint.config(
         }
       ],
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
       ...reactPlugin.configs['jsx-runtime'].rules
     }

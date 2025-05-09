@@ -230,42 +230,27 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
           <Ionicons name="close" size={20} color={colors.text} />
         </TouchableOpacity>
-
-        {(initialTranslation.text ?? isEditing) ? (
-          <ScrollView style={styles.scrollView}>
-            {isEditing ? (
-              <TextInput
-                style={styles.textInput}
-                multiline
-                placeholder={t('enterTranslation')}
-                placeholderTextColor={colors.textSecondary}
-                value={editedText}
-                onChangeText={setEditedText}
-              />
-            ) : (
-              <View style={styles.textContainer}>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={toggleEdit}
-                >
-                  <Ionicons name="pencil" size={18} color={colors.primary} />
-                </TouchableOpacity>
-                <Text style={styles.text}>{initialTranslation.text}</Text>
-              </View>
-            )}
-          </ScrollView>
-        ) : (
-          <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView}>
+          {isEditing ? (
+            <TextInput
+              style={styles.textInput}
+              multiline
+              placeholder={t('enterTranslation')}
+              placeholderTextColor={colors.textSecondary}
+              value={editedText}
+              onChangeText={setEditedText}
+            />
+          ) : (
             <View style={styles.textContainer}>
               <TouchableOpacity style={styles.editButton} onPress={toggleEdit}>
                 <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
-              <Text style={styles.placeholderText}>
-                {t('enterTranslation')}
+              <Text style={styles.text}>
+                {initialTranslation.text || t('enterTranslation')}
               </Text>
             </View>
-          </ScrollView>
-        )}
+          )}
+        </ScrollView>
 
         <View style={styles.audioPlayerContainer}>
           {loadingAudio ? (
