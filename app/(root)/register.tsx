@@ -72,23 +72,18 @@ export default function Register() {
 
       // Update the anonymous user with credentials
       const { error: authError } =
-        await supabaseConnector.client.auth.updateUser(
-          {
-            email: data.email.trim(),
-            password: data.password.trim(),
-            data: {
-              username: data.username.trim(),
-              ui_language_id: currentLanguage?.id,
-              ui_language:
-                currentLanguage?.english_name?.toLowerCase() || 'english',
-              terms_accepted: data.termsAccepted,
-              terms_accepted_at: dateTermsAccepted
-            }
-          },
-          {
-            emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/registration-confirmation`
+        await supabaseConnector.client.auth.updateUser({
+          email: data.email.trim(),
+          password: data.password.trim(),
+          data: {
+            username: data.username.trim(),
+            ui_language_id: currentLanguage?.id,
+            ui_language:
+              currentLanguage?.english_name?.toLowerCase() || 'english',
+            terms_accepted: data.termsAccepted,
+            terms_accepted_at: dateTermsAccepted
           }
-        );
+        });
 
       if (authError) {
         throw authError;

@@ -16,14 +16,17 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const signupEmailSubjects = {
+  en: 'Confirm Your LangQuest Account',
+  es: 'Confirma tu cuenta de LangQuest',
+  fr: 'Confirmez votre compte LangQuest',
+  'pt-BR': 'Confirme sua conta LangQuest'
+};
+
 // Email subject translations
 const emailSubjects = {
-  signup: {
-    en: 'Confirm Your LangQuest Account',
-    es: 'Confirma tu cuenta de LangQuest',
-    fr: 'Confirmez votre compte LangQuest',
-    'pt-BR': 'Confirme sua conta LangQuest'
-  },
+  signup: signupEmailSubjects,
+  email_change: signupEmailSubjects,
   recovery: {
     en: 'Reset Your LangQuest Password',
     es: 'Restablece tu contraseña de LangQuest',
@@ -31,6 +34,13 @@ const emailSubjects = {
     'pt-BR': 'Redefina sua senha do LangQuest'
   }
 };
+
+type EmailTypeEndpoint = keyof typeof emailTypeEndpoint;
+const emailTypeEndpoint = {
+  email_change: 'registration-confirmation',
+  signup: 'registration-confirmation',
+  recovery: 'reset-password'
+} as const;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
@@ -78,18 +88,25 @@ Deno.serve(async (req) => {
       .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
       .single();
 
-    const ui_language = language?.locale ?? 'en';
+    const locale = language?.locale ?? 'en';
 
     const parsedRedirectTo = new URL(redirect_to);
     const confirmation_url = `${site_url}${
       !site_url.endsWith('/auth/v1') ? '/auth/v1' : ''
     }/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(
       parsedRedirectTo.host,
-      `${parsedRedirectTo.host}/${ui_language}`
+      `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type as EmailTypeEndpoint]}`
     )}`;
 
     // Determine which template to use and prepare email data
-    let subject: string;
+    type Language = (typeof emailSubjects)[keyof typeof emailSubjects];
+    type EmailActionType = keyof typeof emailSubjects;
+
+    const languageEmailSubjects =
+      emailSubjects[email_action_type as EmailActionType];
+
+    // Determine which template to use and prepare email data
+    const subject = languageEmailSubjects[locale as keyof Language];
     let html: string;
     let text: string;
 
@@ -98,29 +115,21 @@ Deno.serve(async (req) => {
       case 'signup': {
         const emailComponent = React.createElement(ConfirmEmail, {
           confirmation_url,
-          ui_language
+          locale
         }) as React.ReactElement;
 
         html = await renderAsync(emailComponent);
         text = await renderAsync(emailComponent, { plainText: true });
-        subject =
-          emailSubjects.signup[
-            ui_language as keyof typeof emailSubjects.signup
-          ] || emailSubjects.signup.en;
         break;
       }
       case 'recovery': {
         const resetPasswordComponent = React.createElement(ResetPassword, {
           confirmation_url,
-          ui_language
+          locale
         }) as React.ReactElement;
 
         html = await renderAsync(resetPasswordComponent);
         text = await renderAsync(resetPasswordComponent, { plainText: true });
-        subject =
-          emailSubjects.recovery[
-            ui_language as keyof typeof emailSubjects.recovery
-          ] || emailSubjects.recovery.en;
         break;
       }
       default:

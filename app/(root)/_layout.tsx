@@ -16,6 +16,7 @@ export default function TermsLayout() {
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   useEffect(() => {
+    if (hasRehydrated) return;
     const abort = new AbortController();
     db.watch(
       db.query.language.findFirst(),

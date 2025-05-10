@@ -4,26 +4,26 @@
     "appVersionSource": "remote"
   },
   "build": {
-    // "development": {
-    //   "developmentClient": true,
-    //   "distribution": "internal",
-    //   "channel": "development",
-    //   "environment": "development",
-    //   "env": {
-    //     "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-    //     "EXPO_PUBLIC_APP_VARIANT": "development"
-    //   }
-    // },
-    // "preview": {
-    //   "autoIncrement": true,
-    //   "distribution": "store",
-    //   "channel": "preview",
-    //   "environment": "preview",
-    //   "env": {
-    //     "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-    //     "EXPO_PUBLIC_APP_VARIANT": "preview"
-    //   }
-    // },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "environment": "preview", // we want to use the preview environment for development
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "development" // show logout button in the app
+      }
+    },
+    "preview": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "channel": "preview",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "preview"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production",

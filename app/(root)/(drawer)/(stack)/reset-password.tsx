@@ -17,10 +17,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type ResetPasswordFormData = {
+interface ResetPasswordFormData {
   newPassword: string;
   confirmPassword: string;
-};
+}
 
 export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
@@ -44,12 +44,12 @@ export default function ResetPassword() {
 
   useEffect(() => {
     const subscription = supabaseConnector.client.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('[Reset Password] Auth event:', event);
         if (event === 'PASSWORD_RECOVERY') {
           setCanResetPassword(true);
           // Get user's language preference from session
-          const userLang = session?.user?.user_metadata?.ui_language;
+          const userLang = session?.user.user_metadata.ui_language;
           if (userLang) {
             setUserLanguage(userLang);
           }
@@ -58,16 +58,18 @@ export default function ResetPassword() {
     );
 
     // Check current session
-    supabaseConnector.client.auth.getSession().then(({ data: { session } }) => {
-      console.log('[Reset Password] Current session:', session?.user);
-      setCanResetPassword(!!session?.user);
-      // Get user's language preference from current session
-      const userLang = session?.user?.user_metadata?.ui_language;
-      if (userLang) {
-        setUserLanguage(userLang);
-      }
-      setIsLoading(false);
-    });
+    void supabaseConnector.client.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        console.log('[Reset Password] Current session:', session?.user);
+        setCanResetPassword(!!session?.user);
+        // Get user's language preference from current session
+        const userLang = session?.user.user_metadata.ui_language;
+        if (userLang) {
+          setUserLanguage(userLang);
+        }
+        setIsLoading(false);
+      });
 
     return () => {
       subscription.data.subscription.unsubscribe();
