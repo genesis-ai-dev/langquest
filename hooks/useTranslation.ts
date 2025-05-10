@@ -1,11 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { languageService } from '@/database_services/languageService';
 import type {
   SupportedLanguage,
   TranslationKey
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
+import { useLocalStore } from '@/store/localStore';
 import { useEffect, useState } from 'react';
 
 // Define a type for interpolation values
@@ -14,7 +14,7 @@ export type InterpolationValues = Record<string, string | number>;
 
 export function useTranslation(languageOverride?: string | null) {
   const { currentUser } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const currentLanguage = useLocalStore((state) => state.language);
   const [profileLanguage, setProfileLanguage] = useState<Awaited<
     ReturnType<typeof languageService.getLanguageById>
   > | null>(null);

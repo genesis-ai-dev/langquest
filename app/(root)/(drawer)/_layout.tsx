@@ -7,7 +7,7 @@ import { colors } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, Slot } from 'expo-router';
+import { Redirect, Slot, SplashScreen } from 'expo-router';
 import { PostHogSurveyProvider } from 'posthog-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
@@ -43,7 +43,7 @@ export default function AuthLayout() {
         await system.permAttachmentQueue?.init();
         console.log('System initialized');
 
-        // await SplashScreen.hideAsync();
+        await SplashScreen.hideAsync();
       };
       void asyncFunction();
     }

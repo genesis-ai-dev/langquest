@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
@@ -39,7 +38,6 @@ const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignIn() {
   const { supabaseConnector } = useSystem();
-  const { currentLanguage, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -47,22 +45,13 @@ export default function SignIn() {
     control,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors }
   } = useForm<LoginFormData>({
     defaultValues: {
       email: '',
-      password: '',
-      selectedLanguageId: currentLanguage?.id ?? ''
+      password: ''
     }
   });
-
-  // Set language ID in form when it loads from context
-  useEffect(() => {
-    if (currentLanguage?.id) {
-      setValue('selectedLanguageId', currentLanguage.id);
-    }
-  }, [currentLanguage, setValue]);
 
   // Clear form when component unmounts
   useEffect(() => {
@@ -132,33 +121,7 @@ export default function SignIn() {
 
               {/* Language section */}
               <View style={{ gap: spacing.medium, width: '100%' }}>
-                <View
-                  style={{
-                    alignItems: 'center',
-                    width: '100%',
-                    gap: spacing.medium
-                  }}
-                >
-                  <Controller
-                    control={control}
-                    name="selectedLanguageId"
-                    render={({ field: { onChange, value } }) => (
-                      <LanguageSelect
-                        value={value}
-                        onChange={(lang) => {
-                          onChange(lang.id);
-                          void setLanguage(lang);
-                        }}
-                        containerStyle={{ width: '100%' }}
-                      />
-                    )}
-                  />
-                  {errors.selectedLanguageId && (
-                    <Text style={styles.errorText}>
-                      {errors.selectedLanguageId.message}
-                    </Text>
-                  )}
-                </View>
+                <LanguageSelect containerStyle={{ width: '100%' }} />
 
                 {/* Login section */}
                 <View
