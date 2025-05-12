@@ -3,7 +3,8 @@ import { useSystem } from '@/contexts/SystemContext';
 import { initializeLanguage, useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, SplashScreen, Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,7 +17,6 @@ export default function TermsLayout() {
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   useEffect(() => {
-    if (hasRehydrated) return;
     const abort = new AbortController();
     db.watch(
       db.query.language.findFirst(),
@@ -27,6 +27,7 @@ export default function TermsLayout() {
               await useLocalStore.persist.rehydrate();
               await initializeLanguage();
               setHasRehydrated(true);
+              if (!dateTermsAccepted) await SplashScreen.hideAsync();
             };
             void rehydrate();
           }
@@ -41,10 +42,6 @@ export default function TermsLayout() {
       return abort.abort();
     };
   }, []);
-
-  useEffect(() => {
-    if (!dateTermsAccepted && hasRehydrated) void SplashScreen.hideAsync();
-  }, [dateTermsAccepted, hasRehydrated]);
 
   if (!hasRehydrated) {
     console.log('local store not hydrated');

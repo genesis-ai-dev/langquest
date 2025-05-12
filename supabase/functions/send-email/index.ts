@@ -91,9 +91,8 @@ Deno.serve(async (req) => {
     const locale = language?.locale ?? 'en';
 
     const parsedRedirectTo = new URL(redirect_to);
-    const confirmation_url = `${site_url}${
-      !site_url.endsWith('/auth/v1') ? '/auth/v1' : ''
-    }/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(
+    const parsedSiteUrl = new URL(site_url);
+    const confirmation_url = `https://${parsedRedirectTo.host}/api/auth/verify?project_ref=${parsedSiteUrl.host}&token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(
       parsedRedirectTo.host,
       `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type as EmailTypeEndpoint]}`
     )}`;
