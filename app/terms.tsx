@@ -1,15 +1,10 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useSystem } from '@/contexts/SystemContext';
-import { profileService } from '@/database_services/profileService';
-import { useAcceptedTerms } from '@/hooks/useAcceptedTerms';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -21,63 +16,24 @@ import {
 
 export default function Terms() {
   const router = useRouter();
-  const { currentLanguage, setLanguage } = useLanguage();
-  const { currentUser, setCurrentUser, isLoading } = useAuth();
-  const { powersync, supabaseConnector } = useSystem();
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const { t } = useTranslation();
-  const [isProcessing, setIsProcessing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const { termsAccepted: hasAcceptedTerms } = useAcceptedTerms();
 
-  useEffect(() => {
-    if (!isLoading && currentUser) {
-      if (!currentUser.terms_accepted) void powersync.disconnect();
-      else if (!powersync.connected) void powersync.connect(supabaseConnector);
-    }
-  }, [currentUser, isLoading, powersync, supabaseConnector]);
-
-  const handleAcceptTerms = async () => {
-    try {
-      console.log('Accepting terms...');
-      setIsProcessing(true);
-
-      let updatedUser;
-      if (!currentUser)
-        await AsyncStorage.setItem('terms_accepted', new Date().toISOString());
-      else {
-        // Update the user's metadata in auth
-        updatedUser = await profileService.updateProfile({
-          id: currentUser.id,
-          terms_accepted: true,
-          terms_accepted_at: new Date().toISOString()
-        });
-      }
-      // Close the modal
-      router.navigate('/');
-
-      // Resume syncing
-      if (!powersync.connected) {
-        void powersync.connect(supabaseConnector);
-      }
-
-      // Refresh the current user
-      if (updatedUser) {
-        setCurrentUser(updatedUser);
-      }
-    } catch (error) {
-      console.error('Error accepting terms:', error);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleAcceptTerms = () => {
+    console.log('Accepting terms...');
+    acceptTerms();
+    router.navigate('/');
   };
 
-  const canAcceptTerms = !hasAcceptedTerms;
+  const canAcceptTerms = !dateTermsAccepted;
 
   return (
     <View style={styles.modalContainer}>
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>{t('termsAndPrivacyTitle')}</Text>
-        {currentUser?.terms_accepted && (
+        {!canAcceptTerms && (
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() =>
@@ -91,11 +47,7 @@ export default function Terms() {
 
       {/* Language Selector */}
       <View style={styles.languageSelector}>
-        <LanguageSelect
-          value={currentLanguage?.id ?? ''}
-          onChange={(lang) => setLanguage(lang)}
-          containerStyle={{ flex: 1 }}
-        />
+        <LanguageSelect containerStyle={{ flex: 1 }} />
       </View>
 
       <ScrollView
@@ -151,11 +103,9 @@ export default function Terms() {
                 !termsAccepted && styles.disabledButton
               ]}
               onPress={handleAcceptTerms}
-              disabled={!termsAccepted || isProcessing}
+              disabled={!termsAccepted}
             >
-              <Text style={sharedStyles.buttonText}>
-                {isProcessing ? t('processing') : t('accept')}
-              </Text>
+              <Text style={sharedStyles.buttonText}>{t('accept')}</Text>
             </TouchableOpacity>
           </View>
         </>

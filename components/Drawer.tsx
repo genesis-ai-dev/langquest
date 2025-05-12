@@ -397,31 +397,31 @@ function DrawerFooter() {
   const { goToProject, goToQuest, activeProject, activeQuest } =
     useProjectContext();
 
-  if (!pathname.startsWith('/')) return null;
+  if (!pathname.startsWith('/projects')) return null;
 
   return (
     <View style={styles.drawerFooterNav}>
-      {pathname.startsWith('/') && (
-        <TouchableOpacity onPress={() => router.navigate('/')}>
-          <Ionicons name="home" size={20} color={colors.text} />
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity onPress={() => router.navigate('/')}>
+        <Ionicons name="home" size={20} color={colors.text} />
+      </TouchableOpacity>
       <View style={styles.footerTextContainer}>
-        <Fragment>
-          <Ionicons name="chevron-forward" size={14} color={colors.text} />
-          <TouchableOpacity
-            onPress={() => goToProject(activeProject!, true)}
-            style={styles.footerTextItem}
-          >
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={{ color: colors.text }}
+        {activeProject && (
+          <Fragment>
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            <TouchableOpacity
+              onPress={() => goToProject(activeProject, true)}
+              style={styles.footerTextItem}
             >
-              {activeProject?.name}
-            </Text>
-          </TouchableOpacity>
-        </Fragment>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: colors.text }}
+              >
+                {activeProject.name}
+              </Text>
+            </TouchableOpacity>
+          </Fragment>
+        )}
 
         {activeQuest && (
           <Fragment>
