@@ -1,9 +1,12 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
+import PickaxeIcon from '@/components/PickaxeIcon';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import { assetService } from '@/database_services/assetService';
 import { downloadService } from '@/database_services/downloadService';
@@ -11,11 +14,10 @@ import type { Quest } from '@/database_services/questService';
 import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
+import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -25,7 +27,12 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { getGemColor } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
+import { inArray } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -42,11 +49,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
-import { getGemColor } from '@/utils/progressUtils';
-import { sortItems } from '@/utils/sortingUtils';
-
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -59,10 +61,19 @@ function AssetCard({ asset }: { asset: Asset }) {
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
-  const [translations, setTranslations] = useState<Translation[]>([]);
+  const { db } = useSystem();
   const [translationVotes, setTranslationVotes] = useState<
     Record<string, Vote[]>
   >({});
+  
+  const { data: translations } = useQuery(
+    toCompilableQuery(
+      db.query.translation.findMany({
+        where: inArray(translationTable.asset_id, [asset.id])
+      })
+    )
+  );
+
 
   useEffect(() => {
     const loadDownloadStatus = async () => {
@@ -80,17 +91,11 @@ function AssetCard({ asset }: { asset: Asset }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const assetTranslations =
-          await translationService.getTranslationsByAssetId(
-            asset.id,
-            currentUser?.id
-          );
-        setTranslations(assetTranslations);
 
         // Load votes for each translation
         const votesMap: Record<string, Vote[]> = {};
         await Promise.all(
-          assetTranslations.map(async (translation) => {
+          translations.map(async (translation) => {
             votesMap[translation.id] =
               await voteService.getVotesByTranslationId(translation.id);
           })
