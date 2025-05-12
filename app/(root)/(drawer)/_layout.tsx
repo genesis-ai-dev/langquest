@@ -68,9 +68,9 @@ export default function AuthLayout() {
     return <Redirect href="/sign-in" />;
   }
 
-  if (!currentUser.terms_accepted) {
-    return <Redirect href="/terms" />;
-  }
+  // if (!currentUser.terms_accepted) {
+  //   return <Redirect href="/terms" />;
+  // }
 
   // Render authenticated layout with drawer and terms guard
   return (
