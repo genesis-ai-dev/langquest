@@ -38,14 +38,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Asset } from '@/database_services/assetService';
+import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
+import {
+  asset as assetTable,
+  quest as questTable,
+  translation as translationTable
+} from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
+import { eq, inArray } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
@@ -57,6 +61,43 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
+  const { db } = useSystem();
+  const { data: questAssets } = useQuery(
+    toCompilableQuery(
+      db.query.quest.findMany({
+        where: eq(questTable.project_id, quest.project_id),
+        with: {
+          assets: {
+            with: {
+              asset: {
+                with: {
+                  translations: {
+                    with: {
+                      votes: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+  const { data: assetTranslations } = useQuery(
+    toCompilableQuery(
+      db.query.translation.findMany({
+        where: inArray(translationTable.asset_id, assetIds)
+      })
+    )
+  );
+  const { data: questAssetsList } = useQuery(
+    toCompilableQuery(
+      db.query.asset.findMany({
+        where: inArray(assetTable.id, assetIds)
+      })
+    )
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,64 +140,29 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       console.error('Error toggling quest download:', error);
     }
   };
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [translations, setTranslations] = useState<
-    Record<string, Translation[]>
-  >({});
-  const [votes, setVotes] = useState<Record<string, Vote[]>>({});
 
-  useEffect(() => {
-    const loadQuestData = async () => {
-      try {
-        // Load tags
-        const questTags = await tagService.getTagsByQuestId(quest.id);
-        setTags(questTags.filter(Boolean));
-
-        // Load assets
-        const questAssets = await assetService.getAssetsByQuestId(quest.id);
-        setAssets(questAssets.filter(Boolean));
-
-        // Load translations and votes for each asset
-        const translationsMap: Record<string, Translation[]> = {};
-        const votesMap: Record<string, Vote[]> = {};
-
-        await Promise.all(
-          questAssets.filter(Boolean).map(async (asset) => {
-            const assetTranslations =
-              await translationService.getTranslationsByAssetId(
-                asset.id,
-                currentUser?.id
-              );
-            translationsMap[asset.id] = assetTranslations;
-
-            // Load votes for each translation
-            await Promise.all(
-              assetTranslations.map(async (translation) => {
-                const translationVotes =
-                  await voteService.getVotesByTranslationId(translation.id);
-                votesMap[translation.id] = translationVotes;
-              })
-            );
-          })
-        );
-
-        setTranslations(translationsMap);
-        setVotes(votesMap);
-      } catch (error) {
-        console.error('Error loading quest data:', error);
-      }
-    };
-
-    void loadQuestData();
-  }, [quest.id, currentUser]);
-
-  const progress = calculateQuestProgress(
-    assets,
-    translations,
-    votes,
-    currentUser?.id ?? null
+  const nestedVotes = Object.fromEntries(
+    questAssets.flatMap((quest) =>
+      quest.assets.flatMap((asset) =>
+        asset.asset.translations.map((translation) => [
+          translation.id,
+          translation.votes
+        ])
+      )
+    )
   );
 
+  const progress = calculateQuestProgress(
+    questAssetsList,
+    Object.fromEntries(
+      questAssetsList.map((asset) => [
+        asset.id,
+        assetTranslations.filter((t) => t.asset_id === asset.id)
+      ])
+    ),
+    nestedVotes,
+    currentUser?.id ?? null
+  );
   return (
     <View style={sharedStyles.card}>
       <DownloadIndicator
