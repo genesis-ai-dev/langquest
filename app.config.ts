@@ -3,52 +3,14 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
 
-const IS_DEV = process.env.EXPO_PUBLIC_APP_VARIANT === 'development';
-const IS_PREVIEW = process.env.EXPO_PUBLIC_APP_VARIANT === 'preview';
-
 const siteHost = 'langquest.org';
-
-const getSlug = () => {
-  if (IS_DEV) {
-    return 'langquest-dev';
-  }
-
-  if (IS_PREVIEW) {
-    return 'langquest-preview';
-  }
-
-  return 'langquest';
-};
-
-const getUniqueIdentifier = () => {
-  if (IS_DEV) {
-    return 'com.etengenesis.langquest.dev';
-  }
-
-  if (IS_PREVIEW) {
-    return 'com.etengenesis.langquest.preview';
-  }
-
-  return 'com.etengenesis.langquest';
-};
-
-const getAppName = () => {
-  if (IS_DEV) {
-    return 'LangQuest (Dev)';
-  }
-
-  if (IS_PREVIEW) {
-    return 'LangQuest (Preview)';
-  }
-
-  return 'LangQuest';
-};
+const uniqueIdentifier = 'com.etengenesis.langquest';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: 'eten-genesis',
-  name: getAppName(),
-  slug: getSlug(),
+  name: 'LangQuest',
+  slug: 'langquest',
   version: '1.0.0',
   orientation: 'portrait',
   icon: iconPath,
@@ -61,14 +23,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: getUniqueIdentifier()
+    requireFullScreen: true,
+    bundleIdentifier: uniqueIdentifier
   },
   android: {
     adaptiveIcon: {
       foregroundImage: iconPath,
       backgroundColor: '#ffffff'
     },
-    package: getUniqueIdentifier(),
+    package: uniqueIdentifier,
     intentFilters: [
       {
         action: 'VIEW',
@@ -107,19 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-screen-orientation',
       {
-        initialOrientation: 'DEFAULT'
-      }
-    ],
-    [
-      'expo-splash-screen',
-      {
-        backgroundColor: '#232323',
-        image: iconPath,
-        dark: {
-          image: iconPath,
-          backgroundColor: '#000000'
-        },
-        imageWidth: 200
+        initialOrientation: 'PORTRAIT_UP'
       }
     ]
   ],

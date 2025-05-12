@@ -13,12 +13,12 @@ import * as React from 'npm:react';
 
 interface ResetPasswordProps {
   confirmation_url: string;
-  ui_language?: string;
+  locale?: string;
 }
 
 export const ResetPassword = ({
   confirmation_url,
-  ui_language = 'en'
+  locale = 'en'
 }: ResetPasswordProps) => {
   // Translations
   const translations = {
@@ -70,8 +70,7 @@ export const ResetPassword = ({
     }
   };
 
-  const t =
-    translations[ui_language as keyof typeof translations] || translations.en;
+  const t = translations[locale as keyof typeof translations];
 
   return (
     <Html>

@@ -95,7 +95,7 @@ file_size_limit = "50MiB"
 # enabled = true
 
 # Uncomment to configure local storage buckets
-[storage.buckets.assets]
+[storage.buckets.local]
 public = true
 file_size_limit = "50MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4", "application/octet-stream"]
@@ -167,7 +167,7 @@ otp_expiry = 86400
 
 # Use a production-ready SMTP server
 [auth.email.smtp]
-enabled = true
+enabled = false
 host = "smtp.resend.com"
 port = 465
 user = "resend"
@@ -209,12 +209,6 @@ max_frequency = "5s"
 # [auth.hook.custom_access_token]
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
-
-[auth.hook.send_email]
-enabled = true
-# we don't want it to change to this url after a merge into prod, check
-uri = "https://yjgdgsycxmlvaiuynlbv.supabase.co/functions/v1/send-email"
-secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -293,11 +287,6 @@ enabled = false
 policy = "oneshot"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
-
-[edge_runtime.secrets]
-secret_key = "env(DOTENV_PRIVATE_KEY_PREVIEW)"
-resend_api_key = "env(RESEND_API_KEY)"
-send_email_hook_secret = "env(SEND_EMAIL_HOOK_SECRET)"
 
 [analytics]
 enabled = false

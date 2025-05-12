@@ -1,30 +1,11 @@
-import { ANALYTICS_OPT_OUT_KEY } from '@/app/(root)/(drawer)/(stack)/profile';
-import { useAcceptedTerms } from '@/hooks/useAcceptedTerms';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalStore } from '@/store/localStore';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
-import { useEffect, useState } from 'react';
 
 function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const [optedOut, setOptedOut] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const { termsAccepted, termsLoading } = useAcceptedTerms();
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const isAnalyticsOptedOut = useLocalStore((state) => state.analyticsOptOut);
 
-  useEffect(() => {
-    void AsyncStorage.getItem(ANALYTICS_OPT_OUT_KEY)
-      .then((value) => {
-        if (value) setOptedOut(Boolean(value));
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
-
-  if (isLoading || termsLoading) {
-    console.log('PostHogProvider is loading');
-    return null;
-  }
-
-  const defaultOptIn = !optedOut && termsAccepted;
+  const defaultOptIn = !isAnalyticsOptedOut && !!dateTermsAccepted;
   console.log('Has PostHog been opted in?', defaultOptIn);
 
   return (

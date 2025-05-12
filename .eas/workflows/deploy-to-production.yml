@@ -20,9 +20,6 @@ jobs:
         run: |
           ANDROID_FINGERPRINT=$(npx expo-updates fingerprint:generate --platform android)
           ANDROID_FINGERPRINT_HASH=$(echo $ANDROID_FINGERPRINT | jq -r '.hash')
-          IOS_FINGERPRINT=$(npx expo-updates fingerprint:generate --platform ios)
-          IOS_FINGERPRINT_HASH=$(echo $IOS_FINGERPRINT | jq -r '.hash')
-          set-output ios_fingerprint_hash $IOS_FINGERPRINT_HASH
           set-output android_fingerprint_hash $ANDROID_FINGERPRINT_HASH
   get_android_build:
     name: Check for existing android build
@@ -54,12 +51,12 @@ jobs:
   #   params:
   #     platform: ios
   #     profile: production
-  # submit_android_build:
-  #   name: Submit Android Build
-  #   needs: [build_android]
-  #   type: submit
-  #   params:
-  #     build_id: ${{ needs.build_android.outputs.build_id }}
+  submit_android_build:
+    name: Submit Android Build
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
   # submit_ios_build:
   #   name: Submit iOS Build
   #   needs: [build_ios]

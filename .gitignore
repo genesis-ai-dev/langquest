@@ -33,8 +33,6 @@ app/sqlite_in_expo.md
 langquest types.xlsx
 .drizzle
 .idea
-supabase/.env.local
-supabase/env.keys
 **/*.env.local
 *.vsix
 

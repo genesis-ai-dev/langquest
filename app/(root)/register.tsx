@@ -1,14 +1,12 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { languageService } from '@/database_services/languageService';
-import { language } from '@/db/drizzleSchema';
 import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, Link, useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -24,31 +22,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Language = typeof language.$inferSelect;
-
-type RegisterFormData = {
+interface RegisterFormData {
   username: string;
   email: string;
   password: string;
   confirmPassword: string;
   selectedLanguageId: string;
   termsAccepted: boolean;
-};
+}
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function Register() {
-  const { currentLanguage, setLanguage } = useLanguage();
+  const currentLanguage = useLocalStore((state) => state.language);
   const { t } = useTranslation();
   const router = useRouter();
   const { supabaseConnector } = useSystem();
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   const {
     control,
     handleSubmit,
     watch,
     reset,
-    setValue,
     formState: { errors }
   } = useForm<RegisterFormData>({
     defaultValues: {
@@ -56,17 +52,9 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      selectedLanguageId: currentLanguage?.id || '',
       termsAccepted: false
     }
   });
-
-  // Set language ID in form when it loads from context
-  useEffect(() => {
-    if (currentLanguage?.id) {
-      setValue('selectedLanguageId', currentLanguage.id);
-    }
-  }, [currentLanguage, setValue]);
 
   // Clear form when component unmounts
   useEffect(() => {
@@ -82,33 +70,20 @@ export default function Register() {
         return;
       }
 
-      // Get the language object first
-      const selectedLanguage = await languageService.getLanguageById(
-        data.selectedLanguageId
-      );
-      if (!selectedLanguage) {
-        throw new Error('Selected language not found');
-      }
-
       // Update the anonymous user with credentials
-      const { data: authData, error: authError } =
-        await supabaseConnector.client.auth.updateUser(
-          {
-            email: data.email.trim(),
-            password: data.password.trim(),
-            data: {
-              username: data.username.trim(),
-              ui_language_id: data.selectedLanguageId,
-              ui_language:
-                selectedLanguage.english_name?.toLowerCase() || 'english',
-              terms_accepted: true,
-              terms_accepted_at: new Date().toISOString()
-            }
-          },
-          {
-            emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/registration-confirmation`
+      const { error: authError } =
+        await supabaseConnector.client.auth.updateUser({
+          email: data.email.trim(),
+          password: data.password.trim(),
+          data: {
+            username: data.username.trim(),
+            ui_language_id: currentLanguage?.id,
+            ui_language:
+              currentLanguage?.english_name?.toLowerCase() || 'english',
+            terms_accepted: data.termsAccepted,
+            terms_accepted_at: dateTermsAccepted
           }
-        );
+        });
 
       if (authError) {
         throw authError;
@@ -157,26 +132,7 @@ export default function Register() {
 
               {/* Language section */}
               <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                <Controller
-                  control={control}
-                  name="selectedLanguageId"
-                  rules={{ required: t('selectLanguage') }}
-                  render={({ field: { onChange, value } }) => (
-                    <LanguageSelect
-                      value={value}
-                      onChange={(lang) => {
-                        onChange(lang.id);
-                        setLanguage(lang);
-                      }}
-                      containerStyle={{ width: '100%' }}
-                    />
-                  )}
-                />
-                {errors.selectedLanguageId && (
-                  <Text style={styles.errorText}>
-                    {errors.selectedLanguageId.message}
-                  </Text>
-                )}
+                <LanguageSelect containerStyle={{ width: '100%' }} />
               </View>
 
               {/* User section */}
