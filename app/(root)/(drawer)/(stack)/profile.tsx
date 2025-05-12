@@ -4,12 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -40,28 +40,13 @@ export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
   const { t } = useTranslation();
   const isOnline = useNetworkStatus();
-  const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const posthog = usePostHog();
-
-  // Load analytics preference from AsyncStorage
-  useEffect(() => {
-    const loadAnalyticsPreference = async () => {
-      try {
-        const value = await AsyncStorage.getItem(ANALYTICS_OPT_OUT_KEY);
-        setAnalyticsOptOut(value === 'true');
-      } catch (error) {
-        console.error('Error loading analytics preference:', error);
-      }
-    };
-
-    void loadAnalyticsPreference();
-  }, []);
-
+  const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
+  const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
   // Handle analytics opt-out toggle
   const handleAnalyticsToggle = async (value: boolean) => {
     try {
       setAnalyticsOptOut(value);
-      await AsyncStorage.setItem(ANALYTICS_OPT_OUT_KEY, value.toString());
       await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);

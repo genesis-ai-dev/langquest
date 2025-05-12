@@ -72,18 +72,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         initialOrientation: 'PORTRAIT_UP'
       }
-    ],
-    [
-      'expo-splash-screen',
-      {
-        backgroundColor: '#232323',
-        image: iconPath,
-        dark: {
-          image: iconPath,
-          backgroundColor: '#000000'
-        },
-        imageWidth: 200
-      }
     ]
   ],
   experiments: {

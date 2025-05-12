@@ -14,12 +14,12 @@ import * as React from 'npm:react';
 
 interface ConfirmEmailProps {
   confirmation_url: string;
-  ui_language?: string;
+  locale?: string;
 }
 
 export const ConfirmEmail = ({
   confirmation_url,
-  ui_language = 'en'
+  locale = 'en'
 }: ConfirmEmailProps) => {
   // Translations
   const localizations = {
@@ -61,9 +61,7 @@ export const ConfirmEmail = ({
     }
   };
 
-  const t =
-    localizations[ui_language as keyof typeof localizations] ||
-    localizations.en;
+  const t = localizations[locale as keyof typeof localizations];
 
   return (
     <Html>

@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import NetInfo from '@react-native-community/netinfo';
+import { create } from 'zustand';
 
 interface NetworkState {
   isConnected: boolean;
@@ -12,7 +12,7 @@ export const useNetworkStore = create<NetworkState>((set) => ({
   setIsConnected: (connected) => set({ isConnected: connected }),
   initializeNetworkListener: () => {
     // Initial check
-    NetInfo.fetch().then((state) => {
+    void NetInfo.fetch().then((state) => {
       set({ isConnected: state.isConnected ?? false });
     });
 
