@@ -10,13 +10,10 @@ import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
-
-void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const router = useRouter();

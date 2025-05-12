@@ -1,46 +1,25 @@
 import PostHogProvider from '@/contexts/PostHogProvider';
-import { useSystem } from '@/contexts/SystemContext';
 import { initializeLanguage, useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function TermsLayout() {
-  const { db } = useSystem();
   const [hasRehydrated, setHasRehydrated] = useState(
     useLocalStore.persist.hasHydrated()
   );
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   useEffect(() => {
-    const abort = new AbortController();
-    db.watch(
-      db.query.language.findFirst(),
-      {
-        onResult: (results) => {
-          if (results.length > 0) {
-            const rehydrate = async () => {
-              await useLocalStore.persist.rehydrate();
-              await initializeLanguage();
-              setHasRehydrated(true);
-              if (!dateTermsAccepted) await SplashScreen.hideAsync();
-            };
-            void rehydrate();
-          }
-        }
-      },
-      {
-        signal: abort.signal
-      }
-    );
-
-    return () => {
-      return abort.abort();
+    const rehydrate = async () => {
+      await useLocalStore.persist.rehydrate();
+      await initializeLanguage();
+      setHasRehydrated(true);
     };
+    void rehydrate();
   }, []);
 
   if (!hasRehydrated) {
