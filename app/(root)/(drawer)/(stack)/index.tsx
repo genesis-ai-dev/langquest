@@ -11,7 +11,7 @@ import { projectService } from '@/database_services/projectService';
 import type { language, project } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
-import { colors, sharedStyles } from '@/styles/theme';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
@@ -156,12 +156,22 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   return (
     <View style={sharedStyles.card}>
       <View>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoading && isDownloaded}
-          onPress={handleDownloadToggle}
-        />
-        <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: spacing.small
+          }}
+        >
+          <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
+            {project.name}
+          </Text>
+          <DownloadIndicator
+            isDownloaded={isDownloaded && assetsDownloaded}
+            isLoading={isLoading && isDownloaded}
+            onPress={handleDownloadToggle}
+          />
+        </View>
         <Text style={sharedStyles.cardLanguageText}>
           {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
           {targetLanguage?.native_name ?? targetLanguage?.english_name}
