@@ -1,10 +1,10 @@
-import { colors, spacing } from '@/styles/theme';
+import { useNetworkConnectivity } from '@/hooks/useNetworkConnectivity';
+import { colors } from '@/styles/theme';
+import { storage } from '@/utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNetworkConnectivity } from '@/hooks/useNetworkConnectivity';
+import { ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
-import { storage } from '@/utils/storage';
 
 interface DownloadIndicatorProps {
   isDownloaded: boolean;
@@ -50,7 +50,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     <>
       <TouchableOpacity
         onPress={handlePress}
-        style={[styles.container, isDisabled && styles.disabled]}
+        style={[isDisabled && styles.disabled]}
         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         disabled={isDisabled || isLoading}
       >
@@ -80,12 +80,6 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: spacing.small,
-    right: spacing.small,
-    zIndex: 1
-  },
   disabled: {
     opacity: 0.5
   }

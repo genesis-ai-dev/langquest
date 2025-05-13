@@ -142,12 +142,20 @@ function AssetCard({ asset }: { asset: Asset }) {
 
   return (
     <View style={sharedStyles.card}>
-      <DownloadIndicator
-        isDownloaded={isDownloaded && assetsDownloaded}
-        isLoading={isLoadingDownloadStatus && isDownloaded}
-        onPress={handleDownloadToggle}
-      />
-      <Text style={sharedStyles.cardTitle}>{asset.name}</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: spacing.small
+        }}
+      >
+        <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
+        <DownloadIndicator
+          isDownloaded={isDownloaded && assetsDownloaded}
+          isLoading={isLoadingDownloadStatus && isDownloaded}
+          onPress={handleDownloadToggle}
+        />
+      </View>
       <View style={styles.translationCount}>
         {Object.entries(aggregatedGems).map(([color, count]) => (
           <View key={color} style={styles.gemContainer}>
