@@ -65,7 +65,7 @@ function AssetCard({ asset }: { asset: Asset }) {
   const [translationVotes, setTranslationVotes] = useState<
     Record<string, Vote[]>
   >({});
-  
+
   const { data: translations } = useQuery(
     toCompilableQuery(
       db.query.translation.findMany({
@@ -73,7 +73,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       })
     )
   );
-
 
   useEffect(() => {
     const loadDownloadStatus = async () => {
@@ -89,24 +88,30 @@ function AssetCard({ asset }: { asset: Asset }) {
   }, [asset.id, currentUser]);
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadTranslationData = async () => {
       try {
-
-        // Load votes for each translation
         const votesMap: Record<string, Vote[]> = {};
         await Promise.all(
           translations.map(async (translation) => {
-            votesMap[translation.id] =
-              await voteService.getVotesByTranslationId(translation.id);
+            try {
+              votesMap[translation.id] =
+                await voteService.getVotesByTranslationId(translation.id);
+            } catch (error) {
+              console.error('Failed to load votes for translation:', {
+                translationId: translation.id,
+                error
+              });
+              votesMap[translation.id] = [];
+            }
           })
         );
         setTranslationVotes(votesMap);
       } catch (error) {
-        console.error('Error loading asset data:', error);
+        console.error('Error loading translation data:', error);
       }
     };
-    void loadData();
-  }, [asset.id, currentUser]);
+    void loadTranslationData();
+  }, [translations]);
 
   // const { data: tags } = useQuery({
   //   queryKey: ['asset-tags', asset.id],
