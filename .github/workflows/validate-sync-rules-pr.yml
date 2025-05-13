@@ -13,7 +13,19 @@ env:
   PS_API_TOKEN: use_a_better_token_in_production
 
 jobs:
+  wait-for-supabase-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Preview workflow to complete
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'Supabase Preview'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
   validate-sync-rules-on-pr:
+    needs: [wait-for-supabase-preview]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
