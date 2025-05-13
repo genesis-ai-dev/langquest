@@ -18,7 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { supabaseConnector, powersync } = useSystem();
+  const system = useSystem();
 
   useEffect(() => {
     const loadAuthData = async () => {
@@ -41,18 +41,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void loadAuthData();
 
-    const subscription = supabaseConnector.client.auth.onAuthStateChange(
-      async (state, session) => {
+    const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
+      async (state: string, session: Session | null) => {
+        console.log('Auth state changed:', { state, userId: session?.user.id });
         // always maintain a session
         if (!session) {
-          await supabaseConnector.client.auth.signInAnonymously();
+          await system.supabaseConnector.client.auth.signInAnonymously();
           setCurrentUser(null);
           return;
         }
         if (!session.user.is_anonymous && state !== 'TOKEN_REFRESHED') {
-          setCurrentUser(
-            await supabaseConnector.getUserProfile(session.user.id)
-          );
+          try {
+            setCurrentUser(
+              await system.supabaseConnector.getUserProfile(session.user.id)
+            );
+            // Initialize system with new auth state
+            console.log('Reinitializing system after auth state change...');
+            await system.init();
+            await system.tempAttachmentQueue?.init();
+            await system.permAttachmentQueue?.init();
+            console.log('System reinitialization complete');
+          } catch (error) {
+            console.error('Error during system reinitialization:', error);
+            // Still set the user even if system init fails
+            setCurrentUser(
+              await system.supabaseConnector.getUserProfile(session.user.id)
+            );
+          }
         }
       }
     );
@@ -67,8 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // will bring you back to the sign-in screen
       setCurrentUser(null);
 
-      await supabaseConnector.signOut();
-      await powersync.disconnect();
+      await system.supabaseConnector.signOut();
+      await system.powersync.disconnect();
     } catch (error) {
       console.error('Error signing out:', error);
     }
