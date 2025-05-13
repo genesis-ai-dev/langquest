@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     const sendEmail = user.new_email ?? user.email;
 
     const { error } = await resend.emails.send({
-      from: 'LangQuest <account@security.langquest.org>',
+      from: 'LangQuest <account-security@langquest.org>',
       to: [sendEmail],
       subject,
       html,
