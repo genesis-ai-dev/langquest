@@ -14,8 +14,6 @@ import type { Quest } from '@/database_services/questService';
 import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
@@ -27,12 +25,12 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { getGemColor } from '@/utils/progressUtils';
+import { getGemColor, shouldCountTranslation } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
-import { inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -62,16 +60,67 @@ function AssetCard({ asset }: { asset: Asset }) {
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const { db } = useSystem();
-  const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[]>
-  >({});
 
+  // Get translations for this specific asset
   const { data: translations } = useQuery(
     toCompilableQuery(
       db.query.translation.findMany({
-        where: inArray(translationTable.asset_id, [asset.id])
+        where: eq(translationTable.asset_id, asset.id),
+        with: {
+          votes: true,
+          creator: true,
+          asset: true
+        }
       })
     )
+  );
+
+  // if (asset.name.includes('Lucas 1:2')) {
+  //   console.log(
+  //     'Translations: ',
+  //     JSON.stringify(
+  //       {
+  //         assetName: asset.name,
+  //         translations: translations.map((t) => ({
+  //           creatorName: t.creator.id,
+  //           text: t.text,
+  //           votes: t.votes
+  //         })),
+  //         translationCount: translations.length,
+  //         translationsWithVotesCount: translations.filter(
+  //           (t) => t.votes.length > 0
+  //         ).length
+  //       },
+  //       null,
+  //       2
+  //     )
+  //   );
+  // }
+
+  // Aggregate translations by gem color
+  const aggregatedGems = translations.reduce<AggregatedGems>(
+    (acc, translation) => {
+      // Only count translations that should be displayed
+      if (!shouldCountTranslation(translation.votes)) {
+        console.log('Not counting translation: ', translation.id);
+        return acc;
+      }
+
+      const gemColor = getGemColor(
+        translation,
+        translation.votes,
+        currentUser?.id ?? null
+      );
+
+      // console.log('Gem color: ', gemColor);
+
+      if (gemColor !== null) {
+        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
+      }
+
+      return acc;
+    },
+    {}
   );
 
   useEffect(() => {
@@ -86,32 +135,6 @@ function AssetCard({ asset }: { asset: Asset }) {
     };
     void loadDownloadStatus();
   }, [asset.id, currentUser]);
-
-  useEffect(() => {
-    const loadTranslationData = async () => {
-      try {
-        const votesMap: Record<string, Vote[]> = {};
-        await Promise.all(
-          translations.map(async (translation) => {
-            try {
-              votesMap[translation.id] =
-                await voteService.getVotesByTranslationId(translation.id);
-            } catch (error) {
-              console.error('Failed to load votes for translation:', {
-                translationId: translation.id,
-                error
-              });
-              votesMap[translation.id] = [];
-            }
-          })
-        );
-        setTranslationVotes(votesMap);
-      } catch (error) {
-        console.error('Error loading translation data:', error);
-      }
-    };
-    void loadTranslationData();
-  }, [translations]);
 
   // const { data: tags } = useQuery({
   //   queryKey: ['asset-tags', asset.id],
@@ -131,24 +154,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       console.error('Error toggling asset download:', error);
     }
   };
-
-  // Aggregate translations by gem color
-  const aggregatedGems = translations.reduce<AggregatedGems>(
-    (acc, translation) => {
-      const gemColor = getGemColor(
-        translation,
-        translationVotes[translation.id] ?? [],
-        currentUser?.id ?? null
-      );
-
-      if (gemColor !== null) {
-        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
-      }
-
-      return acc;
-    },
-    {}
-  );
 
   return (
     <View style={sharedStyles.card}>
@@ -196,6 +201,13 @@ function AssetCard({ asset }: { asset: Asset }) {
 }
 
 export default function Assets() {
+  const { t } = useTranslation();
+  const { goToAsset } = useProjectContext();
+  const { questId, projectId } = useGlobalSearchParams<{
+    questId: string;
+    projectId: string;
+  }>();
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
@@ -204,13 +216,6 @@ export default function Assets() {
   const [assetContents, setAssetContents] = useState<
     Record<string, (typeof asset_content_link.$inferSelect)[]>
   >({});
-
-  const { t } = useTranslation();
-  const { goToAsset } = useProjectContext();
-  const { questId, projectId } = useGlobalSearchParams<{
-    questId: string;
-    projectId: string;
-  }>();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
