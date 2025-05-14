@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require('nativewind/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 
@@ -9,4 +10,4 @@ config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
 
 config.resolver.sourceExts.push('sql');
 
-module.exports = config;
+module.exports = withNativeWind(config, { input: './global.css' });
