@@ -140,12 +140,20 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   );
   return (
     <View style={sharedStyles.card}>
-      <DownloadIndicator
-        isDownloaded={isDownloaded && assetsDownloaded}
-        isLoading={isLoading && isDownloaded}
-        onPress={handleDownloadToggle}
-      />
-      <Text style={sharedStyles.cardTitle}>{quest.name}</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: spacing.small
+        }}
+      >
+        <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
+        <DownloadIndicator
+          isDownloaded={isDownloaded && assetsDownloaded}
+          isLoading={isLoading && isDownloaded}
+          onPress={handleDownloadToggle}
+        />
+      </View>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}

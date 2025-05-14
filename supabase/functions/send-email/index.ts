@@ -1,3 +1,5 @@
+import { Ratelimit } from 'https://cdn.skypack.dev/@upstash/ratelimit@latest';
+import { Redis } from 'https://deno.land/x/upstash_redis@v1.19.3/mod.ts';
 import { renderAsync } from 'npm:@react-email/components';
 import { createClient } from 'npm:@supabase/supabase-js';
 import React from 'npm:react';
@@ -7,7 +9,6 @@ import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
-// const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
 const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string;
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
@@ -47,6 +48,17 @@ Deno.serve(async (req) => {
     return new Response('not allowed', { status: 400 });
   }
 
+  const redis = new Redis({
+    url: Deno.env.get('UPSTASH_REDIS_REST_URL')!,
+    token: Deno.env.get('UPSTASH_REDIS_REST_TOKEN')!
+  });
+
+  const ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.fixedWindow(4, '1 h'),
+    analytics: true
+  });
+
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
   const wh = new Webhook(hookSecret);
@@ -74,6 +86,13 @@ Deno.serve(async (req) => {
         token_hash_new: string;
       };
     };
+
+    const identifier = user.email;
+    const { success } = await ratelimit.limit(identifier);
+
+    if (!success) {
+      return new Response(null, { status: 429 });
+    }
 
     // Get user profile from database
     const { data: profile } = await supabase
