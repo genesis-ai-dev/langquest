@@ -1,3 +1,4 @@
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SystemProvider } from '@/contexts/SystemContext';
@@ -68,6 +69,7 @@ export default function RootLayout() {
       <AuthProvider>
         <AudioProvider>
           <QueryProvider>
+            <UpdateBanner />
             <Stack
               screenOptions={{
                 headerShown: false
