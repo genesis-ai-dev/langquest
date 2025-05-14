@@ -137,6 +137,10 @@ export default function SignIn() {
                     color={colors.text}
                   />
 
+                  {/* <Link href="/new-sign-in">
+                    <Text>New Sign In</Text>
+                  </Link> */}
+
                   <View style={{ gap: spacing.medium }}>
                     <View style={{ gap: spacing.small }}>
                       <Controller
@@ -185,7 +189,6 @@ export default function SignIn() {
                         </Text>
                       )}
                     </View>
-
                     <View style={{ gap: spacing.small, width: '100%' }}>
                       <Controller
                         control={control}
@@ -238,7 +241,6 @@ export default function SignIn() {
                         {t('forgotPassword')}
                       </Link>
                     </View>
-
                     <TouchableOpacity
                       style={[
                         sharedStyles.button,
@@ -252,7 +254,6 @@ export default function SignIn() {
                     >
                       <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
                     </TouchableOpacity>
-
                     {/* More prominent registration link */}
                     <Link
                       href="/register"
@@ -277,6 +278,7 @@ export default function SignIn() {
                         {t('newUser')} {t('register')}
                       </Text>
                     </Link>
+                    L
                   </View>
                 </View>
               </View>

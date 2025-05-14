@@ -1,22 +1,46 @@
+import '../global.css';
+
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SystemProvider } from '@/contexts/SystemContext';
 import { system } from '@/db/powersync/system';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { NAV_THEME } from '@/lib/constants';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider
+} from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useEffect } from 'react';
-import { LogBox } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { LogBox, Platform } from 'react-native';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
+const THEMES = {
+  dark: {
+    ...DarkTheme,
+    colors: NAV_THEME.dark
+  },
+  light: {
+    ...DefaultTheme,
+    colors: NAV_THEME.light
+  }
+} as const;
+
 export default function RootLayout() {
   const router = useRouter();
+  const hasMounted = useRef(false);
+  const { colorScheme } = useColorScheme();
+  const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
 
   useEffect(() => {
     void ScreenOrientation.lockAsync(
@@ -63,26 +87,51 @@ export default function RootLayout() {
 
   console.log('[RootLayout] Rendering...');
 
+  useIsomorphicLayoutEffect(() => {
+    if (hasMounted.current) {
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      // Adds the background color to the html element to prevent white background on overscroll.
+      document.documentElement.classList.add('bg-background');
+    }
+    setIsColorSchemeLoaded(true);
+    hasMounted.current = true;
+  }, []);
+
+  if (!isColorSchemeLoaded) {
+    return null;
+  }
+
   return (
-    <SystemProvider>
-      <AuthProvider>
-        <AudioProvider>
-          <QueryProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false
-              }}
-            >
-              <Stack.Screen
-                name="terms"
-                options={{
-                  presentation: 'modal'
+    <ThemeProvider value={THEMES[colorScheme]}>
+      <SystemProvider>
+        <AuthProvider>
+          <AudioProvider>
+            <QueryProvider>
+              <StatusBar style={colorScheme} />
+              <Stack
+                screenOptions={{
+                  headerShown: false
                 }}
-              />
-            </Stack>
-          </QueryProvider>
-        </AudioProvider>
-      </AuthProvider>
-    </SystemProvider>
+              >
+                <Stack.Screen
+                  name="terms"
+                  options={{
+                    presentation: 'modal'
+                  }}
+                />
+              </Stack>
+            </QueryProvider>
+          </AudioProvider>
+        </AuthProvider>
+      </SystemProvider>
+    </ThemeProvider>
   );
 }
+
+const useIsomorphicLayoutEffect =
+  Platform.OS === 'web' && typeof window === 'undefined'
+    ? useEffect
+    : useLayoutEffect;
