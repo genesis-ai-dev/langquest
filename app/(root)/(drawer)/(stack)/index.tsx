@@ -150,8 +150,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
       return calculateQuestProgress(
         assets,
-        translations,
-        votes,
         currentUser?.id ?? null
       );
     });

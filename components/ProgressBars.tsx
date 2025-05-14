@@ -64,7 +64,7 @@ export const ProgressBars = ({
               {
                 width: `${userContributedPercentage}%`,
                 borderRadius: progressBarHeight / 2,
-                marginLeft: userContributedPercentage === 100 ? 0 : -20,
+                marginLeft: -25,
                 alignItems: 'flex-end',
                 justifyContent: 'center',
                 zIndex: 1

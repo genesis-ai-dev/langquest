@@ -1,4 +1,3 @@
-import type { Asset } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { colors } from '@/styles/theme';
@@ -78,15 +77,7 @@ export interface QuestProgress {
 interface AssetWithRelations {
   id: string;
   name: string;
-  translations: {
-    id: string;
-    text: string | null;
-    votes: {
-      id: string;
-      polarity: 'up' | 'down';
-      creator_id: string;
-    }[];
-  }[];
+  translations: TranslationWithRelations[];
 }
 
 interface TranslationWithRelations {
@@ -107,57 +98,81 @@ interface VoteWithRelations {
 }
 
 export const calculateQuestProgress = (
-  assets: Asset[] | AssetWithRelations[],
-  translations: Record<string, Translation[] | TranslationWithRelations[]>,
-  votes: Record<string, Vote[] | VoteWithRelations[]>,
+  assets: AssetWithRelations[],
   currentUserId: string | null
 ): QuestProgress => {
   let approvedCount = 0;
   let userContributedCount = 0;
   let pendingCount = 0;
-  let hasApprovedTranslation = false;
-  let hasUserContribution = false;
 
   assets.forEach((asset) => {
-    const assetTranslations = translations[asset.id] || [];
+    const assetTranslations = asset.translations;
+    let hasApprovedTranslation = false;
+    let hasUserContribution = false;
+    let hasPendingTranslation = false;
 
-    assetTranslations.forEach((translation) => {
-      const translationVotes = votes[translation.id] || [];
+    // First pass: Check for approved translations
+    for (const translation of assetTranslations) {
+      const translationVotes = translation.votes;
+      if (!shouldCountTranslation(translationVotes)) continue;
 
-      // Skip translations that shouldn't be counted
-      if (!shouldCountTranslation(translationVotes)) {
-        return;
-      }
-
-      const voteCount = calculateVoteCount(translationVotes);
-
-      // Check if this translation is approved (more upvotes than downvotes)
-      if (voteCount > 0) {
+      const upVoteCount = calculateVoteCount(translationVotes);
+      if (upVoteCount > 0) {
         hasApprovedTranslation = true;
+        break;
       }
-      // Check if this is user's translation with no votes
-      else if (
-        currentUserId &&
-        translation.creator_id === currentUserId &&
-        translationVotes.length === 0
-      ) {
-        hasUserContribution = true;
+    }
+
+    // Second pass: Only check for user contributions and pending translations if no approved translation exists
+    if (!hasApprovedTranslation) {
+      for (const translation of assetTranslations) {
+        const translationVotes = translation.votes;
+        if (!shouldCountTranslation(translationVotes)) continue;
+
+        const upVoteCount = calculateVoteCount(translationVotes);
+
+        if (
+          currentUserId &&
+          translation.creator_id === currentUserId &&
+          upVoteCount === 0
+        ) {
+          hasUserContribution = true;
+          break;
+        } else if (
+          currentUserId &&
+          translation.creator_id !== currentUserId &&
+          translationVotes.length === 0
+        ) {
+          hasPendingTranslation = true;
+          break;
+        }
       }
-      // Check if this is another user's translation pending review
-      else if (
-        currentUserId &&
-        translation.creator_id !== currentUserId &&
-        translationVotes.length === 0
-      ) {
-        pendingCount++;
-      }
-    });
+    }
+
     if (hasApprovedTranslation) {
       approvedCount++;
     } else if (hasUserContribution) {
       userContributedCount++;
+    } else if (hasPendingTranslation) {
+      pendingCount++;
     }
   });
+
+  if (assets[0]?.name.includes('Lucas 1')) {
+    console.log('Lucas 1');
+    console.log(
+      JSON.stringify(
+        {
+          approvedCount,
+          userContributedCount,
+          pendingCount,
+          assetsLength: assets.length
+        },
+        null,
+        2
+      )
+    );
+  }
 
   return {
     approvedPercentage: (approvedCount / assets.length) * 100,

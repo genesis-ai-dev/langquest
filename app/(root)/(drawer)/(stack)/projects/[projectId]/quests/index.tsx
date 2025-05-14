@@ -100,12 +100,11 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   // );
   // const { data: questAssetsList } = useQuery(
   //   toCompilableQuery(
-  //     db.query.asset.findMany({
+  //     db.query.asset.fin dMany({
   //       where: inArray(assetTable.id, assetIds)
   //     })
   //   )
   // );
-  const questAssetsList = quest.assets.map((asset) => asset.asset).flat();
 
   useEffect(() => {
     const loadData = async () => {
@@ -149,21 +148,10 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
     }
   };
 
-  const nestedVotes = Object.fromEntries(
-    quest.assets.flatMap((asset) =>
-      asset.asset.translations.map((translation) => [
-        translation.id,
-        translation.votes
-      ])
-    )
-  );
 
   const progress = calculateQuestProgress(
     quest.assets.map((asset) => asset.asset),
-    Object.fromEntries(
-      questAssetsList.map((quest) => [quest.id, quest.translations])
-    ),
-    nestedVotes,
+
     currentUser?.id ?? null
   );
   return (
