@@ -39,7 +39,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
 import {
-  // asset as assetTable,
   quest as questTable
 } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
@@ -90,21 +89,6 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
-
-  // const { data: assetTranslations } = useQuery(
-  //   toCompilableQuery(
-  //     db.query.translation.findMany({
-  //       where: inArray(translationTable.asset_id, assetIds)
-  //     })
-  //   )
-  // );
-  // const { data: questAssetsList } = useQuery(
-  //   toCompilableQuery(
-  //     db.query.asset.fin dMany({
-  //       where: inArray(assetTable.id, assetIds)
-  //     })
-  //   )
-  // );
 
   useEffect(() => {
     const loadData = async () => {
@@ -196,8 +180,6 @@ export default function Quests() {
     projectName: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');
-  // const [quests, setQuests] = useState<Quest[]>([]);
-  // const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
   const { db } = useSystem();
   const quests: QuestWithRelations[] = useQuery(
     toCompilableQuery(
@@ -232,13 +214,11 @@ export default function Quests() {
     )
   ).data;
   const [filteredQuests, setFilteredQuests] = useState<typeof quests>([]);
-  // const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  // const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [showProjectStats, setShowProjectStats] = useState(false);
   const [selectedProject, setSelectedProject] = useState<
     typeof project.$inferSelect | null
@@ -246,37 +226,9 @@ export default function Quests() {
 
   const { goToQuest } = useProjectContext();
 
-  // const questToTags: Record<string, Tag[]> = Object.fromEntries(
-  //   quests.map((quest) => [quest.id, quest.tags.map(({ tag }) => tag.name)])
-  // );
-
   useEffect(() => {
-    // void loadQuests();
     void loadProject();
   }, [projectId]);
-
-  // const loadQuests = async () => {
-  //   try {
-  //     if (!projectId) return;
-  //     // const loadedQuests = await questService.getQuestsByProjectId(projectId);
-  //     // setQuests(loadedQuests);
-  //     // setFilteredQuests(loadedQuests);
-
-  //     // Load tags for all quests
-  //     const tagsMap: Record<string, Tag[]> = {};
-  //     await Promise.all(
-  //       loadedQuests.map(async (quest) => {
-  //         tagsMap[quest.id] = (
-  //           await tagService.getTagsByQuestId(quest.id)
-  //         ).filter(Boolean);
-  //       })
-  //     );
-  //     setQuestTags(tagsMap);
-  //   } catch (error) {
-  //     console.error('Error loading quests:', error);
-  //     Alert.alert('Error', t('failedLoadQuests'));
-  //   }
-  // };
 
   const loadProject = async () => {
     try {
@@ -338,26 +290,6 @@ export default function Quests() {
     [quests]
   );
 
-  // Load tags when quests change
-  // useEffect(() => {
-  //   const loadTags = async () => {
-  //     try {
-  //       const tagsMap: Record<string, Tag[]> = {};
-  //       await Promise.all(
-  //         quests.map(async (quest) => {
-  //           tagsMap[quest.id] = (
-  //             await tagService.getTagsByQuestId(quest.id)
-  //           ).filter(Boolean);
-  //         })
-  //       );
-  //       setQuestToTags(tagsMap);
-  //     } catch (error) {
-  //       console.error('Error loading tags:', error);
-  //     }
-  //   };
-  //   void loadTags();
-  // }, [quests]);
-
   // Update filtered quests when search query changes
   useEffect(() => {
     const filtered = applyFilters(quests, activeFilters, searchQuery);
@@ -383,7 +315,6 @@ export default function Quests() {
   };
 
   const handleCloseDetails = () => {
-    // setSelectedQuest(null);
     setShowProjectStats(false);
   };
 
@@ -415,10 +346,6 @@ export default function Quests() {
           setIsFilterModalVisible(false);
           return true;
         }
-        // if (selectedQuest) {
-        //   setSelectedQuest(null);
-        //   return true;
-        // }
         return false;
       }
     );
@@ -496,7 +423,6 @@ export default function Quests() {
           <QuestFilterModal
             onClose={() => setIsFilterModalVisible(false)}
             quests={quests}
-            // questTags={questTags}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}
