@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabaseAuthKey = await getSupabaseAuthKey();
 
       if (supabaseAuthKey) {
+        console.log('supabaseAuthKey', supabaseAuthKey);
         const session = JSON.parse(
           (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
         ) as Session | null;
@@ -43,7 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
-        console.log('Auth state changed:', { state, userId: session?.user.id });
         // always maintain a session
         if (!session) {
           await system.supabaseConnector.client.auth.signInAnonymously();
