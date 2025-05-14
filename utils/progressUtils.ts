@@ -2,13 +2,14 @@ import type { Asset } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { colors } from '@/styles/theme';
-
 /**
  * Calculates the net vote count from an array of votes
  * @param votes Array of votes
  * @returns Net vote count (upvotes - downvotes)
  */
-export const calculateVoteCount = (votes: Vote[]): number => {
+export const calculateVoteCount = (
+  votes: Vote[] | VoteWithRelations[]
+): number => {
   return votes.reduce(
     (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
     0
@@ -20,7 +21,9 @@ export const calculateVoteCount = (votes: Vote[]): number => {
  * @param votes Array of votes for the translation
  * @returns boolean indicating if the translation should be counted
  */
-export const shouldCountTranslation = (votes: Vote[]): boolean => {
+export const shouldCountTranslation = (
+  votes: Vote[] | VoteWithRelations[]
+): boolean => {
   const voteCount = calculateVoteCount(votes);
   // Only count translations that have no votes or a positive vote count
   return votes.length === 0 || voteCount > 0;
@@ -71,20 +74,52 @@ export interface QuestProgress {
 /**
  * Calculates progress statistics for a quest based on its assets and translations
  */
+
+interface AssetWithRelations {
+  id: string;
+  name: string;
+  translations: {
+    id: string;
+    text: string | null;
+    votes: {
+      id: string;
+      polarity: 'up' | 'down';
+      creator_id: string;
+    }[];
+  }[];
+}
+
+interface TranslationWithRelations {
+  id: string;
+  text: string | null;
+  creator_id: string;
+  votes: {
+    id: string;
+    polarity: 'up' | 'down';
+    creator_id: string;
+  }[];
+}
+
+interface VoteWithRelations {
+  id: string;
+  polarity: 'up' | 'down';
+  creator_id: string;
+}
+
 export const calculateQuestProgress = (
-  assets: Asset[],
-  translations: Record<string, Translation[]>,
-  votes: Record<string, Vote[]>,
+  assets: Asset[] | AssetWithRelations[],
+  translations: Record<string, Translation[] | TranslationWithRelations[]>,
+  votes: Record<string, Vote[] | VoteWithRelations[]>,
   currentUserId: string | null
 ): QuestProgress => {
   let approvedCount = 0;
   let userContributedCount = 0;
   let pendingCount = 0;
+  let hasApprovedTranslation = false;
+  let hasUserContribution = false;
 
   assets.forEach((asset) => {
     const assetTranslations = translations[asset.id] || [];
-    let hasApprovedTranslation = false;
-    let hasUserContribution = false;
 
     assetTranslations.forEach((translation) => {
       const translationVotes = votes[translation.id] || [];

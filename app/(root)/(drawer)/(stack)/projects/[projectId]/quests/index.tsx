@@ -8,7 +8,6 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { downloadService } from '@/database_services/downloadService';
 import { projectService } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
-import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
 import type { project } from '@/db/drizzleSchema';
@@ -26,7 +25,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   FlatList,
   Modal,
@@ -41,63 +39,73 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
 import {
-  asset as assetTable,
-  quest as questTable,
-  translation as translationTable
+  // asset as assetTable,
+  quest as questTable
 } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+// First, let's create a type that represents the shape of our query result
+interface QuestWithRelations {
+  id: string;
+  name: string;
+  description: string | null;
+  project_id: string;
+  active: boolean;
+  created_at: string;
+  last_updated: string;
+  tags: {
+    tag: {
+      name: string;
+    };
+  }[];
+  assets: {
+    asset: {
+      id: string;
+      name: string;
+      translations: {
+        id: string;
+        text: string | null;
+        creator_id: string;
+        votes: {
+          id: string;
+          polarity: 'up' | 'down';
+          creator_id: string;
+        }[];
+      }[];
+    };
+  }[];
+}
+
+const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   const { currentUser } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
-  const { db } = useSystem();
-  const { data: questAssets } = useQuery(
-    toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(questTable.project_id, quest.project_id),
-        with: {
-          assets: {
-            with: {
-              asset: {
-                with: {
-                  translations: {
-                    with: {
-                      votes: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      })
-    )
-  );
-  const { data: assetTranslations } = useQuery(
-    toCompilableQuery(
-      db.query.translation.findMany({
-        where: inArray(translationTable.asset_id, assetIds)
-      })
-    )
-  );
-  const { data: questAssetsList } = useQuery(
-    toCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(assetTable.id, assetIds)
-      })
-    )
-  );
+
+  // const { data: assetTranslations } = useQuery(
+  //   toCompilableQuery(
+  //     db.query.translation.findMany({
+  //       where: inArray(translationTable.asset_id, assetIds)
+  //     })
+  //   )
+  // );
+  // const { data: questAssetsList } = useQuery(
+  //   toCompilableQuery(
+  //     db.query.asset.findMany({
+  //       where: inArray(assetTable.id, assetIds)
+  //     })
+  //   )
+  // );
+  const questAssetsList = quest.assets.map((asset) => asset.asset).flat();
 
   useEffect(() => {
     const loadData = async () => {
@@ -142,23 +150,18 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   };
 
   const nestedVotes = Object.fromEntries(
-    questAssets.flatMap((quest) =>
-      quest.assets.flatMap((asset) =>
-        asset.asset.translations.map((translation) => [
-          translation.id,
-          translation.votes
-        ])
-      )
+    quest.assets.flatMap((asset) =>
+      asset.asset.translations.map((translation) => [
+        translation.id,
+        translation.votes
+      ])
     )
   );
 
   const progress = calculateQuestProgress(
-    questAssetsList,
+    quest.assets.map((asset) => asset.asset),
     Object.fromEntries(
-      questAssetsList.map((asset) => [
-        asset.id,
-        assetTranslations.filter((t) => t.asset_id === asset.id)
-      ])
+      questAssetsList.map((quest) => [quest.id, quest.translations])
     ),
     nestedVotes,
     currentUser?.id ?? null
@@ -205,10 +208,43 @@ export default function Quests() {
     projectName: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
-  const [filteredQuests, setFilteredQuests] = useState<Quest[]>([]);
-  const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
+  // const [quests, setQuests] = useState<Quest[]>([]);
+  // const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
+  const { db } = useSystem();
+  const quests: QuestWithRelations[] = useQuery(
+    toCompilableQuery(
+      db.query.quest.findMany({
+        where: eq(questTable.project_id, projectId),
+        with: {
+          tags: {
+            with: {
+              tag: {
+                columns: {
+                  name: true
+                }
+              }
+            }
+          },
+          assets: {
+            with: {
+              asset: {
+                with: {
+                  translations: {
+                    with: {
+                      votes: true,
+                      creator: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+    )
+  ).data;
+  const [filteredQuests, setFilteredQuests] = useState<typeof quests>([]);
+  // const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -222,33 +258,37 @@ export default function Quests() {
 
   const { goToQuest } = useProjectContext();
 
+  // const questToTags: Record<string, Tag[]> = Object.fromEntries(
+  //   quests.map((quest) => [quest.id, quest.tags.map(({ tag }) => tag.name)])
+  // );
+
   useEffect(() => {
-    void loadQuests();
+    // void loadQuests();
     void loadProject();
   }, [projectId]);
 
-  const loadQuests = async () => {
-    try {
-      if (!projectId) return;
-      const loadedQuests = await questService.getQuestsByProjectId(projectId);
-      setQuests(loadedQuests);
-      setFilteredQuests(loadedQuests);
+  // const loadQuests = async () => {
+  //   try {
+  //     if (!projectId) return;
+  //     // const loadedQuests = await questService.getQuestsByProjectId(projectId);
+  //     // setQuests(loadedQuests);
+  //     // setFilteredQuests(loadedQuests);
 
-      // Load tags for all quests
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        loadedQuests.map(async (quest) => {
-          tagsMap[quest.id] = (
-            await tagService.getTagsByQuestId(quest.id)
-          ).filter(Boolean);
-        })
-      );
-      setQuestTags(tagsMap);
-    } catch (error) {
-      console.error('Error loading quests:', error);
-      Alert.alert('Error', t('failedLoadQuests'));
-    }
-  };
+  //     // Load tags for all quests
+  //     const tagsMap: Record<string, Tag[]> = {};
+  //     await Promise.all(
+  //       loadedQuests.map(async (quest) => {
+  //         tagsMap[quest.id] = (
+  //           await tagService.getTagsByQuestId(quest.id)
+  //         ).filter(Boolean);
+  //       })
+  //     );
+  //     setQuestTags(tagsMap);
+  //   } catch (error) {
+  //     console.error('Error loading quests:', error);
+  //     Alert.alert('Error', t('failedLoadQuests'));
+  //   }
+  // };
 
   const loadProject = async () => {
     try {
@@ -262,7 +302,7 @@ export default function Quests() {
 
   const applyFilters = useCallback(
     (
-      questsToFilter: Quest[],
+      questsToFilter: typeof quests,
       filters: Record<string, string[]>,
       search: string
     ) => {
@@ -274,11 +314,11 @@ export default function Quests() {
             false);
 
         // Tag filters
-        const questTags = questToTags[quest.id] ?? [];
+        const questTags = quest.tags;
         const matchesFilters = Object.entries(filters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
-            return questTags.some((tag) => {
+            return questTags.some(({ tag }) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
                 tagCategory?.toLowerCase() === category.toLowerCase() &&
@@ -293,39 +333,42 @@ export default function Quests() {
         return matchesSearch && matchesFilters;
       });
     },
-    [questToTags]
+    [quests]
   );
 
   const applySorting = useCallback(
-    (questsToSort: Quest[], sorting: SortingOption[]) => {
+    (questsToSort: typeof quests, sorting: SortingOption[]) => {
       return sortItems(
         questsToSort,
         sorting,
-        (questId: string) => questTags[questId] ?? []
+        (questId: string) =>
+          quests
+            .find((quest) => quest.id === questId)
+            ?.tags.map((t) => ({ name: t.tag.name })) ?? []
       );
     },
-    [questTags]
+    [quests]
   );
 
   // Load tags when quests change
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const tagsMap: Record<string, Tag[]> = {};
-        await Promise.all(
-          quests.map(async (quest) => {
-            tagsMap[quest.id] = (
-              await tagService.getTagsByQuestId(quest.id)
-            ).filter(Boolean);
-          })
-        );
-        setQuestToTags(tagsMap);
-      } catch (error) {
-        console.error('Error loading tags:', error);
-      }
-    };
-    void loadTags();
-  }, [quests]);
+  // useEffect(() => {
+  //   const loadTags = async () => {
+  //     try {
+  //       const tagsMap: Record<string, Tag[]> = {};
+  //       await Promise.all(
+  //         quests.map(async (quest) => {
+  //           tagsMap[quest.id] = (
+  //             await tagService.getTagsByQuestId(quest.id)
+  //           ).filter(Boolean);
+  //         })
+  //       );
+  //       setQuestToTags(tagsMap);
+  //     } catch (error) {
+  //       console.error('Error loading tags:', error);
+  //     }
+  //   };
+  //   void loadTags();
+  // }, [quests]);
 
   // Update filtered quests when search query changes
   useEffect(() => {
