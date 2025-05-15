@@ -11,18 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 export default function AuthLayout() {
   const { isLoading, currentUser } = useAuth();
 
-  // Redirect to index if not authenticated
-  if (!currentUser) {
-    console.log('Redirecting to sign-in');
-    return <Redirect href="/sign-in" />;
-  }
-
-  // if (!currentUser.terms_accepted) {
-  //   return <Redirect href="/terms" />;
-  // }
-
   if (isLoading) {
-    console.log('local store not hydrated');
     return (
       <LinearGradient
         colors={[colors.gradientStart, colors.gradientEnd]}
@@ -33,7 +22,11 @@ export default function AuthLayout() {
     );
   }
 
-  // Render authenticated layout with drawer and terms guard
+  if (!currentUser) {
+    console.log('Redirecting to sign-in');
+    return <Redirect href="/sign-in" />;
+  }
+
   return (
     <ProjectProvider>
       <PostHogSurveyProvider>
