@@ -27,8 +27,7 @@ export const profile = sqliteTable('profile', {
   username: text(),
   password: text(),
   avatar: text(),
-  // icon: text().$type<IconName>(),
-  // achievements: text(),
+  email: text(),
   ui_language_id: text(),
   terms_accepted: int({ mode: 'boolean' }),
   terms_accepted_at: text()
@@ -74,7 +73,10 @@ export const project = sqliteTable('project', {
     .references(() => language.id),
   target_language_id: text()
     .notNull()
-    .references(() => language.id)
+    .references(() => language.id),
+  creator_id: text().references(() => profile.id),
+  private: int({ mode: 'boolean' }).notNull().default(false),
+  visible: int({ mode: 'boolean' }).notNull().default(true)
 });
 
 export const projectRelations = relations(project, ({ one, many }) => ({
@@ -97,7 +99,9 @@ export const quest = sqliteTable('quest', {
   description: text(),
   project_id: text()
     .notNull()
-    .references(() => project.id)
+    .references(() => project.id),
+  creator_id: text().references(() => profile.id),
+  visible: int({ mode: 'boolean' }).notNull().default(true)
 });
 
 export const questRelations = relations(quest, ({ one, many }) => ({
@@ -147,7 +151,9 @@ export const asset = sqliteTable('asset', {
   source_language_id: text()
     .notNull()
     .references(() => language.id),
-  images: text({ mode: 'json' }).$type<string[]>()
+  images: text({ mode: 'json' }).$type<string[]>(),
+  creator_id: text().references(() => profile.id),
+  visible: int({ mode: 'boolean' }).notNull().default(true)
 });
 
 export const assetRelations = relations(asset, ({ one, many }) => ({
@@ -220,7 +226,8 @@ export const translation = sqliteTable('translation', {
   audio: text(),
   creator_id: text()
     .notNull()
-    .references(() => profile.id)
+    .references(() => profile.id),
+  visible: int({ mode: 'boolean' }).notNull().default(true)
 });
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
@@ -438,161 +445,96 @@ export const flag = sqliteTable('flag', {
   name: text().notNull().unique()
 });
 
-// export const notification = sqliteTable('notification', {
-//   ...baseColumns,
-//   id: text().notNull(),
-//   profile_id: text().notNull(),
-//   project_subscription_id: text().notNull(),
-//   quest_subscription_id: text().notNull(),
-//   asset_subscription_id: text().notNull(),
-//   translation_subscription_id: text().notNull(),
-//   invite_request_id: text().notNull(),
-//   event_type: text().notNull(),
-//   viewed: int({ mode: 'boolean' }).notNull()
-// });
+export const invite_request = sqliteTable('invite_request', {
+  ...baseColumns,
+  sender_profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  receiver_profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  project_id: text()
+    .notNull()
+    .references(() => project.id),
+  type: text().notNull(),
+  status: text().notNull()
+});
 
-// export const notificationRelations = relations(notification, ({ one }) => ({
-//   profile: one(profile, {
-//     fields: [notification.profile_id],
-//     references: [profile.id]
-//   }),
-//   project_subscription: one(project_subscription, {
-//     fields: [notification.project_subscription_id],
-//     references: [project_subscription.id]
-//   }),
-//   quest_subscription: one(quest_subscription, {
-//     fields: [notification.quest_subscription_id],
-//     references: [quest_subscription.id]
-//   }),
-//   asset_subscription: one(asset_subscription, {
-//     fields: [notification.asset_subscription_id],
-//     references: [asset_subscription.id]
-//   }),
-//   translation_subscription: one(translation_subscription, {
-//     fields: [notification.translation_subscription_id],
-//     references: [translation_subscription.id]
-//   }),
-//   invite_request: one(invite_request, {
-//     fields: [notification.invite_request_id],
-//     references: [invite_request.id]
-//   })
-// }));
+export const invite_requestRelations = relations(invite_request, ({ one }) => ({
+  sender: one(profile, {
+    fields: [invite_request.sender_profile_id],
+    references: [profile.id],
+    relationName: 'sender'
+  }),
+  receiver: one(profile, {
+    fields: [invite_request.receiver_profile_id],
+    references: [profile.id],
+    relationName: 'receiver'
+  }),
+  project: one(project, {
+    fields: [invite_request.project_id],
+    references: [project.id]
+  })
+}));
 
-// export const translation_subscription = sqliteTable(
-//   'translation_subscription',
-//   {
-//     ...baseColumns,
-//     translation_id: text().notNull(),
-//     profile_id: text().notNull()
-//   }
-// );
+export const notification = sqliteTable('notification', {
+  ...baseColumns,
+  profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  viewed: int({ mode: 'boolean' }).notNull().default(false),
+  target_table_name: text().notNull(),
+  target_record_id: text().notNull()
+});
 
-// export const translationSubscriptionRelations = relations(
-//   translation_subscription,
-//   ({ one, many }) => ({
-//     translation: one(translation, {
-//       fields: [translation_subscription.translation_id],
-//       references: [translation.id]
-//     }),
-//     profile: one(profile, {
-//       fields: [translation_subscription.profile_id],
-//       references: [profile.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
+export const notificationRelations = relations(notification, ({ one }) => ({
+  profile: one(profile, {
+    fields: [notification.profile_id],
+    references: [profile.id]
+  })
+}));
 
-// export const project_subscription = sqliteTable('project_subscription', {
-//   ...baseColumns,
-//   project_id: text().notNull(),
-//   profile_id: text().notNull()
-// });
+export const profile_project_link = sqliteTable(
+  'profile_project_link',
+  {
+    ...linkColumns,
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    membership: text()
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
+);
 
-// export const projectSubscriptionRelations = relations(
-//   project_subscription,
-//   ({ one, many }) => ({
-//     project: one(project, {
-//       fields: [project_subscription.project_id],
-//       references: [project.id]
-//     }),
-//     profile: one(profile, {
-//       fields: [project_subscription.profile_id],
-//       references: [profile.id]
-//     }),
-//     quest_subscriptions: many(quest_subscription),
-//     notifications: many(notification)
-//   })
-// );
+export const profileProjectLinkRelations = relations(
+  profile_project_link,
+  ({ one }) => ({
+    profile: one(profile, {
+      fields: [profile_project_link.profile_id],
+      references: [profile.id]
+    }),
+    project: one(project, {
+      fields: [profile_project_link.project_id],
+      references: [project.id]
+    })
+  })
+);
 
-// export const quest_subscription = sqliteTable('quest_subscription', {
-//   ...baseColumns,
-//   quest_id: text().notNull(),
-//   project_subscription_id: text().notNull()
-// });
+export const subscription = sqliteTable('subscription', {
+  ...baseColumns,
+  profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  target_record_id: text().notNull(),
+  target_table_name: text().notNull()
+});
 
-// export const questSubscriptionRelations = relations(
-//   quest_subscription,
-//   ({ one, many }) => ({
-//     quest: one(quest, {
-//       fields: [quest_subscription.quest_id],
-//       references: [quest.id]
-//     }),
-//     project_subscription: one(project_subscription, {
-//       fields: [quest_subscription.project_subscription_id],
-//       references: [project_subscription.id]
-//     }),
-//     asset_subscriptions: many(asset_subscription),
-//     notifications: many(notification)
-//   })
-// );
-
-// export const asset_subscription = sqliteTable('asset_subscription', {
-//   ...baseColumns,
-//   asset_id: text().notNull(),
-//   quest_subscription_id: text().notNull()
-// });
-
-// export const assetSubscriptionRelations = relations(
-//   asset_subscription,
-//   ({ one, many }) => ({
-//     asset: one(asset, {
-//       fields: [asset_subscription.asset_id],
-//       references: [asset.id]
-//     }),
-//     quest_subscription: one(quest_subscription, {
-//       fields: [asset_subscription.quest_subscription_id],
-//       references: [quest_subscription.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
-
-// export const invite_request = sqliteTable('invite_request', {
-//   ...baseColumns,
-//   sender_profile_id: text().notNull(),
-//   receiver_profile_id: text().notNull(),
-//   project_id: text().notNull(),
-//   type: text({ enum: ['invite', 'request'] }).notNull(),
-//   status: text({
-//     enum: ['pending', 'rejected', 'approved', 'cancelled']
-//   }).notNull()
-// });
-
-// export const inviteRequestRelations = relations(
-//   invite_request,
-//   ({ one, many }) => ({
-//     sender: one(profile, {
-//       fields: [invite_request.sender_profile_id],
-//       references: [profile.id]
-//     }),
-//     receiver: one(profile, {
-//       fields: [invite_request.receiver_profile_id],
-//       references: [profile.id]
-//     }),
-//     project: one(project, {
-//       fields: [invite_request.project_id],
-//       references: [project.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
+export const subscriptionRelations = relations(subscription, ({ one }) => ({
+  profile: one(profile, {
+    fields: [subscription.profile_id],
+    references: [profile.id]
+  })
+}));
