@@ -30,7 +30,7 @@ export function UpdateBanner() {
       </View>
       <TouchableOpacity
         style={styles.button}
-        onPress={downloadAndReloadUpdate}
+        onPress={() => downloadAndReloadUpdate()}
         disabled={checkingForUpdate}
       >
         {checkingForUpdate ? (
