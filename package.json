@@ -52,6 +52,7 @@
     "@react-navigation/native-stack": "^7.1.6",
     "@shopify/flash-list": "1.7.3",
     "@supabase/supabase-js": "^2.46.1",
+    "@tanstack/react-query": "^5.76.1",
     "base64-arraybuffer": "^1.0.2",
     "crypto-js": "3.1.9-1",
     "eslint-config-expo": "~8.0.1",
