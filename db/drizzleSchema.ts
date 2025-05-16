@@ -27,7 +27,6 @@ export const profile = sqliteTable('profile', {
   username: text(),
   password: text(),
   avatar: text(),
-  email: text(),
   ui_language_id: text(),
   terms_accepted: int({ mode: 'boolean' }),
   terms_accepted_at: text()

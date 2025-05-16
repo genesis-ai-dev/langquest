@@ -54,8 +54,6 @@ alter table "public"."asset" add column "creator_id" uuid;
 
 alter table "public"."asset" add column "visible" boolean default true;
 
-alter table "public"."profile" add column "email" text;
-
 alter table "public"."project" add column "creator_id" uuid;
 
 alter table "public"."project" add column "private" boolean default false;
