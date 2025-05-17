@@ -136,7 +136,6 @@ AS $function$begin
     insert into public.profile (
       id, 
       username,
-      email,
       ui_language_id,
       terms_accepted,
       terms_accepted_at
@@ -144,7 +143,6 @@ AS $function$begin
     values (
       new.id,
       coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substr(new.id::text, 1, 8)),
-      new.email,
       case 
         when uuid(new.raw_user_meta_data ->> 'ui_language_id') is not null 
         then (new.raw_user_meta_data ->> 'ui_language_id')::uuid
