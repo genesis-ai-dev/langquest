@@ -93,13 +93,18 @@ export default function RootLayout() {
             <AudioProvider>
               <QueryProvider>
                 <UpdateBanner />
-                <StatusBar style={colorScheme} />
+                <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
                 <Stack
                   screenOptions={{
                     headerShown: false
                   }}
                 >
-                  <Stack.Screen name="app" />
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      presentation: 'modal'
+                    }}
+                  />
                 </Stack>
               </QueryProvider>
             </AudioProvider>
