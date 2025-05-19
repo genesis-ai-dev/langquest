@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Link } from '@/components/ui/link';
 import { questService } from '@/database_services/questService';
 import type { Translation } from '@/database_services/translationService';
 import { translationService } from '@/database_services/translationService';
@@ -396,6 +397,8 @@ export default function Projects() {
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
           <PageHeader title={t('projects')} showBackButton={false} />
+
+          <Link href="/new-projects">New Projects</Link>
 
           <View style={sharedStyles.filtersContainer}>
             <CustomDropdown

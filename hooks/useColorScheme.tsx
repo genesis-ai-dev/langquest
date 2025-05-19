@@ -1,10 +1,13 @@
 import { useColorScheme as useNativewindColorScheme } from 'nativewind';
 
 export function useColorScheme() {
-  const { colorScheme, ...rest } = useNativewindColorScheme();
+  // eslint-disable-next-line
+  const { colorScheme, setColorScheme, toggleColorScheme } =
+    useNativewindColorScheme();
   return {
     colorScheme: colorScheme ?? 'dark',
     isDarkColorScheme: colorScheme === 'dark',
-    ...rest
+    setColorScheme,
+    toggleColorScheme
   };
 }

@@ -1,14 +1,11 @@
 // Define all supported UI languages
 export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
 
-// Define the structure for translations
-export type TranslationKey = keyof typeof localizations;
-
 // Type to ensure all translations have all supported languages
 type TranslationSet = Record<SupportedLanguage, string>;
 
 // All UI translations
-export const localizations: Record<string, TranslationSet> = {
+export const localizations = {
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
@@ -66,7 +63,7 @@ export const localizations: Record<string, TranslationSet> = {
   },
   email: {
     english: 'Email',
-    spanish: 'Email',
+    spanish: 'Correo electrónico',
     brazilian_portuguese: 'E-mail'
   },
   emailRequired: {
@@ -88,6 +85,11 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Enter your email',
     spanish: 'Ingrese su correo electrónico',
     brazilian_portuguese: 'Digite seu e-mail'
+  },
+  enterYourPassword: {
+    english: 'Enter your password',
+    spanish: 'Ingrese su contraseña',
+    brazilian_portuguese: 'Digite sua senha'
   },
   error: {
     english: 'Error',
@@ -734,7 +736,10 @@ export const localizations: Record<string, TranslationSet> = {
     brazilian_portuguese: 'Falha ao carregar recursos'
   }
   // Add more translation keys as needed...
-} as const;
+} satisfies Record<string, TranslationSet>;
+
+// Define the structure for translations
+export type TranslationKey = keyof typeof localizations;
 
 // Type check to ensure all translation keys have all supported languages
 // type ValidateTranslations<T> = {

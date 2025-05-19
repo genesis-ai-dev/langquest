@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { seedDatabase } from '../db/seedDatabase';
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
+import { Button } from '@/components/ui/button';
 import { useSystem } from '@/contexts/SystemContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
@@ -137,9 +138,12 @@ export default function SignIn() {
                     color={colors.text}
                   />
 
-                  {/* <Link href="/new-sign-in">
+                  <Button
+                    variant="destructive"
+                    onPress={() => router.push('/new-sign-in')}
+                  >
                     <Text>New Sign In</Text>
-                  </Link> */}
+                  </Button>
 
                   <View style={{ gap: spacing.medium }}>
                     <View style={{ gap: spacing.small }}>
@@ -278,7 +282,6 @@ export default function SignIn() {
                         {t('newUser')} {t('register')}
                       </Text>
                     </Link>
-                    L
                   </View>
                 </View>
               </View>

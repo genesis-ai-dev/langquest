@@ -16,6 +16,7 @@ import {
   DefaultTheme,
   ThemeProvider
 } from '@react-navigation/native';
+import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
@@ -112,7 +113,7 @@ export default function RootLayout() {
           <AudioProvider>
             <QueryProvider>
               <UpdateBanner />
-              <StatusBar style={colorScheme} />
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
               <Stack
                 screenOptions={{
                   headerShown: false
@@ -125,6 +126,7 @@ export default function RootLayout() {
                   }}
                 />
               </Stack>
+              <PortalHost />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>

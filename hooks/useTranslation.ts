@@ -52,7 +52,7 @@ export function useTranslation(languageOverride?: string | null) {
       return key;
     }
     let translatedString =
-      localizations[key]![userLanguage] || localizations[key]!.english;
+      localizations[key][userLanguage] || localizations[key].english;
 
     // If options is a number, treat as a single value for a placeholder like {{value}}
     if (typeof options === 'number') {
