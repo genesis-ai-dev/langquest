@@ -1,3 +1,4 @@
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SystemProvider } from '@/contexts/SystemContext';
@@ -10,6 +11,7 @@ import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 
@@ -64,25 +66,29 @@ export default function RootLayout() {
   console.log('[RootLayout] Rendering...');
 
   return (
-    <SystemProvider>
-      <AuthProvider>
-        <AudioProvider>
-          <QueryProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false
-              }}
-            >
-              <Stack.Screen
-                name="terms"
-                options={{
-                  presentation: 'modal'
+    <>
+      <StatusBar style="light" backgroundColor="#000" translucent={false} />
+      <SystemProvider>
+        <AuthProvider>
+          <AudioProvider>
+            <QueryProvider>
+              <UpdateBanner />
+              <Stack
+                screenOptions={{
+                  headerShown: false
                 }}
-              />
-            </Stack>
-          </QueryProvider>
-        </AudioProvider>
-      </AuthProvider>
-    </SystemProvider>
+              >
+                <Stack.Screen
+                  name="terms"
+                  options={{
+                    presentation: 'modal'
+                  }}
+                />
+              </Stack>
+            </QueryProvider>
+          </AudioProvider>
+        </AuthProvider>
+      </SystemProvider>
+    </>
   );
 }
