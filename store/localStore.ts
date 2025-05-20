@@ -1,5 +1,6 @@
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colorScheme } from 'nativewind';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -26,6 +27,7 @@ export interface NavigationStackItem {
 }
 
 export type Language = typeof language.$inferSelect;
+export type Theme = 'light' | 'dark' | 'system';
 
 // Recently visited item types
 export interface RecentProject {
@@ -121,6 +123,8 @@ interface LocalState {
   resetAttachmentSyncProgress: () => void;
 
   initialize: () => Promise<void>;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -133,6 +137,7 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+      theme: 'system' as Theme,
 
       // Authentication view state
       authView: null,
@@ -163,6 +168,7 @@ export const useLocalStore = create<LocalState>()(
       },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
+      setTheme: (theme) => set({ theme }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
       projectSourceFilter: 'All',
@@ -228,6 +234,23 @@ export const useLocalStore = create<LocalState>()(
         // Language loading moved to app initialization to avoid circular dependency
         set({ isLanguageLoading: false });
         return Promise.resolve();
+=======
+      setAnalyticsOptOut: (optOut: boolean) => set({ analyticsOptOut: optOut }),
+      setLanguage: (lang: Language) =>
+        set({ language: lang, languageId: lang.id }),
+      acceptTerms: () => set({ dateTermsAccepted: new Date() }),
+      theme: 'system',
+      setTheme: (theme: Theme) => {
+        set({ theme });
+        colorScheme.set(theme);
+      },
+      initialize: async () => {
+        const langId = get().languageId;
+        if (langId) {
+          const language = await languageService.getLanguageById(langId);
+          set({ language, isLanguageLoading: false });
+        }
+>>>>>>> acec407 (Enhance project configuration and UI components)
       }
     }),
     {
@@ -247,7 +270,11 @@ export const useLocalStore = create<LocalState>()(
                 'navigationStack'
               ].includes(key)
           )
-        )
+        ),
+      onRehydrateStorage: (state) => {
+        console.log('onRehydrateStorage', state);
+        colorScheme.set(state.theme);
+      }
     }
   )
 );

@@ -1,20 +1,15 @@
 import '../global.css';
 
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { ThemeProvider } from '@/components/theme-provider';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { NAV_THEME } from '@/lib/constants';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react-native';
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider
-} from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,21 +18,11 @@ import { LogBox, Platform } from 'react-native';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 
-const THEMES = {
-  dark: {
-    ...DarkTheme,
-    colors: NAV_THEME.dark
-  },
-  light: {
-    ...DefaultTheme,
-    colors: NAV_THEME.light
-  }
-} as const;
-
 export default function RootLayout() {
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
+
   useEffect(() => {
     console.log('[_layout] Setting up deep link handler');
 
@@ -86,14 +71,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={THEMES[colorScheme]}>
+    <ThemeProvider>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <PowerSyncContext.Provider value={system.powersync}>
         <PostHogProvider>
           <AuthProvider>
             <AudioProvider>
               <QueryProvider>
                 <UpdateBanner />
-                <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
                 <Stack
                   screenOptions={{
                     headerShown: false

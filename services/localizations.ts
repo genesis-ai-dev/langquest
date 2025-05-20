@@ -24,7 +24,7 @@ export const localizations = {
   },
   all: {
     english: 'All',
-    spanish: 'Todo',
+    spanish: 'Todos',
     brazilian_portuguese: 'Todos'
   },
   apply: {
