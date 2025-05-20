@@ -140,11 +140,29 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 7. Commit the migration file to your repository to track database schema changes.
 
-> **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run:
+> **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run the following:
+
+ensure you've linked your project to the cloud:
+```
+supabase link --project-ref unsxkmlcyxgtgmtzfonb --password [ask project admin for password]
+```
+
+Enter supabase password (get from a developer)
+
+Run this command to get your credentials:
+Get HOST and PASSWORD
+```
+supabase branches get --experimental 
+```
+
+Run the reverted command and the applied commands
 > ```bash
-> npx supabase@beta migration repair --status reverted --local
+> npx supabase@beta migration repair --status reverted --db-url "postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
+> npx supabase@beta migration repair --status applied --db-url "postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
 > ```
 > This will prompt you to confirm repairing the entire migration history table to match your local migration files.
+The reverted command clears the remote migration history (clears records).
+The applied command applies the local migration files into the remote.
 
 #### Making Sync Rule Changes
 
