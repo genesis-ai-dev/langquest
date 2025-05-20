@@ -1,42 +1,27 @@
 import '../global.css';
 
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { ThemeProvider } from '@/components/theme-provider';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SystemProvider } from '@/contexts/SystemContext';
 import { system } from '@/db/powersync/system';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { NAV_THEME } from '@/lib/constants';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider
-} from '@react-navigation/native';
+
 import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LogBox, Platform } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
-
-const THEMES = {
-  dark: {
-    ...DarkTheme,
-    colors: NAV_THEME.dark
-  },
-  light: {
-    ...DefaultTheme,
-    colors: NAV_THEME.light
-  }
-} as const;
 
 export default function RootLayout() {
   const router = useRouter();
@@ -107,13 +92,18 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={THEMES[colorScheme]}>
+    <ThemeProvider>
+      <SystemBars
+        style={{
+          statusBar: colorScheme === 'dark' ? 'light' : 'dark',
+          navigationBar: colorScheme
+        }}
+      />
       <SystemProvider>
         <AuthProvider>
           <AudioProvider>
             <QueryProvider>
               <UpdateBanner />
-              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
               <Stack
                 screenOptions={{
                   headerShown: false

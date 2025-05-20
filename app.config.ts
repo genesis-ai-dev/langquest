@@ -72,6 +72,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         initialOrientation: 'PORTRAIT_UP'
       }
+    ],
+    [
+      'react-native-edge-to-edge',
+      {
+        android: {
+          parentTheme: 'dark',
+          enforceNavigationBarContrast: false
+        }
+      }
     ]
   ],
   experiments: {

@@ -1,10 +1,12 @@
 import { languageService } from '@/database_services/languageService';
 import type { language } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colorScheme } from 'nativewind';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type Language = typeof language.$inferSelect;
+export type Theme = 'light' | 'dark' | 'system';
 
 interface LocalState {
   languageId: string | null;
@@ -16,6 +18,8 @@ interface LocalState {
   acceptTerms: () => void;
   setLanguage: (lang: Language) => void;
   initialize: () => Promise<void>;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -30,7 +34,11 @@ export const useLocalStore = create<LocalState>()(
       setLanguage: (lang: Language) =>
         set({ language: lang, languageId: lang.id }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
-
+      theme: 'system',
+      setTheme: (theme: Theme) => {
+        set({ theme });
+        colorScheme.set(theme);
+      },
       initialize: async () => {
         const langId = get().languageId;
         if (langId) {
@@ -43,10 +51,14 @@ export const useLocalStore = create<LocalState>()(
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
       skipHydration: true,
-      partialize: (state) =>
-        Object.fromEntries(
-          Object.entries(state).filter(([key]) => !['language'].includes(key))
-        )
+      // partialize: (state) =>
+      //   Object.fromEntries(
+      //     Object.entries(state).filter(([key]) => !['language'].includes(key))
+      //   ),
+      onRehydrateStorage: (state) => {
+        console.log('onRehydrateStorage', state);
+        colorScheme.set(state.theme);
+      }
     }
   )
 );

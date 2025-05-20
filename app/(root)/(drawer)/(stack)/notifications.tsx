@@ -3,14 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type DeepPartial<Thing> = Thing extends Function
   ? Thing
-  : Thing extends Array<infer InferrerArrayMember>
+  : Thing extends (infer InferrerArrayMember)[]
     ? DeepPartialArray<InferrerArrayMember>
     : Thing extends object
       ? DeepPartialObject<Thing>
@@ -26,7 +26,7 @@ type DeepPartialObject<Thing> = {
 //   ReturnType<typeof notificationService.getAllInviteRequestNotifications>
 // >[number];
 
-type InviteRequestNotification = {
+interface InviteRequestNotification {
   id: string;
   invite_request: {
     sender: {
@@ -45,7 +45,7 @@ type InviteRequestNotification = {
       target_language: string;
     };
   };
-};
+}
 
 export default function Notifications() {
   const { t } = useTranslation();
@@ -147,13 +147,13 @@ export default function Notifications() {
         }}
       >
         <PageHeader title={t('notifications')} />
-        <FlashList
+        <LegendList
           data={notifications}
-          stickyHeaderIndices={stickyHeaderIndices}
-          getItemType={(item) => {
-            // To achieve better performance, specify the type based on the item
-            return typeof item === 'string' ? 'sectionHeader' : 'row';
-          }}
+          // stickyHeaderIndices={stickyHeaderIndices}
+          // getItemType={(item) => {
+          //   // To achieve better performance, specify the type based on the item
+          //   return typeof item === 'string' ? 'sectionHeader' : 'row';
+          // }}
           renderItem={({ item }) => {
             if (typeof item === 'string') {
               // Rendering header

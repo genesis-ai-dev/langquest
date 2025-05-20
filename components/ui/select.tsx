@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import * as SelectPrimitive from '@rn-primitives/select';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 type Option = SelectPrimitive.Option;
 
@@ -95,7 +94,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Overlay
         style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
       >
-        <Animated.View className="z-50" entering={FadeIn} exiting={FadeOut}>
+        <View className="z-50">
           <SelectPrimitive.Content
             ref={ref}
             className={cn(
@@ -122,7 +121,7 @@ const SelectContent = React.forwardRef<
             </SelectPrimitive.Viewport>
             <SelectScrollDownButton />
           </SelectPrimitive.Content>
-        </Animated.View>
+        </View>
       </SelectPrimitive.Overlay>
     </SelectPrimitive.Portal>
   );

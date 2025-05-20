@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { getAssetAttachmentIds } from '../utils/attachmentUtils';
+import type { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { AttachmentState } from '@powersync/attachments';
-import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { useQuery } from '@powersync/tanstack-react-query';
+import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 
 export function useAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useQuery({
