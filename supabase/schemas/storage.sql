@@ -11,7 +11,7 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-CREATE POLICY "Allow all operations" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'assets'::"text"));
+CREATE POLICY "Allow all operations" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'local'::"text"));
 
 
 
