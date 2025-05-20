@@ -15,36 +15,26 @@ export class VoteService {
     comment?: string;
   }) {
     try {
-      const existingVotes = await db.query.vote.findMany({
+      // Find existing vote for this user and translation
+      const existingVote = await db.query.vote.findFirst({
         where: and(
           eq(vote.translation_id, data.translation_id),
           eq(vote.creator_id, data.creator_id)
         )
       });
 
-      const existingVote = existingVotes.find(
-        (vote) => vote.polarity === data.polarity
-      );
-
-      // Deactivate all existing user votes for this translation
-      await Promise.all(
-        existingVotes
-          .filter((v) => v.active && v.id !== existingVote?.id)
-          .map((v) =>
-            db.update(vote).set({ active: false }).where(eq(vote.id, v.id))
-          )
-      );
-
       if (existingVote) {
-        console.log('Existing vote found:', existingVote);
-        const updatedVote = await db
+        // Update existing vote
+        const [updatedVote] = await db
           .update(vote)
           .set({
-            active: !existingVote.active,
-            comment: data.comment
+            polarity: data.polarity,
+            comment: data.comment,
+            active: true
           })
           .where(eq(vote.id, existingVote.id))
           .returning();
+
         return updatedVote;
       } else {
         // Create new vote
@@ -54,11 +44,11 @@ export class VoteService {
             translation_id: data.translation_id,
             creator_id: data.creator_id,
             polarity: data.polarity,
-            comment: data.comment ?? ''
+            comment: data.comment ?? '',
+            active: true
           })
           .returning();
 
-        console.log('New vote created:', newVote); // Add logging
         return newVote;
       }
     } catch (error) {
