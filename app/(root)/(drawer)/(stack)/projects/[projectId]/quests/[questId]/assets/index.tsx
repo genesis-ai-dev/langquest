@@ -114,9 +114,7 @@ function AssetCard({ asset }: { asset: Asset }) {
 
       // console.log('Gem color: ', gemColor);
 
-      if (gemColor !== null) {
-        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
-      }
+      acc[gemColor] = (acc[gemColor] ?? 0) + 1;
 
       return acc;
     },

@@ -39,23 +39,25 @@ export const getGemColor = (
   translation: Translation,
   votes: Vote[],
   currentUserId: string | null
-): string | null => {
-  if (!shouldCountTranslation(votes)) {
-    return null;
-  }
+): string => {
+  let gemColor: string = colors.success;
 
+  if (!shouldCountTranslation(votes)) {
+    return colors.downVoted;
+  }
   // If translation has no votes
   if (votes.length === 0) {
     // If translation was made by current user
     if (currentUserId && currentUserId === translation.creator_id) {
-      return colors.textSecondary;
+      gemColor = colors.textSecondary;
+    } else {
+      // If translation was made by another user
+      gemColor = colors.alert;
     }
-    // If translation was made by another user
-    return colors.alert;
   }
+  // If translation has votes, gemColor remains colors.success
 
-  // If translation has votes and wasn't excluded by shouldCountTranslation
-  return colors.success;
+  return gemColor;
 };
 
 /**

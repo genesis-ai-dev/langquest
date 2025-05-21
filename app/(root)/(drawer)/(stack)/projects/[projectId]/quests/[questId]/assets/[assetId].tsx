@@ -3,6 +3,7 @@ import Carousel from '@/components/Carousel';
 import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
+import LumpOfCoalIcon from '@/components/LumpOfCoalIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
@@ -17,8 +18,6 @@ import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
-import type { Translation } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import {
   asset as assetTable,
@@ -26,11 +25,12 @@ import {
 } from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { getGemColor } from '@/utils/progressUtils';
+import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
+import { useQuery } from '@powersync/tanstack-react-query';
 import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
@@ -77,10 +77,9 @@ export default function AssetView() {
   const { db } = useSystem();
 
   // Fetch asset
-  const {
-    data: [asset]
-  } = useQuery(
-    toCompilableQuery(
+  const { data: [asset] = [] } = useQuery({
+    queryKey: ['asset', assetId],
+    query: toCompilableQuery(
       db.query.asset.findFirst({
         where: eq(assetTable.id, assetId),
         with: {
@@ -88,12 +87,13 @@ export default function AssetView() {
         }
       })
     )
-  );
+  });
 
   // Fetch translations with votes and creator
-  const { data: translations } = useQuery(
-    toCompilableQuery(
-      db.query.translation.findMany({
+  const { data: translations = [] } = useQuery({
+    queryKey: ['translations', assetId],
+    queryFn: async () =>
+      await db.query.translation.findMany({
         where: eq(translationTable.asset_id, assetId),
         with: {
           votes: true,
@@ -101,14 +101,12 @@ export default function AssetView() {
           asset: true
         }
       })
-    )
-  );
+  });
 
   // Fetch source language
-  const {
-    data: [sourceLanguage]
-  } = useQuery(
-    toCompilableQuery(
+  const { data: [sourceLanguage] = [] } = useQuery({
+    queryKey: ['sourceLanguage', assetId],
+    query: toCompilableQuery(
       db.query.language.findFirst({
         where: eq(
           assetTable.source_language_id,
@@ -116,10 +114,11 @@ export default function AssetView() {
         )
       })
     )
-  );
+  });
 
-  const [selectedTranslation, setSelectedTranslation] =
-    useState<Translation | null>(null);
+  const [selectedTranslationId, setSelectedTranslationId] = useState<
+    string | null
+  >(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -135,13 +134,6 @@ export default function AssetView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
-
-  const calculateVoteCount = (votes: Vote[]): number => {
-    return votes.reduce(
-      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
-      0
-    );
-  };
 
   const allAttachmentIds = React.useMemo(() => {
     if (!asset) return [];
@@ -219,21 +211,66 @@ export default function AssetView() {
       ? (`thumbs-${voteType}` as VoteIconName)
       : (`thumbs-${voteType}-outline` as VoteIconName);
   };
-
-  const renderTranslationCard = ({
-    item: translation
+  // console.log(
+  //   'translations',
+  //   translations.length,
+  //   JSON.stringify(
+  //     translations.map((t) => {
+  //       return {
+  //         id: t.id,
+  //         votes: t.votes.map((v) => {
+  //           return {
+  //             id: v.id,
+  //             polarity: v.polarity,
+  //             currentUserVoted: v.creator_id === currentUser?.id
+  //           };
+  //         })
+  //       };
+  //     }),
+  //     null,
+  //     2
+  //   )
+  // );
+  const TranslationCard = ({
+    translationId,
+    assetId
   }: {
-    item: (typeof translations)[0];
+    translationId: string;
+    assetId: string;
   }) => {
-    const votes = translation.votes;
-    const voteCount = calculateVoteCount(votes);
+    // const votes = translations.find(
+    //   (t) => t.id === translationId
+    // )?.votes;
+    const { translation } = useTranslationDataWithVotes(translationId, assetId);
+    if (!translation) return null;
+    const voteCount = calculateVoteCount(translation.votes);
     if (!currentUser) {
       return null;
     }
-    const gemColor = getGemColor(translation, votes, currentUser.id);
-    if (gemColor === null) {
-      return null;
-    }
+    const gemColor = getGemColor(
+      translation,
+      translation.votes,
+      currentUser.id
+    );
+    // if (translation.text?.includes("Caleb's translation 1")) {
+    //   console.log('voteCount', voteCount);
+    //   console.log('gemColor for Caleb', gemColor);
+    //   console.log(
+    //     'votes',
+    //     JSON.stringify(
+    //       votes.map((v) => ({
+    //         id: v.id,
+    //         polarity: v.polarity,
+    //         creator_id: v.creator_id
+    //       })),
+    //       null,
+    //       2
+    //     )
+    //   );
+    // }
+    // if (gemColor === null) {
+    //   return null;
+    // }
 
     const translationHasAudio = !!translation.audio;
     const audioIconOpacity = translationHasAudio ? 1 : 0.5;
@@ -248,18 +285,21 @@ export default function AssetView() {
           alignItems: 'center',
           gap: 12,
           flex: 1,
-          minHeight: 100
+          minHeight: 100,
+          opacity: gemColor === colors.downVoted ? 0.5 : 1
         }}
       >
         {/* Gem or Pickaxe icon */}
         {gemColor === colors.alert ? (
           <PickaxeIcon color={gemColor} width={20} height={20} />
+        ) : gemColor === colors.downVoted ? (
+          <LumpOfCoalIcon color={gemColor} width={20} height={20} />
         ) : (
           <GemIcon color={gemColor} width={20} height={20} />
         )}
         <TouchableOpacity
           style={[styles.translationCard, { flex: 1 }]}
-          onPress={() => setSelectedTranslation(translation)}
+          onPress={() => setSelectedTranslationId(translation.id)}
         >
           <View
             style={[
@@ -546,7 +586,12 @@ export default function AssetView() {
                       new Date(a.created_at).getTime()
                     );
                   })}
-                  renderItem={renderTranslationCard}
+                  renderItem={({ item }) => (
+                    <TranslationCard
+                      translationId={item.id}
+                      assetId={assetId}
+                    />
+                  )}
                   keyExtractor={(item) => item.id}
                   style={styles.translationsList}
                 />
@@ -578,12 +623,10 @@ export default function AssetView() {
           </View>
         </SafeAreaView>
 
-        {selectedTranslation && (
+        {selectedTranslationId && (
           <TranslationModal
-            translation={selectedTranslation}
-            onClose={() => setSelectedTranslation(null)}
-            onVoteSubmitted={handleNewTranslation}
-            onReportSubmitted={handleNewTranslation}
+            translationId={selectedTranslationId}
+            onClose={() => setSelectedTranslationId(null)}
           />
         )}
 
