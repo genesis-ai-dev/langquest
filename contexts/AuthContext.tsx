@@ -26,7 +26,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabaseAuthKey = await getSupabaseAuthKey();
 
       if (supabaseAuthKey) {
-        console.log('supabaseAuthKey', supabaseAuthKey);
         const session = JSON.parse(
           (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
         ) as Session | null;

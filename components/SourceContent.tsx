@@ -26,7 +26,7 @@ export const SourceContent: React.FC<SourceContentProps> = ({
     <View style={styles.container}>
       <ScrollView>
         <Text style={styles.languageLabel}>
-          {sourceLanguage?.native_name ?? sourceLanguage?.english_name}:
+          {sourceLanguage?.native_name || sourceLanguage?.english_name}
         </Text>
         <Text style={styles.text}>{content.text}</Text>
       </ScrollView>
