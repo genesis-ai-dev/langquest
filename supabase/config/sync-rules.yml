@@ -16,7 +16,7 @@ bucket_definitions:
       - SELECT * FROM "vote"
       - SELECT * FROM "flag"
 
-  user_downloads:
+  user_profile:
     parameters: SELECT request.user_id() AS profile_id
     data:
       - SELECT
@@ -37,17 +37,11 @@ bucket_definitions:
         FROM asset_download
         WHERE "asset_download".profile_id = bucket.profile_id
 
-  user_reports:
-    parameters: SELECT request.user_id() AS profile_id
-    data:
       - SELECT
         *
         FROM reports
         WHERE "reports".reporter_id = bucket.profile_id
 
-  user_blocks:
-    parameters: SELECT request.user_id() AS profile_id
-    data:
       - SELECT
         blocker_id || '_' || blocked_id as id,
         *
@@ -58,3 +52,23 @@ bucket_definitions:
         *
         FROM blocked_content
         WHERE "blocked_content".profile_id = bucket.profile_id
+
+      - SELECT * FROM invite_request
+        WHERE sender_profile_id = bucket.profile_id
+        OR receiver_profile_id = bucket.profile_id
+
+      - SELECT * FROM notification
+        WHERE profile_id = bucket.profile_id
+
+      - SELECT * FROM subscription
+        WHERE profile_id = bucket.profile_id
+
+  project_memberships:
+    parameters: |
+      SELECT project_id FROM profile_project_link
+      WHERE profile_id = request.user_id()
+        AND membership IS NOT NULL
+    data:
+      - SELECT * FROM profile_project_link
+        WHERE project_id = bucket.project_id
+        AND membership IS NOT NULL
