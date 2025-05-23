@@ -229,6 +229,14 @@ export class DownloadService {
 
       // Cascade to all assets in the quest
       const assets = await assetService.getAssetsByQuestId(questId);
+
+      const supabaseAssets = await system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select('asset:asset_id(*)')
+        .eq('quest_id', questId);
+
+      console.log('supabaseAssets', supabaseAssets);
+
       for (const asset of assets) {
         if (asset) await this.setAssetDownload(profileId, asset.id, active);
       }

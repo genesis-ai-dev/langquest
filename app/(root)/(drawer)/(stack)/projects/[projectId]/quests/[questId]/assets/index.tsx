@@ -56,6 +56,7 @@ type AggregatedGems = Record<string, number>;
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
+  const { isNavigatingToAsset } = useProjectContext();
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -141,7 +142,7 @@ function AssetCard({ asset }: { asset: Asset }) {
   );
 
   return (
-    <View style={sharedStyles.card}>
+    <View style={[sharedStyles.card, isNavigatingToAsset && { opacity: 0.5 }]}>
       <View
         style={{
           flexDirection: 'row',
@@ -383,8 +384,8 @@ export default function Assets() {
     return filterCount + sortCount;
   };
 
-  const handleAssetPress = (asset: Asset) => {
-    goToAsset({ asset, questId, projectId });
+  const handleAssetPress = async (asset: Asset) => {
+    await goToAsset({ asset, questId, projectId });
   };
 
   const handleCloseDetails = () => {

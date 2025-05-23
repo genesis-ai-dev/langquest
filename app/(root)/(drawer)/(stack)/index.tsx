@@ -37,6 +37,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
+  const { isNavigatingToProject } = useProjectContext();
   const [sourceLanguage, setSourceLanguage] = useState<
     typeof language.$inferSelect | null
   >(null);
@@ -154,7 +155,9 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   }, [project.id, currentUser?.id]);
 
   return (
-    <View style={sharedStyles.card}>
+    <View
+      style={[sharedStyles.card, isNavigatingToProject && { opacity: 0.5 }]}
+    >
       <View>
         <View
           style={{
@@ -193,7 +196,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
 export default function Projects() {
   const { t } = useTranslation();
-  const { goToProject } = useProjectContext();
+
+  const { goToProject, deleteAllViews } = useProjectContext();
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
@@ -203,6 +207,10 @@ export default function Projects() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
+
+  useEffect(() => {
+    void deleteAllViews();
+  }, []);
 
   // Load stored filter settings on component mount
   useEffect(() => {
@@ -360,8 +368,8 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleExplore = (project: Project) => {
-    goToProject(project);
+  const handleExplore = async (project: Project) => {
+    await goToProject(project);
   };
 
   // Custom setSourceFilter function that validates against available options

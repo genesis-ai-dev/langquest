@@ -6,6 +6,7 @@ const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 const linkColumns = {
+  id: text().notNull(), // Needed for powersync's required id field
   active: int({ mode: 'boolean' }).notNull().default(true),
   created_at: text().notNull().default(timestampDefault),
   last_updated: text()
@@ -16,10 +17,10 @@ const linkColumns = {
 
 // Base columns that most tables will have
 const baseColumns = {
+  ...linkColumns,
   id: text()
     .primaryKey()
-    .$defaultFn(() => uuidDefault),
-  ...linkColumns
+    .$defaultFn(() => uuidDefault)
 };
 
 export const profile = sqliteTable('profile', {
@@ -260,7 +261,6 @@ export const reports = sqliteTable('reports', {
 export const blocked_users = sqliteTable(
   'blocked_users',
   {
-    id: text().notNull(),
     ...linkColumns,
     blocker_id: text()
       .notNull()
@@ -361,7 +361,6 @@ export const asset_content_linkRelations = relations(
 export const project_download = sqliteTable(
   'project_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -390,7 +389,6 @@ export const project_downloadRelations = relations(
 export const quest_download = sqliteTable(
   'quest_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -416,7 +414,6 @@ export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
 export const asset_download = sqliteTable(
   'asset_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -535,5 +532,147 @@ export const subscriptionRelations = relations(subscription, ({ one }) => ({
   profile: one(profile, {
     fields: [subscription.profile_id],
     references: [profile.id]
+  })
+}));
+
+export const quest_asset_view = sqliteTable(
+  'quest_asset_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.asset_id] })]
+);
+
+export const quest_asset_viewRelations = relations(
+  quest_asset_view,
+  ({ one }) => ({
+    profile: one(profile, {
+      fields: [quest_asset_view.profile_id],
+      references: [profile.id]
+    }),
+    asset: one(asset, {
+      fields: [quest_asset_view.asset_id],
+      references: [asset.id]
+    })
+  })
+);
+
+export const asset_view = sqliteTable(
+  'asset_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.asset_id] })]
+);
+
+export const assetViewRelations = relations(asset_view, ({ one }) => ({
+  profile: one(profile, {
+    fields: [asset_view.profile_id],
+    references: [profile.id]
+  }),
+  asset: one(asset, {
+    fields: [asset_view.asset_id],
+    references: [asset.id]
+  })
+}));
+
+export const project_view = sqliteTable(
+  'project_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
+);
+
+export const projectViewRelations = relations(project_view, ({ one }) => ({
+  profile: one(profile, {
+    fields: [project_view.profile_id],
+    references: [profile.id]
+  }),
+  project: one(project, {
+    fields: [project_view.project_id],
+    references: [project.id]
+  })
+}));
+
+export const project_quest_view = sqliteTable(
+  'project_quest_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    quest_id: text()
+      .notNull()
+      .references(() => quest.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.quest_id] })]
+);
+
+export const quest_view = sqliteTable(
+  'quest_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    quest_id: text()
+      .notNull()
+      .references(() => quest.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.quest_id] })]
+);
+
+export const questViewRelations = relations(quest_view, ({ one }) => ({
+  profile: one(profile, {
+    fields: [quest_view.profile_id],
+    references: [profile.id]
+  }),
+  quest: one(quest, {
+    fields: [quest_view.quest_id],
+    references: [quest.id]
+  })
+}));
+
+export const tag_view = sqliteTable(
+  'tag_view',
+  {
+    id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    tag_id: text()
+      .notNull()
+      .references(() => tag.id)
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.tag_id] })]
+);
+
+export const tag_viewRelations = relations(tag_view, ({ one }) => ({
+  profile: one(profile, {
+    fields: [tag_view.profile_id],
+    references: [profile.id]
+  }),
+  tag: one(tag, {
+    fields: [tag_view.tag_id],
+    references: [tag.id]
   })
 }));

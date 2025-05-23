@@ -54,6 +54,7 @@ interface SortingOption {
 
 const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   const { currentUser } = useAuth();
+  const { isNavigatingToQuest } = useProjectContext();
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -158,7 +159,7 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
   );
 
   return (
-    <View style={sharedStyles.card}>
+    <View style={[sharedStyles.card, isNavigatingToQuest && { opacity: 0.5 }]}>
       <View
         style={{
           flexDirection: 'row',
@@ -349,8 +350,8 @@ export default function Quests() {
     return filterCount + sortCount;
   };
 
-  const handleQuestPress = (quest: Quest) => {
-    goToQuest(quest);
+  const handleQuestPress = async (quest: Quest) => {
+    await goToQuest(quest);
   };
 
   const handleCloseDetails = () => {
