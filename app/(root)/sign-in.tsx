@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
@@ -40,6 +41,7 @@ export default function SignIn() {
   const { supabaseConnector } = useSystem();
   const { t } = useTranslation();
   const router = useRouter();
+  const { currentUser, isLoading } = useAuth();
 
   const {
     control,
@@ -59,6 +61,13 @@ export default function SignIn() {
       reset();
     };
   }, [reset]);
+
+  // If we're done loading and we already have a user, skip straight to /
+  useEffect(() => {
+    if (!isLoading && currentUser) {
+      router.replace('/');
+    }
+  }, [isLoading, currentUser]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {

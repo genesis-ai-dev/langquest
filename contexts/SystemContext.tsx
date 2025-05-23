@@ -7,7 +7,14 @@ export const SystemContext = createContext<System | undefined>(undefined);
 
 export function SystemProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    void system.init();
+    async function bootstrap() {
+      // 1) init the database & Powersync connection
+      await system.init();
+      // 2) wire up both attachment queues *before* any loadAssetAttachments calls
+      await system.tempAttachmentQueue?.init();
+      await system.permAttachmentQueue?.init();
+    }
+    void bootstrap();
   }, []);
 
   return (
