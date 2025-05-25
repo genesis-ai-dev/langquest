@@ -499,7 +499,7 @@ export const localizations: Record<string, TranslationSet> = {
   },
   reportSubmitted: {
     english: 'Report submitted successfully',
-    spanish: 'Reporte enviado con éxito',
+    spanish: 'Reporte enviado exitosamente',
     brazilian_portuguese: 'Relatório enviado com sucesso'
   },
   failedToSubmitReport: {
@@ -732,8 +732,90 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Failed to load assets',
     spanish: 'Error al cargar recursos',
     brazilian_portuguese: 'Falha ao carregar recursos'
+  },
+  projectMembers: {
+    english: 'Project Members',
+    spanish: 'Miembros del Proyecto',
+    brazilian_portuguese: 'Membros do Projeto'
+  },
+  members: {
+    english: 'Members',
+    spanish: 'Miembros',
+    brazilian_portuguese: 'Membros'
+  },
+  invited: {
+    english: 'Invited',
+    spanish: 'Invitados',
+    brazilian_portuguese: 'Convidados'
+  },
+  inviteMembers: {
+    english: 'Invite Members',
+    spanish: 'Invitar Miembros',
+    brazilian_portuguese: 'Convidar Membros'
+  },
+  inviteAsOwner: {
+    english: 'Invite as owner',
+    spanish: 'Invitar como propietario',
+    brazilian_portuguese: 'Convidar como proprietário'
+  },
+  sendInvitation: {
+    english: 'Send Invitation',
+    spanish: 'Enviar Invitación',
+    brazilian_portuguese: 'Enviar Convite'
+  },
+  owner: {
+    english: 'Owner',
+    spanish: 'Propietario',
+    brazilian_portuguese: 'Proprietário'
+  },
+  member: {
+    english: 'Member',
+    spanish: 'Miembro',
+    brazilian_portuguese: 'Membro'
+  },
+  makeOwner: {
+    english: 'Make Owner',
+    spanish: 'Hacer Propietario',
+    brazilian_portuguese: 'Tornar Proprietário'
+  },
+  remove: {
+    english: 'Remove',
+    spanish: 'Eliminar',
+    brazilian_portuguese: 'Remover'
+  },
+  withdrawInvite: {
+    english: 'Withdraw Invite',
+    spanish: 'Retirar Invitación',
+    brazilian_portuguese: 'Retirar Convite'
+  },
+  you: {
+    english: 'You',
+    spanish: 'Tú',
+    brazilian_portuguese: 'Você'
+  },
+  pendingInvitation: {
+    english: 'Pending',
+    spanish: 'Pendiente',
+    brazilian_portuguese: 'Pendente'
+  },
+  noMembers: {
+    english: 'No members yet',
+    spanish: 'No hay miembros todavía',
+    brazilian_portuguese: 'Ainda não há membros'
+  },
+  noInvitations: {
+    english: 'No pending invitations',
+    spanish: 'No hay invitaciones pendientes',
+    brazilian_portuguese: 'Nenhum convite pendente'
+  },
+  ownerTooltip: {
+    english:
+      'Owners can create content, invite and promote other members, and cannot be demoted back to membership or removed from a project by other members.',
+    spanish:
+      'Los propietarios pueden crear contenido, invitar y promover a otros miembros, y no pueden ser degradados a miembros o eliminados de un proyecto por otros miembros.',
+    brazilian_portuguese:
+      'Proprietários podem criar conteúdo, convidar e promover outros membros, e não podem ser rebaixados de volta à associação ou removidos de um projeto por outros membros.'
   }
-  // Add more translation keys as needed...
 } as const;
 
 // Type check to ensure all translation keys have all supported languages
