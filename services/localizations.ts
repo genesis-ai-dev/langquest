@@ -815,6 +815,95 @@ export const localizations: Record<string, TranslationSet> = {
       'Los propietarios pueden crear contenido, invitar y promover a otros miembros, y no pueden ser degradados a miembros o eliminados de un proyecto por otros miembros.',
     brazilian_portuguese:
       'Proprietários podem criar conteúdo, convidar e promover outros membros, e não podem ser rebaixados de volta à associação ou removidos de um projeto por outros membros.'
+  },
+  confirmRemoveMessage: {
+    english: 'Are you sure you want to remove {{name}} from this project?',
+    spanish: '¿Está seguro de que desea eliminar a {{name}} de este proyecto?',
+    brazilian_portuguese:
+      'Tem certeza de que deseja remover {{name}} deste projeto?'
+  },
+  confirmPromoteMessage: {
+    english:
+      'Are you sure you want to make {{name}} an owner? This action cannot be undone.',
+    spanish:
+      '¿Está seguro de que desea hacer a {{name}} propietario? Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Tem certeza de que deseja tornar {{name}} um proprietário? Esta ação não pode ser desfeita.'
+  },
+  confirmLeave: {
+    english: 'Leave Project',
+    spanish: 'Abandonar Proyecto',
+    brazilian_portuguese: 'Sair do Projeto'
+  },
+  confirmLeaveMessage: {
+    english: 'Are you sure you want to leave this project?',
+    spanish: '¿Está seguro de que desea abandonar este proyecto?',
+    brazilian_portuguese: 'Tem certeza de que deseja sair deste projeto?'
+  },
+  cannotLeaveAsOnlyOwner: {
+    english:
+      'You cannot leave this project as you are the only owner. Please promote another member to owner first.',
+    spanish:
+      'No puede abandonar este proyecto porque es el único propietario. Por favor, promueva a otro miembro a propietario primero.',
+    brazilian_portuguese:
+      'Você não pode sair deste projeto porque é o único proprietário. Por favor, promova outro membro a proprietário primeiro.'
+  },
+  invitationAlreadySent: {
+    english: 'An invitation has already been sent to this email address.',
+    spanish:
+      'Ya se ha enviado una invitación a esta dirección de correo electrónico.',
+    brazilian_portuguese:
+      'Um convite já foi enviado para este endereço de e-mail.'
+  },
+  invitationSent: {
+    english: 'Invitation sent successfully',
+    spanish: 'Invitación enviada con éxito',
+    brazilian_portuguese: 'Convite enviado com sucesso'
+  },
+  expiredInvitation: {
+    english: 'Expired',
+    spanish: 'Expirado',
+    brazilian_portuguese: 'Expirado'
+  },
+  declinedInvitation: {
+    english: 'Declined',
+    spanish: 'Rechazado',
+    brazilian_portuguese: 'Recusado'
+  },
+  withdrawnInvitation: {
+    english: 'Withdrawn',
+    spanish: 'Retirado',
+    brazilian_portuguese: 'Retirado'
+  },
+  sending: {
+    english: 'Sending...',
+    spanish: 'Enviando...',
+    brazilian_portuguese: 'Enviando...'
+  },
+  failedToRemoveMember: {
+    english: 'Failed to remove member',
+    spanish: 'Error al eliminar miembro',
+    brazilian_portuguese: 'Falha ao remover membro'
+  },
+  failedToPromoteMember: {
+    english: 'Failed to promote member',
+    spanish: 'Error al promover miembro',
+    brazilian_portuguese: 'Falha ao promover membro'
+  },
+  failedToLeaveProject: {
+    english: 'Failed to leave project',
+    spanish: 'Error al abandonar el proyecto',
+    brazilian_portuguese: 'Falha ao sair do projeto'
+  },
+  failedToWithdrawInvitation: {
+    english: 'Failed to withdraw invitation',
+    spanish: 'Error al retirar la invitación',
+    brazilian_portuguese: 'Falha ao retirar o convite'
+  },
+  failedToSendInvitation: {
+    english: 'Failed to send invitation',
+    spanish: 'Error al enviar la invitación',
+    brazilian_portuguese: 'Falha ao enviar o convite'
   }
 } as const;
 

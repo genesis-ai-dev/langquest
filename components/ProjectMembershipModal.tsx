@@ -1,3 +1,6 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { invite_request, profile_project_link } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
@@ -7,8 +10,11 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@powersync/tanstack-react-query';
+import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,19 +28,29 @@ import {
   View
 } from 'react-native';
 
+interface ProjectMembershipModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  projectId: string;
+}
+
 interface Member {
   id: string;
   email: string;
   name: string;
   role: 'owner' | 'member';
-  status: 'active' | 'invited';
-  invitedAt?: Date;
+  status: 'active';
 }
 
-interface ProjectMembershipModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  projectId: string;
+interface Invitation {
+  id: string;
+  email: string;
+  name: string;
+  role: 'owner' | 'member';
+  status: string;
+  created_at: string;
+  last_updated: string;
+  receiver_profile_id?: string;
 }
 
 // Email validation regex
@@ -43,71 +59,294 @@ const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
+// Helper function to check if invitation is expired (7 days)
+const isInvitationExpired = (createdAt: string): boolean => {
+  const createdDate = new Date(createdAt);
+  const now = new Date();
+  const daysDiff =
+    (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysDiff > 7;
+};
+
+// Helper function to check if invitation should be hidden (3 days after expiry/decline)
+const shouldHideInvitation = (
+  status: string,
+  lastUpdated: string,
+  createdAt: string
+): boolean => {
+  if (status === 'declined' || isInvitationExpired(createdAt)) {
+    const updatedDate = new Date(lastUpdated);
+    const now = new Date();
+    const daysDiff =
+      (now.getTime() - updatedDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff > 3;
+  }
+  return false;
+};
+
+const { db } = system;
+
 export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   isVisible,
   onClose,
-  projectId: _projectId
+  projectId
 }) => {
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'members' | 'invited'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock data for now
-  const mockMembers: Member[] = [
-    {
-      id: '1',
-      email: 'current@user.com',
-      name: 'Current User',
-      role: 'owner',
-      status: 'active'
-    },
-    {
-      id: '2',
-      email: 'john@example.com',
-      name: 'John Doe',
-      role: 'member',
-      status: 'active'
-    },
-    {
-      id: '3',
-      email: 'jane@example.com',
-      name: 'Jane Smith',
-      role: 'owner',
-      status: 'active'
-    },
-    {
-      id: '4',
-      email: 'bob@example.com',
-      name: 'Bob Wilson',
-      role: 'member',
-      status: 'invited',
-      invitedAt: new Date()
+  // Query for active project members
+  const { data: members = [], refetch: refetchMembers } = useQuery<Member>({
+    queryKey: ['project-members', projectId],
+    query: `
+      SELECT 
+        p.id,
+        p.email,
+        p.username as name,
+        ppl.membership as role,
+        'active' as status
+      FROM profile_project_link ppl
+      JOIN profile p ON p.id = ppl.profile_id
+      WHERE ppl.project_id = ?
+        AND ppl.active = 1
+    `,
+    parameters: [projectId]
+  });
+
+  // Query for invited users
+  const { data: invitations = [], refetch: refetchInvitations } =
+    useQuery<Invitation>({
+      queryKey: ['project-invitations', projectId],
+      query: `
+      SELECT 
+        ir.id,
+        ir.email,
+        ir.email as name,
+        CASE WHEN ir.as_owner = 1 THEN 'owner' ELSE 'member' END as role,
+        ir.status,
+        ir.created_at,
+        ir.last_updated,
+        ir.receiver_profile_id
+      FROM invite_request ir
+      WHERE ir.project_id = ?
+        AND ir.status IN ('awaiting_trigger', 'pending', 'expired', 'declined', 'withdrawn')
+    `,
+      parameters: [projectId]
+    });
+
+  // Filter invitations based on visibility rules
+  const visibleInvitations = invitations.filter((inv) => {
+    if (shouldHideInvitation(inv.status, inv.last_updated, inv.created_at)) {
+      return false;
     }
-  ];
+    // Update status to expired if needed
+    if (inv.status === 'pending' && isInvitationExpired(inv.created_at)) {
+      inv.status = 'expired';
+    }
+    return true;
+  });
 
-  const activeMembers = mockMembers.filter((m) => m.status === 'active');
-  const invitedMembers = mockMembers.filter((m) => m.status === 'invited');
-  const currentUserId = '1'; // Mock current user
-  const currentUserIsOwner =
-    mockMembers.find((m) => m.id === currentUserId)?.role === 'owner';
+  // Check if current user is an owner
+  const currentUserMembership = members.find((m) => m.id === currentUser?.id);
+  const currentUserIsOwner = currentUserMembership?.role === 'owner';
+
+  // Count active owners
+  const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
+
+  const handleRemoveMember = (memberId: string, memberName: string) => {
+    Alert.alert(
+      t('confirmRemove'),
+      t('confirmRemoveMessage', { name: memberName }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('remove'),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await db
+                  .update(profile_project_link)
+                  .set({
+                    active: false,
+                    last_updated: new Date().toISOString()
+                  })
+                  .where(
+                    and(
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
+                    )
+                  );
+                void refetchMembers();
+              } catch (error) {
+                console.error('Error removing member:', error);
+                Alert.alert(t('error'), t('failedToRemoveMember'));
+              }
+            })();
+          }
+        }
+      ]
+    );
+  };
+
+  const handlePromoteToOwner = (memberId: string, memberName: string) => {
+    Alert.alert(
+      t('confirmPromote'),
+      t('confirmPromoteMessage', { name: memberName }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('confirm'),
+          onPress: () => {
+            void (async () => {
+              try {
+                await db
+                  .update(profile_project_link)
+                  .set({
+                    membership: 'owner',
+                    last_updated: new Date().toISOString()
+                  })
+                  .where(
+                    and(
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
+                    )
+                  );
+                void refetchMembers();
+              } catch (error) {
+                console.error('Error promoting member:', error);
+                Alert.alert(t('error'), t('failedToPromoteMember'));
+              }
+            })();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleLeaveProject = () => {
+    if (activeOwnerCount <= 1 && currentUserIsOwner) {
+      Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
+      return;
+    }
+
+    Alert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('confirm'),
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await db
+                .update(profile_project_link)
+                .set({ active: false, last_updated: new Date().toISOString() })
+                .where(
+                  and(
+                    eq(profile_project_link.profile_id, currentUser!.id),
+                    eq(profile_project_link.project_id, projectId)
+                  )
+                );
+              onClose();
+            } catch (error) {
+              console.error('Error leaving project:', error);
+              Alert.alert(t('error'), t('failedToLeaveProject'));
+            }
+          })();
+        }
+      }
+    ]);
+  };
+
+  const handleWithdrawInvitation = async (inviteId: string) => {
+    try {
+      await db
+        .update(invite_request)
+        .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
+        .where(eq(invite_request.id, inviteId));
+
+      // Also deactivate any profile_project_link if exists
+      const invite = invitations.find((i) => i.id === inviteId);
+      if (invite?.receiver_profile_id) {
+        await db
+          .update(profile_project_link)
+          .set({ active: false, last_updated: new Date().toISOString() })
+          .where(
+            and(
+              eq(profile_project_link.profile_id, invite.receiver_profile_id),
+              eq(profile_project_link.project_id, projectId)
+            )
+          );
+      }
+      void refetchInvitations();
+    } catch (error) {
+      console.error('Error withdrawing invitation:', error);
+      Alert.alert(t('error'), t('failedToWithdrawInvitation'));
+    }
+  };
+
+  const handleSendInvitation = async () => {
+    if (!isValidEmail(inviteEmail)) {
+      Alert.alert(t('error'), t('enterValidEmail'));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Check existing invitations using PowerSync
+      const existingInvite = await system.powersync.getOptional(
+        `SELECT * FROM invite_request WHERE email = ? AND project_id = ? AND status NOT IN ('declined', 'withdrawn', 'expired')`,
+        [inviteEmail, projectId]
+      );
+
+      if (existingInvite) {
+        throw new Error(t('invitationAlreadySent'));
+      }
+
+      // Create new invitation
+      await db.insert(invite_request).values({
+        sender_profile_id: currentUser!.id,
+        email: inviteEmail,
+        project_id: projectId,
+        type: 'project',
+        status: 'awaiting_trigger',
+        as_owner: inviteAsOwner
+      });
+
+      setInviteEmail('');
+      setInviteAsOwner(false);
+      void refetchInvitations();
+      Alert.alert(t('success'), t('invitationSent'));
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      Alert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('failedToSendInvitation')
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const renderMember = (member: Member) => {
-    const isCurrentUser = member.id === currentUserId;
+    const isCurrentUser = member.id === currentUser?.id;
 
     return (
       <View key={member.id} style={styles.memberItem}>
         <View style={styles.memberInfo}>
           <View style={styles.memberAvatar}>
             <Text style={styles.memberAvatarText}>
-              {member.name.charAt(0).toUpperCase()}
+              {(member.name || member.email).charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={styles.memberDetails}>
             <View style={styles.memberNameRow}>
               <Text style={styles.memberName}>
-                {member.name} {isCurrentUser && `(${t('you')})`}
+                {member.name || member.email} {isCurrentUser && `(${t('you')})`}
               </Text>
               {member.role === 'owner' ? (
                 <Ionicons name="ribbon" size={16} color={colors.primary} />
@@ -120,23 +359,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               )}
             </View>
             <Text style={styles.memberEmail}>{member.email}</Text>
-            {member.status === 'invited' && (
-              <View style={styles.invitedTag}>
-                <Text style={styles.invitedTagText}>
-                  {t('pendingInvitation')}
-                </Text>
-              </View>
-            )}
           </View>
         </View>
 
         <View style={styles.memberActions}>
           {currentUserIsOwner && !isCurrentUser && (
             <>
-              {member.status === 'active' && member.role === 'member' && (
+              {member.role === 'member' && (
                 <TouchableOpacity
                   style={styles.iconButton}
-                  onPress={() => console.log('Promote to owner')}
+                  onPress={() =>
+                    handlePromoteToOwner(member.id, member.name || member.email)
+                  }
                 >
                   <Ionicons
                     name="ribbon-outline"
@@ -145,20 +379,105 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => console.log('Remove member')}
-              >
-                <Ionicons name="trash-outline" size={20} color={colors.error} />
-              </TouchableOpacity>
+              {member.role === 'member' && (
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() =>
+                    handleRemoveMember(member.id, member.name || member.email)
+                  }
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={20}
+                    color={colors.error}
+                  />
+                </TouchableOpacity>
+              )}
             </>
           )}
           {isCurrentUser && (
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => console.log('Leave project')}
+              onPress={handleLeaveProject}
             >
               <Ionicons name="exit-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderInvitation = (invitation: Invitation) => {
+    const getStatusDisplay = (status: string) => {
+      switch (status) {
+        case 'awaiting_trigger':
+        case 'pending':
+          return t('pendingInvitation');
+        case 'expired':
+          return t('expiredInvitation');
+        case 'declined':
+          return t('declinedInvitation');
+        case 'withdrawn':
+          return t('withdrawnInvitation');
+        default:
+          return status;
+      }
+    };
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'awaiting_trigger':
+        case 'pending':
+          return colors.primaryLight;
+        case 'expired':
+        case 'declined':
+        case 'withdrawn':
+          return colors.disabled;
+        default:
+          return colors.backgroundSecondary;
+      }
+    };
+
+    return (
+      <View key={invitation.id} style={styles.memberItem}>
+        <View style={styles.memberInfo}>
+          <View style={styles.memberAvatar}>
+            <Text style={styles.memberAvatarText}>
+              {invitation.email.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.memberDetails}>
+            <View style={styles.memberNameRow}>
+              <Text style={styles.memberName}>{invitation.email}</Text>
+              {invitation.role === 'owner' && (
+                <Ionicons name="ribbon" size={16} color={colors.primary} />
+              )}
+            </View>
+            <View
+              style={[
+                styles.invitedTag,
+                { backgroundColor: getStatusColor(invitation.status) }
+              ]}
+            >
+              <Text style={styles.invitedTagText}>
+                {getStatusDisplay(invitation.status)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.memberActions}>
+          {currentUserIsOwner && invitation.status !== 'withdrawn' && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => void handleWithdrawInvitation(invitation.id)}
+            >
+              <Ionicons
+                name="close-circle-outline"
+                size={20}
+                color={colors.error}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -208,7 +527,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         activeTab === 'members' && styles.activeTabText
                       ]}
                     >
-                      {t('members')} ({activeMembers.length})
+                      {t('members')} ({members.length})
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -224,92 +543,90 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         activeTab === 'invited' && styles.activeTabText
                       ]}
                     >
-                      {t('invited')} ({invitedMembers.length})
+                      {t('invited')} ({visibleInvitations.length})
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 <ScrollView style={styles.membersList}>
                   {activeTab === 'members' ? (
-                    activeMembers.length > 0 ? (
-                      activeMembers.map(renderMember)
+                    members.length > 0 ? (
+                      members.map(renderMember)
                     ) : (
                       <Text style={styles.emptyText}>{t('noMembers')}</Text>
                     )
-                  ) : invitedMembers.length > 0 ? (
-                    invitedMembers.map(renderMember)
+                  ) : visibleInvitations.length > 0 ? (
+                    visibleInvitations.map(renderInvitation)
                   ) : (
                     <Text style={styles.emptyText}>{t('noInvitations')}</Text>
                   )}
                 </ScrollView>
 
-                {currentUserIsOwner && (
-                  <View style={styles.inviteSection}>
-                    <Text style={styles.inviteTitle}>{t('inviteMembers')}</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={t('email')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={inviteEmail}
-                      onChangeText={setInviteEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
-                    <View style={styles.checkboxContainer}>
-                      <TouchableOpacity
-                        style={styles.checkboxRow}
-                        onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                      >
-                        <View
-                          style={[
-                            styles.checkbox,
-                            inviteAsOwner && styles.checkboxChecked
-                          ]}
-                        >
-                          {inviteAsOwner && (
-                            <Ionicons
-                              name="checkmark"
-                              size={16}
-                              color={colors.buttonText}
-                            />
-                          )}
-                        </View>
-                        <Text style={styles.checkboxLabel}>
-                          {t('inviteAsOwner')}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.tooltipButton}
-                        onPress={() => setShowTooltip(!showTooltip)}
-                      >
-                        <Ionicons
-                          name="help-circle-outline"
-                          size={20}
-                          color={colors.primary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {showTooltip && (
-                      <View style={styles.tooltip}>
-                        <Text style={styles.tooltipText}>
-                          {t('ownerTooltip')}
-                        </Text>
-                      </View>
-                    )}
+                <View style={styles.inviteSection}>
+                  <Text style={styles.inviteTitle}>{t('inviteMembers')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('email')}
+                    placeholderTextColor={colors.textSecondary}
+                    value={inviteEmail}
+                    onChangeText={setInviteEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  <View style={styles.checkboxContainer}>
                     <TouchableOpacity
-                      style={[
-                        sharedStyles.button,
-                        !isInviteButtonEnabled && styles.inviteButtonDisabled
-                      ]}
-                      onPress={() => console.log('Send invitation')}
-                      disabled={!isInviteButtonEnabled}
+                      style={styles.checkboxRow}
+                      onPress={() => setInviteAsOwner(!inviteAsOwner)}
                     >
-                      <Text style={sharedStyles.buttonText}>
-                        {t('sendInvitation')}
+                      <View
+                        style={[
+                          styles.checkbox,
+                          inviteAsOwner && styles.checkboxChecked
+                        ]}
+                      >
+                        {inviteAsOwner && (
+                          <Ionicons
+                            name="checkmark"
+                            size={16}
+                            color={colors.buttonText}
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.checkboxLabel}>
+                        {t('inviteAsOwner')}
                       </Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.tooltipButton}
+                      onPress={() => setShowTooltip(!showTooltip)}
+                    >
+                      <Ionicons
+                        name="help-circle-outline"
+                        size={20}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
                   </View>
-                )}
+                  {showTooltip && (
+                    <View style={styles.tooltip}>
+                      <Text style={styles.tooltipText}>
+                        {t('ownerTooltip')}
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[
+                      sharedStyles.button,
+                      !isInviteButtonEnabled && styles.inviteButtonDisabled
+                    ]}
+                    onPress={handleSendInvitation}
+                    disabled={!isInviteButtonEnabled || isSubmitting}
+                  >
+                    <Text style={sharedStyles.buttonText}>
+                      {isSubmitting ? t('sending') : t('sendInvitation')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableWithoutFeedback>
           </Pressable>
