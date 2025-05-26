@@ -50,6 +50,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   // const [votes, setVotes] = useState<Vote[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
+  const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
+    null
+  );
   const { hasReported } = useTranslationReports(translationId, currentUser!.id);
 
   // const { votes, loadingVotes } = useVotes(translationId);
@@ -129,6 +132,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         Alert.alert('Error', t('logInToVote'));
         return;
       }
+      setPendingVoteType(voteType);
       // queryClient.setQueryData(
       //   ['translation', translationId],
       //   (old: (typeof translation)[]) => {
@@ -158,6 +162,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         queryKey: ['translation', translationId]
       });
       onVoteSubmitted?.();
+    },
+    onSettled: () => {
+      setPendingVoteType(null);
     }
   });
   // const handleVote = async (voteType: 'up' | 'down') => {
@@ -409,10 +416,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                     onPress={() => handleVote({ voteType: 'up' })}
                     disabled={userVote?.polarity === 'up' || isVotePending}
                   >
-                    {isVotePending && userVote?.polarity !== 'up' && (
+                    {pendingVoteType === 'up' && (
                       <View style={styles.shimmerOverlay}>
                         <Shimmer
-                          width={100}
+                          width={200}
                           height={50}
                           backgroundColor="transparent"
                           highlightColor="rgba(255, 255, 255, 0.3)"
@@ -445,10 +452,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                     onPress={() => handleVote({ voteType: 'down' })}
                     disabled={userVote?.polarity === 'down' || isVotePending}
                   >
-                    {isVotePending && userVote?.polarity !== 'down' && (
+                    {pendingVoteType === 'down' && (
                       <View style={styles.shimmerOverlay}>
                         <Shimmer
-                          width={100}
+                          width={200}
                           height={50}
                           backgroundColor="transparent"
                           highlightColor="rgba(255, 255, 255, 0.3)"
@@ -618,6 +625,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 1
+    zIndex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden'
   }
 });
