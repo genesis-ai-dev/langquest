@@ -292,7 +292,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   //   )
   // );
   // }
-  if (!translation || !userVote) {
+  if (!translation) {
     return (
       <View style={styles.container}>
         <TouchableOpacity style={styles.overlay} onPress={handleClose} />
@@ -403,13 +403,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                         backgroundColor: '#6545B6',
                         borderWidth: 2,
                         borderColor:
-                          userVote.polarity === 'up' ? colors.alert : '#6545B6'
+                          userVote?.polarity === 'up' ? colors.alert : '#6545B6'
                       }
                     ]}
                     onPress={() => handleVote({ voteType: 'up' })}
-                    disabled={userVote.polarity === 'up' || isVotePending}
+                    disabled={userVote?.polarity === 'up' || isVotePending}
                   >
-                    {isVotePending && userVote.polarity !== 'up' && (
+                    {isVotePending && userVote?.polarity !== 'up' && (
                       <View style={styles.shimmerOverlay}>
                         <Shimmer
                           width={100}
@@ -421,7 +421,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                     )}
                     <Ionicons
                       name={
-                        userVote.polarity === 'up'
+                        userVote?.polarity === 'up'
                           ? 'thumbs-up'
                           : 'thumbs-up-outline'
                       }
@@ -437,15 +437,15 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                         borderWidth: 2,
                         backgroundColor: colors.primary,
                         borderColor:
-                          userVote.polarity === 'down'
+                          userVote?.polarity === 'down'
                             ? colors.alert
                             : colors.primary
                       }
                     ]}
                     onPress={() => handleVote({ voteType: 'down' })}
-                    disabled={userVote.polarity === 'down' || isVotePending}
+                    disabled={userVote?.polarity === 'down' || isVotePending}
                   >
-                    {isVotePending && userVote.polarity !== 'down' && (
+                    {isVotePending && userVote?.polarity !== 'down' && (
                       <View style={styles.shimmerOverlay}>
                         <Shimmer
                           width={100}
@@ -457,7 +457,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                     )}
                     <Ionicons
                       name={
-                        userVote.polarity === 'down'
+                        userVote?.polarity === 'down'
                           ? 'thumbs-down'
                           : 'thumbs-down-outline'
                       }
