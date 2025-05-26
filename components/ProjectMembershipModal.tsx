@@ -39,7 +39,7 @@ interface Member {
   email: string;
   name: string;
   role: 'owner' | 'member';
-  status: 'active';
+  active: boolean;
 }
 
 interface Invitation {
@@ -50,7 +50,7 @@ interface Invitation {
   status: string;
   created_at: string;
   last_updated: string;
-  receiver_profile_id?: string;
+  receiver_profile_id: string | null;
 }
 
 // Email validation regex
@@ -116,6 +116,16 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     `,
     parameters: [projectId]
   });
+
+  //retrieve an console log every profile_project_link record
+  const { data: projectMembers = [] } = useQuery<Member>({
+    queryKey: ['project-members', projectId],
+    query: `
+      SELECT * FROM profile_project_link WHERE project_id = ?
+    `,
+    parameters: [projectId]
+  });
+  console.log('projectMembers', projectMembers);
 
   // Query for invited users
   const { data: invitations = [], refetch: refetchInvitations } =
