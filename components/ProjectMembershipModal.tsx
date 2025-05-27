@@ -53,6 +53,14 @@ interface Invitation {
   receiver_profile_id: string | null;
 }
 
+interface ProfileProjectLink {
+  id: string;
+  profile_id: string;
+  project_id: string;
+  membership: string;
+  active: boolean;
+}
+
 // Email validation regex
 const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,12 +124,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     `,
     parameters: [projectId]
   });
+  console.log('members', members);
 
-  //retrieve an console log every profile_project_link record
-  const { data: projectMembers = [] } = useQuery<Member>({
-    queryKey: ['project-members', projectId],
+  //retrieve and console log every profile_project_link record
+  const { data: projectMembers = [] } = useQuery<ProfileProjectLink>({
+    queryKey: ['profile-project-links', projectId],
     query: `
-      SELECT * FROM profile_project_link WHERE project_id = ?
+      SELECT * FROM profile_project_link
     `,
     parameters: [projectId]
   });
@@ -239,6 +248,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleLeaveProject = () => {
+    console.log('Attempting to leave project');
     if (activeOwnerCount <= 1 && currentUserIsOwner) {
       Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
       return;
@@ -251,6 +261,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         style: 'destructive',
         onPress: () => {
           void (async () => {
+            console.log('Leaving project');
             try {
               await db
                 .update(profile_project_link)
@@ -261,6 +272,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     eq(profile_project_link.project_id, projectId)
                   )
                 );
+              console.log('Project left');
               onClose();
             } catch (error) {
               console.error('Error leaving project:', error);
@@ -307,14 +319,48 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Check existing invitations using PowerSync
-      const existingInvite = await system.powersync.getOptional(
-        `SELECT * FROM invite_request WHERE email = ? AND project_id = ? AND status NOT IN ('declined', 'withdrawn', 'expired')`,
-        [inviteEmail, projectId]
-      );
+      // Check for any existing invitation (including declined, withdrawn, expired)
+      const existingInvite = await system.powersync.getOptional<{
+        id: string;
+        status: string;
+        invite_count: number | null;
+      }>(`SELECT * FROM invite_request WHERE email = ? AND project_id = ?`, [
+        inviteEmail,
+        projectId
+      ]);
 
       if (existingInvite) {
-        throw new Error(t('invitationAlreadySent'));
+        const MAX_INVITE_ATTEMPTS = 3; // Configure max attempts as needed
+
+        // Check if we can re-invite
+        if (
+          ['declined', 'withdrawn', 'expired'].includes(existingInvite.status)
+        ) {
+          if ((existingInvite.invite_count || 0) < MAX_INVITE_ATTEMPTS) {
+            // Update existing invitation
+            await db
+              .update(invite_request)
+              .set({
+                status: 'awaiting_trigger',
+                as_owner: inviteAsOwner,
+                invite_count: (existingInvite.invite_count || 0) + 1,
+                last_updated: new Date().toISOString(),
+                sender_profile_id: currentUser!.id // Update sender in case it's different
+              })
+              .where(eq(invite_request.id, existingInvite.id));
+
+            setInviteEmail('');
+            setInviteAsOwner(false);
+            void refetchInvitations();
+            Alert.alert(t('success'), t('invitationResent'));
+            return;
+          } else {
+            throw new Error(t('maxInviteAttemptsReached'));
+          }
+        } else {
+          // Invitation is still pending or in another active state
+          throw new Error(t('invitationAlreadySent'));
+        }
       }
 
       // Create new invitation
@@ -324,7 +370,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         project_id: projectId,
         type: 'project',
         status: 'awaiting_trigger',
-        as_owner: inviteAsOwner
+        as_owner: inviteAsOwner,
+        invite_count: 1
       });
 
       setInviteEmail('');

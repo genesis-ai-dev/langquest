@@ -53,11 +53,27 @@ END;
 $function$
 ;
 
-create type "public"."http_header" as ("field" character varying, "value" character varying);
+-- Create types if they don't already exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'http_header') THEN
+        CREATE TYPE "public"."http_header" AS ("field" character varying, "value" character varying);
+    END IF;
+END$$;
 
-create type "public"."http_request" as ("method" http_method, "uri" character varying, "headers" http_header[], "content_type" character varying, "content" character varying);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'http_request') THEN
+        CREATE TYPE "public"."http_request" AS ("method" http_method, "uri" character varying, "headers" http_header[], "content_type" character varying, "content" character varying);
+    END IF;
+END$$;
 
-create type "public"."http_response" as ("status" integer, "content_type" character varying, "headers" http_header[], "content" character varying);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'http_response') THEN
+        CREATE TYPE "public"."http_response" AS ("status" integer, "content_type" character varying, "headers" http_header[], "content" character varying);
+    END IF;
+END$$;
 
 CREATE OR REPLACE FUNCTION public.link_profile_to_invite_requests()
  RETURNS trigger

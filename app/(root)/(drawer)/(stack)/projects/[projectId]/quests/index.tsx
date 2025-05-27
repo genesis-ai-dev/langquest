@@ -48,6 +48,8 @@ import { voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 
+const SHOW_MEMBERSHIP_BUTTON = false;
+
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -452,12 +454,14 @@ export default function Quests() {
             style={sharedStyles.list}
           />
           <View style={styles.floatingButtonsContainer}>
-            <TouchableOpacity
-              onPress={() => setShowMembershipModal(true)}
-              style={styles.membersButton}
-            >
-              <Ionicons name="people" size={24} color={colors.text} />
-            </TouchableOpacity>
+            {SHOW_MEMBERSHIP_BUTTON && (
+              <TouchableOpacity
+                onPress={() => setShowMembershipModal(true)}
+                style={styles.membersButton}
+              >
+                <Ionicons name="people" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={toggleProjectStats}
               style={styles.statsButton}
