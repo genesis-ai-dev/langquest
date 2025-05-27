@@ -6,6 +6,7 @@ import React from 'npm:react';
 import { Resend } from 'npm:resend';
 import { Webhook } from 'npm:standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
+import { InviteEmail } from './_templates/invite-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
@@ -33,6 +34,12 @@ const emailSubjects = {
     es: 'Restablece tu contraseña de LangQuest',
     fr: 'Réinitialisez votre mot de passe LangQuest',
     'pt-BR': 'Redefina sua senha do LangQuest'
+  },
+  invite: {
+    en: "You've been invited to join a project on LangQuest",
+    es: 'Has sido invitado a unirte a un proyecto en LangQuest',
+    fr: 'Vous avez été invité à rejoindre un projet sur LangQuest',
+    'pt-BR': 'Você foi convidado para participar de um projeto no LangQuest'
   }
 };
 
@@ -64,6 +71,84 @@ Deno.serve(async (req) => {
   const wh = new Webhook(hookSecret);
 
   try {
+    // Check if this is an invite request webhook
+    const parsedPayload = JSON.parse(payload);
+
+    if (parsedPayload.type === 'invite_request') {
+      // Handle invite request
+      const { record } = parsedPayload;
+
+      // Check if email exists in profile table
+      const { data: existingProfile } = await supabase
+        .from('profile')
+        .select('id')
+        .eq('email', record.receiver_email)
+        .single();
+
+      // Update status to pending
+      await supabase
+        .from('invite_request')
+        .update({ status: 'pending' })
+        .eq('id', record.id);
+
+      // Only send email if user doesn't exist
+      if (!existingProfile) {
+        // Get project details
+        const { data: project } = await supabase
+          .from('project')
+          .select('name')
+          .eq('id', record.project_id)
+          .single();
+
+        // Get sender details
+        const { data: sender } = await supabase
+          .from('profile')
+          .select('username, ui_language_id')
+          .eq('id', record.sender_profile_id)
+          .single();
+
+        // Get language for localization
+        const { data: language } = await supabase
+          .from('language')
+          .select('locale')
+          .eq('id', sender?.ui_language_id)
+          .single();
+
+        const locale = language?.locale ?? 'en';
+        const joinUrl = `${Deno.env.get('SITE_URL')}/register?invite=${record.id}`;
+
+        const inviteComponent = React.createElement(InviteEmail, {
+          projectName: project?.name ?? 'Unknown Project',
+          inviterName: sender?.username ?? 'A LangQuest user',
+          joinUrl,
+          locale
+        }) as React.ReactElement;
+
+        const html = await renderAsync(inviteComponent);
+        const text = await renderAsync(inviteComponent, { plainText: true });
+
+        const subject =
+          emailSubjects.invite[locale as keyof typeof emailSubjects.invite] ??
+          emailSubjects.invite.en;
+
+        const { error } = await resend.emails.send({
+          from: 'LangQuest <invitations@langquest.org>',
+          to: [record.receiver_email],
+          subject,
+          html,
+          text
+        });
+
+        if (error) throw error;
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle regular auth emails (existing code)
     const {
       user,
       email_data: { token_hash, redirect_to, site_url, email_action_type }

@@ -2,6 +2,7 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
+import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -46,6 +47,8 @@ import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
+
+const SHOW_MEMBERSHIP_BUTTON = false;
 
 interface SortingOption {
   field: string;
@@ -221,6 +224,7 @@ export default function Quests() {
   const [selectedProject, setSelectedProject] = useState<
     typeof project.$inferSelect | null
   >(null);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
 
   const { goToQuest } = useProjectContext();
 
@@ -449,12 +453,22 @@ export default function Quests() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
-          <TouchableOpacity
-            onPress={toggleProjectStats}
-            style={styles.statsButton}
-          >
-            <Ionicons name="stats-chart" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.floatingButtonsContainer}>
+            {SHOW_MEMBERSHIP_BUTTON && (
+              <TouchableOpacity
+                onPress={() => setShowMembershipModal(true)}
+                style={styles.membersButton}
+              >
+                <Ionicons name="people" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={toggleProjectStats}
+              style={styles.statsButton}
+            >
+              <Ionicons name="stats-chart" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
       <Modal
@@ -479,6 +493,13 @@ export default function Quests() {
         <ProjectDetails
           project={selectedProject}
           onClose={handleCloseDetails}
+        />
+      )}
+      {projectId && (
+        <ProjectMembershipModal
+          isVisible={showMembershipModal}
+          onClose={() => setShowMembershipModal(false)}
+          projectId={projectId}
         />
       )}
     </LinearGradient>
@@ -531,9 +552,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium,
     width: '100%'
   },
+  floatingButtonsContainer: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    gap: spacing.small
+  },
+  membersButton: {
+    padding: spacing.small
+  },
   statsButton: {
-    padding: spacing.small,
-    alignSelf: 'flex-end'
+    padding: spacing.small
   },
   title: {
     fontSize: fontSizes.xxlarge,
