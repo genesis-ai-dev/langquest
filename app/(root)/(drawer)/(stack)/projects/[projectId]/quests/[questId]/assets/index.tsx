@@ -75,27 +75,6 @@ function AssetCard({ asset }: { asset: Asset }) {
     )
   );
 
-  // if (asset.name.includes('Lucas 1:2')) {
-  //   console.log(
-  //     'Translations: ',
-  //     JSON.stringify(
-  //       {
-  //         assetName: asset.name,
-  //         translations: translations.map((t) => ({
-  //           creatorName: t.creator.id,
-  //           text: t.text,
-  //           votes: t.votes
-  //         })),
-  //         translationCount: translations.length,
-  //         translationsWithVotesCount: translations.filter(
-  //           (t) => t.votes.length > 0
-  //         ).length
-  //       },
-  //       null,
-  //       2
-  //     )
-  //   );
-  // }
 
   // Aggregate translations by gem color
   const aggregatedGems = translations.reduce<AggregatedGems>(
@@ -374,10 +353,10 @@ export default function Assets() {
       const filtered = applyFilters(assets, activeFilters, searchQuery);
       // Always apply sorting, even if activeSorting is empty (which will trigger default sorting)
       const sorted = applySorting(filtered, activeSorting);
-      console.log(
-        'Sorted assets: ',
-        sorted.map((asset: Asset) => asset.name)
-      );
+      // console.log(
+      //   'Sorted assets: ',
+      //   sorted.map((asset: Asset) => asset.name)
+      // );
       setFilteredAssets(sorted);
     };
     void updateFilteredAssets();

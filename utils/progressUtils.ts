@@ -111,17 +111,23 @@ export const calculateQuestProgress = (
     const assetTranslations = asset.translations;
     let hasApprovedTranslation = false;
     let hasUserContribution = false;
-    let hasPendingTranslation = false;
 
     // First pass: Check for approved translations
     for (const translation of assetTranslations) {
       const translationVotes = translation.votes;
+      if (
+        translation.votes.length === 0 &&
+        translation.creator_id !== currentUserId
+      ) {
+        pendingCount++;
+        continue;
+      }
       if (!shouldCountTranslation(translationVotes)) continue;
 
       const upVoteCount = calculateVoteCount(translationVotes);
       if (upVoteCount > 0) {
         hasApprovedTranslation = true;
-        break;
+        continue;
       }
     }
 
@@ -140,13 +146,6 @@ export const calculateQuestProgress = (
         ) {
           hasUserContribution = true;
           break;
-        } else if (
-          currentUserId &&
-          translation.creator_id !== currentUserId &&
-          translationVotes.length === 0
-        ) {
-          hasPendingTranslation = true;
-          break;
         }
       }
     }
@@ -155,26 +154,8 @@ export const calculateQuestProgress = (
       approvedCount++;
     } else if (hasUserContribution) {
       userContributedCount++;
-    } else if (hasPendingTranslation) {
-      pendingCount++;
     }
   });
-
-  if (assets[0]?.name.includes('Lucas 1')) {
-    console.log('Lucas 1');
-    console.log(
-      JSON.stringify(
-        {
-          approvedCount,
-          userContributedCount,
-          pendingCount,
-          assetsLength: assets.length
-        },
-        null,
-        2
-      )
-    );
-  }
 
   return {
     approvedPercentage: (approvedCount / assets.length) * 100,
