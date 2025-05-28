@@ -353,10 +353,7 @@ export default function Assets() {
       const filtered = applyFilters(assets, activeFilters, searchQuery);
       // Always apply sorting, even if activeSorting is empty (which will trigger default sorting)
       const sorted = applySorting(filtered, activeSorting);
-      // console.log(
-      //   'Sorted assets: ',
-      //   sorted.map((asset: Asset) => asset.name)
-      // );
+
       setFilteredAssets(sorted);
     };
     void updateFilteredAssets();
