@@ -31,6 +31,7 @@ const baseColumns = {
 
 export const profile = sqliteTable('profile', {
   ...baseColumns,
+  email: text(),
   username: text(),
   password: text(),
   avatar: text(),
@@ -513,14 +514,15 @@ export const invite_request = sqliteTable('invite_request', {
   sender_profile_id: text()
     .notNull()
     .references(() => profile.id),
-  receiver_profile_id: text()
-    .notNull()
-    .references(() => profile.id),
+  receiver_profile_id: text().references(() => profile.id),
   project_id: text()
     .notNull()
     .references(() => project.id),
   type: text().notNull(),
-  status: text().notNull()
+  status: text().notNull(),
+  email: text().notNull(),
+  as_owner: int({ mode: 'boolean' }),
+  invite_count: int()
 });
 
 export const invite_requestRelations = relations(invite_request, ({ one }) => ({

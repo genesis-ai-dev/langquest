@@ -69,6 +69,6 @@ bucket_definitions:
       WHERE profile_id = request.user_id()
         AND membership IS NOT NULL
     data:
-      - SELECT * FROM profile_project_link
+      - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
         WHERE project_id = bucket.project_id
         AND membership IS NOT NULL
