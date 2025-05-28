@@ -48,7 +48,7 @@ import { voteService } from '@/database_services/voteService';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 
-const SHOW_MEMBERSHIP_BUTTON = false;
+const SHOW_MEMBERSHIP_BUTTON = true;
 
 interface SortingOption {
   field: string;

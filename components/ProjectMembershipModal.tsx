@@ -368,7 +368,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         sender_profile_id: currentUser!.id,
         email: inviteEmail,
         project_id: projectId,
-        type: 'project',
+        type: 'invite',
         status: 'awaiting_trigger',
         as_owner: inviteAsOwner,
         invite_count: 1
