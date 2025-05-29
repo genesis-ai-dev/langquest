@@ -637,7 +637,8 @@ export default function AssetView() {
 
         {isTranslationModalVisible &&
           asset?.content &&
-          asset.content.length > 0 && (
+          (asset.content.length > 0 ||
+            (asset.images && asset.images.length > 0)) && (
             <NewTranslationModal
               isVisible={isTranslationModalVisible}
               onClose={() => setIsTranslationModalVisible(false)}
