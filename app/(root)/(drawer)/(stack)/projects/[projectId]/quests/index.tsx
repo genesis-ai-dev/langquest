@@ -39,9 +39,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
-import {
-  quest as questTable
-} from '@/db/drizzleSchema';
+import { quest as questTable } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -62,6 +60,8 @@ interface QuestWithRelations {
   description: string | null;
   project_id: string;
   active: boolean;
+  visible: boolean;
+  creator_id: string | null;
   created_at: string;
   last_updated: string;
   tags: {
@@ -134,7 +134,6 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
       console.error('Error toggling quest download:', error);
     }
   };
-
 
   const progress = calculateQuestProgress(
     quest.assets.map((asset) => asset.asset),
