@@ -31,7 +31,6 @@ import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
-import { useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
@@ -71,7 +70,6 @@ export default function AssetView() {
   const system = useSystem();
   const { t } = useTranslation();
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { assetId } = useGlobalSearchParams<{
     assetId: string;
@@ -94,8 +92,8 @@ export default function AssetView() {
   // Fetch translations with votes and creator
   const { data: translations = [] } = useQuery({
     queryKey: ['translations', assetId],
-    queryFn: async () =>
-      await db.query.translation.findMany({
+    query: toCompilableQuery(
+      db.query.translation.findMany({
         where: eq(translationTable.asset_id, assetId),
         with: {
           votes: true,
@@ -103,6 +101,7 @@ export default function AssetView() {
           asset: true
         }
       })
+    )
   });
 
   // Fetch source language
@@ -178,9 +177,6 @@ export default function AssetView() {
     try {
       // The translations will automatically update due to the useQuery hook
       setIsTranslationModalVisible(false);
-      void queryClient.invalidateQueries({
-        queryKey: ['translations', assetId]
-      });
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
