@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { getAssetAttachmentIds } from '../utils/attachmentUtils';
+import type { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { AttachmentState } from '@powersync/attachments';
-import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { useQuery } from '@powersync/tanstack-react-query';
+import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 
 export function useAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useQuery({
@@ -18,24 +17,24 @@ export function useAssetDownloadStatus(assetIds: string[]) {
 
   // If we have no attachments for any asset, consider it not downloaded
   if (attachmentIds.length === 0) {
-    console.log(
-      'Consider as not downloaded, no attachments found for assets',
-      assetIds
-    );
+    // console.log(
+    //   'Consider as not downloaded, no attachments found for assets',
+    //   assetIds
+    // );
     return { isDownloaded: false, isLoading: false };
   }
 
   // Check if all attachments are either SYNCED or QUEUED_UPLOAD
-  console.log(
-    'Attachment Ids found for assets with getAssetAttachmentIds',
-    assetIds,
-    attachmentIds
-  );
-  console.log('Attachments found with query', attachments);
+  // console.log(
+  //   'Attachment Ids found for assets with getAssetAttachmentIds',
+  //   assetIds,
+  //   attachmentIds
+  // );
+  // console.log('Attachments found with query', attachments);
 
   // If we have fewer attachments than attachmentIds, some attachments are missing from attachments table
   if (attachments.length < attachmentIds.length) {
-    console.log('Some attachments not found in database for assets', assetIds);
+    // console.log('Some attachments not found in database for assets', assetIds);
     return { isDownloaded: false, isLoading: false };
   }
 

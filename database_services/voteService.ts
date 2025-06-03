@@ -11,55 +11,52 @@ export class VoteService {
   async addVote(data: {
     translation_id: string;
     creator_id: string;
+    vote_id?: string;
     polarity: Vote['polarity'];
     comment?: string;
   }) {
     try {
-      const existingVotes = await db.query.vote.findMany({
-        where: and(
-          eq(vote.translation_id, data.translation_id),
-          eq(vote.creator_id, data.creator_id)
-        )
-      });
+      const existingVoteId =
+        data.vote_id ??
+        (
+          await db.query.vote.findFirst({
+            where: and(
+              eq(vote.translation_id, data.translation_id),
+              eq(vote.creator_id, data.creator_id)
+            ),
+            columns: {
+              id: true
+            }
+          })
+        )?.id;
 
-      const existingVote = existingVotes.find(
-        (vote) => vote.polarity === data.polarity
-      );
+      console.log('existingVoteId', existingVoteId);
 
-      // Deactivate all existing user votes for this translation
-      await Promise.all(
-        existingVotes
-          .filter((v) => v.active && v.id !== existingVote?.id)
-          .map((v) =>
-            db.update(vote).set({ active: false }).where(eq(vote.id, v.id))
-          )
-      );
-
-      if (existingVote) {
-        console.log('Existing vote found:', existingVote);
-        const updatedVote = await db
+      if (existingVoteId) {
+        // Update existing vote
+        const startTime = Date.now();
+        await db
           .update(vote)
           .set({
-            active: !existingVote.active,
-            comment: data.comment
-          })
-          .where(eq(vote.id, existingVote.id))
-          .returning();
-        return updatedVote;
-      } else {
-        // Create new vote
-        const [newVote] = await db
-          .insert(vote)
-          .values({
-            translation_id: data.translation_id,
-            creator_id: data.creator_id,
             polarity: data.polarity,
-            comment: data.comment ?? ''
+            comment: data.comment,
+            active: true
           })
-          .returning();
-
-        console.log('New vote created:', newVote); // Add logging
-        return newVote;
+          .where(eq(vote.id, existingVoteId));
+        const endTime = Date.now();
+        console.log(
+          `Time taken to find existing vote: ${endTime - startTime}ms`
+        );
+      } else {
+        console.log('creating new vote');
+        // Create new vote
+        await db.insert(vote).values({
+          translation_id: data.translation_id,
+          creator_id: data.creator_id,
+          polarity: data.polarity,
+          comment: data.comment ?? '',
+          active: true
+        });
       }
     } catch (error) {
       console.error('Error in addVote:', error);
