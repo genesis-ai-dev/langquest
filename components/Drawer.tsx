@@ -249,14 +249,14 @@ function DrawerItems() {
         disabled={!systemReady || isOperationActive}
         style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
-      {/* {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && ( */}
-      <DrawerItem
-        item={{ name: t('logOut'), icon: 'log-out' }}
-        onPress={signOut}
-        disabled={!systemReady || isOperationActive}
-        style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
-      />
-      {/* )} */}
+      {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
+        <DrawerItem
+          item={{ name: t('logOut'), icon: 'log-out' }}
+          onPress={signOut}
+          disabled={!systemReady || isOperationActive}
+          style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
+        />
+      )}
     </View>
   );
 }
