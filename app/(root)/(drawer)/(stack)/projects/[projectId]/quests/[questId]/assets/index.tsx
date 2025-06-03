@@ -1,9 +1,12 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
+import PickaxeIcon from '@/components/PickaxeIcon';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import { assetService } from '@/database_services/assetService';
 import { downloadService } from '@/database_services/downloadService';
@@ -11,11 +14,8 @@ import type { Quest } from '@/database_services/questService';
 import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
+import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -25,7 +25,12 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { getGemColor, shouldCountTranslation } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
+import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -42,11 +47,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
-import { getGemColor } from '@/utils/progressUtils';
-import { sortItems } from '@/utils/sortingUtils';
-
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
@@ -59,10 +59,46 @@ function AssetCard({ asset }: { asset: Asset }) {
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
-  const [translations, setTranslations] = useState<Translation[]>([]);
-  const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[]>
-  >({});
+  const { db } = useSystem();
+
+  // Get translations for this specific asset
+  const { data: translations } = useQuery(
+    toCompilableQuery(
+      db.query.translation.findMany({
+        where: eq(translationTable.asset_id, asset.id),
+        with: {
+          votes: true,
+          creator: true,
+          asset: true
+        }
+      })
+    )
+  );
+
+
+  // Aggregate translations by gem color
+  const aggregatedGems = translations.reduce<AggregatedGems>(
+    (acc, translation) => {
+      // Only count translations that should be displayed
+      if (!shouldCountTranslation(translation.votes)) {
+        console.log('Not counting translation: ', translation.id);
+        return acc;
+      }
+
+      const gemColor = getGemColor(
+        translation,
+        translation.votes,
+        currentUser?.id ?? null
+      );
+
+      // console.log('Gem color: ', gemColor);
+
+      acc[gemColor] = (acc[gemColor] ?? 0) + 1;
+
+      return acc;
+    },
+    {}
+  );
 
   useEffect(() => {
     const loadDownloadStatus = async () => {
@@ -75,32 +111,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       }
     };
     void loadDownloadStatus();
-  }, [asset.id, currentUser]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const assetTranslations =
-          await translationService.getTranslationsByAssetId(
-            asset.id,
-            currentUser?.id
-          );
-        setTranslations(assetTranslations);
-
-        // Load votes for each translation
-        const votesMap: Record<string, Vote[]> = {};
-        await Promise.all(
-          assetTranslations.map(async (translation) => {
-            votesMap[translation.id] =
-              await voteService.getVotesByTranslationId(translation.id);
-          })
-        );
-        setTranslationVotes(votesMap);
-      } catch (error) {
-        console.error('Error loading asset data:', error);
-      }
-    };
-    void loadData();
   }, [asset.id, currentUser]);
 
   // const { data: tags } = useQuery({
@@ -121,24 +131,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       console.error('Error toggling asset download:', error);
     }
   };
-
-  // Aggregate translations by gem color
-  const aggregatedGems = translations.reduce<AggregatedGems>(
-    (acc, translation) => {
-      const gemColor = getGemColor(
-        translation,
-        translationVotes[translation.id] ?? [],
-        currentUser?.id ?? null
-      );
-
-      if (gemColor !== null) {
-        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
-      }
-
-      return acc;
-    },
-    {}
-  );
 
   return (
     <View style={sharedStyles.card}>
@@ -194,6 +186,13 @@ function AssetCard({ asset }: { asset: Asset }) {
 }
 
 export default function Assets() {
+  const { t } = useTranslation();
+  const { goToAsset } = useProjectContext();
+  const { questId, projectId } = useGlobalSearchParams<{
+    questId: string;
+    projectId: string;
+  }>();
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
@@ -202,13 +201,6 @@ export default function Assets() {
   const [assetContents, setAssetContents] = useState<
     Record<string, (typeof asset_content_link.$inferSelect)[]>
   >({});
-
-  const { t } = useTranslation();
-  const { goToAsset } = useProjectContext();
-  const { questId, projectId } = useGlobalSearchParams<{
-    questId: string;
-    projectId: string;
-  }>();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -361,10 +353,7 @@ export default function Assets() {
       const filtered = applyFilters(assets, activeFilters, searchQuery);
       // Always apply sorting, even if activeSorting is empty (which will trigger default sorting)
       const sorted = applySorting(filtered, activeSorting);
-      console.log(
-        'Sorted assets: ',
-        sorted.map((asset: Asset) => asset.name)
-      );
+
       setFilteredAssets(sorted);
     };
     void updateFilteredAssets();
