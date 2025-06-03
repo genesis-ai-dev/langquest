@@ -53,15 +53,15 @@ bucket_definitions:
         FROM blocked_content
         WHERE "blocked_content".profile_id = bucket.profile_id
 
-      - SELECT * FROM invite_request
-        WHERE sender_profile_id = bucket.profile_id
-        OR receiver_profile_id = bucket.profile_id
-
       - SELECT * FROM notification
         WHERE profile_id = bucket.profile_id
 
       - SELECT * FROM subscription
         WHERE profile_id = bucket.profile_id
+
+      - SELECT * FROM invite_request
+        WHERE sender_profile_id = bucket.profile_id
+        OR receiver_profile_id = bucket.profile_id
 
   project_memberships:
     parameters: |
@@ -72,3 +72,6 @@ bucket_definitions:
       - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
         WHERE project_id = bucket.project_id
         AND membership IS NOT NULL
+
+      - SELECT * FROM invite_request
+        WHERE project_id = bucket.project_id

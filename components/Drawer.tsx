@@ -56,6 +56,7 @@ function DrawerItems() {
 
   const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
+    { name: 'Notifications', icon: 'notifications', path: '/notifications' },
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
