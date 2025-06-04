@@ -822,6 +822,11 @@ export const localizations: Record<string, TranslationSet> = {
     brazilian_portuguese:
       'Tem certeza de que deseja remover {{name}} deste projeto?'
   },
+  confirmPromote: {
+    english: 'Confirm Promote',
+    spanish: 'Confirmar Promoción',
+    brazilian_portuguese: 'Confirmar Promoção'
+  },
   confirmPromoteMessage: {
     english:
       'Are you sure you want to make {{name}} an owner? This action cannot be undone.',

@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -39,14 +40,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
-import { quest as questTable } from '@/db/drizzleSchema';
+import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
-import { eq } from 'drizzle-orm';
-
-const SHOW_MEMBERSHIP_BUTTON = true;
+import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
+import { and, eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
@@ -191,6 +191,7 @@ export default function Quests() {
   }>();
   const [searchQuery, setSearchQuery] = useState('');
   const { db } = useSystem();
+  const { currentUser } = useAuth();
   const quests: QuestWithRelations[] = useQuery(
     toCompilableQuery(
       db.query.quest.findMany({
@@ -234,8 +235,26 @@ export default function Quests() {
     typeof project.$inferSelect | null
   >(null);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { goToQuest } = useProjectContext();
+
+  // Query to check if current user is an owner
+  const { data: [currentUserLink] = [] } = useTanstackQuery({
+    queryKey: ['current-user-project-link', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findFirst({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  const isOwner = currentUserLink?.membership === 'owner';
 
   useEffect(() => {
     void loadProject();
@@ -417,14 +436,20 @@ export default function Quests() {
             style={sharedStyles.list}
           />
           <View style={styles.floatingButtonsContainer}>
-            {SHOW_MEMBERSHIP_BUTTON && (
+            {isOwner && (
               <TouchableOpacity
-                onPress={() => setShowMembershipModal(true)}
-                style={styles.membersButton}
+                onPress={() => setShowSettingsModal(true)}
+                style={styles.settingsButton}
               >
-                <Ionicons name="people" size={24} color={colors.text} />
+                <Ionicons name="settings" size={24} color={colors.text} />
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              onPress={() => setShowMembershipModal(true)}
+              style={styles.membersButton}
+            >
+              <Ionicons name="people" size={24} color={colors.text} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={toggleProjectStats}
               style={styles.statsButton}
@@ -457,13 +482,16 @@ export default function Quests() {
           onClose={handleCloseDetails}
         />
       )}
-      {projectId && (
-        <ProjectMembershipModal
-          isVisible={showMembershipModal}
-          onClose={() => setShowMembershipModal(false)}
-          projectId={projectId}
-        />
-      )}
+      <ProjectMembershipModal
+        isVisible={showMembershipModal}
+        onClose={() => setShowMembershipModal(false)}
+        projectId={projectId}
+      />
+      <ProjectSettingsModal
+        isVisible={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        projectId={projectId}
+      />
     </LinearGradient>
   );
 }
@@ -518,6 +546,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignSelf: 'flex-end',
     gap: spacing.small
+  },
+  settingsButton: {
+    padding: spacing.small
   },
   membersButton: {
     padding: spacing.small
