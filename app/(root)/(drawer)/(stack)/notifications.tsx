@@ -2,16 +2,11 @@ import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { invite_request, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -140,11 +135,20 @@ export default function NotificationsPage() {
   ) => {
     if (processingIds.has(notificationId)) return;
 
+    console.log('[handleAccept] Starting with params:', {
+      notificationId,
+      type,
+      projectId,
+      asOwner,
+      currentUserId: currentUser?.id
+    });
+
     setProcessingIds((prev) => new Set(prev).add(notificationId));
 
     try {
       // Update invite_request status to accepted
-      await db
+      console.log('[handleAccept] Updating invite_request to accepted...');
+      const updateResult = await db
         .update(invite_request)
         .set({
           status: 'accepted',
@@ -152,7 +156,21 @@ export default function NotificationsPage() {
         })
         .where(eq(invite_request.id, notificationId));
 
+      console.log('[handleAccept] Update result:', updateResult);
+
+      // Verify the update worked by querying the record
+      const updatedRecord = await db
+        .select()
+        .from(invite_request)
+        .where(eq(invite_request.id, notificationId));
+
+      console.log('[handleAccept] Record after update:', updatedRecord);
+
       if (type === 'invite') {
+        console.log(
+          '[handleAccept] Processing invite type - checking for existing link...'
+        );
+
         // Create or update profile_project_link for the current user
         const existingLink = await db
           .select()
@@ -164,9 +182,12 @@ export default function NotificationsPage() {
             )
           );
 
+        console.log('[handleAccept] Existing link found:', existingLink);
+
         if (existingLink.length > 0) {
+          console.log('[handleAccept] Updating existing link...');
           // Update existing link
-          await db
+          const linkUpdateResult = await db
             .update(profile_project_link)
             .set({
               active: true,
@@ -179,26 +200,42 @@ export default function NotificationsPage() {
                 eq(profile_project_link.project_id, projectId)
               )
             );
+          console.log('[handleAccept] Link update result:', linkUpdateResult);
         } else {
+          console.log('[handleAccept] Creating new link...');
           // Create new link
-          await db.insert(profile_project_link).values({
+          const newLinkData = {
+            id: `${currentUser!.id}_${projectId}`,
             profile_id: currentUser!.id,
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
             active: true
-          });
+          };
+          console.log('[handleAccept] New link data:', newLinkData);
+
+          const insertResult = await db
+            .insert(profile_project_link)
+            .values(newLinkData);
+          console.log('[handleAccept] Insert result:', insertResult);
         }
       }
 
+      console.log('[handleAccept] Refetching notifications...');
       // Refetch notifications
       void refetchInvites();
       void refetchRequests();
 
       Alert.alert('Success', 'Invitation accepted successfully!');
+      console.log('[handleAccept] Success - operation completed');
     } catch (error) {
-      console.error('Error accepting invitation:', error);
+      console.error('[handleAccept] Error accepting invitation:', error);
+      console.error('[handleAccept] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       Alert.alert('Error', 'Failed to accept invitation. Please try again.');
     } finally {
+      console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(notificationId);
@@ -310,48 +347,58 @@ export default function NotificationsPage() {
   };
 
   return (
-    <SafeAreaView
-      style={sharedStyles.container}
-      edges={['top', 'left', 'right']}
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={{ flex: 1 }}
     >
-      <PageHeader title="Notifications" />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <View style={styles.container}>
+          <PageHeader title="Notifications" />
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {allNotifications.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons
-              name="notifications-outline"
-              size={64}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.emptyStateText}>No notifications</Text>
-            <Text style={styles.emptyStateSubtext}>
-              You'll see project invitations and join requests here
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.notificationsList}>
-            {allNotifications.map(renderNotificationItem)}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            {allNotifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="notifications-outline"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyStateText}>No notifications</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  You'll see project invitations and join requests here
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.notificationsList}>
+                {allNotifications.map(renderNotificationItem)}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: spacing.medium,
+    paddingTop: spacing.medium
+  },
   scrollView: {
     flex: 1,
     marginTop: spacing.medium
   },
   notificationsList: {
-    gap: spacing.medium
+    gap: spacing.medium,
+    paddingBottom: spacing.medium
   },
   notificationItem: {
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
     borderLeftWidth: 4,

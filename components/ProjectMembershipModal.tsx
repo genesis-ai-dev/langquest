@@ -152,7 +152,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         ir.receiver_profile_id
       FROM invite_request ir
       WHERE ir.project_id = ?
-        AND ir.status IN ('awaiting_trigger', 'pending', 'expired', 'declined', 'withdrawn')
+        AND ir.status IN ('pending', 'expired', 'declined', 'withdrawn')
     `,
       parameters: [projectId]
     });
@@ -341,7 +341,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             await db
               .update(invite_request)
               .set({
-                status: 'awaiting_trigger',
+                status: 'pending',
                 as_owner: inviteAsOwner,
                 invite_count: (existingInvite.invite_count || 0) + 1,
                 last_updated: new Date().toISOString(),
@@ -369,7 +369,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         email: inviteEmail,
         project_id: projectId,
         type: 'invite',
-        status: 'awaiting_trigger',
+        status: 'pending',
         as_owner: inviteAsOwner,
         invite_count: 1
       });
@@ -468,7 +468,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const renderInvitation = (invitation: Invitation) => {
     const getStatusDisplay = (status: string) => {
       switch (status) {
-        case 'awaiting_trigger':
         case 'pending':
           return t('pendingInvitation');
         case 'expired':
@@ -484,7 +483,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     const getStatusColor = (status: string) => {
       switch (status) {
-        case 'awaiting_trigger':
         case 'pending':
           return colors.primaryLight;
         case 'expired':
