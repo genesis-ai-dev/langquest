@@ -108,7 +108,8 @@ export const projectRelations = relations(project, ({ one, many }) => ({
     references: [language.id],
     relationName: 'targetLanguage'
   }),
-  quests: many(quest)
+  quests: many(quest),
+  profile_project_links: many(profile_project_link)
 }));
 export const quest = sqliteTable(
   'quest',

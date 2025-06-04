@@ -1,9 +1,12 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSystem } from '@/contexts/SystemContext';
+import type { profile, project } from '@/db/drizzleSchema';
 import { invite_request, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +21,14 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Type definitions for query results
+type InviteRequestWithRelations = typeof invite_request.$inferSelect & {
+  project: typeof project.$inferSelect;
+  sender: typeof profile.$inferSelect;
+};
+
+type ProfileProjectLink = typeof profile_project_link.$inferSelect;
 
 // Expiration constant - 7 days in milliseconds
 const INVITATION_EXPIRY_DAYS = 7;
@@ -42,6 +53,7 @@ const { db } = system;
 
 export default function NotificationsPage() {
   const { currentUser } = useAuth();
+  const { db: drizzleDb } = useSystem();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   // Helper function to check if invitation is expired
@@ -52,67 +64,100 @@ export default function NotificationsPage() {
   };
 
   // Query for invite notifications (where user's email matches)
-  const { data: inviteNotifications = [], refetch: refetchInvites } =
-    useQuery<NotificationItem>({
-      queryKey: ['invite-notifications', currentUser?.email],
-      query: `
-      SELECT 
-        ir.id,
-        ir.type,
-        ir.status,
-        ir.email,
-        ir.project_id,
-        p.name as project_name,
-        ir.sender_profile_id,
-        sender.username as sender_name,
-        sender.email as sender_email,
-        ir.as_owner,
-        ir.created_at,
-        ir.last_updated
-      FROM invite_request ir
-      JOIN project p ON p.id = ir.project_id
-      JOIN profile sender ON sender.id = ir.sender_profile_id
-      WHERE ir.type = 'invite'
-        AND ir.email = ?
-        AND ir.status = 'pending'
-        AND ir.active = 1
-    `,
-      parameters: [currentUser?.email || ''],
-      enabled: !!currentUser?.email
-    });
+  const { data: inviteData = [], refetch: refetchInvites } = useQuery({
+    queryKey: ['invite-notifications', currentUser?.email],
+    query: toCompilableQuery(
+      drizzleDb.query.invite_request.findMany({
+        where: and(
+          eq(invite_request.type, 'invite'),
+          eq(invite_request.email, currentUser?.email || ''),
+          eq(invite_request.status, 'pending'),
+          eq(invite_request.active, true)
+        ),
+        with: {
+          project: true,
+          sender: true
+        }
+      })
+    ),
+    enabled: !!currentUser?.email
+  });
+
+  const inviteNotifications: NotificationItem[] = inviteData.map(
+    (item: InviteRequestWithRelations) => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      email: item.email,
+      project_id: item.project_id,
+      project_name: item.project.name,
+      sender_profile_id: item.sender_profile_id,
+      sender_name: item.sender.username || '',
+      sender_email: item.sender.email || '',
+      as_owner: item.as_owner || false,
+      created_at: item.created_at,
+      last_updated: item.last_updated
+    })
+  );
 
   // Query for request notifications (where user is project owner)
-  const { data: requestNotifications = [], refetch: refetchRequests } =
-    useQuery<NotificationItem>({
-      queryKey: ['request-notifications', currentUser?.id],
-      query: `
-      SELECT 
-        ir.id,
-        ir.type,
-        ir.status,
-        ir.email,
-        ir.project_id,
-        p.name as project_name,
-        ir.sender_profile_id,
-        sender.username as sender_name,
-        sender.email as sender_email,
-        ir.as_owner,
-        ir.created_at,
-        ir.last_updated
-      FROM invite_request ir
-      JOIN project p ON p.id = ir.project_id
-      JOIN profile sender ON sender.id = ir.sender_profile_id
-      JOIN profile_project_link ppl ON ppl.project_id = ir.project_id
-      WHERE ir.type = 'request'
-        AND ir.status = 'pending'
-        AND ir.active = 1
-        AND ppl.profile_id = ?
-        AND ppl.membership = 'owner'
-        AND ppl.active = 1
-    `,
-      parameters: [currentUser?.id || ''],
-      enabled: !!currentUser?.id
-    });
+  // First get all projects where the user is an owner
+  const { data: ownerProjects = [] } = useQuery({
+    queryKey: ['owner-projects', currentUser?.id],
+    query: toCompilableQuery(
+      drizzleDb.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.membership, 'owner'),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id
+  });
+
+  const ownerProjectIds = ownerProjects.map(
+    (link: ProfileProjectLink) => link.project_id
+  );
+
+  // Then get all pending requests for those projects
+  const { data: requestData = [], refetch: refetchRequests } = useQuery({
+    queryKey: ['request-notifications', ownerProjectIds],
+    query: toCompilableQuery(
+      drizzleDb.query.invite_request.findMany({
+        where: and(
+          eq(invite_request.type, 'request'),
+          eq(invite_request.status, 'pending'),
+          eq(invite_request.active, true)
+        ),
+        with: {
+          project: true,
+          sender: true
+        }
+      })
+    ),
+    enabled: ownerProjectIds.length > 0
+  });
+
+  // Filter to only include requests for projects where the user is an owner
+  const requestNotifications: NotificationItem[] = requestData
+    .filter((item: InviteRequestWithRelations) =>
+      ownerProjectIds.includes(item.project_id)
+    )
+    .map((item: InviteRequestWithRelations) => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      email: item.email,
+      project_id: item.project_id,
+      project_name: item.project.name,
+      sender_profile_id: item.sender_profile_id,
+      sender_name: item.sender.username || '',
+      sender_email: item.sender.email || '',
+      as_owner: item.as_owner || false,
+      created_at: item.created_at,
+      last_updated: item.last_updated
+    }));
 
   // Filter out expired notifications
   const validInviteNotifications = inviteNotifications.filter(

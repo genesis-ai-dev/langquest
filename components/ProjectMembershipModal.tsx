@@ -10,6 +10,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
@@ -51,14 +52,6 @@ interface Invitation {
   created_at: string;
   last_updated: string;
   receiver_profile_id: string | null;
-}
-
-interface ProfileProjectLink {
-  id: string;
-  profile_id: string;
-  project_id: string;
-  membership: string;
-  active: boolean;
 }
 
 // Email validation regex
@@ -108,54 +101,61 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for active project members
-  const { data: members = [], refetch: refetchMembers } = useQuery<Member>({
+  const { data: memberData = [], refetch: refetchMembers } = useQuery({
     queryKey: ['project-members', projectId],
-    query: `
-      SELECT 
-        p.id,
-        p.email,
-        p.username as name,
-        ppl.membership as role,
-        'active' as status
-      FROM profile_project_link ppl
-      JOIN profile p ON p.id = ppl.profile_id
-      WHERE ppl.project_id = ?
-        AND ppl.active = 1
-    `,
-    parameters: [projectId]
+    query: toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true)
+        ),
+        with: {
+          profile: true
+        }
+      })
+    )
   });
+
+  const members: Member[] = memberData.map((link) => ({
+    id: link.profile.id,
+    email: link.profile.email || '',
+    name: link.profile.username || link.profile.email || '',
+    role: link.membership as 'owner' | 'member',
+    active: true
+  }));
+
   console.log('members', members);
 
-  //retrieve and console log every profile_project_link record
-  const { data: projectMembers = [] } = useQuery<ProfileProjectLink>({
-    queryKey: ['profile-project-links', projectId],
-    query: `
-      SELECT * FROM profile_project_link
-    `,
-    parameters: [projectId]
-  });
-  console.log('projectMembers', projectMembers);
-
   // Query for invited users
-  const { data: invitations = [], refetch: refetchInvitations } =
-    useQuery<Invitation>({
-      queryKey: ['project-invitations', projectId],
-      query: `
-      SELECT 
-        ir.id,
-        ir.email,
-        ir.email as name,
-        CASE WHEN ir.as_owner = 1 THEN 'owner' ELSE 'member' END as role,
-        ir.status,
-        ir.created_at,
-        ir.last_updated,
-        ir.receiver_profile_id
-      FROM invite_request ir
-      WHERE ir.project_id = ?
-        AND ir.status IN ('pending', 'expired', 'declined', 'withdrawn')
-    `,
-      parameters: [projectId]
-    });
+  const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
+    queryKey: ['project-invitations', projectId],
+    query: toCompilableQuery(
+      db.query.invite_request.findMany({
+        where: and(
+          eq(invite_request.project_id, projectId)
+          // Include pending, expired, declined, and withdrawn statuses
+        ),
+        with: {
+          receiver: true
+        }
+      })
+    )
+  });
+
+  const invitations: Invitation[] = invitationData
+    .filter((inv) =>
+      ['pending', 'expired', 'declined', 'withdrawn'].includes(inv.status)
+    )
+    .map((inv) => ({
+      id: inv.id,
+      email: inv.email,
+      name: inv.email,
+      role: inv.as_owner ? 'owner' : 'member',
+      status: inv.status,
+      created_at: inv.created_at,
+      last_updated: inv.last_updated,
+      receiver_profile_id: inv.receiver_profile_id
+    }));
 
   // Filter invitations based on visibility rules
   const visibleInvitations = invitations.filter((inv) => {
@@ -320,14 +320,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     setIsSubmitting(true);
     try {
       // Check for any existing invitation (including declined, withdrawn, expired)
-      const existingInvite = await system.powersync.getOptional<{
-        id: string;
-        status: string;
-        invite_count: number | null;
-      }>(`SELECT * FROM invite_request WHERE email = ? AND project_id = ?`, [
-        inviteEmail,
-        projectId
-      ]);
+      const existingInvites = await db.query.invite_request.findMany({
+        where: and(
+          eq(invite_request.email, inviteEmail),
+          eq(invite_request.project_id, projectId)
+        )
+      });
+      const existingInvite = existingInvites[0];
 
       if (existingInvite) {
         const MAX_INVITE_ATTEMPTS = 3; // Configure max attempts as needed
