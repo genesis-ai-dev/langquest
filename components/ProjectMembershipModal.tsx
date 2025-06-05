@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { invite_request, profile_project_link } from '@/db/drizzleSchema';
+import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -130,9 +130,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
     queryKey: ['project-invitations', projectId],
     query: toCompilableQuery(
-      db.query.invite_request.findMany({
+      db.query.invite.findMany({
         where: and(
-          eq(invite_request.project_id, projectId)
+          eq(invite.project_id, projectId)
           // Include pending, expired, declined, and withdrawn statuses
         ),
         with: {
@@ -286,20 +286,25 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const handleWithdrawInvitation = async (inviteId: string) => {
     try {
+      // Find the invitation first
+      const invitation = invitations.find((i) => i.id === inviteId);
+
       await db
-        .update(invite_request)
+        .update(invite)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite_request.id, inviteId));
+        .where(eq(invite.id, inviteId));
 
       // Also deactivate any profile_project_link if exists
-      const invite = invitations.find((i) => i.id === inviteId);
-      if (invite?.receiver_profile_id) {
+      if (invitation?.receiver_profile_id) {
         await db
           .update(profile_project_link)
           .set({ active: false, last_updated: new Date().toISOString() })
           .where(
             and(
-              eq(profile_project_link.profile_id, invite.receiver_profile_id),
+              eq(
+                profile_project_link.profile_id,
+                invitation.receiver_profile_id
+              ),
               eq(profile_project_link.project_id, projectId)
             )
           );
@@ -320,10 +325,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     setIsSubmitting(true);
     try {
       // Check for any existing invitation (including declined, withdrawn, expired)
-      const existingInvites = await db.query.invite_request.findMany({
+      const existingInvites = await db.query.invite.findMany({
         where: and(
-          eq(invite_request.email, inviteEmail),
-          eq(invite_request.project_id, projectId)
+          eq(invite.email, inviteEmail),
+          eq(invite.project_id, projectId)
         )
       });
       const existingInvite = existingInvites[0];
@@ -335,18 +340,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         if (
           ['declined', 'withdrawn', 'expired'].includes(existingInvite.status)
         ) {
-          if ((existingInvite.invite_count || 0) < MAX_INVITE_ATTEMPTS) {
+          if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
             // Update existing invitation
             await db
-              .update(invite_request)
+              .update(invite)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
-                invite_count: (existingInvite.invite_count || 0) + 1,
+                count: (existingInvite.count || 0) + 1,
                 last_updated: new Date().toISOString(),
                 sender_profile_id: currentUser!.id // Update sender in case it's different
               })
-              .where(eq(invite_request.id, existingInvite.id));
+              .where(eq(invite.id, existingInvite.id));
 
             setInviteEmail('');
             setInviteAsOwner(false);
@@ -363,14 +368,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(invite_request).values({
+      await db.insert(invite).values({
         sender_profile_id: currentUser!.id,
         email: inviteEmail,
         project_id: projectId,
-        type: 'invite',
         status: 'pending',
         as_owner: inviteAsOwner,
-        invite_count: 1
+        count: 1
       });
 
       setInviteEmail('');

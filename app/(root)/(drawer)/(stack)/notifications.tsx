@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import type { profile, project } from '@/db/drizzleSchema';
-import { invite_request, profile_project_link } from '@/db/drizzleSchema';
+import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Type definitions for query results
-type InviteRequestWithRelations = typeof invite_request.$inferSelect & {
+type InviteWithRelations = typeof invite.$inferSelect & {
+  project: typeof project.$inferSelect;
+  sender: typeof profile.$inferSelect;
+};
+
+type RequestWithRelations = typeof request.$inferSelect & {
   project: typeof project.$inferSelect;
   sender: typeof profile.$inferSelect;
 };
@@ -36,9 +41,9 @@ const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
 interface NotificationItem {
   id: string;
-  type: string;
+  type: 'invite' | 'request';
   status: string;
-  email: string;
+  email?: string;
   project_id: string;
   project_name: string;
   sender_profile_id: string;
@@ -67,12 +72,11 @@ export default function NotificationsPage() {
   const { data: inviteData = [], refetch: refetchInvites } = useQuery({
     queryKey: ['invite-notifications', currentUser?.email],
     query: toCompilableQuery(
-      drizzleDb.query.invite_request.findMany({
+      drizzleDb.query.invite.findMany({
         where: and(
-          eq(invite_request.type, 'invite'),
-          eq(invite_request.email, currentUser?.email || ''),
-          eq(invite_request.status, 'pending'),
-          eq(invite_request.active, true)
+          eq(invite.email, currentUser?.email || ''),
+          eq(invite.status, 'pending'),
+          eq(invite.active, true)
         ),
         with: {
           project: true,
@@ -84,9 +88,9 @@ export default function NotificationsPage() {
   });
 
   const inviteNotifications: NotificationItem[] = inviteData.map(
-    (item: InviteRequestWithRelations) => ({
+    (item: InviteWithRelations) => ({
       id: item.id,
-      type: item.type,
+      type: 'invite' as const,
       status: item.status,
       email: item.email,
       project_id: item.project_id,
@@ -124,12 +128,8 @@ export default function NotificationsPage() {
   const { data: requestData = [], refetch: refetchRequests } = useQuery({
     queryKey: ['request-notifications', ownerProjectIds],
     query: toCompilableQuery(
-      drizzleDb.query.invite_request.findMany({
-        where: and(
-          eq(invite_request.type, 'request'),
-          eq(invite_request.status, 'pending'),
-          eq(invite_request.active, true)
-        ),
+      drizzleDb.query.request.findMany({
+        where: and(eq(request.status, 'pending'), eq(request.active, true)),
         with: {
           project: true,
           sender: true
@@ -141,20 +141,20 @@ export default function NotificationsPage() {
 
   // Filter to only include requests for projects where the user is an owner
   const requestNotifications: NotificationItem[] = requestData
-    .filter((item: InviteRequestWithRelations) =>
+    .filter((item: RequestWithRelations) =>
       ownerProjectIds.includes(item.project_id)
     )
-    .map((item: InviteRequestWithRelations) => ({
+    .map((item: RequestWithRelations) => ({
       id: item.id,
-      type: item.type,
+      type: 'request' as const,
       status: item.status,
-      email: item.email,
+      email: undefined,
       project_id: item.project_id,
       project_name: item.project.name,
       sender_profile_id: item.sender_profile_id,
       sender_name: item.sender.username || '',
       sender_email: item.sender.email || '',
-      as_owner: item.as_owner || false,
+      as_owner: false,
       created_at: item.created_at,
       last_updated: item.last_updated
     }));
@@ -174,7 +174,7 @@ export default function NotificationsPage() {
 
   const handleAccept = async (
     notificationId: string,
-    type: string,
+    type: 'invite' | 'request',
     projectId: string,
     asOwner: boolean
   ) => {
@@ -191,32 +191,32 @@ export default function NotificationsPage() {
     setProcessingIds((prev) => new Set(prev).add(notificationId));
 
     try {
-      // Update invite_request status to accepted
-      console.log('[handleAccept] Updating invite_request to accepted...');
-      const updateResult = await db
-        .update(invite_request)
-        .set({
-          status: 'accepted',
-          last_updated: new Date().toISOString()
-        })
-        .where(eq(invite_request.id, notificationId));
-
-      console.log('[handleAccept] Update result:', updateResult);
-
-      // Verify the update worked by querying the record
-      const updatedRecord = await db
-        .select()
-        .from(invite_request)
-        .where(eq(invite_request.id, notificationId));
-
-      console.log('[handleAccept] Record after update:', updatedRecord);
-
+      // Update the appropriate table based on type
       if (type === 'invite') {
+        console.log('[handleAccept] Updating invite to accepted...');
+        const updateResult = await db
+          .update(invite)
+          .set({
+            status: 'accepted',
+            last_updated: new Date().toISOString()
+          })
+          .where(eq(invite.id, notificationId));
+
+        console.log('[handleAccept] Update result:', updateResult);
+
+        // Verify the update worked by querying the record
+        const updatedRecord = await db
+          .select()
+          .from(invite)
+          .where(eq(invite.id, notificationId));
+
+        console.log('[handleAccept] Record after update:', updatedRecord);
+
+        // Create or update profile_project_link for the current user
         console.log(
           '[handleAccept] Processing invite type - checking for existing link...'
         );
 
-        // Create or update profile_project_link for the current user
         const existingLink = await db
           .select()
           .from(profile_project_link)
@@ -263,6 +263,65 @@ export default function NotificationsPage() {
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
         }
+      } else {
+        // type === 'request'
+        console.log('[handleAccept] Updating request to accepted...');
+        const updateResult = await db
+          .update(request)
+          .set({
+            status: 'accepted',
+            last_updated: new Date().toISOString()
+          })
+          .where(eq(request.id, notificationId));
+
+        console.log('[handleAccept] Update result:', updateResult);
+
+        // For requests, we need to get the sender_profile_id from the request
+        const requestRecord = await db
+          .select()
+          .from(request)
+          .where(eq(request.id, notificationId));
+
+        if (requestRecord.length > 0 && requestRecord[0]) {
+          const senderProfileId = requestRecord[0].sender_profile_id;
+
+          // Create or update profile_project_link for the requester
+          const existingLink = await db
+            .select()
+            .from(profile_project_link)
+            .where(
+              and(
+                eq(profile_project_link.profile_id, senderProfileId),
+                eq(profile_project_link.project_id, projectId)
+              )
+            );
+
+          if (existingLink.length > 0) {
+            // Update existing link
+            await db
+              .update(profile_project_link)
+              .set({
+                active: true,
+                membership: asOwner ? 'owner' : 'member',
+                last_updated: new Date().toISOString()
+              })
+              .where(
+                and(
+                  eq(profile_project_link.profile_id, senderProfileId),
+                  eq(profile_project_link.project_id, projectId)
+                )
+              );
+          } else {
+            // Create new link
+            await db.insert(profile_project_link).values({
+              id: `${senderProfileId}_${projectId}`,
+              profile_id: senderProfileId,
+              project_id: projectId,
+              membership: asOwner ? 'owner' : 'member',
+              active: true
+            });
+          }
+        }
       }
 
       console.log('[handleAccept] Refetching notifications...');
@@ -289,20 +348,34 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleDecline = async (notificationId: string) => {
+  const handleDecline = async (
+    notificationId: string,
+    type: 'invite' | 'request'
+  ) => {
     if (processingIds.has(notificationId)) return;
 
     setProcessingIds((prev) => new Set(prev).add(notificationId));
 
     try {
-      // Update invite_request status to declined
-      await db
-        .update(invite_request)
-        .set({
-          status: 'declined',
-          last_updated: new Date().toISOString()
-        })
-        .where(eq(invite_request.id, notificationId));
+      // Update the appropriate table based on type
+      if (type === 'invite') {
+        await db
+          .update(invite)
+          .set({
+            status: 'declined',
+            last_updated: new Date().toISOString()
+          })
+          .where(eq(invite.id, notificationId));
+      } else {
+        // type === 'request'
+        await db
+          .update(request)
+          .set({
+            status: 'declined',
+            last_updated: new Date().toISOString()
+          })
+          .where(eq(request.id, notificationId));
+      }
 
       // Refetch notifications
       void refetchInvites();
@@ -374,7 +447,7 @@ export default function NotificationsPage() {
 
           <TouchableOpacity
             style={[styles.actionButton, styles.declineButton]}
-            onPress={() => handleDecline(item.id)}
+            onPress={() => handleDecline(item.id, item.type)}
             disabled={isProcessing}
           >
             {isProcessing ? (

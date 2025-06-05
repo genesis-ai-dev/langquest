@@ -909,6 +909,179 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Failed to send invitation',
     spanish: 'Error al enviar la invitación',
     brazilian_portuguese: 'Falha ao enviar o convite'
+  },
+  privateProject: {
+    english: 'Private Project',
+    spanish: 'Proyecto Privado',
+    brazilian_portuguese: 'Projeto Privado'
+  },
+  privateProjectDescription: {
+    english:
+      'This is a private project. Only members and owners can contribute translations and votes.',
+    spanish:
+      'Este es un proyecto privado. Solo los miembros y propietarios pueden contribuir con traducciones y votos.',
+    brazilian_portuguese:
+      'Este é um projeto privado. Apenas membros e proprietários podem contribuir com traduções e votos.'
+  },
+  privateProjectInfo: {
+    english:
+      'To contribute to this project, you need to request membership. Project owners will review your request.',
+    spanish:
+      'Para contribuir a este proyecto, debe solicitar membresía. Los propietarios del proyecto revisarán su solicitud.',
+    brazilian_portuguese:
+      'Para contribuir com este projeto, você precisa solicitar associação. Os proprietários do projeto analisarão sua solicitação.'
+  },
+  privateProjectNotLoggedIn: {
+    english:
+      'This is a private project. You must be logged in to request access.',
+    spanish:
+      'Este es un proyecto privado. Debe iniciar sesión para solicitar acceso.',
+    brazilian_portuguese:
+      'Este é um projeto privado. Você deve estar logado para solicitar acesso.'
+  },
+  privateProjectLoginRequired: {
+    english: 'Please sign in to request membership to this private project.',
+    spanish:
+      'Por favor, inicie sesión para solicitar membresía a este proyecto privado.',
+    brazilian_portuguese:
+      'Por favor, faça login para solicitar associação a este projeto privado.'
+  },
+  requestMembership: {
+    english: 'Request Membership',
+    spanish: 'Solicitar Membresía',
+    brazilian_portuguese: 'Solicitar Associação'
+  },
+  requesting: {
+    english: 'Requesting...',
+    spanish: 'Solicitando...',
+    brazilian_portuguese: 'Solicitando...'
+  },
+  requestPending: {
+    english: 'Request Pending',
+    spanish: 'Solicitud Pendiente',
+    brazilian_portuguese: 'Solicitação Pendente'
+  },
+  requestPendingDescription: {
+    english: 'Your membership request is pending review by the project owners.',
+    spanish:
+      'Su solicitud de membresía está pendiente de revisión por los propietarios del proyecto.',
+    brazilian_portuguese:
+      'Sua solicitação de associação está pendente de análise pelos proprietários do projeto.'
+  },
+  withdrawRequest: {
+    english: 'Withdraw Request',
+    spanish: 'Retirar Solicitud',
+    brazilian_portuguese: 'Retirar Solicitação'
+  },
+  withdrawing: {
+    english: 'Withdrawing...',
+    spanish: 'Retirando...',
+    brazilian_portuguese: 'Retirando...'
+  },
+  confirmWithdraw: {
+    english: 'Withdraw Request',
+    spanish: 'Retirar Solicitud',
+    brazilian_portuguese: 'Retirar Solicitação'
+  },
+  confirmWithdrawRequestMessage: {
+    english: 'Are you sure you want to withdraw your membership request?',
+    spanish: '¿Está seguro de que desea retirar su solicitud de membresía?',
+    brazilian_portuguese:
+      'Tem certeza de que deseja retirar sua solicitação de associação?'
+  },
+  requestWithdrawn: {
+    english: 'Request withdrawn successfully',
+    spanish: 'Solicitud retirada con éxito',
+    brazilian_portuguese: 'Solicitação retirada com sucesso'
+  },
+  requestExpired: {
+    english: 'Request Expired',
+    spanish: 'Solicitud Expirada',
+    brazilian_portuguese: 'Solicitação Expirada'
+  },
+  requestExpiredDescription: {
+    english:
+      'Your membership request has expired. You can submit a new request.',
+    spanish:
+      'Su solicitud de membresía ha expirado. Puede enviar una nueva solicitud.',
+    brazilian_portuguese:
+      'Sua solicitação de associação expirou. Você pode enviar uma nova solicitação.'
+  },
+  requestAgain: {
+    english: 'Request Again',
+    spanish: 'Solicitar Nuevamente',
+    brazilian_portuguese: 'Solicitar Novamente'
+  },
+  requestDeclined: {
+    english: 'Request Declined',
+    spanish: 'Solicitud Rechazada',
+    brazilian_portuguese: 'Solicitação Recusada'
+  },
+  requestDeclinedCanRetry: {
+    english:
+      'Your membership request was declined. You have {{attempts}} more attempts to request membership.',
+    spanish:
+      'Su solicitud de membresía fue rechazada. Tiene {{attempts}} intentos más para solicitar membresía.',
+    brazilian_portuguese:
+      'Sua solicitação de associação foi recusada. Você tem {{attempts}} tentativas restantes para solicitar associação.'
+  },
+  requestDeclinedNoRetry: {
+    english:
+      'Your membership request was declined and you have reached the maximum number of attempts.',
+    spanish:
+      'Su solicitud de membresía fue rechazada y ha alcanzado el número máximo de intentos.',
+    brazilian_portuguese:
+      'Sua solicitação de associação foi recusada e você atingiu o número máximo de tentativas.'
+  },
+  requestWithdrawnTitle: {
+    english: 'Request Withdrawn',
+    spanish: 'Solicitud Retirada',
+    brazilian_portuguese: 'Solicitação Retirada'
+  },
+  requestWithdrawnDescription: {
+    english:
+      'You have withdrawn your membership request. You can submit a new request at any time.',
+    spanish:
+      'Ha retirado su solicitud de membresía. Puede enviar una nueva solicitud en cualquier momento.',
+    brazilian_portuguese:
+      'Você retirou sua solicitação de associação. Você pode enviar uma nova solicitação a qualquer momento.'
+  },
+  membershipRequestSent: {
+    english: 'Membership request sent successfully',
+    spanish: 'Solicitud de membresía enviada con éxito',
+    brazilian_portuguese: 'Solicitação de associação enviada com sucesso'
+  },
+  failedToRequestMembership: {
+    english: 'Failed to request membership',
+    spanish: 'Error al solicitar membresía',
+    brazilian_portuguese: 'Falha ao solicitar associação'
+  },
+  failedToWithdrawRequest: {
+    english: 'Failed to withdraw request',
+    spanish: 'Error al retirar la solicitud',
+    brazilian_portuguese: 'Falha ao retirar a solicitação'
+  },
+  goBack: {
+    english: 'Go Back',
+    spanish: 'Volver',
+    brazilian_portuguese: 'Voltar'
+  },
+  confirmRemove: {
+    english: 'Confirm Remove',
+    spanish: 'Confirmar Eliminación',
+    brazilian_portuguese: 'Confirmar Remoção'
+  },
+  invitationResent: {
+    english: 'Invitation resent successfully',
+    spanish: 'Invitación reenviada con éxito',
+    brazilian_portuguese: 'Convite reenviado com sucesso'
+  },
+  maxInviteAttemptsReached: {
+    english: 'Maximum invitation attempts reached for this email',
+    spanish:
+      'Se alcanzó el número máximo de intentos de invitación para este correo',
+    brazilian_portuguese:
+      'Número máximo de tentativas de convite atingido para este e-mail'
   }
 } as const;
 

@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { invite_request, profile_project_link } from '@/db/drizzleSchema';
+import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
@@ -24,12 +24,11 @@ export function useNotifications() {
   const { data: inviteRequests = [] } = useQuery({
     queryKey: ['invite-notifications-count', currentUser?.email],
     query: toCompilableQuery(
-      db.query.invite_request.findMany({
+      db.query.invite.findMany({
         where: and(
-          eq(invite_request.type, 'invite'),
-          eq(invite_request.email, currentUser?.email || ''),
-          eq(invite_request.status, 'pending'),
-          eq(invite_request.active, true)
+          eq(invite.email, currentUser?.email || ''),
+          eq(invite.status, 'pending'),
+          eq(invite.active, true)
         )
       })
     ),
@@ -57,12 +56,8 @@ export function useNotifications() {
   const { data: requestNotifications = [] } = useQuery({
     queryKey: ['request-notifications-count', ownerProjectIds],
     query: toCompilableQuery(
-      db.query.invite_request.findMany({
-        where: and(
-          eq(invite_request.type, 'request'),
-          eq(invite_request.status, 'pending'),
-          eq(invite_request.active, true)
-        )
+      db.query.request.findMany({
+        where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
     ),
     enabled: ownerProjectIds.length > 0
