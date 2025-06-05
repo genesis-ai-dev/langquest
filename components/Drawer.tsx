@@ -59,14 +59,22 @@ function DrawerItems() {
   // Use the notifications hook
   const { notificationCount } = useNotifications();
 
+  // Feature flag to toggle notifications visibility
+  const SHOW_NOTIFICATIONS = false; // Set to true to enable notifications
+
   const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
-    {
-      name: 'Notifications',
-      icon: 'notifications',
-      path: '/notifications',
-      notificationCount
-    },
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    ...(SHOW_NOTIFICATIONS
+      ? [
+          {
+            name: 'Notifications',
+            icon: 'notifications' as keyof typeof Ionicons.glyphMap,
+            path: '/notifications' as Href,
+            notificationCount
+          }
+        ]
+      : []),
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
