@@ -76,7 +76,7 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   // Override expireCache to only count temporary attachments
   async expireCache(): Promise<void> {
-    console.log('[TEMP QUEUE] Running expireCache');
+    // console.log('[TEMP QUEUE] Running expireCache');
 
     // Get all temporary attachments sorted by timestamp (descending)
     const allTempAttachments = await this.powersync.getAll<AttachmentRecord>(
@@ -87,9 +87,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
 
     const cacheLimit = this.options.cacheLimit ?? 50; // Default to 50 if undefined
 
-    console.log(
-      `[TEMP QUEUE] Max cache size: ${cacheLimit}, current size: ${allTempAttachments.length}`
-    );
+    // console.log(
+    //   `[TEMP QUEUE] Max cache size: ${cacheLimit}, current size: ${allTempAttachments.length}`
+    // );
 
     if (allTempAttachments.length > cacheLimit) {
       const attachmentsToDelete = allTempAttachments.slice(cacheLimit);

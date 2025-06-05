@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { invite_request, profile_project_link } from '@/db/drizzleSchema';
+import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -10,6 +10,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
@@ -51,14 +52,6 @@ interface Invitation {
   created_at: string;
   last_updated: string;
   receiver_profile_id: string | null;
-}
-
-interface ProfileProjectLink {
-  id: string;
-  profile_id: string;
-  project_id: string;
-  membership: string;
-  active: boolean;
 }
 
 // Email validation regex
@@ -108,54 +101,61 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for active project members
-  const { data: members = [], refetch: refetchMembers } = useQuery<Member>({
+  const { data: memberData = [], refetch: refetchMembers } = useQuery({
     queryKey: ['project-members', projectId],
-    query: `
-      SELECT 
-        p.id,
-        p.email,
-        p.username as name,
-        ppl.membership as role,
-        'active' as status
-      FROM profile_project_link ppl
-      JOIN profile p ON p.id = ppl.profile_id
-      WHERE ppl.project_id = ?
-        AND ppl.active = 1
-    `,
-    parameters: [projectId]
+    query: toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true)
+        ),
+        with: {
+          profile: true
+        }
+      })
+    )
   });
+
+  const members: Member[] = memberData.map((link) => ({
+    id: link.profile.id,
+    email: link.profile.email || '',
+    name: link.profile.username || link.profile.email || '',
+    role: link.membership as 'owner' | 'member',
+    active: true
+  }));
+
   console.log('members', members);
 
-  //retrieve and console log every profile_project_link record
-  const { data: projectMembers = [] } = useQuery<ProfileProjectLink>({
-    queryKey: ['profile-project-links', projectId],
-    query: `
-      SELECT * FROM profile_project_link
-    `,
-    parameters: [projectId]
-  });
-  console.log('projectMembers', projectMembers);
-
   // Query for invited users
-  const { data: invitations = [], refetch: refetchInvitations } =
-    useQuery<Invitation>({
-      queryKey: ['project-invitations', projectId],
-      query: `
-      SELECT 
-        ir.id,
-        ir.email,
-        ir.email as name,
-        CASE WHEN ir.as_owner = 1 THEN 'owner' ELSE 'member' END as role,
-        ir.status,
-        ir.created_at,
-        ir.last_updated,
-        ir.receiver_profile_id
-      FROM invite_request ir
-      WHERE ir.project_id = ?
-        AND ir.status IN ('awaiting_trigger', 'pending', 'expired', 'declined', 'withdrawn')
-    `,
-      parameters: [projectId]
-    });
+  const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
+    queryKey: ['project-invitations', projectId],
+    query: toCompilableQuery(
+      db.query.invite.findMany({
+        where: and(
+          eq(invite.project_id, projectId)
+          // Include pending, expired, declined, and withdrawn statuses
+        ),
+        with: {
+          receiver: true
+        }
+      })
+    )
+  });
+
+  const invitations: Invitation[] = invitationData
+    .filter((inv) =>
+      ['pending', 'expired', 'declined', 'withdrawn'].includes(inv.status)
+    )
+    .map((inv) => ({
+      id: inv.id,
+      email: inv.email,
+      name: inv.email,
+      role: inv.as_owner ? 'owner' : 'member',
+      status: inv.status,
+      created_at: inv.created_at,
+      last_updated: inv.last_updated,
+      receiver_profile_id: inv.receiver_profile_id
+    }));
 
   // Filter invitations based on visibility rules
   const visibleInvitations = invitations.filter((inv) => {
@@ -286,20 +286,25 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const handleWithdrawInvitation = async (inviteId: string) => {
     try {
+      // Find the invitation first
+      const invitation = invitations.find((i) => i.id === inviteId);
+
       await db
-        .update(invite_request)
+        .update(invite)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite_request.id, inviteId));
+        .where(eq(invite.id, inviteId));
 
       // Also deactivate any profile_project_link if exists
-      const invite = invitations.find((i) => i.id === inviteId);
-      if (invite?.receiver_profile_id) {
+      if (invitation?.receiver_profile_id) {
         await db
           .update(profile_project_link)
           .set({ active: false, last_updated: new Date().toISOString() })
           .where(
             and(
-              eq(profile_project_link.profile_id, invite.receiver_profile_id),
+              eq(
+                profile_project_link.profile_id,
+                invitation.receiver_profile_id
+              ),
               eq(profile_project_link.project_id, projectId)
             )
           );
@@ -320,14 +325,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     setIsSubmitting(true);
     try {
       // Check for any existing invitation (including declined, withdrawn, expired)
-      const existingInvite = await system.powersync.getOptional<{
-        id: string;
-        status: string;
-        invite_count: number | null;
-      }>(`SELECT * FROM invite_request WHERE email = ? AND project_id = ?`, [
-        inviteEmail,
-        projectId
-      ]);
+      const existingInvites = await db.query.invite.findMany({
+        where: and(
+          eq(invite.email, inviteEmail),
+          eq(invite.project_id, projectId)
+        )
+      });
+      const existingInvite = existingInvites[0];
 
       if (existingInvite) {
         const MAX_INVITE_ATTEMPTS = 3; // Configure max attempts as needed
@@ -336,18 +340,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         if (
           ['declined', 'withdrawn', 'expired'].includes(existingInvite.status)
         ) {
-          if ((existingInvite.invite_count || 0) < MAX_INVITE_ATTEMPTS) {
+          if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
             // Update existing invitation
             await db
-              .update(invite_request)
+              .update(invite)
               .set({
-                status: 'awaiting_trigger',
+                status: 'pending',
                 as_owner: inviteAsOwner,
-                invite_count: (existingInvite.invite_count || 0) + 1,
+                count: (existingInvite.count || 0) + 1,
                 last_updated: new Date().toISOString(),
                 sender_profile_id: currentUser!.id // Update sender in case it's different
               })
-              .where(eq(invite_request.id, existingInvite.id));
+              .where(eq(invite.id, existingInvite.id));
 
             setInviteEmail('');
             setInviteAsOwner(false);
@@ -364,14 +368,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(invite_request).values({
+      await db.insert(invite).values({
         sender_profile_id: currentUser!.id,
         email: inviteEmail,
         project_id: projectId,
-        type: 'project',
-        status: 'awaiting_trigger',
+        status: 'pending',
         as_owner: inviteAsOwner,
-        invite_count: 1
+        count: 1
       });
 
       setInviteEmail('');
@@ -468,7 +471,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const renderInvitation = (invitation: Invitation) => {
     const getStatusDisplay = (status: string) => {
       switch (status) {
-        case 'awaiting_trigger':
         case 'pending':
           return t('pendingInvitation');
         case 'expired':
@@ -484,7 +486,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     const getStatusColor = (status: string) => {
       switch (status) {
-        case 'awaiting_trigger':
         case 'pending':
           return colors.primaryLight;
         case 'expired':

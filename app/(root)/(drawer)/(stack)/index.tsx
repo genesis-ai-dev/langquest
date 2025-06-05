@@ -1,6 +1,7 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { PrivateProjectAccessModal } from '@/components/PrivateProjectAccessModal';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -11,10 +12,14 @@ import { languageService } from '@/database_services/languageService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import type { language, project } from '@/db/drizzleSchema';
-import { project as projectTable } from '@/db/drizzleSchema';
+import {
+  profile_project_link,
+  project as projectTable
+} from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,7 +30,7 @@ import {
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 
@@ -167,9 +172,23 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             gap: spacing.small
           }}
         >
-          <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
-            {project.name}
-          </Text>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xsmall
+            }}
+          >
+            <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+            {project.private && (
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color={colors.textSecondary}
+              />
+            )}
+          </View>
           <DownloadIndicator
             isDownloaded={isDownloaded && assetsDownloaded}
             isLoading={isLoading && isDownloaded}
@@ -199,6 +218,7 @@ export default function Projects() {
   const { t } = useTranslation();
   const { goToProject } = useProjectContext();
   const { db } = useSystem();
+  const { currentUser } = useAuth();
   const [sourceFilter, setSourceFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
@@ -206,6 +226,10 @@ export default function Projects() {
   );
   const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
+  const [privateProjectModal, setPrivateProjectModal] = useState<{
+    isVisible: boolean;
+    project: Project | null;
+  }>({ isVisible: false, project: null });
 
   // Use useQuery for fetching projects
   const { data: projects = [] } = useQuery(
@@ -306,7 +330,34 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleExplore = (project: Project) => {
+  const handleExplore = async (project: Project) => {
+    // Check if project is private
+    if (project.private) {
+      if (currentUser) {
+        // Check if user is a member or owner
+        const membershipLinks = await db.query.profile_project_link.findMany({
+          where: and(
+            eq(profile_project_link.profile_id, currentUser.id),
+            eq(profile_project_link.project_id, project.id),
+            eq(profile_project_link.active, true)
+          )
+        });
+
+        const isMember = membershipLinks.length > 0;
+
+        if (!isMember) {
+          // Show private project modal
+          setPrivateProjectModal({ isVisible: true, project });
+          return;
+        }
+      } else {
+        // User not logged in, show private project modal
+        setPrivateProjectModal({ isVisible: true, project });
+        return;
+      }
+    }
+
+    // Proceed with navigation
     goToProject(project);
   };
 
@@ -374,6 +425,17 @@ export default function Projects() {
           />
         </View>
       </SafeAreaView>
+
+      {privateProjectModal.project && (
+        <PrivateProjectAccessModal
+          isVisible={privateProjectModal.isVisible}
+          onClose={() =>
+            setPrivateProjectModal({ isVisible: false, project: null })
+          }
+          projectId={privateProjectModal.project.id}
+          projectName={privateProjectModal.project.name}
+        />
+      )}
     </LinearGradient>
   );
 }

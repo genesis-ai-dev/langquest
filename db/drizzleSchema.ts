@@ -46,7 +46,10 @@ export const userRelations = relations(profile, ({ many, one }) => ({
     fields: [profile.ui_language_id],
     references: [language.id],
     relationName: 'uiLanguage'
-  })
+  }),
+  sent_invites: many(invite, { relationName: 'invite_sender' }),
+  received_invites: many(invite, { relationName: 'invite_receiver' }),
+  sent_requests: many(request, { relationName: 'request_sender' })
 }));
 
 export const language = sqliteTable(
@@ -108,7 +111,10 @@ export const projectRelations = relations(project, ({ one, many }) => ({
     references: [language.id],
     relationName: 'targetLanguage'
   }),
-  quests: many(quest)
+  quests: many(quest),
+  profile_project_links: many(profile_project_link),
+  invites: many(invite),
+  requests: many(request)
 }));
 export const quest = sqliteTable(
   'quest',
@@ -509,35 +515,62 @@ export const flag = sqliteTable('flag', {
   name: text().notNull().unique()
 });
 
-export const invite_request = sqliteTable('invite_request', {
+export const invite = sqliteTable(
+  'invite',
+  {
+    ...baseColumns,
+    sender_profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    receiver_profile_id: text().references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    status: text().notNull(),
+    as_owner: int({ mode: 'boolean' }).notNull().default(false),
+    email: text().notNull(),
+    count: int().notNull()
+  },
+  (table) => [index('idx_invite_request_receiver_email').on(table.email)]
+);
+
+export const inviteRelations = relations(invite, ({ one }) => ({
+  sender: one(profile, {
+    fields: [invite.sender_profile_id],
+    references: [profile.id],
+    relationName: 'invite_sender'
+  }),
+  receiver: one(profile, {
+    fields: [invite.receiver_profile_id],
+    references: [profile.id],
+    relationName: 'invite_receiver'
+  }),
+  project: one(project, {
+    fields: [invite.project_id],
+    references: [project.id]
+  })
+}));
+
+export const request = sqliteTable('request', {
   ...baseColumns,
   sender_profile_id: text()
     .notNull()
     .references(() => profile.id),
-  receiver_profile_id: text().references(() => profile.id),
   project_id: text()
     .notNull()
     .references(() => project.id),
-  type: text().notNull(),
   status: text().notNull(),
-  email: text().notNull(),
-  as_owner: int({ mode: 'boolean' }),
-  invite_count: int()
+  count: int().notNull()
 });
 
-export const invite_requestRelations = relations(invite_request, ({ one }) => ({
+export const requestRelations = relations(request, ({ one }) => ({
   sender: one(profile, {
-    fields: [invite_request.sender_profile_id],
+    fields: [request.sender_profile_id],
     references: [profile.id],
-    relationName: 'sender'
-  }),
-  receiver: one(profile, {
-    fields: [invite_request.receiver_profile_id],
-    references: [profile.id],
-    relationName: 'receiver'
+    relationName: 'request_sender'
   }),
   project: one(project, {
-    fields: [invite_request.project_id],
+    fields: [request.project_id],
     references: [project.id]
   })
 }));
