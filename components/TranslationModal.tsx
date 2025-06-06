@@ -4,6 +4,7 @@ import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
 import { quest_asset_link } from '@/db/drizzleSchema';
+import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
@@ -99,6 +100,12 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const projectInfo = projectInfoArray[0];
   const project = projectInfo?.quest.project;
+
+  // Check if user has access to edit translations in this project
+  const { hasAccess: canEditTranslation } = usePrivateProjectAccess({
+    projectId: project?.id || '',
+    isPrivate: project?.private || false
+  });
 
   useEffect(() => {
     setEditedText(translation?.text ?? '');
@@ -261,8 +268,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             />
           ) : (
             <View style={styles.textContainer}>
-              <TouchableOpacity style={styles.editButton} onPress={toggleEdit}>
-                <Ionicons name="pencil" size={18} color={colors.primary} />
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={canEditTranslation ? toggleEdit : undefined}
+                disabled={!canEditTranslation}
+              >
+                <Ionicons
+                  name={canEditTranslation ? 'pencil' : 'lock-closed'}
+                  size={18}
+                  color={
+                    canEditTranslation ? colors.primary : colors.textSecondary
+                  }
+                />
               </TouchableOpacity>
               <Text style={styles.text}>
                 {translation.text || t('enterTranslation')}

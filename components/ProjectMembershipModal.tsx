@@ -596,7 +596,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <PrivateAccessGate
                     projectId={projectId}
                     projectName={project?.name || ''}
-                    isPrivate={project?.private || false}
+                    isPrivate={true}
                     action="view-members"
                     inline={true}
                   >

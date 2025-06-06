@@ -212,7 +212,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     const getActionMessage = () => {
       switch (action) {
         case 'view-members':
-          return 'This project is private. You need to be a member to view the member list and send invitations. Request access to join this project.';
+          return 'You need to be a member to view the member list and send invitations. Request access to join this project.';
         case 'vote':
           return 'This project is private. You need to be a member to vote on translations. Request access to join this project.';
         case 'translate':
