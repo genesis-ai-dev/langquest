@@ -32,6 +32,9 @@ interface PrivateProjectAccessModalProps {
   projectName: string;
   onMembershipGranted?: () => void;
   onViewProject?: () => void;
+  customMessage?: string;
+  showViewProjectButton?: boolean;
+  viewProjectButtonText?: string;
 }
 
 // Helper function to check if request is expired (7 days)
@@ -51,7 +54,10 @@ export const PrivateProjectAccessModal: React.FC<
   projectId,
   projectName,
   onMembershipGranted,
-  onViewProject
+  onViewProject,
+  customMessage,
+  showViewProjectButton,
+  viewProjectButtonText
 }) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
@@ -327,7 +333,7 @@ export const PrivateProjectAccessModal: React.FC<
               <Ionicons name="lock-closed" size={48} color={colors.primary} />
             </View>
             <Text style={styles.description}>
-              {t('privateProjectDescription')}
+              {customMessage || t('privateProjectDescription')}
             </Text>
             <View style={styles.infoBox}>
               <Ionicons
@@ -375,15 +381,19 @@ export const PrivateProjectAccessModal: React.FC<
 
               {renderContent()}
 
-              <TouchableOpacity
-                style={[sharedStyles.button, styles.viewProjectButton]}
-                onPress={() => {
-                  onClose();
-                  onViewProject?.();
-                }}
-              >
-                <Text style={sharedStyles.buttonText}>View Project</Text>
-              </TouchableOpacity>
+              {showViewProjectButton !== false && onViewProject && (
+                <TouchableOpacity
+                  style={[sharedStyles.button, styles.viewProjectButton]}
+                  onPress={() => {
+                    onClose();
+                    onViewProject();
+                  }}
+                >
+                  <Text style={sharedStyles.buttonText}>
+                    {viewProjectButtonText || 'View Project'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[sharedStyles.button, styles.cancelButton]}
