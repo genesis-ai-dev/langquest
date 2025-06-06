@@ -434,6 +434,16 @@ export default function Projects() {
           }
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
+          onMembershipGranted={() => {
+            // Navigate to the project when membership is granted
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
+          onViewProject={() => {
+            // Allow viewing the project even without membership
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
         />
       )}
     </LinearGradient>

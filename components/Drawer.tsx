@@ -60,7 +60,7 @@ function DrawerItems() {
   const { notificationCount } = useNotifications();
 
   // Feature flag to toggle notifications visibility
-  const SHOW_NOTIFICATIONS = false; // Set to true to enable notifications
+  const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
 
   const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },

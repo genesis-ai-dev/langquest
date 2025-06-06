@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { request } from '@/db/drizzleSchema';
+import { profile_project_link, request } from '@/db/drizzleSchema';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -30,6 +30,8 @@ interface PrivateProjectAccessModalProps {
   onClose: () => void;
   projectId: string;
   projectName: string;
+  onMembershipGranted?: () => void;
+  onViewProject?: () => void;
 }
 
 // Helper function to check if request is expired (7 days)
@@ -43,7 +45,14 @@ const isRequestExpired = (lastUpdated: string): boolean => {
 
 export const PrivateProjectAccessModal: React.FC<
   PrivateProjectAccessModalProps
-> = ({ isVisible, onClose, projectId, projectName }) => {
+> = ({
+  isVisible,
+  onClose,
+  projectId,
+  projectName,
+  onMembershipGranted,
+  onViewProject
+}) => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { db } = useSystem();
@@ -62,6 +71,32 @@ export const PrivateProjectAccessModal: React.FC<
     ),
     enabled: !!currentUser?.id && !!projectId
   });
+
+  // Query for membership status
+  const { data: membershipLinks = [] } = useQuery({
+    queryKey: ['membership-status', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId,
+    refetchInterval: 2000 // Check every 2 seconds for membership changes
+  });
+
+  const isMember = membershipLinks.length > 0;
+
+  // Auto-close modal and trigger navigation when user becomes a member
+  useEffect(() => {
+    if (isMember && isVisible) {
+      onClose();
+      onMembershipGranted?.();
+    }
+  }, [isMember, isVisible, onClose, onMembershipGranted]);
 
   const existingRequest = existingRequests[0];
 
@@ -341,6 +376,16 @@ export const PrivateProjectAccessModal: React.FC<
               {renderContent()}
 
               <TouchableOpacity
+                style={[sharedStyles.button, styles.viewProjectButton]}
+                onPress={() => {
+                  onClose();
+                  onViewProject?.();
+                }}
+              >
+                <Text style={sharedStyles.buttonText}>View Project</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[sharedStyles.button, styles.cancelButton]}
                 onPress={onClose}
               >
@@ -435,5 +480,10 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: colors.text
+  },
+  viewProjectButton: {
+    backgroundColor: colors.primary,
+    marginTop: spacing.small,
+    marginBottom: spacing.small
   }
 });
