@@ -1,7 +1,7 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
-import { PrivateProjectAccessModal } from '@/components/PrivateProjectAccessModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -427,23 +427,28 @@ export default function Projects() {
       </SafeAreaView>
 
       {privateProjectModal.project && (
-        <PrivateProjectAccessModal
+        <PrivateAccessGate
+          modal={true}
           isVisible={privateProjectModal.isVisible}
           onClose={() =>
             setPrivateProjectModal({ isVisible: false, project: null })
           }
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
+          isPrivate={privateProjectModal.project.private}
+          action="view-members"
           onMembershipGranted={() => {
             // Navigate to the project when membership is granted
             goToProject(privateProjectModal.project!);
             setPrivateProjectModal({ isVisible: false, project: null });
           }}
-          onViewProject={() => {
+          onBypass={() => {
             // Allow viewing the project even without membership
             goToProject(privateProjectModal.project!);
             setPrivateProjectModal({ isVisible: false, project: null });
           }}
+          showViewProjectButton={true}
+          viewProjectButtonText="View Project"
         />
       )}
     </LinearGradient>
