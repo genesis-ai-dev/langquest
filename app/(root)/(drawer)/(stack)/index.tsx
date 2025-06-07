@@ -53,6 +53,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   >(null);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
+
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -90,6 +91,24 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   const projectData = matchingProjectData[0];
 
+  // Query for membership status using TanStack query (like in quests index)
+  const { data: membershipData = [] } = useQuery(
+    toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, project.id),
+          eq(profile_project_link.active, true)
+        )
+      })
+    )
+  );
+
+  const membershipRole = membershipData[0]?.membership as
+    | 'owner'
+    | 'member'
+    | undefined;
+
   useEffect(() => {
     const loadData = async () => {
       const [source, target] = await Promise.all([
@@ -103,7 +122,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       const assets = await assetService.getAssetsByProjectId(project.id);
       setAssetIds(assets.map((asset) => asset.id));
 
-      // Get project download status
+      // Get project download status and membership status
       if (currentUser) {
         const downloadStatus = await downloadService.getProjectDownloadStatus(
           currentUser.id,
@@ -187,6 +206,12 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 size={16}
                 color={colors.textSecondary}
               />
+            )}
+            {membershipRole === 'owner' && (
+              <Ionicons name="ribbon" size={16} color={colors.primary} />
+            )}
+            {membershipRole === 'member' && (
+              <Ionicons name="person" size={16} color={colors.primary} />
             )}
           </View>
           <PrivateAccessGate

@@ -58,6 +58,7 @@ interface Invitation {
   created_at: string;
   last_updated: string;
   receiver_profile_id: string | null;
+  count?: number;
 }
 
 // Email validation regex
@@ -115,6 +116,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     active: true
   }));
 
+  // Sort members: current user first, then owners alphabetically, then members alphabetically
+  const sortedMembers = [...members].sort((a, b) => {
+    // Current user always comes first
+    if (a.id === currentUser?.id) return -1;
+    if (b.id === currentUser?.id) return 1;
+
+    // Then sort by role (owners before members)
+    if (a.role !== b.role) {
+      if (a.role === 'owner') return -1;
+      if (b.role === 'owner') return 1;
+    }
+
+    // Within same role, sort alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
+
   console.log('members', members);
 
   // Query for invited users
@@ -145,7 +162,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       status: inv.status,
       created_at: inv.created_at,
       last_updated: inv.last_updated,
-      receiver_profile_id: inv.receiver_profile_id
+      receiver_profile_id: inv.receiver_profile_id,
+      count: inv.count
     }));
 
   // Filter invitations based on visibility rules
@@ -307,6 +325,41 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
   };
 
+  const handleResendInvitation = async (inviteId: string) => {
+    try {
+      // Find the invitation first
+      const invitation = invitations.find((i) => i.id === inviteId);
+      if (!invitation) return;
+
+      const MAX_INVITE_ATTEMPTS = 3;
+
+      // Check if we can re-invite
+      if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
+        // Update existing invitation to pending and increment count
+        await db
+          .update(invite)
+          .set({
+            status: 'pending',
+            count: (invitation.count || 0) + 1,
+            last_updated: new Date().toISOString(),
+            sender_profile_id: currentUser!.id // Update sender in case it's different
+          })
+          .where(eq(invite.id, inviteId));
+
+        void refetchInvitations();
+        Alert.alert(t('success'), t('invitationResent'));
+      } else {
+        Alert.alert(
+          t('error'),
+          'Maximum invitation attempts reached for this email address.'
+        );
+      }
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      Alert.alert(t('error'), t('failedToResendInvitation'));
+    }
+  };
+
   const handleSendInvitation = async () => {
     if (!isValidEmail(inviteEmail)) {
       Alert.alert(t('error'), t('enterValidEmail'));
@@ -315,6 +368,20 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Check if the email belongs to an existing member/owner
+      const existingMember = sortedMembers.find(
+        (member) => member.email.toLowerCase() === inviteEmail.toLowerCase()
+      );
+
+      if (existingMember) {
+        Alert.alert(
+          t('error'),
+          `This email address is already a ${existingMember.role} of this project.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check for any existing invitation (including declined, withdrawn, expired)
       const existingInvites = await db.query.invite.findMany({
         where: and(
@@ -350,11 +417,21 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             Alert.alert(t('success'), t('invitationResent'));
             return;
           } else {
-            throw new Error(t('maxInviteAttemptsReached'));
+            Alert.alert(
+              t('error'),
+              'Maximum invitation attempts reached for this email address.'
+            );
+            setIsSubmitting(false);
+            return;
           }
         } else {
           // Invitation is still pending or in another active state
-          throw new Error(t('invitationAlreadySent'));
+          Alert.alert(
+            t('error'),
+            'An invitation has already been sent to this email address.'
+          );
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -517,6 +594,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         </View>
 
         <View style={styles.memberActions}>
+          {currentUserIsOwner && invitation.status === 'expired' && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => void handleResendInvitation(invitation.id)}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          )}
           {currentUserIsOwner && invitation.status !== 'withdrawn' && (
             <TouchableOpacity
               style={styles.iconButton}
@@ -590,7 +679,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                             activeTab === 'members' && styles.activeTabText
                           ]}
                         >
-                          {t('members')} ({members.length})
+                          {t('members')} ({sortedMembers.length})
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -613,8 +702,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
                     <ScrollView style={styles.membersList}>
                       {activeTab === 'members' ? (
-                        members.length > 0 ? (
-                          members.map(renderMember)
+                        sortedMembers.length > 0 ? (
+                          sortedMembers.map(renderMember)
                         ) : (
                           <Text style={styles.emptyText}>{t('noMembers')}</Text>
                         )
