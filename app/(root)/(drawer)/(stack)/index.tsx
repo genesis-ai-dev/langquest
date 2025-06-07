@@ -189,10 +189,22 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
               />
             )}
           </View>
-          <DownloadIndicator
-            isDownloaded={isDownloaded && assetsDownloaded}
-            isLoading={isLoading && isDownloaded}
-            onPress={handleDownloadToggle}
+          <PrivateAccessGate
+            projectId={project.id}
+            projectName={project.name}
+            isPrivate={project.private}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isDownloaded={isDownloaded && assetsDownloaded}
+                isLoading={isLoading && isDownloaded}
+                onPress={
+                  hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                }
+              />
+            )}
           />
         </View>
         <Text style={sharedStyles.cardLanguageText}>

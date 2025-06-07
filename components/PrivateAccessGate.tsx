@@ -244,7 +244,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       case 'edit-transcription':
         return 'This project is private. You need to be a member to edit transcriptions. Request access to join this project.';
       case 'download':
-        return 'This project is private. You need to be a member to download content. Request access to join this project.';
+        return 'This project is private. You can download the content but will not be able to contribute translations or votes. Request access to join this project and start contributing.';
       default:
         return 'This project is private. You need to be a member to access this feature. Request access to join this project.';
     }
@@ -279,24 +279,29 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           >
             <Ionicons name="lock-closed" size={48} color={colors.primary} />
           </View>
-          <Text
-            style={modal ? styles.modalDescription : styles.inlineDescription}
-          >
-            {modal
-              ? t('privateProjectNotLoggedIn')
-              : 'You need to be logged in to access this private project.'}
-          </Text>
-          {modal && (
-            <View style={styles.infoBox}>
-              <Ionicons
-                name="information-circle"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={styles.infoText}>
-                {t('privateProjectLoginRequired')}
+          {modal ? (
+            <>
+              <Text style={styles.modalDescription}>
+                {t('privateProjectNotLoggedIn')}
               </Text>
-            </View>
+              <View style={styles.infoBox}>
+                <Ionicons
+                  name="information-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.infoText}>
+                  {t('privateProjectLoginRequired')}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
+              <Text style={styles.inlineDescription}>
+                You need to be logged in to access this private project.
+              </Text>
+            </>
           )}
         </>
       );
@@ -316,14 +321,20 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.statusTitle}>{t('requestPending')}</Text>
               )}
             </View>
-            <Text style={modal ? styles.modalDescription : styles.inlineTitle}>
-              {modal ? t('requestPendingDescription') : 'Request Pending'}
-            </Text>
-            {!modal && (
-              <Text style={styles.inlineDescription}>
-                Your membership request is pending approval. You'll be notified
-                when it's reviewed.
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {t('requestPendingDescription')}
               </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - Request Pending
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  Your membership request is pending approval. You'll be
+                  notified when it's reviewed.
+                </Text>
+              </>
             )}
             <TouchableOpacity
               style={
@@ -364,14 +375,20 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.statusTitle}>{t('requestExpired')}</Text>
               )}
             </View>
-            <Text style={modal ? styles.modalDescription : styles.inlineTitle}>
-              {modal ? t('requestExpiredDescription') : 'Request Expired'}
-            </Text>
-            {!modal && (
-              <Text style={styles.inlineDescription}>
-                Your previous request expired after 7 days. You can send a new
-                request.
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {t('requestExpiredDescription')}
               </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - Request Expired
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  Your previous request expired after 7 days. You can send a new
+                  request.
+                </Text>
+              </>
             )}
             <TouchableOpacity
               style={modal ? sharedStyles.button : styles.inlineButton}
@@ -407,19 +424,23 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.statusTitle}>{t('requestDeclined')}</Text>
               )}
             </View>
-            <Text style={modal ? styles.modalDescription : styles.inlineTitle}>
-              {modal
-                ? attemptsLeft > 0
-                  ? t('requestDeclinedCanRetry', { attempts: attemptsLeft })
-                  : t('requestDeclinedNoRetry')
-                : 'Request Declined'}
-            </Text>
-            {!modal && (
-              <Text style={styles.inlineDescription}>
+            {modal ? (
+              <Text style={styles.modalDescription}>
                 {attemptsLeft > 0
-                  ? `Your request was declined. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
-                  : 'Your request was declined and you have no more attempts remaining.'}
+                  ? t('requestDeclinedCanRetry', { attempts: attemptsLeft })
+                  : t('requestDeclinedNoRetry')}
               </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - Request Declined
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  {attemptsLeft > 0
+                    ? `Your request was declined. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
+                    : 'Your request was declined and you have no more attempts remaining.'}
+                </Text>
+              </>
             )}
             {attemptsLeft > 0 && (
               <TouchableOpacity
@@ -457,14 +478,20 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.statusTitle}>{t('requestWithdrawn')}</Text>
               )}
             </View>
-            <Text style={modal ? styles.modalDescription : styles.inlineTitle}>
-              {modal ? t('requestWithdrawnDescription') : 'Request Withdrawn'}
-            </Text>
-            {!modal && (
-              <Text style={styles.inlineDescription}>
-                You withdrew your previous request. You can send a new request
-                anytime.
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {t('requestWithdrawnDescription')}
               </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - Request Withdrawn
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  You withdrew your previous request. You can send a new request
+                  anytime.
+                </Text>
+              </>
             )}
             <TouchableOpacity
               style={modal ? sharedStyles.button : styles.inlineButton}
@@ -493,21 +520,27 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             >
               <Ionicons name="lock-closed" size={48} color={colors.primary} />
             </View>
-            <Text style={modal ? styles.modalDescription : styles.inlineTitle}>
-              {modal ? getActionMessage() : getActionTitle()}
-            </Text>
-            {!modal && (
-              <Text style={styles.inlineDescription}>{getActionMessage()}</Text>
-            )}
-            {modal && (
-              <View style={styles.infoBox}>
-                <Ionicons
-                  name="information-circle"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
-              </View>
+            {modal ? (
+              <>
+                <Text style={styles.modalDescription}>
+                  {getActionMessage()}
+                </Text>
+                <View style={styles.infoBox}>
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
+                <Text style={styles.inlineDescription}>
+                  {getActionMessage()}
+                </Text>
+              </>
             )}
             <TouchableOpacity
               style={modal ? sharedStyles.button : styles.inlineButton}

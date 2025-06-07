@@ -64,6 +64,11 @@ export const localizations: Record<string, TranslationSet> = {
     spanish: 'Fecha',
     brazilian_portuguese: 'Data'
   },
+  downloadAnyway: {
+    english: 'Download Anyway',
+    spanish: 'Descargar de todas formas',
+    brazilian_portuguese: 'Descarregar de qualquer forma'
+  },
   email: {
     english: 'Email',
     spanish: 'Email',

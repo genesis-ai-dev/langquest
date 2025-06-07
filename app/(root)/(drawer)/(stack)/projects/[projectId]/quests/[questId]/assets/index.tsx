@@ -3,6 +3,7 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -56,6 +57,7 @@ type AggregatedGems = Record<string, number>;
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
+  const { activeProject } = useProjectContext();
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -74,7 +76,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       })
     )
   );
-
 
   // Aggregate translations by gem color
   const aggregatedGems = translations.reduce<AggregatedGems>(
@@ -142,10 +143,22 @@ function AssetCard({ asset }: { asset: Asset }) {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoadingDownloadStatus && isDownloaded}
-          onPress={handleDownloadToggle}
+        <PrivateAccessGate
+          projectId={activeProject?.id || ''}
+          projectName={activeProject?.name || ''}
+          isPrivate={activeProject?.private || false}
+          action="download"
+          allowBypass={true}
+          onBypass={handleDownloadToggle}
+          renderTrigger={({ onPress, hasAccess }) => (
+            <DownloadIndicator
+              isDownloaded={isDownloaded && assetsDownloaded}
+              isLoading={isLoadingDownloadStatus && isDownloaded}
+              onPress={
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+              }
+            />
+          )}
         />
       </View>
       <View style={styles.translationCount}>
