@@ -5,6 +5,7 @@ import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -35,10 +36,6 @@ type RequestWithRelations = typeof request.$inferSelect & {
 
 type ProfileProjectLink = typeof profile_project_link.$inferSelect;
 
-// Expiration constant - 7 days in milliseconds
-const INVITATION_EXPIRY_DAYS = 7;
-const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
 interface NotificationItem {
   id: string;
   type: 'invite' | 'request';
@@ -60,13 +57,6 @@ export default function NotificationsPage() {
   const { currentUser } = useAuth();
   const { db: drizzleDb } = useSystem();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-
-  // Helper function to check if invitation is expired
-  const isExpired = (lastUpdated: string): boolean => {
-    const updatedDate = new Date(lastUpdated);
-    const now = new Date();
-    return now.getTime() - updatedDate.getTime() > INVITATION_EXPIRY_MS;
-  };
 
   // Query for invite notifications (where user's email matches)
   const { data: inviteData = [], refetch: refetchInvites } = useQuery({
@@ -161,10 +151,10 @@ export default function NotificationsPage() {
 
   // Filter out expired notifications
   const validInviteNotifications = inviteNotifications.filter(
-    (item) => !isExpired(item.last_updated)
+    (item) => !isExpiredByLastUpdated(item.last_updated)
   );
   const validRequestNotifications = requestNotifications.filter(
-    (item) => !isExpired(item.last_updated)
+    (item) => !isExpiredByLastUpdated(item.last_updated)
   );
 
   const allNotifications = [

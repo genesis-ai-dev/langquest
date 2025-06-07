@@ -11,6 +11,7 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -49,15 +50,6 @@ interface PrivateAccessGateProps {
   onClose?: () => void;
   isVisible?: boolean; // For modal mode
 }
-
-// Helper function to check if request is expired (7 days)
-const isRequestExpired = (lastUpdated: string): boolean => {
-  const updatedDate = new Date(lastUpdated);
-  const now = new Date();
-  const daysDiff =
-    (now.getTime() - updatedDate.getTime()) / (1000 * 60 * 60 * 24);
-  return daysDiff > 7;
-};
 
 export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   projectId,
@@ -135,7 +127,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
     if (
       existingRequest.status === 'pending' &&
-      isRequestExpired(existingRequest.last_updated)
+      isExpiredByLastUpdated(existingRequest.last_updated)
     ) {
       return 'expired';
     }
@@ -358,7 +350,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           </>
         );
 
-      case 'expired':
+      case 'expired': {
+        const attemptsLeft = 4 - (existingRequest?.count || 0);
         return (
           <>
             <View
@@ -377,7 +370,9 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             </View>
             {modal ? (
               <Text style={styles.modalDescription}>
-                {t('requestExpiredDescription')}
+                {attemptsLeft > 0
+                  ? `Your request expired after 7 days. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
+                  : 'Your request expired and you have no more attempts remaining.'}
               </Text>
             ) : (
               <>
@@ -385,26 +380,30 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   {getActionTitle()} - Request Expired
                 </Text>
                 <Text style={styles.inlineDescription}>
-                  Your previous request expired after 7 days. You can send a new
-                  request.
+                  {attemptsLeft > 0
+                    ? `Your previous request expired after 7 days. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
+                    : 'Your previous request expired after 7 days and you have no more attempts remaining.'}
                 </Text>
               </>
             )}
-            <TouchableOpacity
-              style={modal ? sharedStyles.button : styles.inlineButton}
-              onPress={handleRequestMembership}
-              disabled={isSubmitting}
-            >
-              <Text
-                style={
-                  modal ? sharedStyles.buttonText : styles.inlineButtonText
-                }
+            {attemptsLeft > 0 && (
+              <TouchableOpacity
+                style={modal ? sharedStyles.button : styles.inlineButton}
+                onPress={handleRequestMembership}
+                disabled={isSubmitting}
               >
-                {isSubmitting ? t('requesting') : t('requestAgain')}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={
+                    modal ? sharedStyles.buttonText : styles.inlineButtonText
+                  }
+                >
+                  {isSubmitting ? t('requesting') : t('requestAgain')}
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         );
+      }
 
       case 'declined': {
         const attemptsLeft = 3 - (existingRequest?.count || 0);

@@ -14,6 +14,7 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -63,31 +64,6 @@ interface Invitation {
 const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
-};
-
-// Helper function to check if invitation is expired (7 days)
-const isInvitationExpired = (createdAt: string): boolean => {
-  const createdDate = new Date(createdAt);
-  const now = new Date();
-  const daysDiff =
-    (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-  return daysDiff > 7;
-};
-
-// Helper function to check if invitation should be hidden (3 days after expiry/decline)
-const shouldHideInvitation = (
-  status: string,
-  lastUpdated: string,
-  createdAt: string
-): boolean => {
-  if (status === 'declined' || isInvitationExpired(createdAt)) {
-    const updatedDate = new Date(lastUpdated);
-    const now = new Date();
-    const daysDiff =
-      (now.getTime() - updatedDate.getTime()) / (1000 * 60 * 60 * 24);
-    return daysDiff > 3;
-  }
-  return false;
 };
 
 const { db } = system;
@@ -652,71 +628,89 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     </ScrollView>
 
                     <View style={styles.inviteSection}>
-                      <Text style={styles.inviteTitle}>
-                        {t('inviteMembers')}
-                      </Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder={t('email')}
-                        placeholderTextColor={colors.textSecondary}
-                        value={inviteEmail}
-                        onChangeText={setInviteEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                      />
-                      <View style={styles.checkboxContainer}>
-                        <TouchableOpacity
-                          style={styles.checkboxRow}
-                          onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                        >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              inviteAsOwner && styles.checkboxChecked
-                            ]}
-                          >
-                            {inviteAsOwner && (
-                              <Ionicons
-                                name="checkmark"
-                                size={16}
-                                color={colors.buttonText}
-                              />
-                            )}
-                          </View>
-                          <Text style={styles.checkboxLabel}>
-                            {t('inviteAsOwner')}
+                      {currentUserIsOwner ? (
+                        <>
+                          <Text style={styles.inviteTitle}>
+                            {t('inviteMembers')}
                           </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.tooltipButton}
-                          onPress={() => setShowTooltip(!showTooltip)}
-                        >
-                          <Ionicons
-                            name="help-circle-outline"
-                            size={20}
-                            color={colors.primary}
+                          <TextInput
+                            style={styles.input}
+                            placeholder={t('email')}
+                            placeholderTextColor={colors.textSecondary}
+                            value={inviteEmail}
+                            onChangeText={setInviteEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
                           />
-                        </TouchableOpacity>
-                      </View>
-                      {showTooltip && (
-                        <View style={styles.tooltip}>
-                          <Text style={styles.tooltipText}>
-                            {t('ownerTooltip')}
+                          <View style={styles.checkboxContainer}>
+                            <TouchableOpacity
+                              style={styles.checkboxRow}
+                              onPress={() => setInviteAsOwner(!inviteAsOwner)}
+                            >
+                              <View
+                                style={[
+                                  styles.checkbox,
+                                  inviteAsOwner && styles.checkboxChecked
+                                ]}
+                              >
+                                {inviteAsOwner && (
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={16}
+                                    color={colors.buttonText}
+                                  />
+                                )}
+                              </View>
+                              <Text style={styles.checkboxLabel}>
+                                {t('inviteAsOwner')}
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.tooltipButton}
+                              onPress={() => setShowTooltip(!showTooltip)}
+                            >
+                              <Ionicons
+                                name="help-circle-outline"
+                                size={20}
+                                color={colors.primary}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          {showTooltip && (
+                            <View style={styles.tooltip}>
+                              <Text style={styles.tooltipText}>
+                                {t('ownerTooltip')}
+                              </Text>
+                            </View>
+                          )}
+                          <TouchableOpacity
+                            style={[
+                              sharedStyles.button,
+                              !isInviteButtonEnabled &&
+                                styles.inviteButtonDisabled
+                            ]}
+                            onPress={handleSendInvitation}
+                            disabled={!isInviteButtonEnabled || isSubmitting}
+                          >
+                            <Text style={sharedStyles.buttonText}>
+                              {isSubmitting
+                                ? t('sending')
+                                : t('sendInvitation')}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <View style={styles.ownerOnlyMessage}>
+                          <Ionicons
+                            name="ribbon"
+                            size={24}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={styles.ownerOnlyText}>
+                            Only project owners can invite new members
                           </Text>
                         </View>
                       )}
-                      <TouchableOpacity
-                        style={[
-                          sharedStyles.button,
-                          !isInviteButtonEnabled && styles.inviteButtonDisabled
-                        ]}
-                        onPress={handleSendInvitation}
-                        disabled={!isInviteButtonEnabled || isSubmitting}
-                      >
-                        <Text style={sharedStyles.buttonText}>
-                          {isSubmitting ? t('sending') : t('sendInvitation')}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
                   </PrivateAccessGate>
                 )}
@@ -918,5 +912,17 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: fontSizes.medium,
     color: colors.text
+  },
+  ownerOnlyMessage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.large,
+    gap: spacing.small
+  },
+  ownerOnlyText: {
+    fontSize: fontSizes.medium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20
   }
 });
