@@ -387,16 +387,39 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         where: and(
           eq(invite.email, inviteEmail),
           eq(invite.project_id, projectId)
-        )
+        ),
+        with: {
+          receiver: true
+        }
       });
       const existingInvite = existingInvites[0];
 
       if (existingInvite) {
-        const MAX_INVITE_ATTEMPTS = 3; // Configure max attempts as needed
+        const MAX_INVITE_ATTEMPTS = 5; // Configure max attempts as needed
+
+        // Check if the invitee has an inactive profile_project_link
+        let hasInactiveLink = false;
+        if (existingInvite.receiver_profile_id) {
+          const profileLinks = await db.query.profile_project_link.findMany({
+            where: and(
+              eq(
+                profile_project_link.profile_id,
+                existingInvite.receiver_profile_id
+              ),
+              eq(profile_project_link.project_id, projectId)
+            )
+          });
+          hasInactiveLink =
+            profileLinks.some((link) => link.active === false) ||
+            profileLinks.length === 0;
+        }
 
         // Check if we can re-invite
         if (
-          ['declined', 'withdrawn', 'expired'].includes(existingInvite.status)
+          ['declined', 'withdrawn', 'expired'].includes(
+            existingInvite.status
+          ) ||
+          hasInactiveLink
         ) {
           if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
             // Update existing invitation
