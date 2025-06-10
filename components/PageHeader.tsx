@@ -1,3 +1,4 @@
+import { useNotifications } from '@/hooks/useNotifications';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
@@ -12,6 +13,8 @@ export function PageHeader({
   showBackButton?: boolean;
 }) {
   const navigation = useNavigation();
+  const { notificationCount } = useNotifications();
+
   return (
     <View
       style={{
@@ -40,6 +43,7 @@ export function PageHeader({
       </Text>
       <TouchableOpacity
         onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+        style={{ position: 'relative' }}
       >
         <Ionicons
           name="menu-outline"
@@ -48,6 +52,13 @@ export function PageHeader({
             color: colors.text
           }}
         />
+        {notificationCount > 0 && (
+          <View style={sharedStyles.badge}>
+            <Text style={sharedStyles.badgeText}>
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );

@@ -1,11 +1,18 @@
 import { relations, sql } from 'drizzle-orm';
-import { int, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  int,
+  primaryKey,
+  sqliteTable,
+  text
+} from 'drizzle-orm/sqlite-core';
 import { reasonOptions } from './constants';
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 const linkColumns = {
+  id: text().notNull(),
   active: int({ mode: 'boolean' }).notNull().default(true),
   created_at: text().notNull().default(timestampDefault),
   last_updated: text()
@@ -16,19 +23,18 @@ const linkColumns = {
 
 // Base columns that most tables will have
 const baseColumns = {
+  ...linkColumns,
   id: text()
     .primaryKey()
-    .$defaultFn(() => uuidDefault),
-  ...linkColumns
+    .$defaultFn(() => uuidDefault)
 };
 
 export const profile = sqliteTable('profile', {
   ...baseColumns,
+  email: text(),
   username: text(),
   password: text(),
   avatar: text(),
-  // icon: text().$type<IconName>(),
-  // achievements: text(),
   ui_language_id: text(),
   terms_accepted: int({ mode: 'boolean' }),
   terms_accepted_at: text()
@@ -40,19 +46,26 @@ export const userRelations = relations(profile, ({ many, one }) => ({
     fields: [profile.ui_language_id],
     references: [language.id],
     relationName: 'uiLanguage'
-  })
+  }),
+  sent_invites: many(invite, { relationName: 'invite_sender' }),
+  received_invites: many(invite, { relationName: 'invite_receiver' }),
+  sent_requests: many(request, { relationName: 'request_sender' })
 }));
 
-export const language = sqliteTable('language', {
-  ...baseColumns,
-  // Enforce the existence of either native_name or english_name in the app
-  native_name: text(), // Enforce uniqueness across chains in the app
-  english_name: text(), // Enforce uniqueness across chains in the app
-  iso639_3: text(), // Enforce uniqueness across chains in the app
-  locale: text(),
-  ui_ready: int({ mode: 'boolean' }).notNull(),
-  creator_id: text().references(() => profile.id)
-});
+export const language = sqliteTable(
+  'language',
+  {
+    ...baseColumns,
+    // Enforce the existence of either native_name or english_name in the app
+    native_name: text(), // Enforce uniqueness across chains in the app
+    english_name: text(), // Enforce uniqueness across chains in the app
+    iso639_3: text(), // Enforce uniqueness across chains in the app
+    locale: text(),
+    ui_ready: int({ mode: 'boolean' }).notNull(),
+    creator_id: text().references(() => profile.id)
+  },
+  (table) => [index('ui_ready_idx').on(table.ui_ready)]
+);
 
 export const languageRelations = relations(language, ({ one, many }) => ({
   creator: one(profile, {
@@ -64,18 +77,28 @@ export const languageRelations = relations(language, ({ one, many }) => ({
   sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
   targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
-
-export const project = sqliteTable('project', {
-  ...baseColumns,
-  name: text().notNull(),
-  description: text(),
-  source_language_id: text()
-    .notNull()
-    .references(() => language.id),
-  target_language_id: text()
-    .notNull()
-    .references(() => language.id)
-});
+export const project = sqliteTable(
+  'project',
+  {
+    ...baseColumns,
+    name: text().notNull(),
+    description: text(),
+    source_language_id: text()
+      .notNull()
+      .references(() => language.id),
+    target_language_id: text()
+      .notNull()
+      .references(() => language.id),
+    creator_id: text().references(() => profile.id),
+    private: int({ mode: 'boolean' }).notNull().default(false),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
+  },
+  (table) => [
+    index('name_idx').on(table.name),
+    index('source_language_id_idx').on(table.source_language_id),
+    index('target_language_id_idx').on(table.target_language_id)
+  ]
+);
 
 export const projectRelations = relations(project, ({ one, many }) => ({
   source_language: one(language, {
@@ -88,17 +111,28 @@ export const projectRelations = relations(project, ({ one, many }) => ({
     references: [language.id],
     relationName: 'targetLanguage'
   }),
-  quests: many(quest)
+  quests: many(quest),
+  profile_project_links: many(profile_project_link),
+  invites: many(invite),
+  requests: many(request)
 }));
-
-export const quest = sqliteTable('quest', {
-  ...baseColumns,
-  name: text().notNull(),
-  description: text(),
-  project_id: text()
-    .notNull()
-    .references(() => project.id)
-});
+export const quest = sqliteTable(
+  'quest',
+  {
+    ...baseColumns,
+    name: text().notNull(),
+    description: text(),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    creator_id: text().references(() => profile.id),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
+  },
+  (table) => [
+    index('project_id_idx').on(table.project_id),
+    index('name_idx').on(table.name)
+  ]
+);
 
 export const questRelations = relations(quest, ({ one, many }) => ({
   project: one(project, {
@@ -122,7 +156,6 @@ export const tagRelations = relations(tag, ({ many }) => ({
 export const quest_tag_link = sqliteTable(
   'quest_tag_link',
   {
-    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     tag_id: text().notNull()
@@ -140,15 +173,23 @@ export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
     references: [tag.id]
   })
 }));
-
-export const asset = sqliteTable('asset', {
-  ...baseColumns,
-  name: text().notNull(),
-  source_language_id: text()
-    .notNull()
-    .references(() => language.id),
-  images: text({ mode: 'json' }).$type<string[]>()
-});
+export const asset = sqliteTable(
+  'asset',
+  {
+    ...baseColumns,
+    name: text().notNull(),
+    source_language_id: text()
+      .notNull()
+      .references(() => language.id),
+    images: text({ mode: 'json' }).$type<string[]>(),
+    creator_id: text().references(() => profile.id),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
+  },
+  (table) => [
+    index('name_idx').on(table.name),
+    index('source_language_id_idx').on(table.source_language_id)
+  ]
+);
 
 export const assetRelations = relations(asset, ({ one, many }) => ({
   source_language: one(language, {
@@ -164,7 +205,6 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
 export const asset_tag_link = sqliteTable(
   'asset_tag_link',
   {
-    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     asset_id: text().notNull(),
     tag_id: text().notNull()
@@ -186,7 +226,6 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
 export const quest_asset_link = sqliteTable(
   'quest_asset_link',
   {
-    // id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull()
@@ -207,21 +246,28 @@ export const quest_asset_linkRelations = relations(
     })
   })
 );
-
-export const translation = sqliteTable('translation', {
-  ...baseColumns,
-  asset_id: text()
-    .notNull()
-    .references(() => asset.id),
-  target_language_id: text()
-    .notNull()
-    .references(() => language.id),
-  text: text(),
-  audio: text(),
-  creator_id: text()
-    .notNull()
-    .references(() => profile.id)
-});
+export const translation = sqliteTable(
+  'translation',
+  {
+    ...baseColumns,
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id),
+    target_language_id: text()
+      .notNull()
+      .references(() => language.id),
+    text: text(),
+    audio: text(),
+    creator_id: text()
+      .notNull()
+      .references(() => profile.id),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
+  },
+  (t) => [
+    index('asset_id_idx').on(t.asset_id),
+    index('creator_id_idx').on(t.creator_id)
+  ]
+);
 
 export const translationRelations = relations(translation, ({ one, many }) => ({
   asset: one(asset, {
@@ -240,21 +286,27 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
   reports: many(reports, { relationName: 'translation_reports' })
 }));
 
-export const reports = sqliteTable('reports', {
-  ...baseColumns,
-  record_id: text().notNull(),
-  record_table: text().notNull(),
-  reporter_id: text().references(() => profile.id),
-  reason: text({
-    enum: reasonOptions
-  }).notNull(),
-  details: text()
-});
+export const reports = sqliteTable(
+  'reports',
+  {
+    ...baseColumns,
+    record_id: text().notNull(),
+    record_table: text().notNull(),
+    reporter_id: text().references(() => profile.id),
+    reason: text({
+      enum: reasonOptions
+    }).notNull(),
+    details: text()
+  },
+  (table) => [
+    index('record_id_record_table_idx').on(table.record_id, table.record_table),
+    index('reporter_id_idx').on(table.reporter_id)
+  ]
+);
 
 export const blocked_users = sqliteTable(
   'blocked_users',
   {
-    id: text().notNull(),
     ...linkColumns,
     blocker_id: text()
       .notNull()
@@ -279,14 +331,21 @@ export const blocked_usersRelations = relations(blocked_users, ({ one }) => ({
   })
 }));
 
-export const blocked_content = sqliteTable('blocked_content', {
-  ...baseColumns,
-  profile_id: text()
-    .notNull()
-    .references(() => profile.id),
-  content_id: text().notNull(),
-  content_table: text().notNull()
-});
+export const blocked_content = sqliteTable(
+  'blocked_content',
+  {
+    ...baseColumns,
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    content_id: text().notNull(),
+    content_table: text().notNull()
+  },
+  (t) => [
+    index('profile_id_idx').on(t.profile_id),
+    index('content_id_content_table_idx').on(t.content_id, t.content_table)
+  ]
+);
 
 export const blocked_contentRelations = relations(
   blocked_content,
@@ -310,17 +369,25 @@ export const reportRelations = relations(reports, ({ one }) => ({
   })
 }));
 
-export const vote = sqliteTable('vote', {
-  ...baseColumns,
-  translation_id: text()
-    .notNull()
-    .references(() => translation.id),
-  polarity: text({ enum: ['up', 'down'] }).notNull(),
-  comment: text(),
-  creator_id: text()
-    .notNull()
-    .references(() => profile.id)
-});
+export const vote = sqliteTable(
+  'vote',
+  {
+    ...baseColumns,
+    translation_id: text()
+      .notNull()
+      .references(() => translation.id),
+    polarity: text({ enum: ['up', 'down'] }).notNull(),
+    comment: text(),
+    creator_id: text()
+      .notNull()
+      .references(() => profile.id)
+  },
+  (t) => [
+    index('translation_id_idx').on(t.translation_id),
+    index('creator_id_idx').on(t.creator_id),
+    index('translation_id_creator_id_idx').on(t.translation_id, t.creator_id)
+  ]
+);
 
 export const voteRelations = relations(vote, ({ one }) => ({
   translation: one(translation, {
@@ -333,14 +400,18 @@ export const voteRelations = relations(vote, ({ one }) => ({
   })
 }));
 
-export const asset_content_link = sqliteTable('asset_content_link', {
-  ...baseColumns,
-  asset_id: text()
-    .notNull()
-    .references(() => asset.id),
-  text: text().notNull(),
-  audio_id: text() // Optional since text content might not have an associated file
-});
+export const asset_content_link = sqliteTable(
+  'asset_content_link',
+  {
+    ...baseColumns,
+    asset_id: text()
+      .notNull()
+      .references(() => asset.id),
+    text: text().notNull(),
+    audio_id: text()
+  },
+  (t) => [index('asset_id_idx').on(t.asset_id)]
+);
 
 export const asset_content_linkRelations = relations(
   asset_content_link,
@@ -355,7 +426,6 @@ export const asset_content_linkRelations = relations(
 export const project_download = sqliteTable(
   'project_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -364,7 +434,10 @@ export const project_download = sqliteTable(
       .notNull()
       .references(() => project.id)
   },
-  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
+  (t) => [
+    primaryKey({ columns: [t.profile_id, t.project_id] }),
+    index('profile_id_idx').on(t.profile_id)
+  ]
 );
 
 export const project_downloadRelations = relations(
@@ -384,7 +457,6 @@ export const project_downloadRelations = relations(
 export const quest_download = sqliteTable(
   'quest_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -393,7 +465,10 @@ export const quest_download = sqliteTable(
       .notNull()
       .references(() => quest.id)
   },
-  (t) => [primaryKey({ columns: [t.profile_id, t.quest_id] })]
+  (t) => [
+    primaryKey({ columns: [t.profile_id, t.quest_id] }),
+    index('profile_id_idx').on(t.profile_id)
+  ]
 );
 
 export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
@@ -410,7 +485,6 @@ export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
 export const asset_download = sqliteTable(
   'asset_download',
   {
-    id: text().notNull(), // Needed for powersync's required id field
     ...linkColumns,
     profile_id: text()
       .notNull()
@@ -419,7 +493,10 @@ export const asset_download = sqliteTable(
       .notNull()
       .references(() => asset.id)
   },
-  (t) => [primaryKey({ columns: [t.profile_id, t.asset_id] })]
+  (t) => [
+    primaryKey({ columns: [t.profile_id, t.asset_id] }),
+    index('profile_id_idx').on(t.profile_id)
+  ]
 );
 
 export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
@@ -438,161 +515,124 @@ export const flag = sqliteTable('flag', {
   name: text().notNull().unique()
 });
 
-// export const notification = sqliteTable('notification', {
-//   ...baseColumns,
-//   id: text().notNull(),
-//   profile_id: text().notNull(),
-//   project_subscription_id: text().notNull(),
-//   quest_subscription_id: text().notNull(),
-//   asset_subscription_id: text().notNull(),
-//   translation_subscription_id: text().notNull(),
-//   invite_request_id: text().notNull(),
-//   event_type: text().notNull(),
-//   viewed: int({ mode: 'boolean' }).notNull()
-// });
+export const invite = sqliteTable(
+  'invite',
+  {
+    ...baseColumns,
+    sender_profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    receiver_profile_id: text().references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    status: text().notNull(),
+    as_owner: int({ mode: 'boolean' }).notNull().default(false),
+    email: text().notNull(),
+    count: int().notNull()
+  },
+  (table) => [index('idx_invite_request_receiver_email').on(table.email)]
+);
 
-// export const notificationRelations = relations(notification, ({ one }) => ({
-//   profile: one(profile, {
-//     fields: [notification.profile_id],
-//     references: [profile.id]
-//   }),
-//   project_subscription: one(project_subscription, {
-//     fields: [notification.project_subscription_id],
-//     references: [project_subscription.id]
-//   }),
-//   quest_subscription: one(quest_subscription, {
-//     fields: [notification.quest_subscription_id],
-//     references: [quest_subscription.id]
-//   }),
-//   asset_subscription: one(asset_subscription, {
-//     fields: [notification.asset_subscription_id],
-//     references: [asset_subscription.id]
-//   }),
-//   translation_subscription: one(translation_subscription, {
-//     fields: [notification.translation_subscription_id],
-//     references: [translation_subscription.id]
-//   }),
-//   invite_request: one(invite_request, {
-//     fields: [notification.invite_request_id],
-//     references: [invite_request.id]
-//   })
-// }));
+export const inviteRelations = relations(invite, ({ one }) => ({
+  sender: one(profile, {
+    fields: [invite.sender_profile_id],
+    references: [profile.id],
+    relationName: 'invite_sender'
+  }),
+  receiver: one(profile, {
+    fields: [invite.receiver_profile_id],
+    references: [profile.id],
+    relationName: 'invite_receiver'
+  }),
+  project: one(project, {
+    fields: [invite.project_id],
+    references: [project.id]
+  })
+}));
 
-// export const translation_subscription = sqliteTable(
-//   'translation_subscription',
-//   {
-//     ...baseColumns,
-//     translation_id: text().notNull(),
-//     profile_id: text().notNull()
-//   }
-// );
+export const request = sqliteTable('request', {
+  ...baseColumns,
+  sender_profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  project_id: text()
+    .notNull()
+    .references(() => project.id),
+  status: text().notNull(),
+  count: int().notNull()
+});
 
-// export const translationSubscriptionRelations = relations(
-//   translation_subscription,
-//   ({ one, many }) => ({
-//     translation: one(translation, {
-//       fields: [translation_subscription.translation_id],
-//       references: [translation.id]
-//     }),
-//     profile: one(profile, {
-//       fields: [translation_subscription.profile_id],
-//       references: [profile.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
+export const requestRelations = relations(request, ({ one }) => ({
+  sender: one(profile, {
+    fields: [request.sender_profile_id],
+    references: [profile.id],
+    relationName: 'request_sender'
+  }),
+  project: one(project, {
+    fields: [request.project_id],
+    references: [project.id]
+  })
+}));
 
-// export const project_subscription = sqliteTable('project_subscription', {
-//   ...baseColumns,
-//   project_id: text().notNull(),
-//   profile_id: text().notNull()
-// });
+export const notification = sqliteTable('notification', {
+  ...baseColumns,
+  profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  viewed: int({ mode: 'boolean' }).notNull().default(false),
+  target_table_name: text().notNull(),
+  target_record_id: text().notNull()
+});
 
-// export const projectSubscriptionRelations = relations(
-//   project_subscription,
-//   ({ one, many }) => ({
-//     project: one(project, {
-//       fields: [project_subscription.project_id],
-//       references: [project.id]
-//     }),
-//     profile: one(profile, {
-//       fields: [project_subscription.profile_id],
-//       references: [profile.id]
-//     }),
-//     quest_subscriptions: many(quest_subscription),
-//     notifications: many(notification)
-//   })
-// );
+export const notificationRelations = relations(notification, ({ one }) => ({
+  profile: one(profile, {
+    fields: [notification.profile_id],
+    references: [profile.id]
+  })
+}));
 
-// export const quest_subscription = sqliteTable('quest_subscription', {
-//   ...baseColumns,
-//   quest_id: text().notNull(),
-//   project_subscription_id: text().notNull()
-// });
+export const profile_project_link = sqliteTable(
+  'profile_project_link',
+  {
+    ...linkColumns,
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    membership: text()
+  },
+  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
+);
 
-// export const questSubscriptionRelations = relations(
-//   quest_subscription,
-//   ({ one, many }) => ({
-//     quest: one(quest, {
-//       fields: [quest_subscription.quest_id],
-//       references: [quest.id]
-//     }),
-//     project_subscription: one(project_subscription, {
-//       fields: [quest_subscription.project_subscription_id],
-//       references: [project_subscription.id]
-//     }),
-//     asset_subscriptions: many(asset_subscription),
-//     notifications: many(notification)
-//   })
-// );
+export const profileProjectLinkRelations = relations(
+  profile_project_link,
+  ({ one }) => ({
+    profile: one(profile, {
+      fields: [profile_project_link.profile_id],
+      references: [profile.id]
+    }),
+    project: one(project, {
+      fields: [profile_project_link.project_id],
+      references: [project.id]
+    })
+  })
+);
 
-// export const asset_subscription = sqliteTable('asset_subscription', {
-//   ...baseColumns,
-//   asset_id: text().notNull(),
-//   quest_subscription_id: text().notNull()
-// });
+export const subscription = sqliteTable('subscription', {
+  ...baseColumns,
+  profile_id: text()
+    .notNull()
+    .references(() => profile.id),
+  target_record_id: text().notNull(),
+  target_table_name: text().notNull()
+});
 
-// export const assetSubscriptionRelations = relations(
-//   asset_subscription,
-//   ({ one, many }) => ({
-//     asset: one(asset, {
-//       fields: [asset_subscription.asset_id],
-//       references: [asset.id]
-//     }),
-//     quest_subscription: one(quest_subscription, {
-//       fields: [asset_subscription.quest_subscription_id],
-//       references: [quest_subscription.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
-
-// export const invite_request = sqliteTable('invite_request', {
-//   ...baseColumns,
-//   sender_profile_id: text().notNull(),
-//   receiver_profile_id: text().notNull(),
-//   project_id: text().notNull(),
-//   type: text({ enum: ['invite', 'request'] }).notNull(),
-//   status: text({
-//     enum: ['pending', 'rejected', 'approved', 'cancelled']
-//   }).notNull()
-// });
-
-// export const inviteRequestRelations = relations(
-//   invite_request,
-//   ({ one, many }) => ({
-//     sender: one(profile, {
-//       fields: [invite_request.sender_profile_id],
-//       references: [profile.id]
-//     }),
-//     receiver: one(profile, {
-//       fields: [invite_request.receiver_profile_id],
-//       references: [profile.id]
-//     }),
-//     project: one(project, {
-//       fields: [invite_request.project_id],
-//       references: [project.id]
-//     }),
-//     notifications: many(notification)
-//   })
-// );
+export const subscriptionRelations = relations(subscription, ({ one }) => ({
+  profile: one(profile, {
+    fields: [subscription.profile_id],
+    references: [profile.id]
+  })
+}));

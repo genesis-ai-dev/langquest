@@ -2,13 +2,14 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
+import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { downloadService } from '@/database_services/downloadService';
 import { projectService } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
-import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
 import type { project } from '@/db/drizzleSchema';
@@ -26,7 +27,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   FlatList,
   Modal,
@@ -38,21 +38,56 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Asset } from '@/database_services/assetService';
+import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
+import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
+import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
+import { and, eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
+// First, let's create a type that represents the shape of our query result
+interface QuestWithRelations {
+  id: string;
+  name: string;
+  description: string | null;
+  project_id: string;
+  active: boolean;
+  visible: boolean;
+  creator_id: string | null;
+  created_at: string;
+  last_updated: string;
+  tags: {
+    tag: {
+      name: string;
+    };
+  }[];
+  assets: {
+    asset: {
+      id: string;
+      name: string;
+      translations: {
+        id: string;
+        text: string | null;
+        creator_id: string;
+        votes: {
+          id: string;
+          polarity: 'up' | 'down';
+          creator_id: string;
+        }[];
+      }[];
+    };
+  }[];
+}
+
+const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   const { currentUser } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
@@ -99,64 +134,12 @@ const QuestCard: React.FC<{ quest: Quest }> = ({ quest }) => {
       console.error('Error toggling quest download:', error);
     }
   };
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [translations, setTranslations] = useState<
-    Record<string, Translation[]>
-  >({});
-  const [votes, setVotes] = useState<Record<string, Vote[]>>({});
-
-  useEffect(() => {
-    const loadQuestData = async () => {
-      try {
-        // Load tags
-        const questTags = await tagService.getTagsByQuestId(quest.id);
-        setTags(questTags.filter(Boolean));
-
-        // Load assets
-        const questAssets = await assetService.getAssetsByQuestId(quest.id);
-        setAssets(questAssets.filter(Boolean));
-
-        // Load translations and votes for each asset
-        const translationsMap: Record<string, Translation[]> = {};
-        const votesMap: Record<string, Vote[]> = {};
-
-        await Promise.all(
-          questAssets.filter(Boolean).map(async (asset) => {
-            const assetTranslations =
-              await translationService.getTranslationsByAssetId(
-                asset.id,
-                currentUser?.id
-              );
-            translationsMap[asset.id] = assetTranslations;
-
-            // Load votes for each translation
-            await Promise.all(
-              assetTranslations.map(async (translation) => {
-                const translationVotes =
-                  await voteService.getVotesByTranslationId(translation.id);
-                votesMap[translation.id] = translationVotes;
-              })
-            );
-          })
-        );
-
-        setTranslations(translationsMap);
-        setVotes(votesMap);
-      } catch (error) {
-        console.error('Error loading quest data:', error);
-      }
-    };
-
-    void loadQuestData();
-  }, [quest.id, currentUser]);
 
   const progress = calculateQuestProgress(
-    assets,
-    translations,
-    votes,
+    quest.assets.map((asset) => asset.asset),
+
     currentUser?.id ?? null
   );
-
   return (
     <View style={sharedStyles.card}>
       <View
@@ -207,50 +190,79 @@ export default function Quests() {
     projectName: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [questToTags, setQuestToTags] = useState<Record<string, Tag[]>>({});
-  const [filteredQuests, setFilteredQuests] = useState<Quest[]>([]);
-  const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
+  const { db } = useSystem();
+  const { currentUser } = useAuth();
+
+  // Feature flags to toggle button visibility
+  const SHOW_SETTINGS_BUTTON = false; // Set to false to hide settings button
+  const SHOW_MEMBERSHIP_BUTTON = false; // Set to false to hide membership button
+  const quests: QuestWithRelations[] = useQuery(
+    toCompilableQuery(
+      db.query.quest.findMany({
+        where: eq(questTable.project_id, projectId),
+        with: {
+          tags: {
+            with: {
+              tag: {
+                columns: {
+                  name: true
+                }
+              }
+            }
+          },
+          assets: {
+            with: {
+              asset: {
+                with: {
+                  translations: {
+                    with: {
+                      votes: true,
+                      creator: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+    )
+  ).data;
+  const [filteredQuests, setFilteredQuests] = useState<typeof quests>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  // const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [showProjectStats, setShowProjectStats] = useState(false);
   const [selectedProject, setSelectedProject] = useState<
     typeof project.$inferSelect | null
   >(null);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { goToQuest } = useProjectContext();
 
+  // Query to check if current user is an owner
+  const { data: [currentUserLink] = [] } = useTanstackQuery({
+    queryKey: ['current-user-project-link', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findFirst({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  const isOwner = currentUserLink?.membership === 'owner';
+
   useEffect(() => {
-    void loadQuests();
     void loadProject();
   }, [projectId]);
-
-  const loadQuests = async () => {
-    try {
-      if (!projectId) return;
-      const loadedQuests = await questService.getQuestsByProjectId(projectId);
-      setQuests(loadedQuests);
-      setFilteredQuests(loadedQuests);
-
-      // Load tags for all quests
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        loadedQuests.map(async (quest) => {
-          tagsMap[quest.id] = (
-            await tagService.getTagsByQuestId(quest.id)
-          ).filter(Boolean);
-        })
-      );
-      setQuestTags(tagsMap);
-    } catch (error) {
-      console.error('Error loading quests:', error);
-      Alert.alert('Error', t('failedLoadQuests'));
-    }
-  };
 
   const loadProject = async () => {
     try {
@@ -264,7 +276,7 @@ export default function Quests() {
 
   const applyFilters = useCallback(
     (
-      questsToFilter: Quest[],
+      questsToFilter: typeof quests,
       filters: Record<string, string[]>,
       search: string
     ) => {
@@ -276,11 +288,11 @@ export default function Quests() {
             false);
 
         // Tag filters
-        const questTags = questToTags[quest.id] ?? [];
+        const questTags = quest.tags;
         const matchesFilters = Object.entries(filters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
-            return questTags.some((tag) => {
+            return questTags.some(({ tag }) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
                 tagCategory?.toLowerCase() === category.toLowerCase() &&
@@ -295,39 +307,22 @@ export default function Quests() {
         return matchesSearch && matchesFilters;
       });
     },
-    [questToTags]
+    [quests]
   );
 
   const applySorting = useCallback(
-    (questsToSort: Quest[], sorting: SortingOption[]) => {
+    (questsToSort: typeof quests, sorting: SortingOption[]) => {
       return sortItems(
         questsToSort,
         sorting,
-        (questId: string) => questTags[questId] ?? []
+        (questId: string) =>
+          quests
+            .find((quest) => quest.id === questId)
+            ?.tags.map((t) => ({ name: t.tag.name })) ?? []
       );
     },
-    [questTags]
+    [quests]
   );
-
-  // Load tags when quests change
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const tagsMap: Record<string, Tag[]> = {};
-        await Promise.all(
-          quests.map(async (quest) => {
-            tagsMap[quest.id] = (
-              await tagService.getTagsByQuestId(quest.id)
-            ).filter(Boolean);
-          })
-        );
-        setQuestToTags(tagsMap);
-      } catch (error) {
-        console.error('Error loading tags:', error);
-      }
-    };
-    void loadTags();
-  }, [quests]);
 
   // Update filtered quests when search query changes
   useEffect(() => {
@@ -354,7 +349,6 @@ export default function Quests() {
   };
 
   const handleCloseDetails = () => {
-    // setSelectedQuest(null);
     setShowProjectStats(false);
   };
 
@@ -386,10 +380,6 @@ export default function Quests() {
           setIsFilterModalVisible(false);
           return true;
         }
-        // if (selectedQuest) {
-        //   setSelectedQuest(null);
-        //   return true;
-        // }
         return false;
       }
     );
@@ -449,12 +439,32 @@ export default function Quests() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
-          <TouchableOpacity
-            onPress={toggleProjectStats}
-            style={styles.statsButton}
-          >
-            <Ionicons name="stats-chart" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.floatingButtonsContainer}>
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {isOwner && SHOW_SETTINGS_BUTTON && (
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(true)}
+                style={styles.settingsButton}
+              >
+                <Ionicons name="settings" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_MEMBERSHIP_BUTTON && (
+              <TouchableOpacity
+                onPress={() => setShowMembershipModal(true)}
+                style={styles.membersButton}
+              >
+                <Ionicons name="people" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={toggleProjectStats}
+              style={styles.statsButton}
+            >
+              <Ionicons name="stats-chart" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
       <Modal
@@ -467,7 +477,6 @@ export default function Quests() {
           <QuestFilterModal
             onClose={() => setIsFilterModalVisible(false)}
             quests={quests}
-            // questTags={questTags}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}
@@ -481,6 +490,16 @@ export default function Quests() {
           onClose={handleCloseDetails}
         />
       )}
+      <ProjectMembershipModal
+        isVisible={showMembershipModal}
+        onClose={() => setShowMembershipModal(false)}
+        projectId={projectId}
+      />
+      <ProjectSettingsModal
+        isVisible={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        projectId={projectId}
+      />
     </LinearGradient>
   );
 }
@@ -531,9 +550,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium,
     width: '100%'
   },
+  floatingButtonsContainer: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    gap: spacing.small
+  },
+  settingsButton: {
+    padding: spacing.small
+  },
+  membersButton: {
+    padding: spacing.small
+  },
   statsButton: {
-    padding: spacing.small,
-    alignSelf: 'flex-end'
+    padding: spacing.small
   },
   title: {
     fontSize: fontSizes.xxlarge,

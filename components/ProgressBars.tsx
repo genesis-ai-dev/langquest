@@ -45,7 +45,7 @@ export const ProgressBars = ({
                 alignItems: 'flex-end',
                 justifyContent: 'center',
                 borderRadius: progressBarHeight / 2,
-                zIndex: 2
+                zIndex: 3
               }
             ]}
           >
@@ -64,10 +64,12 @@ export const ProgressBars = ({
               {
                 width: `${userContributedPercentage}%`,
                 borderRadius: progressBarHeight / 2,
-                marginLeft: -20,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                marginLeft: -25,
                 alignItems: 'flex-end',
                 justifyContent: 'center',
-                zIndex: 1
+                zIndex: 2
               }
             ]}
           >
@@ -75,8 +77,29 @@ export const ProgressBars = ({
               color={colors.background}
               width={progressBarHeight / 1.5}
               height={progressBarHeight / 1.5}
-              style={{ marginRight: 10 }}
+              style={{ marginRight: -14, overflow: 'visible' }}
             />
+          </View>
+          <View
+            style={[
+              styles.progressBar,
+              styles.userPendingBar,
+              {
+                width: 25,
+                borderTopRightRadius: progressBarHeight / 2,
+                borderBottomRightRadius: progressBarHeight / 2,
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                zIndex: 1
+              }
+            ]}
+          >
+            {/* <GemIcon
+              color={colors.background}
+              width={progressBarHeight / 1.5}
+              height={progressBarHeight / 1.5}
+              style={{ marginRight: 10 }}
+            /> */}
           </View>
         </View>
       </View>

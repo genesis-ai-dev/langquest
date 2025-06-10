@@ -3,6 +3,7 @@ import Carousel from '@/components/Carousel';
 import { GemIcon } from '@/components/GemIcon';
 import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
+import LumpOfCoalIcon from '@/components/LumpOfCoalIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
 import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PageHeader } from '@/components/PageHeader';
@@ -17,20 +18,20 @@ import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
-import { assetService } from '@/database_services/assetService';
-import { languageService } from '@/database_services/languageService';
-import type { Profile } from '@/database_services/profileService';
-import { profileService } from '@/database_services/profileService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
-import type { asset_content_link, language } from '@/db/drizzleSchema';
+import type { asset_content_link } from '@/db/drizzleSchema';
+import {
+  asset as assetTable,
+  translation as translationTable
+} from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { getGemColor } from '@/utils/progressUtils';
+import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/tanstack-react-query';
+import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -46,17 +47,6 @@ import {
 } from 'react-native';
 import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Debug flag
-const DEBUG = false;
-
-// Custom debug function
-function debug(...args: unknown[]) {
-  // eslint-disable-next-line
-  if (DEBUG) {
-    console.log('[DEBUG assetView]', ...args);
-  }
-}
 
 const ASSET_VIEWER_PROPORTION = 0.4;
 
@@ -84,14 +74,54 @@ export default function AssetView() {
   const { assetId } = useGlobalSearchParams<{
     assetId: string;
   }>();
-  const [asset, setAsset] = useState<Asset | undefined>();
-  const [assetContent, setAssetContent] = useState<
-    (typeof asset_content_link.$inferSelect)[] | undefined
-  >([]);
-  const [translations, setTranslations] = useState<Translation[]>([]);
+  const { db } = useSystem();
+
+  // Fetch asset
+  const { data: [asset] = [] } = useQuery({
+    queryKey: ['asset', assetId],
+    query: toCompilableQuery(
+      db.query.asset.findFirst({
+        where: eq(assetTable.id, assetId),
+        with: {
+          content: true
+        }
+      })
+    )
+  });
+
+  // Fetch translations with votes and creator
+  const { data: translations = [] } = useQuery({
+    queryKey: ['translations', assetId],
+    query: toCompilableQuery(
+      db.query.translation.findMany({
+        where: eq(translationTable.asset_id, assetId),
+        with: {
+          votes: true,
+          creator: true,
+          asset: true
+        }
+      })
+    )
+  });
+
+  // Fetch source language
+  const { data: [sourceLanguage] = [] } = useQuery({
+    queryKey: ['sourceLanguage', assetId],
+    query: toCompilableQuery(
+      db.query.language.findFirst({
+        where: eq(
+          assetTable.source_language_id,
+          asset?.source_language_id || ''
+        )
+      })
+    )
+  });
+
+  const [selectedTranslationId, setSelectedTranslationId] = useState<
+    string | null
+  >(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
-  const [selectedTranslation, setSelectedTranslation] =
-    useState<Translation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   enum TranslationModalType {
     TEXT = 'text',
@@ -101,42 +131,19 @@ export default function AssetView() {
     useState<TranslationModalType>(TranslationModalType.TEXT);
   const [isTranslationModalVisible, setIsTranslationModalVisible] =
     useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  // const [targetLanguage, setTargetLanguage] = useState<
-  //   typeof language.$inferSelect | null
-  // >(null);
-  const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[]>
-  >({});
-  const [translationCreators, setTranslationCreators] = useState<
-    Record<string, Profile | undefined>
-  >({});
-  const [translationLanguages, setTranslationLanguages] = useState<
-    Record<string, typeof language.$inferSelect | undefined>
-  >({});
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
-  const calculateVoteCount = (votes: Vote[]): number => {
-    return votes.reduce(
-      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
-      0
-    );
-  };
-
   const allAttachmentIds = React.useMemo(() => {
-    if (!asset || !assetContent) return [];
+    if (!asset) return [];
 
     // Collect all attachment IDs
-    const contentAudioIds = assetContent
+    const contentAudioIds = asset.content
       .filter((content) => content.audio_id)
       .map((content) => content.audio_id!)
-      .filter(Boolean); // Remove any undefined values
+      .filter(Boolean);
 
     const imageIds = asset.images ?? [];
 
@@ -146,15 +153,13 @@ export default function AssetView() {
       .filter(Boolean);
 
     return [...contentAudioIds, ...imageIds, ...translationAudioIds];
-  }, [asset, assetContent, translations]);
+  }, [asset, translations]);
 
   // Use the hook to watch attachment states
   const { attachmentUris, loadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
   useEffect(() => {
-    void loadAssetAndTranslations();
-
     // Load attachments into temp queue
     if (assetId) {
       void system.tempAttachmentQueue?.loadAssetAttachments(assetId);
@@ -162,106 +167,16 @@ export default function AssetView() {
   }, [assetId]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-
-    system.powersync.watch(
-      `SELECT * FROM translation WHERE asset_id = ?`,
-      [assetId],
-      {
-        onResult: () => {
-          void loadAssetAndTranslations();
-        }
-      },
-
-      { signal: abortController.signal }
-    );
-
-    return () => {
-      abortController.abort();
-    };
-  }, [assetId]);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    system.powersync.watch(
-      `SELECT * FROM vote WHERE translation_id IN (SELECT id FROM translation WHERE asset_id = ?)`,
-      [assetId],
-      {
-        onResult: () => {
-          // Instead of trying to use the result directly, let's fetch the votes again
-          const asyncLoadVotes = async () => {
-            try {
-              const votesMap: Record<string, Vote[]> = {};
-              await Promise.all(
-                translations.map(async (translation) => {
-                  votesMap[translation.id] =
-                    await voteService.getVotesByTranslationId(translation.id);
-                })
-              );
-              console.log('Updated votes map:', votesMap); // Debug log
-              setTranslationVotes(votesMap);
-            } catch (error) {
-              console.error('Error updating votes:', error);
-            }
-          };
-          void asyncLoadVotes();
-        }
-      },
-      { signal: abortController.signal }
-    );
-
-    return () => {
-      abortController.abort();
-    };
-  }, [assetId, translations]);
-
-  const loadAssetAndTranslations = async () => {
-    try {
-      if (!assetId) return;
-      setIsLoading(true);
-
-      // Load asset to retrieve images from its image_ids field
-      const loadedAsset = await assetService.getAssetById(assetId);
-      if (!loadedAsset) {
-        Alert.alert('Error', t('assetNotFound'));
-        return;
-      }
-
-      setAsset(loadedAsset);
-
-      // Load asset content to get asset audio and text
-      const content = await assetService.getAssetContent(assetId);
-      setAssetContent(content);
-      setActiveTab(getFirstAvailableTab(loadedAsset, content));
-
-      // Load source language
-      const source = await languageService.getLanguageById(
-        loadedAsset.source_language_id
-      );
-      setSourceLanguage(source);
-
-      // Load translations
-      const loadedTranslations =
-        await translationService.getTranslationsByAssetId(
-          assetId,
-          currentUser?.id
-        );
-      setTranslations(loadedTranslations);
-
-      // After loading asset data, load the URIs
-      // await loadAllUris();
-    } catch (error) {
-      console.error('Error loading asset and translations:', error, assetId);
-      Alert.alert('Error', t('failedLoadAssetData'));
-    } finally {
+    if (asset?.content) {
+      setActiveTab(getFirstAvailableTab(asset, asset.content));
       setIsLoading(false);
     }
-  };
+  }, [asset]);
 
-  const handleNewTranslation = async () => {
+  const handleNewTranslation = (_newTranslation?: object) => {
     try {
-      await loadAssetAndTranslations();
+      // The translations will automatically update due to the useQuery hook
+      setIsTranslationModalVisible(false);
     } catch (error) {
       console.error('Error creating translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
@@ -285,132 +200,84 @@ export default function AssetView() {
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
-    const votes: Vote[] = translationVotes[translationId] ?? [];
-    const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
+    const votesForTranslation = translations.find(
+      (t) => t.id === translationId
+    )?.votes;
+    const userVote = votesForTranslation?.find(
+      (vote) => vote.creator_id === currentUser.id
+    );
 
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
     return userVote.polarity === voteType
       ? (`thumbs-${voteType}` as VoteIconName)
       : (`thumbs-${voteType}-outline` as VoteIconName);
   };
-
-  useEffect(() => {
-    const loadTranslationData = async () => {
-      const votesMap: Record<string, Vote[]> = {};
-      const creatorsMap: Record<string, Profile> = {};
-      const languagesMap: Record<string, typeof language.$inferSelect> = {};
-
-      await Promise.all(
-        translations.map(async (translation) => {
-          try {
-            debug('Loading data for translation:', translation.id);
-
-            // Load votes
-            try {
-              votesMap[translation.id] =
-                await voteService.getVotesByTranslationId(translation.id);
-              debug('Successfully loaded votes for translation:', {
-                translationId: translation.id,
-                votes: votesMap[translation.id]
-              });
-            } catch (error) {
-              console.error('Failed to load votes for translation:', {
-                translationId: translation.id,
-                error
-              });
-              votesMap[translation.id] = [];
-            }
-
-            // Load creator
-            try {
-              debug('before creator', { translation });
-              const creator = await profileService.getProfileByUserId(
-                translation.creator_id
-              );
-              debug('after creator', { translation });
-              debug('creator', { creator, translation });
-              if (creator) {
-                creatorsMap[translation.creator_id] = creator;
-                debug('Successfully loaded creator:', {
-                  creatorId: translation.creator_id,
-                  creator
-                });
-              }
-            } catch (error) {
-              console.error('Failed to load creator:', {
-                creatorId: translation.creator_id,
-                error
-              });
-            }
-
-            // Load target language
-            try {
-              const targetLang = await languageService.getLanguageById(
-                translation.target_language_id
-              );
-              if (targetLang) {
-                languagesMap[translation.target_language_id] = targetLang;
-                debug('Successfully loaded target language:', {
-                  languageId: translation.target_language_id,
-                  language: targetLang
-                });
-              }
-            } catch (error) {
-              console.error('Failed to load target language:', {
-                languageId: translation.target_language_id,
-                error
-              });
-            }
-          } catch (error) {
-            console.error('Error processing translation:', {
-              translationId: translation.id,
-              error
-            });
-          }
-        })
-      );
-
-      setTranslationVotes(votesMap);
-      setTranslationCreators(creatorsMap);
-      setTranslationLanguages(languagesMap);
-    };
-
-    void loadTranslationData();
-  }, [translations]);
-
-  const renderTranslationCard = ({
-    item: translation
+  // console.log(
+  //   'translations',
+  //   translations.length,
+  //   JSON.stringify(
+  //     translations.map((t) => {
+  //       return {
+  //         id: t.id,
+  //         votes: t.votes.map((v) => {
+  //           return {
+  //             id: v.id,
+  //             polarity: v.polarity,
+  //             currentUserVoted: v.creator_id === currentUser?.id
+  //           };
+  //         })
+  //       };
+  //     }),
+  //     null,
+  //     2
+  //   )
+  // );
+  const TranslationCard = ({
+    translationId,
+    assetId
   }: {
-    item: Translation;
+    translationId: string;
+    assetId: string;
   }) => {
-    const votes: Vote[] = translationVotes[translation.id] ?? [];
-    const creator = translationCreators[translation.creator_id];
-    const targetLanguage = translationLanguages[translation.target_language_id];
-    const voteCount = calculateVoteCount(votes);
+    // const votes = translations.find(
+    //   (t) => t.id === translationId
+    // )?.votes;
+    const { translation } = useTranslationDataWithVotes(translationId, assetId);
+    if (!translation) return null;
+    const voteCount = calculateVoteCount(translation.votes);
     if (!currentUser) {
       return null;
     }
-    const gemColor = getGemColor(translation, votes, currentUser.id);
-    if (gemColor === null) {
-      return null;
-    }
-    debug('asset translation', {
-      translationCreators,
-      translationLanguages,
-      votes,
-      creator,
-      targetLanguage,
-      voteCount
-    });
+    const gemColor = getGemColor(
+      translation,
+      translation.votes,
+      currentUser.id
+    );
+    // if (translation.text?.includes("Caleb's translation 1")) {
+    //   console.log('voteCount', voteCount);
+    //   console.log('gemColor for Caleb', gemColor);
+    //   console.log(
+    //     'votes',
+    //     JSON.stringify(
+    //       votes.map((v) => ({
+    //         id: v.id,
+    //         polarity: v.polarity,
+    //         creator_id: v.creator_id
+    //       })),
+    //       null,
+    //       2
+    //     )
+    //   );
+    // }
+    // if (gemColor === null) {
+    //   return null;
+    // }
 
     const translationHasAudio = !!translation.audio;
     const audioIconOpacity = translationHasAudio ? 1 : 0.5;
 
     const translationHasText = !!translation.text;
     const textIconOpacity = translationHasText ? 1 : 0.5;
-
-    debug('translationHasAudio', { translationHasAudio });
-    debug('translationHasText', { translationHasText });
 
     return (
       <View
@@ -419,18 +286,21 @@ export default function AssetView() {
           alignItems: 'center',
           gap: 12,
           flex: 1,
-          minHeight: 100
+          minHeight: 100,
+          opacity: gemColor === colors.downVoted ? 0.5 : 1
         }}
       >
         {/* Gem or Pickaxe icon */}
         {gemColor === colors.alert ? (
           <PickaxeIcon color={gemColor} width={20} height={20} />
+        ) : gemColor === colors.downVoted ? (
+          <LumpOfCoalIcon color={gemColor} width={20} height={20} />
         ) : (
           <GemIcon color={gemColor} width={20} height={20} />
         )}
         <TouchableOpacity
           style={[styles.translationCard, { flex: 1 }]}
-          onPress={() => setSelectedTranslation(translation)}
+          onPress={() => setSelectedTranslationId(translation.id)}
         >
           <View
             style={[
@@ -475,7 +345,6 @@ export default function AssetView() {
           <View
             style={{
               flexDirection: 'column',
-              // gap: 8,
               justifyContent: 'center',
               alignItems: 'center'
             }}
@@ -499,7 +368,6 @@ export default function AssetView() {
           <View
             style={{
               flexDirection: 'column',
-              // gap: 8,
               justifyContent: 'center',
               alignItems: 'center',
               opacity: textIconOpacity
@@ -529,16 +397,16 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !assetContent?.length && styles.disabledTab
+                  !asset?.content.length && styles.disabledTab
                 ]}
                 onPress={() => setActiveTab('text')}
-                disabled={!assetContent?.length}
+                disabled={!asset?.content.length}
               >
                 <Ionicons
                   name="text"
                   size={24}
                   color={
-                    assetContent?.length ? colors.text : colors.textSecondary
+                    asset?.content.length ? colors.text : colors.textSecondary
                   }
                 />
               </TouchableOpacity>
@@ -570,16 +438,16 @@ export default function AssetView() {
             ) : (
               <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
                 {activeTab === 'text' &&
-                  assetContent?.length &&
-                  assetContent.length > 0 && (
+                  asset?.content &&
+                  asset.content.length > 0 && (
                     <View style={styles.carouselWrapper}>
                       <Carousel
-                        items={assetContent}
+                        items={asset.content}
                         renderItem={(content) => {
                           return (
                             <SourceContent
                               content={content}
-                              sourceLanguage={sourceLanguage}
+                              sourceLanguage={sourceLanguage ?? null}
                               audioUri={
                                 content.audio_id
                                   ? attachmentUris[content.audio_id]
@@ -618,7 +486,7 @@ export default function AssetView() {
                     <SuccessCount
                       count={
                         translations.filter((translation) => {
-                          const votes = translationVotes[translation.id] ?? [];
+                          const votes = translation.votes;
                           const gemColor = getGemColor(
                             translation,
                             votes,
@@ -631,7 +499,7 @@ export default function AssetView() {
                     <PendingCount
                       count={
                         translations.filter((translation) => {
-                          const votes = translationVotes[translation.id] ?? [];
+                          const votes = translation.votes;
                           const gemColor = getGemColor(
                             translation,
                             votes,
@@ -645,7 +513,7 @@ export default function AssetView() {
                     <PickaxeCount
                       count={
                         translations.filter((translation) => {
-                          const votes = translationVotes[translation.id] ?? [];
+                          const votes = translation.votes;
                           const gemColor = getGemColor(
                             translation,
                             votes,
@@ -708,8 +576,8 @@ export default function AssetView() {
                 <FlatList
                   data={translations.sort((a, b) => {
                     if (sortOption === 'voteCount') {
-                      const votesA = translationVotes[a.id] ?? [];
-                      const votesB = translationVotes[b.id] ?? [];
+                      const votesA = a.votes;
+                      const votesB = b.votes;
                       return (
                         calculateVoteCount(votesB) - calculateVoteCount(votesA)
                       );
@@ -719,7 +587,12 @@ export default function AssetView() {
                       new Date(a.created_at).getTime()
                     );
                   })}
-                  renderItem={renderTranslationCard}
+                  renderItem={({ item }) => (
+                    <TranslationCard
+                      translationId={item.id}
+                      assetId={assetId}
+                    />
+                  )}
                   keyExtractor={(item) => item.id}
                   style={styles.translationsList}
                 />
@@ -751,27 +624,25 @@ export default function AssetView() {
           </View>
         </SafeAreaView>
 
-        {selectedTranslation && (
+        {selectedTranslationId && (
           <TranslationModal
-            translation={selectedTranslation}
-            onClose={() => setSelectedTranslation(null)}
-            onVoteSubmitted={loadAssetAndTranslations}
-            onReportSubmitted={loadAssetAndTranslations}
+            translationId={selectedTranslationId}
+            onClose={() => setSelectedTranslationId(null)}
           />
         )}
 
         {isTranslationModalVisible &&
-          assetContent &&
-          assetContent.length > 0 && (
+          asset?.content &&
+          (asset.content.length > 0 ||
+            (asset.images && asset.images.length > 0)) && (
             <NewTranslationModal
               isVisible={isTranslationModalVisible}
               onClose={() => setIsTranslationModalVisible(false)}
               onSubmit={handleNewTranslation}
               asset_id={assetId}
               translationType={translationModalType}
-              assetContent={assetContent[activeTab === 'text' ? 0 : 1]!}
-              sourceLanguage={sourceLanguage}
-              // targetLanguage={targetLanguage}z
+              assetContent={asset.content[activeTab === 'text' ? 0 : 1]}
+              sourceLanguage={sourceLanguage ?? null}
               attachmentUris={attachmentUris}
               loadingAttachments={loadingAttachments}
             />

@@ -1,14 +1,14 @@
-import type { Asset } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import { colors } from '@/styles/theme';
-
 /**
  * Calculates the net vote count from an array of votes
  * @param votes Array of votes
  * @returns Net vote count (upvotes - downvotes)
  */
-export const calculateVoteCount = (votes: Vote[]): number => {
+export const calculateVoteCount = (
+  votes: Vote[] | VoteWithRelations[]
+): number => {
   return votes.reduce(
     (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
     0
@@ -20,7 +20,9 @@ export const calculateVoteCount = (votes: Vote[]): number => {
  * @param votes Array of votes for the translation
  * @returns boolean indicating if the translation should be counted
  */
-export const shouldCountTranslation = (votes: Vote[]): boolean => {
+export const shouldCountTranslation = (
+  votes: Vote[] | VoteWithRelations[]
+): boolean => {
   const voteCount = calculateVoteCount(votes);
   // Only count translations that have no votes or a positive vote count
   return votes.length === 0 || voteCount > 0;
@@ -37,23 +39,25 @@ export const getGemColor = (
   translation: Translation,
   votes: Vote[],
   currentUserId: string | null
-): string | null => {
-  if (!shouldCountTranslation(votes)) {
-    return null;
-  }
+): string => {
+  let gemColor: string = colors.success;
 
+  if (!shouldCountTranslation(votes)) {
+    return colors.downVoted;
+  }
   // If translation has no votes
   if (votes.length === 0) {
     // If translation was made by current user
     if (currentUserId && currentUserId === translation.creator_id) {
-      return colors.textSecondary;
+      gemColor = colors.textSecondary;
+    } else {
+      // If translation was made by another user
+      gemColor = colors.alert;
     }
-    // If translation was made by another user
-    return colors.alert;
   }
+  // If translation has votes, gemColor remains colors.success
 
-  // If translation has votes and wasn't excluded by shouldCountTranslation
-  return colors.success;
+  return gemColor;
 };
 
 /**
@@ -71,10 +75,32 @@ export interface QuestProgress {
 /**
  * Calculates progress statistics for a quest based on its assets and translations
  */
+
+interface AssetWithRelations {
+  id: string;
+  name: string;
+  translations: TranslationWithRelations[];
+}
+
+interface TranslationWithRelations {
+  id: string;
+  text: string | null;
+  creator_id: string;
+  votes: {
+    id: string;
+    polarity: 'up' | 'down';
+    creator_id: string;
+  }[];
+}
+
+interface VoteWithRelations {
+  id: string;
+  polarity: 'up' | 'down';
+  creator_id: string;
+}
+
 export const calculateQuestProgress = (
-  assets: Asset[],
-  translations: Record<string, Translation[]>,
-  votes: Record<string, Vote[]>,
+  assets: AssetWithRelations[],
   currentUserId: string | null
 ): QuestProgress => {
   let approvedCount = 0;
@@ -82,41 +108,48 @@ export const calculateQuestProgress = (
   let pendingCount = 0;
 
   assets.forEach((asset) => {
-    const assetTranslations = translations[asset.id] || [];
+    const assetTranslations = asset.translations;
     let hasApprovedTranslation = false;
     let hasUserContribution = false;
 
-    assetTranslations.forEach((translation) => {
-      const translationVotes = votes[translation.id] || [];
-
-      // Skip translations that shouldn't be counted
-      if (!shouldCountTranslation(translationVotes)) {
-        return;
-      }
-
-      const voteCount = calculateVoteCount(translationVotes);
-
-      // Check if this translation is approved (more upvotes than downvotes)
-      if (voteCount > 0) {
-        hasApprovedTranslation = true;
-      }
-      // Check if this is user's translation with no votes
-      else if (
-        currentUserId &&
-        translation.creator_id === currentUserId &&
-        translationVotes.length === 0
-      ) {
-        hasUserContribution = true;
-      }
-      // Check if this is another user's translation pending review
-      else if (
-        currentUserId &&
-        translation.creator_id !== currentUserId &&
-        translationVotes.length === 0
+    // First pass: Check for approved translations
+    for (const translation of assetTranslations) {
+      const translationVotes = translation.votes;
+      if (
+        translation.votes.length === 0 &&
+        translation.creator_id !== currentUserId
       ) {
         pendingCount++;
+        continue;
       }
-    });
+      if (!shouldCountTranslation(translationVotes)) continue;
+
+      const upVoteCount = calculateVoteCount(translationVotes);
+      if (upVoteCount > 0) {
+        hasApprovedTranslation = true;
+        continue;
+      }
+    }
+
+    // Second pass: Only check for user contributions and pending translations if no approved translation exists
+    if (!hasApprovedTranslation) {
+      for (const translation of assetTranslations) {
+        const translationVotes = translation.votes;
+        if (!shouldCountTranslation(translationVotes)) continue;
+
+        const upVoteCount = calculateVoteCount(translationVotes);
+
+        if (
+          currentUserId &&
+          translation.creator_id === currentUserId &&
+          upVoteCount === 0
+        ) {
+          hasUserContribution = true;
+          break;
+        }
+      }
+    }
+
     if (hasApprovedTranslation) {
       approvedCount++;
     } else if (hasUserContribution) {
