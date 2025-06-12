@@ -3,13 +3,11 @@ import { create } from 'zustand';
 
 interface NetworkState {
   isConnected: boolean;
-  setIsConnected: (connected: boolean) => void;
   initializeNetworkListener: () => () => void;
 }
 
 export const useNetworkStore = create<NetworkState>((set) => ({
   isConnected: true,
-  setIsConnected: (connected) => set({ isConnected: connected }),
   initializeNetworkListener: () => {
     // Initial check
     void NetInfo.fetch().then((state) => {

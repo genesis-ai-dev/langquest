@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import type { project } from '@/db/drizzleSchema';
+import { useLanguageById } from '@/hooks/db/useLanguages';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { project, language } from '@/db/drizzleSchema';
-import { languageService } from '@/database_services/languageService';
-import { useTranslation } from '@/hooks/useTranslation';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Match the type from projectService
 // type ProjectWithRelations = typeof project.$inferSelect & {
@@ -23,28 +22,13 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [targetLanguage, setTargetLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
+  const { language: sourceLanguage } = useLanguageById(
+    project.source_language_id
+  );
+  const { language: targetLanguage } = useLanguageById(
+    project.target_language_id
+  );
 
-  useEffect(() => {
-    const loadLanguages = async () => {
-      const source = await languageService.getLanguageById(
-        project.source_language_id
-      );
-      const target = await languageService.getLanguageById(
-        project.target_language_id
-      );
-      setSourceLanguage(source);
-      setTargetLanguage(target);
-    };
-    loadLanguages();
-  }, [project.source_language_id, project.target_language_id]);
-
-  const { t } = useTranslation();
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />

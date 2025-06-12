@@ -19,7 +19,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { Link, usePathname, useRouter } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
-import type { ReactNode } from 'react';
 import { Fragment, forwardRef, useCallback, useState } from 'react';
 import type { TouchableOpacityProps } from 'react-native';
 import {
@@ -261,7 +260,7 @@ function DrawerItems() {
   );
 }
 
-export function Drawer({ children }: { children?: ReactNode }) {
+export function Drawer() {
   return (
     <ExpoDrawer
       screenOptions={{
@@ -270,9 +269,7 @@ export function Drawer({ children }: { children?: ReactNode }) {
         swipeEdgeWidth: 100
       }}
       drawerContent={DrawerContent}
-    >
-      {children}
-    </ExpoDrawer>
+    ></ExpoDrawer>
   );
 }
 

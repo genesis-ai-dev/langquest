@@ -1,3 +1,5 @@
+import { getAssetsByQuestId } from '@/hooks/db/useAssets';
+import { getQuestsByProjectId } from '@/hooks/db/useQuests';
 import { TranslationUtils } from '@/utils/translationUtils';
 import { and, eq } from 'drizzle-orm';
 import { Alert } from 'react-native';
@@ -9,8 +11,6 @@ import {
 import { ATTACHMENT_QUEUE_LIMITS } from '../db/powersync/constants';
 import { system } from '../db/powersync/system';
 import { calculateTotalAttachments } from '../utils/attachmentUtils';
-import { assetService } from './assetService';
-import { questService } from './questService';
 
 const { db } = system;
 
@@ -197,7 +197,7 @@ export class DownloadService {
       });
 
       // Cascade to all quests in the project
-      const quests = await questService.getQuestsByProjectId(projectId);
+      const quests = (await getQuestsByProjectId(projectId)) ?? [];
       for (const quest of quests) {
         await this.setQuestDownload(profileId, quest.id, active);
       }
@@ -228,9 +228,9 @@ export class DownloadService {
       });
 
       // Cascade to all assets in the quest
-      const assets = await assetService.getAssetsByQuestId(questId);
+      const assets = (await getAssetsByQuestId(questId)) ?? [];
       for (const asset of assets) {
-        if (asset) await this.setAssetDownload(profileId, asset.id, active);
+        await this.setAssetDownload(profileId, asset.id, active);
       }
 
       // If this is a direct call (not part of project update), execute immediately

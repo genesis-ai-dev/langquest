@@ -4,32 +4,31 @@ import { PageHeader } from '@/components/PageHeader';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { assetService } from '@/database_services/assetService';
-import { downloadService } from '@/database_services/downloadService';
-import { languageService } from '@/database_services/languageService';
-import { projectService } from '@/database_services/projectService';
-import type { language, project } from '@/db/drizzleSchema';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import type { project } from '@/db/drizzleSchema';
+import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useProjectDownload } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { questService } from '@/database_services/questService';
 import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
+import { getAssetsByQuestId, useAssetsByProjectId } from '@/hooks/db/useAssets';
+import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
+import { useProjects } from '@/hooks/db/useProjects';
+import { getQuestsByProjectId } from '@/hooks/db/useQuests';
+import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
+import { getVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useLocalStore } from '@/store/localStore';
 import {
   calculateProjectProgress,
   calculateQuestProgress
 } from '@/utils/progressUtils';
+import { FlashList } from '@shopify/flash-list';
 // Constants for storage keys
-const SOURCE_FILTER_KEY = 'project_source_filter';
-const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
 
@@ -37,14 +36,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [targetLanguage, setTargetLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const [isDownloaded, setIsDownloaded] = useState(false);
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -52,82 +43,57 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     totalAssets: 0
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      const [source, target] = await Promise.all([
-        languageService.getLanguageById(project.source_language_id),
-        languageService.getLanguageById(project.target_language_id)
-      ]);
-      setSourceLanguage(source);
-      setTargetLanguage(target);
+  // Use the new download hook
+  const {
+    isDownloaded,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useProjectDownload(currentUser?.id, project.id);
 
-      // Get all assets for this project
-      const assets = await assetService.getAssetsByProjectId(project.id);
-      setAssetIds(assets.map((asset) => asset.id));
+  console.log('isDownloaded', isDownloaded, project.name);
 
-      // Get project download status
-      if (currentUser) {
-        const downloadStatus = await downloadService.getProjectDownloadStatus(
-          currentUser.id,
-          project.id
-        );
-        setIsDownloaded(downloadStatus);
-      }
-    };
-    void loadData();
-  }, [
-    project.source_language_id,
-    project.target_language_id,
-    project.id,
-    currentUser
-  ]);
+  const { language: sourceLanguage } = useLanguageById(
+    project.source_language_id
+  );
+  const { language: targetLanguage } = useLanguageById(
+    project.target_language_id
+  );
+
+  const { assets } = useAssetsByProjectId(project.id);
+  const assetIds = assets?.map((asset) => asset.id) ?? [];
 
   const { isDownloaded: assetsDownloaded, isLoading } =
-    useAssetDownloadStatus(assetIds);
+    useAttachmentAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
-    if (!currentUser) return;
-    try {
-      await downloadService.setProjectDownload(
-        currentUser.id,
-        project.id,
-        !isDownloaded
-      );
-      setIsDownloaded(!isDownloaded);
-    } catch (error) {
-      console.error('Error toggling project download:', error);
-    }
+    await toggleDownload();
   };
 
   useEffect(() => {
     const loadProgress = async () => {
       try {
         // Load all quests for this project
-        const quests = await questService.getQuestsByProjectId(project.id);
+        const quests = (await getQuestsByProjectId(project.id)) ?? [];
 
         // For each quest, load its assets and calculate progress
         const questProgresses = await Promise.all(
           quests.map(async (quest) => {
-            const assets = await assetService.getAssetsByQuestId(quest.id);
+            const assets = (await getAssetsByQuestId(quest.id)) ?? [];
             const translations: Record<string, Translation[]> = {};
             const votes: Record<string, Vote[]> = {};
 
             // Load translations and votes for each asset
             await Promise.all(
               assets.map(async (asset) => {
-                if (!asset) return;
                 const assetTranslations =
-                  await translationService.getTranslationsByAssetId(
-                    asset.id,
-                    currentUser?.id
-                  );
+                  (await getTranslationsByAssetId(asset.id)) ?? [];
                 translations[asset.id] = assetTranslations;
 
                 // Load votes for each translation
                 await Promise.all(
                   assetTranslations.map(async (translation) => {
                     votes[translation.id] =
-                      await voteService.getVotesByTranslationId(translation.id);
+                      (await getVotesByTranslationId(translation.id)) ?? [];
                   })
                 );
               })
@@ -168,7 +134,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
           </Text>
           <DownloadIndicator
             isDownloaded={isDownloaded && assetsDownloaded}
-            isLoading={isLoading && isDownloaded}
+            isLoading={isLoading || isDownloadLoading}
             onPress={handleDownloadToggle}
           />
         </View>
@@ -194,126 +160,33 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 export default function Projects() {
   const { t } = useTranslation();
   const { goToProject } = useProjectContext();
-  const [sourceFilter, setSourceFilter] = useState('All');
-  const [targetFilter, setTargetFilter] = useState('All');
+  const { projects } = useProjects();
+  const { languages: allLanguages } = useLanguages();
+  const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
+  const targetFilter = useLocalStore((state) => state.projectTargetFilter);
+  const setSourceFilter = useLocalStore(
+    (state) => state.setProjectSourceFilter
+  );
+  const setTargetFilter = useLocalStore(
+    (state) => state.setProjectTargetFilter
+  );
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
     null
   );
-  const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
-  const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
-
-  // Load stored filter settings on component mount
-  useEffect(() => {
-    const loadSavedFilters = async () => {
-      try {
-        const savedSourceFilter = await AsyncStorage.getItem(SOURCE_FILTER_KEY);
-        const savedTargetFilter = await AsyncStorage.getItem(TARGET_FILTER_KEY);
-
-        if (savedSourceFilter !== null) {
-          setSourceFilter(savedSourceFilter);
-        }
-
-        if (savedTargetFilter !== null) {
-          setTargetFilter(savedTargetFilter);
-        }
-      } catch (error) {
-        console.error('Error loading saved filters:', error);
-      }
-    };
-
-    void loadSavedFilters();
-  }, []);
-
-  // Save filter settings when they change
-  useEffect(() => {
-    const saveFilters = async () => {
-      try {
-        await AsyncStorage.setItem(SOURCE_FILTER_KEY, sourceFilter);
-        await AsyncStorage.setItem(TARGET_FILTER_KEY, targetFilter);
-      } catch (error) {
-        console.error('Error saving filters:', error);
-      }
-    };
-
-    void saveFilters();
-  }, [sourceFilter, targetFilter]);
-
-  // Load projects and languages on mount
-  useEffect(() => {
-    void loadProjects();
-    void loadLanguages();
-  }, []);
 
   // Filter projects when filters change
   useEffect(() => {
     void filterProjects();
   }, [sourceFilter, targetFilter, projects]);
 
-  const loadProjects = async () => {
-    try {
-      const loadedProjects = await projectService.getAllProjects();
-      setProjects(loadedProjects);
-      setFilteredProjects(loadedProjects);
-    } catch (error) {
-      console.error('Error loading projects:', error);
-      Alert.alert('Error', t('failedLoadProjects'));
-    }
-  };
-
-  const loadLanguages = async () => {
-    try {
-      // Get all languages
-      const allLanguages = await languageService.getAllLanguages();
-
-      // Get unique source languages from projects
-      const uniqueSourceLanguageIds = [
-        ...new Set(projects.map((project) => project.source_language_id))
-      ];
-
-      // Get unique target languages from projects
-      const uniqueTargetLanguageIds = [
-        ...new Set(projects.map((project) => project.target_language_id))
-      ];
-
-      // Filter and map source languages
-      const sourceLanguageNames = uniqueSourceLanguageIds
-        .map((id) => {
-          const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name ?? lang?.english_name;
-        })
-        .filter((name): name is string => name !== null);
-
-      // Filter and map target languages
-      const targetLanguageNames = uniqueTargetLanguageIds
-        .map((id) => {
-          const lang = allLanguages.find((l) => l.id === id);
-          return lang?.native_name ?? lang?.english_name;
-        })
-        .filter((name): name is string => name !== null);
-
-      setSourceLanguages(sourceLanguageNames);
-      setTargetLanguages(targetLanguageNames);
-    } catch (error) {
-      console.error('Error loading languages:', error);
-    }
-  };
-
-  // Update language lists when projects change
-  useEffect(() => {
-    if (projects.length > 0) {
-      void loadLanguages();
-    }
-  }, [projects]);
-
-  const filterProjects = async () => {
+  const filterProjects = () => {
+    if (!projects) return;
     try {
       // Start with all projects
       const filtered = [...projects];
 
       // Get all languages to avoid repeated calls
-      const allLanguages = await languageService.getAllLanguages();
 
       // Create a new array with filtered results
       const results = [];
@@ -321,10 +194,10 @@ export default function Projects() {
       // Go through each project
       for (const project of filtered) {
         // Find the source and target language objects
-        const sourceLanguage = allLanguages.find(
+        const sourceLanguage = allLanguages?.find(
           (l) => l.id === project.source_language_id
         );
-        const targetLanguage = allLanguages.find(
+        const targetLanguage = allLanguages?.find(
           (l) => l.id === project.target_language_id
         );
 
@@ -386,6 +259,33 @@ export default function Projects() {
     }
   };
 
+  if (!projects) return null;
+
+  const uniqueSourceLanguageIds = [
+    ...new Set(projects.map((project) => project.source_language_id))
+  ];
+
+  // Get unique target languages from projects
+  const uniqueTargetLanguageIds = [
+    ...new Set(projects.map((project) => project.target_language_id))
+  ];
+
+  // Filter and map source languages
+  const sourceLanguages = uniqueSourceLanguageIds
+    .map((id) => {
+      const lang = allLanguages?.find((l) => l.id === id);
+      return lang?.native_name ?? lang?.english_name ?? null;
+    })
+    .filter((name): name is string => name !== null);
+
+  // Filter and map target languages
+  const targetLanguages = uniqueTargetLanguageIds
+    .map((id) => {
+      const lang = allLanguages?.find((l) => l.id === id);
+      return lang?.native_name ?? lang?.english_name ?? null;
+    })
+    .filter((name): name is string => name !== null);
+
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
@@ -420,7 +320,7 @@ export default function Projects() {
             />
           </View>
 
-          <FlatList
+          <FlashList
             data={filteredProjects}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleExplore(item)}>
@@ -429,6 +329,7 @@ export default function Projects() {
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            estimatedItemSize={200}
           />
         </View>
       </SafeAreaView>

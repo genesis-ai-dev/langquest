@@ -5,18 +5,9 @@ import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
-import { assetService } from '@/database_services/assetService';
-import { downloadService } from '@/database_services/downloadService';
-import type { Quest } from '@/database_services/questService';
-import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
-import { tagService } from '@/database_services/tagService';
-import type { Translation } from '@/database_services/translationService';
-import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
-import { voteService } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
@@ -28,9 +19,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   FlatList,
   Modal,
@@ -44,6 +34,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GemIcon } from '@/components/GemIcon';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import type { AssetContent } from '@/hooks/db/useAssets';
+import { useAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
+import { useQuestById } from '@/hooks/db/useQuests';
+import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
+import { useAssetDownload } from '@/hooks/useDownloads';
 import { getGemColor } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 
@@ -54,80 +49,67 @@ interface SortingOption {
 
 type AggregatedGems = Record<string, number>;
 
+// Helper functions outside component to prevent recreation
+const filterAssets = (
+  assets: Asset[],
+  assetTags: Record<string, Tag[]>,
+  assetContents: Record<string, (typeof asset_content_link.$inferSelect)[]>,
+  searchQuery: string,
+  activeFilters: Record<string, string[]>
+) => {
+  return assets.filter((asset) => {
+    // Search filter
+    const assetContent = assetContents[asset.id] ?? [];
+    const matchesSearch =
+      asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      assetContent.some((content) =>
+        content.text.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+    // Tag filters
+    const assetTagList = assetTags[asset.id] ?? [];
+    const matchesFilters = Object.entries(activeFilters).every(
+      ([category, selectedOptions]) => {
+        if (selectedOptions.length === 0) return true;
+        return assetTagList.some((tag) => {
+          const [tagCategory, tagValue] = tag.name.split(':');
+          return (
+            tagCategory?.toLowerCase() === category.toLowerCase() &&
+            selectedOptions.includes(
+              `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
+            )
+          );
+        });
+      }
+    );
+
+    return matchesSearch && matchesFilters;
+  });
+};
+
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
-    useAssetDownloadStatus([asset.id]);
-  const [isDownloaded, setIsDownloaded] = useState(false);
-  const [translations, setTranslations] = useState<Translation[]>([]);
-  const [translationVotes, setTranslationVotes] = useState<
-    Record<string, Vote[]>
-  >({});
+    useAttachmentAssetDownloadStatus([asset.id]);
 
-  useEffect(() => {
-    const loadDownloadStatus = async () => {
-      if (currentUser) {
-        const downloadStatus = await downloadService.getAssetDownloadStatus(
-          currentUser.id,
-          asset.id
-        );
-        setIsDownloaded(downloadStatus);
-      }
-    };
-    void loadDownloadStatus();
-  }, [asset.id, currentUser]);
+  const {
+    isDownloaded,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useAssetDownload(currentUser?.id, asset.id);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const assetTranslations =
-          await translationService.getTranslationsByAssetId(
-            asset.id,
-            currentUser?.id
-          );
-        setTranslations(assetTranslations);
+  const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
 
-        // Load votes for each translation
-        const votesMap: Record<string, Vote[]> = {};
-        await Promise.all(
-          assetTranslations.map(async (translation) => {
-            votesMap[translation.id] =
-              await voteService.getVotesByTranslationId(translation.id);
-          })
-        );
-        setTranslationVotes(votesMap);
-      } catch (error) {
-        console.error('Error loading asset data:', error);
-      }
-    };
-    void loadData();
-  }, [asset.id, currentUser]);
-
-  // const { data: tags } = useQuery({
-  //   queryKey: ['asset-tags', asset.id],
-  //   queryFn: () => tagService.getTagsByAssetId(asset.id)
-  // });
-
-  const handleDownloadToggle = async () => {
-    if (!currentUser) return;
-    try {
-      await downloadService.setAssetDownload(
-        currentUser.id,
-        asset.id,
-        !isDownloaded
-      );
-      setIsDownloaded(!isDownloaded);
-    } catch (error) {
-      console.error('Error toggling asset download:', error);
-    }
+  const handleDownloadToggle = () => {
+    toggleDownload();
   };
 
   // Aggregate translations by gem color
-  const aggregatedGems = translations.reduce<AggregatedGems>(
+  const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
     (acc, translation) => {
       const gemColor = getGemColor(
         translation,
-        translationVotes[translation.id] ?? [],
+        translation.votes,
         currentUser?.id ?? null
       );
 
@@ -152,56 +134,50 @@ function AssetCard({ asset }: { asset: Asset }) {
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
         <DownloadIndicator
           isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoadingDownloadStatus && isDownloaded}
+          isLoading={isLoadingDownloadStatus || isDownloadLoading}
           onPress={handleDownloadToggle}
         />
       </View>
       <View style={styles.translationCount}>
-        {Object.entries(aggregatedGems).map(([color, count]) => (
-          <View key={color} style={styles.gemContainer}>
-            {count < 4 ? (
-              // If count is less than 4, display that many gems
-              Array.from({ length: count }).map((_, index) =>
-                color === colors.alert ? (
-                  <PickaxeIcon
-                    key={index}
-                    color={color}
-                    width={26}
-                    height={20}
-                  />
-                ) : (
-                  <GemIcon key={index} color={color} width={26} height={20} />
+        {aggregatedGems &&
+          Object.entries(aggregatedGems).map(([color, count]) => (
+            <View key={color} style={styles.gemContainer}>
+              {count < 4 ? (
+                // If count is less than 4, display that many gems
+                Array.from({ length: count }).map((_, index) =>
+                  color === colors.alert ? (
+                    <PickaxeIcon
+                      key={index}
+                      color={color}
+                      width={26}
+                      height={20}
+                    />
+                  ) : (
+                    <GemIcon key={index} color={color} width={26} height={20} />
+                  )
                 )
-              )
-            ) : (
-              // If count is 4 or more, display one gem with the count
-              <>
-                {color === colors.alert ? (
-                  <PickaxeIcon color={color} width={26} height={20} />
-                ) : (
-                  <GemIcon color={color} width={26} height={20} />
-                )}
-                <Text style={{ ...styles.gemCount, marginRight: 8 }}>
-                  {count}
-                </Text>
-              </>
-            )}
-          </View>
-        ))}
+              ) : (
+                // If count is 4 or more, display one gem with the count
+                <>
+                  {color === colors.alert ? (
+                    <PickaxeIcon color={color} width={26} height={20} />
+                  ) : (
+                    <GemIcon color={color} width={26} height={20} />
+                  )}
+                  <Text style={{ ...styles.gemCount, marginRight: 8 }}>
+                    {count}
+                  </Text>
+                </>
+              )}
+            </View>
+          ))}
       </View>
     </View>
   );
 }
 
 export default function Assets() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
-  const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [assetTags, setAssetTags] = useState<Record<string, Tag[]>>({});
-  const [assetContents, setAssetContents] = useState<
-    Record<string, (typeof asset_content_link.$inferSelect)[]>
-  >({});
 
   const { t } = useTranslation();
   const { goToAsset } = useProjectContext();
@@ -210,6 +186,8 @@ export default function Assets() {
     projectId: string;
   }>();
 
+  const { assets } = useAssetsWithTagsAndContentByQuestId(questId);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -217,165 +195,40 @@ export default function Assets() {
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
-  useEffect(() => {
-    void loadAssets();
-    void loadQuest();
-  }, [questId]);
+  const { quest } = useQuestById(questId);
+  // Compute filtered assets directly without useEffect to avoid infinite loop
+  const filteredAssets = useMemo(() => {
+    if (!assets) return [];
+    const assetTagsRecord = assets.reduce(
+      (acc, asset) => {
+        acc[asset.id] = asset.tags.map((tag) => tag.tag);
+        return acc;
+      },
+      {} as Record<string, Tag[]>
+    );
 
-  const loadAssets = async () => {
-    try {
-      if (!questId) return;
-      const loadedAssets = await assetService.getAssetsByQuestId(questId);
-      // Filter out undefined assets
-      const validAssets = loadedAssets.filter(
-        (asset): asset is Asset => !!asset
-      );
-      setAssets(validAssets);
+    const assetContentsRecord = assets.reduce(
+      (acc, asset) => {
+        acc[asset.id] = asset.content;
+        return acc;
+      },
+      {} as Record<string, AssetContent[]>
+    );
 
-      // Load tags and content for all assets
-      const tagsMap: Record<string, Tag[]> = {};
-      const contentsMap: Record<
-        string,
-        (typeof asset_content_link.$inferSelect)[]
-      > = {};
-
-      await Promise.all(
-        validAssets.map(async (asset) => {
-          const [tags, content] = await Promise.all([
-            tagService.getTagsByAssetId(asset.id),
-            assetService.getAssetContent(asset.id)
-          ]);
-          tagsMap[asset.id] = tags.filter(Boolean);
-          contentsMap[asset.id] = content;
-        })
-      );
-
-      console.log('Tags found for asset: ', tagsMap);
-      setAssetTags(tagsMap);
-      setAssetContents(contentsMap);
-
-      // Apply default sorting immediately after loading assets and tags
-      setTimeout(() => {
-        // Using setTimeout to ensure assetTags state is updated before sorting
-        const sorted = applySorting(validAssets, []);
-        console.log(
-          'Sorted assets 0: ',
-          sorted.map((asset: Asset) => asset.name)
-        );
-        // Log the original order for comparison
-        console.log(
-          'Original assets: ',
-          validAssets.map((asset) => asset.name)
-        );
-        setFilteredAssets(sorted);
-      }, 0);
-    } catch (error) {
-      console.error('Error loading assets:', error);
-      Alert.alert('Error', t('failedLoadAssets'));
-    }
-  };
-
-  const loadQuest = async () => {
-    try {
-      if (!questId) return;
-      const quest = await questService.getQuestById(questId);
-      setSelectedQuest(quest ?? null);
-    } catch (error) {
-      console.error('Error loading quest:', error);
-    }
-  };
-
-  const applyFilters = useCallback(
-    (
-      assetsToFilter: Asset[],
-      filters: Record<string, string[]>,
-      search: string
-    ) => {
-      const filteredAssets = [];
-      for (const asset of assetsToFilter) {
-        // Search filter
-        const assetContent = assetContents[asset.id] ?? [];
-        const matchesSearch =
-          asset.name.toLowerCase().includes(search.toLowerCase()) ||
-          assetContent.some((content) =>
-            content.text.toLowerCase().includes(search.toLowerCase())
-          );
-
-        // Tag filters
-        const assetTags = assetToTags[asset.id] ?? [];
-        const matchesFilters = Object.entries(filters).every(
-          ([category, selectedOptions]) => {
-            if (selectedOptions.length === 0) return true;
-            return assetTags.some((tag) => {
-              const [tagCategory, tagValue] = tag.name.split(':');
-              return (
-                tagCategory?.toLowerCase() === category.toLowerCase() &&
-                selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
-                )
-              );
-            });
-          }
-        );
-
-        if (matchesSearch && matchesFilters) {
-          filteredAssets.push(asset);
-        }
-      }
-      return filteredAssets;
-    },
-    [assetToTags, assetContents]
-  );
-
-  const applySorting = useCallback(
-    (assetsToSort: Asset[], sorting: SortingOption[]) => {
-      return sortItems(
-        assetsToSort,
-        sorting,
-        (assetId: string) => assetTags[assetId] ?? []
-      );
-    },
-    [assetTags]
-  );
-
-  // Load tags when assets change
-  useEffect(() => {
-    const loadTags = async () => {
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        assets.map(async (asset) => {
-          tagsMap[asset.id] = (
-            await tagService.getTagsByAssetId(asset.id)
-          ).filter(Boolean);
-        })
-      );
-      setAssetToTags(tagsMap);
-    };
-    void loadTags();
-  }, [assets]);
-
-  useEffect(() => {
-    const updateFilteredAssets = () => {
-      const filtered = applyFilters(assets, activeFilters, searchQuery);
-      // Always apply sorting, even if activeSorting is empty (which will trigger default sorting)
-      const sorted = applySorting(filtered, activeSorting);
-      console.log(
-        'Sorted assets: ',
-        sorted.map((asset: Asset) => asset.name)
-      );
-      setFilteredAssets(sorted);
-    };
-    void updateFilteredAssets();
-  }, [
-    searchQuery,
-    activeFilters,
-    activeSorting,
-    assets,
-    applyFilters,
-    applySorting
-  ]);
+    const filtered = filterAssets(
+      assets,
+      assetTagsRecord,
+      assetContentsRecord,
+      searchQuery,
+      activeFilters
+    );
+    return sortItems(
+      filtered,
+      activeSorting,
+      (assetId: string) => assetTagsRecord[assetId] ?? []
+    );
+  }, [assets, searchQuery, activeFilters, activeSorting]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -394,25 +247,11 @@ export default function Assets() {
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
-    const filtered = applyFilters(assets, filters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    console.log(
-      'Sorted assets 2: ',
-      sorted.map((asset: Asset) => asset.name)
-    );
-    setFilteredAssets(sorted);
     setIsFilterModalVisible(false);
   };
 
   const handleApplySorting = (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
-    const filtered = applyFilters(assets, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, sorting);
-    console.log(
-      'Sorted assets 3: ',
-      sorted.map((asset: Asset) => asset.name)
-    );
-    setFilteredAssets(sorted);
   };
 
   const toggleQuestStats = () => {
@@ -448,7 +287,7 @@ export default function Assets() {
         <View
           style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <PageHeader title={selectedQuest?.name ?? ''} />
+          <PageHeader title={quest?.name ?? ''} />
           <View style={styles.headerContainer}>
             <View style={styles.searchContainer}>
               <Ionicons
@@ -505,19 +344,21 @@ export default function Assets() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={{ flex: 1 }}>
-          <AssetFilterModal
-            visible={isFilterModalVisible}
-            onClose={() => setIsFilterModalVisible(false)}
-            assets={assets}
-            onApplyFilters={handleApplyFilters}
-            onApplySorting={handleApplySorting}
-            initialFilters={activeFilters}
-            initialSorting={activeSorting}
-          />
+          {assets && (
+            <AssetFilterModal
+              visible={isFilterModalVisible}
+              onClose={() => setIsFilterModalVisible(false)}
+              assets={assets}
+              onApplyFilters={handleApplyFilters}
+              onApplySorting={handleApplySorting}
+              initialFilters={activeFilters}
+              initialSorting={activeSorting}
+            />
+          )}
         </View>
       </Modal>
-      {showQuestStats && selectedQuest && (
-        <QuestDetails quest={selectedQuest} onClose={handleCloseDetails} />
+      {showQuestStats && quest && (
+        <QuestDetails quest={quest} onClose={handleCloseDetails} />
       )}
     </LinearGradient>
   );

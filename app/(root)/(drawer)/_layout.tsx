@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, Slot } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { PostHogSurveyProvider } from 'posthog-react-native';
 import { ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -31,9 +31,7 @@ export default function AuthLayout() {
     <ProjectProvider>
       <PostHogSurveyProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <Drawer>
-            <Slot />
-          </Drawer>
+          <Drawer />
         </GestureHandlerRootView>
       </PostHogSurveyProvider>
     </ProjectProvider>

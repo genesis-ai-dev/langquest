@@ -27,7 +27,7 @@ import { SourceContent } from './SourceContent';
 interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (translation: typeof asset_content_link.$inferSelect) => void;
+  onSubmit?: (translation: typeof asset_content_link.$inferSelect) => void;
   asset_id: string;
   translationType: 'text' | 'audio';
   assetContent?: typeof asset_content_link.$inferSelect;
@@ -99,7 +99,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       setTranslationText('');
       setAudioUri(null);
       if (assetContent) {
-        onSubmit(assetContent);
+        onSubmit?.(assetContent);
       }
       void handleClose();
     } catch (error) {

@@ -1,19 +1,19 @@
 import type { Asset } from '@/database_services/assetService';
-import { assetService } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
-import { projectService } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
-import { questService } from '@/database_services/questService';
+import { useAssetById } from '@/hooks/db/useAssets';
+import { useProjectById } from '@/hooks/db/useProjects';
+import { useQuestById } from '@/hooks/db/useQuests';
 import type { Href } from 'expo-router';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 interface ProjectContextType {
-  activeProject?: Project;
+  activeProject?: Project | null;
   recentProjects: (Project & { path: Href })[];
-  activeQuest?: Quest;
+  activeQuest?: Quest | null;
   recentQuests: (Quest & { path: Href })[];
-  activeAsset?: Asset;
+  activeAsset?: Asset | null;
   recentAssets: (Asset & { path: Href })[];
   goToProject: (project: Project, navigate?: boolean) => void;
   goToQuest: (quest: Quest, navigate?: boolean) => void;
@@ -43,33 +43,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     assetId: string;
   }>();
 
-  const [activeProject, setActiveProject] = useState<Project>();
-  const [activeQuest, setActiveQuest] = useState<Quest>();
-  const [activeAsset, setActiveAsset] = useState<Asset>();
-
-  useEffect(() => {
-    const loadProject = async () => {
-      const project = await projectService.getProjectById(projectId);
-      setActiveProject(project);
-    };
-    void loadProject();
-  }, [projectId]);
-
-  useEffect(() => {
-    const loadQuest = async () => {
-      const quest = await questService.getQuestById(questId);
-      setActiveQuest(quest);
-    };
-    void loadQuest();
-  }, [questId]);
-
-  useEffect(() => {
-    const loadAsset = async () => {
-      const asset = await assetService.getAssetById(assetId);
-      setActiveAsset(asset);
-    };
-    void loadAsset();
-  }, [assetId]);
+  const { project: activeProject } = useProjectById(projectId);
+  const { quest: activeQuest } = useQuestById(questId);
+  const { asset: activeAsset } = useAssetById(assetId);
 
   function goToProject(project: Project, navigate?: boolean) {
     const path: Href = {

@@ -6,6 +6,7 @@ import type {
 import { UpdateType } from '@powersync/react-native';
 
 import type { Profile } from '@/database_services/profileService';
+import posthog from '@/services/posthog';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
@@ -288,6 +289,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     } catch (ex) {
       console.debug(ex);
       const error = ex as Error & { code?: string };
+      posthog.captureException(error);
       if (
         typeof error.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code!))

@@ -2,9 +2,8 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Translation } from '@/database_services/translationService';
 import { translationService } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
 import { voteService } from '@/database_services/voteService';
-import type { vote } from '@/db/drizzleSchema';
+import { useVotesByTranslationId } from '@/hooks/db/useVotes';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -29,8 +28,8 @@ import { VoteCommentModal } from './VoteCommentModal';
 interface TranslationModalProps {
   translation: Translation;
   onClose: () => void;
-  onVoteSubmitted: () => void;
-  onReportSubmitted: () => void;
+  onVoteSubmitted?: () => void;
+  onReportSubmitted?: () => void;
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
@@ -45,8 +44,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentVoteType] = useState<'up' | 'down'>('up');
-  const [userVote, setUserVote] = useState<typeof vote.$inferSelect>();
-  const [votes, setVotes] = useState<Vote[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,12 +52,21 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     currentUser!.id
   );
 
+  const { votes } = useVotesByTranslationId(initialTranslation.id);
+
+  const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
+
+  const voteCount =
+    votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
+    0;
+
   // Use TanStack Query to load audio URI
   const { data: audioUri, isLoading: loadingAudio } = useQuery({
     queryKey: ['audio', initialTranslation.audio],
     queryFn: async () => {
       if (!initialTranslation.audio) return null;
       try {
+        // if (isOnline) return getOnlineUriForFilePath(initialTranslation.audio);
         return await getLocalUriFromAssetId(initialTranslation.audio);
       } catch (error) {
         console.error('Error loading audio URI:', error);
@@ -71,43 +77,8 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   });
 
   useEffect(() => {
-    const loadVotes = async () => {
-      const translationVotes = await voteService.getVotesByTranslationId(
-        initialTranslation.id
-      );
-      setVotes(translationVotes);
-      if (currentUser) {
-        const userVote = translationVotes.find(
-          (v) => v.creator_id === currentUser.id
-        );
-        setUserVote(userVote);
-      }
-    };
-    void loadVotes();
-  }, [initialTranslation.id, currentUser]);
-
-  useEffect(() => {
     setEditedText(initialTranslation.text ?? '');
   }, [initialTranslation]);
-
-  const loadUserVote = async () => {
-    try {
-      const vote = await voteService.getUserVoteForTranslation(
-        initialTranslation.id,
-        currentUser!.id
-      );
-      setUserVote(vote);
-    } catch (error) {
-      console.error('Error loading user vote:', error);
-    }
-  };
-
-  const calculateVoteCount = () => {
-    return votes.reduce(
-      (acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1),
-      0
-    );
-  };
 
   const isOwnTranslation = currentUser?.id === initialTranslation.creator_id;
 
@@ -123,15 +94,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         creator_id: currentUser.id,
         polarity: voteType
       });
-      onVoteSubmitted();
-      const updatedVotes = await voteService.getVotesByTranslationId(
-        initialTranslation.id
-      );
-      setVotes(updatedVotes);
-      const newUserVote = updatedVotes.find(
-        (v) => v.creator_id === currentUser.id
-      );
-      setUserVote(newUserVote);
+      onVoteSubmitted?.();
     } catch (error) {
       console.error('Error handling vote:', error);
       Alert.alert('Error', t('failedToVote'));
@@ -147,8 +110,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         comment: comment || undefined
       });
 
-      onVoteSubmitted();
-      await loadUserVote();
+      onVoteSubmitted?.();
       setShowVoteModal(false);
     } catch (error) {
       console.error('Error submitting vote:', error);
@@ -177,7 +139,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const handleReportSubmitted = () => {
     setShowReportModal(false);
-    onReportSubmitted();
+    onReportSubmitted?.();
   };
 
   const handleEditSubmit = async () => {
@@ -202,7 +164,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         audio: initialTranslation.audio ?? ''
       });
 
-      onVoteSubmitted();
+      onVoteSubmitted?.();
       onClose();
     } catch (error) {
       console.error('Error creating edited translation:', error);
@@ -305,7 +267,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                   color={colors.text}
                 />
               </TouchableOpacity>
-              <Text style={styles.voteRank}>{calculateVoteCount()}</Text>
+              <Text style={styles.voteRank}>{voteCount}</Text>
               <TouchableOpacity
                 style={[
                   styles.feedbackButton,

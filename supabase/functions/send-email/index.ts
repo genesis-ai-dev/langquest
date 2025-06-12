@@ -196,9 +196,10 @@ Deno.serve(async (req) => {
 
     const parsedRedirectTo = new URL(redirect_to);
     const parsedSiteUrl = new URL(site_url);
-    const confirmation_url = `https://${parsedRedirectTo.host}/supabase/${parsedSiteUrl.host.split('.')[0]}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(
+    const projectRef = parsedSiteUrl.host.split('.')[0];
+    const confirmation_url = `https://${parsedRedirectTo.host}/supabase/${projectRef}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(
       parsedRedirectTo.host,
-      `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type as EmailTypeEndpoint]}`
+      `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type as EmailTypeEndpoint]}?project_ref=${projectRef}`
     )}`;
 
     // Determine which template to use and prepare email data

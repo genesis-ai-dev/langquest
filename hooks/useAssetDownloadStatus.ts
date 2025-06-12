@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { getAssetAttachmentIds } from '../utils/attachmentUtils';
+import type { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { AttachmentState } from '@powersync/attachments';
-import { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { useQuery } from '@powersync/tanstack-react-query';
+import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 
-export function useAssetDownloadStatus(assetIds: string[]) {
+export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useQuery({
     queryKey: ['asset-attachments', assetIds],
     queryFn: () => getAssetAttachmentIds(assetIds)
@@ -29,6 +28,7 @@ export function useAssetDownloadStatus(assetIds: string[]) {
   console.log(
     'Attachment Ids found for assets with getAssetAttachmentIds',
     assetIds,
+    'attachmentIds',
     attachmentIds
   );
   console.log('Attachments found with query', attachments);

@@ -1,13 +1,28 @@
 import type { TempAttachmentQueue } from '@/db/powersync/TempAttachmentQueue';
+import {
+  getAssetAudioContent,
+  getAssetById,
+  getAssetsById,
+  getAssetsContent
+} from '@/hooks/db/useAssets';
+import {
+  getTranslationsByAssetIds,
+  getTranslationsWithAudioByAssetId
+} from '@/hooks/db/useTranslations';
 import { AttachmentState } from '@powersync/attachments';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { asset_download } from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
 
+export function getOnlineUriForFilePath(filePath: string) {
+  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${process.env.EXPO_PUBLIC_SUPABASE_BUCKET}/${filePath}`;
+}
+
 export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
   // With the shared directory approach, we just need to check
   // if the file exists in the shared directory
+
   const fullPath = `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${assetId}`;
   const sharedUri = system.permAttachmentQueue?.getLocalUri(fullPath);
 
@@ -96,18 +111,14 @@ export async function calculateTotalAttachments(
 
     for (const assetId of assetIds) {
       // 1. Get the asset itself for images
-      const assetRecord = await system.db.query.asset.findFirst({
-        where: (a) => eq(a.id, assetId)
-      });
+      const assetRecord = await getAssetById(assetId);
 
       if (assetRecord?.images) {
         totalAttachments += assetRecord.images.length;
       }
 
       // 2. Get asset_content_link entries for audio
-      const assetContents = await system.db.query.asset_content_link.findMany({
-        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
-      });
+      const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
         .filter((content) => content.audio_id)
@@ -116,9 +127,7 @@ export async function calculateTotalAttachments(
       totalAttachments += contentAudioIds.length;
 
       // 3. Get translations for the asset and their audio
-      const translations = await system.db.query.translation.findMany({
-        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
-      });
+      const translations = await getTranslationsWithAudioByAssetId(assetId);
 
       const translationAudioIds = translations
         .filter((translation) => translation.audio)
@@ -145,18 +154,11 @@ export async function getAssetAttachmentIds(
     const [assetResult, contentResult, translationResult] =
       await Promise.allSettled([
         // 1. Get the assets for images
-        system.db.query.asset.findMany({
-          where: (a) => inArray(a.id, assetIds)
-        }),
+        await getAssetsById(assetIds),
         // 2. Get asset_content_link entries for audio
-        system.db.query.asset_content_link.findMany({
-          where: (acl) =>
-            and(inArray(acl.asset_id, assetIds), isNotNull(acl.audio_id))
-        }),
+        await getAssetsContent(assetIds),
         // 3. Get translations for the assets and their audio
-        system.db.query.translation.findMany({
-          where: (t) => and(inArray(t.asset_id, assetIds), isNotNull(t.audio))
-        })
+        await getTranslationsByAssetIds(assetIds)
       ]);
 
     // Process asset images if successful
