@@ -1,8 +1,14 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
+import { downloadService } from '@/database_services/downloadService';
 import type { profile, project } from '@/db/drizzleSchema';
-import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import {
+  invite,
+  profile_project_link,
+  project_download,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
@@ -11,12 +17,13 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View
@@ -57,6 +64,9 @@ export default function NotificationsPage() {
   const { currentUser } = useAuth();
   const { db: drizzleDb } = useSystem();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [downloadToggles, setDownloadToggles] = useState<
+    Record<string, boolean>
+  >({});
 
   // Query for invite notifications (where user's email matches)
   const { data: inviteData = [], refetch: refetchInvites } = useQuery({
@@ -93,6 +103,42 @@ export default function NotificationsPage() {
       last_updated: item.last_updated
     })
   );
+
+  // Query for existing project download statuses
+  const projectIds = inviteNotifications.map((item) => item.project_id);
+  const { data: projectDownloadData = [] } = useQuery({
+    queryKey: ['project-downloads', currentUser?.id, projectIds],
+    query: toCompilableQuery(
+      drizzleDb.query.project_download.findMany({
+        where: and(
+          eq(project_download.profile_id, currentUser?.id || ''),
+          eq(project_download.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && projectIds.length > 0
+  });
+
+  // Initialize download toggles for invites
+  useEffect(() => {
+    if (inviteNotifications.length === 0) return;
+
+    setDownloadToggles((prev) => {
+      const newToggles = { ...prev };
+      inviteNotifications.forEach((notification) => {
+        // Only initialize if not already set
+        if (newToggles[notification.id] === undefined) {
+          // Check if project is already downloaded
+          const isDownloaded = projectDownloadData.some(
+            (pd) => pd.project_id === notification.project_id
+          );
+          // Default to true (download) unless already downloaded
+          newToggles[notification.id] = !isDownloaded;
+        }
+      });
+      return newToggles;
+    });
+  }, [inviteNotifications.length, projectDownloadData.length]);
 
   // Query for request notifications (where user is project owner)
   // First get all projects where the user is an owner
@@ -166,7 +212,8 @@ export default function NotificationsPage() {
     notificationId: string,
     type: 'invite' | 'request',
     projectId: string,
-    asOwner: boolean
+    asOwner: boolean,
+    shouldDownload = false
   ) => {
     if (processingIds.has(notificationId)) return;
 
@@ -175,7 +222,8 @@ export default function NotificationsPage() {
       type,
       projectId,
       asOwner,
-      currentUserId: currentUser?.id
+      currentUserId: currentUser?.id,
+      shouldDownload
     });
 
     setProcessingIds((prev) => new Set(prev).add(notificationId));
@@ -252,6 +300,29 @@ export default function NotificationsPage() {
             .insert(profile_project_link)
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
+        }
+
+        // Handle project download if requested
+        if (shouldDownload && currentUser) {
+          console.log('[handleAccept] Setting project download...');
+          try {
+            await downloadService.setProjectDownload(
+              currentUser.id,
+              projectId,
+              true
+            );
+            console.log('[handleAccept] Project download set successfully');
+          } catch (downloadError) {
+            console.error(
+              '[handleAccept] Error setting project download:',
+              downloadError
+            );
+            // Don't fail the entire operation if download fails
+            Alert.alert(
+              'Warning',
+              'Invitation accepted, but project download failed. You can download it later from the projects page.'
+            );
+          }
         }
       } else {
         // type === 'request'
@@ -387,6 +458,16 @@ export default function NotificationsPage() {
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
     const roleText = item.as_owner ? 'owner' : 'member';
+    const shouldDownload = downloadToggles[item.id] ?? true;
+
+    console.log(
+      'Rendering notification:',
+      item.id,
+      'shouldDownload:',
+      shouldDownload,
+      'downloadToggles:',
+      downloadToggles
+    );
 
     return (
       <View key={item.id} style={styles.notificationItem}>
@@ -411,13 +492,63 @@ export default function NotificationsPage() {
           <Text style={styles.notificationDate}>
             {new Date(item.created_at).toLocaleDateString()}
           </Text>
+
+          {/* Download toggle for invites */}
+          {item.type === 'invite' && (
+            <View style={styles.downloadSection}>
+              <View style={styles.downloadToggleRow}>
+                <Text style={styles.downloadLabel}>Download project</Text>
+                <Switch
+                  value={shouldDownload}
+                  onValueChange={(value) => {
+                    console.log(
+                      'Toggle changed for notification:',
+                      item.id,
+                      'New value:',
+                      value
+                    );
+                    setDownloadToggles((prev) => {
+                      const newToggles = {
+                        ...prev,
+                        [item.id]: value
+                      };
+                      console.log('Updated toggles:', newToggles);
+                      return newToggles;
+                    });
+                  }}
+                  trackColor={{
+                    false: colors.textSecondary,
+                    true: colors.primary
+                  }}
+                  thumbColor={colors.buttonText}
+                  disabled={isProcessing}
+                />
+              </View>
+              {!shouldDownload && (
+                <View style={styles.warningContainer}>
+                  <Ionicons name="warning" size={16} color={colors.alert} />
+                  <Text style={styles.warningText}>
+                    If you don't download the project, you won't be able to
+                    contribute to it offline. You can download it later by
+                    pressing the project card's cloud icon.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.notificationActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.acceptButton]}
             onPress={() =>
-              handleAccept(item.id, item.type, item.project_id, item.as_owner)
+              handleAccept(
+                item.id,
+                item.type,
+                item.project_id,
+                item.as_owner,
+                shouldDownload
+              )
             }
             disabled={isProcessing}
           >
@@ -580,5 +711,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.large
+  },
+  downloadSection: {
+    marginTop: spacing.medium,
+    gap: spacing.small
+  },
+  downloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  downloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  warningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
   }
 });

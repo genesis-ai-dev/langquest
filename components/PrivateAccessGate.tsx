@@ -1,6 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { profile_project_link, request } from '@/db/drizzleSchema';
+import { downloadService } from '@/database_services/downloadService';
+import {
+  profile_project_link,
+  project_download,
+  request
+} from '@/db/drizzleSchema';
 import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -22,6 +27,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -75,6 +81,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { db } = useSystem();
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoDownload, setAutoDownload] = useState(true);
   const { hasAccess } = usePrivateProjectAccess({
     projectId,
     isPrivate
@@ -110,8 +117,24 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
   });
 
+  // Query for existing project download status
+  const { data: projectDownloadData = [] } = useQuery({
+    queryKey: ['project-download-status', currentUser?.id, projectId],
+    query: toCompilableQuery(
+      db.query.project_download.findMany({
+        where: and(
+          eq(project_download.profile_id, currentUser?.id || ''),
+          eq(project_download.project_id, projectId),
+          eq(project_download.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
   const isMember = membershipLinks.length > 0;
   const existingRequest = existingRequests[0];
+  const isProjectDownloaded = projectDownloadData.length > 0;
 
   // Auto-close modal and trigger navigation when user becomes a member (modal mode only)
   useEffect(() => {
@@ -163,6 +186,27 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       }
 
       await refetch();
+
+      // Handle project download if toggle is enabled and not already downloaded
+      if (autoDownload && !isProjectDownloaded) {
+        try {
+          await downloadService.setProjectDownload(
+            currentUser.id,
+            projectId,
+            true
+          );
+          console.log(
+            '[handleRequestMembership] Project download set successfully'
+          );
+        } catch (downloadError) {
+          console.error(
+            '[handleRequestMembership] Error setting project download:',
+            downloadError
+          );
+          // Don't fail the entire operation if download fails
+        }
+      }
+
       Alert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {
       console.error('Error requesting membership:', error);
@@ -532,6 +576,39 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   />
                   <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
                 </View>
+
+                {/* Download toggle */}
+                <View style={styles.downloadSection}>
+                  <View style={styles.downloadToggleRow}>
+                    <Text style={styles.downloadLabel}>
+                      {isProjectDownloaded
+                        ? 'Project will remain downloaded'
+                        : 'Download project when request is sent'}
+                    </Text>
+                    <Switch
+                      value={isProjectDownloaded ? true : autoDownload}
+                      onValueChange={
+                        isProjectDownloaded ? undefined : setAutoDownload
+                      }
+                      trackColor={{
+                        false: colors.textSecondary,
+                        true: colors.primary
+                      }}
+                      thumbColor={colors.buttonText}
+                      disabled={isSubmitting || isProjectDownloaded}
+                    />
+                  </View>
+                  {!isProjectDownloaded && !autoDownload && (
+                    <View style={styles.warningContainer}>
+                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Text style={styles.warningText}>
+                        If you don't download the project, you won't be able to
+                        contribute to it offline. You can download it later by
+                        pressing the project card's cloud icon.
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </>
             ) : (
               <>
@@ -539,6 +616,39 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.inlineDescription}>
                   {getActionMessage()}
                 </Text>
+
+                {/* Download toggle for inline mode */}
+                <View style={styles.inlineDownloadSection}>
+                  <View style={styles.inlineDownloadToggleRow}>
+                    <Text style={styles.inlineDownloadLabel}>
+                      {isProjectDownloaded
+                        ? 'Project will remain downloaded'
+                        : 'Download project when request is sent'}
+                    </Text>
+                    <Switch
+                      value={isProjectDownloaded ? true : autoDownload}
+                      onValueChange={
+                        isProjectDownloaded ? undefined : setAutoDownload
+                      }
+                      trackColor={{
+                        false: colors.textSecondary,
+                        true: colors.primary
+                      }}
+                      thumbColor={colors.buttonText}
+                      disabled={isSubmitting || isProjectDownloaded}
+                    />
+                  </View>
+                  {!isProjectDownloaded && !autoDownload && (
+                    <View style={styles.inlineWarningContainer}>
+                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Text style={styles.inlineWarningText}>
+                        If you don't download the project, you won't be able to
+                        contribute to it offline. You can download it later by
+                        pressing the project card's cloud icon.
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </>
             )}
             <TouchableOpacity
@@ -837,7 +947,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.large,
-    minHeight: 300
+    minHeight: 300,
+    width: '100%'
   },
   inlineIconContainer: {
     alignItems: 'center',
@@ -869,5 +980,69 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.background,
     textAlign: 'center'
+  },
+  downloadSection: {
+    marginTop: spacing.medium,
+    marginBottom: spacing.large
+  },
+  downloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.small
+  },
+  downloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  warningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
+  },
+  inlineDownloadSection: {
+    width: '100%',
+    maxWidth: 400,
+    marginTop: spacing.medium,
+    marginBottom: spacing.large,
+    paddingHorizontal: spacing.medium
+  },
+  inlineDownloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.small,
+    width: '100%'
+  },
+  inlineDownloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1,
+    marginRight: spacing.small
+  },
+  inlineWarningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)',
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    width: '100%'
+  },
+  inlineWarningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
   }
 });
