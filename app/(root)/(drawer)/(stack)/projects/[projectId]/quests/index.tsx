@@ -2,11 +2,15 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
+import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useSystem } from '@/contexts/SystemContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
+import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useQuestDownload } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -33,13 +37,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Translation } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
 import { useAssetsWithTranslationsAndVotesByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
+import { and, eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
@@ -106,30 +111,7 @@ const QuestCard: React.FC<{ quest: Quest & { tags: { tag: Tag }[] } }> = ({
   const { isDownloaded: assetsDownloaded, isLoading } =
     useAttachmentAssetDownloadStatus(assetIds);
 
-  const translationsMap = assets.reduce(
-    (acc, asset) => {
-      acc[asset.id] = asset.translations;
-      return acc;
-    },
-    {} as Record<string, Translation[]>
-  );
-
-  const votesMap = assets.reduce(
-    (acc, asset) => {
-      acc[asset.id] = asset.translations.flatMap(
-        (translation) => translation.votes
-      );
-      return acc;
-    },
-    {} as Record<string, Vote[]>
-  );
-
-  const progress = calculateQuestProgress(
-    assets,
-    translationsMap,
-    votesMap,
-    currentUser?.id ?? null
-  );
+  const progress = calculateQuestProgress(assets, currentUser?.id ?? null);
 
   return (
     <View style={sharedStyles.card}>
@@ -181,19 +163,41 @@ export default function Quests() {
     projectName: string;
   }>();
   const [searchQuery, setSearchQuery] = useState('');
+  const { db } = useSystem();
+  const { currentUser } = useAuth();
+
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  // const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [showProjectStats, setShowProjectStats] = useState(false);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { goToQuest } = useProjectContext();
 
   const { project: selectedProject } = useProjectById(projectId);
   const { quests: questsData } = useQuestsWithTagsByProjectId(projectId);
   const quests = questsData ?? [];
+
+  // Query to check if current user is an owner
+  const { data: [currentUserLink] = [] } = useTanstackQuery({
+    queryKey: ['current-user-project-link', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findFirst({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  const isOwner = currentUserLink?.membership === 'owner';
+
   const questTags = useMemo(() => {
     return quests.reduce(
       (acc, quest) => {
@@ -230,7 +234,6 @@ export default function Quests() {
   };
 
   const handleCloseDetails = () => {
-    // setSelectedQuest(null);
     setShowProjectStats(false);
   };
 
@@ -256,10 +259,6 @@ export default function Quests() {
           setIsFilterModalVisible(false);
           return true;
         }
-        // if (selectedQuest) {
-        //   setSelectedQuest(null);
-        //   return true;
-        // }
         return false;
       }
     );
@@ -320,15 +319,20 @@ export default function Quests() {
             style={sharedStyles.list}
           />
           <View style={styles.floatingButtonsContainer}>
-            {/* {SHOW_MEMBERSHIP_BUTTON && (
+            {isOwner && (
               <TouchableOpacity
-                onPress={() => setShowMembershipModal(true)}
-                style={styles.membersButton}
+                onPress={() => setShowSettingsModal(true)}
+                style={styles.settingsButton}
               >
-                x
-                <Ionicons name="people" size={24} color={colors.text} />
+                <Ionicons name="settings" size={24} color={colors.text} />
               </TouchableOpacity>
-            )} */}
+            )}
+            <TouchableOpacity
+              onPress={() => setShowMembershipModal(true)}
+              style={styles.membersButton}
+            >
+              <Ionicons name="people" size={24} color={colors.text} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={toggleProjectStats}
               style={styles.statsButton}
@@ -368,6 +372,16 @@ export default function Quests() {
           projectId={projectId}
         />
       )} */}
+      <ProjectMembershipModal
+        isVisible={showMembershipModal}
+        onClose={() => setShowMembershipModal(false)}
+        projectId={projectId}
+      />
+      <ProjectSettingsModal
+        isVisible={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        projectId={projectId}
+      />
     </LinearGradient>
   );
 }
@@ -422,6 +436,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignSelf: 'flex-end',
     gap: spacing.small
+  },
+  settingsButton: {
+    padding: spacing.small
   },
   membersButton: {
     padding: spacing.small

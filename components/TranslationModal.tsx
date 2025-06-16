@@ -1,15 +1,16 @@
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Translation } from '@/database_services/translationService';
 import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@powersync/tanstack-react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,17 +24,19 @@ import {
 } from 'react-native';
 import AudioPlayer from './AudioPlayer';
 import { ReportModal } from './ReportModal';
-import { VoteCommentModal } from './VoteCommentModal';
+import Shimmer from './Shimmer';
 
 interface TranslationModalProps {
-  translation: Translation;
+  translationId: string;
+  assetId?: string;
   onClose: () => void;
   onVoteSubmitted?: () => void;
   onReportSubmitted?: () => void;
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
-  translation: initialTranslation,
+  translationId,
+  assetId,
   onClose,
   onVoteSubmitted,
   onReportSubmitted
@@ -41,18 +44,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const { stopCurrentSound } = useAudio();
-  const [showVoteModal, setShowVoteModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [currentVoteType] = useState<'up' | 'down'>('up');
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { hasReported } = useTranslationReports(
-    initialTranslation.id,
-    currentUser!.id
+  const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
+    null
   );
+  const { hasReported } = useTranslationReports(translationId, currentUser!.id);
 
-  const { votes } = useVotesByTranslationId(initialTranslation.id);
+  const queryClient = useQueryClient();
+
+  const { translation } = useTranslationDataWithVotes(translationId, assetId);
+  const { votes } = useVotesByTranslationId(translationId);
 
   const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
 
@@ -62,61 +65,96 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   // Use TanStack Query to load audio URI
   const { data: audioUri, isLoading: loadingAudio } = useQuery({
-    queryKey: ['audio', initialTranslation.audio],
+    queryKey: ['audio', translation?.audio],
     queryFn: async () => {
-      if (!initialTranslation.audio) return null;
+      if (!translation?.audio) return null;
       try {
-        // if (isOnline) return getOnlineUriForFilePath(initialTranslation.audio);
-        return await getLocalUriFromAssetId(initialTranslation.audio);
+        return await getLocalUriFromAssetId(translation.audio);
       } catch (error) {
         console.error('Error loading audio URI:', error);
         return null;
       }
     },
-    enabled: !!initialTranslation.audio
+    enabled: !!translation?.audio
   });
 
   useEffect(() => {
-    setEditedText(initialTranslation.text ?? '');
-  }, [initialTranslation]);
+    setEditedText(translation?.text ?? '');
+  }, [translation]);
 
-  const isOwnTranslation = currentUser?.id === initialTranslation.creator_id;
+  const isOwnTranslation = currentUser?.id === translation?.creator_id;
 
-  const handleVote = async (voteType: 'up' | 'down') => {
-    if (!currentUser || isOwnTranslation) {
-      Alert.alert('Error', t('logInToVote'));
-      return;
-    }
+  const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
+    mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
+      if (!currentUser) {
+        Alert.alert('Error', t('logInToVote'));
+        return;
+      }
+      setPendingVoteType(voteType);
 
-    try {
       await voteService.addVote({
-        translation_id: initialTranslation.id,
+        translation_id: translationId,
         creator_id: currentUser.id,
+        vote_id: userVote?.id,
         polarity: voteType
       });
-      onVoteSubmitted?.();
-    } catch (error) {
-      console.error('Error handling vote:', error);
-      Alert.alert('Error', t('failedToVote'));
-    }
-  };
 
-  const handleVoteSubmit = async (comment: string) => {
-    try {
-      await voteService.addVote({
-        translation_id: initialTranslation.id,
-        creator_id: currentUser!.id,
-        polarity: currentVoteType,
-        comment: comment || undefined
+      await queryClient.invalidateQueries({
+        queryKey: ['translation', translationId]
       });
-
       onVoteSubmitted?.();
-      setShowVoteModal(false);
-    } catch (error) {
-      console.error('Error submitting vote:', error);
-      Alert.alert('Error', t('failedToVote'));
+    },
+    onSettled: () => {
+      setPendingVoteType(null);
     }
-  };
+  });
+  // const handleVote = async (voteType: 'up' | 'down') => {
+  //   if (!currentUser || isOwnTranslation) {
+  //     Alert.alert('Error', t('logInToVote'));
+  //     return;
+  //   }
+  //   setIsSubmitting(true);
+
+  //   try {
+  //     // console.log('Caleb voteType', voteType);
+  //     await voteService.addVote({
+  //       translation_id: translationId,
+  //       creator_id: currentUser.id,
+  //       polarity: voteType
+  //     });
+
+  //     onVoteSubmitted?.();
+  //     setIsSubmitting(false);
+  //     // const updatedVotes =
+  //     //   await voteService.getVotesByTranslationId(translationId);
+  //     // // setVotes(updatedVotes);
+  //     // const newUserVote = updatedVotes.find(
+  //     //   (v) => v.creator_id === currentUser.id
+  //     // );
+  //     // setUserVote(newUserVote);
+  //   } catch (error) {
+  //     console.error('Error handling vote:', error);
+  //     Alert.alert('Error', t('failedToVote'));
+  //   }
+  // };
+
+  // const handleVoteSubmit = async (comment: string) => {
+  //   try {
+  //     await voteService.addVote({
+  //       translation_id: translationId,
+  //       creator_id: currentUser!.id,
+  //       polarity: currentVoteType,
+  //       comment: comment || undefined
+  //     });
+
+  //     onVoteSubmitted();
+  //     // await loadUserVote();
+  //     setShowVoteModal(false);
+  //   } catch (error) {
+  //     console.error('Error submitting vote:', error);
+  //     Alert.alert('Error', t('failedToVote'));
+  //   }
+  // };
 
   const handleReportPress = () => {
     if (!currentUser) {
@@ -142,37 +180,37 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     onReportSubmitted?.();
   };
 
-  const handleEditSubmit = async () => {
-    if (!currentUser) {
-      Alert.alert('Error', t('logInToTranslate'));
-      return;
-    }
+  const { mutate: editTranslation, isPending: isEditPending } = useMutation({
+    mutationFn: async () => {
+      if (!currentUser) {
+        throw new Error(t('logInToTranslate'));
+      }
 
-    if (!editedText.trim()) {
-      Alert.alert('Error', t('fillFields'));
-      return;
-    }
+      if (!editedText.trim()) {
+        throw new Error(t('fillFields'));
+      }
 
-    setIsSubmitting(true);
-    try {
-      // Create a new translation linked to the same audio file
-      await translationService.createTranslation({
+      if (!translation?.target_language_id || !translation.asset_id) {
+        throw new Error('Invalid translation data');
+      }
+
+      return translationService.createTranslation({
         text: editedText.trim(),
-        target_language_id: initialTranslation.target_language_id,
-        asset_id: initialTranslation.asset_id,
+        target_language_id: translation.target_language_id,
+        asset_id: translation.asset_id,
         creator_id: currentUser.id,
-        audio: initialTranslation.audio ?? ''
+        audio: translation.audio ?? ''
       });
-
+    },
+    onSuccess: () => {
       onVoteSubmitted?.();
       onClose();
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error creating edited translation:', error);
       Alert.alert('Error', t('failedCreateTranslation'));
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  });
 
   const toggleEdit = () => {
     setIsEditing(!isEditing);
@@ -185,13 +223,48 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     onClose();
   };
 
+  if (!translation) {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.overlay} onPress={handleClose} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.overlay} onPress={handleClose} />
       <View style={styles.modal}>
-        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-          <Ionicons name="close" size={20} color={colors.text} />
-        </TouchableOpacity>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: spacing.medium
+          }}
+        >
+          <TouchableOpacity
+            style={[
+              styles.reportButton,
+              (isOwnTranslation || hasReported) &&
+                styles.feedbackButtonDisabled,
+              {
+                alignSelf: 'flex-start'
+              }
+            ]}
+            onPress={handleReportPress}
+            disabled={isOwnTranslation || hasReported}
+          >
+            <Ionicons
+              name={hasReported ? 'flag' : 'flag-outline'}
+              size={20}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+            <Ionicons name="close" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
         <ScrollView style={styles.scrollView}>
           {isEditing ? (
             <TextInput
@@ -208,17 +281,16 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                 <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
               <Text style={styles.text}>
-                {initialTranslation.text || t('enterTranslation')}
+                {translation.text || t('enterTranslation')}
               </Text>
             </View>
           )}
         </ScrollView>
-
         <View style={styles.audioPlayerContainer}>
           {loadingAudio ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            initialTranslation.audio &&
+            translation.audio &&
             audioUri && (
               <AudioPlayer
                 audioUri={audioUri}
@@ -228,19 +300,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             )
           )}
         </View>
-
         {isEditing ? (
           <TouchableOpacity
             style={[
               styles.submitButton,
-              (isSubmitting || !editedText.trim()) && {
+              (isEditPending || !editedText.trim()) && {
                 backgroundColor: colors.disabled
               }
             ]}
-            onPress={handleEditSubmit}
-            disabled={isSubmitting || !editedText.trim()}
+            onPress={() => editTranslation()}
+            disabled={isEditPending || !editedText.trim()}
           >
-            {isSubmitting ? (
+            {isEditPending ? (
               <ActivityIndicator size="small" color={colors.buttonText} />
             ) : (
               <Text style={styles.submitButtonText}>{t('submit')}</Text>
@@ -249,78 +320,108 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         ) : (
           <View style={styles.actionsContainer}>
             <View style={styles.feedbackContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.feedbackButton,
-                  isOwnTranslation && styles.feedbackButtonDisabled
-                ]}
-                onPress={() => handleVote('up')}
-                disabled={isOwnTranslation}
-              >
-                <Ionicons
-                  name={
-                    userVote?.polarity === 'up'
-                      ? 'thumbs-up'
-                      : 'thumbs-up-outline'
-                  }
-                  size={24}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
-              <Text style={styles.voteRank}>{voteCount}</Text>
-              <TouchableOpacity
-                style={[
-                  styles.feedbackButton,
-                  isOwnTranslation && styles.feedbackButtonDisabled
-                ]}
-                onPress={() => handleVote('down')}
-                disabled={isOwnTranslation}
-              >
-                <Ionicons
-                  name={
-                    userVote?.polarity === 'down'
-                      ? 'thumbs-down'
-                      : 'thumbs-down-outline'
-                  }
-                  size={24}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
+              {!isOwnTranslation && (
+                <View
+                  style={{
+                    flexDirection: 'row'
+                  }}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.newTranslationButton,
+                      {
+                        flex: 1,
+                        backgroundColor: '#6545B6',
+                        borderWidth: 2,
+                        borderColor:
+                          userVote?.polarity === 'up' ? colors.alert : '#6545B6'
+                      }
+                    ]}
+                    onPress={() => handleVote({ voteType: 'up' })}
+                    disabled={userVote?.polarity === 'up' || isVotePending}
+                  >
+                    {pendingVoteType === 'up' && (
+                      <View style={styles.shimmerOverlay}>
+                        <Shimmer
+                          width={200}
+                          height={50}
+                          backgroundColor="transparent"
+                          highlightColor="rgba(255, 255, 255, 0.3)"
+                        />
+                      </View>
+                    )}
+                    <Ionicons
+                      name={
+                        userVote?.polarity === 'up'
+                          ? 'thumbs-up'
+                          : 'thumbs-up-outline'
+                      }
+                      size={24}
+                      color={colors.buttonText}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.newTranslationButton,
+                      {
+                        flex: 1,
+                        borderWidth: 2,
+                        backgroundColor: colors.primary,
+                        borderColor:
+                          userVote?.polarity === 'down'
+                            ? colors.alert
+                            : colors.primary
+                      }
+                    ]}
+                    onPress={() => handleVote({ voteType: 'down' })}
+                    disabled={userVote?.polarity === 'down' || isVotePending}
+                  >
+                    {pendingVoteType === 'down' && (
+                      <View style={styles.shimmerOverlay}>
+                        <Shimmer
+                          width={200}
+                          height={50}
+                          backgroundColor="transparent"
+                          highlightColor="rgba(255, 255, 255, 0.3)"
+                        />
+                      </View>
+                    )}
+                    <Ionicons
+                      name={
+                        userVote?.polarity === 'down'
+                          ? 'thumbs-down'
+                          : 'thumbs-down-outline'
+                      }
+                      size={24}
+                      color={colors.buttonText}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {isOwnTranslation && (
+                <View style={styles.feedbackContainer}>
+                  <Text style={styles.voteRank}>{voteCount}</Text>
+                </View>
+              )}
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.reportButton,
-                (isOwnTranslation || hasReported) &&
-                  styles.feedbackButtonDisabled
-              ]}
-              onPress={handleReportPress}
-              disabled={isOwnTranslation || hasReported}
-            >
-              <Ionicons
-                name={hasReported ? 'flag' : 'flag-outline'}
-                size={20}
-                color={colors.text}
-              />
-            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      <VoteCommentModal
+      {/* <VoteCommentModal
         isVisible={showVoteModal}
         onClose={() => setShowVoteModal(false)}
         onSubmit={handleVoteSubmit}
         voteType={currentVoteType}
-      />
+      /> */}
 
       {showReportModal && (
         <ReportModal
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
-          recordId={initialTranslation.id}
+          recordId={translationId}
           recordTable="translations"
-          creatorId={initialTranslation.creator_id}
+          creatorId={translation.creator_id}
           onReportSubmitted={handleReportSubmitted}
         />
       )}
@@ -406,7 +507,8 @@ const styles = StyleSheet.create({
   },
   feedbackContainer: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
+    flex: 1
   },
   feedbackButton: {
     padding: spacing.xsmall
@@ -437,5 +539,25 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold'
+  },
+  newTranslationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.medium,
+    height: 50,
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden'
   }
 });

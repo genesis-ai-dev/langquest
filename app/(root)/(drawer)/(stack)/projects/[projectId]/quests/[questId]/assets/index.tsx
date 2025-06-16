@@ -1,6 +1,8 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
+import PickaxeIcon from '@/components/PickaxeIcon';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -16,6 +18,8 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { getGemColor, shouldCountTranslation } from '@/utils/progressUtils';
+import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
@@ -32,15 +36,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GemIcon } from '@/components/GemIcon';
-import PickaxeIcon from '@/components/PickaxeIcon';
 import type { AssetContent } from '@/hooks/db/useAssets';
 import { useAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useAssetDownload } from '@/hooks/useDownloads';
-import { getGemColor } from '@/utils/progressUtils';
-import { sortItems } from '@/utils/sortingUtils';
 
 interface SortingOption {
   field: string;
@@ -107,15 +107,18 @@ function AssetCard({ asset }: { asset: Asset }) {
   // Aggregate translations by gem color
   const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
     (acc, translation) => {
+      // Only count translations that should be displayed
+      if (!shouldCountTranslation(translation.votes)) {
+        return acc;
+      }
+
       const gemColor = getGemColor(
         translation,
         translation.votes,
         currentUser?.id ?? null
       );
 
-      if (gemColor !== null) {
-        acc[gemColor] = (acc[gemColor] ?? 0) + 1;
-      }
+      acc[gemColor] = (acc[gemColor] ?? 0) + 1;
 
       return acc;
     },
@@ -197,24 +200,19 @@ export default function Assets() {
   const [showQuestStats, setShowQuestStats] = useState(false);
 
   const { quest } = useQuestById(questId);
+
   // Compute filtered assets directly without useEffect to avoid infinite loop
   const filteredAssets = useMemo(() => {
     if (!assets) return [];
-    const assetTagsRecord = assets.reduce(
-      (acc, asset) => {
-        acc[asset.id] = asset.tags.map((tag) => tag.tag);
-        return acc;
-      },
-      {} as Record<string, Tag[]>
-    );
 
-    const assetContentsRecord = assets.reduce(
-      (acc, asset) => {
-        acc[asset.id] = asset.content;
-        return acc;
-      },
-      {} as Record<string, AssetContent[]>
-    );
+    const assetTagsRecord: Record<string, Tag[]> = {};
+    const assetContentsRecord: Record<string, AssetContent[]> = {};
+
+    // Build the records with proper typing
+    assets.forEach((asset) => {
+      assetTagsRecord[asset.id] = asset.tags.map((tag) => tag.tag);
+      assetContentsRecord[asset.id] = asset.content;
+    });
 
     const filtered = filterAssets(
       assets,

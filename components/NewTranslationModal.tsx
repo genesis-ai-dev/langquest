@@ -27,7 +27,7 @@ import { SourceContent } from './SourceContent';
 interface NewTranslationModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit?: (translation: typeof asset_content_link.$inferSelect) => void;
+  onSubmit: (translation?: object) => void;
   asset_id: string;
   translationType: 'text' | 'audio';
   assetContent?: typeof asset_content_link.$inferSelect;
@@ -88,7 +88,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
       }
 
       // Create the translation with or without audio
-      await translationService.createTranslation({
+      const newTranslation = await translationService.createTranslation({
         text: translationType === 'text' ? translationText.trim() : '',
         target_language_id: activeProject.target_language_id,
         asset_id,
@@ -98,9 +98,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
       setTranslationText('');
       setAudioUri(null);
-      if (assetContent) {
-        onSubmit?.(assetContent);
-      }
+      onSubmit(newTranslation);
       void handleClose();
     } catch (error) {
       console.error('Error creating translation:', error);

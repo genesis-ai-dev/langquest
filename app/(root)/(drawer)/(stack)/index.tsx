@@ -1,10 +1,13 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { PrivateProjectAccessModal } from '@/components/PrivateProjectAccessModal';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useSystem } from '@/contexts/SystemContext';
 import type { project } from '@/db/drizzleSchema';
+import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useProjectDownload } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -27,8 +30,9 @@ import {
   calculateProjectProgress,
   calculateQuestProgress
 } from '@/utils/progressUtils';
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-// Constants for storage keys
+import { and, eq } from 'drizzle-orm';
 
 type Project = typeof project.$inferSelect;
 
@@ -99,10 +103,19 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
               })
             );
 
+            // Create assets with translations and votes attached for calculateQuestProgress
+            const assetsWithTranslations = assets.map((asset) => ({
+              ...asset,
+              translations: (translations[asset.id] || []).map(
+                (translation) => ({
+                  ...translation,
+                  votes: votes[translation.id] || []
+                })
+              )
+            }));
+
             return calculateQuestProgress(
-              assets.filter(Boolean),
-              translations,
-              votes,
+              assetsWithTranslations,
               currentUser?.id ?? null
             );
           })
@@ -112,7 +125,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         const projectProgress = calculateProjectProgress(questProgresses);
         setProgress(projectProgress);
       } catch (error) {
-        console.error('Error loading project progress:', error);
+        console.error('Error loading progress:', error);
       }
     };
 
@@ -129,9 +142,23 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             gap: spacing.small
           }}
         >
-          <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
-            {project.name}
-          </Text>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xsmall
+            }}
+          >
+            <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+            {project.private && (
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color={colors.textSecondary}
+              />
+            )}
+          </View>
           <DownloadIndicator
             isDownloaded={isDownloaded && assetsDownloaded}
             isLoading={isLoading || isDownloadLoading}
@@ -160,6 +187,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 export default function Projects() {
   const { t } = useTranslation();
   const { goToProject } = useProjectContext();
+  const { currentUser } = useAuth();
+  const { db } = useSystem();
   const { projects } = useProjects();
   const { languages: allLanguages } = useLanguages();
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
@@ -174,6 +203,10 @@ export default function Projects() {
     null
   );
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [privateProjectModal, setPrivateProjectModal] = useState<{
+    isVisible: boolean;
+    project: Project | null;
+  }>({ isVisible: false, project: null });
 
   // Filter projects when filters change
   useEffect(() => {
@@ -233,30 +266,45 @@ export default function Projects() {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleExplore = (project: Project) => {
+  const handleExplore = async (project: Project) => {
+    // Check if project is private
+    if (project.private) {
+      if (currentUser) {
+        // Check if user is a member or owner
+        const membershipLinks = await db.query.profile_project_link.findMany({
+          where: and(
+            eq(profile_project_link.profile_id, currentUser.id),
+            eq(profile_project_link.project_id, project.id),
+            eq(profile_project_link.active, true)
+          )
+        });
+
+        const isMember = membershipLinks.length > 0;
+
+        if (!isMember) {
+          // Show private project modal
+          setPrivateProjectModal({ isVisible: true, project });
+          return;
+        }
+      } else {
+        // User not logged in, show private project modal
+        setPrivateProjectModal({ isVisible: true, project });
+        return;
+      }
+    }
+
+    // Proceed with navigation
     goToProject(project);
   };
 
   // Custom setSourceFilter function that validates against available options
   const handleSourceFilterChange = (value: string) => {
-    // Only set the filter if the value is 'All' or exists in sourceLanguages
-    if (value === 'All' || sourceLanguages.includes(value)) {
-      setSourceFilter(value);
-    } else {
-      // Fallback to 'All' if value doesn't exist in available options
-      setSourceFilter('All');
-    }
+    setSourceFilter(value);
   };
 
   // Custom setTargetFilter function that validates against available options
   const handleTargetFilterChange = (value: string) => {
-    // Only set the filter if the value is 'All' or exists in targetLanguages
-    if (value === 'All' || targetLanguages.includes(value)) {
-      setTargetFilter(value);
-    } else {
-      // Fallback to 'All' if value doesn't exist in available options
-      setTargetFilter('All');
-    }
+    setTargetFilter(value);
   };
 
   if (!projects) return null;
@@ -333,6 +381,17 @@ export default function Projects() {
           />
         </View>
       </SafeAreaView>
+
+      {privateProjectModal.project && (
+        <PrivateProjectAccessModal
+          isVisible={privateProjectModal.isVisible}
+          onClose={() =>
+            setPrivateProjectModal({ isVisible: false, project: null })
+          }
+          projectId={privateProjectModal.project.id}
+          projectName={privateProjectModal.project.name}
+        />
+      )}
     </LinearGradient>
   );
 }

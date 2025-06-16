@@ -4,6 +4,7 @@ import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
@@ -36,6 +37,7 @@ interface DrawerItemType {
   name?: string;
   icon: keyof typeof Ionicons.glyphMap;
   path: Href;
+  notificationCount?: number;
 }
 
 function DrawerItems() {
@@ -53,8 +55,25 @@ function DrawerItems() {
     'backup' | 'restore' | null
   >(null);
 
+  // Use the notifications hook
+  const { notificationCount } = useNotifications();
+
+  // Feature flag to toggle notifications visibility
+  const SHOW_NOTIFICATIONS = false; // Set to true to enable notifications
+
   const drawerItems: DrawerItemType[] = [
     { name: t('projects'), icon: 'home', path: '/' },
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    ...(SHOW_NOTIFICATIONS
+      ? [
+          {
+            name: 'Notifications',
+            icon: 'notifications' as keyof typeof Ionicons.glyphMap,
+            path: '/notifications' as Href,
+            notificationCount
+          }
+        ]
+      : []),
     { name: t('profile'), icon: 'person', path: '/profile' }
   ] as const;
 
@@ -264,6 +283,7 @@ export function Drawer() {
   return (
     <ExpoDrawer
       screenOptions={{
+        drawerPosition: 'right',
         headerShown: false,
         drawerType: 'slide',
         swipeEdgeWidth: 100
@@ -382,8 +402,19 @@ const DrawerItem = forwardRef<
       ]}
       {...props}
     >
-      <Ionicons name={item.icon} size={20} color={colors.text} />
-      <Text style={{ color: colors.text }}>{item.name}</Text>
+      <View style={styles.drawerItemContent}>
+        <Ionicons name={item.icon} size={20} color={colors.text} />
+        <Text style={{ color: colors.text }}>{item.name}</Text>
+      </View>
+      {item.notificationCount != null && item.notificationCount > 0 && (
+        <View style={styles.notificationBadge}>
+          <Text style={styles.notificationBadgeText}>
+            {item.notificationCount > 99
+              ? '99+'
+              : String(item.notificationCount)}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 });
@@ -493,10 +524,30 @@ const styles = StyleSheet.create({
   drawerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.small,
     padding: spacing.medium,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.small
+  },
+  drawerItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small
+  },
+  notificationBadge: {
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  notificationBadgeText: {
+    color: colors.buttonText,
+    fontSize: 12,
+    fontWeight: 'bold'
   },
   drawerFooter: {
     borderTopWidth: 1,
