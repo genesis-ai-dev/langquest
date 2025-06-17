@@ -10,6 +10,7 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +62,7 @@ interface NotificationItem {
 const { db } = system;
 
 export default function NotificationsPage() {
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { db: drizzleDb } = useSystem();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
@@ -232,7 +234,7 @@ export default function NotificationsPage() {
       // Update the appropriate table based on type
       if (type === 'invite') {
         console.log('[handleAccept] Updating invite to accepted...');
-        const updateResult = await db
+        await db
           .update(invite)
           .set({
             status: 'accepted',
@@ -240,20 +242,8 @@ export default function NotificationsPage() {
           })
           .where(eq(invite.id, notificationId));
 
-        console.log('[handleAccept] Update result:', updateResult);
-
         // Verify the update worked by querying the record
-        const updatedRecord = await db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-
-        console.log('[handleAccept] Record after update:', updatedRecord);
-
-        // Create or update profile_project_link for the current user
-        console.log(
-          '[handleAccept] Processing invite type - checking for existing link...'
-        );
+        await db.select().from(invite).where(eq(invite.id, notificationId));
 
         const existingLink = await db
           .select()
@@ -265,12 +255,9 @@ export default function NotificationsPage() {
             )
           );
 
-        console.log('[handleAccept] Existing link found:', existingLink);
-
         if (existingLink.length > 0) {
-          console.log('[handleAccept] Updating existing link...');
           // Update existing link
-          const linkUpdateResult = await db
+          await db
             .update(profile_project_link)
             .set({
               active: true,
@@ -283,9 +270,7 @@ export default function NotificationsPage() {
                 eq(profile_project_link.project_id, projectId)
               )
             );
-          console.log('[handleAccept] Link update result:', linkUpdateResult);
         } else {
-          console.log('[handleAccept] Creating new link...');
           // Create new link
           const newLinkData = {
             id: `${currentUser!.id}_${projectId}`,
@@ -304,24 +289,19 @@ export default function NotificationsPage() {
 
         // Handle project download if requested
         if (shouldDownload && currentUser) {
-          console.log('[handleAccept] Setting project download...');
           try {
             await downloadService.setProjectDownload(
               currentUser.id,
               projectId,
               true
             );
-            console.log('[handleAccept] Project download set successfully');
           } catch (downloadError) {
             console.error(
               '[handleAccept] Error setting project download:',
               downloadError
             );
             // Don't fail the entire operation if download fails
-            Alert.alert(
-              'Warning',
-              'Invitation accepted, but project download failed. You can download it later from the projects page.'
-            );
+            Alert.alert(t('warning'), t('invitationAcceptedButDownloadFailed'));
           }
         }
       } else {
@@ -390,7 +370,7 @@ export default function NotificationsPage() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation accepted successfully!');
+      Alert.alert(t('success'), t('invitationAcceptedSuccess'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -398,7 +378,7 @@ export default function NotificationsPage() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert('Error', 'Failed to accept invitation. Please try again.');
+      Alert.alert(t('error'), t('failedToAcceptInvitation'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -442,10 +422,10 @@ export default function NotificationsPage() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation declined.');
+      Alert.alert(t('success'), t('invitationDeclined'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert('Error', 'Failed to decline invitation. Please try again.');
+      Alert.alert(t('error'), t('failedToDeclineInvitation'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -485,8 +465,16 @@ export default function NotificationsPage() {
 
           <Text style={styles.notificationMessage}>
             {item.type === 'invite'
-              ? `${item.sender_name || item.sender_email} has invited you to join project "${item.project_name}" as ${roleText}`
-              : `${item.sender_name || item.sender_email} has requested to join project "${item.project_name}" as ${roleText}`}
+              ? t('projectInvitationFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })
+              : t('projectJoinRequestFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })}
           </Text>
 
           <Text style={styles.notificationDate}>
@@ -497,7 +485,7 @@ export default function NotificationsPage() {
           {item.type === 'invite' && (
             <View style={styles.downloadSection}>
               <View style={styles.downloadToggleRow}>
-                <Text style={styles.downloadLabel}>Download project</Text>
+                <Text style={styles.downloadLabel}>{t('downloadProject')}</Text>
                 <Switch
                   value={shouldDownload}
                   onValueChange={(value) => {
@@ -528,9 +516,7 @@ export default function NotificationsPage() {
                 <View style={styles.warningContainer}>
                   <Ionicons name="warning" size={16} color={colors.alert} />
                   <Text style={styles.warningText}>
-                    If you don't download the project, you won't be able to
-                    contribute to it offline. You can download it later by
-                    pressing the project card's cloud icon.
+                    {t('downloadProjectOfflineWarning')}
                   </Text>
                 </View>
               )}
@@ -561,7 +547,7 @@ export default function NotificationsPage() {
                   size={16}
                   color={colors.buttonText}
                 />
-                <Text style={styles.actionButtonText}>Accept</Text>
+                <Text style={styles.actionButtonText}>{t('accept')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -576,7 +562,7 @@ export default function NotificationsPage() {
             ) : (
               <>
                 <Ionicons name="close" size={16} color={colors.buttonText} />
-                <Text style={styles.actionButtonText}>Decline</Text>
+                <Text style={styles.actionButtonText}>{t('decline')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -592,7 +578,7 @@ export default function NotificationsPage() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <PageHeader title="Notifications" />
+          <PageHeader title={t('notifications')} />
 
           <ScrollView
             style={styles.scrollView}
@@ -605,9 +591,11 @@ export default function NotificationsPage() {
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyStateText}>No notifications</Text>
+                <Text style={styles.emptyStateText}>
+                  {t('noNotifications')}
+                </Text>
                 <Text style={styles.emptyStateSubtext}>
-                  You'll see project invitations and join requests here
+                  {t('noNotificationsSubtext')}
                 </Text>
               </View>
             ) : (

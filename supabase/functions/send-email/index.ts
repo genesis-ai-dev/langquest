@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
           .eq('id', sender?.ui_language_id)
           .single();
         const locale = language?.locale ?? 'en';
-        const joinUrl = `${Deno.env.get('SITE_URL')}/register?invite=${record.id}`;
+        const joinUrl = `${Deno.env.get('PLAY_STORE_URL')}`;
         const inviteComponent = React.createElement(InviteEmail, {
           projectName: project?.name ?? 'Unknown Project',
           inviterName: sender?.username ?? 'A LangQuest user',

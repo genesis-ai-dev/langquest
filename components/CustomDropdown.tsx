@@ -1,4 +1,4 @@
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -36,7 +36,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   containerStyle,
   renderLeftIcon
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const data: DropdownOption[] = options.map((option) => {
     if (typeof option === 'string') {
       return { label: option, value: option };

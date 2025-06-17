@@ -15,7 +15,7 @@ import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
 import type { project } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -198,7 +198,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 };
 
 export default function Quests() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { projectId, projectName } = useLocalSearchParams<{
     projectId: string;
     projectName: string;

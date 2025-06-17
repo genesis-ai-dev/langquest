@@ -4,8 +4,8 @@ import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
   backupUnsyncedAudio,
@@ -43,7 +43,7 @@ interface DrawerItemType {
 
 function DrawerItems() {
   const pathname = usePathname();
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { signOut, currentUser } = useAuth();
   const system = useSystem();
   const systemReady = system.isInitialized();
@@ -68,7 +68,7 @@ function DrawerItems() {
     ...(SHOW_NOTIFICATIONS
       ? [
           {
-            name: 'Notifications',
+            name: t('notifications'),
             icon: 'notifications' as keyof typeof Ionicons.glyphMap,
             path: '/notifications' as Href,
             notificationCount
@@ -296,7 +296,7 @@ export function Drawer({ children }: { children?: ReactNode }) {
 }
 
 export function DrawerContent(props: DrawerContentComponentProps) {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const {
     recentProjects,
     recentQuests,

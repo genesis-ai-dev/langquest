@@ -4,8 +4,8 @@ import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
 import { quest_asset_link } from '@/db/drizzleSchema';
+import { useLocalization } from '@/hooks/useLocalization';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
-import { useTranslation } from '@/hooks/useTranslation';
 import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -46,7 +46,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   onVoteSubmitted,
   onReportSubmitted
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { stopCurrentSound } = useAudio();
   const { db } = useSystem();

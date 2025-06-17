@@ -1,6 +1,6 @@
 import { PasswordInput } from '@/components/PasswordInput';
 import { useSystem } from '@/contexts/SystemContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +25,7 @@ interface ResetPasswordFormData {
 export default function ResetPassword() {
   const { supabaseConnector } = useSystem();
   const [userLanguage, setUserLanguage] = useState<string | null>(null);
-  const { t } = useTranslation(userLanguage);
+  const { t } = useLocalization(userLanguage);
   const [isLoading, setIsLoading] = useState(true);
   const [canResetPassword, setCanResetPassword] = useState(false);
   const router = useRouter();

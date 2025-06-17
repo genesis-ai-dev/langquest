@@ -17,7 +17,7 @@ import {
   project as projectTable
 } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
@@ -252,7 +252,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 };
 
 export default function Projects() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToProject } = useProjectContext();
   const { db } = useSystem();
   const { currentUser } = useAuth();

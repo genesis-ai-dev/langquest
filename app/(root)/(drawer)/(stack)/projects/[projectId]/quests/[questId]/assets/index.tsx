@@ -18,7 +18,7 @@ import { tagService } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -199,7 +199,7 @@ function AssetCard({ asset }: { asset: Asset }) {
 }
 
 export default function Assets() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToAsset } = useProjectContext();
   const { questId, projectId } = useGlobalSearchParams<{
     questId: string;

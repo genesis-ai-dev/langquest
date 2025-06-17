@@ -26,8 +26,8 @@ import {
   translation as translationTable
 } from '@/db/drizzleSchema';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
-import { useTranslation } from '@/hooks/useTranslation';
 import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
@@ -71,7 +71,7 @@ type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
   const system = useSystem();
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { assetId } = useGlobalSearchParams<{

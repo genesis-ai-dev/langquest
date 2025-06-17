@@ -6,9 +6,9 @@ import {
   project_download,
   request
 } from '@/db/drizzleSchema';
+import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
-import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
   colors,
@@ -76,7 +76,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   onClose,
   isVisible = false
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { db } = useSystem();
   const [showModal, setShowModal] = useState(false);
@@ -272,34 +272,34 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
     switch (action) {
       case 'view-members':
-        return 'You need to be a member to view the member list and send invitations. Request access to join this project.';
+        return t('privateProjectMembersMessage');
       case 'vote':
-        return 'This project is private. You need to be a member to vote on translations. Request access to join this project.';
+        return t('privateProjectVotingMessage');
       case 'translate':
-        return 'This project is private. You need to be a member to submit translations. Request access to join this project.';
+        return t('privateProjectTranslationMessage');
       case 'edit-transcription':
-        return 'This project is private. You need to be a member to edit transcriptions. Request access to join this project.';
+        return t('privateProjectEditingMessage');
       case 'download':
-        return 'This project is private. You can download the content but will not be able to contribute translations or votes. Request access to join this project and start contributing.';
+        return t('privateProjectDownloadMessage');
       default:
-        return 'This project is private. You need to be a member to access this feature. Request access to join this project.';
+        return t('privateProjectGenericMessage');
     }
   };
 
   const getActionTitle = () => {
     switch (action) {
       case 'view-members':
-        return 'Private Project Members';
+        return t('privateProjectMembers');
       case 'vote':
-        return 'Private Project Voting';
+        return t('privateProjectVoting');
       case 'translate':
-        return 'Private Project Translation';
+        return t('privateProjectTranslation');
       case 'edit-transcription':
-        return 'Private Project Editing';
+        return t('privateProjectEditing');
       case 'download':
-        return 'Private Project Download';
+        return t('privateProjectDownload');
       default:
-        return 'Private Project Access';
+        return t('privateProjectAccess');
     }
   };
 
@@ -335,7 +335,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             <>
               <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
               <Text style={styles.inlineDescription}>
-                You need to be logged in to access this private project.
+                {t('privateProjectNotLoggedInInline')}
               </Text>
             </>
           )}
@@ -359,16 +359,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             </View>
             {modal ? (
               <Text style={styles.modalDescription}>
-                {t('requestPendingDescription')}
+                {t('requestPendingInline')}
               </Text>
             ) : (
               <>
                 <Text style={styles.inlineTitle}>
-                  {getActionTitle()} - Request Pending
+                  {getActionTitle()} - {t('requestPending')}
                 </Text>
                 <Text style={styles.inlineDescription}>
-                  Your membership request is pending approval. You'll be
-                  notified when it's reviewed.
+                  {t('requestPendingInline')}
                 </Text>
               </>
             )}
@@ -415,18 +414,24 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             {modal ? (
               <Text style={styles.modalDescription}>
                 {attemptsLeft > 0
-                  ? `Your request expired after 7 days. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
-                  : 'Your request expired and you have no more attempts remaining.'}
+                  ? t('requestExpiredAttemptsRemaining', {
+                      attempts: attemptsLeft,
+                      plural: attemptsLeft > 1 ? 's' : ''
+                    })
+                  : t('requestExpiredNoAttempts')}
               </Text>
             ) : (
               <>
                 <Text style={styles.inlineTitle}>
-                  {getActionTitle()} - Request Expired
+                  {getActionTitle()} - {t('requestExpired')}
                 </Text>
                 <Text style={styles.inlineDescription}>
                   {attemptsLeft > 0
-                    ? `Your previous request expired after 7 days. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
-                    : 'Your previous request expired after 7 days and you have no more attempts remaining.'}
+                    ? t('requestExpiredInline', {
+                        attempts: attemptsLeft,
+                        plural: attemptsLeft > 1 ? 's' : ''
+                      })
+                    : t('requestExpiredNoAttemptsInline')}
                 </Text>
               </>
             )}
@@ -476,12 +481,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             ) : (
               <>
                 <Text style={styles.inlineTitle}>
-                  {getActionTitle()} - Request Declined
+                  {getActionTitle()} - {t('requestDeclined')}
                 </Text>
                 <Text style={styles.inlineDescription}>
                   {attemptsLeft > 0
-                    ? `Your request was declined. You have ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining.`
-                    : 'Your request was declined and you have no more attempts remaining.'}
+                    ? t('requestDeclinedInline', {
+                        attempts: attemptsLeft,
+                        plural: attemptsLeft > 1 ? 's' : ''
+                      })
+                    : t('requestDeclinedNoRetryInline')}
                 </Text>
               </>
             )}
@@ -523,16 +531,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             </View>
             {modal ? (
               <Text style={styles.modalDescription}>
-                {t('requestWithdrawnDescription')}
+                {t('requestWithdrawnInline')}
               </Text>
             ) : (
               <>
                 <Text style={styles.inlineTitle}>
-                  {getActionTitle()} - Request Withdrawn
+                  {getActionTitle()} - {t('requestWithdrawnTitle')}
                 </Text>
                 <Text style={styles.inlineDescription}>
-                  You withdrew your previous request. You can send a new request
-                  anytime.
+                  {t('requestWithdrawnInline')}
                 </Text>
               </>
             )}
@@ -582,8 +589,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   <View style={styles.downloadToggleRow}>
                     <Text style={styles.downloadLabel}>
                       {isProjectDownloaded
-                        ? 'Project will remain downloaded'
-                        : 'Download project when request is sent'}
+                        ? t('projectWillRemainDownloaded')
+                        : t('downloadProjectWhenRequestSent')}
                     </Text>
                     <Switch
                       value={isProjectDownloaded ? true : autoDownload}
@@ -602,9 +609,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                     <View style={styles.warningContainer}>
                       <Ionicons name="warning" size={16} color={colors.alert} />
                       <Text style={styles.warningText}>
-                        If you don't download the project, you won't be able to
-                        contribute to it offline. You can download it later by
-                        pressing the project card's cloud icon.
+                        {t('downloadProjectOfflineWarning')}
                       </Text>
                     </View>
                   )}
@@ -622,8 +627,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   <View style={styles.inlineDownloadToggleRow}>
                     <Text style={styles.inlineDownloadLabel}>
                       {isProjectDownloaded
-                        ? 'Project will remain downloaded'
-                        : 'Download project when request is sent'}
+                        ? t('projectWillRemainDownloaded')
+                        : t('downloadProjectWhenRequestSent')}
                     </Text>
                     <Switch
                       value={isProjectDownloaded ? true : autoDownload}
@@ -642,9 +647,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                     <View style={styles.inlineWarningContainer}>
                       <Ionicons name="warning" size={16} color={colors.alert} />
                       <Text style={styles.inlineWarningText}>
-                        If you don't download the project, you won't be able to
-                        contribute to it offline. You can download it later by
-                        pressing the project card's cloud icon.
+                        {t('downloadProjectOfflineWarning')}
                       </Text>
                     </View>
                   )}
@@ -704,7 +707,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                     onPress={handleBypass}
                   >
                     <Text style={sharedStyles.buttonText}>
-                      {viewProjectButtonText || 'View Project'}
+                      {viewProjectButtonText || t('viewProject')}
                     </Text>
                   </TouchableOpacity>
                 )}

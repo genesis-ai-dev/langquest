@@ -6,7 +6,7 @@ import {
   project as projectTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -74,7 +74,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   onClose,
   projectId
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'members' | 'invited'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -349,10 +349,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         void refetchInvitations();
         Alert.alert(t('success'), t('invitationResent'));
       } else {
-        Alert.alert(
-          t('error'),
-          'Maximum invitation attempts reached for this email address.'
-        );
+        Alert.alert(t('error'), t('maxInviteAttemptsReached'));
       }
     } catch (error) {
       console.error('Error resending invitation:', error);
@@ -376,7 +373,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       if (existingMember) {
         Alert.alert(
           t('error'),
-          `This email address is already a ${existingMember.role} of this project.`
+          t('emailAlreadyMemberMessage', { role: t(existingMember.role) })
         );
         setIsSubmitting(false);
         return;
@@ -440,19 +437,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             Alert.alert(t('success'), t('invitationResent'));
             return;
           } else {
-            Alert.alert(
-              t('error'),
-              'Maximum invitation attempts reached for this email address.'
-            );
+            Alert.alert(t('error'), t('maxInviteAttemptsReached'));
             setIsSubmitting(false);
             return;
           }
         } else {
           // Invitation is still pending or in another active state
-          Alert.alert(
-            t('error'),
-            'An invitation has already been sent to this email address.'
-          );
+          Alert.alert(t('error'), t('invitationAlreadySent'));
           setIsSubmitting(false);
           return;
         }
@@ -677,7 +668,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {projectLoading ? (
                   <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>
-                      Loading project details...
+                      {t('loadingProjectDetails')}
                     </Text>
                   </View>
                 ) : (
@@ -819,7 +810,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                             color={colors.textSecondary}
                           />
                           <Text style={styles.ownerOnlyText}>
-                            Only project owners can invite new members
+                            {t('onlyOwnersCanInvite')}
                           </Text>
                         </View>
                       )}
