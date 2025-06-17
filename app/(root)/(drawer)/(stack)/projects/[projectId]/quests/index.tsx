@@ -208,8 +208,8 @@ export default function Quests() {
   const { currentUser } = useAuth();
 
   // Feature flags to toggle button visibility
-  const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
-  const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
+  const SHOW_SETTINGS_BUTTON = false; // Set to false to hide settings button
+  const SHOW_MEMBERSHIP_BUTTON = false; // Set to false to hide membership button
   const quests: QuestWithRelations[] = useQuery(
     toCompilableQuery(
       db.query.quest.findMany({

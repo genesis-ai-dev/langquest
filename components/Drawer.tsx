@@ -284,6 +284,7 @@ export function Drawer({ children }: { children?: ReactNode }) {
   return (
     <ExpoDrawer
       screenOptions={{
+        drawerPosition: 'right',
         headerShown: false,
         drawerType: 'slide',
         swipeEdgeWidth: 100
