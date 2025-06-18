@@ -166,6 +166,10 @@ export default function Quests() {
   const { db } = useSystem();
   const { currentUser } = useAuth();
 
+  // Feature flags to toggle button visibility
+  const SHOW_SETTINGS_BUTTON = false; // Set to false to hide settings button
+  const SHOW_MEMBERSHIP_BUTTON = false; // Set to false to hide membership button
+
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -319,7 +323,8 @@ export default function Quests() {
             style={sharedStyles.list}
           />
           <View style={styles.floatingButtonsContainer}>
-            {isOwner && (
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {isOwner && SHOW_SETTINGS_BUTTON && (
               <TouchableOpacity
                 onPress={() => setShowSettingsModal(true)}
                 style={styles.settingsButton}
@@ -327,12 +332,15 @@ export default function Quests() {
                 <Ionicons name="settings" size={24} color={colors.text} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={() => setShowMembershipModal(true)}
-              style={styles.membersButton}
-            >
-              <Ionicons name="people" size={24} color={colors.text} />
-            </TouchableOpacity>
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_MEMBERSHIP_BUTTON && (
+              <TouchableOpacity
+                onPress={() => setShowMembershipModal(true)}
+                style={styles.membersButton}
+              >
+                <Ionicons name="people" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={toggleProjectStats}
               style={styles.statsButton}
