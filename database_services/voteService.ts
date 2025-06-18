@@ -14,6 +14,7 @@ export class VoteService {
     vote_id?: string;
     polarity: Vote['polarity'];
     comment?: string;
+    active?: boolean;
   }) {
     try {
       const existingVoteId =
@@ -40,7 +41,7 @@ export class VoteService {
           .set({
             polarity: data.polarity,
             comment: data.comment,
-            active: true
+            active: data.active ?? true
           })
           .where(eq(vote.id, existingVoteId));
         const endTime = Date.now();
@@ -55,7 +56,7 @@ export class VoteService {
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment ?? '',
-          active: true
+          active: data.active ?? true
         });
       }
     } catch (error) {

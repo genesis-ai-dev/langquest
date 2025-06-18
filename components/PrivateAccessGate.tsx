@@ -1,0 +1,1051 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { useSystem } from '@/contexts/SystemContext';
+import { downloadService } from '@/database_services/downloadService';
+import {
+  profile_project_link,
+  project_download,
+  request
+} from '@/db/drizzleSchema';
+import { useLocalization } from '@/hooks/useLocalization';
+import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
+import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
+import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/tanstack-react-query';
+import { and, eq } from 'drizzle-orm';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
+
+interface PrivateAccessGateProps {
+  projectId: string;
+  projectName: string;
+  isPrivate: boolean;
+  action: PrivateAccessAction;
+  children?: React.ReactNode;
+  onAccessGranted?: () => void;
+  renderTrigger?: (props: {
+    onPress: () => void;
+    hasAccess: boolean;
+  }) => React.ReactNode;
+  inline?: boolean;
+  modal?: boolean; // New prop to show as modal instead of inline
+  allowBypass?: boolean; // For download scenario
+  onBypass?: () => void;
+  customMessage?: string;
+  showViewProjectButton?: boolean;
+  viewProjectButtonText?: string;
+  onMembershipGranted?: () => void;
+  onClose?: () => void;
+  isVisible?: boolean; // For modal mode
+}
+
+export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
+  projectId,
+  projectName,
+  isPrivate,
+  action,
+  children,
+  onAccessGranted,
+  renderTrigger,
+  inline = false,
+  modal = false,
+  allowBypass = false,
+  onBypass,
+  customMessage,
+  showViewProjectButton,
+  viewProjectButtonText,
+  onMembershipGranted,
+  onClose,
+  isVisible = false
+}) => {
+  const { t } = useLocalization();
+  const { currentUser } = useAuth();
+  const { db } = useSystem();
+  const [showModal, setShowModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoDownload, setAutoDownload] = useState(true);
+  const { hasAccess } = usePrivateProjectAccess({
+    projectId,
+    isPrivate
+  });
+
+  // Query for existing membership request
+  const { data: existingRequests = [], refetch } = useQuery({
+    queryKey: ['membership-request', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.request.findMany({
+        where: and(
+          eq(request.sender_profile_id, currentUser?.id || ''),
+          eq(request.project_id, projectId)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  // Query for membership status (for modal mode)
+  const { data: membershipLinks = [] } = useQuery({
+    queryKey: ['membership-status', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId && modal,
+    refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
+  });
+
+  // Query for existing project download status
+  const { data: projectDownloadData = [] } = useQuery({
+    queryKey: ['project-download-status', currentUser?.id, projectId],
+    query: toCompilableQuery(
+      db.query.project_download.findMany({
+        where: and(
+          eq(project_download.profile_id, currentUser?.id || ''),
+          eq(project_download.project_id, projectId),
+          eq(project_download.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  const isMember = membershipLinks.length > 0;
+  const existingRequest = existingRequests[0];
+  const isProjectDownloaded = projectDownloadData.length > 0;
+
+  // Auto-close modal and trigger navigation when user becomes a member (modal mode only)
+  useEffect(() => {
+    if (modal && isMember && isVisible) {
+      onClose?.();
+      onMembershipGranted?.();
+    }
+  }, [modal, isMember, isVisible, onClose, onMembershipGranted]);
+
+  // Determine the current status
+  const getRequestStatus = () => {
+    if (!existingRequest) return null;
+
+    if (
+      existingRequest.status === 'pending' &&
+      isExpiredByLastUpdated(existingRequest.last_updated)
+    ) {
+      return 'expired';
+    }
+
+    return existingRequest.status;
+  };
+
+  const currentStatus = getRequestStatus();
+
+  const handleRequestMembership = async () => {
+    if (!currentUser) return;
+
+    setIsSubmitting(true);
+    try {
+      if (existingRequest) {
+        // Update existing request
+        await db
+          .update(request)
+          .set({
+            status: 'pending',
+            count: (existingRequest.count || 0) + 1,
+            last_updated: new Date().toISOString()
+          })
+          .where(eq(request.id, existingRequest.id));
+      } else {
+        // Create new request
+        await db.insert(request).values({
+          sender_profile_id: currentUser.id,
+          project_id: projectId,
+          status: 'pending',
+          count: 1
+        });
+      }
+
+      await refetch();
+
+      // Handle project download if toggle is enabled and not already downloaded
+      if (autoDownload && !isProjectDownloaded) {
+        try {
+          await downloadService.setProjectDownload(
+            currentUser.id,
+            projectId,
+            true
+          );
+          console.log(
+            '[handleRequestMembership] Project download set successfully'
+          );
+        } catch (downloadError) {
+          console.error(
+            '[handleRequestMembership] Error setting project download:',
+            downloadError
+          );
+          // Don't fail the entire operation if download fails
+        }
+      }
+
+      Alert.alert(t('success'), t('membershipRequestSent'));
+    } catch (error) {
+      console.error('Error requesting membership:', error);
+      Alert.alert(t('error'), t('failedToRequestMembership'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleWithdrawRequest = () => {
+    if (!existingRequest) return;
+
+    Alert.alert(t('confirmWithdraw'), t('confirmWithdrawRequestMessage'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('confirm'),
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setIsSubmitting(true);
+            try {
+              await db
+                .update(request)
+                .set({
+                  status: 'withdrawn',
+                  last_updated: new Date().toISOString()
+                })
+                .where(eq(request.id, existingRequest.id));
+
+              await refetch();
+              Alert.alert(t('success'), t('requestWithdrawn'));
+            } catch (error) {
+              console.error('Error withdrawing request:', error);
+              Alert.alert(t('error'), t('failedToWithdrawRequest'));
+            } finally {
+              setIsSubmitting(false);
+            }
+          })();
+        }
+      }
+    ]);
+  };
+
+  const handlePress = () => {
+    if (hasAccess) {
+      onAccessGranted?.();
+    } else {
+      setShowModal(true);
+    }
+  };
+
+  const handleBypass = () => {
+    if (modal) {
+      onClose?.();
+    } else {
+      setShowModal(false);
+    }
+    onBypass?.();
+  };
+
+  const getActionMessage = () => {
+    if (customMessage) return customMessage;
+
+    switch (action) {
+      case 'view-members':
+        return t('privateProjectMembersMessage');
+      case 'vote':
+        return t('privateProjectVotingMessage');
+      case 'translate':
+        return t('privateProjectTranslationMessage');
+      case 'edit-transcription':
+        return t('privateProjectEditingMessage');
+      case 'download':
+        return t('privateProjectDownloadMessage');
+      default:
+        return t('privateProjectGenericMessage');
+    }
+  };
+
+  const getActionTitle = () => {
+    switch (action) {
+      case 'view-members':
+        return t('privateProjectMembers');
+      case 'vote':
+        return t('privateProjectVoting');
+      case 'translate':
+        return t('privateProjectTranslation');
+      case 'edit-transcription':
+        return t('privateProjectEditing');
+      case 'download':
+        return t('privateProjectDownload');
+      default:
+        return t('privateProjectAccess');
+    }
+  };
+
+  const renderContent = () => {
+    // Handle not logged in case
+    if (!currentUser) {
+      return (
+        <>
+          <View
+            style={
+              modal ? styles.modalIconContainer : styles.inlineIconContainer
+            }
+          >
+            <Ionicons name="lock-closed" size={48} color={colors.primary} />
+          </View>
+          {modal ? (
+            <>
+              <Text style={styles.modalDescription}>
+                {t('privateProjectNotLoggedIn')}
+              </Text>
+              <View style={styles.infoBox}>
+                <Ionicons
+                  name="information-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.infoText}>
+                  {t('privateProjectLoginRequired')}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
+              <Text style={styles.inlineDescription}>
+                {t('privateProjectNotLoggedInInline')}
+              </Text>
+            </>
+          )}
+        </>
+      );
+    }
+
+    switch (currentStatus) {
+      case 'pending':
+        return (
+          <>
+            <View
+              style={
+                modal ? styles.modalStatusContainer : styles.inlineIconContainer
+              }
+            >
+              <Ionicons name="time-outline" size={48} color={colors.primary} />
+              {modal && (
+                <Text style={styles.statusTitle}>{t('requestPending')}</Text>
+              )}
+            </View>
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {t('requestPendingInline')}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - {t('requestPending')}
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  {t('requestPendingInline')}
+                </Text>
+              </>
+            )}
+            <TouchableOpacity
+              style={
+                modal
+                  ? [sharedStyles.button, styles.withdrawButton]
+                  : [styles.inlineButton, styles.withdrawButton]
+              }
+              onPress={handleWithdrawRequest}
+              disabled={isSubmitting}
+            >
+              <Text
+                style={
+                  modal
+                    ? [sharedStyles.buttonText, styles.withdrawButtonText]
+                    : [styles.inlineButtonText, styles.withdrawButtonText]
+                }
+              >
+                {isSubmitting ? t('withdrawing') : t('withdrawRequest')}
+              </Text>
+            </TouchableOpacity>
+          </>
+        );
+
+      case 'expired': {
+        const attemptsLeft = 4 - (existingRequest?.count || 0);
+        return (
+          <>
+            <View
+              style={
+                modal ? styles.modalStatusContainer : styles.inlineIconContainer
+              }
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={48}
+                color={colors.alert}
+              />
+              {modal && (
+                <Text style={styles.statusTitle}>{t('requestExpired')}</Text>
+              )}
+            </View>
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {attemptsLeft > 0
+                  ? t('requestExpiredAttemptsRemaining', {
+                      attempts: attemptsLeft,
+                      plural: attemptsLeft > 1 ? 's' : ''
+                    })
+                  : t('requestExpiredNoAttempts')}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - {t('requestExpired')}
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  {attemptsLeft > 0
+                    ? t('requestExpiredInline', {
+                        attempts: attemptsLeft,
+                        plural: attemptsLeft > 1 ? 's' : ''
+                      })
+                    : t('requestExpiredNoAttemptsInline')}
+                </Text>
+              </>
+            )}
+            {attemptsLeft > 0 && (
+              <TouchableOpacity
+                style={modal ? sharedStyles.button : styles.inlineButton}
+                onPress={handleRequestMembership}
+                disabled={isSubmitting}
+              >
+                <Text
+                  style={
+                    modal ? sharedStyles.buttonText : styles.inlineButtonText
+                  }
+                >
+                  {isSubmitting ? t('requesting') : t('requestAgain')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        );
+      }
+
+      case 'declined': {
+        const attemptsLeft = 3 - (existingRequest?.count || 0);
+        return (
+          <>
+            <View
+              style={
+                modal ? styles.modalStatusContainer : styles.inlineIconContainer
+              }
+            >
+              <Ionicons
+                name="close-circle-outline"
+                size={48}
+                color={colors.error}
+              />
+              {modal && (
+                <Text style={styles.statusTitle}>{t('requestDeclined')}</Text>
+              )}
+            </View>
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {attemptsLeft > 0
+                  ? t('requestDeclinedCanRetry', { attempts: attemptsLeft })
+                  : t('requestDeclinedNoRetry')}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - {t('requestDeclined')}
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  {attemptsLeft > 0
+                    ? t('requestDeclinedInline', {
+                        attempts: attemptsLeft,
+                        plural: attemptsLeft > 1 ? 's' : ''
+                      })
+                    : t('requestDeclinedNoRetryInline')}
+                </Text>
+              </>
+            )}
+            {attemptsLeft > 0 && (
+              <TouchableOpacity
+                style={modal ? sharedStyles.button : styles.inlineButton}
+                onPress={handleRequestMembership}
+                disabled={isSubmitting}
+              >
+                <Text
+                  style={
+                    modal ? sharedStyles.buttonText : styles.inlineButtonText
+                  }
+                >
+                  {isSubmitting ? t('requesting') : t('requestAgain')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        );
+      }
+
+      case 'withdrawn':
+        return (
+          <>
+            <View
+              style={
+                modal ? styles.modalStatusContainer : styles.inlineIconContainer
+              }
+            >
+              <Ionicons
+                name="remove-circle-outline"
+                size={48}
+                color={colors.textSecondary}
+              />
+              {modal && (
+                <Text style={styles.statusTitle}>{t('requestWithdrawn')}</Text>
+              )}
+            </View>
+            {modal ? (
+              <Text style={styles.modalDescription}>
+                {t('requestWithdrawnInline')}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>
+                  {getActionTitle()} - {t('requestWithdrawnTitle')}
+                </Text>
+                <Text style={styles.inlineDescription}>
+                  {t('requestWithdrawnInline')}
+                </Text>
+              </>
+            )}
+            <TouchableOpacity
+              style={modal ? sharedStyles.button : styles.inlineButton}
+              onPress={handleRequestMembership}
+              disabled={isSubmitting}
+            >
+              <Text
+                style={
+                  modal ? sharedStyles.buttonText : styles.inlineButtonText
+                }
+              >
+                {isSubmitting ? t('requesting') : t('requestMembership')}
+              </Text>
+            </TouchableOpacity>
+          </>
+        );
+
+      default:
+        // No existing request
+        return (
+          <>
+            <View
+              style={
+                modal ? styles.modalIconContainer : styles.inlineIconContainer
+              }
+            >
+              <Ionicons name="lock-closed" size={48} color={colors.primary} />
+            </View>
+            {modal ? (
+              <>
+                <Text style={styles.modalDescription}>
+                  {getActionMessage()}
+                </Text>
+                <View style={styles.infoBox}>
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
+                </View>
+
+                {/* Download toggle */}
+                <View style={styles.downloadSection}>
+                  <View style={styles.downloadToggleRow}>
+                    <Text style={styles.downloadLabel}>
+                      {isProjectDownloaded
+                        ? t('projectWillRemainDownloaded')
+                        : t('downloadProjectWhenRequestSent')}
+                    </Text>
+                    <Switch
+                      value={isProjectDownloaded ? true : autoDownload}
+                      onValueChange={
+                        isProjectDownloaded ? undefined : setAutoDownload
+                      }
+                      trackColor={{
+                        false: colors.textSecondary,
+                        true: colors.primary
+                      }}
+                      thumbColor={colors.buttonText}
+                      disabled={isSubmitting || isProjectDownloaded}
+                    />
+                  </View>
+                  {!isProjectDownloaded && !autoDownload && (
+                    <View style={styles.warningContainer}>
+                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Text style={styles.warningText}>
+                        {t('downloadProjectOfflineWarning')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
+                <Text style={styles.inlineDescription}>
+                  {getActionMessage()}
+                </Text>
+
+                {/* Download toggle for inline mode */}
+                <View style={styles.inlineDownloadSection}>
+                  <View style={styles.inlineDownloadToggleRow}>
+                    <Text style={styles.inlineDownloadLabel}>
+                      {isProjectDownloaded
+                        ? t('projectWillRemainDownloaded')
+                        : t('downloadProjectWhenRequestSent')}
+                    </Text>
+                    <Switch
+                      value={isProjectDownloaded ? true : autoDownload}
+                      onValueChange={
+                        isProjectDownloaded ? undefined : setAutoDownload
+                      }
+                      trackColor={{
+                        false: colors.textSecondary,
+                        true: colors.primary
+                      }}
+                      thumbColor={colors.buttonText}
+                      disabled={isSubmitting || isProjectDownloaded}
+                    />
+                  </View>
+                  {!isProjectDownloaded && !autoDownload && (
+                    <View style={styles.inlineWarningContainer}>
+                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Text style={styles.inlineWarningText}>
+                        {t('downloadProjectOfflineWarning')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+            <TouchableOpacity
+              style={modal ? sharedStyles.button : styles.inlineButton}
+              onPress={handleRequestMembership}
+              disabled={isSubmitting}
+            >
+              <Text
+                style={
+                  modal ? sharedStyles.buttonText : styles.inlineButtonText
+                }
+              >
+                {isSubmitting ? t('requesting') : t('requestMembership')}
+              </Text>
+            </TouchableOpacity>
+          </>
+        );
+    }
+  };
+
+  // Modal mode
+  if (modal) {
+    return (
+      <Modal
+        visible={isVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={[sharedStyles.modal, styles.modalContainer]}>
+                <View style={styles.header}>
+                  <Text style={sharedStyles.modalTitle}>
+                    {t('privateProject')}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={onClose}
+                  >
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.projectName}>{projectName}</Text>
+
+                {renderContent()}
+
+                {showViewProjectButton !== false && onBypass && (
+                  <TouchableOpacity
+                    style={[sharedStyles.button, styles.viewProjectButton]}
+                    onPress={handleBypass}
+                  >
+                    <Text style={sharedStyles.buttonText}>
+                      {viewProjectButtonText || t('viewProject')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[sharedStyles.button, styles.cancelButton]}
+                  onPress={onClose}
+                >
+                  <Text
+                    style={[sharedStyles.buttonText, styles.cancelButtonText]}
+                  >
+                    {t('goBack')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </Pressable>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  }
+
+  // Render inline content when access is denied
+  if (inline && !hasAccess) {
+    return <View style={styles.inlineContainer}>{renderContent()}</View>;
+  }
+
+  // If has access and children provided, render children
+  if (hasAccess && children) {
+    return <>{children}</>;
+  }
+
+  // If custom trigger provided, use it
+  if (renderTrigger) {
+    return (
+      <>
+        {renderTrigger({ onPress: handlePress, hasAccess })}
+        {!hasAccess && (
+          <Modal
+            visible={showModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowModal(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
+              <Pressable
+                style={sharedStyles.modalOverlay}
+                onPress={() => setShowModal(false)}
+              >
+                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                  <View style={[sharedStyles.modal, styles.modalContainer]}>
+                    <View style={styles.header}>
+                      <Text style={sharedStyles.modalTitle}>
+                        {t('privateProject')}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={() => setShowModal(false)}
+                      >
+                        <Ionicons name="close" size={24} color={colors.text} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.projectName}>{projectName}</Text>
+
+                    {renderContent()}
+
+                    {allowBypass && onBypass && (
+                      <TouchableOpacity
+                        style={[sharedStyles.button, styles.viewProjectButton]}
+                        onPress={() => {
+                          setShowModal(false);
+                          onBypass();
+                        }}
+                      >
+                        <Text style={sharedStyles.buttonText}>
+                          {viewProjectButtonText || t('downloadAnyway')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={[sharedStyles.button, styles.cancelButton]}
+                      onPress={() => setShowModal(false)}
+                    >
+                      <Text
+                        style={[
+                          sharedStyles.buttonText,
+                          styles.cancelButtonText
+                        ]}
+                      >
+                        {t('goBack')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+              </Pressable>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
+      </>
+    );
+  }
+
+  // Default: render nothing if has access, show modal trigger if not
+  return hasAccess ? null : (
+    <>
+      <TouchableOpacity onPress={() => setShowModal(true)}>
+        <Ionicons name="lock-closed" size={24} color={colors.text} />
+      </TouchableOpacity>
+      <Modal
+        visible={showModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
+          <Pressable
+            style={sharedStyles.modalOverlay}
+            onPress={() => setShowModal(false)}
+          >
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={[sharedStyles.modal, styles.modalContainer]}>
+                <View style={styles.header}>
+                  <Text style={sharedStyles.modalTitle}>
+                    {t('privateProject')}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowModal(false)}
+                  >
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.projectName}>{projectName}</Text>
+
+                {renderContent()}
+
+                <TouchableOpacity
+                  style={[sharedStyles.button, styles.cancelButton]}
+                  onPress={() => setShowModal(false)}
+                >
+                  <Text
+                    style={[sharedStyles.buttonText, styles.cancelButtonText]}
+                  >
+                    {t('goBack')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </Pressable>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  // Modal styles
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.medium
+  },
+  closeButton: {
+    padding: spacing.xsmall
+  },
+  projectName: {
+    fontSize: fontSizes.large,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.medium
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.medium
+  },
+  modalDescription: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.medium,
+    lineHeight: 22
+  },
+  modalStatusContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.large
+  },
+  statusTitle: {
+    fontSize: fontSizes.large,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: spacing.medium,
+    marginBottom: spacing.small
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    padding: spacing.medium,
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing.large,
+    gap: spacing.small
+  },
+  infoText: {
+    flex: 1,
+    fontSize: fontSizes.small,
+    color: colors.text,
+    lineHeight: 20
+  },
+  withdrawButton: {
+    backgroundColor: colors.error,
+    marginBottom: spacing.small
+  },
+  withdrawButtonText: {
+    color: colors.buttonText
+  },
+  cancelButton: {
+    backgroundColor: colors.backgroundSecondary,
+    marginTop: spacing.small
+  },
+  cancelButtonText: {
+    color: colors.text
+  },
+  viewProjectButton: {
+    backgroundColor: colors.primary,
+    marginTop: spacing.small,
+    marginBottom: spacing.small
+  },
+
+  // Inline styles
+  inlineContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.large,
+    minHeight: 300,
+    width: '100%'
+  },
+  inlineIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.medium
+  },
+  inlineTitle: {
+    fontSize: fontSizes.large,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.small,
+    textAlign: 'center'
+  },
+  inlineDescription: {
+    fontSize: fontSizes.medium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.large,
+    lineHeight: 22,
+    paddingHorizontal: spacing.medium
+  },
+  inlineButton: {
+    padding: spacing.medium,
+    backgroundColor: colors.primary,
+    borderRadius: 5,
+    marginTop: spacing.medium
+  },
+  inlineButtonText: {
+    fontSize: fontSizes.medium,
+    fontWeight: '600',
+    color: colors.background,
+    textAlign: 'center'
+  },
+  downloadSection: {
+    marginTop: spacing.medium,
+    marginBottom: spacing.large
+  },
+  downloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.small
+  },
+  downloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  warningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
+  },
+  inlineDownloadSection: {
+    width: '100%',
+    maxWidth: 400,
+    marginTop: spacing.medium,
+    marginBottom: spacing.large,
+    paddingHorizontal: spacing.medium
+  },
+  inlineDownloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.small,
+    width: '100%'
+  },
+  inlineDownloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1,
+    marginRight: spacing.small
+  },
+  inlineWarningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)',
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    width: '100%'
+  },
+  inlineWarningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
+  }
+});

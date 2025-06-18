@@ -1,8 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { languageService } from '@/database_services/languageService';
 import type {
-  SupportedLanguage,
-  TranslationKey
+  LocalizationKey,
+  SupportedLanguage
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 // Use a Record as preferred by linter
 export type InterpolationValues = Record<string, string | number>;
 
-export function useTranslation(languageOverride?: string | null) {
+export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const currentLanguage = useLocalStore((state) => state.language);
   const [profileLanguage, setProfileLanguage] = useState<Awaited<
@@ -44,7 +44,7 @@ export function useTranslation(languageOverride?: string | null) {
 
   // t function to accept optional interpolation values and use 'localizations'
   const t = (
-    key: TranslationKey,
+    key: LocalizationKey,
     options?: InterpolationValues | number
   ): string => {
     if (!(key in localizations)) {

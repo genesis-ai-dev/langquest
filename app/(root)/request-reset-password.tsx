@@ -1,5 +1,5 @@
 import { useSystem } from '@/contexts/SystemContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +23,7 @@ interface RequestResetFormData {
 }
 
 export default function RequestResetPassword() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { supabaseConnector } = useSystem();
 
   const {

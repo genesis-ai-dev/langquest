@@ -1,5 +1,5 @@
 import { useAudio } from '@/contexts/AudioContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -27,7 +27,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useCarousel = true,
   mini = false
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const {
     playSound,
     stopCurrentSound,

@@ -1,7 +1,7 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
-import { PrivateProjectAccessModal } from '@/components/PrivateProjectAccessModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -17,7 +17,7 @@ import {
   project as projectTable
 } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
@@ -53,6 +53,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   >(null);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
+
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -90,6 +91,24 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   const projectData = matchingProjectData[0];
 
+  // Query for membership status using TanStack query (like in quests index)
+  const { data: membershipData = [] } = useQuery(
+    toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, project.id),
+          eq(profile_project_link.active, true)
+        )
+      })
+    )
+  );
+
+  const membershipRole = membershipData[0]?.membership as
+    | 'owner'
+    | 'member'
+    | undefined;
+
   useEffect(() => {
     const loadData = async () => {
       const [source, target] = await Promise.all([
@@ -103,7 +122,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
       const assets = await assetService.getAssetsByProjectId(project.id);
       setAssetIds(assets.map((asset) => asset.id));
 
-      // Get project download status
+      // Get project download status and membership status
       if (currentUser) {
         const downloadStatus = await downloadService.getProjectDownloadStatus(
           currentUser.id,
@@ -188,11 +207,29 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 color={colors.textSecondary}
               />
             )}
+            {membershipRole === 'owner' && (
+              <Ionicons name="ribbon" size={16} color={colors.primary} />
+            )}
+            {membershipRole === 'member' && (
+              <Ionicons name="person" size={16} color={colors.primary} />
+            )}
           </View>
-          <DownloadIndicator
-            isDownloaded={isDownloaded && assetsDownloaded}
-            isLoading={isLoading && isDownloaded}
-            onPress={handleDownloadToggle}
+          <PrivateAccessGate
+            projectId={project.id}
+            projectName={project.name}
+            isPrivate={project.private}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isDownloaded={isDownloaded && assetsDownloaded}
+                isLoading={isLoading && isDownloaded}
+                onPress={
+                  hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                }
+              />
+            )}
           />
         </View>
         <Text style={sharedStyles.cardLanguageText}>
@@ -215,7 +252,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 };
 
 export default function Projects() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToProject } = useProjectContext();
   const { db } = useSystem();
   const { currentUser } = useAuth();
@@ -427,13 +464,28 @@ export default function Projects() {
       </SafeAreaView>
 
       {privateProjectModal.project && (
-        <PrivateProjectAccessModal
+        <PrivateAccessGate
+          modal={true}
           isVisible={privateProjectModal.isVisible}
           onClose={() =>
             setPrivateProjectModal({ isVisible: false, project: null })
           }
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
+          isPrivate={privateProjectModal.project.private}
+          action="view-members"
+          onMembershipGranted={() => {
+            // Navigate to the project when membership is granted
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
+          onBypass={() => {
+            // Allow viewing the project even without membership
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
+          showViewProjectButton={true}
+          viewProjectButtonText="View Project"
         />
       )}
     </LinearGradient>
