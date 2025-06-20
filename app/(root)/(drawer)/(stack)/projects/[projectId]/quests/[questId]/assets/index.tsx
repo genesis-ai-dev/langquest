@@ -40,7 +40,7 @@ import type { AssetContent } from '@/hooks/db/useAssets';
 import { useAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
-import { useAssetDownload } from '@/hooks/useDownloads';
+import { useDownload } from '@/hooks/useDownloads';
 
 interface SortingOption {
   field: string;
@@ -96,12 +96,12 @@ function AssetCard({ asset }: { asset: Asset }) {
     isDownloaded,
     isLoading: isDownloadLoading,
     toggleDownload
-  } = useAssetDownload(currentUser?.id, asset.id);
+  } = useDownload('asset', asset.id);
 
   const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
 
-  const handleDownloadToggle = () => {
-    toggleDownload();
+  const handleDownloadToggle = async () => {
+    await toggleDownload();
   };
 
   // Aggregate translations by gem color

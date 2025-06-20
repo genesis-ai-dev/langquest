@@ -18,7 +18,8 @@ const linkColumns = {
   last_updated: text()
     .notNull()
     .default(timestampDefault)
-    .$onUpdate(() => timestampDefault)
+    .$onUpdate(() => timestampDefault),
+  download_profiles: text({ mode: 'json' }).$type<string[]>()
 };
 
 // Base columns that most tables will have
@@ -422,93 +423,6 @@ export const asset_content_linkRelations = relations(
     })
   })
 );
-
-export const project_download = sqliteTable(
-  'project_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    project_id: text()
-      .notNull()
-      .references(() => project.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.project_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const project_downloadRelations = relations(
-  project_download,
-  ({ one }) => ({
-    profile: one(profile, {
-      fields: [project_download.profile_id],
-      references: [profile.id]
-    }),
-    project: one(project, {
-      fields: [project_download.project_id],
-      references: [project.id]
-    })
-  })
-);
-
-export const quest_download = sqliteTable(
-  'quest_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    quest_id: text()
-      .notNull()
-      .references(() => quest.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.quest_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
-  profile: one(profile, {
-    fields: [quest_download.profile_id],
-    references: [profile.id]
-  }),
-  quest: one(quest, {
-    fields: [quest_download.quest_id],
-    references: [quest.id]
-  })
-}));
-
-export const asset_download = sqliteTable(
-  'asset_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    asset_id: text()
-      .notNull()
-      .references(() => asset.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.asset_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
-  profile: one(profile, {
-    fields: [asset_download.profile_id],
-    references: [profile.id]
-  }),
-  asset: one(asset, {
-    fields: [asset_download.asset_id],
-    references: [asset.id]
-  })
-}));
 
 export const flag = sqliteTable('flag', {
   ...baseColumns,

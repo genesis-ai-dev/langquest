@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { downloadService } from '@/database_services/downloadService';
 import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
+import { getAllDownloadedAssets } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateTotalAttachments } from '@/utils/attachmentUtils';
@@ -94,9 +94,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       if (!currentUser) return;
 
       // Check attachment limit before starting
-      const downloadedAssets = await downloadService.getAllDownloadedAssets(
-        currentUser.id
-      );
+      const downloadedAssets = await getAllDownloadedAssets(currentUser.id);
       const totalAttachments =
         await calculateTotalAttachments(downloadedAssets);
       console.log('Total attachments:', totalAttachments);

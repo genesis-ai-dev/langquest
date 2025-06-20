@@ -25,7 +25,7 @@
     "env:clean": "npm run supabase:clean && npm run powersync:clean",
     "powersync:clean": "npm run powersync:stop && docker volume rm -f powersync_mongo_storage",
     "supabase:clean": "git clean -xdf supabase/**/.DS_Store && npm run supabase db reset && npm run supabase stop",
-    "supabase": "npx supabase@beta",
+    "supabase": "npx supabase",
     "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb"

@@ -1,4 +1,3 @@
-import type { TempAttachmentQueue } from '@/db/powersync/TempAttachmentQueue';
 import {
   getAssetAudioContent,
   getAssetById,
@@ -10,8 +9,6 @@ import {
   getTranslationsWithAudioByAssetId
 } from '@/hooks/db/useTranslations';
 import { AttachmentState } from '@powersync/attachments';
-import { and, eq } from 'drizzle-orm';
-import { asset_download } from '../db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
 
@@ -41,71 +38,7 @@ export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
   return null;
 }
 
-// Helper to load an asset into the temp queue if not already available
-export async function ensureAssetLoaded(assetId: string): Promise<void> {
-  if (!assetId) {
-    return;
-  }
-
-  try {
-    // First check if the asset is already in permanent downloads
-    const activeDownload = await system.db.query.asset_download.findFirst({
-      where: and(
-        eq(asset_download.asset_id, assetId),
-        eq(asset_download.active, true)
-      )
-    });
-
-    // If asset is already in permanent downloads, no need to add to temp
-    if (activeDownload) {
-      return;
-    }
-
-    // Check if the attachment already exists in the database
-    const attachmentIds =
-      (await system.permAttachmentQueue?.getAllAssetAttachments(assetId)) ?? [];
-
-    // For each attachment, check if it's already in the database with any storage type
-    let allAlreadyDownloaded = attachmentIds.length > 0;
-
-    for (const attachmentId of attachmentIds) {
-      const record =
-        await system.permAttachmentQueue?.getExtendedRecord(attachmentId);
-
-      // If any attachment doesn't exist or isn't synced, we need to add to temp queue
-      if (!record || record.state !== AttachmentState.SYNCED) {
-        // 3 = SYNCED
-        allAlreadyDownloaded = false;
-        break;
-      }
-    }
-
-    // If all attachments are already downloaded, no need to add to temp queue
-    if (allAlreadyDownloaded) {
-      return;
-    }
-
-    // Otherwise, add to temp queue
-    const tempQueue = system.tempAttachmentQueue as
-      | (TempAttachmentQueue & {
-          addTempAsset: (assetId: string) => Promise<void>;
-        })
-      | undefined;
-    if (tempQueue && typeof tempQueue.addTempAsset === 'function') {
-      await tempQueue.addTempAsset(assetId);
-    } else {
-      console.warn('Temporary attachment queue not properly initialized');
-    }
-  } catch (error) {
-    console.error(
-      `[ensureAssetLoaded] Error ensuring asset is loaded: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-}
-
-export async function calculateTotalAttachments(
-  assetIds: string[]
-): Promise<number> {
+export async function calculateTotalAttachments(assetIds: string[]) {
   try {
     let totalAttachments = 0;
 
@@ -121,19 +54,23 @@ export async function calculateTotalAttachments(
       const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
+        ?.filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
 
-      totalAttachments += contentAudioIds.length;
+      if (contentAudioIds) {
+        totalAttachments += contentAudioIds.length;
+      }
 
       // 3. Get translations for the asset and their audio
       const translations = await getTranslationsWithAudioByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio)
+        ?.filter((translation) => translation.audio)
         .map((translation) => translation.audio!);
 
-      totalAttachments += translationAudioIds.length;
+      if (translationAudioIds) {
+        totalAttachments += translationAudioIds.length;
+      }
     }
 
     return totalAttachments;
@@ -163,7 +100,7 @@ export async function getAssetAttachmentIds(
 
     // Process asset images if successful
     if (assetResult.status === 'fulfilled') {
-      assetResult.value.forEach((asset) => {
+      assetResult.value?.forEach((asset) => {
         if (asset.images) {
           attachmentIds.push(...asset.images);
         }
@@ -173,17 +110,21 @@ export async function getAssetAttachmentIds(
     // Process content audio IDs if successful
     if (contentResult.status === 'fulfilled') {
       const contentAudioIds = contentResult.value
-        .filter((content) => content.audio_id)
+        ?.filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
-      attachmentIds.push(...contentAudioIds);
+      if (contentAudioIds) {
+        attachmentIds.push(...contentAudioIds);
+      }
     }
 
     // Process translation audio IDs if successful
     if (translationResult.status === 'fulfilled') {
       const translationAudioIds = translationResult.value
-        .filter((translation) => translation.audio)
+        ?.filter((translation) => translation.audio)
         .map((translation) => translation.audio!);
-      attachmentIds.push(...translationAudioIds);
+      if (translationAudioIds) {
+        attachmentIds.push(...translationAudioIds);
+      }
     }
 
     // Return unique attachment IDs
@@ -206,14 +147,7 @@ export async function getAssetAttachmentIds(
  * Get files that are still in the upload queue (not yet synced)
  * @returns Promise resolving to array of file IDs that need to be synced
  */
-export async function getFilesInUploadQueue(): Promise<string[]> {
-  if (!system.powersync) {
-    console.log(
-      '[getFilesInUploadQueue] PowerSync system not available, returning empty array.'
-    );
-    return [];
-  }
-
+export async function getFilesInUploadQueue() {
   try {
     // Get files that are in QUEUED_UPLOAD state (pending sync)
     const result = await system.powersync.execute(
@@ -226,7 +160,7 @@ export async function getFilesInUploadQueue(): Promise<string[]> {
     if (result.rows) {
       for (let i = 0; i < result.rows.length; i++) {
         // Add null check for item before accessing id
-        const item: { id?: string | null } | null = result.rows.item(i);
+        const item = result.rows.item(i) as { id?: string | null } | null;
         if (item?.id) {
           files.push(item.id);
         }
@@ -254,10 +188,6 @@ export async function areAllFilesSynced(): Promise<boolean> {
  * @returns Promise resolving to a boolean indicating sync status
  */
 export async function isFileSynced(fileId: string): Promise<boolean> {
-  if (!system.powersync) {
-    return false;
-  }
-
   try {
     // Query the PowerSync attachment table
     const result = await system.powersync.execute(
@@ -270,7 +200,7 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
       return false; // File not found in attachments table
     }
 
-    const item: { state?: number | null } | null = result.rows.item(0);
+    const item = result.rows.item(0) as { state?: number | null } | null;
     const state: number | null | undefined = item?.state;
     // File is synced if state is SYNCED
     return state === AttachmentState.SYNCED;
@@ -287,10 +217,6 @@ export async function isFileSynced(fileId: string): Promise<boolean> {
 export async function getAllFilesSyncStatus(): Promise<
   { id: string; synced: boolean }[]
 > {
-  if (!system.powersync) {
-    return [];
-  }
-
   try {
     // Correct execute call signature
     const result = await system.powersync.execute(
@@ -301,8 +227,10 @@ export async function getAllFilesSyncStatus(): Promise<
     // Add null check for rows
     if (result.rows) {
       for (let i = 0; i < result.rows.length; i++) {
-        const item: { id?: string | null; state?: number | null } | null =
-          result.rows.item(i);
+        const item = result.rows.item(i) as {
+          id?: string | null;
+          state?: number | null;
+        } | null;
         if (item?.id) {
           // Ensure item and id exist
           files.push({

@@ -1,4 +1,4 @@
-import { getAssetById, getAssetContent } from '@/hooks/db/useAssets';
+import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
 import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import type {
   AttachmentQueueOptions,
@@ -280,7 +280,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       }
 
       // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetContent(assetId);
+      const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
         ?.filter((content) => content.audio_id)

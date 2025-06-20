@@ -1,16 +1,9 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
-import { downloadService } from '@/database_services/downloadService';
-import {
-  asset_download,
-  project_download,
-  quest_download
-} from '@/db/drizzleSchema';
+import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
+import { download } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq } from 'drizzle-orm';
-import { useMemo } from 'react';
+import type { Asset } from './db/useAssets';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
@@ -18,12 +11,219 @@ import {
   useHybridQuery
 } from './useHybridQuery';
 
-// Types for download status records
-type ProjectDownload = typeof project_download.$inferSelect;
-type QuestDownload = typeof quest_download.$inferSelect;
-type AssetDownload = typeof asset_download.$inferSelect;
+// Define the download tree structure
+interface DownloadNode {
+  table: string;
+  idField?: string; // The field name for the ID (defaults to 'id') - used for single key
+  keyFields?: string[]; // Multiple fields for composite keys - takes precedence over idField
+  parentField?: string; // The field that links to parent
+  children?: DownloadNode[];
+}
 
-function getProjectDownloadStatusConfig(projectId: string) {
+type DownloadOperation = 'insert' | 'delete';
+
+// Helper function to find a node in the tree by table name
+function findNodeByTable(
+  node: DownloadNode,
+  tableName: string
+): DownloadNode | null {
+  if (node.table === tableName) return node;
+
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findNodeByTable(child, tableName);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function getKeyField(node: DownloadNode) {
+  return node.idField ?? node.keyFields?.[0] ?? 'id';
+}
+
+// Type for handling both single keys and composite key records
+type RecordIdentifier = string | Record<string, string>;
+
+// Helper function to process download tree recursively
+async function processDownloadTree(
+  node: DownloadNode,
+  parentIds: string[],
+  profileId: string,
+  operation: DownloadOperation,
+  tx?: Parameters<Parameters<typeof system.db.transaction>[0]>[0],
+  startTable?: string
+) {
+  console.log('processing download tree', startTable ?? node.table, operation);
+  if (parentIds.length === 0) return;
+
+  // If we have a startTable, find that node and start from there
+  if (startTable && node.table !== startTable) {
+    const startNode = findNodeByTable(node, startTable);
+    if (startNode) {
+      await processDownloadTree(
+        startNode,
+        parentIds,
+        profileId,
+        operation,
+        tx,
+        startTable
+      );
+    }
+    return;
+  }
+
+  // For the root node, we already have the IDs
+  // If we have a startTable, treat the current node as root regardless of parentField
+  const isRootNode =
+    !node.parentField || (startTable && node.table === startTable);
+  let recordIdentifiers: RecordIdentifier[] = [];
+
+  if (isRootNode) {
+    recordIdentifiers = parentIds;
+  } else {
+    // Fetch records based on parent relationship
+    const keyFields = node.keyFields ?? [node.idField ?? 'id'];
+    const query = system.supabaseConnector.client
+      .from(node.table)
+      .select(keyFields.join(','))
+      .in(node.parentField!, parentIds);
+
+    const { data } = await query;
+    if (!data || data.length === 0) return;
+
+    // For composite keys, store the full record objects
+    if (node.keyFields && node.keyFields.length > 1) {
+      recordIdentifiers = data.map((record) => {
+        const typedRecord: Record<string, string> = {};
+        for (const keyField of keyFields) {
+          // @ts-expect-error - dynamic field access
+          typedRecord[keyField] = record[keyField] as string;
+        }
+        return typedRecord;
+      });
+    } else {
+      // Single key field
+      const keyField = keyFields[0];
+      // @ts-expect-error - keyField is not typed
+      recordIdentifiers = data.map((record) => record[keyField] as string);
+    }
+  }
+
+  // Perform the operation on download records
+  if (operation === 'insert') {
+    const downloadRecords = recordIdentifiers.map((identifier) => {
+      const keyField = getKeyField(node);
+      let recordKey: Record<string, string>;
+
+      if (typeof identifier === 'object') {
+        // For composite keys, identifier is already the record object
+        recordKey = identifier;
+      } else {
+        // Single key field
+        recordKey = { [keyField]: identifier };
+      }
+
+      return {
+        profile_id: profileId,
+        record_key: recordKey,
+        record_table: node.table
+      };
+    });
+    if (tx) {
+      console.log('inserting download records', downloadRecords);
+      await tx.insert(download).values(downloadRecords);
+    }
+  } else {
+    const recordKeys = recordIdentifiers.map((identifier) =>
+      JSON.stringify(
+        typeof identifier === 'string'
+          ? { [getKeyField(node)]: identifier }
+          : identifier
+      )
+    );
+
+    await Promise.all(
+      recordKeys.map((recordKey) =>
+        system.supabaseConnector.client
+          .from('download')
+          .delete()
+          .eq('profile_id', profileId)
+          .eq('record_table', node.table)
+          .eq('record_key', recordKey)
+      )
+    );
+  }
+
+  // Process children if any
+  if (node.children && recordIdentifiers.length > 0) {
+    // For children, we need to extract the actual IDs from composite keys
+    const childParentIds: string[] = [];
+
+    // Extract parent IDs from identifiers
+    for (const identifier of recordIdentifiers) {
+      if (typeof identifier === 'object') {
+        // For composite keys, extract the primary key field as parent ID
+        const primaryKeyField = getKeyField(node);
+        const parentId = identifier[primaryKeyField];
+        if (typeof parentId === 'string') {
+          childParentIds.push(parentId);
+        }
+      } else {
+        // For single keys, identifier is already the parent ID
+        childParentIds.push(identifier);
+      }
+    }
+
+    for (const child of node.children) {
+      await processDownloadTree(
+        child,
+        childParentIds,
+        profileId,
+        operation,
+        tx
+      );
+    }
+  }
+}
+
+function getAllDownloadedAssetsConfig(profileId: string) {
+  return createHybridQueryConfig({
+    queryKey: ['downloaded-assets', profileId],
+    enabled: !!profileId,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select('id')
+        .in('download_profiles', [profileId])
+        .overrideTypes<Asset[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findMany({
+        columns: { id: true }
+      })
+    )
+  });
+}
+
+/**
+ * Returns all downloaded asset IDs for a given profileId using hybridFetch (online/offline).
+ */
+export async function getAllDownloadedAssets(profileId: string) {
+  return (
+    (await hybridFetch(
+      convertToFetchConfig(getAllDownloadedAssetsConfig(profileId))
+    )) ?? []
+  ).map((row) => Object.values(row.id));
+}
+
+function getDownloadStatusConfig(
+  recordTable: keyof typeof system.db.query,
+  recordId: string
+) {
   const profile = getCurrentUser();
 
   if (!profile?.id) {
@@ -31,382 +231,110 @@ function getProjectDownloadStatusConfig(projectId: string) {
   }
 
   return createHybridQueryConfig({
-    queryKey: ['project-download-status', profile.id, projectId],
-    enabled: !!profile.id && !!projectId,
+    queryKey: ['download-status', profile.id, recordTable, recordId],
+    enabled: !!profile.id && !!recordId,
     onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
-        .from('project_download')
-        .select('*')
-        .eq('profile_id', profile.id)
-        .eq('project_id', projectId)
-        .overrideTypes<ProjectDownload[]>();
+        .from(recordTable)
+        .select('id')
+        .contains('download_profiles', [profile.id])
+        .overrideTypes<{ id: string }[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      system.db.query.project_download.findMany({
-        where: and(
-          eq(project_download.profile_id, profile.id),
-          eq(project_download.project_id, projectId)
-        )
-      })
-    )
+    offlineQuery: toCompilableQuery(system.db)
   });
 }
 
-export async function getProjectDownloadStatus(projectId: string) {
+export async function getDownloadStatus(
+  recordTable: keyof typeof system.db.query,
+  recordId: string
+) {
   const downloadArray = await hybridFetch(
-    convertToFetchConfig(getProjectDownloadStatusConfig(projectId))
+    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
   );
 
-  const isDownloaded = downloadArray?.[0]?.active ?? false;
-
-  return isDownloaded;
+  return !!downloadArray?.[0]?.id;
 }
 
 /**
  * Hook to get project download status
  */
-export function useProjectDownloadStatus(projectId: string | undefined) {
-  const {
-    data: downloadArray,
-    isLoading,
-    ...rest
-  } = useHybridQuery({
-    ...getProjectDownloadStatusConfig(projectId!),
-    enabled: !!projectId
-  });
-
-  const isDownloaded = downloadArray?.[0]?.active ?? false;
-
-  return { isDownloaded, isLoading, ...rest };
-}
-
-/**
- * Hook to get quest download status
- */
-export function useQuestDownloadStatus(
-  profileId: string | undefined,
-  questId: string | undefined
+export function useDownloadStatus(
+  recordTable: keyof typeof system.db.query,
+  recordId: string | undefined
 ) {
-  const { db, supabaseConnector } = useSystem();
-
   const {
     data: downloadArray,
     isLoading,
     ...rest
   } = useHybridQuery({
-    queryKey: ['quest-download-status', profileId, questId],
-    enabled: !!profileId && !!questId,
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
-        .from('quest_download')
-        .select('*')
-        .eq('profile_id', profileId!)
-        .eq('quest_id', questId!)
-        .overrideTypes<QuestDownload[]>();
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.quest_download.findMany({
-        where: and(
-          eq(quest_download.profile_id, profileId!),
-          eq(quest_download.quest_id, questId!)
-        )
-      })
-    )
+    ...getDownloadStatusConfig(recordTable, recordId!),
+    enabled: !!recordId
   });
 
-  const isDownloaded = downloadArray?.[0]?.active ?? false;
-  console.log('isDownloaded', isDownloaded);
-
-  return { isDownloaded, isLoading, ...rest };
-}
-
-/**
- * Hook to get asset download status
- */
-export function useAssetDownloadStatus(
-  profileId: string | undefined,
-  assetId: string | undefined
-) {
-  const { db, supabaseConnector } = useSystem();
-
-  const {
-    data: downloadArray,
-    isLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['asset-download-status', profileId, assetId],
-    enabled: !!profileId && !!assetId,
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
-        .from('asset_download')
-        .select('*')
-        .eq('profile_id', profileId!)
-        .eq('asset_id', assetId!)
-        .overrideTypes<AssetDownload[]>();
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset_download.findMany({
-        where: and(
-          eq(asset_download.profile_id, profileId!),
-          eq(asset_download.asset_id, assetId!),
-          eq(asset_download.active, true)
-        )
-      })
-    )
-  });
-
-  const isDownloaded = !!downloadArray?.length;
-
-  return { isDownloaded, isLoading, ...rest };
-}
-
-/**
- * Hook to get all active downloads for a user
- */
-export function useAllActiveDownloads(profileId: string | undefined) {
-  const { db, supabaseConnector } = useSystem();
-
-  const {
-    data: projects,
-    isLoading: isProjectsLoading,
-    ...projectsRest
-  } = useHybridQuery({
-    queryKey: ['active-project-downloads', profileId],
-    enabled: !!profileId,
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
-        .from('project_download')
-        .select('*')
-        .eq('profile_id', profileId!)
-        .eq('active', true)
-        .overrideTypes<ProjectDownload[]>();
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project_download.findMany({
-        where: and(
-          eq(project_download.profile_id, profileId!),
-          eq(project_download.active, true)
-        )
-      })
-    )
-  });
-
-  const {
-    data: quests,
-    isLoading: isQuestsLoading,
-    ...questsRest
-  } = useHybridQuery({
-    queryKey: ['active-quest-downloads', profileId],
-    enabled: !!profileId,
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
-        .from('quest_download')
-        .select('*')
-        .eq('profile_id', profileId!)
-        .eq('active', true)
-        .overrideTypes<QuestDownload[]>();
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.quest_download.findMany({
-        where: and(
-          eq(quest_download.profile_id, profileId!),
-          eq(quest_download.active, true)
-        )
-      })
-    )
-  });
-
-  const {
-    data: assets,
-    isLoading: isAssetsLoading,
-    ...assetsRest
-  } = useHybridQuery({
-    queryKey: ['active-asset-downloads', profileId],
-    enabled: !!profileId,
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
-        .from('asset_download')
-        .select('*')
-        .eq('profile_id', profileId!)
-        .eq('active', true)
-        .overrideTypes<AssetDownload[]>();
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset_download.findMany({
-        where: and(
-          eq(asset_download.profile_id, profileId!),
-          eq(asset_download.active, true)
-        )
-      })
-    )
-  });
-
-  const isLoading = isProjectsLoading || isQuestsLoading || isAssetsLoading;
-
-  return {
-    projects: projects ?? [],
-    quests: quests ?? [],
-    assets: assets ?? [],
-    isLoading,
-    ...projectsRest,
-    ...questsRest,
-    ...assetsRest
-  };
-}
-
-/**
- * Hook to get all downloaded asset IDs for a user
- */
-export function useDownloadedAssetIds(profileId: string | undefined) {
-  const { assets, isLoading, ...rest } = useAllActiveDownloads(profileId);
-
-  const assetIds = useMemo(() => {
-    return assets.map((download) => download.asset_id);
-  }, [assets]);
-
-  return { assetIds, isLoading, ...rest };
+  return { isDownloaded: !!downloadArray?.[0]?.id, isLoading, ...rest };
 }
 
 /**
  * Hook for project download mutations
  */
-export function useProjectDownload(
-  profileId: string | undefined,
-  projectId: string | undefined
+export function useDownload(
+  recordTable: keyof typeof system.db.query,
+  recordId: string | undefined
 ) {
   const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useProjectDownloadStatus(projectId);
+  const { isDownloaded, isLoading } = useDownloadStatus(recordTable, recordId);
+  const { currentUser } = useAuth();
 
   const mutation = useMutation({
-    mutationFn: async (active: boolean) => {
-      if (!profileId || !projectId) {
-        throw new Error('Profile ID and Project ID are required');
+    mutationFn: async (downloaded: boolean) => {
+      if (!currentUser?.id || !recordId) {
+        throw new Error('Profile ID and Record ID are required');
       }
-      await downloadService.setProjectDownload(profileId, projectId, active);
+
+      const { error } = await system.supabaseConnector.client.rpc(
+        'download_record',
+        {
+          p_table_name: recordTable,
+          p_record_id: recordId,
+          p_operation: downloaded ? 'remove' : 'add'
+        }
+      );
+
+      if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       // Invalidate related queries
-      void queryClient.invalidateQueries({
-        queryKey: ['project-download-status', profileId, projectId]
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status', currentUser?.id, recordTable, recordId]
       });
-      void queryClient.invalidateQueries({
-        queryKey: ['active-project-downloads', profileId]
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', profileId]
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['asset-download-status', profileId]
-      });
+
+      console.log(
+        'download status query invalidated',
+        currentUser?.id,
+        recordTable,
+        recordId
+      );
+
+      console.log(
+        'download status',
+        queryClient.getQueryData([
+          'download-status',
+          currentUser?.id,
+          recordTable,
+          recordId
+        ])
+      );
     }
   });
 
   const toggleDownload = async () => {
-    if (!projectId) return;
+    if (!recordId) return;
 
-    const isDownloaded = await getProjectDownloadStatus(projectId);
-    await mutation.mutateAsync(!isDownloaded);
-  };
-
-  return {
-    isDownloaded,
-    isLoading: isLoading || mutation.isPending,
-    toggleDownload,
-    mutation
-  };
-}
-
-/**
- * Hook for quest download mutations
- */
-export function useQuestDownload(
-  profileId: string | undefined,
-  questId: string | undefined
-) {
-  const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useQuestDownloadStatus(
-    profileId,
-    questId
-  );
-
-  const mutation = useMutation({
-    mutationFn: async (active: boolean) => {
-      if (!profileId || !questId) {
-        throw new Error('Profile ID and Quest ID are required');
-      }
-      await downloadService.setQuestDownload(profileId, questId, active);
-    },
-    onSuccess: () => {
-      // Invalidate related queries
-      void queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', profileId, questId]
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['active-quest-downloads', profileId]
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['asset-download-status', profileId]
-      });
-    }
-  });
-
-  const toggleDownload = () => {
-    mutation.mutate(!isDownloaded);
-  };
-
-  return {
-    isDownloaded,
-    isLoading: isLoading || mutation.isPending,
-    toggleDownload,
-    mutation
-  };
-}
-
-/**
- * Hook for asset download mutations
- */
-export function useAssetDownload(
-  profileId: string | undefined,
-  assetId: string | undefined
-) {
-  const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useAssetDownloadStatus(
-    profileId,
-    assetId
-  );
-
-  const mutation = useMutation({
-    mutationFn: async (active: boolean) => {
-      if (!profileId || !assetId) {
-        throw new Error('Profile ID and Asset ID are required');
-      }
-      await downloadService.setAssetDownload(profileId, assetId, active);
-    },
-    onSuccess: () => {
-      // Invalidate related queries
-      void queryClient.invalidateQueries({
-        queryKey: ['asset-download-status', profileId, assetId]
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['active-asset-downloads', profileId]
-      });
-    }
-  });
-
-  const toggleDownload = () => {
-    mutation.mutate(!isDownloaded);
+    const isDownloaded = await getDownloadStatus(recordTable, recordId);
+    console.log('isDownloaded', isDownloaded, recordTable, recordId);
+    await mutation.mutateAsync(isDownloaded);
   };
 
   return {

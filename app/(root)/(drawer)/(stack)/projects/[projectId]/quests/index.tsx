@@ -12,7 +12,7 @@ import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useQuestDownload } from '@/hooks/useDownloads';
+import { useDownload } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
@@ -95,10 +95,10 @@ const QuestCard: React.FC<{ quest: Quest & { tags: { tag: Tag }[] } }> = ({
     isDownloaded,
     isLoading: _downloadLoading,
     toggleDownload
-  } = useQuestDownload(currentUser?.id, quest.id);
+  } = useDownload('quest', quest.id);
 
-  const handleDownloadToggle = () => {
-    toggleDownload();
+  const handleDownloadToggle = async () => {
+    await toggleDownload();
   };
 
   const { assets: assetsData } = useAssetsWithTranslationsAndVotesByQuestId(

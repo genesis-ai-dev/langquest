@@ -116,9 +116,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       { table: 'quest_tag_link', keys: ['quest_id', 'tag_id'] },
       { table: 'asset_tag_link', keys: ['asset_id', 'tag_id'] },
       { table: 'quest_asset_link', keys: ['quest_id', 'asset_id'] },
-      { table: 'project_download', keys: ['profile_id', 'project_id'] },
-      { table: 'quest_download', keys: ['profile_id', 'quest_id'] },
-      { table: 'asset_download', keys: ['profile_id', 'asset_id'] },
       { table: 'blocked_users', keys: ['blocker_id', 'blocked_id'] },
       { table: 'profile_project_link', keys: ['profile_id', 'project_id'] }
     ];
@@ -234,14 +231,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           };
         }
 
-        if (op.table === 'asset_download') {
-          console.log('Operation:', {
-            table: op.table,
-            op: op.op,
-            id: op.id,
-            opData: op.opData,
-            clientId: op.clientId
-          });
+        if (
+          op.table === 'download' &&
+          typeof op.opData?.record_key === 'string'
+        ) {
+          op.opData.record_key = JSON.parse(op.opData.record_key);
         }
 
         const opData =
@@ -273,11 +267,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             } else {
               result = await table.delete().eq('id', op.id);
             }
+            console.log('delete result', result);
             break;
         }
 
         if (result.error) {
           console.error(result.error);
+          console.debug('Upload data:', result.data, opData);
           result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
             result
           )}`;

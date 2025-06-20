@@ -124,8 +124,8 @@ export function useHybridQuery<T extends Record<string, unknown>>(
       queryFn: onlineFn,
       refetchOnReconnect: true,
       refetchOnWindowFocus: true,
-      refetchOnMount: true
-      // networkMode: 'offlineFirst'
+      refetchOnMount: true,
+      networkMode: 'always'
     });
 
   return useOfflineQuery();

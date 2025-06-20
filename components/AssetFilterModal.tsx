@@ -334,7 +334,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                   ? item.section.id
                   : `sorting_${item.index}`
               }
-              style={sharedStyles.modalContent}
+              // style={sharedStyles.modalContent}
               showsVerticalScrollIndicator={false}
               estimatedItemSize={20}
             />

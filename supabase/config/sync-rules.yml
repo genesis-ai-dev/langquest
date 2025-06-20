@@ -1,63 +1,66 @@
 bucket_definitions:
-  global:
-    data:
-      # Sync all rows-- Select all data from User table
-      # - SELECT * FROM "profile"
-      - SELECT * FROM "language"
-      # - SELECT * FROM "project"
-      # - SELECT * FROM "quest"
-      - SELECT * FROM "tag"
-      # - SELECT quest_id || '_' || tag_id as id, quest_id, tag_id FROM quest_tag_link
-      # - SELECT * FROM "asset"
-      # - SELECT * FROM "asset_content_link"
-      # - SELECT asset_id || '_' || tag_id as id, asset_id, tag_id FROM asset_tag_link
-      # - SELECT quest_id || '_' || asset_id as id, quest_id, asset_id FROM quest_asset_link
-      # - SELECT * FROM "translation"
-      - SELECT * FROM "vote"
-      # - SELECT * FROM "flag"
+  # global:
+  # data:
+  # Sync all rows-- Select all data from User table
+  # - SELECT * FROM "profile"
+  # - SELECT * FROM "project"
+  # - SELECT * FROM "quest"
+  # - SELECT quest_id || '_' || tag_id as id, quest_id, tag_id FROM quest_tag_link
+  # - SELECT * FROM "asset"
+  # - SELECT * FROM "asset_content_link"
+  # - SELECT asset_id || '_' || tag_id as id, asset_id, tag_id FROM asset_tag_link
+  # - SELECT quest_id || '_' || asset_id as id, quest_id, asset_id FROM quest_asset_link
+  # - SELECT * FROM "translation"
+  # - SELECT * FROM "flag"
 
-  project_downloads:
-    parameters: SELECT project_id FROM "project_download" WHERE "project_download".profile_id = request.user_id() AND "project_download".active = true
-    data:
-      - SELECT * FROM "project" WHERE "project".id = bucket.project_id
+  # project_downloads:
+  #   parameters: |
+  #     SELECT record_id as project_id FROM "download"
+  #     WHERE "download".profile_id = request.user_id()
+  #       AND "download".active = true
+  #       AND "download".record_table = 'project'
+  #   data:
+  #     - SELECT * FROM "project" WHERE "project".id = bucket.project_id
 
-  quest_downloads:
-    parameters: SELECT quest_id FROM "quest_download" WHERE "quest_download".profile_id = request.user_id() AND "quest_download".active = true
-    data:
-      - SELECT * FROM "quest" WHERE "quest".id = bucket.quest_id
-      - SELECT quest_id || '_' || tag_id as id, quest_id, tag_id, active FROM quest_tag_link WHERE "quest_tag_link".quest_id = bucket.quest_id
+  # quest_downloads:
+  #   parameters: |
+  #     SELECT record_id as quest_id FROM "download"
+  #     WHERE "download".profile_id = request.user_id()
+  #       AND "download".active = true
+  #       AND "download".record_table = 'quest'
+  #   data:
+  #     - SELECT * FROM "quest" WHERE "quest".id = bucket.quest_id
+  #     - SELECT quest_id || '_' || tag_id as id, quest_id, tag_id, active FROM quest_tag_link WHERE "quest_tag_link".quest_id = bucket.quest_id
 
-  asset_downloads:
-    parameters: SELECT asset_id FROM "asset_download" WHERE "asset_download".profile_id = request.user_id() AND "asset_download".active = true
-    data:
-      - SELECT * FROM "asset" WHERE "asset".id = bucket.asset_id
-      - SELECT asset_id || '_' || tag_id as id, asset_id, tag_id, active FROM asset_tag_link WHERE "asset_tag_link".asset_id = bucket.asset_id
-      - SELECT asset_id || '_' || quest_id as id, asset_id, quest_id, active FROM quest_asset_link WHERE "quest_asset_link".asset_id = bucket.asset_id
-      - SELECT * FROM "translation" WHERE "translation".asset_id = bucket.asset_id
-      - SELECT * FROM "asset_content_link" WHERE "asset_content_link".asset_id = bucket.asset_id
+  # asset_downloads:
+  #   parameters: |
+  #     SELECT record_id as asset_id FROM "download"
+  #     WHERE "download".profile_id = request.user_id()
+  #       AND "download".active = true
+  #       AND "download".record_table = 'asset'
+  #   data:
+  #     - SELECT * FROM "asset" WHERE "asset".id = bucket.asset_id
+  #     - SELECT asset_id || '_' || tag_id as id, asset_id, tag_id, active FROM asset_tag_link WHERE "asset_tag_link".asset_id = bucket.asset_id
+  #     - SELECT asset_id || '_' || quest_id as id, asset_id, quest_id, active FROM quest_asset_link WHERE "quest_asset_link".asset_id = bucket.asset_id
+  #     - SELECT * FROM "translation" WHERE "translation".asset_id = bucket.asset_id
+  #     - SELECT * FROM "asset_content_link" WHERE "asset_content_link".asset_id = bucket.asset_id
 
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
     data:
       - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
-
-      - SELECT
-        profile_id || '_' || project_id as id,
-        *
-        FROM project_download
-        WHERE "project_download".profile_id = bucket.profile_id
-
-      - SELECT
-        profile_id || '_' || quest_id as id,
-        *
-        FROM quest_download
-        WHERE "quest_download".profile_id = bucket.profile_id
-
-      - SELECT
-        profile_id || '_' || asset_id as id,
-        *
-        FROM asset_download
-        WHERE "asset_download".profile_id = bucket.profile_id
+      - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "translation" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
 
       - SELECT
         *

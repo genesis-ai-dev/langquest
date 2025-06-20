@@ -4,11 +4,11 @@ import type {
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { eq, isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 // import { system } from '../powersync/system';
+import { getCurrentUser } from '@/contexts/AuthContext';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -61,10 +61,17 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   // }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      console.log('No current user, skipping attachment queue');
+      return;
+    }
+
     // Watch for changes in ALL download records
-    this.db.watch(this.db.query.asset_download.findMany(), {
-      onResult: (downloads) => {
-        console.log('Download records changed:', downloads.length);
+    this.db.watch(this.db.query.asset.findMany(), {
+      onResult: (assets) => {
+        console.log('Download records changed:');
         // const currentUserId = await this.getCurrentUserId();
         // if (!currentUserId) {
         //   // User is logged out - don't delete anything, just stop syncing
@@ -80,23 +87,10 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
         // Split into active and inactive downloads
         const runAsync = async () => {
-          const activeDownloads = downloads.filter(
-            (download) => download.active === true
-          );
-          const inactiveDownloads = downloads.filter(
-            (download) => download.active === false
-          );
-
-          console.log(
-            `Active downloads: ${activeDownloads.length}, Inactive: ${inactiveDownloads.length}`
-          );
-
           // Get all attachments for active assets
           const activeAttachments: string[] = [];
-          for (const download of activeDownloads) {
-            const attachments = await this.getAllAssetAttachments(
-              download.asset_id
-            );
+          for (const asset of assets) {
+            const attachments = await this.getAllAssetAttachments(asset.id);
             activeAttachments.push(...attachments);
           }
 
@@ -115,58 +109,49 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     });
 
     // Watch for changes in asset content links
-    this.db.watch(
-      this.db.query.asset_content_link.findMany({
-        where: (asset) => isNotNull(asset.audio_id)
-      }),
-      {
-        onResult: (assets) => {
-          console.log(`Asset content links updated: ${assets.length}`);
-          const runAsync = async () => {
-            // Get current user ID
-            // const currentUserId = await this.getCurrentUserId();
-            // if (!currentUserId) {
-            //   onUpdate([]);
-            //   return;
-            // }
+    // this.db.watch(
+    //   this.db.query.asset_content_link.findMany({
+    //     where: (asset) => isNotNull(asset.audio_id)
+    //   }),
+    //   {
+    //     onResult: (assetContentLinks) => {
+    //       console.log(
+    //         `Asset content links updated: ${assetContentLinks.length}`
+    //       );
+    //       const runAsync = async () => {
+    //         // Get current user ID
+    //         // const currentUserId = await this.getCurrentUserId();
+    //         // if (!currentUserId) {
+    //         //   onUpdate([]);
+    //         //   return;
+    //         // }
 
-            // Get active downloads for current user
-            const activeDownloads = await this.db.query.asset_download.findMany(
-              {
-                where: (download) =>
-                  // and(
-                  //   eq(download.profile_id, currentUserId),
-                  eq(download.active, true)
-                // )
-              }
-            );
+    //         const activeAssetIds = assetContentLinks.map(
+    //           (assetContentLink) => assetContentLink.asset_id
+    //         );
 
-            const activeAssetIds = activeDownloads.map(
-              (download) => download.asset_id
-            );
+    //         // Get all attachments for active assets
+    //         const allAttachments: string[] = [];
+    //         for (const assetId of activeAssetIds) {
+    //           const assetAttachments =
+    //             await this.getAllAssetAttachments(assetId);
+    //           allAttachments.push(...assetAttachments);
+    //         }
 
-            // Get all attachments for active assets
-            const allAttachments: string[] = [];
-            for (const assetId of activeAssetIds) {
-              const assetAttachments =
-                await this.getAllAssetAttachments(assetId);
-              allAttachments.push(...assetAttachments);
-            }
+    //         // Remove duplicates
+    //         const uniqueAttachments = [...new Set(allAttachments)];
+    //         console.log(
+    //           `Total unique attachments to sync: ${uniqueAttachments.length}`
+    //         );
 
-            // Remove duplicates
-            const uniqueAttachments = [...new Set(allAttachments)];
-            console.log(
-              `Total unique attachments to sync: ${uniqueAttachments.length}`
-            );
+    //         // Update PowerSync
+    //         onUpdate(uniqueAttachments);
+    //       };
 
-            // Update PowerSync
-            onUpdate(uniqueAttachments);
-          };
-
-          void runAsync();
-        }
-      }
-    );
+    //       void runAsync();
+    //     }
+    //   }
+    // );
 
     // this.db.watch(
     //   this.db.query.asset.findMany({

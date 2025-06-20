@@ -9,7 +9,7 @@ import { useSystem } from '@/contexts/SystemContext';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useProjectDownload } from '@/hooks/useDownloads';
+import { useDownload } from '@/hooks/useDownloads';
 import { useTranslation } from '@/hooks/useTranslation';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,9 +52,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     isDownloaded,
     isLoading: isDownloadLoading,
     toggleDownload
-  } = useProjectDownload(currentUser?.id, project.id);
-
-  console.log('isDownloaded', isDownloaded, project.name);
+  } = useDownload('project', project.id);
 
   const { language: sourceLanguage } = useLanguageById(
     project.source_language_id
@@ -376,7 +374,7 @@ export default function Projects() {
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}
-            style={sharedStyles.list}
+            // style={sharedStyles.list}
             estimatedItemSize={200}
           />
         </View>
