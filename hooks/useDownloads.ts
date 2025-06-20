@@ -1,5 +1,5 @@
 import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
-import { download } from '@/db/drizzleSchema';
+import { download, profile } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -250,9 +250,12 @@ export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const downloadArray = await hybridFetch(
-    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
-  );
+  const { data: downloadArray } = await system.supabaseConnector.client
+    .from(recordTable)
+    .select('id')
+    .eq('id')
+    .contains('download_profiles', [profile.id])
+    .overrideTypes<{ id: string }[]>();
 
   return !!downloadArray?.[0]?.id;
 }
