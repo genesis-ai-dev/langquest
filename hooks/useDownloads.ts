@@ -1,191 +1,30 @@
-import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
-import { download, profile } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/tanstack-react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Asset } from './db/useAssets';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
-  hybridFetch,
-  useHybridQuery
+  hybridFetch
 } from './useHybridQuery';
 
-// Define the download tree structure
-interface DownloadNode {
+interface TreeNode {
   table: string;
-  idField?: string; // The field name for the ID (defaults to 'id') - used for single key
-  keyFields?: string[]; // Multiple fields for composite keys - takes precedence over idField
-  parentField?: string; // The field that links to parent
-  children?: DownloadNode[];
+  idField?: string;
+  parentField?: string;
+  childField?: string;
+  keyFields?: string[];
+  children?: TreeNode[];
 }
 
-type DownloadOperation = 'insert' | 'delete';
-
-// Helper function to find a node in the tree by table name
-function findNodeByTable(
-  node: DownloadNode,
-  tableName: string
-): DownloadNode | null {
-  if (node.table === tableName) return node;
-
-  if (node.children) {
-    for (const child of node.children) {
-      const found = findNodeByTable(child, tableName);
-      if (found) return found;
-    }
-  }
-
-  return null;
-}
-
-function getKeyField(node: DownloadNode) {
-  return node.idField ?? node.keyFields?.[0] ?? 'id';
-}
-
-// Type for handling both single keys and composite key records
-type RecordIdentifier = string | Record<string, string>;
-
-// Helper function to process download tree recursively
-async function processDownloadTree(
-  node: DownloadNode,
-  parentIds: string[],
-  profileId: string,
-  operation: DownloadOperation,
-  tx?: Parameters<Parameters<typeof system.db.transaction>[0]>[0],
-  startTable?: string
-) {
-  console.log('processing download tree', startTable ?? node.table, operation);
-  if (parentIds.length === 0) return;
-
-  // If we have a startTable, find that node and start from there
-  if (startTable && node.table !== startTable) {
-    const startNode = findNodeByTable(node, startTable);
-    if (startNode) {
-      await processDownloadTree(
-        startNode,
-        parentIds,
-        profileId,
-        operation,
-        tx,
-        startTable
-      );
-    }
-    return;
-  }
-
-  // For the root node, we already have the IDs
-  // If we have a startTable, treat the current node as root regardless of parentField
-  const isRootNode =
-    !node.parentField || (startTable && node.table === startTable);
-  let recordIdentifiers: RecordIdentifier[] = [];
-
-  if (isRootNode) {
-    recordIdentifiers = parentIds;
-  } else {
-    // Fetch records based on parent relationship
-    const keyFields = node.keyFields ?? [node.idField ?? 'id'];
-    const query = system.supabaseConnector.client
-      .from(node.table)
-      .select(keyFields.join(','))
-      .in(node.parentField!, parentIds);
-
-    const { data } = await query;
-    if (!data || data.length === 0) return;
-
-    // For composite keys, store the full record objects
-    if (node.keyFields && node.keyFields.length > 1) {
-      recordIdentifiers = data.map((record) => {
-        const typedRecord: Record<string, string> = {};
-        for (const keyField of keyFields) {
-          // @ts-expect-error - dynamic field access
-          typedRecord[keyField] = record[keyField] as string;
-        }
-        return typedRecord;
-      });
-    } else {
-      // Single key field
-      const keyField = keyFields[0];
-      // @ts-expect-error - keyField is not typed
-      recordIdentifiers = data.map((record) => record[keyField] as string);
-    }
-  }
-
-  // Perform the operation on download records
-  if (operation === 'insert') {
-    const downloadRecords = recordIdentifiers.map((identifier) => {
-      const keyField = getKeyField(node);
-      let recordKey: Record<string, string>;
-
-      if (typeof identifier === 'object') {
-        // For composite keys, identifier is already the record object
-        recordKey = identifier;
-      } else {
-        // Single key field
-        recordKey = { [keyField]: identifier };
-      }
-
-      return {
-        profile_id: profileId,
-        record_key: recordKey,
-        record_table: node.table
-      };
-    });
-    if (tx) {
-      console.log('inserting download records', downloadRecords);
-      await tx.insert(download).values(downloadRecords);
-    }
-  } else {
-    const recordKeys = recordIdentifiers.map((identifier) =>
-      JSON.stringify(
-        typeof identifier === 'string'
-          ? { [getKeyField(node)]: identifier }
-          : identifier
-      )
-    );
-
-    await Promise.all(
-      recordKeys.map((recordKey) =>
-        system.supabaseConnector.client
-          .from('download')
-          .delete()
-          .eq('profile_id', profileId)
-          .eq('record_table', node.table)
-          .eq('record_key', recordKey)
-      )
-    );
-  }
-
-  // Process children if any
-  if (node.children && recordIdentifiers.length > 0) {
-    // For children, we need to extract the actual IDs from composite keys
-    const childParentIds: string[] = [];
-
-    // Extract parent IDs from identifiers
-    for (const identifier of recordIdentifiers) {
-      if (typeof identifier === 'object') {
-        // For composite keys, extract the primary key field as parent ID
-        const primaryKeyField = getKeyField(node);
-        const parentId = identifier[primaryKeyField];
-        if (typeof parentId === 'string') {
-          childParentIds.push(parentId);
-        }
-      } else {
-        // For single keys, identifier is already the parent ID
-        childParentIds.push(identifier);
-      }
-    }
-
-    for (const child of node.children) {
-      await processDownloadTree(
-        child,
-        childParentIds,
-        profileId,
-        operation,
-        tx
-      );
-    }
-  }
+interface ServerRecordData {
+  table: string;
+  records: {
+    ids: (string | Record<string, string>)[];
+    children: Record<string, ServerRecordData['records']>;
+  };
 }
 
 function getAllDownloadedAssetsConfig(profileId: string) {
@@ -220,63 +59,381 @@ export async function getAllDownloadedAssets(profileId: string) {
   ).map((row) => Object.values(row.id));
 }
 
-function getDownloadStatusConfig(
-  recordTable: keyof typeof system.db.query,
-  recordId: string
-) {
-  const profile = getCurrentUser();
-
-  if (!profile?.id) {
-    throw new Error('Profile is required.');
-  }
-
-  return createHybridQueryConfig({
-    queryKey: ['download-status', profile.id, recordTable, recordId],
-    enabled: !!profile.id && !!recordId,
-    onlineFn: async () => {
+export function useDownloadTreeStructure() {
+  return useQuery({
+    queryKey: ['download-tree-structure'],
+    queryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
-        .from(recordTable)
-        .select('id')
-        .contains('download_profiles', [profile.id])
-        .overrideTypes<{ id: string }[]>();
+        .rpc('get_download_tree_structure')
+        .single()
+        .overrideTypes<TreeNode>();
+
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(system.db)
+    }
   });
 }
 
+/**
+ * Recursively checks if a record and all its children are downloaded
+ * by comparing server records with locally synced records
+ */
 export async function getDownloadStatus(
+  downloadTreeStructure: TreeNode,
   recordTable: keyof typeof system.db.query,
   recordId: string
-) {
-  const { data: downloadArray } = await system.supabaseConnector.client
-    .from(recordTable)
-    .select('id')
-    .eq('id')
-    .contains('download_profiles', [profile.id])
-    .overrideTypes<{ id: string }[]>();
+): Promise<boolean> {
+  try {
+    // Get the current user's profile ID
+    const userResponse = await system.supabaseConnector.client.auth.getUser();
+    const profileId = userResponse.data.user?.id;
 
-  return !!downloadArray?.[0]?.id;
+    if (!profileId) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get all related records from the server
+    const { data: serverData, error } = await system.supabaseConnector.client
+      .rpc('get_all_related_records', {
+        p_table_name: recordTable,
+        p_record_id: recordId
+      })
+      .single<ServerRecordData>();
+
+    // Debug: Log for quest-level checks
+    if (recordTable === 'quest') {
+      console.log(
+        `Quest ${recordId} serverData:`,
+        JSON.stringify(serverData, null, 2)
+      );
+    }
+
+    if (error) {
+      console.error('Error fetching related records:', error);
+      return false;
+    }
+
+    // Find the correct node for the table we're checking
+    const tableNode = findNodeInTree(downloadTreeStructure, recordTable);
+    if (!tableNode) {
+      console.error(
+        `Could not find node for table ${recordTable} in tree structure`
+      );
+      return false;
+    }
+
+    // Check if all records exist locally
+    console.log(
+      `Starting checkRecordsExistLocally for ${recordTable} ${recordId}`
+    );
+    const result = await checkRecordsExistLocally(serverData, tableNode);
+    console.log(
+      `Finished checkRecordsExistLocally for ${recordTable} ${recordId}, result:`,
+      result
+    );
+
+    // Debug: Log result for quest-level checks
+    if (recordTable === 'quest') {
+      console.log(`Quest ${recordId} download status:`, result);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error checking download status:', error);
+    return false;
+  }
+}
+
+/**
+ * Recursively checks if records exist in the local PowerSync database
+ */
+async function checkRecordsExistLocally(
+  serverRecords: ServerRecordData | null,
+  treeNode: TreeNode
+): Promise<boolean> {
+  console.log(
+    `checkRecordsExistLocally called for table: ${serverRecords?.table}`
+  );
+
+  if (!serverRecords?.records) {
+    console.log(`No records to check for ${serverRecords?.table}`);
+    return true; // No records to check
+  }
+
+  const { ids, children } = serverRecords.records;
+  const tableName = serverRecords.table;
+
+  console.log(
+    `Checking table ${tableName} with ${ids.length} records and ${Object.keys(children).length} child tables`
+  );
+
+  // Debug for quest and quest-related tables
+  const isQuestRelated =
+    tableName === 'quest' ||
+    tableName === 'quest_tag_link' ||
+    tableName === 'quest_asset_link' ||
+    tableName === 'asset_tag_link' ||
+    tableName === 'asset' ||
+    tableName === 'language' ||
+    tableName === 'tag' ||
+    tableName === 'translation' ||
+    tableName === 'vote' ||
+    tableName === 'asset_content_link' ||
+    Object.keys(children).some((child) =>
+      ['quest_tag_link', 'quest_asset_link'].includes(child)
+    );
+
+  // Check if the current records exist locally
+  if (ids.length > 0) {
+    if (isQuestRelated) {
+      console.log(`Checking ${ids.length} records in ${tableName}`);
+      console.log(
+        `Tree node for ${tableName}:`,
+        JSON.stringify(treeNode, null, 2)
+      );
+    }
+
+    try {
+      // Debug: Check total count in PowerSync for this table (for all quest-related tables)
+      if (isQuestRelated) {
+        const countSql = `SELECT COUNT(*) as total FROM ${tableName}`;
+        const countResult = await system.powersync.execute(countSql, []);
+        if (countResult.rows && countResult.rows.length > 0) {
+          const countRow = countResult.rows.item(0) as {
+            total?: number;
+          } | null;
+          console.log(
+            `Total ${tableName} records in PowerSync:`,
+            countRow?.total || 0
+          );
+        }
+      }
+
+      // Check if this is a composite key table
+      if (treeNode.keyFields && treeNode.keyFields.length > 0) {
+        if (isQuestRelated) {
+          console.log(
+            `${tableName} is composite key table with fields:`,
+            treeNode.keyFields
+          );
+        }
+
+        // Handle composite key tables
+        let localCount = 0;
+
+        for (const record of ids) {
+          if (typeof record === 'object') {
+            // Build WHERE clause for composite keys
+            const whereClauses: string[] = [];
+            const values: string[] = [];
+
+            for (const keyField of treeNode.keyFields) {
+              const value = record[keyField];
+              if (value !== undefined) {
+                whereClauses.push(`${keyField} = ?`);
+                values.push(String(value));
+              }
+            }
+
+            if (whereClauses.length > 0) {
+              const sql = `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClauses.join(' AND ')}`;
+
+              if (isQuestRelated) {
+                console.log(`Checking composite key record:`, record);
+                console.log(`SQL: ${sql}`, values);
+              }
+
+              const result = await system.powersync.execute(sql, values);
+
+              if (result.rows && result.rows.length > 0) {
+                const row = result.rows.item(0) as { count?: number } | null;
+                if (row?.count && row.count > 0) {
+                  localCount++;
+                  if (isQuestRelated) {
+                    console.log(
+                      `✅ Found composite key record in ${tableName}`
+                    );
+                  }
+                } else if (isQuestRelated) {
+                  console.log(
+                    `❌ Missing composite key record in ${tableName}:`,
+                    record
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        if (localCount < ids.length) {
+          if (isQuestRelated) {
+            console.log(
+              `Missing ${ids.length - localCount} composite key records in ${tableName}`
+            );
+          }
+          return false;
+        } else if (isQuestRelated) {
+          console.log(
+            `All ${localCount} composite key records found in ${tableName}`
+          );
+        }
+      } else {
+        // Handle regular single ID tables
+        const idField = treeNode.idField || 'id';
+        const recordIds = ids
+          .map((record) =>
+            typeof record === 'string' ? record : record[idField]
+          )
+          .filter((id): id is string => Boolean(id));
+
+        if (recordIds.length > 0) {
+          // Use PowerSync's execute method
+          const placeholders = recordIds.map(() => '?').join(', ');
+          const sql = `SELECT COUNT(*) as count FROM ${tableName} WHERE ${idField} IN (${placeholders})`;
+
+          if (isQuestRelated) {
+            console.log(`Checking single ID records in ${tableName}:`);
+            console.log(`SQL: ${sql}`, recordIds);
+            console.log(`Using idField: ${idField}`);
+          }
+
+          const result = await system.powersync.execute(sql, recordIds);
+          let localCount = 0;
+
+          // Handle SQLite result format
+          if (result.rows && result.rows.length > 0) {
+            const row = result.rows.item(0) as { count?: number } | null;
+            localCount = row?.count ?? 0;
+          }
+
+          if (isQuestRelated) {
+            console.log(
+              `Found ${localCount} out of ${recordIds.length} records in ${tableName}`
+            );
+          }
+
+          if (localCount < recordIds.length) {
+            if (isQuestRelated) {
+              console.log(
+                `❌ Missing ${recordIds.length - localCount} records in ${tableName} (checked ${recordIds.length} IDs)`
+              );
+            }
+            return false; // Not all records exist locally
+          } else if (isQuestRelated) {
+            console.log(
+              `✅ All ${recordIds.length} records found in ${tableName}`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error checking local records for ${tableName}:`, error);
+      return false;
+    }
+  }
+
+  // Recursively check children
+  if (Object.keys(children).length > 0) {
+    if (isQuestRelated) {
+      console.log(`Checking children of ${tableName}:`, Object.keys(children));
+    }
+    for (const [childTable, childRecords] of Object.entries(children)) {
+      // Find the child node in the tree structure
+      const childNode = findChildNode(treeNode, childTable);
+      if (childNode) {
+        if (isQuestRelated) {
+          console.log(
+            `Found child node for ${childTable}:`,
+            JSON.stringify(childNode, null, 2)
+          );
+        }
+        const childData: ServerRecordData = {
+          table: childTable,
+          records: childRecords
+        };
+        const childrenExist = await checkRecordsExistLocally(
+          childData,
+          childNode
+        );
+        if (!childrenExist) {
+          if (isQuestRelated) {
+            console.log(`Child table ${childTable} check failed`);
+          }
+          return false;
+        }
+      } else {
+        if (isQuestRelated) {
+          console.log(`No child node found for ${childTable}`);
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Finds a node in the tree structure by table name (recursive search)
+ */
+function findNodeInTree(node: TreeNode, tableName: string): TreeNode | null {
+  // Check if current node matches
+  if (node.table === tableName) {
+    return node;
+  }
+
+  // Check children recursively
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findNodeInTree(child, tableName);
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Finds a child node in the tree structure by table name
+ */
+function findChildNode(
+  parentNode: TreeNode,
+  childTable: string
+): TreeNode | null {
+  if (!parentNode.children) {
+    return null;
+  }
+
+  for (const child of parentNode.children) {
+    if (child.table === childTable) {
+      return child;
+    }
+  }
+
+  return null;
 }
 
 /**
  * Hook to get project download status
  */
 export function useDownloadStatus(
+  downloadTreeStructure: TreeNode | null | undefined,
   recordTable: keyof typeof system.db.query,
-  recordId: string | undefined
+  recordId: string
 ) {
   const {
-    data: downloadArray,
+    data: isDownloaded,
     isLoading,
     ...rest
-  } = useHybridQuery({
-    ...getDownloadStatusConfig(recordTable, recordId!),
-    enabled: !!recordId
+  } = useQuery({
+    queryKey: ['download-status', recordTable, recordId],
+    queryFn: () =>
+      getDownloadStatus(downloadTreeStructure!, recordTable, recordId),
+    enabled: !!recordId && !!downloadTreeStructure
   });
 
-  return { isDownloaded: !!downloadArray?.[0]?.id, isLoading, ...rest };
+  return { isDownloaded, isLoading, ...rest };
 }
 
 /**
@@ -284,10 +441,15 @@ export function useDownloadStatus(
  */
 export function useDownload(
   recordTable: keyof typeof system.db.query,
-  recordId: string | undefined
+  recordId: string
 ) {
   const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useDownloadStatus(recordTable, recordId);
+  const { data: downloadTreeStructure } = useDownloadTreeStructure();
+  const { isDownloaded, isLoading } = useDownloadStatus(
+    downloadTreeStructure,
+    recordTable,
+    recordId
+  );
   const { currentUser } = useAuth();
 
   const mutation = useMutation({
@@ -296,6 +458,7 @@ export function useDownload(
         throw new Error('Profile ID and Record ID are required');
       }
 
+      console.log('downloading', recordTable, recordId, downloaded);
       const { error } = await system.supabaseConnector.client.rpc(
         'download_record',
         {
@@ -310,34 +473,21 @@ export function useDownload(
     onSuccess: async () => {
       // Invalidate related queries
       await queryClient.invalidateQueries({
-        queryKey: ['download-status', currentUser?.id, recordTable, recordId]
+        queryKey: ['download-status', recordTable, recordId]
       });
-
-      console.log(
-        'download status query invalidated',
-        currentUser?.id,
-        recordTable,
-        recordId
-      );
-
-      console.log(
-        'download status',
-        queryClient.getQueryData([
-          'download-status',
-          currentUser?.id,
-          recordTable,
-          recordId
-        ])
-      );
     }
   });
 
   const toggleDownload = async () => {
-    if (!recordId) return;
+    if (!recordId || !downloadTreeStructure) return;
 
-    const isDownloaded = await getDownloadStatus(recordTable, recordId);
-    console.log('isDownloaded', isDownloaded, recordTable, recordId);
-    await mutation.mutateAsync(isDownloaded);
+    const isCurrentlyDownloaded = await getDownloadStatus(
+      downloadTreeStructure,
+      recordTable,
+      recordId
+    );
+    console.log('isCurrentlyDownloaded', isCurrentlyDownloaded);
+    await mutation.mutateAsync(isCurrentlyDownloaded);
   };
 
   return {

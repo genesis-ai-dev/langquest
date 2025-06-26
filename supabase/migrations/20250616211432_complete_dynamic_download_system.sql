@@ -8,6 +8,17 @@
 --
 -- The tree structure is defined in get_download_tree_structure() and can be
 -- easily modified without changing the core logic.
+--
+-- Tree node parameters:
+-- - table: The table name
+-- - parentField: The field in the child table that references the parent (normal FK)
+-- - childField: The field in the parent table that references the child (reverse FK)
+-- - idField: The primary key field name (defaults to 'id')
+-- - keyFields: Array of fields for composite primary keys
+-- - children: Array of child nodes
+--
+-- Use childField when the parent table has a foreign key to the child table
+-- (e.g., project.source_language_id -> language.id)
 
 -- Drop old download tables (replaced by download_profiles columns)
 DROP TABLE IF EXISTS project_download CASCADE;
@@ -15,6 +26,7 @@ DROP TABLE IF EXISTS quest_download CASCADE;
 DROP TABLE IF EXISTS asset_download CASCADE;
 
 -- Add download_profiles columns to all relevant tables
+ALTER TABLE language ADD COLUMN IF NOT EXISTS download_profiles uuid[] DEFAULT NULL;
 ALTER TABLE project ADD COLUMN IF NOT EXISTS download_profiles uuid[] DEFAULT NULL;
 ALTER TABLE quest ADD COLUMN IF NOT EXISTS download_profiles uuid[] DEFAULT NULL;
 ALTER TABLE asset ADD COLUMN IF NOT EXISTS download_profiles uuid[] DEFAULT NULL;
@@ -27,6 +39,7 @@ ALTER TABLE asset_content_link ADD COLUMN IF NOT EXISTS download_profiles uuid[]
 ALTER TABLE vote ADD COLUMN IF NOT EXISTS download_profiles uuid[] DEFAULT NULL;
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_language_download_profiles ON language USING GIN (download_profiles);
 CREATE INDEX IF NOT EXISTS idx_project_download_profiles ON project USING GIN (download_profiles);
 CREATE INDEX IF NOT EXISTS idx_quest_download_profiles ON quest USING GIN (download_profiles);
 CREATE INDEX IF NOT EXISTS idx_asset_download_profiles ON asset USING GIN (download_profiles);
@@ -53,6 +66,16 @@ BEGIN
         "table": "project",
         "children": [
             {
+                "table": "language",
+                "childField": "source_language_id",
+                "parentField": "id"
+            },
+            {
+                "table": "language",
+                "childField": "target_language_id",
+                "parentField": "id"
+            },
+            {
                 "table": "quest",
                 "parentField": "project_id",
                 "children": [
@@ -78,6 +101,11 @@ BEGIN
                                 "table": "asset",
                                 "parentField": "id",
                                 "children": [
+                                    {
+                                        "table": "language",
+                                        "childField": "source_language_id",
+                                        "parentField": "id"
+                                    },
                                     {
                                         "table": "asset_tag_link",
                                         "idField": "tag_id",
@@ -151,6 +179,570 @@ BEGIN
 END;
 $$;
 
+-- ====================================
+-- DRY Helper Functions
+-- ====================================
+
+-- Get the ID field name for a table from its node
+CREATE OR REPLACE FUNCTION get_id_field_from_node(p_node jsonb)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    v_key_fields jsonb;
+BEGIN
+    -- First check if idField is explicitly set
+    IF p_node->>'idField' IS NOT NULL THEN
+        RETURN p_node->>'idField';
+    END IF;
+    
+    -- For composite key tables, use the first key field
+    v_key_fields := p_node->'keyFields';
+    IF v_key_fields IS NOT NULL AND jsonb_typeof(v_key_fields) = 'array' THEN
+        RETURN v_key_fields->>0;
+    END IF;
+    
+    -- Default to 'id'
+    RETURN 'id';
+END;
+$$;
+
+-- Get the ID field name for a table by table name
+CREATE OR REPLACE FUNCTION get_id_field_for_table(p_table_name text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    v_node jsonb;
+BEGIN
+    v_node := find_node_in_tree(get_download_tree_structure(), p_table_name);
+    IF v_node IS NULL THEN
+        RETURN 'id';
+    END IF;
+    RETURN get_id_field_from_node(v_node);
+END;
+$$;
+
+-- Execute update for download_profiles on a table
+CREATE OR REPLACE FUNCTION update_download_profiles(
+    p_table_name text,
+    p_profile_id uuid,
+    p_operation text,
+    p_where_clause text,
+    p_where_values text[]
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_sql text;
+    v_final_where_clause text;
+BEGIN
+    IF p_operation = 'add' THEN
+        -- Build the complete WHERE clause with values substituted
+        IF p_where_values IS NOT NULL AND array_length(p_where_values, 1) > 0 THEN
+            v_final_where_clause := format(p_where_clause, variadic p_where_values);
+        ELSE
+            v_final_where_clause := p_where_clause;
+        END IF;
+        
+        v_sql := format('
+            UPDATE %I 
+            SET download_profiles = normalize_download_profiles(
+                array_append(
+                    array_remove(download_profiles, %L::uuid), 
+                    %L::uuid
+                )
+            )
+            WHERE %s
+        ', p_table_name, p_profile_id, p_profile_id, v_final_where_clause);
+        
+        EXECUTE v_sql;
+    ELSE
+        -- For remove operations, use safe removal to avoid removing profiles still needed by other records
+        PERFORM safe_remove_download_profiles(
+            p_table_name, 
+            p_profile_id, 
+            p_where_clause, 
+            p_where_values
+        );
+    END IF;
+END;
+$$;
+
+-- Safely remove download profiles from shared resources
+-- Only removes a profile if it's not still needed by other downloaded records
+CREATE OR REPLACE FUNCTION safe_remove_download_profiles(
+    p_table_name text,
+    p_profile_id uuid,
+    p_where_clause text,
+    p_where_values text[]
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_record_id uuid;
+    v_record_ids uuid[];
+    v_sql text;
+    v_final_where_clause text;
+    v_is_still_needed boolean;
+BEGIN
+    -- Build the complete WHERE clause with values substituted
+    IF p_where_values IS NOT NULL AND array_length(p_where_values, 1) > 0 THEN
+        v_final_where_clause := format(p_where_clause, variadic p_where_values);
+    ELSE
+        v_final_where_clause := p_where_clause;
+    END IF;
+    
+    -- Get all record IDs that match the where clause
+    v_sql := format('SELECT array_agg(id) FROM %I WHERE %s', p_table_name, v_final_where_clause);
+    
+    EXECUTE v_sql INTO v_record_ids;
+    
+    -- If no records found, nothing to do
+    IF v_record_ids IS NULL OR array_length(v_record_ids, 1) IS NULL THEN
+        RETURN;
+    END IF;
+    
+    -- Check each record individually
+    FOREACH v_record_id IN ARRAY v_record_ids
+    LOOP
+        -- Check if this profile is still needed by other downloaded records
+        v_is_still_needed := is_profile_still_needed_for_shared_resource(
+            p_table_name, 
+            v_record_id, 
+            p_profile_id
+        );
+        
+        -- Only remove the profile if it's not still needed
+        IF NOT v_is_still_needed THEN
+            EXECUTE format('
+                UPDATE %I 
+                SET download_profiles = normalize_download_profiles(
+                    array_remove(download_profiles, %L::uuid)
+                )
+                WHERE id = %L
+            ', p_table_name, p_profile_id, v_record_id);
+        END IF;
+    END LOOP;
+END;
+$$;
+
+-- Check if a profile is still needed by other downloaded records for a shared resource
+-- This function generically traverses the download tree to find all references to a record
+CREATE OR REPLACE FUNCTION is_profile_still_needed_for_shared_resource(
+    p_table_name text,
+    p_record_id uuid,
+    p_profile_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_tree jsonb;
+    v_reference_count integer := 0;
+BEGIN
+    -- Get the tree structure
+    v_tree := get_download_tree_structure();
+    
+    -- Find all references to this record in the download tree
+    v_reference_count := count_references_to_record_in_tree(
+        v_tree, 
+        p_table_name, 
+        p_record_id, 
+        p_profile_id
+    );
+    
+    -- Record is still needed if there are any references from downloaded records
+    RETURN v_reference_count > 0;
+END;
+$$;
+
+-- Generic function to count references to a record in the download tree
+CREATE OR REPLACE FUNCTION count_references_to_record_in_tree(
+    p_tree jsonb,
+    p_target_table text,
+    p_target_record_id uuid,
+    p_profile_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total_count integer := 0;
+    v_count integer := 0;
+BEGIN
+    -- Count direct references (where this record is a child of downloaded parents)
+    v_count := count_direct_references_to_record(
+        p_tree, 
+        p_target_table, 
+        p_target_record_id, 
+        p_profile_id
+    );
+    v_total_count := v_total_count + v_count;
+    
+    -- Count reverse references (where this record is a parent of downloaded children)
+    v_count := count_reverse_references_to_record(
+        p_tree, 
+        p_target_table, 
+        p_target_record_id, 
+        p_profile_id
+    );
+    v_total_count := v_total_count + v_count;
+    
+    RETURN v_total_count;
+END;
+$$;
+
+-- Count direct references: where target record is referenced by downloaded parent records
+CREATE OR REPLACE FUNCTION count_direct_references_to_record(
+    p_tree jsonb,
+    p_target_table text,
+    p_target_record_id uuid,
+    p_profile_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total_count integer := 0;
+    v_count integer := 0;
+    v_sql text;
+    v_link_path jsonb;
+BEGIN
+    -- Find all paths from downloaded parent tables to the target table
+    FOR v_link_path IN
+        SELECT * FROM find_all_paths_to_table(p_tree, p_target_table)
+    LOOP
+        -- Build SQL based on the path
+        v_sql := build_reference_count_sql(v_link_path, p_target_record_id, p_profile_id);
+        
+        IF v_sql IS NOT NULL THEN
+            EXECUTE v_sql INTO v_count;
+            v_total_count := v_total_count + v_count;
+        END IF;
+    END LOOP;
+    
+    RETURN v_total_count;
+END;
+$$;
+
+-- Count reverse references: where target record is a parent of downloaded child records
+CREATE OR REPLACE FUNCTION count_reverse_references_to_record(
+    p_tree jsonb,
+    p_target_table text,
+    p_target_record_id uuid,
+    p_profile_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total_count integer := 0;
+    v_count integer := 0;
+    v_child_table text;
+    v_parent_field text;
+    v_child_field text;
+    v_sql text;
+BEGIN
+    -- Find all child relationships for the target table
+    SELECT 
+        array_agg(child_info.child_table),
+        array_agg(child_info.parent_field),
+        array_agg(child_info.child_field)
+    INTO v_child_table, v_parent_field, v_child_field
+    FROM (
+        SELECT DISTINCT
+            child_node->>'table' as child_table,
+            child_node->>'parentField' as parent_field,
+            child_node->>'childField' as child_field
+        FROM find_all_child_relationships(p_tree, p_target_table) as child_relationships(parent_node, child_node)
+    ) as child_info;
+    
+    -- For each child relationship, count downloaded children that reference this record
+    IF v_child_table IS NOT NULL THEN
+        FOR i IN 1..array_length(v_child_table, 1)
+        LOOP
+            IF v_parent_field[i] IS NOT NULL THEN
+                -- Normal relationship: child has FK to parent
+                v_sql := format('
+                    SELECT COUNT(*)
+                    FROM %I c
+                    WHERE c.%I = %L
+                      AND c.download_profiles @> ARRAY[%L]
+                ', v_child_table[i], v_parent_field[i], p_target_record_id, p_profile_id);
+            ELSIF v_child_field[i] IS NOT NULL THEN
+                -- Reverse relationship: parent has FK to child
+                v_sql := format('
+                    SELECT COUNT(*)
+                    FROM %I c
+                    JOIN %I p ON p.%I = c.id
+                    WHERE p.id = %L
+                      AND c.download_profiles @> ARRAY[%L]
+                ', v_child_table[i], p_target_table, v_child_field[i], p_target_record_id, p_profile_id);
+            END IF;
+            
+            IF v_sql IS NOT NULL THEN
+                EXECUTE v_sql INTO v_count;
+                v_total_count := v_total_count + v_count;
+                v_sql := NULL;
+            END IF;
+        END LOOP;
+    END IF;
+    
+    RETURN v_total_count;
+END;
+$$;
+
+-- Count references from composite key link tables
+CREATE OR REPLACE FUNCTION count_composite_key_references_to_record(
+    p_tree jsonb,
+    p_target_table text,
+    p_target_record_id uuid,
+    p_profile_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total_count integer := 0;
+    v_count integer := 0;
+    v_link_table text;
+    v_target_field text;
+    v_parent_field text;
+    v_parent_table text;
+    v_sql text;
+BEGIN
+    -- Find all composite key link tables that reference the target table
+    FOR v_link_table, v_target_field, v_parent_field, v_parent_table IN
+        SELECT 
+            link_info.link_table,
+            link_info.target_field,
+            link_info.parent_field,
+            link_info.parent_table
+        FROM find_composite_key_links_to_table(p_tree, p_target_table) as link_info
+    LOOP
+        -- Count downloaded parent records that are linked to this target record
+        v_sql := format('
+            SELECT COUNT(DISTINCT p.id)
+            FROM %I p
+            JOIN %I l ON l.%I = p.id
+            WHERE l.%I = %L
+              AND p.download_profiles @> ARRAY[%L]
+        ', v_parent_table, v_link_table, v_parent_field, v_target_field, p_target_record_id, p_profile_id);
+        
+        EXECUTE v_sql INTO v_count;
+        v_total_count := v_total_count + v_count;
+    END LOOP;
+    
+    RETURN v_total_count;
+END;
+$$;
+
+-- Helper function to find all parent relationships for a table in the tree
+CREATE OR REPLACE FUNCTION find_all_parent_relationships(
+    p_tree jsonb,
+    p_target_table text
+)
+RETURNS TABLE(parent_node jsonb, child_node jsonb)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH RECURSIVE tree_traversal AS (
+        -- Base case: start with root
+        SELECT p_tree as node, NULL::jsonb as parent
+        
+        UNION ALL
+        
+        -- Recursive case: traverse children
+        SELECT 
+            child.value as node,
+            t.node as parent
+        FROM tree_traversal t,
+             jsonb_array_elements(t.node->'children') as child
+        WHERE t.node->'children' IS NOT NULL
+    )
+    SELECT 
+        t.parent as parent_node,
+        t.node as child_node
+    FROM tree_traversal t
+    WHERE t.node->>'table' = p_target_table
+      AND t.parent IS NOT NULL;
+END;
+$$;
+
+-- Helper function to find all child relationships for a table in the tree
+CREATE OR REPLACE FUNCTION find_all_child_relationships(
+    p_tree jsonb,
+    p_target_table text
+)
+RETURNS TABLE(parent_node jsonb, child_node jsonb)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH RECURSIVE tree_traversal AS (
+        -- Base case: start with root
+        SELECT p_tree as node, NULL::jsonb as parent
+        
+        UNION ALL
+        
+        -- Recursive case: traverse children
+        SELECT 
+            child.value as node,
+            t.node as parent
+        FROM tree_traversal t,
+             jsonb_array_elements(t.node->'children') as child
+        WHERE t.node->'children' IS NOT NULL
+    )
+    SELECT 
+        t.node as parent_node,
+        child.value as child_node
+    FROM tree_traversal t,
+         jsonb_array_elements(t.node->'children') as child
+    WHERE t.node->>'table' = p_target_table
+      AND t.node->'children' IS NOT NULL;
+END;
+$$;
+
+-- Helper function to find composite key link tables that reference a target table
+CREATE OR REPLACE FUNCTION find_composite_key_links_to_table(
+    p_tree jsonb,
+    p_target_table text
+)
+RETURNS TABLE(
+    link_table text,
+    target_field text,
+    parent_field text,
+    parent_table text
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH RECURSIVE tree_traversal AS (
+        -- Base case: start with root
+        SELECT p_tree as node, NULL::jsonb as parent
+        
+        UNION ALL
+        
+        -- Recursive case: traverse children
+        SELECT 
+            child.value as node,
+            t.node as parent
+        FROM tree_traversal t,
+             jsonb_array_elements(t.node->'children') as child
+        WHERE t.node->'children' IS NOT NULL
+    )
+    SELECT DISTINCT
+        t.node->>'table' as link_table,
+        CASE 
+            -- If the link table references our target table directly
+            WHEN EXISTS (
+                SELECT 1 FROM jsonb_array_elements(t.node->'children') as child_elem
+                WHERE child_elem->>'table' = p_target_table
+            ) THEN 
+                -- Find the field name that references the target table
+                CASE p_target_table
+                    WHEN 'tag' THEN 'tag_id'
+                    WHEN 'asset' THEN 'asset_id'
+                    WHEN 'quest' THEN 'quest_id'
+                    ELSE 'id'
+                END
+            ELSE NULL
+        END as target_field,
+        t.node->>'parentField' as parent_field,
+        t.parent->>'table' as parent_table
+    FROM tree_traversal t
+    WHERE t.node->'keyFields' IS NOT NULL  -- This is a composite key table
+      AND t.parent IS NOT NULL
+      AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(t.node->'children') as child_elem
+          WHERE child_elem->>'table' = p_target_table
+      );
+END;
+$$;
+
+-- Get download_profiles from a parent record
+CREATE OR REPLACE FUNCTION get_parent_download_profiles(
+    p_parent_table text,
+    p_parent_id uuid
+)
+RETURNS uuid[]
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_parent_id_field text;
+    v_parent_profiles uuid[];
+BEGIN
+    v_parent_id_field := get_id_field_for_table(p_parent_table);
+    
+    EXECUTE format('
+        SELECT download_profiles 
+        FROM %I 
+        WHERE %I = %L
+    ', p_parent_table, v_parent_id_field, p_parent_id) INTO v_parent_profiles;
+    
+    RETURN v_parent_profiles;
+END;
+$$;
+
+-- Check if a jsonb value is a non-empty array
+CREATE OR REPLACE FUNCTION is_non_empty_array(p_value jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+    RETURN p_value IS NOT NULL AND jsonb_typeof(p_value) = 'array' AND jsonb_array_length(p_value) > 0;
+END;
+$$;
+
+-- Get child IDs for a node based on parent-child relationship
+CREATE OR REPLACE FUNCTION get_child_ids_for_node(
+    p_child_node jsonb,
+    p_parent_table text,
+    p_parent_ids uuid[]
+)
+RETURNS uuid[]
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_child_table text;
+    v_id_field text;
+    v_child_ids uuid[];
+    v_sql text;
+BEGIN
+    v_child_table := p_child_node->>'table';
+    v_id_field := get_id_field_from_node(p_child_node);
+    
+    -- Check if this is a reverse relationship (parent has FK to child)
+    IF p_child_node->'childField' IS NOT NULL THEN
+        -- Parent has FK pointing to child
+        v_sql := format('
+            SELECT array_agg(DISTINCT %I) 
+            FROM %I 
+            WHERE id = ANY(%L::uuid[])
+              AND %I IS NOT NULL
+        ', p_child_node->>'childField', p_parent_table, p_parent_ids, p_child_node->>'childField');
+    ELSE
+        -- Normal relationship (child has FK to parent)
+        v_sql := format('
+            SELECT array_agg(DISTINCT %I) 
+            FROM %I 
+            WHERE %I = ANY(%L::uuid[])
+        ', v_id_field, v_child_table, p_child_node->>'parentField', p_parent_ids);
+    END IF;
+    
+    EXECUTE v_sql INTO v_child_ids;
+    RETURN v_child_ids;
+END;
+$$;
+
 -- Dynamic process_download_tree function
 CREATE OR REPLACE FUNCTION process_download_tree(
     p_table_name text,
@@ -165,13 +757,9 @@ AS $$
 DECLARE
     v_tree jsonb;
     v_node jsonb;
-    v_sql text;
     v_child_ids uuid[];
     v_children jsonb;
     v_child jsonb;
-    v_parent_field text;
-    v_key_fields text[];
-    v_id_field text;
 BEGIN
     -- Validate operation
     IF p_operation NOT IN ('add', 'remove') THEN
@@ -193,37 +781,20 @@ BEGIN
         RAISE EXCEPTION 'Table % not found in download tree', p_table_name;
     END IF;
     
-    -- Update download_profiles for the current table
-    IF p_operation = 'add' THEN
-        v_sql := format('
-            UPDATE %I 
-            SET download_profiles = normalize_download_profiles(
-                array_append(
-                    array_remove(download_profiles, %L::uuid), 
-                    %L::uuid
-                )
-            )
-            WHERE id = ANY(%L::uuid[])
-        ', p_table_name, p_profile_id, p_profile_id, p_record_ids);
-    ELSE
-        v_sql := format('
-            UPDATE %I 
-            SET download_profiles = normalize_download_profiles(
-                array_remove(download_profiles, %L::uuid)
-            )
-            WHERE id = ANY(%L::uuid[])
-        ', p_table_name, p_profile_id, p_record_ids);
-    END IF;
-    
-    EXECUTE v_sql;
+    -- Update download_profiles for the current table using helper
+    PERFORM update_download_profiles(
+        p_table_name, 
+        p_profile_id, 
+        p_operation,
+        'id = ANY(%L::uuid[])',
+        ARRAY[p_record_ids::text]
+    );
     
     -- Process children if any
     v_children := v_node->'children';
-    IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' THEN
+    IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
-            v_parent_field := v_child->>'parentField';
-            
             -- Check if this is a composite key table
             IF v_child->'keyFields' IS NOT NULL THEN
                 -- Handle composite key tables
@@ -232,20 +803,11 @@ BEGIN
                     p_record_ids,
                     p_profile_id,
                     p_operation,
-                    v_parent_field
+                    v_child->>'parentField'
                 );
             ELSE
                 -- Handle regular tables
-                v_id_field := COALESCE(v_child->>'idField', 'id');
-                
-                -- Get child IDs based on parent relationship
-                v_sql := format('
-                    SELECT array_agg(DISTINCT %I) 
-                    FROM %I 
-                    WHERE %I = ANY(%L::uuid[])
-                ', v_id_field, v_child->>'table', v_parent_field, p_record_ids);
-                
-                EXECUTE v_sql INTO v_child_ids;
+                v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
                 
                 -- Recursively process children
                 IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
@@ -275,67 +837,33 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_table_name text;
-    v_sql text;
-    v_key_fields jsonb;
     v_id_field text;
     v_child_ids uuid[];
     v_children jsonb;
     v_child jsonb;
-    v_where_clause text;
-    v_key_field text;
-    v_temp_sql text;
 BEGIN
     v_table_name := p_node->>'table';
-    v_key_fields := p_node->'keyFields';
-    v_id_field := COALESCE(p_node->>'idField', (v_key_fields->>0)::text, 'id');
+    v_id_field := get_id_field_from_node(p_node);
     
-    -- For composite key tables, we need to be more careful about which records to update
-    -- If keyFields are defined, we should consider using them for more precise updates
-    IF v_key_fields IS NOT NULL AND jsonb_typeof(v_key_fields) = 'array' THEN
-        -- For now, we still use parent_field as the main filter
-        -- This is correct behavior when downloading a parent and all its related junction records
-        v_where_clause := format('%I = ANY(%L::uuid[])', p_parent_field, p_parent_ids);
-    ELSE
-        -- For non-composite key tables, use the parent field
-        v_where_clause := format('%I = ANY(%L::uuid[])', p_parent_field, p_parent_ids);
-    END IF;
-    
-    -- Update download_profiles for the composite key table
-    IF p_operation = 'add' THEN
-        v_sql := format('
-            UPDATE %I 
-            SET download_profiles = normalize_download_profiles(
-                array_append(
-                    array_remove(download_profiles, %L::uuid), 
-                    %L::uuid
-                )
-            )
-            WHERE %s
-        ', v_table_name, p_profile_id, p_profile_id, v_where_clause);
-    ELSE
-        v_sql := format('
-            UPDATE %I 
-            SET download_profiles = normalize_download_profiles(
-                array_remove(download_profiles, %L::uuid)
-            )
-            WHERE %s
-        ', v_table_name, p_profile_id, v_where_clause);
-    END IF;
-    
-    EXECUTE v_sql;
+    -- Update download_profiles for the composite key table using helper
+    PERFORM update_download_profiles(
+        v_table_name,
+        p_profile_id,
+        p_operation,
+        format('%I = ANY(%%L::uuid[])', p_parent_field),
+        ARRAY[p_parent_ids::text]
+    );
     
     -- Get the IDs for child processing
-    v_sql := format('
+    EXECUTE format('
         SELECT array_agg(DISTINCT %I) 
         FROM %I 
-        WHERE %s
-    ', v_id_field, v_table_name, v_where_clause);
-    
-    EXECUTE v_sql INTO v_child_ids;
+        WHERE %I = ANY(%L::uuid[])
+    ', v_id_field, v_table_name, p_parent_field, p_parent_ids) INTO v_child_ids;
     
     -- Process children if any
     v_children := p_node->'children';
-    IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' AND 
+    IF is_non_empty_array(v_children) AND 
        v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
@@ -364,30 +892,6 @@ BEGIN
 END;
 $$;
 
--- Convenience function to check if a record is downloaded by a profile
-CREATE OR REPLACE FUNCTION is_downloaded(
-    p_table_name text,
-    p_record_id uuid,
-    p_profile_id uuid
-)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-AS $$
-DECLARE
-    v_result boolean;
-BEGIN
-    EXECUTE format('
-        SELECT %L = ANY(download_profiles)
-        FROM %I
-        WHERE id = %L
-    ', p_profile_id, p_table_name, p_record_id)
-    INTO v_result;
-    
-    RETURN COALESCE(v_result, false);
-END;
-$$;
-
 -- ====================================
 -- PART 2: Automatic Propagation
 -- ====================================
@@ -400,12 +904,10 @@ AS $$
 DECLARE
     v_tree jsonb;
     v_node jsonb;
-    v_parent_node jsonb;
     v_parent_table text;
     v_parent_field text;
     v_parent_id uuid;
     v_parent_profiles uuid[];
-    v_sql text;
 BEGIN
     -- Get the download tree structure
     v_tree := get_download_tree_structure();
@@ -426,6 +928,13 @@ BEGIN
         RETURN NEW;
     END IF;
     
+    -- Check if this node has a childField (reverse relationship)
+    IF v_node->'childField' IS NOT NULL THEN
+        -- This is a reverse relationship - skip propagation on insert
+        -- (language records don't inherit from projects/assets)
+        RETURN NEW;
+    END IF;
+    
     -- Get the parent ID from the new record
     EXECUTE format('SELECT ($1).%I::uuid', v_parent_field) 
     USING NEW 
@@ -443,23 +952,8 @@ BEGIN
         RETURN NEW;
     END IF;
     
-    -- Get parent's download_profiles
-    -- Need to determine the correct ID field for the parent table
-    DECLARE
-        v_parent_node jsonb;
-        v_parent_id_field text;
-    BEGIN
-        v_parent_node := find_node_in_tree(v_tree, v_parent_table);
-        v_parent_id_field := COALESCE(v_parent_node->>'idField', 'id');
-        
-        v_sql := format('
-            SELECT download_profiles 
-            FROM %I 
-            WHERE %I = %L
-        ', v_parent_table, v_parent_id_field, v_parent_id);
-    END;
-    
-    EXECUTE v_sql INTO v_parent_profiles;
+    -- Get parent's download_profiles using helper
+    v_parent_profiles := get_parent_download_profiles(v_parent_table, v_parent_id);
     
     -- Set the download_profiles on the new record
     NEW.download_profiles := normalize_download_profiles(v_parent_profiles);
@@ -511,7 +1005,7 @@ DECLARE
     v_child jsonb;
 BEGIN
     v_children := p_node->'children';
-    IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' THEN
+    IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
             IF v_child->>'table' = p_child_table THEN
@@ -540,7 +1034,7 @@ DECLARE
     v_child_parent_field text;
 BEGIN
     v_children := p_tree->'children';
-    IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' THEN
+    IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
             -- Check if this child is our target table
@@ -585,7 +1079,7 @@ BEGIN
     
     -- Process children
     v_children := p_tree->'children';
-    IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' THEN
+    IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
             v_child_tables := get_all_tables_from_tree(v_child);
@@ -610,24 +1104,11 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 DECLARE
-    v_tree jsonb;
-    v_node jsonb;
     v_id_field text;
     v_result uuid;
 BEGIN
-    -- Get the download tree structure
-    v_tree := get_download_tree_structure();
-    
-    -- Find the node for the table
-    v_node := find_node_in_tree(v_tree, p_table_name);
-    
-    IF v_node IS NULL THEN
-        -- Default to 'id' if table not found in tree
-        v_id_field := 'id';
-    ELSE
-        -- Get the ID field from the node, default to 'id'
-        v_id_field := COALESCE(v_node->>'idField', 'id');
-    END IF;
+    -- Get the ID field for the table
+    v_id_field := get_id_field_for_table(p_table_name);
     
     -- Extract the ID value from the record
     EXECUTE format('SELECT ($1).%I::uuid', v_id_field) 
@@ -668,7 +1149,7 @@ BEGIN
             -- Get children of this node
             v_children := v_node->'children';
             
-            IF v_children IS NOT NULL AND jsonb_typeof(v_children) = 'array' THEN
+            IF is_non_empty_array(v_children) THEN
                 -- Update all child tables
                 FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
                 LOOP
@@ -676,6 +1157,13 @@ BEGIN
                     v_parent_field := v_child->>'parentField';
                     
                     IF v_child_table IS NOT NULL AND v_parent_field IS NOT NULL THEN
+                        -- Check if this is a reverse relationship
+                        IF v_child->'childField' IS NOT NULL THEN
+                            -- Skip reverse relationships in update trigger
+                            -- (language records don't get updated when project/asset changes)
+                            CONTINUE;
+                        END IF;
+                        
                         -- Update child records that reference this parent
                         v_sql := format('
                             UPDATE %I 
@@ -707,7 +1195,6 @@ DECLARE
     v_old_parent_id uuid;
     v_new_parent_id uuid;
     v_parent_profiles uuid[];
-    v_sql text;
 BEGIN
     -- Get the download tree structure
     v_tree := get_download_tree_structure();
@@ -735,23 +1222,8 @@ BEGIN
         v_parent_table := find_parent_table_for_field(v_tree, TG_TABLE_NAME, v_parent_field);
         
         IF v_parent_table IS NOT NULL THEN
-            -- Get new parent's download_profiles
-            -- Need to determine the correct ID field for the parent table
-            DECLARE
-                v_parent_node jsonb;
-                v_parent_id_field text;
-            BEGIN
-                v_parent_node := find_node_in_tree(v_tree, v_parent_table);
-                v_parent_id_field := COALESCE(v_parent_node->>'idField', 'id');
-                
-                v_sql := format('
-                    SELECT download_profiles 
-                    FROM %I 
-                    WHERE %I = %L
-                ', v_parent_table, v_parent_id_field, v_new_parent_id);
-            END;
-            
-            EXECUTE v_sql INTO v_parent_profiles;
+            -- Get new parent's download_profiles using helper
+            v_parent_profiles := get_parent_download_profiles(v_parent_table, v_new_parent_id);
             
             -- Update the record's download_profiles
             NEW.download_profiles := normalize_download_profiles(v_parent_profiles);
@@ -839,147 +1311,215 @@ SELECT create_download_propagation_triggers();
 SELECT create_download_update_triggers();
 
 -- ====================================
--- PART 4: Utility Functions
+-- PART 4: Utility Views and Functions
 -- ====================================
 
--- Function to manually propagate profiles to existing records
-CREATE OR REPLACE FUNCTION backfill_download_profiles(
-    p_table_name text DEFAULT NULL
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_tree jsonb;
-    v_tables text[];
-    v_table text;
-    v_node jsonb;
-    v_parent_field text;
-    v_parent_table text;
-    v_sql text;
-BEGIN
-    v_tree := get_download_tree_structure();
-    
-    IF p_table_name IS NOT NULL THEN
-        v_tables := ARRAY[p_table_name];
-    ELSE
-        v_tables := get_all_tables_from_tree(v_tree);
-    END IF;
-    
-    FOREACH v_table IN ARRAY v_tables
-    LOOP
-        v_node := find_node_in_tree(v_tree, v_table);
-        IF v_node IS NULL THEN
-            CONTINUE;
-        END IF;
-        
-        v_parent_field := v_node->>'parentField';
-        IF v_parent_field IS NULL THEN
-            CONTINUE;
-        END IF;
-        
-        v_parent_table := find_parent_table_for_field(v_tree, v_table, v_parent_field);
-        IF v_parent_table IS NULL THEN
-            CONTINUE;
-        END IF;
-        
-        -- Update records that have empty download_profiles but their parent has profiles
-        -- Need to determine the correct ID field for the parent table
-        DECLARE
-            v_parent_node jsonb;
-            v_parent_id_field text;
-        BEGIN
-            v_parent_node := find_node_in_tree(v_tree, v_parent_table);
-            v_parent_id_field := COALESCE(v_parent_node->>'idField', 'id');
-            
-            v_sql := format('
-                UPDATE %I child
-                SET download_profiles = normalize_download_profiles(parent.download_profiles)
-                FROM %I parent
-                WHERE child.%I = parent.%I
-                AND (child.download_profiles IS NULL OR array_length(child.download_profiles, 1) IS NULL)
-                AND parent.download_profiles IS NOT NULL
-                AND array_length(parent.download_profiles, 1) > 0
-            ', v_table, v_parent_table, v_parent_field, v_parent_id_field);
-        END;
-        
-        EXECUTE v_sql;
-    END LOOP;
-END;
-$$;
-
--- Utility function to refresh download_profiles for a specific record and its descendants
-CREATE OR REPLACE FUNCTION refresh_download_profiles(
+-- Function to get all related records for a given record
+CREATE OR REPLACE FUNCTION get_all_related_records(
     p_table_name text,
     p_record_id uuid
 )
-RETURNS void
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_profiles uuid[];
     v_tree jsonb;
     v_node jsonb;
-    v_id_field text;
+    v_result jsonb;
 BEGIN
-    -- Get the download tree structure and determine the correct ID field
+    -- Get the tree structure
     v_tree := get_download_tree_structure();
+    
+    -- Find the node for the current table
     v_node := find_node_in_tree(v_tree, p_table_name);
-    v_id_field := COALESCE(v_node->>'idField', 'id');
     
-    -- Get current profiles for the record
-    EXECUTE format('
-        SELECT download_profiles 
-        FROM %I 
-        WHERE %I = %L
-    ', p_table_name, v_id_field, p_record_id) INTO v_profiles;
-    
-    -- If no profiles, nothing to do
-    IF v_profiles IS NULL OR array_length(v_profiles, 1) IS NULL THEN
-        RETURN;
+    IF v_node IS NULL THEN
+        RAISE EXCEPTION 'Table % not found in download tree', p_table_name;
     END IF;
     
-    -- Use process_download_tree to update this record and all descendants
-    PERFORM process_download_tree(p_table_name, ARRAY[p_record_id], unnest, 'add')
-    FROM unnest(v_profiles);
+    -- Start recursive collection of records
+    v_result := jsonb_build_object(
+        'table', p_table_name,
+        'records', get_records_for_node(v_node, p_table_name, ARRAY[p_record_id])
+    );
+    
+    RETURN v_result;
 END;
 $$;
 
--- ====================================
--- PART 5: Views and Permissions
--- ====================================
+-- Helper function to get records for a node and its children
+CREATE OR REPLACE FUNCTION get_records_for_node(
+    p_node jsonb,
+    p_table_name text,
+    p_record_ids uuid[]
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_records jsonb := '[]'::jsonb;
+    v_children jsonb;
+    v_child jsonb;
+    v_child_ids uuid[];
+    v_child_records jsonb;
+    v_id_field text;
+    v_sql text;
+    v_record jsonb;
+BEGIN
+    -- Return empty if no records to process
+    IF p_record_ids IS NULL OR array_length(p_record_ids, 1) IS NULL THEN
+        RETURN jsonb_build_object(
+            'ids', '[]'::jsonb,
+            'children', '{}'::jsonb
+        );
+    END IF;
+    
+    v_id_field := get_id_field_from_node(p_node);
+    
+    -- Get the records for current table
+    v_sql := format('
+        SELECT jsonb_agg(%I) 
+        FROM %I 
+        WHERE %I = ANY(%L::uuid[])
+    ', v_id_field, p_table_name, v_id_field, p_record_ids);
+    
+    EXECUTE v_sql INTO v_records;
+    
+    -- Initialize result with current records
+    v_record := jsonb_build_object(
+        'ids', COALESCE(v_records, '[]'::jsonb),
+        'children', '{}'::jsonb
+    );
+    
+    -- Process children if any
+    v_children := p_node->'children';
+    IF is_non_empty_array(v_children) THEN
+        FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
+        LOOP
+            -- Check if this is a composite key table
+            IF v_child->'keyFields' IS NOT NULL THEN
+                -- Handle composite key tables
+                v_child_records := get_composite_key_child_records(
+                    v_child,
+                    p_table_name,
+                    p_record_ids
+                );
+            ELSE
+                -- Handle regular tables
+                v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
+                
+                IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
+                    v_child_records := get_records_for_node(
+                        v_child,
+                        v_child->>'table',
+                        v_child_ids
+                    );
+                ELSE
+                    v_child_records := jsonb_build_object(
+                        'ids', '[]'::jsonb,
+                        'children', '{}'::jsonb
+                    );
+                END IF;
+            END IF;
+            
+            -- Add child records to result
+            v_record := jsonb_set(
+                v_record,
+                ARRAY['children', v_child->>'table'],
+                v_child_records
+            );
+        END LOOP;
+    END IF;
+    
+    RETURN v_record;
+END;
+$$;
 
--- Create a view to easily see the download tree structure
-CREATE OR REPLACE VIEW download_tree_structure AS
-SELECT get_download_tree_structure() AS tree;
+-- Helper function to get composite key child records
+CREATE OR REPLACE FUNCTION get_composite_key_child_records(
+    p_node jsonb,
+    p_parent_table text,
+    p_parent_ids uuid[]
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_table_name text;
+    v_id_field text;
+    v_parent_field text;
+    v_key_fields text[];
+    v_child_ids uuid[];
+    v_records jsonb;
+    v_children jsonb;
+    v_child jsonb;
+    v_child_records jsonb;
+    v_result jsonb;
+    v_sql text;
+BEGIN
+    v_table_name := p_node->>'table';
+    v_id_field := get_id_field_from_node(p_node);
+    v_parent_field := p_node->>'parentField';
+    
+    -- Get the composite key records
+    v_sql := format('
+        SELECT jsonb_agg(
+            jsonb_build_object(
+                %s
+            )
+        )
+        FROM %I 
+        WHERE %I = ANY(%L::uuid[])
+    ', 
+        -- Build the key fields dynamically
+        (SELECT string_agg(format('%L, %I', elem::text, elem::text), ', ')
+         FROM jsonb_array_elements_text(p_node->'keyFields') elem),
+        v_table_name,
+        v_parent_field,
+        p_parent_ids
+    );
+    
+    EXECUTE v_sql INTO v_records;
+    
+    -- Get the IDs for child processing
+    EXECUTE format('
+        SELECT array_agg(DISTINCT %I) 
+        FROM %I 
+        WHERE %I = ANY(%L::uuid[])
+    ', v_id_field, v_table_name, v_parent_field, p_parent_ids) INTO v_child_ids;
+    
+    -- Initialize result
+    v_result := jsonb_build_object(
+        'ids', COALESCE(v_records, '[]'::jsonb),
+        'children', '{}'::jsonb
+    );
+    
+    -- Process children if any
+    v_children := p_node->'children';
+    IF is_non_empty_array(v_children) AND 
+       v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
+        FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
+        LOOP
+            v_child_records := get_records_for_node(
+                v_child,
+                v_child->>'table',
+                v_child_ids
+            );
+            
+            -- Add child records to result
+            v_result := jsonb_set(
+                v_result,
+                ARRAY['children', v_child->>'table'],
+                v_child_records
+            );
+        END LOOP;
+    END IF;
+    
+    RETURN v_result;
+END;
+$$;
 
--- Grant all necessary permissions
--- GRANT EXECUTE ON FUNCTION get_download_tree_structure TO authenticated;
--- GRANT EXECUTE ON FUNCTION find_node_in_tree TO authenticated;
--- GRANT EXECUTE ON FUNCTION process_download_tree TO authenticated;
--- GRANT EXECUTE ON FUNCTION process_composite_key_table TO authenticated;
--- GRANT EXECUTE ON FUNCTION normalize_download_profiles TO authenticated;
--- GRANT EXECUTE ON FUNCTION is_downloaded TO authenticated;
--- GRANT EXECUTE ON FUNCTION propagate_download_profiles_on_insert TO authenticated;
--- GRANT EXECUTE ON FUNCTION find_parent_table_for_field TO authenticated;
--- GRANT EXECUTE ON FUNCTION has_child_table TO authenticated;
--- GRANT EXECUTE ON FUNCTION search_parent_table_recursive TO authenticated;
--- GRANT EXECUTE ON FUNCTION create_download_propagation_triggers TO authenticated;
--- GRANT EXECUTE ON FUNCTION get_all_tables_from_tree TO authenticated;
--- GRANT EXECUTE ON FUNCTION handle_download_profiles_update TO authenticated;
--- GRANT EXECUTE ON FUNCTION handle_parent_change_update TO authenticated;
--- GRANT EXECUTE ON FUNCTION create_download_update_triggers TO authenticated;
--- GRANT EXECUTE ON FUNCTION backfill_download_profiles TO authenticated;
--- GRANT EXECUTE ON FUNCTION refresh_download_profiles TO authenticated;
--- GRANT SELECT ON download_tree_structure TO authenticated;
-
--- ====================================
--- PART 5: RPC Functions for User Access
--- ====================================
-
--- RPC function to download records at any level in the tree
 CREATE OR REPLACE FUNCTION download_records(
     p_table_name text,
     p_record_ids uuid[],
@@ -1067,428 +1607,27 @@ BEGIN
 END;
 $$;
 
--- RPC function to check download status of a record (simple version for single ID)
-CREATE OR REPLACE FUNCTION get_download_status(
-    p_record_table text,
-    p_record_id uuid
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_profile_id uuid;
-    v_tree jsonb;
-    v_node jsonb;
-    v_id_field text;
-    v_sql text;
-    v_is_downloaded boolean;
-BEGIN
-    -- Get current user's profile ID
-    v_profile_id := auth.uid();
-    
-    IF v_profile_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-    
-    -- Get the download tree structure to determine the correct ID field
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_record_table);
-    
-    -- Determine the ID field (default to 'id' if table not in tree)
-    v_id_field := COALESCE(v_node->>'idField', 'id');
-    
-    -- Check if the record's download_profiles contains the current user
-    v_sql := format('
-        SELECT CASE 
-            WHEN download_profiles IS NULL THEN false
-            WHEN %L = ANY(download_profiles) THEN true
-            ELSE false
-        END
-        FROM %I 
-        WHERE %I = %L
-    ', v_profile_id, p_record_table, v_id_field, p_record_id);
-    
-    EXECUTE v_sql INTO v_is_downloaded;
-    
-    -- Return false if record not found
-    RETURN COALESCE(v_is_downloaded, false);
-END;
-$$;
-
--- RPC function to check download status of a record with composite keys
-CREATE OR REPLACE FUNCTION get_download_status_composite(
-    p_record_table text,
-    p_key_values jsonb  -- e.g., {"quest_id": "uuid1", "tag_id": "uuid2"}
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_profile_id uuid;
-    v_tree jsonb;
-    v_node jsonb;
-    v_key_fields jsonb;
-    v_sql text;
-    v_where_clause text := '';
-    v_key text;
-    v_value text;
-    v_is_downloaded boolean;
-BEGIN
-    -- Get current user's profile ID
-    v_profile_id := auth.uid();
-    
-    IF v_profile_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-    
-    -- Get the download tree structure to find key fields
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_record_table);
-    
-    IF v_node IS NULL THEN
-        RAISE EXCEPTION 'Table % not found in download tree', p_record_table;
-    END IF;
-    
-    -- Get key fields for the table
-    v_key_fields := v_node->'keyFields';
-    
-    -- Build WHERE clause based on provided keys or keyFields
-    IF v_key_fields IS NOT NULL AND jsonb_typeof(v_key_fields) = 'array' THEN
-        -- Use keyFields from tree structure
-        FOR v_key IN SELECT jsonb_array_elements_text(v_key_fields)
-        LOOP
-            v_value := p_key_values->>v_key;
-            IF v_value IS NULL THEN
-                RAISE EXCEPTION 'Missing required key field: %', v_key;
-            END IF;
-            
-            IF v_where_clause != '' THEN
-                v_where_clause := v_where_clause || ' AND ';
-            END IF;
-            v_where_clause := v_where_clause || format('%I = %L::uuid', v_key, v_value);
-        END LOOP;
-    ELSE
-        -- Use all provided keys if no keyFields defined
-        FOR v_key, v_value IN SELECT * FROM jsonb_each_text(p_key_values)
-        LOOP
-            IF v_where_clause != '' THEN
-                v_where_clause := v_where_clause || ' AND ';
-            END IF;
-            v_where_clause := v_where_clause || format('%I = %L::uuid', v_key, v_value);
-        END LOOP;
-    END IF;
-    
-    IF v_where_clause = '' THEN
-        RAISE EXCEPTION 'No key fields provided for table %', p_record_table;
-    END IF;
-    
-    -- Check if the record's download_profiles contains the current user
-    v_sql := format('
-        SELECT CASE 
-            WHEN download_profiles IS NULL THEN false
-            WHEN %L = ANY(download_profiles) THEN true
-            ELSE false
-        END
-        FROM %I 
-        WHERE %s
-        LIMIT 1
-    ', v_profile_id, p_record_table, v_where_clause);
-    
-    EXECUTE v_sql INTO v_is_downloaded;
-    
-    -- Return false if record not found
-    RETURN COALESCE(v_is_downloaded, false);
-END;
-$$;
-
--- Unified RPC function that automatically handles both single ID and composite key cases
-CREATE OR REPLACE FUNCTION check_download_status(
-    p_record_table text,
-    p_keys jsonb  -- Can be either a single UUID string or an object with multiple keys
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_tree jsonb;
-    v_node jsonb;
-    v_key_fields jsonb;
-    v_id_field text;
-BEGIN
-    -- Get the download tree structure
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_record_table);
-    
-    -- If jsonb is a string, assume it's a single ID
-    IF jsonb_typeof(p_keys) = 'string' THEN
-        -- Convert to proper format for single ID lookup
-        v_id_field := COALESCE(v_node->>'idField', 'id');
-        RETURN get_download_status_composite(
-            p_record_table, 
-            jsonb_build_object(v_id_field, p_keys)
-        );
-    ELSE
-        -- It's already an object with key-value pairs
-        RETURN get_download_status_composite(p_record_table, p_keys);
-    END IF;
-END;
-$$;
-
--- RPC function to download specific composite key records by all their keyFields
-CREATE OR REPLACE FUNCTION download_composite_records(
-    p_table_name text,
-    p_composite_keys jsonb[], -- Array of objects, each with all keyFields
-    p_operation text DEFAULT 'add'
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_profile_id uuid;
-    v_tree jsonb;
-    v_node jsonb;
-    v_key_fields jsonb;
-    v_sql text;
-    v_where_clause text;
-    v_key_obj jsonb;
-    v_key text;
-    v_value text;
-    v_updated_count int := 0;
-    v_total_count int := 0;
-BEGIN
-    -- Get current user's profile ID
-    v_profile_id := auth.uid();
-    
-    IF v_profile_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-    
-    -- Validate operation
-    IF p_operation NOT IN ('add', 'remove') THEN
-        RAISE EXCEPTION 'Invalid operation: %. Must be "add" or "remove"', p_operation;
-    END IF;
-    
-    -- Get the tree structure to find key fields
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_table_name);
-    
-    IF v_node IS NULL THEN
-        RAISE EXCEPTION 'Table % not found in download tree', p_table_name;
-    END IF;
-    
-    -- Get key fields for the table
-    v_key_fields := v_node->'keyFields';
-    
-    IF v_key_fields IS NULL OR jsonb_typeof(v_key_fields) != 'array' THEN
-        RAISE EXCEPTION 'Table % does not have composite keys defined', p_table_name;
-    END IF;
-    
-    -- Process each composite key record
-    FOREACH v_key_obj IN ARRAY p_composite_keys
-    LOOP
-        v_where_clause := '';
-        
-        -- Build WHERE clause using all keyFields
-        FOR v_key IN SELECT jsonb_array_elements_text(v_key_fields)
-        LOOP
-            v_value := v_key_obj->>v_key;
-            IF v_value IS NULL THEN
-                RAISE EXCEPTION 'Missing required key field: % for table %', v_key, p_table_name;
-            END IF;
-            
-            IF v_where_clause != '' THEN
-                v_where_clause := v_where_clause || ' AND ';
-            END IF;
-            v_where_clause := v_where_clause || format('%I = %L::uuid', v_key, v_value);
-        END LOOP;
-        
-        -- Update the specific record
-        IF p_operation = 'add' THEN
-            v_sql := format('
-                UPDATE %I 
-                SET download_profiles = normalize_download_profiles(
-                    array_append(
-                        array_remove(download_profiles, %L::uuid), 
-                        %L::uuid
-                    )
-                )
-                WHERE %s
-            ', p_table_name, v_profile_id, v_profile_id, v_where_clause);
-        ELSE
-            v_sql := format('
-                UPDATE %I 
-                SET download_profiles = normalize_download_profiles(
-                    array_remove(download_profiles, %L::uuid)
-                )
-                WHERE %s
-            ', p_table_name, v_profile_id, v_where_clause);
-        END IF;
-        
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_updated_count = ROW_COUNT;
-        v_total_count := v_total_count + v_updated_count;
-    END LOOP;
-    
-    -- Return summary
-    RETURN jsonb_build_object(
-        'success', true,
-        'operation', p_operation,
-        'table', p_table_name,
-        'records_processed', array_length(p_composite_keys, 1),
-        'records_updated', v_total_count,
-        'profile_id', v_profile_id,
-        'timestamp', now()
-    );
-END;
-$$;
-
--- RPC function to get download status for multiple composite key records
-CREATE OR REPLACE FUNCTION get_bulk_download_status_composite(
-    p_table_name text,
-    p_composite_keys jsonb[] -- Array of objects, each with all keyFields
-)
-RETURNS jsonb[]
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_profile_id uuid;
-    v_tree jsonb;
-    v_node jsonb;
-    v_key_fields jsonb;
-    v_sql text;
-    v_where_clause text;
-    v_key_obj jsonb;
-    v_key text;
-    v_value text;
-    v_is_downloaded boolean;
-    v_results jsonb[] := '{}';
-    v_result_obj jsonb;
-BEGIN
-    -- Get current user's profile ID
-    v_profile_id := auth.uid();
-    
-    IF v_profile_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-    
-    -- Get the tree structure to find key fields
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_table_name);
-    
-    IF v_node IS NULL THEN
-        RAISE EXCEPTION 'Table % not found in download tree', p_table_name;
-    END IF;
-    
-    -- Get key fields for the table
-    v_key_fields := v_node->'keyFields';
-    
-    IF v_key_fields IS NULL OR jsonb_typeof(v_key_fields) != 'array' THEN
-        RAISE EXCEPTION 'Table % does not have composite keys defined', p_table_name;
-    END IF;
-    
-    -- Check each composite key record
-    FOREACH v_key_obj IN ARRAY p_composite_keys
-    LOOP
-        v_where_clause := '';
-        
-        -- Build WHERE clause using all keyFields
-        FOR v_key IN SELECT jsonb_array_elements_text(v_key_fields)
-        LOOP
-            v_value := v_key_obj->>v_key;
-            IF v_value IS NULL THEN
-                RAISE EXCEPTION 'Missing required key field: % for table %', v_key, p_table_name;
-            END IF;
-            
-            IF v_where_clause != '' THEN
-                v_where_clause := v_where_clause || ' AND ';
-            END IF;
-            v_where_clause := v_where_clause || format('%I = %L::uuid', v_key, v_value);
-        END LOOP;
-        
-        -- Check if the record's download_profiles contains the current user
-        v_sql := format('
-            SELECT CASE 
-                WHEN download_profiles IS NULL THEN false
-                WHEN %L = ANY(download_profiles) THEN true
-                ELSE false
-            END
-            FROM %I 
-            WHERE %s
-            LIMIT 1
-        ', v_profile_id, p_table_name, v_where_clause);
-        
-        EXECUTE v_sql INTO v_is_downloaded;
-        
-        -- Build result object
-        v_result_obj := v_key_obj || jsonb_build_object('is_downloaded', COALESCE(v_is_downloaded, false));
-        v_results := array_append(v_results, v_result_obj);
-    END LOOP;
-    
-    RETURN v_results;
-END;
-$$;
-
--- Grant permissions for RPC functions
--- GRANT EXECUTE ON FUNCTION download_records TO authenticated;
--- GRANT EXECUTE ON FUNCTION download_record TO authenticated;
--- GRANT EXECUTE ON FUNCTION get_download_status TO authenticated;
--- GRANT EXECUTE ON FUNCTION get_download_status_composite TO authenticated;
--- GRANT EXECUTE ON FUNCTION check_download_status TO authenticated;
--- GRANT EXECUTE ON FUNCTION download_composite_records TO authenticated;
--- GRANT EXECUTE ON FUNCTION get_bulk_download_status_composite TO authenticated;
-
--- ====================================
--- USAGE EXAMPLES
--- ====================================
-
--- Example 1: Download a quest and all its related records (including composite key tables)
--- This will download the quest and ALL its quest_tag_link, quest_asset_link records
--- SELECT download_record('quest', 'quest-uuid-here');
-
--- Example 2: Download specific composite key records using all keyFields
--- This allows precise control over which junction records are downloaded
--- SELECT download_composite_records(
---     'quest_tag_link',
---     ARRAY[
---         '{"quest_id": "quest-uuid-1", "tag_id": "tag-uuid-1"}'::jsonb,
---         '{"quest_id": "quest-uuid-1", "tag_id": "tag-uuid-2"}'::jsonb
---     ]
--- );
-
--- Example 3: Check download status for a composite key record
--- SELECT check_download_status(
---     'quest_tag_link',
---     '{"quest_id": "quest-uuid-1", "tag_id": "tag-uuid-1"}'::jsonb
--- );
-
--- Example 4: Bulk check download status for multiple composite key records
--- SELECT get_bulk_download_status_composite(
---     'quest_asset_link',
---     ARRAY[
---         '{"quest_id": "quest-uuid-1", "asset_id": "asset-uuid-1"}'::jsonb,
---         '{"quest_id": "quest-uuid-1", "asset_id": "asset-uuid-2"}'::jsonb,
---         '{"quest_id": "quest-uuid-2", "asset_id": "asset-uuid-3"}'::jsonb
---     ]
--- );
-
--- ====================================
--- PART 6: Views and Permissions
--- ====================================
-
--- Create a view to easily see the download tree structure
+-- View to show the download tree structure
 CREATE OR REPLACE VIEW download_tree_structure AS
 SELECT get_download_tree_structure() AS tree;
+
+-- ====================================
+-- PART 5: Views and Permissions
+-- ====================================
 
 -- Grant all necessary permissions
 -- GRANT EXECUTE ON FUNCTION get_download_tree_structure TO authenticated;
 -- GRANT EXECUTE ON FUNCTION find_node_in_tree TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_id_field_from_node TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_id_field_for_table TO authenticated;
+-- GRANT EXECUTE ON FUNCTION update_download_profiles TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_parent_download_profiles TO authenticated;
+-- GRANT EXECUTE ON FUNCTION is_non_empty_array TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_child_ids_for_node TO authenticated;
+-- GRANT EXECUTE ON FUNCTION count_records_with_profile TO authenticated;
 -- GRANT EXECUTE ON FUNCTION process_download_tree TO authenticated;
 -- GRANT EXECUTE ON FUNCTION process_composite_key_table TO authenticated;
+-- GRANT EXECUTE ON FUNCTION normalize_download_profiles TO authenticated;
 -- GRANT EXECUTE ON FUNCTION is_downloaded TO authenticated;
 -- GRANT EXECUTE ON FUNCTION propagate_download_profiles_on_insert TO authenticated;
 -- GRANT EXECUTE ON FUNCTION find_parent_table_for_field TO authenticated;
@@ -1501,4 +1640,7 @@ SELECT get_download_tree_structure() AS tree;
 -- GRANT EXECUTE ON FUNCTION create_download_update_triggers TO authenticated;
 -- GRANT EXECUTE ON FUNCTION backfill_download_profiles TO authenticated;
 -- GRANT EXECUTE ON FUNCTION refresh_download_profiles TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_all_related_records TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_records_for_node TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_composite_key_child_records TO authenticated;
 -- GRANT SELECT ON download_tree_structure TO authenticated; 
