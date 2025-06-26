@@ -13,7 +13,7 @@ import { CustomDropdown } from './CustomDropdown';
 type Language = typeof language.$inferSelect;
 
 interface LanguageSelectProps {
-  setLanguagesLoaded: React.Dispatch<React.SetStateAction<boolean>>;
+  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
   onChange?: (language: Language) => void;
   label?: boolean;
@@ -41,7 +41,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
 
   useEffect(() => {
     if (languages.length > 0) {
-      setLanguagesLoaded(true);
+      setLanguagesLoaded?.(true);
     }
   }, [languages, setLanguagesLoaded]);
 

@@ -75,7 +75,6 @@ function AssetCard({ asset }: { asset: Asset }) {
     )
   );
 
-
   // Aggregate translations by gem color
   const aggregatedGems = translations.reduce<AggregatedGems>(
     (acc, translation) => {
