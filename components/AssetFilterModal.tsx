@@ -336,7 +336,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
               }
               // style={sharedStyles.modalContent}
               showsVerticalScrollIndicator={false}
-              estimatedItemSize={20}
+              estimatedItemSize={200}
             />
             <TouchableOpacity
               style={sharedStyles.modalButton}

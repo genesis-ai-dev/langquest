@@ -284,7 +284,6 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
-  alwaysOnline?: boolean;
   /**
    * Optional network status. If not provided, will attempt to check navigator.onLine
    */
@@ -336,22 +335,9 @@ export async function hybridFetch<T extends Record<string, unknown>>(
   };
 
   const isOnline = getNetworkStatus();
-  if (isOnline && config.alwaysOnline) return await onlineFn();
+  if (isOnline) return await onlineFn();
 
-  const existsLocally = await runOfflineQuery();
-
-  if (isOnline && !existsLocally?.length) {
-    try {
-      return await onlineFn();
-    } catch (error) {
-      console.warn(
-        `hybridFetch: Online fetch failed for queryKey ${JSON.stringify(config.queryKey)}, falling back to offline`,
-        error
-      );
-      // Fall through to offline query on error
-    }
-  }
-  return existsLocally;
+  return runOfflineQuery();
 }
 
 export function createHybridQueryConfig<T extends Record<string, unknown>>(
@@ -363,12 +349,11 @@ export function createHybridQueryConfig<T extends Record<string, unknown>>(
 export function convertToFetchConfig<T extends Record<string, unknown>>(
   options: HybridQueryOptions<T>
 ): HybridFetchConfig<T> {
-  const { onlineFn, offlineFn, offlineQuery, queryKey, alwaysOnline } = options;
+  const { onlineFn, offlineFn, offlineQuery, queryKey } = options;
   return {
     onlineFn,
     offlineFn,
     offlineQuery,
-    queryKey,
-    alwaysOnline
+    queryKey
   } as HybridFetchConfig<T>;
 }
