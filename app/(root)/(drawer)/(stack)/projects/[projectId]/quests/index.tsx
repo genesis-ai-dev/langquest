@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
@@ -14,7 +15,7 @@ import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
 import type { project } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -89,6 +90,7 @@ interface QuestWithRelations {
 
 const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
   const { currentUser } = useAuth();
+  const { activeProject } = useProjectContext();
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -137,9 +139,9 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 
   const progress = calculateQuestProgress(
     quest.assets.map((asset) => asset.asset),
-
     currentUser?.id ?? null
   );
+
   return (
     <View style={sharedStyles.card}>
       <View
@@ -150,10 +152,22 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoading && isDownloaded}
-          onPress={handleDownloadToggle}
+        <PrivateAccessGate
+          projectId={quest.project_id}
+          projectName={activeProject?.name || ''}
+          isPrivate={activeProject?.private || false}
+          action="download"
+          allowBypass={true}
+          onBypass={handleDownloadToggle}
+          renderTrigger={({ onPress, hasAccess }) => (
+            <DownloadIndicator
+              isDownloaded={isDownloaded && assetsDownloaded}
+              isLoading={isLoading && isDownloaded}
+              onPress={
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+              }
+            />
+          )}
         />
       </View>
       {quest.description && (
@@ -184,7 +198,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
 };
 
 export default function Quests() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { projectId, projectName } = useLocalSearchParams<{
     projectId: string;
     projectName: string;
@@ -194,8 +208,8 @@ export default function Quests() {
   const { currentUser } = useAuth();
 
   // Feature flags to toggle button visibility
-  const SHOW_SETTINGS_BUTTON = false; // Set to false to hide settings button
-  const SHOW_MEMBERSHIP_BUTTON = false; // Set to false to hide membership button
+  const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
+  const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
   const quests: QuestWithRelations[] = useQuery(
     toCompilableQuery(
       db.query.quest.findMany({

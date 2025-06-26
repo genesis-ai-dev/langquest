@@ -1,18 +1,18 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocalization } from '@/hooks/useLocalization';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
+  Alert,
   Modal,
-  TouchableWithoutFeedback
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { Alert } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/hooks/useTranslation';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -27,7 +27,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
   onSubmit,
   voteType
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const [comment, setComment] = useState('');
 

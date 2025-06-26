@@ -1,24 +1,14 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 
-// Expiration constant - 7 days in milliseconds
-const INVITATION_EXPIRY_DAYS = 7;
-const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
 export function useNotifications() {
   const { currentUser } = useAuth();
   const { db } = useSystem();
-
-  // Helper function to check if invitation is expired
-  const isExpired = (lastUpdated: string): boolean => {
-    const updatedDate = new Date(lastUpdated);
-    const now = new Date();
-    return now.getTime() - updatedDate.getTime() > INVITATION_EXPIRY_MS;
-  };
 
   // Get all pending invites for the user's email
   const { data: inviteRequests = [] } = useQuery({
@@ -71,7 +61,7 @@ export function useNotifications() {
   // Combine all notifications and filter out expired ones
   const allNotifications = [...inviteRequests, ...validRequestNotifications];
   const validNotificationsCount = allNotifications.filter(
-    (item) => !isExpired(item.last_updated)
+    (item) => !isExpiredByLastUpdated(item.last_updated)
   ).length;
 
   return {

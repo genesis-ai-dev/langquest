@@ -1,11 +1,11 @@
 import { PageHeader } from '@/components/PageHeader';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Settings() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}

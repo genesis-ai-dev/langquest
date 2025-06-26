@@ -2,7 +2,7 @@ import { CustomDropdown } from '@/components/CustomDropdown';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -67,7 +67,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
     };
     void loadAllTags();
   }, [assets]);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};

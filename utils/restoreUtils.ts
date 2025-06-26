@@ -2,13 +2,14 @@ import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Alert, Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
-import { requestBackupDirectory, ProgressCallback } from '@/utils/backupUtils';
-import type { System } from '@/db/powersync/system'; // actual System instance type
 import { translation } from '@/db/drizzleSchema'; // Removed unused project, quest, quest_asset_link
+import type { System } from '@/db/powersync/system'; // actual System instance type
+import type { ProgressCallback } from '@/utils/backupUtils';
+import { requestBackupDirectory } from '@/utils/backupUtils';
 import { eq } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
-import type { TranslationKey } from '@/services/localizations';
+import type { LocalizationKey } from '@/services/localizations';
 // Removed InterpolationOptions as node-polyglot is not a direct/typed dependency here or its types are missing
 
 // Removed Drizzle schema imports
@@ -41,9 +42,9 @@ async function getAudioAssetMapFromBackupDb(backupDb: SQLite.WebSQLDatabase): Pr
 }
 */
 
-// Type for the translation function based on useTranslation hook
+// Type for the translation function based on useLocalization hook
 type TFunction = (
-  key: TranslationKey,
+  key: LocalizationKey,
   options?: Record<string, string | number> | number
 ) => string;
 

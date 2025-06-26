@@ -1,6 +1,6 @@
 import { useSystem } from '@/contexts/SystemContext';
 import { language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +29,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   const [showLanguages, setShowLanguages] = useState(false);
   const setLanguage = useLocalStore((state) => state.setLanguage);
   const savedLanguage = useLocalStore((state) => state.language);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
   const { data: languages } = useQuery(
     toCompilableQuery(

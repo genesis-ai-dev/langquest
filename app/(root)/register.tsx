@@ -1,7 +1,7 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
 import { useSystem } from '@/contexts/SystemContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,7 +35,7 @@ const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function Register() {
   const currentLanguage = useLocalStore((state) => state.language);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const router = useRouter();
   const { supabaseConnector } = useSystem();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);

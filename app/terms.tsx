@@ -1,5 +1,5 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ export default function Terms() {
   const router = useRouter();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleAcceptTerms = () => {

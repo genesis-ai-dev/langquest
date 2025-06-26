@@ -58,7 +58,9 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
           <ActivityIndicator size={size} color={colors.primary} />
         ) : (
           <Ionicons
-            name={isDownloaded ? 'cloud-done' : 'cloud-download-outline'}
+            name={
+              isDownloaded ? 'arrow-down-circle' : 'arrow-down-circle-outline'
+            }
             size={size}
             color={
               isDownloaded
