@@ -3,6 +3,7 @@ import { initializeLanguage, useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +13,12 @@ export default function TermsLayout() {
     useLocalStore.persist.hasHydrated()
   );
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+
+  useEffect(() => {
+    if (hasRehydrated && dateTermsAccepted) {
+      void SplashScreen.hideAsync();
+    }
+  }, [hasRehydrated, dateTermsAccepted]);
 
   useEffect(() => {
     const rehydrate = async () => {

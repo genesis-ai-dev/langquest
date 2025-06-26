@@ -1,9 +1,11 @@
 import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
+import type { project, quest } from '@/db/drizzleSchema';
 import {
   blocked_content,
   blocked_users,
   language,
+  quest_asset_link,
   translation,
   vote
 } from '@/db/drizzleSchema';
@@ -25,6 +27,9 @@ import { useNetworkStatus } from '../useNetworkStatus';
 export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
 export type Language = InferSelectModel<typeof language>;
+export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
+export type Quest = InferSelectModel<typeof quest>;
+export type Project = InferSelectModel<typeof project>;
 
 /**
  * Returns { translations, isLoading, error }
@@ -851,4 +856,71 @@ export function useTranslationsWithAudioByAssetIds(asset_ids: string[]) {
   } = useHybridQuery(getTranslationsWithAudioByAssetIdsConfig(asset_ids));
 
   return { translationsWithAudio, isTranslationsWithAudioLoading, ...rest };
+}
+
+/**
+ * Returns { projectInfo, isLoading, error }
+ * Fetches project information for a translation by asset ID
+ * Includes quest and project details
+ */
+export function useTranslationProjectInfo(asset_id: string | undefined) {
+  const { db } = useSystem();
+
+  const {
+    data: projectInfoArray,
+    isLoading: isProjectInfoLoading,
+    ...rest
+  } = useHybridQuery({
+    queryKey: ['translation-project', asset_id],
+    onlineFn: async () => {
+      if (!asset_id) return [];
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select(
+          `
+          *,
+          quest:quest_id (
+            *,
+            project:project_id (*)
+          )
+        `
+        )
+        .eq('asset_id', asset_id)
+        .limit(1)
+        .overrideTypes<
+          (QuestAssetLink & {
+            quest: Quest & {
+              project: Project;
+            };
+          })[]
+        >();
+
+      if (error) throw error;
+      return data;
+    },
+    offlineFn: async () => {
+      if (!asset_id) return [];
+
+      const result = await db.query.quest_asset_link.findFirst({
+        where: eq(quest_asset_link.asset_id, asset_id),
+        with: {
+          quest: {
+            with: {
+              project: true
+            }
+          }
+        }
+      });
+
+      return result ? [result] : [];
+    },
+    enabled: !!asset_id
+  });
+
+  const projectInfo = Array.isArray(projectInfoArray)
+    ? projectInfoArray[0]
+    : projectInfoArray;
+
+  return { projectInfo, isProjectInfoLoading, ...rest };
 }

@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import type {
-  SupportedLanguage,
-  TranslationKey
+  LocalizationKey,
+  SupportedLanguage
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
@@ -11,7 +11,7 @@ import { useLanguageById } from './db/useLanguages';
 // Use a Record as preferred by linter
 export type InterpolationValues = Record<string, string | number>;
 
-export function useTranslation(languageOverride?: string | null) {
+export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const currentLanguage = useLocalStore((state) => state.language);
 
@@ -33,15 +33,14 @@ export function useTranslation(languageOverride?: string | null) {
 
   // t function to accept optional interpolation values and use 'localizations'
   const t = (
-    key: TranslationKey,
+    key: LocalizationKey,
     options?: InterpolationValues | number
   ): string => {
     if (!(key in localizations)) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString =
-      localizations[key]![userLanguage] || localizations[key]!.english;
+    let translatedString = localizations[key][userLanguage] as string;
 
     // If options is a number, treat as a single value for a placeholder like {{value}}
     if (typeof options === 'number') {

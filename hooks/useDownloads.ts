@@ -1,7 +1,7 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Asset } from './db/useAssets';
 import {
@@ -56,21 +56,26 @@ export async function getAllDownloadedAssets(profileId: string) {
     (await hybridFetch(
       convertToFetchConfig(getAllDownloadedAssetsConfig(profileId))
     )) ?? []
-  ).map((row) => Object.values(row.id));
+  ).flatMap((row) => Object.values(row.id));
 }
 
-export function useDownloadTreeStructure() {
+async function getDownloadTreeStructure() {
+  const { data, error } = await system.supabaseConnector.client
+    .rpc('get_download_tree_structure')
+    .single()
+    .overrideTypes<TreeNode>();
+
+  if (error) throw error;
+  return data;
+}
+
+export function useDownloadTreeStructure(
+  options?: Omit<UseQueryOptions<TreeNode | null>, 'queryKey' | 'queryFn'>
+) {
   return useQuery({
     queryKey: ['download-tree-structure'],
-    queryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .rpc('get_download_tree_structure')
-        .single()
-        .overrideTypes<TreeNode>();
-
-      if (error) throw error;
-      return data;
-    }
+    queryFn: () => getDownloadTreeStructure(),
+    ...options
   });
 }
 
@@ -84,14 +89,6 @@ export async function getDownloadStatus(
   recordId: string
 ): Promise<boolean> {
   try {
-    // Get the current user's profile ID
-    const userResponse = await system.supabaseConnector.client.auth.getUser();
-    const profileId = userResponse.data.user?.id;
-
-    if (!profileId) {
-      throw new Error('User not authenticated');
-    }
-
     // Get all related records from the server
     const { data: serverData, error } = await system.supabaseConnector.client
       .rpc('get_all_related_records', {
@@ -418,22 +415,108 @@ function findChildNode(
  * Hook to get project download status
  */
 export function useDownloadStatus(
-  downloadTreeStructure: TreeNode | null | undefined,
   recordTable: keyof typeof system.db.query,
-  recordId: string
+  recordId: string,
+  downloadTreeStructure?: TreeNode | null
 ) {
+  const { data: downloadTreeStructureFetched } = useDownloadTreeStructure({
+    enabled: !downloadTreeStructure
+  });
+  const downloadTree = downloadTreeStructure ?? downloadTreeStructureFetched;
+
   const {
     data: isDownloaded,
     isLoading,
     ...rest
   } = useQuery({
     queryKey: ['download-status', recordTable, recordId],
-    queryFn: () =>
-      getDownloadStatus(downloadTreeStructure!, recordTable, recordId),
-    enabled: !!recordId && !!downloadTreeStructure
+    queryFn: () => getDownloadStatus(downloadTree!, recordTable, recordId),
+    enabled: !!recordId && !!downloadTree
   });
 
-  return { isDownloaded, isLoading, ...rest };
+  return { isDownloaded: !!isDownloaded, isLoading, ...rest };
+}
+
+/**
+ * Hook to get download status for multiple projects
+ */
+export function useProjectsDownloadStatus(projectIds: string[]) {
+  const { data: downloadTreeStructure } = useDownloadTreeStructure();
+
+  const {
+    data: projectStatuses,
+    isLoading,
+    ...rest
+  } = useQuery({
+    queryKey: ['projects-download-status', projectIds.sort()],
+    queryFn: async () => {
+      if (!downloadTreeStructure || !projectIds.length) {
+        return {};
+      }
+
+      // Check all projects in parallel
+      const statusPromises = projectIds.map(async (projectId) => {
+        try {
+          const isDownloaded = await getDownloadStatus(
+            downloadTreeStructure,
+            'project',
+            projectId
+          );
+          return { projectId, isDownloaded };
+        } catch (error) {
+          console.error(
+            `Error checking download status for project ${projectId}:`,
+            error
+          );
+          return { projectId, isDownloaded: false };
+        }
+      });
+
+      const results = await Promise.all(statusPromises);
+
+      // Convert to object for easy lookup
+      return results.reduce(
+        (acc, { projectId, isDownloaded }) => {
+          acc[projectId] = isDownloaded;
+          return acc;
+        },
+        {} as Record<string, boolean>
+      );
+    },
+    enabled: !!downloadTreeStructure && projectIds.length > 0
+  });
+
+  return {
+    projectStatuses: projectStatuses || {},
+    isLoading,
+    ...rest
+  };
+}
+
+export async function downloadRecord(
+  recordTable: keyof typeof system.db.query,
+  recordId: string,
+  downloaded?: boolean,
+  downloadTreeStructure?: TreeNode | null
+) {
+  const downloadTree =
+    downloadTreeStructure ?? (await getDownloadTreeStructure());
+
+  if (!downloadTree) throw new Error('No download tree found.');
+
+  const isCurrentlyDownloaded =
+    downloaded ??
+    (await getDownloadStatus(downloadTree, recordTable, recordId));
+  const { error } = await system.supabaseConnector.client.rpc(
+    'download_record',
+    {
+      p_table_name: recordTable,
+      p_record_id: recordId,
+      p_operation: isCurrentlyDownloaded ? 'remove' : 'add'
+    }
+  );
+
+  if (error) throw error;
 }
 
 /**
@@ -446,30 +529,19 @@ export function useDownload(
   const queryClient = useQueryClient();
   const { data: downloadTreeStructure } = useDownloadTreeStructure();
   const { isDownloaded, isLoading } = useDownloadStatus(
-    downloadTreeStructure,
     recordTable,
-    recordId
+    recordId,
+    downloadTreeStructure
   );
-  const { currentUser } = useAuth();
 
   const mutation = useMutation({
-    mutationFn: async (downloaded: boolean) => {
-      if (!currentUser?.id || !recordId) {
-        throw new Error('Profile ID and Record ID are required');
-      }
-
-      console.log('downloading', recordTable, recordId, downloaded);
-      const { error } = await system.supabaseConnector.client.rpc(
-        'download_record',
-        {
-          p_table_name: recordTable,
-          p_record_id: recordId,
-          p_operation: downloaded ? 'remove' : 'add'
-        }
-      );
-
-      if (error) throw error;
-    },
+    mutationFn: async (downloaded?: boolean) =>
+      await downloadRecord(
+        recordTable,
+        recordId,
+        downloaded,
+        downloadTreeStructure
+      ),
     onSuccess: async () => {
       // Invalidate related queries
       await queryClient.invalidateQueries({
@@ -486,12 +558,11 @@ export function useDownload(
       recordTable,
       recordId
     );
-    console.log('isCurrentlyDownloaded', isCurrentlyDownloaded);
     await mutation.mutateAsync(isCurrentlyDownloaded);
   };
 
   return {
-    isDownloaded,
+    isDownloaded: !!isDownloaded,
     isLoading: isLoading || mutation.isPending,
     toggleDownload,
     mutation

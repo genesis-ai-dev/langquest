@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
 import { getAllDownloadedAssets } from '@/hooks/useDownloads';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateTotalAttachments } from '@/utils/attachmentUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
@@ -55,7 +55,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   resetRecording
 }) => {
   const { currentUser } = useAuth();
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);

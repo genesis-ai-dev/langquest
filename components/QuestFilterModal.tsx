@@ -1,6 +1,6 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import type { Tag } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -41,7 +41,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   initialFilters,
   initialSorting
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const [activeTab, setActiveTab] = useState<'filter' | 'sort'>('filter');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] =

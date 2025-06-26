@@ -10,12 +10,14 @@ import { PageHeader } from '@/components/PageHeader';
 import { PendingCount } from '@/components/PendingCount';
 import { PickaxeCount } from '@/components/PickaxeCount';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { SuccessCount } from '@/components/SuccessCount';
 import ThumbsUpIcon from '@/components/ThumbsUpIcon';
 import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
@@ -26,6 +28,7 @@ import { useLanguageById } from '@/hooks/db/useLanguages';
 import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -87,6 +90,17 @@ export default function AssetView() {
     useState<TranslationModalType>(TranslationModalType.TEXT);
   const [isTranslationModalVisible, setIsTranslationModalVisible] =
     useState(false);
+  const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
+  const [pendingTranslationType, setPendingTranslationType] =
+    useState<TranslationModalType | null>(null);
+
+  const { activeProject } = useProjectContext();
+
+  // Check private project access
+  const { hasAccess } = usePrivateProjectAccess({
+    projectId: activeProject?.id || '',
+    isPrivate: activeProject?.private || false
+  });
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -521,20 +535,70 @@ export default function AssetView() {
                 { flex: 1, backgroundColor: '#6545B6' }
               ]}
               onPress={() => {
-                setIsTranslationModalVisible(true);
-                setTranslationModalType(TranslationModalType.AUDIO);
+                if (hasAccess) {
+                  setIsTranslationModalVisible(true);
+                  setTranslationModalType(TranslationModalType.AUDIO);
+                } else {
+                  setPendingTranslationType(TranslationModalType.AUDIO);
+                  setShowPrivateAccessModal(true);
+                }
               }}
             >
-              <MicrophoneIcon fill={colors.buttonText} width={24} height={24} />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                {!hasAccess && (
+                  <Ionicons
+                    name="lock-closed"
+                    size={16}
+                    color={colors.buttonText}
+                  />
+                )}
+                <MicrophoneIcon
+                  fill={colors.buttonText}
+                  width={24}
+                  height={24}
+                  opacity={hasAccess ? 1 : 0.6}
+                />
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.newTranslationButton, { flex: 1 }]}
               onPress={() => {
-                setIsTranslationModalVisible(true);
-                setTranslationModalType(TranslationModalType.TEXT);
+                if (hasAccess) {
+                  setIsTranslationModalVisible(true);
+                  setTranslationModalType(TranslationModalType.TEXT);
+                } else {
+                  setPendingTranslationType(TranslationModalType.TEXT);
+                  setShowPrivateAccessModal(true);
+                }
               }}
             >
-              <KeyboardIcon fill={colors.buttonText} width={24} height={24} />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                {!hasAccess && (
+                  <Ionicons
+                    name="lock-closed"
+                    size={16}
+                    color={colors.buttonText}
+                  />
+                )}
+                <KeyboardIcon
+                  fill={colors.buttonText}
+                  width={24}
+                  height={24}
+                  opacity={hasAccess ? 1 : 0.6}
+                />
+              </View>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -562,6 +626,24 @@ export default function AssetView() {
               loadingAttachments={loadingAttachments}
             />
           )}
+
+        <PrivateAccessGate
+          projectId={activeProject?.id || ''}
+          projectName={activeProject?.name || ''}
+          isPrivate={activeProject?.private || false}
+          action="translate"
+          modal={true}
+          isVisible={showPrivateAccessModal}
+          onClose={() => setShowPrivateAccessModal(false)}
+          onMembershipGranted={() => {
+            setShowPrivateAccessModal(false);
+            if (pendingTranslationType) {
+              setIsTranslationModalVisible(true);
+              setTranslationModalType(pendingTranslationType);
+              setPendingTranslationType(null);
+            }
+          }}
+        />
       </LinearGradient>
     </GestureHandlerRootView>
   );

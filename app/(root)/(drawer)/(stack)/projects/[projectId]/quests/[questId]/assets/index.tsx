@@ -3,6 +3,7 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -10,7 +11,6 @@ import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
 import {
   borderRadius,
   colors,
@@ -41,6 +41,7 @@ import { useAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useDownload } from '@/hooks/useDownloads';
+import { useLocalization } from '@/hooks/useLocalization';
 
 interface SortingOption {
   field: string;
@@ -89,6 +90,7 @@ const filterAssets = (
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
+  const { activeProject } = useProjectContext();
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAttachmentAssetDownloadStatus([asset.id]);
 
@@ -135,10 +137,22 @@ function AssetCard({ asset }: { asset: Asset }) {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoadingDownloadStatus || isDownloadLoading}
-          onPress={handleDownloadToggle}
+        <PrivateAccessGate
+          projectId={activeProject?.id || ''}
+          projectName={activeProject?.name || ''}
+          isPrivate={activeProject?.private || false}
+          action="download"
+          allowBypass={true}
+          onBypass={handleDownloadToggle}
+          renderTrigger={({ onPress, hasAccess }) => (
+            <DownloadIndicator
+              isDownloaded={isDownloaded && assetsDownloaded}
+              isLoading={isLoadingDownloadStatus || isDownloadLoading}
+              onPress={
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+              }
+            />
+          )}
         />
       </View>
       <View style={styles.translationCount}>
@@ -182,7 +196,7 @@ function AssetCard({ asset }: { asset: Asset }) {
 export default function Assets() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToAsset } = useProjectContext();
   const { questId, projectId } = useGlobalSearchParams<{
     questId: string;

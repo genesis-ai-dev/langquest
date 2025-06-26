@@ -2,7 +2,7 @@ import type { project } from '@/db/drizzleSchema';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Match the type from projectService

@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
@@ -13,7 +14,7 @@ import type { Tag } from '@/database_services/tagService';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useDownload } from '@/hooks/useDownloads';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -38,6 +39,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAssetsWithTranslationsAndVotesByQuestId } from '@/hooks/db/useAssets';
+import type { Project } from '@/hooks/db/useProjects';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { calculateQuestProgress } from '@/utils/progressUtils';
@@ -85,15 +87,16 @@ const filterQuests = <T extends Quest>(
   });
 };
 
-const QuestCard: React.FC<{ quest: Quest & { tags: { tag: Tag }[] } }> = ({
-  quest
-}) => {
+const QuestCard: React.FC<{
+  project: Project;
+  quest: Quest & { tags: { tag: Tag }[] };
+}> = ({ quest, project }) => {
   const { currentUser } = useAuth();
 
   // Use the new download hook
   const {
     isDownloaded,
-    isLoading: _downloadLoading,
+    isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('quest', quest.id);
 
@@ -123,10 +126,22 @@ const QuestCard: React.FC<{ quest: Quest & { tags: { tag: Tag }[] } }> = ({
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoading || _downloadLoading}
-          onPress={handleDownloadToggle}
+        <PrivateAccessGate
+          projectId={quest.project_id}
+          projectName={project.name || ''}
+          isPrivate={project.private || false}
+          action="download"
+          allowBypass={true}
+          onBypass={handleDownloadToggle}
+          renderTrigger={({ onPress, hasAccess }) => (
+            <DownloadIndicator
+              isDownloaded={isDownloaded && assetsDownloaded}
+              isLoading={isLoading && isDownloadLoading}
+              onPress={
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+              }
+            />
+          )}
         />
       </View>
       {quest.description && (
@@ -157,7 +172,7 @@ const QuestCard: React.FC<{ quest: Quest & { tags: { tag: Tag }[] } }> = ({
 };
 
 export default function Quests() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { projectId, projectName } = useLocalSearchParams<{
     projectId: string;
     projectName: string;
@@ -167,8 +182,8 @@ export default function Quests() {
   const { currentUser } = useAuth();
 
   // Feature flags to toggle button visibility
-  const SHOW_SETTINGS_BUTTON = false; // Set to false to hide settings button
-  const SHOW_MEMBERSHIP_BUTTON = false; // Set to false to hide membership button
+  const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
+  const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
 
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -316,7 +331,7 @@ export default function Quests() {
             data={filteredQuests}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleQuestPress(item)}>
-                <QuestCard quest={item} />
+                <QuestCard quest={item} project={selectedProject!} />
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}

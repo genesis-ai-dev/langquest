@@ -1,15 +1,16 @@
 import type { language } from '@/db/drizzleSchema';
 import { useUIReadyLanguages } from '@/hooks/db/useLanguages';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { default as React, useEffect, useState } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
 type Language = typeof language.$inferSelect;
 
 interface LanguageSelectProps {
+  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
   onChange?: (language: Language) => void;
   label?: boolean;
@@ -18,14 +19,21 @@ interface LanguageSelectProps {
 
 export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   value,
-  onChange
+  onChange,
+  setLanguagesLoaded
 }) => {
   const [showLanguages, setShowLanguages] = useState(false);
   const setLanguage = useLocalStore((state) => state.setLanguage);
   const savedLanguage = useLocalStore((state) => state.language);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
   const { languages } = useUIReadyLanguages();
+
+  useEffect(() => {
+    if (languages && languages.length > 0) {
+      setLanguagesLoaded?.(true);
+    }
+  }, [languages, setLanguagesLoaded]);
 
   const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
   const selectedLanguage =

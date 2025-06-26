@@ -1,10 +1,11 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import React, { useCallback, useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -18,7 +19,7 @@ export default function Terms() {
   const router = useRouter();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleAcceptTerms = () => {
@@ -29,8 +30,15 @@ export default function Terms() {
 
   const canAcceptTerms = !dateTermsAccepted;
 
+  const [languagesLoaded, setLanguagesLoaded] = useState(false);
+  const onLayoutView = useCallback(() => {
+    if (languagesLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [languagesLoaded]);
+
   return (
-    <View style={styles.modalContainer}>
+    <View style={styles.modalContainer} onLayout={onLayoutView}>
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>{t('termsAndPrivacyTitle')}</Text>
         {!canAcceptTerms && (
@@ -47,7 +55,10 @@ export default function Terms() {
 
       {/* Language Selector */}
       <View style={styles.languageSelector}>
-        <LanguageSelect containerStyle={{ flex: 1 }} />
+        <LanguageSelect
+          setLanguagesLoaded={setLanguagesLoaded}
+          containerStyle={{ flex: 1 }}
+        />
       </View>
 
       <ScrollView

@@ -1,15 +1,15 @@
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, spacing } from '@/styles/theme';
+import { storage } from '@/utils/storage';
 import React, { useState } from 'react';
 import {
+  Modal,
   StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
   Switch,
-  Modal
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { storage } from '@/utils/storage';
-import { useTranslation } from '@/hooks/useTranslation';
 
 interface OfflineUndownloadWarningProps {
   visible: boolean;
@@ -21,7 +21,7 @@ export const OfflineUndownloadWarning: React.FC<
   OfflineUndownloadWarningProps
 > = ({ visible, onConfirm, onCancel }) => {
   const [dontShowAgain, setDontShowAgain] = useState(false);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
   const handleConfirm = async () => {
     if (dontShowAgain) {

@@ -2,9 +2,13 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
+import {
+  useTranslationById,
+  useTranslationProjectInfo
+} from '@/hooks/db/useTranslations';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
+import { useLocalization } from '@/hooks/useLocalization';
+import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
@@ -23,6 +27,7 @@ import {
   View
 } from 'react-native';
 import AudioPlayer from './AudioPlayer';
+import { PrivateAccessGate } from './PrivateAccessGate';
 import { ReportModal } from './ReportModal';
 import Shimmer from './Shimmer';
 
@@ -41,7 +46,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   onVoteSubmitted,
   onReportSubmitted
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { stopCurrentSound } = useAudio();
   const [showReportModal, setShowReportModal] = useState(false);
@@ -54,7 +59,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const queryClient = useQueryClient();
 
-  const { translation } = useTranslationDataWithVotes(translationId, assetId);
+  const { translation } = useTranslationById(translationId, assetId);
   const { votes } = useVotesByTranslationId(translationId);
 
   const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
@@ -63,7 +68,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
-  // Use TanStack Query to load audio URI
   const { data: audioUri, isLoading: loadingAudio } = useQuery({
     queryKey: ['audio', translation?.audio],
     queryFn: async () => {
@@ -78,12 +82,20 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     enabled: !!translation?.audio
   });
 
+  const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
+  const project = projectInfo?.quest.project;
+
+  // Check if user has access to edit translations in this project
+  const { hasAccess: canEditTranslation } = usePrivateProjectAccess({
+    projectId: project?.id || '',
+    isPrivate: project?.private || false
+  });
+
   useEffect(() => {
     setEditedText(translation?.text ?? '');
   }, [translation]);
 
   const isOwnTranslation = currentUser?.id === translation?.creator_id;
-
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
       if (!currentUser) {
@@ -92,12 +104,24 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       }
       setPendingVoteType(voteType);
 
-      await voteService.addVote({
-        translation_id: translationId,
-        creator_id: currentUser.id,
-        vote_id: userVote?.id,
-        polarity: voteType
-      });
+      // If user already voted with the same polarity, deactivate the vote
+      if (userVote?.polarity === voteType) {
+        await voteService.addVote({
+          translation_id: translationId,
+          creator_id: currentUser.id,
+          vote_id: userVote.id,
+          polarity: voteType,
+          active: false
+        });
+      } else {
+        // Otherwise, add/update the vote
+        await voteService.addVote({
+          translation_id: translationId,
+          creator_id: currentUser.id,
+          vote_id: userVote?.id,
+          polarity: voteType
+        });
+      }
 
       await queryClient.invalidateQueries({
         queryKey: ['translation', translationId]
@@ -108,53 +132,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       setPendingVoteType(null);
     }
   });
-  // const handleVote = async (voteType: 'up' | 'down') => {
-  //   if (!currentUser || isOwnTranslation) {
-  //     Alert.alert('Error', t('logInToVote'));
-  //     return;
-  //   }
-  //   setIsSubmitting(true);
-
-  //   try {
-  //     // console.log('Caleb voteType', voteType);
-  //     await voteService.addVote({
-  //       translation_id: translationId,
-  //       creator_id: currentUser.id,
-  //       polarity: voteType
-  //     });
-
-  //     onVoteSubmitted?.();
-  //     setIsSubmitting(false);
-  //     // const updatedVotes =
-  //     //   await voteService.getVotesByTranslationId(translationId);
-  //     // // setVotes(updatedVotes);
-  //     // const newUserVote = updatedVotes.find(
-  //     //   (v) => v.creator_id === currentUser.id
-  //     // );
-  //     // setUserVote(newUserVote);
-  //   } catch (error) {
-  //     console.error('Error handling vote:', error);
-  //     Alert.alert('Error', t('failedToVote'));
-  //   }
-  // };
-
-  // const handleVoteSubmit = async (comment: string) => {
-  //   try {
-  //     await voteService.addVote({
-  //       translation_id: translationId,
-  //       creator_id: currentUser!.id,
-  //       polarity: currentVoteType,
-  //       comment: comment || undefined
-  //     });
-
-  //     onVoteSubmitted();
-  //     // await loadUserVote();
-  //     setShowVoteModal(false);
-  //   } catch (error) {
-  //     console.error('Error submitting vote:', error);
-  //     Alert.alert('Error', t('failedToVote'));
-  //   }
-  // };
 
   const handleReportPress = () => {
     if (!currentUser) {
@@ -216,9 +193,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     setIsEditing(!isEditing);
   };
 
-  // Handle closing the modal
   const handleClose = () => {
-    // Stop any playing audio when the modal closes
     void stopCurrentSound();
     onClose();
   };
@@ -277,8 +252,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             />
           ) : (
             <View style={styles.textContainer}>
-              <TouchableOpacity style={styles.editButton} onPress={toggleEdit}>
-                <Ionicons name="pencil" size={18} color={colors.primary} />
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={canEditTranslation ? toggleEdit : undefined}
+                disabled={!canEditTranslation}
+              >
+                <Ionicons
+                  name={canEditTranslation ? 'pencil' : 'lock-closed'}
+                  size={18}
+                  color={
+                    canEditTranslation ? colors.primary : colors.textSecondary
+                  }
+                />
               </TouchableOpacity>
               <Text style={styles.text}>
                 {translation.text || t('enterTranslation')}
@@ -321,82 +306,92 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           <View style={styles.actionsContainer}>
             <View style={styles.feedbackContainer}>
               {!isOwnTranslation && (
-                <View
-                  style={{
-                    flexDirection: 'row'
-                  }}
+                <PrivateAccessGate
+                  projectId={project?.id || ''}
+                  projectName={project?.name || ''}
+                  isPrivate={project?.private || false}
+                  action="vote"
+                  inline={true}
                 >
-                  <TouchableOpacity
-                    style={[
-                      styles.newTranslationButton,
-                      {
-                        flex: 1,
-                        backgroundColor: '#6545B6',
-                        borderWidth: 2,
-                        borderColor:
-                          userVote?.polarity === 'up' ? colors.alert : '#6545B6'
-                      }
-                    ]}
-                    onPress={() => handleVote({ voteType: 'up' })}
-                    disabled={userVote?.polarity === 'up' || isVotePending}
+                  <View
+                    style={{
+                      flexDirection: 'row'
+                    }}
                   >
-                    {pendingVoteType === 'up' && (
-                      <View style={styles.shimmerOverlay}>
-                        <Shimmer
-                          width={200}
-                          height={50}
-                          backgroundColor="transparent"
-                          highlightColor="rgba(255, 255, 255, 0.3)"
-                        />
-                      </View>
-                    )}
-                    <Ionicons
-                      name={
-                        userVote?.polarity === 'up'
-                          ? 'thumbs-up'
-                          : 'thumbs-up-outline'
-                      }
-                      size={24}
-                      color={colors.buttonText}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.newTranslationButton,
-                      {
-                        flex: 1,
-                        borderWidth: 2,
-                        backgroundColor: colors.primary,
-                        borderColor:
+                    <TouchableOpacity
+                      style={[
+                        styles.newTranslationButton,
+                        {
+                          flex: 1,
+                          backgroundColor: '#6545B6',
+                          borderWidth: 2,
+                          borderColor:
+                            userVote?.polarity === 'up'
+                              ? colors.alert
+                              : '#6545B6'
+                        }
+                      ]}
+                      onPress={() => handleVote({ voteType: 'up' })}
+                      disabled={isVotePending}
+                    >
+                      {pendingVoteType === 'up' && (
+                        <View style={styles.shimmerOverlay}>
+                          <Shimmer
+                            width={200}
+                            height={50}
+                            backgroundColor="transparent"
+                            highlightColor="rgba(255, 255, 255, 0.3)"
+                          />
+                        </View>
+                      )}
+                      <Ionicons
+                        name={
+                          userVote?.polarity === 'up'
+                            ? 'thumbs-up'
+                            : 'thumbs-up-outline'
+                        }
+                        size={24}
+                        color={colors.buttonText}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.newTranslationButton,
+                        {
+                          flex: 1,
+                          borderWidth: 2,
+                          backgroundColor: colors.primary,
+                          borderColor:
+                            userVote?.polarity === 'down'
+                              ? colors.alert
+                              : colors.primary
+                        }
+                      ]}
+                      onPress={() => handleVote({ voteType: 'down' })}
+                      disabled={isVotePending}
+                    >
+                      {pendingVoteType === 'down' && (
+                        <View style={styles.shimmerOverlay}>
+                          <Shimmer
+                            width={200}
+                            height={50}
+                            backgroundColor="transparent"
+                            highlightColor="rgba(255, 255, 255, 0.3)"
+                          />
+                        </View>
+                      )}
+                      <Ionicons
+                        name={
                           userVote?.polarity === 'down'
-                            ? colors.alert
-                            : colors.primary
-                      }
-                    ]}
-                    onPress={() => handleVote({ voteType: 'down' })}
-                    disabled={userVote?.polarity === 'down' || isVotePending}
-                  >
-                    {pendingVoteType === 'down' && (
-                      <View style={styles.shimmerOverlay}>
-                        <Shimmer
-                          width={200}
-                          height={50}
-                          backgroundColor="transparent"
-                          highlightColor="rgba(255, 255, 255, 0.3)"
-                        />
-                      </View>
-                    )}
-                    <Ionicons
-                      name={
-                        userVote?.polarity === 'down'
-                          ? 'thumbs-down'
-                          : 'thumbs-down-outline'
-                      }
-                      size={24}
-                      color={colors.buttonText}
-                    />
-                  </TouchableOpacity>
-                </View>
+                            ? 'thumbs-down'
+                            : 'thumbs-down-outline'
+                        }
+                        size={24}
+                        color={colors.buttonText}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </PrivateAccessGate>
               )}
               {isOwnTranslation && (
                 <View style={styles.feedbackContainer}>
@@ -407,13 +402,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           </View>
         )}
       </View>
-
-      {/* <VoteCommentModal
-        isVisible={showVoteModal}
-        onClose={() => setShowVoteModal(false)}
-        onSubmit={handleVoteSubmit}
-        voteType={currentVoteType}
-      /> */}
 
       {showReportModal && (
         <ReportModal

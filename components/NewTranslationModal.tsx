@@ -4,7 +4,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
@@ -51,7 +51,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 }) => {
   console.log('assetContent', assetContent);
 
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
   const { stopCurrentSound } = useAudio();

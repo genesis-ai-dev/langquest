@@ -1,24 +1,24 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
-import { PrivateProjectAccessModal } from '@/components/PrivateProjectAccessModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
+import type { Translation } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useDownload } from '@/hooks/useDownloads';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Translation } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
 import { getAssetsByQuestId, useAssetsByProjectId } from '@/hooks/db/useAssets';
 import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
 import { useProjects } from '@/hooks/db/useProjects';
@@ -31,6 +31,8 @@ import {
   calculateQuestProgress
 } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@powersync/react-native';
 import { FlashList } from '@shopify/flash-list';
 import { and, eq } from 'drizzle-orm';
 
@@ -40,6 +42,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
+  const { db } = useSystem();
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -63,6 +66,23 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   const { assets } = useAssetsByProjectId(project.id);
   const assetIds = assets?.map((asset) => asset.id) ?? [];
+
+  const { data: membershipData = [] } = useQuery(
+    toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, project.id),
+          eq(profile_project_link.active, true)
+        )
+      })
+    )
+  );
+
+  const membershipRole = membershipData[0]?.membership as
+    | 'owner'
+    | 'member'
+    | undefined;
 
   const { isDownloaded: assetsDownloaded, isLoading } =
     useAttachmentAssetDownloadStatus(assetIds);
@@ -156,11 +176,29 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 color={colors.textSecondary}
               />
             )}
+            {membershipRole === 'owner' && (
+              <Ionicons name="ribbon" size={16} color={colors.primary} />
+            )}
+            {membershipRole === 'member' && (
+              <Ionicons name="person" size={16} color={colors.primary} />
+            )}
           </View>
-          <DownloadIndicator
-            isDownloaded={isDownloaded && assetsDownloaded}
-            isLoading={isLoading || isDownloadLoading}
-            onPress={handleDownloadToggle}
+          <PrivateAccessGate
+            projectId={project.id}
+            projectName={project.name}
+            isPrivate={project.private}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isDownloaded={isDownloaded && assetsDownloaded}
+                isLoading={isLoading && isDownloadLoading}
+                onPress={
+                  hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                }
+              />
+            )}
           />
         </View>
         <Text style={sharedStyles.cardLanguageText}>
@@ -183,7 +221,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 };
 
 export default function Projects() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToProject } = useProjectContext();
   const { currentUser } = useAuth();
   const { db } = useSystem();
@@ -381,13 +419,28 @@ export default function Projects() {
       </SafeAreaView>
 
       {privateProjectModal.project && (
-        <PrivateProjectAccessModal
+        <PrivateAccessGate
+          modal={true}
           isVisible={privateProjectModal.isVisible}
           onClose={() =>
             setPrivateProjectModal({ isVisible: false, project: null })
           }
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
+          isPrivate={privateProjectModal.project.private}
+          action="view-members"
+          onMembershipGranted={() => {
+            // Navigate to the project when membership is granted
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
+          onBypass={() => {
+            // Allow viewing the project even without membership
+            goToProject(privateProjectModal.project!);
+            setPrivateProjectModal({ isVisible: false, project: null });
+          }}
+          showViewProjectButton={true}
+          viewProjectButtonText="View Project"
         />
       )}
     </LinearGradient>

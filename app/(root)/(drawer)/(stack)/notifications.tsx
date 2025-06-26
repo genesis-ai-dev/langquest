@@ -4,18 +4,25 @@ import { useSystem } from '@/contexts/SystemContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import {
+  downloadRecord,
+  useProjectsDownloadStatus
+} from '@/hooks/useDownloads';
+import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View
@@ -35,10 +42,6 @@ type RequestWithRelations = typeof request.$inferSelect & {
 
 type ProfileProjectLink = typeof profile_project_link.$inferSelect;
 
-// Expiration constant - 7 days in milliseconds
-const INVITATION_EXPIRY_DAYS = 7;
-const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
 interface NotificationItem {
   id: string;
   type: 'invite' | 'request';
@@ -57,16 +60,13 @@ interface NotificationItem {
 const { db } = system;
 
 export default function NotificationsPage() {
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { db: drizzleDb } = useSystem();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-
-  // Helper function to check if invitation is expired
-  const isExpired = (lastUpdated: string): boolean => {
-    const updatedDate = new Date(lastUpdated);
-    const now = new Date();
-    return now.getTime() - updatedDate.getTime() > INVITATION_EXPIRY_MS;
-  };
+  const [downloadToggles, setDownloadToggles] = useState<
+    Record<string, boolean>
+  >({});
 
   // Query for invite notifications (where user's email matches)
   const { data: inviteData = [], refetch: refetchInvites } = useQuery({
@@ -103,6 +103,29 @@ export default function NotificationsPage() {
       last_updated: item.last_updated
     })
   );
+
+  // Query for existing project download statuses
+  const projectIds = inviteNotifications.map((item) => item.project_id);
+  const { projectStatuses } = useProjectsDownloadStatus(projectIds);
+
+  // Initialize download toggles for invites
+  useEffect(() => {
+    if (inviteNotifications.length === 0) return;
+
+    setDownloadToggles((prev) => {
+      const newToggles = { ...prev };
+      inviteNotifications.forEach((notification) => {
+        // Only initialize if not already set
+        if (newToggles[notification.id] === undefined) {
+          // Check if project is already downloaded
+          const isDownloaded = !!projectStatuses[notification.project_id];
+          // Default to true (download) unless already downloaded
+          newToggles[notification.id] = !isDownloaded;
+        }
+      });
+      return newToggles;
+    });
+  }, [inviteNotifications.length, projectStatuses]);
 
   // Query for request notifications (where user is project owner)
   // First get all projects where the user is an owner
@@ -161,10 +184,10 @@ export default function NotificationsPage() {
 
   // Filter out expired notifications
   const validInviteNotifications = inviteNotifications.filter(
-    (item) => !isExpired(item.last_updated)
+    (item) => !isExpiredByLastUpdated(item.last_updated)
   );
   const validRequestNotifications = requestNotifications.filter(
-    (item) => !isExpired(item.last_updated)
+    (item) => !isExpiredByLastUpdated(item.last_updated)
   );
 
   const allNotifications = [
@@ -176,7 +199,8 @@ export default function NotificationsPage() {
     notificationId: string,
     type: 'invite' | 'request',
     projectId: string,
-    asOwner: boolean
+    asOwner: boolean,
+    shouldDownload = false
   ) => {
     if (processingIds.has(notificationId)) return;
 
@@ -185,7 +209,8 @@ export default function NotificationsPage() {
       type,
       projectId,
       asOwner,
-      currentUserId: currentUser?.id
+      currentUserId: currentUser?.id,
+      shouldDownload
     });
 
     setProcessingIds((prev) => new Set(prev).add(notificationId));
@@ -194,7 +219,7 @@ export default function NotificationsPage() {
       // Update the appropriate table based on type
       if (type === 'invite') {
         console.log('[handleAccept] Updating invite to accepted...');
-        const updateResult = await db
+        await db
           .update(invite)
           .set({
             status: 'accepted',
@@ -202,20 +227,8 @@ export default function NotificationsPage() {
           })
           .where(eq(invite.id, notificationId));
 
-        console.log('[handleAccept] Update result:', updateResult);
-
         // Verify the update worked by querying the record
-        const updatedRecord = await db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-
-        console.log('[handleAccept] Record after update:', updatedRecord);
-
-        // Create or update profile_project_link for the current user
-        console.log(
-          '[handleAccept] Processing invite type - checking for existing link...'
-        );
+        await db.select().from(invite).where(eq(invite.id, notificationId));
 
         const existingLink = await db
           .select()
@@ -227,12 +240,9 @@ export default function NotificationsPage() {
             )
           );
 
-        console.log('[handleAccept] Existing link found:', existingLink);
-
         if (existingLink.length > 0) {
-          console.log('[handleAccept] Updating existing link...');
           // Update existing link
-          const linkUpdateResult = await db
+          await db
             .update(profile_project_link)
             .set({
               active: true,
@@ -245,9 +255,7 @@ export default function NotificationsPage() {
                 eq(profile_project_link.project_id, projectId)
               )
             );
-          console.log('[handleAccept] Link update result:', linkUpdateResult);
         } else {
-          console.log('[handleAccept] Creating new link...');
           // Create new link
           const newLinkData = {
             id: `${currentUser!.id}_${projectId}`,
@@ -262,6 +270,20 @@ export default function NotificationsPage() {
             .insert(profile_project_link)
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
+        }
+
+        // Handle project download if requested
+        if (shouldDownload && currentUser) {
+          try {
+            await downloadRecord('project', projectId, false);
+          } catch (downloadError) {
+            console.error(
+              '[handleAccept] Error setting project download:',
+              downloadError
+            );
+            // Don't fail the entire operation if download fails
+            Alert.alert(t('warning'), t('invitationAcceptedButDownloadFailed'));
+          }
         }
       } else {
         // type === 'request'
@@ -329,7 +351,7 @@ export default function NotificationsPage() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation accepted successfully!');
+      Alert.alert(t('success'), t('invitationAcceptedSuccess'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -337,7 +359,7 @@ export default function NotificationsPage() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert('Error', 'Failed to accept invitation. Please try again.');
+      Alert.alert(t('error'), t('failedToAcceptInvitation'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -381,10 +403,10 @@ export default function NotificationsPage() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation declined.');
+      Alert.alert(t('success'), t('invitationDeclined'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert('Error', 'Failed to decline invitation. Please try again.');
+      Alert.alert(t('error'), t('failedToDeclineInvitation'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -397,6 +419,16 @@ export default function NotificationsPage() {
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
     const roleText = item.as_owner ? 'owner' : 'member';
+    const shouldDownload = downloadToggles[item.id] ?? true;
+
+    console.log(
+      'Rendering notification:',
+      item.id,
+      'shouldDownload:',
+      shouldDownload,
+      'downloadToggles:',
+      downloadToggles
+    );
 
     return (
       <View key={item.id} style={styles.notificationItem}>
@@ -414,20 +446,76 @@ export default function NotificationsPage() {
 
           <Text style={styles.notificationMessage}>
             {item.type === 'invite'
-              ? `${item.sender_name || item.sender_email} has invited you to join project "${item.project_name}" as ${roleText}`
-              : `${item.sender_name || item.sender_email} has requested to join project "${item.project_name}" as ${roleText}`}
+              ? t('projectInvitationFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })
+              : t('projectJoinRequestFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })}
           </Text>
 
           <Text style={styles.notificationDate}>
             {new Date(item.created_at).toLocaleDateString()}
           </Text>
+
+          {/* Download toggle for invites */}
+          {item.type === 'invite' && (
+            <View style={styles.downloadSection}>
+              <View style={styles.downloadToggleRow}>
+                <Text style={styles.downloadLabel}>{t('downloadProject')}</Text>
+                <Switch
+                  value={shouldDownload}
+                  onValueChange={(value) => {
+                    console.log(
+                      'Toggle changed for notification:',
+                      item.id,
+                      'New value:',
+                      value
+                    );
+                    setDownloadToggles((prev) => {
+                      const newToggles = {
+                        ...prev,
+                        [item.id]: value
+                      };
+                      console.log('Updated toggles:', newToggles);
+                      return newToggles;
+                    });
+                  }}
+                  trackColor={{
+                    false: colors.textSecondary,
+                    true: colors.primary
+                  }}
+                  thumbColor={colors.buttonText}
+                  disabled={isProcessing}
+                />
+              </View>
+              {!shouldDownload && (
+                <View style={styles.warningContainer}>
+                  <Ionicons name="warning" size={16} color={colors.alert} />
+                  <Text style={styles.warningText}>
+                    {t('downloadProjectOfflineWarning')}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.notificationActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.acceptButton]}
             onPress={() =>
-              handleAccept(item.id, item.type, item.project_id, item.as_owner)
+              handleAccept(
+                item.id,
+                item.type,
+                item.project_id,
+                item.as_owner,
+                shouldDownload
+              )
             }
             disabled={isProcessing}
           >
@@ -440,7 +528,7 @@ export default function NotificationsPage() {
                   size={16}
                   color={colors.buttonText}
                 />
-                <Text style={styles.actionButtonText}>Accept</Text>
+                <Text style={styles.actionButtonText}>{t('accept')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -455,7 +543,7 @@ export default function NotificationsPage() {
             ) : (
               <>
                 <Ionicons name="close" size={16} color={colors.buttonText} />
-                <Text style={styles.actionButtonText}>Decline</Text>
+                <Text style={styles.actionButtonText}>{t('decline')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -471,7 +559,7 @@ export default function NotificationsPage() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <PageHeader title="Notifications" />
+          <PageHeader title={t('notifications')} />
 
           <ScrollView
             style={styles.scrollView}
@@ -484,9 +572,11 @@ export default function NotificationsPage() {
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyStateText}>No notifications</Text>
+                <Text style={styles.emptyStateText}>
+                  {t('noNotifications')}
+                </Text>
                 <Text style={styles.emptyStateSubtext}>
-                  You'll see project invitations and join requests here
+                  {t('noNotificationsSubtext')}
                 </Text>
               </View>
             ) : (
@@ -590,5 +680,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.large
+  },
+  downloadSection: {
+    marginTop: spacing.medium,
+    gap: spacing.small
+  },
+  downloadToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  downloadLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    flex: 1
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.small,
+    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  warningText: {
+    fontSize: fontSizes.small,
+    color: colors.alert,
+    flex: 1,
+    lineHeight: 16
   }
 });

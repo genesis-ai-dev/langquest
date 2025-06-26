@@ -1,7 +1,7 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -66,7 +66,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   const [sortingOptions, setSortingOptions] =
     useState<SortingOption[]>(initialSorting);
 
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
   const tags = assets.flatMap((asset) => asset.tags.map((tag) => tag.tag));
 

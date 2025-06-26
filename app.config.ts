@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'langquest',
   userInterfaceStyle: 'automatic',
   splash: {
-    image: './assets/images/splash.png',
+    image: './assets/images/icon.png',
     resizeMode: 'contain',
     backgroundColor: '#ffffff'
   },
@@ -71,6 +71,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-screen-orientation',
       {
         initialOrientation: 'PORTRAIT_UP'
+      }
+    ],
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#ffffff'
       }
     ]
   ],
