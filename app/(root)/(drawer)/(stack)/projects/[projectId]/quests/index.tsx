@@ -45,8 +45,8 @@ import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
 import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
+import { keepPreviousData } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 
 interface SortingOption {
@@ -210,10 +210,17 @@ export default function Quests() {
   // Feature flags to toggle button visibility
   const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
   const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
-  const quests: QuestWithRelations[] = useQuery(
-    toCompilableQuery(
+
+  const PAGE_SIZE = 3;
+  const [page, setPage] = useState(0);
+
+  const { data: quests, isPlaceholderData } = useTanstackQuery({
+    queryKey: ['quests', projectId, page],
+    query: toCompilableQuery(
       db.query.quest.findMany({
         where: eq(questTable.project_id, projectId),
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
         with: {
           tags: {
             with: {
@@ -240,8 +247,10 @@ export default function Quests() {
           }
         }
       })
-    )
-  ).data;
+    ),
+    enabled: !!projectId,
+    placeholderData: keepPreviousData
+  });
   const [filteredQuests, setFilteredQuests] = useState<typeof quests>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -294,7 +303,7 @@ export default function Quests() {
       filters: Record<string, string[]>,
       search: string
     ) => {
-      return questsToFilter.filter((quest) => {
+      return questsToFilter?.filter((quest) => {
         // Search filter
         const matchesSearch =
           quest.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -326,12 +335,13 @@ export default function Quests() {
 
   const applySorting = useCallback(
     (questsToSort: typeof quests, sorting: SortingOption[]) => {
+      if (!questsToSort) return [];
       return sortItems(
         questsToSort,
         sorting,
         (questId: string) =>
           quests
-            .find((quest) => quest.id === questId)
+            ?.find((quest) => quest.id === questId)
             ?.tags.map((t) => ({ name: t.tag.name })) ?? []
       );
     },
@@ -340,9 +350,13 @@ export default function Quests() {
 
   // Update filtered quests when search query changes
   useEffect(() => {
-    const filtered = applyFilters(quests, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    setFilteredQuests(sorted);
+    const filteredQuestsLocal = applyFilters(
+      quests,
+      activeFilters,
+      searchQuery
+    );
+    const sortedQuestsLocal = applySorting(filteredQuestsLocal, activeSorting);
+    setFilteredQuests(sortedQuestsLocal);
   }, [
     searchQuery,
     quests,
@@ -453,6 +467,69 @@ export default function Quests() {
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
           />
+          {/* Pagination Controls */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              margin: 10
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setPage((old) => Math.max(old - 1, 0))}
+              disabled={page === 0}
+              style={{
+                backgroundColor: colors.primary,
+                paddingVertical: spacing.small,
+                paddingHorizontal: spacing.large,
+                borderRadius: borderRadius.medium,
+                marginHorizontal: spacing.small,
+                opacity: page === 0 ? 0.5 : 1
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.buttonText,
+                  fontSize: fontSizes.medium,
+                  fontWeight: 'bold'
+                }}
+              >
+                Previous
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ alignSelf: 'center', marginHorizontal: 16 }}>
+              Page {page + 1}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (!isPlaceholderData && quests?.length === PAGE_SIZE) {
+                  setPage((old) => old + 1);
+                }
+              }}
+              disabled={isPlaceholderData || (quests?.length ?? 0) < PAGE_SIZE}
+              style={{
+                backgroundColor: colors.primary,
+                paddingVertical: spacing.small,
+                paddingHorizontal: spacing.large,
+                borderRadius: borderRadius.medium,
+                marginHorizontal: spacing.small,
+                opacity:
+                  isPlaceholderData || (quests?.length ?? 0) < PAGE_SIZE
+                    ? 0.5
+                    : 1
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.buttonText,
+                  fontSize: fontSizes.medium,
+                  fontWeight: 'bold'
+                }}
+              >
+                Next
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.floatingButtonsContainer}>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {isOwner && SHOW_SETTINGS_BUTTON && (
@@ -488,14 +565,16 @@ export default function Quests() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={{ flex: 1 }}>
-          <QuestFilterModal
-            onClose={() => setIsFilterModalVisible(false)}
-            quests={quests}
-            onApplyFilters={handleApplyFilters}
-            onApplySorting={handleApplySorting}
-            initialFilters={activeFilters}
-            initialSorting={activeSorting}
-          />
+          {quests && (
+            <QuestFilterModal
+              onClose={() => setIsFilterModalVisible(false)}
+              quests={quests}
+              onApplyFilters={handleApplyFilters}
+              onApplySorting={handleApplySorting}
+              initialFilters={activeFilters}
+              initialSorting={activeSorting}
+            />
+          )}
         </View>
       </Modal>
       {showProjectStats && selectedProject && (
