@@ -36,6 +36,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
@@ -206,6 +207,7 @@ export default function Assets() {
     projectId: string;
   }>();
 
+  const PAGE_SIZE = 10;
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
@@ -223,6 +225,12 @@ export default function Assets() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+
+  // Infinite scroll state
+  const [displayedAssets, setDisplayedAssets] = useState<Asset[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     void loadAssets();
@@ -275,6 +283,9 @@ export default function Assets() {
           validAssets.map((asset) => asset.name)
         );
         setFilteredAssets(sorted);
+        // Initialize displayed assets with first page
+        setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
+        setHasMore(sorted.length > PAGE_SIZE);
       }, 0);
     } catch (error) {
       console.error('Error loading assets:', error);
@@ -368,6 +379,11 @@ export default function Assets() {
       const sorted = applySorting(filtered, activeSorting);
 
       setFilteredAssets(sorted);
+
+      // Reset pagination when filters change
+      setCurrentPage(0);
+      setHasMore(true);
+      setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
     };
     void updateFilteredAssets();
   }, [
@@ -378,6 +394,30 @@ export default function Assets() {
     applyFilters,
     applySorting
   ]);
+
+  // Handle pagination when currentPage changes
+  useEffect(() => {
+    if (currentPage === 0) return; // Skip initial load as it's handled above
+
+    const startIndex = currentPage * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const pageAssets = filteredAssets.slice(startIndex, endIndex);
+
+    setDisplayedAssets((prev) => [...prev, ...pageAssets]);
+    setHasMore(pageAssets.length === PAGE_SIZE);
+    setIsLoadingMore(false);
+  }, [currentPage, filteredAssets]);
+
+  const loadMore = () => {
+    if (
+      !isLoadingMore &&
+      hasMore &&
+      filteredAssets.length > displayedAssets.length
+    ) {
+      setIsLoadingMore(true);
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -403,6 +443,10 @@ export default function Assets() {
       sorted.map((asset: Asset) => asset.name)
     );
     setFilteredAssets(sorted);
+    // Reset pagination
+    setCurrentPage(0);
+    setHasMore(true);
+    setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
     setIsFilterModalVisible(false);
   };
 
@@ -415,6 +459,10 @@ export default function Assets() {
       sorted.map((asset: Asset) => asset.name)
     );
     setFilteredAssets(sorted);
+    // Reset pagination
+    setCurrentPage(0);
+    setHasMore(true);
+    setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
   };
 
   const toggleQuestStats = () => {
@@ -483,7 +531,7 @@ export default function Assets() {
           </View>
 
           <FlatList
-            data={filteredAssets}
+            data={displayedAssets}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleAssetPress(item)}>
                 <AssetCard asset={item} />
@@ -491,6 +539,15 @@ export default function Assets() {
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isLoadingMore ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
           />
           <TouchableOpacity
             onPress={toggleQuestStats}
@@ -596,5 +653,9 @@ const styles = StyleSheet.create({
   gemCount: {
     color: colors.textSecondary,
     fontSize: fontSizes.small
+  },
+  loadingContainer: {
+    padding: spacing.medium,
+    alignItems: 'center'
   }
 });
