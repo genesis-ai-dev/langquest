@@ -2,13 +2,18 @@
 export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
 
 // Define the structure for translations
-export type TranslationKey = keyof typeof localizations;
+export type LocalizationKey = keyof typeof localizations;
 
 // Type to ensure all translations have all supported languages
-type TranslationSet = Record<SupportedLanguage, string>;
+type LocalizationSet = Record<SupportedLanguage, string>;
 
 // All UI translations
-export const localizations: Record<string, TranslationSet> = {
+export const localizations: Record<string, LocalizationSet> = {
+  accept: {
+    english: 'Accept',
+    spanish: 'Aceptar',
+    brazilian_portuguese: 'Aceitar'
+  },
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
@@ -64,10 +69,44 @@ export const localizations: Record<string, TranslationSet> = {
     spanish: 'Fecha',
     brazilian_portuguese: 'Data'
   },
+  decline: {
+    english: 'Decline',
+    spanish: 'Rechazar',
+    brazilian_portuguese: 'Rejeitar'
+  },
+  downloadAnyway: {
+    english: 'Download Anyway',
+    spanish: 'Descargar de todas formas',
+    brazilian_portuguese: 'Descarregar de qualquer forma'
+  },
+  downloadProject: {
+    english: 'Download Project',
+    spanish: 'Descargar Proyecto',
+    brazilian_portuguese: 'Descarregar Projeto'
+  },
+  downloadProjectOfflineWarning: {
+    english:
+      "If you don't download the project, you won't be able to contribute to it offline. You can download it later by pressing the project card's download button.",
+    spanish:
+      'Si no descargas el proyecto, no podrás contribuir sin conexión. Puedes descargarlo más tarde presionando el botón de descarga en la tarjeta del proyecto.',
+    brazilian_portuguese:
+      'Se você não baixar o projeto, não poderá contribuir offline. Você pode baixá-lo mais tarde pressionando o botão de download no cartão do projeto.'
+  },
+  downloadProjectWhenRequestSent: {
+    english: 'Download project when request is sent',
+    spanish: 'Descargar proyecto cuando se envíe la solicitud',
+    brazilian_portuguese: 'Baixar projeto quando a solicitação for enviada'
+  },
   email: {
     english: 'Email',
     spanish: 'Email',
     brazilian_portuguese: 'E-mail'
+  },
+  emailAlreadyMemberMessage: {
+    english: 'This email address is already a {{role}} of this project.',
+    spanish:
+      'Esta dirección de correo electrónico ya es {{role}} de este proyecto.',
+    brazilian_portuguese: 'Este endereço de e-mail já é {{role}} deste projeto.'
   },
   emailRequired: {
     english: 'Email is required',
@@ -118,6 +157,18 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Failed to send reset email',
     spanish: 'Error al enviar el correo de restablecimiento',
     brazilian_portuguese: 'Falha ao enviar e-mail de redefinição'
+  },
+  failedToAcceptInvitation: {
+    english: 'Failed to accept invitation. Please try again.',
+    spanish: 'Error al aceptar la invitación. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao aceitar o convite. Por favor, tente novamente.'
+  },
+  failedToDeclineInvitation: {
+    english: 'Failed to decline invitation. Please try again.',
+    spanish: 'Error al rechazar la invitación. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao recusar o convite. Por favor, tente novamente.'
   },
   failedToVote: {
     english: 'Failed to submit vote',
@@ -203,6 +254,14 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Password has been reset successfully',
     spanish: 'La contraseña se ha restablecido correctamente',
     brazilian_portuguese: 'A senha foi redefinida com sucesso'
+  },
+  projectDownloadFailed: {
+    english:
+      'Invitation accepted, but project download failed. You can download it later from the projects page.',
+    spanish:
+      'Invitación aceptada, pero la descarga del proyecto falló. Puede descargarla más tarde desde la página de proyectos.',
+    brazilian_portuguese:
+      'Convite aceito, mas a descarga do projeto falhou. Você pode baixá-lo mais tarde na página de projetos.'
   },
   projects: {
     english: 'Projects',
@@ -336,6 +395,11 @@ export const localizations: Record<string, TranslationSet> = {
     spanish: 'Votos',
     brazilian_portuguese: 'Votos'
   },
+  warning: {
+    english: 'Warning',
+    spanish: 'Advertencia',
+    brazilian_portuguese: 'Aviso'
+  },
   welcome: {
     english: 'Welcome back, hero!',
     spanish: '¡Bienvenido de nuevo, héroe!',
@@ -355,6 +419,17 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'remaining',
     spanish: 'restante',
     brazilian_portuguese: 'restante'
+  },
+  noNotifications: {
+    english: 'No notifications',
+    spanish: 'No hay notificaciones',
+    brazilian_portuguese: 'Nenhuma notificação'
+  },
+  noNotificationsSubtext: {
+    english: "You'll see project invitations and join requests here",
+    spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
+    brazilian_portuguese:
+      'Aqui você verá convites para projetos e solicitações de união'
   },
   notifications: {
     english: 'Notifications',
@@ -422,11 +497,6 @@ export const localizations: Record<string, TranslationSet> = {
     english: 'Processing...',
     spanish: 'Procesando...',
     brazilian_portuguese: 'Processando...'
-  },
-  accept: {
-    english: 'Accept',
-    spanish: 'Aceptar',
-    brazilian_portuguese: 'Aceitar'
   },
   termsContributionInfo: {
     english:
@@ -1082,6 +1152,222 @@ export const localizations: Record<string, TranslationSet> = {
       'Se alcanzó el número máximo de intentos de invitación para este correo',
     brazilian_portuguese:
       'Número máximo de tentativas de convite atingido para este e-mail'
+  },
+  invitationAcceptedButDownloadFailed: {
+    english:
+      'Invitation accepted, but project download failed. You can download it later from the projects page.',
+    spanish:
+      'Invitación aceptada, pero la descarga del proyecto falló. Puedes descargarlo más tarde desde la página de proyectos.',
+    brazilian_portuguese:
+      'Convite aceito, mas o download do projeto falhou. Você pode baixá-lo mais tarde na página de projetos.'
+  },
+  invitationAcceptedSuccess: {
+    english: 'Invitation accepted successfully!',
+    spanish: '¡Invitación aceptada con éxito!',
+    brazilian_portuguese: 'Convite aceito com sucesso!'
+  },
+  invitationDeclined: {
+    english: 'Invitation declined.',
+    spanish: 'Invitación rechazada.',
+    brazilian_portuguese: 'Convite recusado.'
+  },
+  joinRequest: {
+    english: 'Join Request',
+    spanish: 'Solicitud de Unión',
+    brazilian_portuguese: 'Solicitação de Adesão'
+  },
+  privateProjectAccess: {
+    english: 'Private Project Access',
+    spanish: 'Acceso a Proyecto Privado',
+    brazilian_portuguese: 'Acesso ao Projeto Privado'
+  },
+  privateProjectDownload: {
+    english: 'Private Project Download',
+    spanish: 'Descarga de Proyecto Privado',
+    brazilian_portuguese: 'Download de Projeto Privado'
+  },
+  privateProjectDownloadMessage: {
+    english:
+      'This project is private. You can download the content but will not be able to contribute translations or votes. Request access to join this project and start contributing.',
+    spanish:
+      'Este proyecto es privado. Puedes descargar el contenido pero no podrás contribuir con traducciones o votos. Solicita acceso para unirte a este proyecto y comenzar a contribuir.',
+    brazilian_portuguese:
+      'Este projeto é privado. Você pode baixar o conteúdo, mas não poderá contribuir com traduções ou votos. Solicite acesso para participar deste projeto e começar a contribuir.'
+  },
+  privateProjectEditing: {
+    english: 'Private Project Editing',
+    spanish: 'Edición de Proyecto Privado',
+    brazilian_portuguese: 'Edição de Projeto Privado'
+  },
+  privateProjectEditingMessage: {
+    english:
+      'This project is private. You need to be a member to edit transcriptions. Request access to join this project.',
+    spanish:
+      'Este proyecto es privado. Necesitas ser miembro para editar transcripciones. Solicita acceso para unirte a este proyecto.',
+    brazilian_portuguese:
+      'Este projeto é privado. Você precisa ser membro para editar transcrições. Solicite acesso para participar deste projeto.'
+  },
+  privateProjectGenericMessage: {
+    english:
+      'This project is private. You need to be a member to access this feature. Request access to join this project.',
+    spanish:
+      'Este proyecto es privado. Necesitas ser miembro para acceder a esta función. Solicita acceso para unirte a este proyecto.',
+    brazilian_portuguese:
+      'Este projeto é privado. Você precisa ser membro para acessar este recurso. Solicite acesso para participar deste projeto.'
+  },
+  privateProjectMembers: {
+    english: 'Private Project Members',
+    spanish: 'Miembros del Proyecto Privado',
+    brazilian_portuguese: 'Membros do Projeto Privado'
+  },
+  privateProjectMembersMessage: {
+    english:
+      'You need to be a member to view the member list and send invitations. Request access to join this project.',
+    spanish:
+      'Necesitas ser miembro para ver la lista de miembros y enviar invitaciones. Solicita acceso para unirte a este proyecto.',
+    brazilian_portuguese:
+      'Você precisa ser membro para ver a lista de membros e enviar convites. Solicite acesso para participar deste projeto.'
+  },
+  privateProjectNotLoggedInInline: {
+    english: 'You need to be logged in to access this private project.',
+    spanish: 'Necesitas iniciar sesión para acceder a este proyecto privado.',
+    brazilian_portuguese:
+      'Você precisa estar logado para acessar este projeto privado.'
+  },
+  privateProjectTranslation: {
+    english: 'Private Project Translation',
+    spanish: 'Traducción de Proyecto Privado',
+    brazilian_portuguese: 'Tradução de Projeto Privado'
+  },
+  privateProjectTranslationMessage: {
+    english:
+      'This project is private. You need to be a member to submit translations. Request access to join this project.',
+    spanish:
+      'Este proyecto es privado. Necesitas ser miembro para enviar traducciones. Solicita acceso para unirte a este proyecto.',
+    brazilian_portuguese:
+      'Este projeto é privado. Você precisa ser membro para enviar traduções. Solicite acesso para participar deste projeto.'
+  },
+  privateProjectVoting: {
+    english: 'Private Project Voting',
+    spanish: 'Votación de Proyecto Privado',
+    brazilian_portuguese: 'Votação de Projeto Privado'
+  },
+  privateProjectVotingMessage: {
+    english:
+      'This project is private. You need to be a member to vote on translations. Request access to join this project.',
+    spanish:
+      'Este proyecto es privado. Necesitas ser miembro para votar en las traducciones. Solicita acceso para unirte a este proyecto.',
+    brazilian_portuguese:
+      'Este projeto é privado. Você precisa ser membro para votar nas traduções. Solicite acesso para participar deste projeto.'
+  },
+  projectInvitation: {
+    english: 'Project Invitation',
+    spanish: 'Invitación al Proyecto',
+    brazilian_portuguese: 'Convite para o Projeto'
+  },
+  projectInvitationFrom: {
+    english:
+      '{{sender}} has invited you to join project "{{project}}" as {{role}}',
+    spanish:
+      '{{sender}} te ha invitado a unirte al proyecto "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} convidou você para participar do projeto "{{project}}" como {{role}}'
+  },
+  projectJoinRequestFrom: {
+    english:
+      '{{sender}} has requested to join project "{{project}}" as {{role}}',
+    spanish:
+      '{{sender}} ha solicitado unirse al proyecto "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} solicitou participar do projeto "{{project}}" como {{role}}'
+  },
+  projectWillRemainDownloaded: {
+    english: 'Project will remain downloaded',
+    spanish: 'El proyecto permanecerá descargado',
+    brazilian_portuguese: 'O projeto permanecerá baixado'
+  },
+  requestExpiredAttemptsRemaining: {
+    english:
+      'Your request expired after 7 days. You have {{attempts}} attempt{{plural}} remaining.',
+    spanish:
+      'Su solicitud expiró después de 7 días. Te quedan {{attempts}} intento{{plural}}.',
+    brazilian_portuguese:
+      'Sua solicitação expirou após 7 dias. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+  },
+  requestExpiredInline: {
+    english:
+      'Your previous request expired after 7 days. You have {{attempts}} attempt{{plural}} remaining.',
+    spanish:
+      'Su solicitud anterior expiró después de 7 días. Te quedan {{attempts}} intento{{plural}}.',
+    brazilian_portuguese:
+      'Sua solicitação anterior expirou após 7 dias. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+  },
+  requestExpiredNoAttempts: {
+    english: 'Your request expired and you have no more attempts remaining.',
+    spanish: 'Su solicitud expiró y no te quedan más intentos.',
+    brazilian_portuguese:
+      'Sua solicitação expirou e você não tem mais tentativas restantes.'
+  },
+  requestExpiredNoAttemptsInline: {
+    english:
+      'Your previous request expired after 7 days and you have no more attempts remaining.',
+    spanish:
+      'Su solicitud anterior expiró después de 7 días y no te quedan más intentos.',
+    brazilian_portuguese:
+      'Sua solicitação anterior expirou após 7 dias e você não tem mais tentativas restantes.'
+  },
+  requestPendingInline: {
+    english:
+      "Your membership request is pending approval. You'll be notified when it's reviewed.",
+    spanish:
+      'Su solicitud de membresía está pendiente de aprobación. Se le notificará cuando sea revisada.',
+    brazilian_portuguese:
+      'Sua solicitação de associação está pendente de aprovação. Você será notificado quando for analisada.'
+  },
+  requestDeclinedInline: {
+    english:
+      'Your request was declined. You have {{attempts}} attempt{{plural}} remaining.',
+    spanish:
+      'Su solicitud fue rechazada. Te quedan {{attempts}} intento{{plural}}.',
+    brazilian_portuguese:
+      'Sua solicitação foi recusada. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+  },
+  requestDeclinedNoRetryInline: {
+    english:
+      'Your request was declined and you have no more attempts remaining.',
+    spanish: 'Su solicitud fue rechazada y no te quedan más intentos.',
+    brazilian_portuguese:
+      'Sua solicitação foi recusada e você não tem mais tentativas restantes.'
+  },
+  requestWithdrawnInline: {
+    english:
+      'You withdrew your previous request. You can send a new request anytime.',
+    spanish:
+      'Retiraste tu solicitud anterior. Puedes enviar una nueva solicitud en cualquier momento.',
+    brazilian_portuguese:
+      'Você retirou sua solicitação anterior. Você pode enviar uma nova solicitação a qualquer momento.'
+  },
+  viewProject: {
+    english: 'View Project',
+    spanish: 'Ver Proyecto',
+    brazilian_portuguese: 'Ver Projeto'
+  },
+  loadingProjectDetails: {
+    english: 'Loading project details...',
+    spanish: 'Cargando detalles del proyecto...',
+    brazilian_portuguese: 'Carregando detalhes do projeto...'
+  },
+  onlyOwnersCanInvite: {
+    english: 'Only project owners can invite new members',
+    spanish:
+      'Solo los propietarios del proyecto pueden invitar nuevos miembros',
+    brazilian_portuguese:
+      'Apenas proprietários do projeto podem convidar novos membros'
+  },
+  failedToResendInvitation: {
+    english: 'Failed to resend invitation',
+    spanish: 'Error al reenviar invitación',
+    brazilian_portuguese: 'Falha ao reenviar convite'
   }
 } as const;
 

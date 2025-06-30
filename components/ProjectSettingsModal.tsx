@@ -1,6 +1,6 @@
 import { useSystem } from '@/contexts/SystemContext';
 import { project as projectTable } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -36,7 +36,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onClose,
   projectId
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { db } = useSystem();
   const [isSubmitting, setIsSubmitting] = useState(false);
 

@@ -11,13 +11,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   owner: 'eten-genesis',
   name: 'LangQuest',
   slug: 'langquest',
-  version: '1.0.2',
+  version: '1.1.0',
   orientation: 'portrait',
   icon: iconPath,
   scheme: 'langquest',
   userInterfaceStyle: 'automatic',
   splash: {
-    image: './assets/images/splash.png',
+    image: './assets/images/icon.png',
     resizeMode: 'contain',
     backgroundColor: '#ffffff'
   },
@@ -71,6 +71,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-screen-orientation',
       {
         initialOrientation: 'PORTRAIT_UP'
+      }
+    ],
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#ffffff'
       }
     ]
   ],

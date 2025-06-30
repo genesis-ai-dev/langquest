@@ -11,9 +11,13 @@ import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
+
+// Keep the splash screen visible while we fetch resources
+void SplashScreen.preventAutoHideAsync();
 
 LogBox.ignoreAllLogs(); // Ignore log notifications in the app
 

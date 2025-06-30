@@ -2,8 +2,8 @@ import { LanguageSelect } from '@/components/LanguageSelect';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { useTranslation } from '@/hooks/useTranslation';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,7 +38,7 @@ interface ProfileFormData {
 
 export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);

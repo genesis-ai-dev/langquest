@@ -3,6 +3,7 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
 import PickaxeIcon from '@/components/PickaxeIcon';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -17,7 +18,7 @@ import { tagService } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -35,6 +36,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
@@ -56,6 +58,7 @@ type AggregatedGems = Record<string, number>;
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
+  const { activeProject } = useProjectContext();
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -74,7 +77,6 @@ function AssetCard({ asset }: { asset: Asset }) {
       })
     )
   );
-
 
   // Aggregate translations by gem color
   const aggregatedGems = translations.reduce<AggregatedGems>(
@@ -142,10 +144,22 @@ function AssetCard({ asset }: { asset: Asset }) {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        <DownloadIndicator
-          isDownloaded={isDownloaded && assetsDownloaded}
-          isLoading={isLoadingDownloadStatus && isDownloaded}
-          onPress={handleDownloadToggle}
+        <PrivateAccessGate
+          projectId={activeProject?.id || ''}
+          projectName={activeProject?.name || ''}
+          isPrivate={activeProject?.private || false}
+          action="download"
+          allowBypass={true}
+          onBypass={handleDownloadToggle}
+          renderTrigger={({ onPress, hasAccess }) => (
+            <DownloadIndicator
+              isDownloaded={isDownloaded && assetsDownloaded}
+              isLoading={isLoadingDownloadStatus && isDownloaded}
+              onPress={
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+              }
+            />
+          )}
         />
       </View>
       <View style={styles.translationCount}>
@@ -186,13 +200,14 @@ function AssetCard({ asset }: { asset: Asset }) {
 }
 
 export default function Assets() {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { goToAsset } = useProjectContext();
   const { questId, projectId } = useGlobalSearchParams<{
     questId: string;
     projectId: string;
   }>();
 
+  const PAGE_SIZE = 10;
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetToTags, setAssetToTags] = useState<Record<string, Tag[]>>({});
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
@@ -210,6 +225,12 @@ export default function Assets() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+
+  // Infinite scroll state
+  const [displayedAssets, setDisplayedAssets] = useState<Asset[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     void loadAssets();
@@ -262,6 +283,9 @@ export default function Assets() {
           validAssets.map((asset) => asset.name)
         );
         setFilteredAssets(sorted);
+        // Initialize displayed assets with first page
+        setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
+        setHasMore(sorted.length > PAGE_SIZE);
       }, 0);
     } catch (error) {
       console.error('Error loading assets:', error);
@@ -355,6 +379,11 @@ export default function Assets() {
       const sorted = applySorting(filtered, activeSorting);
 
       setFilteredAssets(sorted);
+
+      // Reset pagination when filters change
+      setCurrentPage(0);
+      setHasMore(true);
+      setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
     };
     void updateFilteredAssets();
   }, [
@@ -365,6 +394,30 @@ export default function Assets() {
     applyFilters,
     applySorting
   ]);
+
+  // Handle pagination when currentPage changes
+  useEffect(() => {
+    if (currentPage === 0) return; // Skip initial load as it's handled above
+
+    const startIndex = currentPage * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const pageAssets = filteredAssets.slice(startIndex, endIndex);
+
+    setDisplayedAssets((prev) => [...prev, ...pageAssets]);
+    setHasMore(pageAssets.length === PAGE_SIZE);
+    setIsLoadingMore(false);
+  }, [currentPage, filteredAssets]);
+
+  const loadMore = () => {
+    if (
+      !isLoadingMore &&
+      hasMore &&
+      filteredAssets.length > displayedAssets.length
+    ) {
+      setIsLoadingMore(true);
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -390,6 +443,10 @@ export default function Assets() {
       sorted.map((asset: Asset) => asset.name)
     );
     setFilteredAssets(sorted);
+    // Reset pagination
+    setCurrentPage(0);
+    setHasMore(true);
+    setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
     setIsFilterModalVisible(false);
   };
 
@@ -402,6 +459,10 @@ export default function Assets() {
       sorted.map((asset: Asset) => asset.name)
     );
     setFilteredAssets(sorted);
+    // Reset pagination
+    setCurrentPage(0);
+    setHasMore(true);
+    setDisplayedAssets(sorted.slice(0, PAGE_SIZE));
   };
 
   const toggleQuestStats = () => {
@@ -470,7 +531,7 @@ export default function Assets() {
           </View>
 
           <FlatList
-            data={filteredAssets}
+            data={displayedAssets}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleAssetPress(item)}>
                 <AssetCard asset={item} />
@@ -478,6 +539,15 @@ export default function Assets() {
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isLoadingMore ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
           />
           <TouchableOpacity
             onPress={toggleQuestStats}
@@ -583,5 +653,9 @@ const styles = StyleSheet.create({
   gemCount: {
     color: colors.textSecondary,
     fontSize: fontSizes.small
+  },
+  loadingContainer: {
+    padding: spacing.medium,
+    alignItems: 'center'
   }
 });

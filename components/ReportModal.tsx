@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
-import { useTranslation } from '@/hooks/useTranslation';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -36,7 +36,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   creatorId,
   onReportSubmitted
 }) => {
-  const { t } = useTranslation();
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { createReport, isCreatingReport, blockUser, blockContent } =
     useReports(recordId, recordTable, currentUser?.id);
