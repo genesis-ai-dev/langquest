@@ -9,7 +9,6 @@ import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { downloadService } from '@/database_services/downloadService';
-import { projectService } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
@@ -26,8 +25,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   FlatList,
   Modal,
@@ -43,15 +43,24 @@ import { useSystem } from '@/contexts/SystemContext';
 import { assetService } from '@/database_services/assetService';
 import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
 import { calculateQuestProgress } from '@/utils/progressUtils';
-import { sortItems } from '@/utils/sortingUtils';
+import { compareByNumericReference, sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
 import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
+}
+
+interface ProfileProjectLink {
+  id: string;
+  active: boolean;
+  created_at: string;
+  last_updated: string;
+  profile_id: string;
+  project_id: string;
+  membership: string | null;
 }
 
 // First, let's create a type that represents the shape of our query result
@@ -203,15 +212,67 @@ export default function Quests() {
     projectId: string;
     projectName: string;
   }>();
-  const [searchQuery, setSearchQuery] = useState('');
   const { db } = useSystem();
   const { currentUser } = useAuth();
 
   // Feature flags to toggle button visibility
   const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
   const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
-  const quests: QuestWithRelations[] = useQuery(
-    toCompilableQuery(
+
+  const PAGE_SIZE = 10;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
+    {}
+  );
+  const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
+  const [showProjectStats, setShowProjectStats] = useState(false);
+  const [selectedProject] = useState<typeof project.$inferSelect | null>(null);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Infinite scroll state
+  const [allQuests, setAllQuests] = useState<QuestWithRelations[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const { goToQuest } = useProjectContext();
+
+  // Query to check if current user is an owner
+  const { data: currentUserLinkData } = useTanstackQuery({
+    queryKey: ['current-user-project-link', projectId, currentUser?.id],
+    query: toCompilableQuery(
+      db.query.profile_project_link.findFirst({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+    enabled: !!currentUser?.id && !!projectId
+  });
+
+  // Handle the case where data might be an array
+  const currentUserLink = Array.isArray(currentUserLinkData)
+    ? currentUserLinkData[0]
+    : currentUserLinkData;
+
+  const isOwner =
+    (currentUserLink as ProfileProjectLink | undefined)?.membership === 'owner';
+
+  // Query for quests with pagination
+  const { data: questsData } = useTanstackQuery({
+    queryKey: [
+      'quests',
+      projectId,
+      currentPage,
+      searchQuery,
+      activeFilters,
+      activeSorting
+    ],
+    query: toCompilableQuery(
       db.query.quest.findMany({
         where: eq(questTable.project_id, projectId),
         with: {
@@ -238,75 +299,38 @@ export default function Quests() {
               }
             }
           }
-        }
-      })
-    )
-  ).data;
-  const [filteredQuests, setFilteredQuests] = useState<typeof quests>([]);
-  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
-    {}
-  );
-  const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
-  const [showProjectStats, setShowProjectStats] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<
-    typeof project.$inferSelect | null
-  >(null);
-  const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-
-  const { goToQuest } = useProjectContext();
-
-  // Query to check if current user is an owner
-  const { data: [currentUserLink] = [] } = useTanstackQuery({
-    queryKey: ['current-user-project-link', projectId, currentUser?.id],
-    query: toCompilableQuery(
-      db.query.profile_project_link.findFirst({
-        where: and(
-          eq(profile_project_link.project_id, projectId),
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.active, true)
-        )
+        },
+        orderBy: activeSorting.length === 0 ? [asc(questTable.name)] : undefined
       })
     ),
-    enabled: !!currentUser?.id && !!projectId
+    enabled: !!projectId
   });
 
-  const isOwner = currentUserLink?.membership === 'owner';
-
+  // Process and filter quests whenever data changes
   useEffect(() => {
-    void loadProject();
-  }, [projectId]);
+    if (!questsData) return;
 
-  const loadProject = async () => {
-    try {
-      if (!projectId) return;
-      const project = await projectService.getProjectById(projectId);
-      setSelectedProject(project ?? null);
-    } catch (error) {
-      console.error('Error loading project:', error);
+    let processedQuests = [...questsData];
+
+    // Apply search filter
+    if (searchQuery) {
+      processedQuests = processedQuests.filter(
+        (quest) =>
+          quest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (quest.description
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ??
+            false)
+      );
     }
-  };
 
-  const applyFilters = useCallback(
-    (
-      questsToFilter: typeof quests,
-      filters: Record<string, string[]>,
-      search: string
-    ) => {
-      return questsToFilter.filter((quest) => {
-        // Search filter
-        const matchesSearch =
-          quest.name.toLowerCase().includes(search.toLowerCase()) ||
-          (quest.description?.toLowerCase().includes(search.toLowerCase()) ??
-            false);
-
-        // Tag filters
-        const questTags = quest.tags;
-        const matchesFilters = Object.entries(filters).every(
+    // Apply tag filters
+    if (Object.keys(activeFilters).length > 0) {
+      processedQuests = processedQuests.filter((quest) => {
+        return Object.entries(activeFilters).every(
           ([category, selectedOptions]) => {
             if (selectedOptions.length === 0) return true;
-            return questTags.some(({ tag }) => {
+            return quest.tags.some(({ tag }) => {
               const [tagCategory, tagValue] = tag.name.split(':');
               return (
                 tagCategory?.toLowerCase() === category.toLowerCase() &&
@@ -317,45 +341,50 @@ export default function Quests() {
             });
           }
         );
-
-        return matchesSearch && matchesFilters;
       });
-    },
-    [quests]
-  );
+    }
 
-  const applySorting = useCallback(
-    (questsToSort: typeof quests, sorting: SortingOption[]) => {
-      return sortItems(
-        questsToSort,
-        sorting,
+    // Apply sorting
+    if (activeSorting.length === 0) {
+      // Default sorting using numeric reference comparison
+      processedQuests.sort((a, b) => compareByNumericReference(a.name, b.name));
+    } else {
+      // Apply custom sorting
+      processedQuests = sortItems(
+        processedQuests,
+        activeSorting,
         (questId: string) =>
-          quests
+          processedQuests
             .find((quest) => quest.id === questId)
             ?.tags.map((t) => ({ name: t.tag.name })) ?? []
       );
-    },
-    [quests]
-  );
+    }
 
-  // Update filtered quests when search query changes
+    // Reset when filters change (currentPage === 0) or append for pagination
+    if (currentPage === 0) {
+      setAllQuests(processedQuests.slice(0, PAGE_SIZE));
+    } else {
+      const startIndex = currentPage * PAGE_SIZE;
+      const endIndex = startIndex + PAGE_SIZE;
+      const pageQuests = processedQuests.slice(startIndex, endIndex);
+      setAllQuests((prev) => [...prev, ...pageQuests]);
+      setHasMore(pageQuests.length === PAGE_SIZE);
+    }
+
+    setIsLoadingMore(false);
+  }, [questsData, searchQuery, activeFilters, activeSorting, currentPage]);
+
+  // Reset pagination when filters change
   useEffect(() => {
-    const filtered = applyFilters(quests, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    setFilteredQuests(sorted);
-  }, [
-    searchQuery,
-    quests,
-    activeFilters,
-    activeSorting,
-    applyFilters,
-    applySorting
-  ]);
+    setCurrentPage(0);
+    setHasMore(true);
+  }, [searchQuery, activeFilters, activeSorting]);
 
-  const getActiveOptionsCount = () => {
-    const filterCount = Object.values(activeFilters).flat().length;
-    const sortCount = activeSorting.length;
-    return filterCount + sortCount;
+  const loadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      setIsLoadingMore(true);
+      setCurrentPage((prev) => prev + 1);
+    }
   };
 
   const handleQuestPress = (quest: Quest) => {
@@ -368,17 +397,11 @@ export default function Quests() {
 
   const handleApplyFilters = (filters: Record<string, string[]>) => {
     setActiveFilters(filters);
-    const filtered = applyFilters(quests, filters, searchQuery);
-    const sorted = applySorting(filtered, activeSorting);
-    setFilteredQuests(sorted);
     setIsFilterModalVisible(false);
   };
 
   const handleApplySorting = (sorting: SortingOption[]) => {
     setActiveSorting(sorting);
-    const filtered = applyFilters(quests, activeFilters, searchQuery);
-    const sorted = applySorting(filtered, sorting);
-    setFilteredQuests(sorted);
   };
 
   const toggleProjectStats = () => {
@@ -433,10 +456,10 @@ export default function Quests() {
               style={styles.filterIcon}
             >
               <Ionicons name="filter" size={20} color={colors.text} />
-              {getActiveOptionsCount() > 0 && (
+              {Object.values(activeFilters).flat().length > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
-                    {getActiveOptionsCount()}
+                    {Object.values(activeFilters).flat().length}
                   </Text>
                 </View>
               )}
@@ -444,7 +467,7 @@ export default function Quests() {
           </View>
 
           <FlatList
-            data={filteredQuests}
+            data={allQuests}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleQuestPress(item)}>
                 <QuestCard quest={item} />
@@ -452,6 +475,15 @@ export default function Quests() {
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isLoadingMore ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
           />
           <View style={styles.floatingButtonsContainer}>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
@@ -490,7 +522,7 @@ export default function Quests() {
         <View style={{ flex: 1 }}>
           <QuestFilterModal
             onClose={() => setIsFilterModalVisible(false)}
-            quests={quests}
+            quests={allQuests}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}
@@ -584,5 +616,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.medium,
+    marginVertical: spacing.small
   }
 });
