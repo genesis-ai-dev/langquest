@@ -1,20 +1,19 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
-import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
+// import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
-import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { downloadService } from '@/database_services/downloadService';
+// import { downloadService } from '@/database_services/downloadService';
 import type { Quest } from '@/database_services/questService';
-import type { Tag } from '@/database_services/tagService';
-import { tagService } from '@/database_services/tagService';
+// import type { Tag } from '@/database_services/tagService';
+// import { tagService } from '@/database_services/tagService';
 import type { project } from '@/db/drizzleSchema';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+// import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestProgress } from '@/hooks/useQuestProgress';
 import {
   borderRadius,
   colors,
@@ -30,7 +29,6 @@ import {
   ActivityIndicator,
   BackHandler,
   FlatList,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -40,10 +38,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSystem } from '@/contexts/SystemContext';
-import { assetService } from '@/database_services/assetService';
 import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
-import { calculateQuestProgress } from '@/utils/progressUtils';
-import { compareByNumericReference, sortItems } from '@/utils/sortingUtils';
+import { compareByNumericReference } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
 import { and, asc, eq } from 'drizzle-orm';
@@ -63,93 +59,61 @@ interface ProfileProjectLink {
   membership: string | null;
 }
 
-// First, let's create a type that represents the shape of our query result
-interface QuestWithRelations {
-  id: string;
-  name: string;
-  description: string | null;
-  project_id: string;
-  active: boolean;
-  visible: boolean;
-  creator_id: string | null;
-  created_at: string;
-  last_updated: string;
-  tags: {
-    tag: {
-      name: string;
-    };
-  }[];
-  assets: {
-    asset: {
-      id: string;
-      name: string;
-      translations: {
-        id: string;
-        text: string | null;
-        creator_id: string;
-        votes: {
-          id: string;
-          polarity: 'up' | 'down';
-          creator_id: string;
-        }[];
-      }[];
-    };
-  }[];
-}
+// Simplified quest type - just the basic quest data
+type SimpleQuest = typeof questTable.$inferSelect;
 
-const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
-  const { currentUser } = useAuth();
-  const { activeProject } = useProjectContext();
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const [isDownloaded, setIsDownloaded] = useState(false);
+const QuestCard: React.FC<{ quest: SimpleQuest }> = ({ quest }) => {
+  // const { currentUser } = useAuth();
+  // const { activeProject } = useProjectContext();
+  // const [tags, setTags] = useState<Tag[]>([]);
+  // const [assetIds, setAssetIds] = useState<string[]>([]);
+  // const [isDownloaded, setIsDownloaded] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [questTags, assets] = await Promise.all([
-          tagService.getTagsByQuestId(quest.id),
-          assetService.getAssetsByQuestId(quest.id)
-        ]);
-        setTags(questTags.filter(Boolean));
-        setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
+  // Get quest progress data
+  const { progress, isLoading } = useQuestProgress(quest.id);
 
-        // Get quest download status
-        if (currentUser) {
-          const downloadStatus = await downloadService.getQuestDownloadStatus(
-            currentUser.id,
-            quest.id
-          );
-          setIsDownloaded(downloadStatus);
-        }
-      } catch (error) {
-        console.error('Error loading quest data:', error);
-      }
-    };
-    void loadData();
-  }, [quest.id, currentUser]);
+  // Comment out the data loading for now
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     try {
+  //       const [questTags, assets] = await Promise.all([
+  //         tagService.getTagsByQuestId(quest.id),
+  //         assetService.getAssetsByQuestId(quest.id)
+  //       ]);
+  //       setTags(questTags.filter(Boolean));
+  //       setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
 
-  const { isDownloaded: assetsDownloaded, isLoading } =
-    useAssetDownloadStatus(assetIds);
+  //       // Get quest download status
+  //       if (currentUser) {
+  //         const downloadStatus = await downloadService.getQuestDownloadStatus(
+  //           currentUser.id,
+  //           quest.id
+  //         );
+  //         setIsDownloaded(downloadStatus);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error loading quest data:', error);
+  //     }
+  //   };
+  //   void loadData();
+  // }, [quest.id, currentUser]);
 
-  const handleDownloadToggle = async () => {
-    if (!currentUser) return;
-    try {
-      await downloadService.setQuestDownload(
-        currentUser.id,
-        quest.id,
-        !isDownloaded
-      );
-      setIsDownloaded(!isDownloaded);
-    } catch (error) {
-      console.error('Error toggling quest download:', error);
-    }
-  };
+  // const { isDownloaded: assetsDownloaded, isLoading } =
+  //   useAssetDownloadStatus(assetIds);
 
-  const progress = calculateQuestProgress(
-    quest.assets.map((asset) => asset.asset),
-    currentUser?.id ?? null
-  );
+  // const handleDownloadToggle = async () => {
+  //   if (!currentUser) return;
+  //   try {
+  //     await downloadService.setQuestDownload(
+  //       currentUser.id,
+  //       quest.id,
+  //       !isDownloaded
+  //     );
+  //     setIsDownloaded(!isDownloaded);
+  //   } catch (error) {
+  //     console.error('Error toggling quest download:', error);
+  //   }
+  // };
 
   return (
     <View style={sharedStyles.card}>
@@ -161,7 +125,8 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
-        <PrivateAccessGate
+        {/* Comment out download indicator for now */}
+        {/* <PrivateAccessGate
           projectId={quest.project_id}
           projectName={activeProject?.name || ''}
           isPrivate={activeProject?.private || false}
@@ -177,19 +142,22 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
               }
             />
           )}
-        />
+        /> */}
       </View>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
 
-      <ProgressBars
-        approvedPercentage={progress.approvedPercentage}
-        userContributedPercentage={progress.userContributedPercentage}
-        pickaxeCount={progress.pendingTranslationsCount}
-      />
+      {/* Show progress bars if data is loaded */}
+      {!isLoading && progress && progress.totalAssets > 0 && (
+        <ProgressBars
+          approvedPercentage={progress.approvedPercentage}
+          userContributedPercentage={progress.userContributedPercentage}
+          pickaxeCount={progress.pendingTranslationsCount}
+        />
+      )}
 
-      {tags.length > 0 && (
+      {/* {tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
           {tags.slice(0, 3).map((tag, index) => (
             <Text key={tag.id} style={sharedStyles.cardInfoText}>
@@ -201,7 +169,7 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
             <Text style={sharedStyles.cardInfoText}> ...</Text>
           )}
         </View>
-      )}
+      )} */}
     </View>
   );
 };
@@ -222,17 +190,15 @@ export default function Quests() {
   const PAGE_SIZE = 10;
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
-    {}
-  );
-  const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
+  const [activeFilters] = useState<Record<string, string[]>>({});
+  const [activeSorting] = useState<SortingOption[]>([]);
   const [showProjectStats, setShowProjectStats] = useState(false);
   const [selectedProject] = useState<typeof project.$inferSelect | null>(null);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Infinite scroll state
-  const [allQuests, setAllQuests] = useState<QuestWithRelations[]>([]);
+  const [allQuests, setAllQuests] = useState<SimpleQuest[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -262,46 +228,15 @@ export default function Quests() {
   const isOwner =
     (currentUserLink as ProfileProjectLink | undefined)?.membership === 'owner';
 
-  // Query for quests with pagination
+  // Simplified query for quests - just basic data
   const { data: questsData } = useTanstackQuery({
-    queryKey: [
-      'quests',
-      projectId,
-      currentPage,
-      searchQuery,
-      activeFilters,
-      activeSorting
-    ],
+    queryKey: ['quests-simple', projectId],
     query: toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(questTable.project_id, projectId),
-        with: {
-          tags: {
-            with: {
-              tag: {
-                columns: {
-                  name: true
-                }
-              }
-            }
-          },
-          assets: {
-            with: {
-              asset: {
-                with: {
-                  translations: {
-                    with: {
-                      votes: true,
-                      creator: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        orderBy: activeSorting.length === 0 ? [asc(questTable.name)] : undefined
-      })
+      db
+        .select()
+        .from(questTable)
+        .where(eq(questTable.project_id, projectId))
+        .orderBy(asc(questTable.name))
     ),
     enabled: !!projectId
   });
@@ -324,40 +259,40 @@ export default function Quests() {
       );
     }
 
-    // Apply tag filters
-    if (Object.keys(activeFilters).length > 0) {
-      processedQuests = processedQuests.filter((quest) => {
-        return Object.entries(activeFilters).every(
-          ([category, selectedOptions]) => {
-            if (selectedOptions.length === 0) return true;
-            return quest.tags.some(({ tag }) => {
-              const [tagCategory, tagValue] = tag.name.split(':');
-              return (
-                tagCategory?.toLowerCase() === category.toLowerCase() &&
-                selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
-                )
-              );
-            });
-          }
-        );
-      });
-    }
+    // Apply tag filters - commented out for now since we're not loading tags
+    // if (Object.keys(activeFilters).length > 0) {
+    //   processedQuests = processedQuests.filter((quest) => {
+    //     return Object.entries(activeFilters).every(
+    //       ([category, selectedOptions]) => {
+    //         if (selectedOptions.length === 0) return true;
+    //         return quest.tags.some(({ tag }) => {
+    //           const [tagCategory, tagValue] = tag.name.split(':');
+    //           return (
+    //             tagCategory?.toLowerCase() === category.toLowerCase() &&
+    //             selectedOptions.includes(
+    //               `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
+    //             )
+    //           );
+    //         });
+    //       }
+    //     );
+    //   });
+    // }
 
     // Apply sorting
     if (activeSorting.length === 0) {
       // Default sorting using numeric reference comparison
       processedQuests.sort((a, b) => compareByNumericReference(a.name, b.name));
     } else {
-      // Apply custom sorting
-      processedQuests = sortItems(
-        processedQuests,
-        activeSorting,
-        (questId: string) =>
-          processedQuests
-            .find((quest) => quest.id === questId)
-            ?.tags.map((t) => ({ name: t.tag.name })) ?? []
-      );
+      // Apply custom sorting - commented out for now since we're not loading tags
+      // processedQuests = sortItems(
+      //   processedQuests,
+      //   activeSorting,
+      //   (questId: string) =>
+      //     processedQuests
+      //       .find((quest) => quest.id === questId)
+      //       ?.tags.map((t) => ({ name: t.tag.name })) ?? []
+      // );
     }
 
     // Reset when filters change (currentPage === 0) or append for pagination
@@ -395,14 +330,14 @@ export default function Quests() {
     setShowProjectStats(false);
   };
 
-  const handleApplyFilters = (filters: Record<string, string[]>) => {
-    setActiveFilters(filters);
-    setIsFilterModalVisible(false);
-  };
+  // const handleApplyFilters = (filters: Record<string, string[]>) => {
+  //   setActiveFilters(filters);
+  //   setIsFilterModalVisible(false);
+  // };
 
-  const handleApplySorting = (sorting: SortingOption[]) => {
-    setActiveSorting(sorting);
-  };
+  // const handleApplySorting = (sorting: SortingOption[]) => {
+  //   setActiveSorting(sorting);
+  // };
 
   const toggleProjectStats = () => {
     setShowProjectStats((prev) => !prev);
@@ -451,7 +386,8 @@ export default function Quests() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity
+            {/* Comment out filter button for now */}
+            {/* <TouchableOpacity
               onPress={() => setIsFilterModalVisible(true)}
               style={styles.filterIcon}
             >
@@ -463,7 +399,7 @@ export default function Quests() {
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           <FlatList
@@ -513,7 +449,8 @@ export default function Quests() {
           </View>
         </View>
       </SafeAreaView>
-      <Modal
+      {/* Comment out filter modal for now */}
+      {/* <Modal
         visible={isFilterModalVisible}
         transparent={true}
         animationType="fade"
@@ -529,7 +466,7 @@ export default function Quests() {
             initialSorting={activeSorting}
           />
         </View>
-      </Modal>
+      </Modal> */}
       {showProjectStats && selectedProject && (
         <ProjectDetails
           project={selectedProject}

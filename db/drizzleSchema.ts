@@ -130,7 +130,9 @@ export const quest = sqliteTable(
   },
   (table) => [
     index('project_id_idx').on(table.project_id),
-    index('name_idx').on(table.name)
+    index('name_idx').on(table.name),
+    index('project_id_name_idx').on(table.project_id, table.name),
+    index('project_id_visible_idx').on(table.project_id, table.visible)
   ]
 );
 
@@ -230,7 +232,11 @@ export const quest_asset_link = sqliteTable(
     quest_id: text().notNull(),
     asset_id: text().notNull()
   },
-  (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
+  (t) => [
+    primaryKey({ columns: [t.quest_id, t.asset_id] }),
+    index('quest_id_idx').on(t.quest_id),
+    index('asset_id_idx').on(t.asset_id)
+  ]
 );
 
 export const quest_asset_linkRelations = relations(
@@ -265,7 +271,8 @@ export const translation = sqliteTable(
   },
   (t) => [
     index('asset_id_idx').on(t.asset_id),
-    index('creator_id_idx').on(t.creator_id)
+    index('creator_id_idx').on(t.creator_id),
+    index('asset_id_visible_idx').on(t.asset_id, t.visible)
   ]
 );
 
@@ -385,7 +392,8 @@ export const vote = sqliteTable(
   (t) => [
     index('translation_id_idx').on(t.translation_id),
     index('creator_id_idx').on(t.creator_id),
-    index('translation_id_creator_id_idx').on(t.translation_id, t.creator_id)
+    index('translation_id_creator_id_idx').on(t.translation_id, t.creator_id),
+    index('translation_id_polarity_idx').on(t.translation_id, t.polarity)
   ]
 );
 

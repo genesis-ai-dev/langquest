@@ -1,13 +1,10 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
-import PickaxeIcon from '@/components/PickaxeIcon';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import { assetService } from '@/database_services/assetService';
 import { downloadService } from '@/database_services/downloadService';
@@ -16,7 +13,6 @@ import { questService } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { tagService } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import { translation as translationTable } from '@/db/drizzleSchema';
 import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
@@ -26,12 +22,8 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { getGemColor, shouldCountTranslation } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
-import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -54,7 +46,7 @@ interface SortingOption {
   order: 'asc' | 'desc';
 }
 
-type AggregatedGems = Record<string, number>;
+// type AggregatedGems = Record<string, number>;
 
 function AssetCard({ asset }: { asset: Asset }) {
   const { currentUser } = useAuth();
@@ -62,45 +54,45 @@ function AssetCard({ asset }: { asset: Asset }) {
   const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
     useAssetDownloadStatus([asset.id]);
   const [isDownloaded, setIsDownloaded] = useState(false);
-  const { db } = useSystem();
+  // const { db } = useSystem();
 
   // Get translations for this specific asset
-  const { data: translations } = useQuery(
-    toCompilableQuery(
-      db.query.translation.findMany({
-        where: eq(translationTable.asset_id, asset.id),
-        with: {
-          votes: true,
-          creator: true,
-          asset: true
-        }
-      })
-    )
-  );
+  // const { data: translations } = useQuery(
+  //   toCompilableQuery(
+  //     db.query.translation.findMany({
+  //       where: eq(translationTable.asset_id, asset.id),
+  //       with: {
+  //         votes: true,
+  //         creator: true,
+  //         asset: true
+  //       }
+  //     })
+  //   )
+  // );
 
   // Aggregate translations by gem color
-  const aggregatedGems = translations.reduce<AggregatedGems>(
-    (acc, translation) => {
-      // Only count translations that should be displayed
-      if (!shouldCountTranslation(translation.votes)) {
-        console.log('Not counting translation: ', translation.id);
-        return acc;
-      }
+  // const aggregatedGems = translations.reduce<AggregatedGems>(
+  //   (acc, translation) => {
+  //     // Only count translations that should be displayed
+  //     if (!shouldCountTranslation(translation.votes)) {
+  //       console.log('Not counting translation: ', translation.id);
+  //       return acc;
+  //     }
 
-      const gemColor = getGemColor(
-        translation,
-        translation.votes,
-        currentUser?.id ?? null
-      );
+  //     const gemColor = getGemColor(
+  //       translation,
+  //       translation.votes,
+  //       currentUser?.id ?? null
+  //     );
 
-      // console.log('Gem color: ', gemColor);
+  //     // console.log('Gem color: ', gemColor);
 
-      acc[gemColor] = (acc[gemColor] ?? 0) + 1;
+  //     acc[gemColor] = (acc[gemColor] ?? 0) + 1;
 
-      return acc;
-    },
-    {}
-  );
+  //     return acc;
+  //   },
+  //   {}
+  // );
 
   useEffect(() => {
     const loadDownloadStatus = async () => {
@@ -162,7 +154,7 @@ function AssetCard({ asset }: { asset: Asset }) {
           )}
         />
       </View>
-      <View style={styles.translationCount}>
+      {/* <View style={styles.translationCount}>
         {Object.entries(aggregatedGems).map(([color, count]) => (
           <View key={color} style={styles.gemContainer}>
             {count < 4 ? (
@@ -194,7 +186,7 @@ function AssetCard({ asset }: { asset: Asset }) {
             )}
           </View>
         ))}
-      </View>
+      </View> */}
     </View>
   );
 }
