@@ -1,5 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
+import {
+  useProjectContext,
+  useProjectRecentItems
+} from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
@@ -300,14 +303,9 @@ export function Drawer() {
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useLocalization();
-  const {
-    recentProjects,
-    recentQuests,
-    recentAssets,
-    goToProject,
-    goToQuest,
-    goToAsset
-  } = useProjectContext();
+  const { goToProject, goToQuest, goToAsset } = useProjectContext();
+  const { recentProjects, recentQuests, recentAssets } =
+    useProjectRecentItems();
 
   return (
     <LinearGradient

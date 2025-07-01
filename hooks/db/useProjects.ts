@@ -53,8 +53,17 @@ export function useInfiniteProjects(
 ) {
   const { db, supabaseConnector } = system;
 
+  // Create clean query key without undefined values
+  const queryKey = [
+    'projects',
+    'infinite',
+    pageSize,
+    ...(sortField ? [sortField] : []),
+    ...(sortOrder ? [sortOrder] : [])
+  ];
+
   return useHybridInfiniteQuery({
-    queryKey: ['projects', 'infinite', pageSize, sortField, sortOrder],
+    queryKey,
     onlineFn: async ({ pageParam }) => {
       // Online query with proper pagination using Supabase range
       let query = supabaseConnector.client

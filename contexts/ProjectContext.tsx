@@ -34,9 +34,27 @@ class NavigationManager {
   private recentProjects: (Project & { path: Href })[] = [];
   private recentQuests: (Quest & { path: Href })[] = [];
   private recentAssets: (Asset & { path: Href })[] = [];
+  private listeners = new Map<string, Set<() => void>>();
 
   setRouter(router: Router) {
     this.router = router;
+  }
+
+  private notifyListeners(type: 'projects' | 'quests' | 'assets') {
+    const typeListeners = this.listeners.get(type);
+    if (typeListeners) {
+      typeListeners.forEach((listener) => listener());
+    }
+  }
+
+  subscribe(type: 'projects' | 'quests' | 'assets', listener: () => void) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set());
+    }
+    this.listeners.get(type)!.add(listener);
+    return () => {
+      this.listeners.get(type)?.delete(listener);
+    };
   }
 
   goToProject = (project: Project, navigate?: boolean) => {
@@ -64,6 +82,9 @@ class NavigationManager {
     // Update recent projects without triggering re-renders
     const filtered = this.recentProjects.filter((p) => p.id !== project.id);
     this.recentProjects = [{ ...project, path }, ...filtered].slice(0, 3);
+
+    // Only notify project listeners
+    this.notifyListeners('projects');
 
     debug('📝 Updated recent projects:', {
       newCount: this.recentProjects.length,
@@ -97,6 +118,9 @@ class NavigationManager {
 
     const filtered = this.recentQuests.filter((q) => q.id !== quest.id);
     this.recentQuests = [{ ...quest, path }, ...filtered].slice(0, 3);
+
+    // Only notify quest listeners
+    this.notifyListeners('quests');
 
     debug('📝 Updated recent quests:', {
       newCount: this.recentQuests.length,
@@ -156,6 +180,9 @@ class NavigationManager {
 
     this.recentAssets = [newAssetEntry, ...filtered].slice(0, 3);
 
+    // Only notify asset listeners
+    this.notifyListeners('assets');
+
     debug('📝 Updated recent assets:', {
       newCount: this.recentAssets.length,
       addedAsset:
@@ -186,11 +213,8 @@ const navigationManager = new NavigationManager();
 
 interface ProjectContextType {
   activeProject?: Project | null;
-  recentProjects: (Project & { path: Href })[];
   activeQuest?: Quest | null;
-  recentQuests: (Quest & { path: Href })[];
   activeAsset?: Asset | null;
-  recentAssets: (Asset & { path: Href })[];
   goToProject: (project: Project, navigate?: boolean) => void;
   goToQuest: (quest: Quest, navigate?: boolean) => void;
   goToAsset: (
@@ -199,14 +223,70 @@ interface ProjectContextType {
   ) => void;
 }
 
+interface ProjectRecentItemsContextType {
+  recentProjects: (Project & { path: Href })[];
+  recentQuests: (Quest & { path: Href })[];
+  recentAssets: (Asset & { path: Href })[];
+}
+
+// Split contexts to prevent unnecessary re-renders
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+const ProjectRecentItemsContext = createContext<
+  ProjectRecentItemsContextType | undefined
+>(undefined);
+
+// Custom hooks for granular subscriptions
+function useRecentProjects() {
+  const [recentProjects, setRecentProjects] = useState(() =>
+    navigationManager.getRecentProjects()
+  );
+
+  React.useEffect(() => {
+    const updateProjects = () => {
+      setRecentProjects(navigationManager.getRecentProjects());
+    };
+    const unsubscribe = navigationManager.subscribe('projects', updateProjects);
+    return unsubscribe;
+  }, []);
+
+  return recentProjects;
+}
+
+function useRecentQuests() {
+  const [recentQuests, setRecentQuests] = useState(() =>
+    navigationManager.getRecentQuests()
+  );
+
+  React.useEffect(() => {
+    const updateQuests = () => {
+      setRecentQuests(navigationManager.getRecentQuests());
+    };
+    const unsubscribe = navigationManager.subscribe('quests', updateQuests);
+    return unsubscribe;
+  }, []);
+
+  return recentQuests;
+}
+
+function useRecentAssets() {
+  const [recentAssets, setRecentAssets] = useState(() =>
+    navigationManager.getRecentAssets()
+  );
+
+  React.useEffect(() => {
+    const updateAssets = () => {
+      setRecentAssets(navigationManager.getRecentAssets());
+    };
+    const unsubscribe = navigationManager.subscribe('assets', updateAssets);
+    return unsubscribe;
+  }, []);
+
+  return recentAssets;
+}
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const routerRef = useRef(router);
-
-  // Only track recent items for UI display - methods are singleton
-  const [recentUpdateTrigger, setRecentUpdateTrigger] = useState(0);
 
   const { projectId, questId, assetId } = useGlobalSearchParams<{
     projectId: string;
@@ -214,21 +294,22 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     assetId: string;
   }>();
 
-  debug('🔄 Route params changed:', {
-    projectId,
-    questId,
-    assetId,
-    navigationDuration: navigationStartTime
-      ? `${(performance.now() - navigationStartTime).toFixed(2)}ms`
-      : 'No active navigation'
-  });
+  // Memoize params to prevent unnecessary comparisons
+  const memoizedParams = useMemo(
+    () => ({ projectId, questId, assetId }),
+    [projectId, questId, assetId]
+  );
+
+  debug('🔄 Route params:', memoizedParams);
 
   // Reset navigation timer when route changes
-  if (navigationStartTime) {
-    const duration = performance.now() - navigationStartTime;
-    debug('🏁 Navigation completed in:', `${duration.toFixed(2)}ms`);
-    navigationStartTime = null;
-  }
+  React.useEffect(() => {
+    if (navigationStartTime) {
+      const duration = performance.now() - navigationStartTime;
+      debug('🏁 Navigation completed in:', `${duration.toFixed(2)}ms`);
+      navigationStartTime = null;
+    }
+  }, [memoizedParams]);
 
   // Initialize singleton with router
   React.useEffect(() => {
@@ -237,21 +318,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   // Only run database hooks when IDs are actually present
+  // These hooks should have their own caching and won't re-fetch if data exists
   const { project: activeProject } = useProjectById(projectId);
   const { quest: activeQuest } = useQuestById(questId);
   const { asset: activeAsset } = useAssetById(assetId);
 
-  debug('📊 Active entities loaded:', {
-    activeProject: activeProject
-      ? { id: activeProject.id, name: activeProject.name }
-      : null,
-    activeQuest: activeQuest
-      ? { id: activeQuest.id, name: activeQuest.name }
-      : null,
-    activeAsset: activeAsset
-      ? { id: activeAsset.id, name: activeAsset.name }
-      : null
-  });
+  // Get recent items using granular hooks
+  const recentProjects = useRecentProjects();
+  const recentQuests = useRecentQuests();
+  const recentAssets = useRecentAssets();
 
   // Stable navigation methods that don't cause re-renders
   const goToAssetWithParams = useCallback(
@@ -261,64 +336,71 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         | { path: Href },
       navigate?: boolean
     ) => {
-      navigationManager.goToAsset(href, navigate, { projectId, questId });
-      setRecentUpdateTrigger((prev) => prev + 1); // Trigger UI update
+      navigationManager.goToAsset(href, navigate, memoizedParams);
     },
-    [projectId, questId]
+    [memoizedParams]
   );
 
-  const contextValue = useMemo(() => {
-    const value = {
+  // Main context value - only changes when active items change
+  const contextValue = useMemo(
+    () => ({
       activeProject,
-      recentProjects: navigationManager.getRecentProjects(),
       activeQuest,
-      recentQuests: navigationManager.getRecentQuests(),
       activeAsset,
-      recentAssets: navigationManager.getRecentAssets(),
       goToProject: navigationManager.goToProject,
       goToQuest: navigationManager.goToQuest,
       goToAsset: goToAssetWithParams
-    };
+    }),
+    [activeProject, activeQuest, activeAsset, goToAssetWithParams]
+  );
 
-    debug('🔄 Context value updated:', {
-      activeProject: activeProject
-        ? { id: activeProject.id, name: activeProject.name }
-        : null,
-      activeQuest: activeQuest
-        ? { id: activeQuest.id, name: activeQuest.name }
-        : null,
-      activeAsset: activeAsset
-        ? { id: activeAsset.id, name: activeAsset.name }
-        : null,
-      recentProjectsCount: navigationManager.getRecentProjects().length,
-      recentQuestsCount: navigationManager.getRecentQuests().length,
-      recentAssetsCount: navigationManager.getRecentAssets().length
-    });
-
-    return value;
-  }, [
-    activeProject,
-    activeQuest,
-    activeAsset,
-    goToAssetWithParams,
-    recentUpdateTrigger // Only re-render when recent items actually change
-  ]);
+  // Recent items context value - only changes when recent items change
+  const recentItemsValue = useMemo(
+    () => ({
+      recentProjects,
+      recentQuests,
+      recentAssets
+    }),
+    [recentProjects, recentQuests, recentAssets]
+  );
 
   return (
     <ProjectContext.Provider value={contextValue}>
-      {children}
+      <ProjectRecentItemsContext.Provider value={recentItemsValue}>
+        {children}
+      </ProjectRecentItemsContext.Provider>
     </ProjectContext.Provider>
   );
 }
 
+// Main hook - only re-renders when active items or navigation methods change
 export function useProjectContext() {
   const context = useContext(ProjectContext);
   if (context === undefined) {
     throw new Error('useProjectContext must be used within a ProjectProvider');
   }
 
-  hookCallCount++;
-  debug('🔗 useProjectContext hook called (total calls:', hookCallCount + ')');
+  // Only log in development and reduce frequency
+  if (__DEV__ && ++hookCallCount % 50 === 0) {
+    debug(
+      '🔗 useProjectContext hook called (total calls:',
+      hookCallCount + ')'
+    );
+  }
 
   return context;
 }
+
+// Hook for recent items - only re-renders when recent items change
+export function useProjectRecentItems() {
+  const context = useContext(ProjectRecentItemsContext);
+  if (context === undefined) {
+    throw new Error(
+      'useProjectRecentItems must be used within a ProjectProvider'
+    );
+  }
+  return context;
+}
+
+// Granular hooks for specific recent items
+export { useRecentAssets, useRecentProjects, useRecentQuests };
