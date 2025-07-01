@@ -41,7 +41,7 @@ export class System {
 
     const factory = new OPSqliteOpenFactory({
       dbFilename: 'sqlite.db',
-      debugMode: true
+      debugMode: false
     });
 
     this.powersync = new PowerSyncDatabase({
@@ -56,7 +56,6 @@ export class System {
       database: factory
     });
 
-    console.log('Wrapping PowerSync with Drizzle');
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: drizzleSchema
     });
@@ -85,10 +84,9 @@ export class System {
         },
         // eslint-disable-next-line
         onUploadError: async (
-          attachment: AttachmentRecord,
-          exception: { error: string; message: string; statusCode: number }
+          _attachment: AttachmentRecord,
+          _exception: { error: string; message: string; statusCode: number }
         ) => {
-          console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
       });
@@ -121,10 +119,9 @@ export class System {
         },
         // eslint-disable-next-line
         onUploadError: async (
-          attachment: AttachmentRecord,
-          exception: unknown
+          _attachment: AttachmentRecord,
+          _exception: unknown
         ) => {
-          console.log('onUploadError', attachment, exception);
           return { retry: true };
         }
       });
@@ -133,45 +130,111 @@ export class System {
 
   private initialized = false;
   private connecting = false;
+  private connectionPromise: Promise<void> | null = null;
 
   async init() {
-    if (this.connecting) {
+    // If already connecting, wait for the existing connection
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // If already initialized and connected, return immediately
+    if (this.initialized && this.powersync.connected) {
       return;
     }
 
+    // Create a new connection promise
+    this.connectionPromise = this._doInit();
+
+    try {
+      await this.connectionPromise;
+    } finally {
+      this.connectionPromise = null;
+    }
+  }
+
+  private async _doInit() {
     try {
       this.connecting = true;
 
       // First initialize the database if not already done
-      if (!this.initialized) await this.powersync.init();
+      if (!this.initialized) {
+        await this.powersync.init();
+      }
 
-      // // If we're already connected, disconnect first
-      // // This is to ensure that we can access user-specific sync bucket records with current user credentials
+      // If we're already connected, check if we need to reconnect
       if (this.powersync.connected) {
-        console.log(
-          'Disconnecting existing PowerSync connection before reconnecting'
-        );
-        await this.powersync.disconnect();
+        // Check if the current user has changed
+        const currentSession = await this.supabaseConnector.client.auth.getSession();
+        const currentUserId = currentSession.data.session?.user.id;
+
+        // Only disconnect and reconnect if there's a meaningful change
+        if (currentUserId && this.lastConnectedUserId !== currentUserId) {
+          console.log('User changed, reconnecting PowerSync...');
+          await this.powersync.disconnect();
+        } else {
+          // Already connected with the same user
+          this.initialized = true;
+          return;
+        }
       }
 
       // Connect with the current user credentials
-      console.log('Connecting PowerSync with current user credentials');
+      console.log('Connecting PowerSync...');
       await this.powersync.connect(this.supabaseConnector);
 
-      // Wait for the latest sync to complete
-      await this.waitForLatestSync();
+      // Store the current user ID
+      const session = await this.supabaseConnector.client.auth.getSession();
+      this.lastConnectedUserId = session.data.session?.user.id;
+
+      // Wait for the initial sync to complete
+      await this.waitForInitialSync();
 
       this.initialized = true;
+      console.log('PowerSync initialization complete');
     } catch (error) {
       console.error('PowerSync initialization error:', error);
+      this.initialized = false;
       throw error;
     } finally {
       this.connecting = false;
     }
   }
 
+  private lastConnectedUserId?: string;
+
   isInitialized() {
-    return this.initialized;
+    return this.initialized && this.powersync.connected;
+  }
+
+  async waitForInitialSync() {
+    console.log('Waiting for initial PowerSync sync...');
+
+    // Wait for the first sync to establish baseline
+    return new Promise<void>((resolve) => {
+      // If already synced, resolve immediately
+      if (this.powersync.currentStatus.lastSyncedAt) {
+        resolve();
+        return;
+      }
+
+      const unsubscribe = this.powersync.registerListener({
+        statusChanged: (status) => {
+          if (status.lastSyncedAt) {
+            console.log(`Initial sync completed at: ${status.lastSyncedAt.toISOString()}`);
+            unsubscribe();
+            resolve();
+          }
+        }
+      });
+
+      // Add timeout to prevent hanging forever
+      setTimeout(() => {
+        console.warn('Initial sync timeout - proceeding anyway');
+        unsubscribe();
+        resolve();
+      }, 30000); // 30 second timeout
+    });
   }
 
   async waitForLatestSync() {
@@ -197,7 +260,31 @@ export class System {
           }
         }
       });
+
+      // Add timeout
+      setTimeout(() => {
+        console.warn('Sync timeout - proceeding anyway');
+        unsubscribe();
+        resolve();
+      }, 10000); // 10 second timeout
     });
+  }
+
+  async cleanup() {
+    try {
+      // Note: AttachmentQueues don't have a stop method
+      // They will be cleaned up when PowerSync disconnects
+
+      // Disconnect PowerSync
+      if (this.powersync.connected) {
+        await this.powersync.disconnect();
+      }
+
+      this.initialized = false;
+      this.lastConnectedUserId = undefined;
+    } catch (error) {
+      console.error('Error during system cleanup:', error);
+    }
   }
 }
 

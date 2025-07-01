@@ -3,6 +3,7 @@ import type { CompilableQuery } from '@powersync/react-native';
 import { parseQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { QueryFunctionContext } from '@tanstack/react-query';
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
@@ -371,21 +372,29 @@ interface HybridPageData<T, TPageParam = unknown> {
 /**
  * Configuration for hybrid infinite queries
  */
-interface HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = unknown> {
+type HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = unknown> = {
   queryKey: readonly unknown[];
-  onlineFn: (context: { pageParam: TPageParam }) => Promise<HybridPageData<T, TPageParam>>;
-  offlineFn: (context: { pageParam: TPageParam }) => Promise<HybridPageData<T, TPageParam>>;
+  onlineFn: (context: QueryFunctionContext<readonly unknown[], TPageParam>) => Promise<HybridPageData<T, TPageParam>>;
   initialPageParam: TPageParam;
   getNextPageParam: (lastPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
   getPreviousPageParam?: (firstPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
-  getId?: (record: T | Partial<T>) => string | number;
   enabled?: boolean;
   staleTime?: number;
   gcTime?: number;
   refetchOnMount?: boolean;
   refetchOnWindowFocus?: boolean;
   refetchOnReconnect?: boolean;
-}
+  getId?: (record: T | Partial<T>) => string | number;
+} & (
+    | {
+      offlineFn: (context: QueryFunctionContext<readonly unknown[], TPageParam>) => Promise<HybridPageData<T, TPageParam>>;
+      offlineQuery?: never;
+    }
+    | {
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
+  );
 
 /**
  * useHybridInfiniteQuery
@@ -434,7 +443,7 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
   const {
     queryKey,
     onlineFn,
-    offlineFn,
+    offlineFn: _offlineFn,
     initialPageParam,
     getNextPageParam,
     getPreviousPageParam,
@@ -451,39 +460,50 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
   // Get cached data from opposite network state for initial data
   const oppositeCachedQueryState = queryClient.getQueryState(oppositeQueryKey);
 
-  return useInfiniteQuery({
-    queryKey: hybridQueryKey,
-    queryFn: async (context) => {
-      try {
-        const { pageParam } = context;
-        if (isOnline) {
-          return await onlineFn({ pageParam: pageParam as TPageParam });
-        } else {
-          return await offlineFn({ pageParam: pageParam as TPageParam });
-        }
-      } catch (error) {
-        console.error('HybridInfiniteQuery error:', error);
-        throw error;
-      }
-    },
-    initialPageParam,
-    getNextPageParam,
-    getPreviousPageParam,
-    // Remove problematic initialData for now
-    initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
-    // Use placeholderData for smooth transitions when switching between online/offline
-    placeholderData: keepPreviousData,
-    // Optimize for performance
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    // Network mode that works with both online and offline
-    networkMode: 'always',
-    // Refetch settings optimized for hybrid usage
-    refetchOnReconnect: true,
-    refetchOnWindowFocus: false, // Prevent excessive refetching
-    refetchOnMount: true,
-    ...restOptions
-  });
+  const useOfflineInfiniteQuery = () => {
+    if (typeof options.offlineFn === 'function') {
+      return useInfiniteQuery({
+        queryKey: hybridQueryKey,
+        queryFn: options.offlineFn,
+        initialPageParam,
+        getNextPageParam,
+        getPreviousPageParam,
+        initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
+        placeholderData: keepPreviousData,
+        staleTime: 5 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+        networkMode: 'always',
+        refetchOnReconnect: true,
+        refetchOnWindowFocus: false,
+        refetchOnMount: true,
+        ...restOptions
+      });
+    } else {
+      console.error('[HybridInfiniteQuery] offlineQuery not supported in infinite queries, use offlineFn instead');
+      throw new Error('offlineQuery not supported in infinite queries, use offlineFn instead');
+    }
+  };
+
+  if (isOnline) {
+    return useInfiniteQuery({
+      queryKey: hybridQueryKey,
+      queryFn: onlineFn,
+      initialPageParam,
+      getNextPageParam,
+      getPreviousPageParam,
+      initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
+      placeholderData: keepPreviousData,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      networkMode: 'always',
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+      ...restOptions
+    });
+  }
+
+  return useOfflineInfiniteQuery();
 }
 
 /**

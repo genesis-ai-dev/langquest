@@ -4,7 +4,13 @@ import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { useSystem } from './SystemContext';
 
 interface AuthContextType {
@@ -21,60 +27,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
   const system = useSystem();
+  const mounted = useRef(true);
+  const authInitialized = useRef(false);
 
   useEffect(() => {
-    const loadAuthData = async () => {
-      setIsLoading(true);
-      const supabaseAuthKey = await getSupabaseAuthKey();
+    mounted.current = true;
 
-      if (supabaseAuthKey) {
-        const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
-        if (sessionString) {
-          const session = JSON.parse(sessionString) as Session | null;
-          const profile = await getProfileByUserId(session?.user.id ?? '');
-          setCurrentUser(profile ?? null);
+    const loadAuthData = async () => {
+      if (authInitialized.current) return;
+      authInitialized.current = true;
+
+      setIsLoading(true);
+      try {
+        const supabaseAuthKey = await getSupabaseAuthKey();
+
+        if (supabaseAuthKey) {
+          const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
+          if (sessionString) {
+            const session = JSON.parse(sessionString) as Session | null;
+            const profile = await getProfileByUserId(session?.user.id ?? '');
+            if (mounted.current) {
+              setCurrentUser(profile ?? null);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading auth data:', error);
+      } finally {
+        if (mounted.current) {
+          console.log('setting auth isLoading to false');
+          setIsLoading(false);
         }
       }
-      console.log('setting auth isLoading to false', isLoading);
-      setIsLoading(false);
     };
 
     void loadAuthData();
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
+        if (!mounted.current) return;
+
         // always maintain a session
         if (!session) {
           await system.supabaseConnector.client.auth.signInAnonymously();
           setCurrentUser(null);
           return;
         }
+
         if (!session.user.is_anonymous && state !== 'TOKEN_REFRESHED') {
           try {
-            setCurrentUser(
-              await system.supabaseConnector.getUserProfile(session.user.id)
+            const profile = await system.supabaseConnector.getUserProfile(
+              session.user.id
             );
-            // Initialize system with new auth state
-            console.log('Reinitializing system after auth state change...');
-            await system.init();
-            await system.tempAttachmentQueue?.init();
-            await system.permAttachmentQueue?.init();
-            console.log('System reinitialization complete');
+            if (mounted.current) {
+              setCurrentUser(profile);
+            }
+
+            // Only reinitialize attachment queues if system is already initialized
+            if (system.isInitialized()) {
+              console.log(
+                'Reinitializing attachment queues after auth state change...'
+              );
+              await Promise.all([
+                system.tempAttachmentQueue?.init(),
+                system.permAttachmentQueue?.init()
+              ]);
+              console.log('Attachment queue reinitialization complete');
+            }
           } catch (error) {
-            console.error('Error during system reinitialization:', error);
-            // Still set the user even if system init fails
-            setCurrentUser(
-              await system.supabaseConnector.getUserProfile(session.user.id)
-            );
+            console.error('Error during auth state change:', error);
+            // Still set the user even if queue init fails
+            if (mounted.current) {
+              const profile = await system.supabaseConnector.getUserProfile(
+                session.user.id
+              );
+              setCurrentUser(profile);
+            }
           }
         }
       }
     );
 
     return () => {
+      mounted.current = false;
       subscription.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [system, setCurrentUser]);
 
   const signOut = async () => {
     try {

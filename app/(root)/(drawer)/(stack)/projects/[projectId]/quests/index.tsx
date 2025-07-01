@@ -25,11 +25,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   FlatList,
   Modal,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -41,7 +43,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAssetsWithTranslationsAndVotesByQuestId } from '@/hooks/db/useAssets';
 import type { Project } from '@/hooks/db/useProjects';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
+import { useInfiniteQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { calculateQuestProgress } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -114,7 +116,8 @@ const QuestCard: React.FC<{
   const { isDownloaded: assetsDownloaded, isLoading } =
     useAttachmentAssetDownloadStatus(assetIds);
 
-  const progress = calculateQuestProgress(assets, currentUser?.id ?? null);
+  const progress =
+    false && calculateQuestProgress(assets, currentUser?.id ?? null);
 
   return (
     <View style={sharedStyles.card}>
@@ -148,11 +151,13 @@ const QuestCard: React.FC<{
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>
       )}
 
-      <ProgressBars
-        approvedPercentage={progress.approvedPercentage}
-        userContributedPercentage={progress.userContributedPercentage}
-        pickaxeCount={progress.pendingTranslationsCount}
-      />
+      {false && (
+        <ProgressBars
+          approvedPercentage={progress.approvedPercentage}
+          userContributedPercentage={progress.userContributedPercentage}
+          pickaxeCount={progress.pendingTranslationsCount}
+        />
+      )}
 
       {quest.tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
@@ -197,8 +202,33 @@ export default function Quests() {
   const { goToQuest } = useProjectContext();
 
   const { project: selectedProject } = useProjectById(projectId);
-  const { quests: questsData } = useQuestsWithTagsByProjectId(projectId);
-  const quests = questsData ?? [];
+
+  // Use the new hybrid infinite query hook for better performance and offline support
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+    refetch
+  } = useInfiniteQuestsWithTagsByProjectId(
+    projectId,
+    20, // pageSize
+    activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
+    activeSorting[0]?.order
+  );
+
+  // Extract all quests from pages and apply client-side filtering
+  const allQuests = useMemo(() => {
+    if (!infiniteData?.pages) {
+      return [];
+    }
+    const flattened = infiniteData.pages.flatMap((page) => page.data);
+    return flattened;
+  }, [infiniteData]);
 
   // Query to check if current user is an owner
   const { data: [currentUserLink] = [] } = useTanstackQuery({
@@ -218,29 +248,38 @@ export default function Quests() {
   const isOwner = currentUserLink?.membership === 'owner';
 
   const questTags = useMemo(() => {
-    return quests.reduce(
+    return allQuests.reduce(
       (acc, quest) => {
-        acc[quest.id] = quest.tags.map((tag) => tag.tag);
+        // Handle the case where quest.tags might be undefined from the type perspective
+        const tags = quest.tags as { tag: Tag }[] | undefined;
+        acc[quest.id] = tags?.map((tag) => tag.tag) ?? [];
         return acc;
       },
       {} as Record<string, Tag[]>
     );
-  }, [quests]);
+  }, [allQuests]);
 
-  // Compute filtered quests directly without useEffect to avoid infinite loop
+  // Apply client-side filtering and sorting (consider moving search to server-side for better performance)
   const filteredQuests = useMemo(() => {
+    if (!allQuests.length) return [];
+
+    // Type the quests properly for filtering
+    const typedQuests = allQuests as (Quest & { tags: { tag: Tag }[] })[];
+
     const filtered = filterQuests(
-      quests,
+      typedQuests,
       questTags,
       searchQuery,
       activeFilters
     );
+
+    // Apply additional sorting if needed (beyond what's handled by the query)
     return sortItems(
       filtered,
       activeSorting,
       (questId: string) => questTags[questId] ?? []
     );
-  }, [quests, questTags, searchQuery, activeFilters, activeSorting]);
+  }, [allQuests, questTags, searchQuery, activeFilters, activeSorting]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -269,6 +308,30 @@ export default function Quests() {
     setShowProjectStats((prev) => !prev);
   };
 
+  // Load more data when user reaches end of list - TKDodo's best practice
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && !isFetching) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isFetching, fetchNextPage]);
+
+  // Refresh data
+  const handleRefresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  // Render footer with loading indicator - TKDodo's pattern
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
+    );
+  };
+
   // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -284,6 +347,79 @@ export default function Quests() {
 
     return () => backHandler.remove();
   }, [isFilterModalVisible]);
+
+  // Loading state with better UX
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: fontSizes.medium,
+                marginTop: spacing.medium
+              }}
+            >
+              Loading quests...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // Error state with retry option
+  if (isError) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <Text
+              style={{
+                color: colors.error,
+                fontSize: fontSizes.medium,
+                textAlign: 'center'
+              }}
+            >
+              Error loading quests: {error.message}
+            </Text>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={[styles.retryButton, { marginTop: spacing.medium }]}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient
@@ -331,11 +467,32 @@ export default function Quests() {
             data={filteredQuests}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleQuestPress(item)}>
-                <QuestCard quest={item} project={selectedProject!} />
+                <QuestCard
+                  quest={item as Quest & { tags: { tag: Tag }[] }}
+                  project={selectedProject!}
+                />
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+            refreshControl={
+              <RefreshControl
+                refreshing={isFetching && !isFetchingNextPage}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            // Performance optimizations from TKDodo's guide
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={100}
+            initialNumToRender={10}
+            windowSize={10}
           />
           <View style={styles.floatingButtonsContainer}>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
@@ -372,14 +529,16 @@ export default function Quests() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={{ flex: 1 }}>
-          <QuestFilterModal
-            onClose={() => setIsFilterModalVisible(false)}
-            questTags={questTags}
-            onApplyFilters={handleApplyFilters}
-            onApplySorting={handleApplySorting}
-            initialFilters={activeFilters}
-            initialSorting={activeSorting}
-          />
+          {allQuests.length > 0 && (
+            <QuestFilterModal
+              onClose={() => setIsFilterModalVisible(false)}
+              questTags={questTags}
+              onApplyFilters={handleApplyFilters}
+              onApplySorting={handleApplySorting}
+              initialFilters={activeFilters}
+              initialSorting={activeSorting}
+            />
+          )}
         </View>
       </Modal>
       {showProjectStats && selectedProject && (
@@ -388,13 +547,6 @@ export default function Quests() {
           onClose={handleCloseDetails}
         />
       )}
-      {/* {projectId && (
-        <ProjectMembershipModal
-          isVisible={showMembershipModal}
-          onClose={() => setShowMembershipModal(false)}
-          projectId={projectId}
-        />
-      )} */}
       <ProjectMembershipModal
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
@@ -475,5 +627,27 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.medium,
+    gap: spacing.small
+  },
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.large,
+    paddingVertical: spacing.medium,
+    borderRadius: borderRadius.medium
+  },
+  retryButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
   }
 });

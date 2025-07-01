@@ -2,12 +2,14 @@ import { useSystem } from '@/contexts/SystemContext';
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { InferSelectModel } from 'drizzle-orm';
-import { eq } from 'drizzle-orm';
+import { keepPreviousData } from '@tanstack/react-query';
+import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
   hybridFetch,
+  useHybridInfiniteQuery,
   useHybridQuery
 } from '../useHybridQuery';
 import type { Tag } from './useTags';
@@ -137,4 +139,218 @@ export function useQuestById(quest_id: string) {
   const quest = questArray?.[0] || null;
 
   return { quest, isQuestLoading, ...rest };
+}
+
+/**
+ * Hybrid infinite query for quests with tags
+ * Automatically switches between online and offline with proper caching
+ * Follows TKDodo's best practices for infinite queries
+ */
+export function useInfiniteQuestsWithTagsByProjectId(
+  project_id: string,
+  pageSize = 20,
+  sortField?: string,
+  sortOrder?: 'asc' | 'desc'
+) {
+  return useHybridInfiniteQuery({
+    queryKey: ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize, sortField, sortOrder],
+    onlineFn: async ({ pageParam }) => {
+      try {
+        // Online query with proper pagination using Supabase range
+        let query = system.supabaseConnector.client
+          .from('quest')
+          .select(
+            `
+            *,
+            tags:quest_tag_link (
+              tag:tag_id (
+                id,
+                name,
+                active,
+                created_at,
+                last_updated
+              )
+            )
+          `,
+            { count: 'exact' }
+          )
+          .eq('project_id', project_id);
+
+        // Add sorting if specified
+        if (sortField && sortOrder) {
+          query = query.order(sortField, { ascending: sortOrder === 'asc' });
+        } else {
+          // Default sort by quest name
+          query = query.order('name', { ascending: true });
+        }
+
+        // Add pagination
+        const from = pageParam * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+
+        const { data, error, count } = await query
+          .overrideTypes<(Quest & { tags: { tag: Tag }[] })[]>();
+
+        if (error) {
+          console.error(`[QuestsInfinite] Supabase error:`, error);
+          throw error;
+        }
+
+        const quests = data;
+        const totalCount = count ?? 0;
+        const hasMore = from + pageSize < totalCount;
+
+        const result = {
+          data: quests,
+          nextCursor: hasMore ? pageParam + 1 : undefined,
+          hasMore,
+          totalCount
+        };
+
+        return result;
+      } catch (error) {
+        console.error(`[QuestsInfinite] ONLINE function error:`, error);
+        throw error;
+      }
+    },
+    offlineFn: async ({ pageParam }) => {
+      // Offline query with manual pagination using Drizzle
+      const offsetValue = pageParam * pageSize;
+
+      try {
+        const allQuests = await system.db.query.quest.findMany({
+          where: eq(questTable.project_id, project_id),
+          with: {
+            tags: {
+              with: {
+                tag: true
+              }
+            }
+          },
+          limit: pageSize,
+          offset: offsetValue,
+          orderBy: sortField === 'name' && sortOrder
+            ? (sortOrder === 'asc' ? asc(questTable.name) : desc(questTable.name))
+            : asc(questTable.name)
+        });
+
+        // Get total count for hasMore calculation
+        const totalQuests = await system.db.query.quest.findMany({
+          where: eq(questTable.project_id, project_id),
+          columns: { id: true }
+        });
+
+        const totalCount = totalQuests.length;
+        const hasMore = offsetValue + pageSize < totalCount;
+
+        const result = {
+          data: allQuests,
+          nextCursor: hasMore ? pageParam + 1 : undefined,
+          hasMore,
+          totalCount
+        };
+
+        return result;
+      } catch (error) {
+        console.error('[QuestsInfinite] Error in offline query:', error);
+        // Return empty result rather than throwing
+        const fallbackResult = {
+          data: [],
+          nextCursor: undefined,
+          hasMore: false,
+          totalCount: 0
+        };
+        return fallbackResult;
+      }
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      return lastPage.nextCursor;
+    },
+    enabled: !!project_id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes,
+  });
+}
+
+/**
+ * Traditional paginated quests with keepPreviousData for smooth page transitions
+ * Use this when you need discrete page navigation (Previous/Next buttons)
+ */
+export function usePaginatedQuestsWithTagsByProjectId(
+  project_id: string,
+  page = 0,
+  pageSize = 20,
+  sortField?: string,
+  sortOrder?: 'asc' | 'desc'
+) {
+  const { db, supabaseConnector } = useSystem();
+
+  return useHybridQuery({
+    queryKey: ['quests', 'paginated', 'by-project', 'with-tags', project_id, page, pageSize, sortField, sortOrder],
+    onlineFn: async () => {
+      let query = supabaseConnector.client
+        .from('quest')
+        .select(
+          `
+          *,
+          tags:quest_tag_link (
+            tag:tag_id (
+              id,
+              name,
+              active,
+              created_at,
+              last_updated
+            )
+          )
+        `,
+          { count: 'exact' }
+        )
+        .eq('project_id', project_id);
+
+      // Add sorting
+      if (sortField && sortOrder) {
+        query = query.order(sortField, { ascending: sortOrder === 'asc' });
+      } else {
+        query = query.order('name', { ascending: true });
+      }
+
+      // Add pagination
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+
+      const { data, error, count: _count } = await query
+        .overrideTypes<(Quest & { tags: { tag: Tag }[] })[]>();
+
+      if (error) throw error;
+
+      const quests = data;
+
+      return quests;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.quest.findMany({
+        where: eq(questTable.project_id, project_id),
+        with: {
+          tags: {
+            with: {
+              tag: true
+            }
+          }
+        },
+        limit: pageSize,
+        offset: page * pageSize,
+        orderBy: sortField && sortOrder
+          ? (sortOrder === 'asc'
+            ? asc(questTable[sortField as keyof typeof questTable] as AnyColumn)
+            : desc(questTable[sortField as keyof typeof questTable] as AnyColumn))
+          : asc(questTable.name)
+      })
+    ),
+    enabled: !!project_id,
+    placeholderData: keepPreviousData, // This provides smooth transitions between pages
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 }

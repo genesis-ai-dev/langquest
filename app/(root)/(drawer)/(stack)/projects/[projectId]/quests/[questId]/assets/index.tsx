@@ -23,11 +23,13 @@ import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   FlatList,
   Modal,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -37,7 +39,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AssetContent } from '@/hooks/db/useAssets';
-import { useAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
+import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useDownload } from '@/hooks/useDownloads';
@@ -203,8 +205,6 @@ export default function Assets() {
     projectId: string;
   }>();
 
-  const { assets } = useAssetsWithTagsAndContentByQuestId(questId);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -215,32 +215,58 @@ export default function Assets() {
 
   const { quest } = useQuestById(questId);
 
-  // Compute filtered assets directly without useEffect to avoid infinite loop
+  // Use the new hybrid infinite query hook for better performance and offline support
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+    refetch
+  } = useInfiniteAssetsWithTagsAndContentByQuestId(
+    questId,
+    20, // pageSize
+    activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
+    activeSorting[0]?.order
+  );
+
+  // Extract all assets from pages and apply client-side filtering
+  const allAssets = useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    return infiniteData.pages.flatMap((page) => page.data);
+  }, [infiniteData]);
+
+  // Apply client-side filtering and sorting (consider moving search to server-side for better performance)
   const filteredAssets = useMemo(() => {
-    if (!assets) return [];
+    if (!allAssets.length) return [];
 
     const assetTagsRecord: Record<string, Tag[]> = {};
     const assetContentsRecord: Record<string, AssetContent[]> = {};
 
     // Build the records with proper typing
-    assets.forEach((asset) => {
+    allAssets.forEach((asset) => {
       assetTagsRecord[asset.id] = asset.tags.map((tag) => tag.tag);
       assetContentsRecord[asset.id] = asset.content;
     });
 
     const filtered = filterAssets(
-      assets,
+      allAssets,
       assetTagsRecord,
       assetContentsRecord,
       searchQuery,
       activeFilters
     );
+
+    // Apply additional sorting if needed (beyond what's handled by the query)
     return sortItems(
       filtered,
       activeSorting,
       (assetId: string) => assetTagsRecord[assetId] ?? []
     );
-  }, [assets, searchQuery, activeFilters, activeSorting]);
+  }, [allAssets, searchQuery, activeFilters, activeSorting]);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;
@@ -270,6 +296,30 @@ export default function Assets() {
     setShowQuestStats((prev) => !prev);
   };
 
+  // Load more data when user reaches end of list - TKDodo's best practice
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && !isFetching) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isFetching, fetchNextPage]);
+
+  // Refresh data
+  const handleRefresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  // Render footer with loading indicator - TKDodo's pattern
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
+    );
+  };
+
   // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -289,6 +339,79 @@ export default function Assets() {
 
     return () => backHandler.remove();
   }, [isFilterModalVisible, selectedAsset]);
+
+  // Loading state with better UX
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: fontSizes.medium,
+                marginTop: spacing.medium
+              }}
+            >
+              Loading assets...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // Error state with retry option
+  if (isError) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <Text
+              style={{
+                color: colors.error,
+                fontSize: fontSizes.medium,
+                textAlign: 'center'
+              }}
+            >
+              Error loading assets: {error.message}
+            </Text>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={[styles.retryButton, { marginTop: spacing.medium }]}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient
@@ -340,6 +463,24 @@ export default function Assets() {
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+            refreshControl={
+              <RefreshControl
+                refreshing={isFetching && !isFetchingNextPage}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            // Performance optimizations from TKDodo's guide
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={100}
+            initialNumToRender={10}
+            windowSize={10}
           />
           <TouchableOpacity
             onPress={toggleQuestStats}
@@ -356,11 +497,11 @@ export default function Assets() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={{ flex: 1 }}>
-          {assets && (
+          {allAssets.length > 0 && (
             <AssetFilterModal
               visible={isFilterModalVisible}
               onClose={() => setIsFilterModalVisible(false)}
-              assets={assets}
+              assets={allAssets}
               onApplyFilters={handleApplyFilters}
               onApplySorting={handleApplySorting}
               initialFilters={activeFilters}
@@ -447,5 +588,27 @@ const styles = StyleSheet.create({
   gemCount: {
     color: colors.textSecondary,
     fontSize: fontSizes.small
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.medium,
+    gap: spacing.small
+  },
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.large,
+    paddingVertical: spacing.medium,
+    borderRadius: borderRadius.medium
+  },
+  retryButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
   }
 });

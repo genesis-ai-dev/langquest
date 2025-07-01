@@ -6,30 +6,32 @@ import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
-import type { Translation } from '@/database_services/translationService';
-import type { Vote } from '@/database_services/voteService';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getAssetsByQuestId, useAssetsByProjectId } from '@/hooks/db/useAssets';
 import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
-import { useProjects } from '@/hooks/db/useProjects';
-import { getQuestsByProjectId } from '@/hooks/db/useQuests';
-import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
-import { getVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
-import {
-  calculateProjectProgress,
-  calculateQuestProgress
-} from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
@@ -43,7 +45,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 }) => {
   const { currentUser } = useAuth();
   const { db } = useSystem();
-  const [progress, setProgress] = useState({
+  const [progress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
     pendingTranslationsCount: 0,
@@ -64,8 +66,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     project.target_language_id
   );
 
-  const { assets } = useAssetsByProjectId(project.id);
-  const assetIds = assets?.map((asset) => asset.id) ?? [];
+  // Only get asset IDs for download status, not full assets
+  const [assetIds, setAssetIds] = useState<string[]>([]);
 
   const { data: membershipData = [] } = useQuery(
     toCompilableQuery(
@@ -91,64 +93,9 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     await toggleDownload();
   };
 
-  useEffect(() => {
-    const loadProgress = async () => {
-      try {
-        // Load all quests for this project
-        const quests = (await getQuestsByProjectId(project.id)) ?? [];
-
-        // For each quest, load its assets and calculate progress
-        const questProgresses = await Promise.all(
-          quests.map(async (quest) => {
-            const assets = (await getAssetsByQuestId(quest.id)) ?? [];
-            const translations: Record<string, Translation[]> = {};
-            const votes: Record<string, Vote[]> = {};
-
-            // Load translations and votes for each asset
-            await Promise.all(
-              assets.map(async (asset) => {
-                const assetTranslations =
-                  (await getTranslationsByAssetId(asset.id)) ?? [];
-                translations[asset.id] = assetTranslations;
-
-                // Load votes for each translation
-                await Promise.all(
-                  assetTranslations.map(async (translation) => {
-                    votes[translation.id] =
-                      (await getVotesByTranslationId(translation.id)) ?? [];
-                  })
-                );
-              })
-            );
-
-            // Create assets with translations and votes attached for calculateQuestProgress
-            const assetsWithTranslations = assets.map((asset) => ({
-              ...asset,
-              translations: (translations[asset.id] || []).map(
-                (translation) => ({
-                  ...translation,
-                  votes: votes[translation.id] || []
-                })
-              )
-            }));
-
-            return calculateQuestProgress(
-              assetsWithTranslations,
-              currentUser?.id ?? null
-            );
-          })
-        );
-
-        // Calculate aggregated project progress
-        const projectProgress = calculateProjectProgress(questProgresses);
-        setProgress(projectProgress);
-      } catch (error) {
-        console.error('Error loading progress:', error);
-      }
-    };
-
-    void loadProgress();
-  }, [project.id, currentUser?.id]);
+  // TODO: Replace with a more efficient server-side calculation or dedicated endpoint
+  // For now, we'll just show basic project info without progress
+  // This prevents the app from loading ALL data for every project
 
   return (
     <View style={sharedStyles.card}>
@@ -193,7 +140,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             renderTrigger={({ onPress, hasAccess }) => (
               <DownloadIndicator
                 isDownloaded={isDownloaded && assetsDownloaded}
-                isLoading={isLoading && isDownloadLoading}
+                isLoading={isLoading || isDownloadLoading}
                 onPress={
                   hasAccess || isDownloaded ? handleDownloadToggle : onPress
                 }
@@ -207,11 +154,15 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         </Text>
       </View>
 
-      <ProgressBars
-        approvedPercentage={progress.approvedPercentage}
-        userContributedPercentage={progress.userContributedPercentage}
-        pickaxeCount={progress.pendingTranslationsCount}
-      />
+      {/* Temporarily disabled progress bars to prevent performance issues */}
+      {/* TODO: Implement efficient progress calculation */}
+      {false && (
+        <ProgressBars
+          approvedPercentage={progress.approvedPercentage}
+          userContributedPercentage={progress.userContributedPercentage}
+          pickaxeCount={progress.pendingTranslationsCount}
+        />
+      )}
 
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>
@@ -225,7 +176,6 @@ export default function Projects() {
   const { goToProject } = useProjectContext();
   const { currentUser } = useAuth();
   const { db } = useSystem();
-  const { projects } = useProjects();
   const { languages: allLanguages } = useLanguages();
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const targetFilter = useLocalStore((state) => state.projectTargetFilter);
@@ -238,65 +188,56 @@ export default function Projects() {
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
     null
   );
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [privateProjectModal, setPrivateProjectModal] = useState<{
     isVisible: boolean;
     project: Project | null;
   }>({ isVisible: false, project: null });
 
-  // Filter projects when filters change
-  useEffect(() => {
-    void filterProjects();
-  }, [sourceFilter, targetFilter, projects]);
+  // Use the new infinite projects hook
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+    refetch
+  } = useInfiniteProjects(20); // 20 projects per page
 
-  const filterProjects = () => {
-    if (!projects) return;
-    try {
-      // Start with all projects
-      const filtered = [...projects];
+  // Extract all projects from pages
+  const allProjects = useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    return infiniteData.pages.flatMap((page) => page.data);
+  }, [infiniteData]);
 
-      // Get all languages to avoid repeated calls
+  // Apply client-side filtering based on language filters
+  const filteredProjects = useMemo(() => {
+    if (!allProjects.length) return [];
 
-      // Create a new array with filtered results
-      const results = [];
+    return allProjects.filter((project) => {
+      // Find the source and target language objects
+      const sourceLanguage = allLanguages?.find(
+        (l) => l.id === project.source_language_id
+      );
+      const targetLanguage = allLanguages?.find(
+        (l) => l.id === project.target_language_id
+      );
 
-      // Go through each project
-      for (const project of filtered) {
-        // Find the source and target language objects
-        const sourceLanguage = allLanguages?.find(
-          (l) => l.id === project.source_language_id
-        );
-        const targetLanguage = allLanguages?.find(
-          (l) => l.id === project.target_language_id
-        );
+      // Get language names (prefer native name, fall back to English name)
+      const sourceName =
+        sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
+      const targetName =
+        targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
 
-        // Get language names (prefer native name, fall back to English name)
-        const sourceName =
-          sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
-        const targetName =
-          targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
+      // Check if this project matches the filters
+      const sourceMatch = sourceFilter === 'All' || sourceFilter === sourceName;
+      const targetMatch = targetFilter === 'All' || targetFilter === targetName;
 
-        // Check if this project matches the filters
-        const sourceMatch =
-          sourceFilter === 'All' || sourceFilter === sourceName;
-
-        const targetMatch =
-          targetFilter === 'All' || targetFilter === targetName;
-
-        // If both filters match, include this project
-        if (sourceMatch && targetMatch) {
-          results.push(project);
-        }
-      }
-
-      // Update the filtered projects state
-      setFilteredProjects(results);
-    } catch (error) {
-      console.error('Error filtering projects:', error);
-      // Fall back to showing all projects if filtering fails
-      setFilteredProjects(projects);
-    }
-  };
+      return sourceMatch && targetMatch;
+    });
+  }, [allProjects, allLanguages, sourceFilter, targetFilter]);
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
@@ -333,25 +274,103 @@ export default function Projects() {
     goToProject(project);
   };
 
-  // Custom setSourceFilter function that validates against available options
-  const handleSourceFilterChange = (value: string) => {
-    setSourceFilter(value);
+  // Load more data when user reaches end of list
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && !isFetching) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isFetching, fetchNextPage]);
+
+  // Render footer with loading indicator
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
+    );
   };
 
-  // Custom setTargetFilter function that validates against available options
-  const handleTargetFilterChange = (value: string) => {
-    setTargetFilter(value);
-  };
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: fontSizes.medium,
+                marginTop: spacing.medium
+              }}
+            >
+              Loading projects...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
-  if (!projects) return null;
+  if (isError) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View
+            style={[
+              sharedStyles.container,
+              {
+                backgroundColor: 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }
+            ]}
+          >
+            <Text
+              style={{
+                color: colors.error,
+                fontSize: fontSizes.medium,
+                textAlign: 'center'
+              }}
+            >
+              Error loading projects: {error.message}
+            </Text>
+            <TouchableOpacity
+              onPress={() => void refetch()}
+              style={[styles.retryButton, { marginTop: spacing.medium }]}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   const uniqueSourceLanguageIds = [
-    ...new Set(projects.map((project) => project.source_language_id))
+    ...new Set(allProjects.map((project) => project.source_language_id))
   ];
 
   // Get unique target languages from projects
   const uniqueTargetLanguageIds = [
-    ...new Set(projects.map((project) => project.target_language_id))
+    ...new Set(allProjects.map((project) => project.target_language_id))
   ];
 
   // Filter and map source languages
@@ -386,7 +405,7 @@ export default function Projects() {
               label={t('source')}
               value={sourceFilter}
               options={[t('all'), ...sourceLanguages]}
-              onSelect={handleSourceFilterChange}
+              onSelect={setSourceFilter}
               isOpen={openDropdown === 'source'}
               onToggle={() => toggleDropdown('source')}
               fullWidth={false}
@@ -396,7 +415,7 @@ export default function Projects() {
               label={t('target')}
               value={targetFilter}
               options={[t('all'), ...targetLanguages]}
-              onSelect={handleTargetFilterChange}
+              onSelect={setTargetFilter}
               isOpen={openDropdown === 'target'}
               onToggle={() => toggleDropdown('target')}
               fullWidth={false}
@@ -412,8 +431,10 @@ export default function Projects() {
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}
-            // style={sharedStyles.list}
             estimatedItemSize={200}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
           />
         </View>
       </SafeAreaView>
@@ -446,3 +467,27 @@ export default function Projects() {
     </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  footerLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.medium
+  },
+  footerText: {
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    marginLeft: spacing.small
+  },
+  retryButton: {
+    padding: spacing.medium,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.medium
+  },
+  retryButtonText: {
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
+  }
+});

@@ -136,7 +136,7 @@ export default function AssetView() {
     return [contentAudioIds, asset.images ?? [], translationAudioIds].flat();
   }, [asset, assetContent, translationsWithVotesAndLanguage]);
 
-  const { attachmentUris, loadingAttachments } =
+  const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
@@ -376,10 +376,10 @@ export default function AssetView() {
                               sourceLanguage={sourceLanguage ?? null}
                               audioUri={
                                 content.audio_id
-                                  ? attachmentUris[content.audio_id]
+                                  ? attachmentStates.get(content.audio_id)?.uri
                                   : null
                               }
-                              isLoading={loadingAttachments}
+                              isLoading={isLoading}
                             />
                           );
                         }}
@@ -390,7 +390,7 @@ export default function AssetView() {
                   <ImageCarousel
                     uris={
                       asset?.images
-                        ?.map((imageId) => attachmentUris[imageId])
+                        ?.map((imageId) => attachmentStates.get(imageId)?.uri)
                         .filter(Boolean) ?? []
                     }
                   />
@@ -622,8 +622,8 @@ export default function AssetView() {
               translationType={translationModalType}
               assetContent={assetContent[activeTab === 'text' ? 0 : 1]}
               sourceLanguage={sourceLanguage}
-              attachmentUris={attachmentUris}
-              loadingAttachments={loadingAttachments}
+              attachmentUris={Object.fromEntries(attachmentStates.entries())}
+              loadingAttachments={isLoadingAttachments}
             />
           )}
 

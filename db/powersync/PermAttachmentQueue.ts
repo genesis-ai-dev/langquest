@@ -34,7 +34,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('Override init in PermAttachmentQueue entered............');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
@@ -64,14 +63,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     const currentUser = getCurrentUser();
 
     if (!currentUser) {
-      console.log('No current user, skipping attachment queue');
       return;
     }
 
     // Watch for changes in ALL download records
     this.db.watch(this.db.query.asset.findMany(), {
       onResult: (assets) => {
-        console.log('Download records changed:');
         // const currentUserId = await this.getCurrentUserId();
         // if (!currentUserId) {
         //   // User is logged out - don't delete anything, just stop syncing
@@ -96,9 +93,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
           // Remove duplicates
           const uniqueActiveAttachments = [...new Set(activeAttachments)];
-          console.log(
-            `Total active attachments to sync: ${uniqueActiveAttachments.length}`
-          );
 
           // Tell PowerSync which attachments to keep synced
           onUpdate(uniqueActiveAttachments);
@@ -186,7 +180,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   async deleteFromQueue(attachmentId: string): Promise<void> {
     const record = await this.record(attachmentId);
     if (record) {
-      console.log(`Record found, deleting attachment: ${attachmentId}`);
       await this.delete(record);
     }
   }

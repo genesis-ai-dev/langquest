@@ -183,21 +183,28 @@ export interface ProjectProgress {
 export const calculateProjectProgress = (
   questProgresses: QuestProgress[]
 ): ProjectProgress => {
-  const totalProgress = questProgresses.reduce(
-    (acc, quest) => {
-      acc.totalAssets += quest.totalAssets;
-      acc.approvedAssets += quest.approvedAssets;
-      acc.userContributedAssets += quest.userContributedAssets;
-      acc.pendingTranslationsCount += quest.pendingTranslationsCount;
-      return acc;
-    },
-    {
-      totalAssets: 0,
-      approvedAssets: 0,
-      userContributedAssets: 0,
-      pendingTranslationsCount: 0
-    }
-  );
+  const totalProgress =
+  {
+    totalAssets: 0,
+    approvedAssets: 0,
+    userContributedAssets: 0,
+    pendingTranslationsCount: 0
+  };
+  // questProgresses.reduce(
+  //   (acc, quest) => {
+  //     acc.totalAssets += quest.totalAssets;
+  //     acc.approvedAssets += quest.approvedAssets;
+  //     acc.userContributedAssets += quest.userContributedAssets;
+  //     acc.pendingTranslationsCount += quest.pendingTranslationsCount;
+  //     return acc;
+  //   },
+  //   {
+  //     totalAssets: 0,
+  //     approvedAssets: 0,
+  //     userContributedAssets: 0,
+  //     pendingTranslationsCount: 0
+  //   }
+  // );
 
   return {
     approvedPercentage:
@@ -207,7 +214,7 @@ export const calculateProjectProgress = (
     userContributedPercentage:
       totalProgress.totalAssets > 0
         ? (totalProgress.userContributedAssets / totalProgress.totalAssets) *
-          100
+        100
         : 0,
     pendingTranslationsCount: totalProgress.pendingTranslationsCount,
     totalAssets: totalProgress.totalAssets

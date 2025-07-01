@@ -257,7 +257,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleLeaveProject = () => {
-    console.log('Attempting to leave project');
     if (activeOwnerCount <= 1 && currentUserIsOwner) {
       Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
       return;
@@ -270,7 +269,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            console.log('Leaving project');
             try {
               await db
                 .update(profile_project_link)
@@ -281,7 +279,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     eq(profile_project_link.project_id, projectId)
                   )
                 );
-              console.log('Project left');
               onClose();
             } catch (error) {
               console.error('Error leaving project:', error);

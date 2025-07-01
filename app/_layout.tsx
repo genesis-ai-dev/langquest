@@ -19,7 +19,7 @@ import { LogBox } from 'react-native';
 // Keep the splash screen visible while we fetch resources
 void SplashScreen.preventAutoHideAsync();
 
-LogBox.ignoreAllLogs(); // Ignore log notifications in the app
+LogBox.ignoreAllLogs();
 
 export default function RootLayout() {
   const router = useRouter();
