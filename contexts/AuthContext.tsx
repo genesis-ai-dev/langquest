@@ -1,5 +1,6 @@
 import type { Profile } from '@/database_services/profileService';
-import { profileService } from '@/database_services/profileService';
+import { getProfileByUserId } from '@/hooks/db/useProfiles';
+import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
@@ -16,7 +17,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const currentUser = useLocalStore((state) => state.currentUser);
+  const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
   const system = useSystem();
 
@@ -26,14 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabaseAuthKey = await getSupabaseAuthKey();
 
       if (supabaseAuthKey) {
-        const session = JSON.parse(
-          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-        ) as Session | null;
-        const profile = await profileService.getProfileByUserId(
-          session?.user.id ?? ''
-        );
-
-        setCurrentUser(profile ?? null);
+        const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
+        if (sessionString) {
+          const session = JSON.parse(sessionString) as Session | null;
+          const profile = await getProfileByUserId(session?.user.id ?? '');
+          setCurrentUser(profile ?? null);
+        }
       }
       console.log('setting auth isLoading to false', isLoading);
       setIsLoading(false);
@@ -108,4 +108,8 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+export function getCurrentUser() {
+  return useLocalStore.getState().currentUser;
 }

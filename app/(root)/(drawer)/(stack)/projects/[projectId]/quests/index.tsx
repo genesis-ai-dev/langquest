@@ -8,12 +8,12 @@ import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { downloadService } from '@/database_services/downloadService';
+import { useSystem } from '@/contexts/SystemContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
-import { tagService } from '@/database_services/tagService';
-import type { project } from '@/db/drizzleSchema';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { profile_project_link } from '@/db/drizzleSchema';
+import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -25,9 +25,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   FlatList,
   Modal,
@@ -39,117 +38,83 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useSystem } from '@/contexts/SystemContext';
-import { assetService } from '@/database_services/assetService';
-import { profile_project_link, quest as questTable } from '@/db/drizzleSchema';
+import { useAssetsWithTranslationsAndVotesByQuestId } from '@/hooks/db/useAssets';
+import type { Project } from '@/hooks/db/useProjects';
+import { useProjectById } from '@/hooks/db/useProjects';
+import { useQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { calculateQuestProgress } from '@/utils/progressUtils';
-import { compareByNumericReference, sortItems } from '@/utils/sortingUtils';
+import { sortItems } from '@/utils/sortingUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
 
-interface ProfileProjectLink {
-  id: string;
-  active: boolean;
-  created_at: string;
-  last_updated: string;
-  profile_id: string;
-  project_id: string;
-  membership: string | null;
-}
+// Helper functions outside component to prevent recreation
+const filterQuests = <T extends Quest>(
+  quests: T[],
+  questTags: Record<string, Tag[]>,
+  searchQuery: string,
+  activeFilters: Record<string, string[]>
+) => {
+  return quests.filter((quest) => {
+    // Search filter
+    const matchesSearch =
+      quest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (quest.description?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+        false);
 
-// First, let's create a type that represents the shape of our query result
-interface QuestWithRelations {
-  id: string;
-  name: string;
-  description: string | null;
-  project_id: string;
-  active: boolean;
-  visible: boolean;
-  creator_id: string | null;
-  created_at: string;
-  last_updated: string;
-  tags: {
-    tag: {
-      name: string;
-    };
-  }[];
-  assets: {
-    asset: {
-      id: string;
-      name: string;
-      translations: {
-        id: string;
-        text: string | null;
-        creator_id: string;
-        votes: {
-          id: string;
-          polarity: 'up' | 'down';
-          creator_id: string;
-        }[];
-      }[];
-    };
-  }[];
-}
-
-const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
-  const { currentUser } = useAuth();
-  const { activeProject } = useProjectContext();
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const [isDownloaded, setIsDownloaded] = useState(false);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [questTags, assets] = await Promise.all([
-          tagService.getTagsByQuestId(quest.id),
-          assetService.getAssetsByQuestId(quest.id)
-        ]);
-        setTags(questTags.filter(Boolean));
-        setAssetIds(assets.map((asset) => asset?.id).filter(Boolean));
-
-        // Get quest download status
-        if (currentUser) {
-          const downloadStatus = await downloadService.getQuestDownloadStatus(
-            currentUser.id,
-            quest.id
+    // Tag filters
+    const matchesFilters = Object.entries(activeFilters).every(
+      ([category, selectedOptions]) => {
+        if (selectedOptions.length === 0) return true;
+        return questTags[quest.id]?.some((tag) => {
+          const [tagCategory, tagValue] = tag.name.split(':');
+          return (
+            tagCategory?.toLowerCase() === category.toLowerCase() &&
+            selectedOptions.includes(
+              `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
+            )
           );
-          setIsDownloaded(downloadStatus);
-        }
-      } catch (error) {
-        console.error('Error loading quest data:', error);
+        });
       }
-    };
-    void loadData();
-  }, [quest.id, currentUser]);
+    );
 
-  const { isDownloaded: assetsDownloaded, isLoading } =
-    useAssetDownloadStatus(assetIds);
+    return matchesSearch && matchesFilters;
+  });
+};
+
+const QuestCard: React.FC<{
+  project: Project;
+  quest: Quest & { tags: { tag: Tag }[] };
+}> = ({ quest, project }) => {
+  const { currentUser } = useAuth();
+
+  // Use the new download hook
+  const {
+    isDownloaded,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useDownload('quest', quest.id);
 
   const handleDownloadToggle = async () => {
-    if (!currentUser) return;
-    try {
-      await downloadService.setQuestDownload(
-        currentUser.id,
-        quest.id,
-        !isDownloaded
-      );
-      setIsDownloaded(!isDownloaded);
-    } catch (error) {
-      console.error('Error toggling quest download:', error);
-    }
+    await toggleDownload();
   };
 
-  const progress = calculateQuestProgress(
-    quest.assets.map((asset) => asset.asset),
-    currentUser?.id ?? null
+  const { assets: assetsData } = useAssetsWithTranslationsAndVotesByQuestId(
+    quest.id
   );
+  const assets = assetsData ?? [];
+
+  const assetIds = assets.map((asset) => asset.id).filter(Boolean);
+
+  const { isDownloaded: assetsDownloaded, isLoading } =
+    useAttachmentAssetDownloadStatus(assetIds);
+
+  const progress = calculateQuestProgress(assets, currentUser?.id ?? null);
 
   return (
     <View style={sharedStyles.card}>
@@ -163,15 +128,15 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
         <PrivateAccessGate
           projectId={quest.project_id}
-          projectName={activeProject?.name || ''}
-          isPrivate={activeProject?.private || false}
+          projectName={project.name || ''}
+          isPrivate={project.private || false}
           action="download"
           allowBypass={true}
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
               isDownloaded={isDownloaded && assetsDownloaded}
-              isLoading={isLoading && isDownloaded}
+              isLoading={isLoading && isDownloadLoading}
               onPress={
                 hasAccess || isDownloaded ? handleDownloadToggle : onPress
               }
@@ -189,15 +154,15 @@ const QuestCard: React.FC<{ quest: QuestWithRelations }> = ({ quest }) => {
         pickaxeCount={progress.pendingTranslationsCount}
       />
 
-      {tags.length > 0 && (
+      {quest.tags.length > 0 && (
         <View style={sharedStyles.cardInfo}>
-          {tags.slice(0, 3).map((tag, index) => (
-            <Text key={tag.id} style={sharedStyles.cardInfoText}>
-              {tag.name.split(':')[1]}
-              {index < Math.min(tags.length - 1, 2) && ' • '}
+          {quest.tags.slice(0, 3).map((tag, index) => (
+            <Text key={tag.tag.id} style={sharedStyles.cardInfoText}>
+              {tag.tag.name.split(':')[1]}
+              {index < Math.min(quest.tags.length - 1, 2) && ' • '}
             </Text>
           ))}
-          {tags.length > 3 && (
+          {quest.tags.length > 3 && (
             <Text style={sharedStyles.cardInfoText}> ...</Text>
           )}
         </View>
@@ -212,6 +177,7 @@ export default function Quests() {
     projectId: string;
     projectName: string;
   }>();
+  const [searchQuery, setSearchQuery] = useState('');
   const { db } = useSystem();
   const { currentUser } = useAuth();
 
@@ -219,28 +185,23 @@ export default function Quests() {
   const SHOW_SETTINGS_BUTTON = true; // Set to false to hide settings button
   const SHOW_MEMBERSHIP_BUTTON = true; // Set to false to hide membership button
 
-  const PAGE_SIZE = 10;
-  const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
   );
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [showProjectStats, setShowProjectStats] = useState(false);
-  const [selectedProject] = useState<typeof project.$inferSelect | null>(null);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  // Infinite scroll state
-  const [allQuests, setAllQuests] = useState<QuestWithRelations[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
   const { goToQuest } = useProjectContext();
 
+  const { project: selectedProject } = useProjectById(projectId);
+  const { quests: questsData } = useQuestsWithTagsByProjectId(projectId);
+  const quests = questsData ?? [];
+
   // Query to check if current user is an owner
-  const { data: currentUserLinkData } = useTanstackQuery({
+  const { data: [currentUserLink] = [] } = useTanstackQuery({
     queryKey: ['current-user-project-link', projectId, currentUser?.id],
     query: toCompilableQuery(
       db.query.profile_project_link.findFirst({
@@ -254,137 +215,37 @@ export default function Quests() {
     enabled: !!currentUser?.id && !!projectId
   });
 
-  // Handle the case where data might be an array
-  const currentUserLink = Array.isArray(currentUserLinkData)
-    ? currentUserLinkData[0]
-    : currentUserLinkData;
+  const isOwner = currentUserLink?.membership === 'owner';
 
-  const isOwner =
-    (currentUserLink as ProfileProjectLink | undefined)?.membership === 'owner';
+  const questTags = useMemo(() => {
+    return quests.reduce(
+      (acc, quest) => {
+        acc[quest.id] = quest.tags.map((tag) => tag.tag);
+        return acc;
+      },
+      {} as Record<string, Tag[]>
+    );
+  }, [quests]);
 
-  // Query for quests with pagination
-  const { data: questsData } = useTanstackQuery({
-    queryKey: [
-      'quests',
-      projectId,
-      currentPage,
+  // Compute filtered quests directly without useEffect to avoid infinite loop
+  const filteredQuests = useMemo(() => {
+    const filtered = filterQuests(
+      quests,
+      questTags,
       searchQuery,
-      activeFilters,
-      activeSorting
-    ],
-    query: toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(questTable.project_id, projectId),
-        with: {
-          tags: {
-            with: {
-              tag: {
-                columns: {
-                  name: true
-                }
-              }
-            }
-          },
-          assets: {
-            with: {
-              asset: {
-                with: {
-                  translations: {
-                    with: {
-                      votes: true,
-                      creator: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        orderBy: activeSorting.length === 0 ? [asc(questTable.name)] : undefined
-      })
-    ),
-    enabled: !!projectId
-  });
+      activeFilters
+    );
+    return sortItems(
+      filtered,
+      activeSorting,
+      (questId: string) => questTags[questId] ?? []
+    );
+  }, [quests, questTags, searchQuery, activeFilters, activeSorting]);
 
-  // Process and filter quests whenever data changes
-  useEffect(() => {
-    if (!questsData) return;
-
-    let processedQuests = [...questsData];
-
-    // Apply search filter
-    if (searchQuery) {
-      processedQuests = processedQuests.filter(
-        (quest) =>
-          quest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (quest.description
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ??
-            false)
-      );
-    }
-
-    // Apply tag filters
-    if (Object.keys(activeFilters).length > 0) {
-      processedQuests = processedQuests.filter((quest) => {
-        return Object.entries(activeFilters).every(
-          ([category, selectedOptions]) => {
-            if (selectedOptions.length === 0) return true;
-            return quest.tags.some(({ tag }) => {
-              const [tagCategory, tagValue] = tag.name.split(':');
-              return (
-                tagCategory?.toLowerCase() === category.toLowerCase() &&
-                selectedOptions.includes(
-                  `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
-                )
-              );
-            });
-          }
-        );
-      });
-    }
-
-    // Apply sorting
-    if (activeSorting.length === 0) {
-      // Default sorting using numeric reference comparison
-      processedQuests.sort((a, b) => compareByNumericReference(a.name, b.name));
-    } else {
-      // Apply custom sorting
-      processedQuests = sortItems(
-        processedQuests,
-        activeSorting,
-        (questId: string) =>
-          processedQuests
-            .find((quest) => quest.id === questId)
-            ?.tags.map((t) => ({ name: t.tag.name })) ?? []
-      );
-    }
-
-    // Reset when filters change (currentPage === 0) or append for pagination
-    if (currentPage === 0) {
-      setAllQuests(processedQuests.slice(0, PAGE_SIZE));
-    } else {
-      const startIndex = currentPage * PAGE_SIZE;
-      const endIndex = startIndex + PAGE_SIZE;
-      const pageQuests = processedQuests.slice(startIndex, endIndex);
-      setAllQuests((prev) => [...prev, ...pageQuests]);
-      setHasMore(pageQuests.length === PAGE_SIZE);
-    }
-
-    setIsLoadingMore(false);
-  }, [questsData, searchQuery, activeFilters, activeSorting, currentPage]);
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(0);
-    setHasMore(true);
-  }, [searchQuery, activeFilters, activeSorting]);
-
-  const loadMore = () => {
-    if (!isLoadingMore && hasMore) {
-      setIsLoadingMore(true);
-      setCurrentPage((prev) => prev + 1);
-    }
+  const getActiveOptionsCount = () => {
+    const filterCount = Object.values(activeFilters).flat().length;
+    const sortCount = activeSorting.length;
+    return filterCount + sortCount;
   };
 
   const handleQuestPress = (quest: Quest) => {
@@ -456,10 +317,10 @@ export default function Quests() {
               style={styles.filterIcon}
             >
               <Ionicons name="filter" size={20} color={colors.text} />
-              {Object.values(activeFilters).flat().length > 0 && (
+              {getActiveOptionsCount() > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
-                    {Object.values(activeFilters).flat().length}
+                    {getActiveOptionsCount()}
                   </Text>
                 </View>
               )}
@@ -467,23 +328,14 @@ export default function Quests() {
           </View>
 
           <FlatList
-            data={allQuests}
+            data={filteredQuests}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleQuestPress(item)}>
-                <QuestCard quest={item} />
+                <QuestCard quest={item} project={selectedProject!} />
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
-            onEndReached={loadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              isLoadingMore ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : null
-            }
           />
           <View style={styles.floatingButtonsContainer}>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
@@ -522,7 +374,7 @@ export default function Quests() {
         <View style={{ flex: 1 }}>
           <QuestFilterModal
             onClose={() => setIsFilterModalVisible(false)}
-            quests={allQuests}
+            questTags={questTags}
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}
@@ -536,6 +388,13 @@ export default function Quests() {
           onClose={handleCloseDetails}
         />
       )}
+      {/* {projectId && (
+        <ProjectMembershipModal
+          isVisible={showMembershipModal}
+          onClose={() => setShowMembershipModal(false)}
+          projectId={projectId}
+        />
+      )} */}
       <ProjectMembershipModal
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
@@ -616,12 +475,5 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: 'center'
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.medium,
-    marginVertical: spacing.small
   }
 });

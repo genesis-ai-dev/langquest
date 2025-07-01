@@ -18,29 +18,25 @@ import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
+import type { Translation } from '@/database_services/translationService';
+import type { Vote } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import {
-  asset as assetTable,
-  translation as translationTable
-} from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useAssetById, useAssetContent } from '@/hooks/db/useAssets';
+import { useLanguageById } from '@/hooks/db/useLanguages';
+import type { Language } from '@/hooks/db/useTranslations';
+import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { useLocalization } from '@/hooks/useLocalization';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
-import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
-import { eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   ScrollView,
   StyleSheet,
@@ -55,9 +51,9 @@ const ASSET_VIEWER_PROPORTION = 0.4;
 
 const getFirstAvailableTab = (
   asset: Asset | null,
-  assetContent: (typeof asset_content_link.$inferSelect)[]
+  assetContent?: (typeof asset_content_link.$inferSelect)[]
 ): TabType => {
-  if (!asset) return 'text';
+  if (!asset || !assetContent) return 'text';
   const hasText = assetContent.length > 0;
   const hasImages = (asset.images?.length ?? 0) > 0;
 
@@ -70,66 +66,26 @@ type TabType = 'text' | 'image';
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function AssetView() {
-  const system = useSystem();
-  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const { assetId } = useGlobalSearchParams<{
     assetId: string;
   }>();
-  const { db } = useSystem();
-
-  // Fetch asset
-  const { data: [asset] = [] } = useQuery({
-    queryKey: ['asset', assetId],
-    query: toCompilableQuery(
-      db.query.asset.findFirst({
-        where: eq(assetTable.id, assetId),
-        with: {
-          content: true
-        }
-      })
-    )
-  });
-
-  // Fetch translations with votes and creator
-  const { data: translations = [] } = useQuery({
-    queryKey: ['translations', assetId],
-    query: toCompilableQuery(
-      db.query.translation.findMany({
-        where: eq(translationTable.asset_id, assetId),
-        with: {
-          votes: true,
-          creator: true,
-          asset: true
-        }
-      })
-    )
-  });
-
-  // Fetch source language
-  const { data: [sourceLanguage] = [] } = useQuery({
-    queryKey: ['sourceLanguage', assetId],
-    query: toCompilableQuery(
-      db.query.language.findFirst({
-        where: eq(
-          assetTable.source_language_id,
-          asset?.source_language_id || ''
-        )
-      })
-    )
-  });
-
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
   >(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
-  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!assetId) return;
+    void system.tempAttachmentQueue?.loadAssetAttachments(assetId);
+  }, [assetId]);
 
   enum TranslationModalType {
     TEXT = 'text',
     AUDIO = 'audio'
   }
+
   const [translationModalType, setTranslationModalType] =
     useState<TranslationModalType>(TranslationModalType.TEXT);
   const [isTranslationModalVisible, setIsTranslationModalVisible] =
@@ -150,52 +106,38 @@ export default function AssetView() {
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
+  // Use the hook to watch attachment states
+  const { asset, isAssetLoading } = useAssetById(assetId);
+  const { assetContent, isAssetContentLoading } = useAssetContent(assetId);
+  const {
+    language: sourceLanguage,
+    isLanguageLoading: isSourceLanguageLoading
+  } = useLanguageById(asset?.source_language_id);
+  const { translationsWithVotesAndLanguage, refetch } =
+    useTranslationsWithVotesAndLanguageByAssetId(assetId);
+
+  const isLoading =
+    isAssetLoading || isAssetContentLoading || isSourceLanguageLoading;
+
   const allAttachmentIds = React.useMemo(() => {
-    if (!asset) return [];
+    if (!asset || !assetContent || !translationsWithVotesAndLanguage) return [];
 
     // Collect all attachment IDs
-    const contentAudioIds = asset.content
+    const contentAudioIds = assetContent
       .filter((content) => content.audio_id)
       .map((content) => content.audio_id!)
       .filter(Boolean);
 
-    const imageIds = asset.images ?? [];
-
-    const translationAudioIds = translations
+    const translationAudioIds = translationsWithVotesAndLanguage
       .filter((translation) => translation.audio)
-      .map((translation) => translation.audio!)
+      .map((translation) => translation.audio)
       .filter(Boolean);
 
-    return [...contentAudioIds, ...imageIds, ...translationAudioIds];
-  }, [asset, translations]);
+    return [contentAudioIds, asset.images ?? [], translationAudioIds].flat();
+  }, [asset, assetContent, translationsWithVotesAndLanguage]);
 
-  // Use the hook to watch attachment states
   const { attachmentUris, loadingAttachments } =
     useAttachmentStates(allAttachmentIds);
-
-  useEffect(() => {
-    // Load attachments into temp queue
-    if (assetId) {
-      void system.tempAttachmentQueue?.loadAssetAttachments(assetId);
-    }
-  }, [assetId]);
-
-  useEffect(() => {
-    if (asset?.content) {
-      setActiveTab(getFirstAvailableTab(asset, asset.content));
-      setIsLoading(false);
-    }
-  }, [asset]);
-
-  const handleNewTranslation = (_newTranslation?: object) => {
-    try {
-      // The translations will automatically update due to the useQuery hook
-      setIsTranslationModalVisible(false);
-    } catch (error) {
-      console.error('Error creating translation:', error);
-      Alert.alert('Error', t('failedCreateTranslation'));
-    }
-  };
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
     if (fullText.length <= maxLength) return fullText;
@@ -214,78 +156,38 @@ export default function AssetView() {
   ): VoteIconName => {
     if (!currentUser) return `thumbs-${voteType}-outline` as VoteIconName;
 
-    const votesForTranslation = translations.find(
-      (t) => t.id === translationId
-    )?.votes;
-    const userVote = votesForTranslation?.find(
-      (vote) => vote.creator_id === currentUser.id
-    );
+    const votes: Vote[] =
+      translationsWithVotesAndLanguage?.find(
+        (translation) => translation.id === translationId
+      )?.votes ?? [];
+    const userVote = votes.find((vote) => vote.creator_id === currentUser.id);
 
     if (!userVote) return `thumbs-${voteType}-outline` as VoteIconName;
     return userVote.polarity === voteType
       ? (`thumbs-${voteType}` as VoteIconName)
       : (`thumbs-${voteType}-outline` as VoteIconName);
   };
-  // console.log(
-  //   'translations',
-  //   translations.length,
-  //   JSON.stringify(
-  //     translations.map((t) => {
-  //       return {
-  //         id: t.id,
-  //         votes: t.votes.map((v) => {
-  //           return {
-  //             id: v.id,
-  //             polarity: v.polarity,
-  //             currentUserVoted: v.creator_id === currentUser?.id
-  //           };
-  //         })
-  //       };
-  //     }),
-  //     null,
-  //     2
-  //   )
-  // );
-  const TranslationCard = ({
-    translationId,
-    assetId
+
+  // Set the first available tab when asset or assetContent changes
+  useEffect(() => {
+    if (!asset || !assetContent) return;
+    const firstAvailableTab = getFirstAvailableTab(asset, assetContent);
+    setActiveTab(firstAvailableTab);
+  }, [asset, assetContent]);
+
+  const renderTranslationCard = ({
+    item: translation
   }: {
-    translationId: string;
-    assetId: string;
+    item: Translation & { votes: Vote[]; target_language: Language };
   }) => {
-    // const votes = translations.find(
-    //   (t) => t.id === translationId
-    // )?.votes;
-    const { translation } = useTranslationDataWithVotes(translationId, assetId);
-    if (!translation) return null;
-    const voteCount = calculateVoteCount(translation.votes);
+    const votes =
+      translationsWithVotesAndLanguage?.find((t) => t.id === translation.id)
+        ?.votes ?? [];
+    const voteCount = calculateVoteCount(votes);
     if (!currentUser) {
       return null;
     }
-    const gemColor = getGemColor(
-      translation,
-      translation.votes,
-      currentUser.id
-    );
-    // if (translation.text?.includes("Caleb's translation 1")) {
-    //   console.log('voteCount', voteCount);
-    //   console.log('gemColor for Caleb', gemColor);
-    //   console.log(
-    //     'votes',
-    //     JSON.stringify(
-    //       votes.map((v) => ({
-    //         id: v.id,
-    //         polarity: v.polarity,
-    //         creator_id: v.creator_id
-    //       })),
-    //       null,
-    //       2
-    //     )
-    //   );
-    // }
-    // if (gemColor === null) {
-    //   return null;
-    // }
+    const gemColor = getGemColor(translation, votes, currentUser.id);
 
     const translationHasAudio = !!translation.audio;
     const audioIconOpacity = translationHasAudio ? 1 : 0.5;
@@ -395,6 +297,16 @@ export default function AssetView() {
     );
   };
 
+  const handleNewTranslation = () => {
+    try {
+      // Refresh translations after creating new one
+      void refetch();
+      setIsTranslationModalVisible(false);
+    } catch (error) {
+      console.error('Error creating translation:', error);
+    }
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LinearGradient
@@ -411,16 +323,16 @@ export default function AssetView() {
                 style={[
                   styles.tab,
                   activeTab === 'text' && styles.activeTab,
-                  !asset?.content.length && styles.disabledTab
+                  !assetContent?.length && styles.disabledTab
                 ]}
                 onPress={() => setActiveTab('text')}
-                disabled={!asset?.content.length}
+                disabled={!assetContent?.length}
               >
                 <Ionicons
                   name="text"
                   size={24}
                   color={
-                    asset?.content.length ? colors.text : colors.textSecondary
+                    assetContent?.length ? colors.text : colors.textSecondary
                   }
                 />
               </TouchableOpacity>
@@ -452,11 +364,11 @@ export default function AssetView() {
             ) : (
               <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
                 {activeTab === 'text' &&
-                  asset?.content &&
-                  asset.content.length > 0 && (
+                  assetContent &&
+                  assetContent.length > 0 && (
                     <View style={styles.carouselWrapper}>
                       <Carousel
-                        items={asset.content}
+                        items={assetContent}
                         renderItem={(content) => {
                           return (
                             <SourceContent
@@ -499,42 +411,51 @@ export default function AssetView() {
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <SuccessCount
                       count={
-                        translations.filter((translation) => {
-                          const votes = translation.votes;
-                          const gemColor = getGemColor(
-                            translation,
-                            votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.success;
-                        }).length
+                        (
+                          translationsWithVotesAndLanguage?.filter(
+                            (translation) => {
+                              const gemColor = getGemColor(
+                                translation,
+                                translation.votes,
+                                currentUser?.id ?? null
+                              );
+                              return gemColor === colors.success;
+                            }
+                          ) ?? []
+                        ).length
                       }
                     />
                     <PendingCount
                       count={
-                        translations.filter((translation) => {
-                          const votes = translation.votes;
-                          const gemColor = getGemColor(
-                            translation,
-                            votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.textSecondary;
-                        }).length
+                        (
+                          translationsWithVotesAndLanguage?.filter(
+                            (translation) => {
+                              const gemColor = getGemColor(
+                                translation,
+                                translation.votes,
+                                currentUser?.id ?? null
+                              );
+                              return gemColor === colors.textSecondary;
+                            }
+                          ) ?? []
+                        ).length
                       }
                     />
 
                     <PickaxeCount
                       count={
-                        translations.filter((translation) => {
-                          const votes = translation.votes;
-                          const gemColor = getGemColor(
-                            translation,
-                            votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.alert;
-                        }).length
+                        (
+                          translationsWithVotesAndLanguage?.filter(
+                            (translation) => {
+                              const gemColor = getGemColor(
+                                translation,
+                                translation.votes,
+                                currentUser?.id ?? null
+                              );
+                              return gemColor === colors.alert;
+                            }
+                          ) ?? []
+                        ).length
                       }
                     />
                   </View>
@@ -588,12 +509,11 @@ export default function AssetView() {
 
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <FlatList
-                  data={translations.sort((a, b) => {
+                  data={translationsWithVotesAndLanguage?.sort((a, b) => {
                     if (sortOption === 'voteCount') {
-                      const votesA = a.votes;
-                      const votesB = b.votes;
                       return (
-                        calculateVoteCount(votesB) - calculateVoteCount(votesA)
+                        calculateVoteCount(b.votes) -
+                        calculateVoteCount(a.votes)
                       );
                     }
                     return (
@@ -601,12 +521,7 @@ export default function AssetView() {
                       new Date(a.created_at).getTime()
                     );
                   })}
-                  renderItem={({ item }) => (
-                    <TranslationCard
-                      translationId={item.id}
-                      assetId={assetId}
-                    />
-                  )}
+                  renderItem={renderTranslationCard}
                   keyExtractor={(item) => item.id}
                   style={styles.translationsList}
                 />
@@ -696,17 +611,17 @@ export default function AssetView() {
         )}
 
         {isTranslationModalVisible &&
-          asset?.content &&
-          (asset.content.length > 0 ||
-            (asset.images && asset.images.length > 0)) && (
+          assetContent &&
+          (assetContent.length > 0 ||
+            (asset?.images && asset.images.length > 0)) && (
             <NewTranslationModal
               isVisible={isTranslationModalVisible}
               onClose={() => setIsTranslationModalVisible(false)}
               onSubmit={handleNewTranslation}
               asset_id={assetId}
               translationType={translationModalType}
-              assetContent={asset.content[activeTab === 'text' ? 0 : 1]}
-              sourceLanguage={sourceLanguage ?? null}
+              assetContent={assetContent[activeTab === 'text' ? 0 : 1]}
+              sourceLanguage={sourceLanguage}
               attachmentUris={attachmentUris}
               loadingAttachments={loadingAttachments}
             />
@@ -761,8 +676,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1
-    // paddingTop: spacing.medium,
-    // paddingBottom: spacing.medium
   },
   sourceTextContainer: {
     backgroundColor: colors.inputBackground,
@@ -838,7 +751,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.medium,
     height: 50
-    // borderRadius: borderRadius.medium
   },
   newTranslationButtonText: {
     color: colors.buttonText,

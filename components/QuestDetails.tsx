@@ -1,8 +1,7 @@
 import type { Quest } from '@/database_services/questService';
-import { tagService } from '@/database_services/tagService';
-import type { tag } from '@/db/drizzleSchema';
+import { useTagsByQuestId } from '@/hooks/db/useTags';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface QuestDetailsProps {
@@ -14,17 +13,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
   quest,
   onClose
 }) => {
-  const [tags, setTags] = useState<(typeof tag.$inferSelect)[]>([]);
-
-  useEffect(() => {
-    const loadTags = async () => {
-      const questTags = (await tagService.getTagsByQuestId(quest.id)).filter(
-        Boolean
-      );
-      setTags(questTags);
-    };
-    void loadTags();
-  }, [quest.id]);
+  const { tags } = useTagsByQuestId(quest.id);
 
   return (
     <View style={styles.overlay}>
@@ -36,7 +25,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
           <Text style={styles.description}>{quest.description}</Text>
         )}
 
-        {tags.length > 0 && (
+        {tags && tags.length > 0 && (
           <View style={styles.tagsContainer}>
             {tags.map((tag) => {
               const [category, value] = tag.name.split(':');

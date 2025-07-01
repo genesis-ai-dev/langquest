@@ -1,4 +1,4 @@
-import { useNetworkConnectivity } from '@/hooks/useNetworkConnectivity';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { storage } from '@/utils/storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   onPress,
   size = 24
 }) => {
-  const isConnected = useNetworkConnectivity();
+  const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isDownloaded;
   const [showWarning, setShowWarning] = useState(false);
 

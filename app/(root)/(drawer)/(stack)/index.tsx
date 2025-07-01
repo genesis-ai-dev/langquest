@@ -6,37 +6,35 @@ import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { assetService } from '@/database_services/assetService';
-import { downloadService } from '@/database_services/downloadService';
-import { languageService } from '@/database_services/languageService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
-import type { language, project } from '@/db/drizzleSchema';
-import {
-  profile_project_link,
-  project as projectTable
-} from '@/db/drizzleSchema';
-import { useAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import type { project } from '@/db/drizzleSchema';
+import { profile_project_link } from '@/db/drizzleSchema';
+import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { getAssetsByQuestId, useAssetsByProjectId } from '@/hooks/db/useAssets';
+import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
+import { useProjects } from '@/hooks/db/useProjects';
+import { getQuestsByProjectId } from '@/hooks/db/useQuests';
+import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
+import { getVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useLocalStore } from '@/store/localStore';
 import {
   calculateProjectProgress,
   calculateQuestProgress
 } from '@/utils/progressUtils';
+import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FlashList } from '@shopify/flash-list';
 import { and, eq } from 'drizzle-orm';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
-
-// Constants for storage keys
-const SOURCE_FILTER_KEY = 'project_source_filter';
-const TARGET_FILTER_KEY = 'project_target_filter';
 
 type Project = typeof project.$inferSelect;
 
@@ -45,15 +43,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 }) => {
   const { currentUser } = useAuth();
   const { db } = useSystem();
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [targetLanguage, setTargetLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const [isDownloaded, setIsDownloaded] = useState(false);
-
   const [progress, setProgress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -61,37 +50,23 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     totalAssets: 0
   });
 
-  // Use useQuery for fetching project data
-  const { data: matchingProjectData } = useQuery(
-    toCompilableQuery(
-      db.query.project.findFirst({
-        where: eq(projectTable.id, project.id),
-        with: {
-          quests: {
-            with: {
-              assets: {
-                with: {
-                  asset: {
-                    with: {
-                      translations: {
-                        with: {
-                          votes: true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      })
-    )
+  // Use the new download hook
+  const {
+    isDownloaded,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useDownload('project', project.id);
+
+  const { language: sourceLanguage } = useLanguageById(
+    project.source_language_id
+  );
+  const { language: targetLanguage } = useLanguageById(
+    project.target_language_id
   );
 
-  const projectData = matchingProjectData[0];
+  const { assets } = useAssetsByProjectId(project.id);
+  const assetIds = assets?.map((asset) => asset.id) ?? [];
 
-  // Query for membership status using TanStack query (like in quests index)
   const { data: membershipData = [] } = useQuery(
     toCompilableQuery(
       db.query.profile_project_link.findMany({
@@ -109,77 +84,71 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     | 'member'
     | undefined;
 
-  useEffect(() => {
-    const loadData = async () => {
-      const [source, target] = await Promise.all([
-        languageService.getLanguageById(project.source_language_id),
-        languageService.getLanguageById(project.target_language_id)
-      ]);
-      setSourceLanguage(source);
-      setTargetLanguage(target);
-
-      // Get all assets for this project
-      const assets = await assetService.getAssetsByProjectId(project.id);
-      setAssetIds(assets.map((asset) => asset.id));
-
-      // Get project download status and membership status
-      if (currentUser) {
-        const downloadStatus = await downloadService.getProjectDownloadStatus(
-          currentUser.id,
-          project.id
-        );
-        setIsDownloaded(downloadStatus);
-      }
-    };
-    void loadData();
-  }, [
-    project.source_language_id,
-    project.target_language_id,
-    project.id,
-    currentUser
-  ]);
-
   const { isDownloaded: assetsDownloaded, isLoading } =
-    useAssetDownloadStatus(assetIds);
+    useAttachmentAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
-    if (!currentUser) return;
-    try {
-      await downloadService.setProjectDownload(
-        currentUser.id,
-        project.id,
-        !isDownloaded
-      );
-      setIsDownloaded(!isDownloaded);
-    } catch (error) {
-      console.error('Error toggling project download:', error);
-    }
+    await toggleDownload();
   };
 
   useEffect(() => {
-    if (!projectData?.quests) return;
+    const loadProgress = async () => {
+      try {
+        // Load all quests for this project
+        const quests = (await getQuestsByProjectId(project.id)) ?? [];
 
-    // Calculate progress for each quest
-    const questProgresses = projectData.quests.map((quest) => {
-      const assets = quest.assets.map((link) => link.asset);
-      const translations: Record<string, Translation[]> = {};
-      const votes: Record<string, Vote[]> = {};
+        // For each quest, load its assets and calculate progress
+        const questProgresses = await Promise.all(
+          quests.map(async (quest) => {
+            const assets = (await getAssetsByQuestId(quest.id)) ?? [];
+            const translations: Record<string, Translation[]> = {};
+            const votes: Record<string, Vote[]> = {};
 
-      // Process translations and votes
-      assets.forEach((asset) => {
-        translations[asset.id] = asset.translations;
-        asset.translations.forEach((translation) => {
-          votes[translation.id] = translation.votes;
-        });
-      });
+            // Load translations and votes for each asset
+            await Promise.all(
+              assets.map(async (asset) => {
+                const assetTranslations =
+                  (await getTranslationsByAssetId(asset.id)) ?? [];
+                translations[asset.id] = assetTranslations;
 
-      return calculateQuestProgress(assets, currentUser?.id ?? null);
-    });
+                // Load votes for each translation
+                await Promise.all(
+                  assetTranslations.map(async (translation) => {
+                    votes[translation.id] =
+                      (await getVotesByTranslationId(translation.id)) ?? [];
+                  })
+                );
+              })
+            );
 
-    // Calculate aggregated project progress
-    const projectProgress = calculateProjectProgress(questProgresses);
-    setProgress(projectProgress);
-  }, [projectData, currentUser?.id]);
+            // Create assets with translations and votes attached for calculateQuestProgress
+            const assetsWithTranslations = assets.map((asset) => ({
+              ...asset,
+              translations: (translations[asset.id] || []).map(
+                (translation) => ({
+                  ...translation,
+                  votes: votes[translation.id] || []
+                })
+              )
+            }));
+
+            return calculateQuestProgress(
+              assetsWithTranslations,
+              currentUser?.id ?? null
+            );
+          })
+        );
+
+        // Calculate aggregated project progress
+        const projectProgress = calculateProjectProgress(questProgresses);
+        setProgress(projectProgress);
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      }
+    };
+
+    void loadProgress();
+  }, [project.id, currentUser?.id]);
 
   return (
     <View style={sharedStyles.card}>
@@ -224,7 +193,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             renderTrigger={({ onPress, hasAccess }) => (
               <DownloadIndicator
                 isDownloaded={isDownloaded && assetsDownloaded}
-                isLoading={isLoading && isDownloaded}
+                isLoading={isLoading && isDownloadLoading}
                 onPress={
                   hasAccess || isDownloaded ? handleDownloadToggle : onPress
                 }
@@ -254,114 +223,80 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 export default function Projects() {
   const { t } = useLocalization();
   const { goToProject } = useProjectContext();
-  const { db } = useSystem();
   const { currentUser } = useAuth();
-  const [sourceFilter, setSourceFilter] = useState('All');
-  const [targetFilter, setTargetFilter] = useState('All');
+  const { db } = useSystem();
+  const { projects } = useProjects();
+  const { languages: allLanguages } = useLanguages();
+  const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
+  const targetFilter = useLocalStore((state) => state.projectTargetFilter);
+  const setSourceFilter = useLocalStore(
+    (state) => state.setProjectSourceFilter
+  );
+  const setTargetFilter = useLocalStore(
+    (state) => state.setProjectTargetFilter
+  );
   const [openDropdown, setOpenDropdown] = useState<'source' | 'target' | null>(
     null
   );
-  const [sourceLanguages, setSourceLanguages] = useState<string[]>([]);
-  const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [privateProjectModal, setPrivateProjectModal] = useState<{
     isVisible: boolean;
     project: Project | null;
   }>({ isVisible: false, project: null });
 
-  // Use useQuery for fetching projects
-  const { data: projects = [] } = useQuery(
-    toCompilableQuery(
-      db.query.project.findMany({
-        with: {
-          source_language: true,
-          target_language: true
-        }
-      })
-    )
-  );
-
-  // Load stored filter settings on component mount
+  // Filter projects when filters change
   useEffect(() => {
-    const loadSavedFilters = async () => {
-      try {
-        const savedSourceFilter = await AsyncStorage.getItem(SOURCE_FILTER_KEY);
-        const savedTargetFilter = await AsyncStorage.getItem(TARGET_FILTER_KEY);
+    void filterProjects();
+  }, [sourceFilter, targetFilter, projects]);
 
-        if (savedSourceFilter !== null) {
-          setSourceFilter(savedSourceFilter);
-        }
+  const filterProjects = () => {
+    if (!projects) return;
+    try {
+      // Start with all projects
+      const filtered = [...projects];
 
-        if (savedTargetFilter !== null) {
-          setTargetFilter(savedTargetFilter);
+      // Get all languages to avoid repeated calls
+
+      // Create a new array with filtered results
+      const results = [];
+
+      // Go through each project
+      for (const project of filtered) {
+        // Find the source and target language objects
+        const sourceLanguage = allLanguages?.find(
+          (l) => l.id === project.source_language_id
+        );
+        const targetLanguage = allLanguages?.find(
+          (l) => l.id === project.target_language_id
+        );
+
+        // Get language names (prefer native name, fall back to English name)
+        const sourceName =
+          sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
+        const targetName =
+          targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
+
+        // Check if this project matches the filters
+        const sourceMatch =
+          sourceFilter === 'All' || sourceFilter === sourceName;
+
+        const targetMatch =
+          targetFilter === 'All' || targetFilter === targetName;
+
+        // If both filters match, include this project
+        if (sourceMatch && targetMatch) {
+          results.push(project);
         }
-      } catch (error) {
-        console.error('Error loading saved filters:', error);
       }
-    };
 
-    void loadSavedFilters();
-  }, []);
-
-  // Save filter settings when they change
-  useEffect(() => {
-    const saveFilters = async () => {
-      try {
-        await AsyncStorage.setItem(SOURCE_FILTER_KEY, sourceFilter);
-        await AsyncStorage.setItem(TARGET_FILTER_KEY, targetFilter);
-      } catch (error) {
-        console.error('Error saving filters:', error);
-      }
-    };
-
-    void saveFilters();
-  }, [sourceFilter, targetFilter]);
-
-  // Update language lists when projects change
-  useEffect(() => {
-    if (projects.length > 0) {
-      const uniqueSourceLanguages = [
-        ...new Set(
-          projects.map(
-            (p) =>
-              p.source_language.native_name ??
-              p.source_language.english_name ??
-              ''
-          )
-        )
-      ].filter(Boolean);
-
-      const uniqueTargetLanguages = [
-        ...new Set(
-          projects.map(
-            (p) =>
-              p.target_language.native_name ??
-              p.target_language.english_name ??
-              ''
-          )
-        )
-      ].filter(Boolean);
-
-      setSourceLanguages(uniqueSourceLanguages);
-      setTargetLanguages(uniqueTargetLanguages);
+      // Update the filtered projects state
+      setFilteredProjects(results);
+    } catch (error) {
+      console.error('Error filtering projects:', error);
+      // Fall back to showing all projects if filtering fails
+      setFilteredProjects(projects);
     }
-  }, [projects]);
-
-  // Filter projects based on selected languages
-  const filteredProjects = projects.filter((project) => {
-    const sourceName =
-      project.source_language.native_name ??
-      project.source_language.english_name ??
-      '';
-    const targetName =
-      project.target_language.native_name ??
-      project.target_language.english_name ??
-      '';
-
-    const sourceMatch = sourceFilter === 'All' || sourceFilter === sourceName;
-    const targetMatch = targetFilter === 'All' || targetFilter === targetName;
-
-    return sourceMatch && targetMatch;
-  });
+  };
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
@@ -400,21 +335,40 @@ export default function Projects() {
 
   // Custom setSourceFilter function that validates against available options
   const handleSourceFilterChange = (value: string) => {
-    if (value === 'All' || sourceLanguages.includes(value)) {
-      setSourceFilter(value);
-    } else {
-      setSourceFilter('All');
-    }
+    setSourceFilter(value);
   };
 
   // Custom setTargetFilter function that validates against available options
   const handleTargetFilterChange = (value: string) => {
-    if (value === 'All' || targetLanguages.includes(value)) {
-      setTargetFilter(value);
-    } else {
-      setTargetFilter('All');
-    }
+    setTargetFilter(value);
   };
+
+  if (!projects) return null;
+
+  const uniqueSourceLanguageIds = [
+    ...new Set(projects.map((project) => project.source_language_id))
+  ];
+
+  // Get unique target languages from projects
+  const uniqueTargetLanguageIds = [
+    ...new Set(projects.map((project) => project.target_language_id))
+  ];
+
+  // Filter and map source languages
+  const sourceLanguages = uniqueSourceLanguageIds
+    .map((id) => {
+      const lang = allLanguages?.find((l) => l.id === id);
+      return lang?.native_name ?? lang?.english_name ?? null;
+    })
+    .filter((name): name is string => name !== null);
+
+  // Filter and map target languages
+  const targetLanguages = uniqueTargetLanguageIds
+    .map((id) => {
+      const lang = allLanguages?.find((l) => l.id === id);
+      return lang?.native_name ?? lang?.english_name ?? null;
+    })
+    .filter((name): name is string => name !== null);
 
   return (
     <LinearGradient
@@ -450,7 +404,7 @@ export default function Projects() {
             />
           </View>
 
-          <FlatList
+          <FlashList
             data={filteredProjects}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleExplore(item)}>
@@ -458,7 +412,8 @@ export default function Projects() {
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id}
-            style={sharedStyles.list}
+            // style={sharedStyles.list}
+            estimatedItemSize={200}
           />
         </View>
       </SafeAreaView>

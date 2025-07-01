@@ -3,6 +3,7 @@ import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
 import type { blocked_content, reports } from '@/db/drizzleSchema';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { hasUserReported } from './db/useReports';
 
 export const useReports = (
   recordId: string,
@@ -17,7 +18,7 @@ export const useReports = (
       console.log('recordId', recordId);
       console.log('recordTable', recordTable);
       console.log('reporterId', reporterId);
-      return reportService.hasUserReported(recordId, recordTable, reporterId!);
+      return hasUserReported(recordId, recordTable, reporterId!);
     },
     enabled: !!reporterId
   });

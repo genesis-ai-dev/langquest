@@ -1,7 +1,6 @@
 // In a new hook file (useAttachmentStates.ts)
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
-import { AttachmentState } from '@powersync/attachments';
 import { getLocalUriFromAssetId } from '../utils/attachmentUtils';
 
 export function useAttachmentStates(attachmentIds: string[]) {
@@ -56,17 +55,17 @@ export function useAttachmentStates(attachmentIds: string[]) {
     system.powersync
       .getAll(`SELECT * FROM attachments WHERE id IN (${idsString})`)
       .then((attachments) => {
-        processAttachments(attachments);
+        void processAttachments(attachments);
       })
       .catch((error) => {
         console.error('[useAttachmentStates] Error in initial query:', error);
       });
 
     // Function to process attachments
-    const processAttachments = async (attachments: any[]) => {
+    const processAttachments = (attachments: any[]) => {
       // Use functional state update to ensure we're building on the latest state
       let newUris: Record<string, string> = {};
-      let hasChanges = false;
+      const hasChanges = false;
 
       // First get current values to work with
       setAttachmentUris((currentUris) => {

@@ -1,3 +1,5 @@
+import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
+import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -7,7 +9,6 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { and, eq, isNotNull } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 import type * as drizzleSchema from '../drizzleSchema';
 
@@ -269,9 +270,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
     try {
       // 1. Get the asset itself for images
-      const asset = await this.db.query.asset.findFirst({
-        where: (a) => eq(a.id, assetId)
-      });
+      const asset = await getAssetById(assetId);
 
       if (asset?.images) {
         // console.log(
@@ -281,15 +280,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       }
 
       // 2. Get asset_content_link entries for audio
-      const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (acl) => and(eq(acl.asset_id, assetId), isNotNull(acl.audio_id))
-      });
+      const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
+        ?.filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
 
-      if (contentAudioIds.length > 0) {
+      if (contentAudioIds?.length) {
         // console.log(
         //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
         // );
@@ -297,15 +294,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       }
 
       // 3. Get translations for the asset and their audio
-      const translations = await this.db.query.translation.findMany({
-        where: (t) => and(eq(t.asset_id, assetId), isNotNull(t.audio))
-      });
+      const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio)
+        ?.filter((translation) => translation.audio)
         .map((translation) => translation.audio!);
 
-      if (translationAudioIds.length > 0) {
+      if (translationAudioIds?.length) {
         // console.log(
         //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
         // );

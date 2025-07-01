@@ -1,15 +1,13 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { downloadService } from '@/database_services/downloadService';
 import type { profile, project } from '@/db/drizzleSchema';
-import {
-  invite,
-  profile_project_link,
-  project_download,
-  request
-} from '@/db/drizzleSchema';
+import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import {
+  downloadRecord,
+  useProjectsDownloadStatus
+} from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
@@ -108,18 +106,7 @@ export default function NotificationsPage() {
 
   // Query for existing project download statuses
   const projectIds = inviteNotifications.map((item) => item.project_id);
-  const { data: projectDownloadData = [] } = useQuery({
-    queryKey: ['project-downloads', currentUser?.id, projectIds],
-    query: toCompilableQuery(
-      drizzleDb.query.project_download.findMany({
-        where: and(
-          eq(project_download.profile_id, currentUser?.id || ''),
-          eq(project_download.active, true)
-        )
-      })
-    ),
-    enabled: !!currentUser?.id && projectIds.length > 0
-  });
+  const { projectStatuses } = useProjectsDownloadStatus(projectIds);
 
   // Initialize download toggles for invites
   useEffect(() => {
@@ -131,16 +118,14 @@ export default function NotificationsPage() {
         // Only initialize if not already set
         if (newToggles[notification.id] === undefined) {
           // Check if project is already downloaded
-          const isDownloaded = projectDownloadData.some(
-            (pd) => pd.project_id === notification.project_id
-          );
+          const isDownloaded = !!projectStatuses[notification.project_id];
           // Default to true (download) unless already downloaded
           newToggles[notification.id] = !isDownloaded;
         }
       });
       return newToggles;
     });
-  }, [inviteNotifications.length, projectDownloadData.length]);
+  }, [inviteNotifications.length, projectStatuses]);
 
   // Query for request notifications (where user is project owner)
   // First get all projects where the user is an owner
@@ -290,11 +275,7 @@ export default function NotificationsPage() {
         // Handle project download if requested
         if (shouldDownload && currentUser) {
           try {
-            await downloadService.setProjectDownload(
-              currentUser.id,
-              projectId,
-              true
-            );
+            await downloadRecord('project', projectId, false);
           } catch (downloadError) {
             console.error(
               '[handleAccept] Error setting project download:',

@@ -1,13 +1,10 @@
-import { useSystem } from '@/contexts/SystemContext';
-import { language } from '@/db/drizzleSchema';
+import type { language } from '@/db/drizzleSchema';
+import { useUIReadyLanguages } from '@/hooks/db/useLanguages';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
-import { eq } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
+import { default as React, useEffect, useState } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
 type Language = typeof language.$inferSelect;
@@ -25,29 +22,23 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   onChange,
   setLanguagesLoaded
 }) => {
-  const { db } = useSystem();
   const [showLanguages, setShowLanguages] = useState(false);
   const setLanguage = useLocalStore((state) => state.setLanguage);
   const savedLanguage = useLocalStore((state) => state.language);
   const { t } = useLocalization();
 
-  const { data: languages } = useQuery(
-    toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.ui_ready, true)
-      })
-    )
-  );
+  const { languages } = useUIReadyLanguages();
 
   useEffect(() => {
-    if (languages.length > 0) {
+    if (languages && languages.length > 0) {
       setLanguagesLoaded?.(true);
     }
   }, [languages, setLanguagesLoaded]);
 
-  const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
+  const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
   const selectedLanguage =
-    languages.find((l) => l.id === value) ?? savedLanguage;
+    languages?.find((l) => l.id === value) ?? savedLanguage;
+
   return (
     <CustomDropdown
       renderLeftIcon={() => (
@@ -61,11 +52,11 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
       value={
         selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
       }
-      options={languages
-        .filter((l) => l.native_name)
-        .map((l) => l.native_name!)}
+      options={
+        languages?.filter((l) => l.native_name).map((l) => l.native_name!) ?? []
+      }
       onSelect={(langName) => {
-        const lang = languages.find((l) => l.native_name === langName);
+        const lang = languages?.find((l) => l.native_name === langName);
         if (lang) {
           setLanguage(lang);
           onChange?.(lang);

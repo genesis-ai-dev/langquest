@@ -1,11 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystem } from '@/contexts/SystemContext';
-import { downloadService } from '@/database_services/downloadService';
-import {
-  profile_project_link,
-  project_download,
-  request
-} from '@/db/drizzleSchema';
+import { profile_project_link, request } from '@/db/drizzleSchema';
+import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
 import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
@@ -117,24 +113,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
   });
 
-  // Query for existing project download status
-  const { data: projectDownloadData = [] } = useQuery({
-    queryKey: ['project-download-status', currentUser?.id, projectId],
-    query: toCompilableQuery(
-      db.query.project_download.findMany({
-        where: and(
-          eq(project_download.profile_id, currentUser?.id || ''),
-          eq(project_download.project_id, projectId),
-          eq(project_download.active, true)
-        )
-      })
-    ),
-    enabled: !!currentUser?.id && !!projectId
-  });
-
   const isMember = membershipLinks.length > 0;
   const existingRequest = existingRequests[0];
-  const isProjectDownloaded = projectDownloadData.length > 0;
+  const { isDownloaded: isProjectDownloaded, mutation } = useDownload(
+    'project',
+    projectId
+  );
 
   // Auto-close modal and trigger navigation when user becomes a member (modal mode only)
   useEffect(() => {
@@ -190,11 +174,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       // Handle project download if toggle is enabled and not already downloaded
       if (autoDownload && !isProjectDownloaded) {
         try {
-          await downloadService.setProjectDownload(
-            currentUser.id,
-            projectId,
-            true
-          );
+          await mutation.mutateAsync(true);
           console.log(
             '[handleRequestMembership] Project download set successfully'
           );

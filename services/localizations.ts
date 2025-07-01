@@ -5,10 +5,10 @@ export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
 export type LocalizationKey = keyof typeof localizations;
 
 // Type to ensure all translations have all supported languages
-type LocalizationSet = Record<SupportedLanguage, string>;
+// type LocalizationSet = Record<SupportedLanguage, string>;
 
 // All UI translations
-export const localizations: Record<string, LocalizationSet> = {
+export const localizations = {
   accept: {
     english: 'Accept',
     spanish: 'Aceptar',
@@ -1368,6 +1368,62 @@ export const localizations: Record<string, LocalizationSet> = {
     english: 'Failed to resend invitation',
     spanish: 'Error al reenviar invitación',
     brazilian_portuguese: 'Falha ao reenviar convite'
+  },
+  // Restore-related translations
+  restoreAndroidOnly: {
+    english: 'Restore is only available on Android',
+    spanish: 'La restauración solo está disponible en Android',
+    brazilian_portuguese: 'A restauração só está disponível no Android'
+  },
+  permissionDenied: {
+    english: 'Permission Denied',
+    spanish: 'Permiso Denegado',
+    brazilian_portuguese: 'Permissão Negada'
+  },
+  confirmAudioRestore: {
+    english: 'Confirm Audio Restore',
+    spanish: 'Confirmar Restauración de Audio',
+    brazilian_portuguese: 'Confirmar Restauração de Áudio'
+  },
+  confirmAudioRestoreMessage: {
+    english: 'This will restore your audio files from the backup. Continue?',
+    spanish:
+      'Esto restaurará sus archivos de audio desde la copia de seguridad. ¿Continuar?',
+    brazilian_portuguese:
+      'Isso restaurará seus arquivos de áudio do backup. Continuar?'
+  },
+  restoreAudioOnly: {
+    english: 'Restore Audio',
+    spanish: 'Restaurar Audio',
+    brazilian_portuguese: 'Restaurar Áudio'
+  },
+  failedRestore: {
+    english: 'Failed to restore: {{error}}',
+    spanish: 'Error al restaurar: {{error}}',
+    brazilian_portuguese: 'Falha ao restaurar: {{error}}'
+  },
+  restoreCompleteBase: {
+    english:
+      'Restore completed: {{audioCopied}} audio files copied, {{audioSkippedDueToError}} skipped due to errors',
+    spanish:
+      'Restauración completada: {{audioCopied}} archivos de audio copiados, {{audioSkippedDueToError}} omitidos por errores',
+    brazilian_portuguese:
+      'Restauração concluída: {{audioCopied}} arquivos de áudio copiados, {{audioSkippedDueToError}} ignorados por erros'
+  },
+  restoreSkippedLocallyPart: {
+    english: ', {{audioSkippedLocally}} skipped (already exists)',
+    spanish: ', {{audioSkippedLocally}} omitidos (ya existen)',
+    brazilian_portuguese: ', {{audioSkippedLocally}} ignorados (já existem)'
+  },
+  restoreCompleteTitle: {
+    english: 'Restore Complete',
+    spanish: 'Restauración Completa',
+    brazilian_portuguese: 'Restauração Concluída'
+  },
+  restoreFailedTitle: {
+    english: 'Restore Failed: {{error}}',
+    spanish: 'Restauración Fallida: {{error}}',
+    brazilian_portuguese: 'Restauração Falhou: {{error}}'
   }
 } as const;
 

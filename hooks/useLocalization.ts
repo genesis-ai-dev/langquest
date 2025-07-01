@@ -1,12 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { languageService } from '@/database_services/languageService';
 import type {
   LocalizationKey,
   SupportedLanguage
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
-import { useEffect, useState } from 'react';
+import { useLanguageById } from './db/useLanguages';
 
 // Define a type for interpolation values
 // Use a Record as preferred by linter
@@ -15,20 +14,10 @@ export type InterpolationValues = Record<string, string | number>;
 export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const currentLanguage = useLocalStore((state) => state.language);
-  const [profileLanguage, setProfileLanguage] = useState<Awaited<
-    ReturnType<typeof languageService.getLanguageById>
-  > | null>(null);
 
-  useEffect(() => {
-    const getLanguage = async () => {
-      if (!currentUser?.ui_language_id) return;
-      const language = await languageService.getLanguageById(
-        currentUser.ui_language_id
-      );
-      setProfileLanguage(language);
-    };
-    void getLanguage();
-  }, [currentUser]);
+  const { language: profileLanguage } = useLanguageById(
+    currentUser?.ui_language_id ?? undefined
+  );
 
   // Get language with priority:
   // 1. Manual override (provided as prop)
@@ -51,8 +40,7 @@ export function useLocalization(languageOverride?: string | null) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString =
-      localizations[key]![userLanguage] || localizations[key]!.english;
+    let translatedString = localizations[key][userLanguage] as string;
 
     // If options is a number, treat as a single value for a placeholder like {{value}}
     if (typeof options === 'number') {
