@@ -7,7 +7,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
-// import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+import { useDownload } from '@/hooks/useDownloads';
 import {
   borderRadius,
   colors,
@@ -88,20 +88,18 @@ const filterAssets = (
 function AssetCard({ asset }: { asset: Asset }) {
   // const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
-  // const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
-  //   useAttachmentAssetDownloadStatus([asset.id]);
 
-  // const {
-  //   isDownloaded,
-  //   isLoading: isDownloadLoading,
-  //   toggleDownload
-  // } = useDownload('asset', asset.id);
+  const {
+    isDownloaded,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useDownload('asset', asset.id);
 
   // const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
 
-  // const handleDownloadToggle = async () => {
-  //   await toggleDownload();
-  // };
+  const handleDownloadToggle = async () => {
+    await toggleDownload();
+  };
 
   // Aggregate translations by gem color
   // const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
@@ -140,20 +138,13 @@ function AssetCard({ asset }: { asset: Asset }) {
           isPrivate={activeProject?.private || false}
           action="download"
           allowBypass={true}
-          // onBypass={handleDownloadToggle}
+          onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              // isDownloaded={isDownloaded && assetsDownloaded}
-              isDownloaded={false}
-              // isLoading={isLoadingDownloadStatus || isDownloadLoading}
-              isLoading={false}
+              isDownloaded={isDownloaded}
+              isLoading={isDownloadLoading}
               onPress={
-                // hasAccess || isDownloaded ? handleDownloadToggle : onPress
-                hasAccess
-                  ? onPress
-                  : () => {
-                      console.log('no access');
-                    }
+                hasAccess || isDownloaded ? handleDownloadToggle : onPress
               }
             />
           )}

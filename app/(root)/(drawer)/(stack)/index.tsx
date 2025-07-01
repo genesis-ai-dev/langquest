@@ -2,13 +2,11 @@ import { CustomDropdown } from '@/components/CustomDropdown';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
@@ -45,12 +43,12 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 }) => {
   const { currentUser } = useAuth();
   const { db } = system;
-  const [progress] = useState({
-    approvedPercentage: 0,
-    userContributedPercentage: 0,
-    pendingTranslationsCount: 0,
-    totalAssets: 0
-  });
+  // const [progress] = useState({
+  //   approvedPercentage: 0,
+  //   userContributedPercentage: 0,
+  //   pendingTranslationsCount: 0,
+  //   totalAssets: 0
+  // });
 
   // Use the new download hook
   const {
@@ -67,7 +65,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   );
 
   // Only get asset IDs for download status, not full assets
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  // const [assetIds, setAssetIds] = useState<string[]>([]);
 
   const { data: membershipData = [] } = useQuery(
     toCompilableQuery(
@@ -85,9 +83,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     | 'owner'
     | 'member'
     | undefined;
-
-  const { isDownloaded: assetsDownloaded, isLoading } =
-    useAttachmentAssetDownloadStatus(assetIds);
 
   const handleDownloadToggle = async () => {
     await toggleDownload();
@@ -139,8 +134,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             onBypass={handleDownloadToggle}
             renderTrigger={({ onPress, hasAccess }) => (
               <DownloadIndicator
-                isDownloaded={isDownloaded && assetsDownloaded}
-                isLoading={isLoading || isDownloadLoading}
+                isDownloaded={isDownloaded}
+                isLoading={isDownloadLoading}
                 onPress={
                   hasAccess || isDownloaded ? handleDownloadToggle : onPress
                 }
@@ -156,13 +151,11 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
       {/* Temporarily disabled progress bars to prevent performance issues */}
       {/* TODO: Implement efficient progress calculation */}
-      {false && (
-        <ProgressBars
+      {/* <ProgressBars
           approvedPercentage={progress.approvedPercentage}
           userContributedPercentage={progress.userContributedPercentage}
           pickaxeCount={progress.pendingTranslationsCount}
-        />
-      )}
+        /> */}
 
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>

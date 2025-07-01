@@ -82,7 +82,6 @@ BEGIN
                     {
                         "table": "quest_tag_link",
                         "idField": "tag_id",
-                        "keyFields": ["tag_id", "quest_id"],
                         "parentField": "quest_id",
                         "children": [
                             {
@@ -94,7 +93,6 @@ BEGIN
                     {
                         "table": "quest_asset_link",
                         "idField": "asset_id",
-                        "keyFields": ["asset_id", "quest_id"],
                         "parentField": "quest_id",
                         "children": [
                             {
@@ -109,7 +107,6 @@ BEGIN
                                     {
                                         "table": "asset_tag_link",
                                         "idField": "tag_id",
-                                        "keyFields": ["tag_id", "asset_id"],
                                         "parentField": "asset_id",
                                         "children": [
                                             {
@@ -120,7 +117,6 @@ BEGIN
                                     },
                                     {
                                         "table": "asset_content_link",
-                                        "idField": "id",
                                         "parentField": "asset_id"
                                     },
                                     {
@@ -189,18 +185,10 @@ RETURNS text
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
-DECLARE
-    v_key_fields jsonb;
 BEGIN
-    -- First check if idField is explicitly set
+    -- Check if idField is explicitly set
     IF p_node->>'idField' IS NOT NULL THEN
         RETURN p_node->>'idField';
-    END IF;
-    
-    -- For composite key tables, use the first key field
-    v_key_fields := p_node->'keyFields';
-    IF v_key_fields IS NOT NULL AND jsonb_typeof(v_key_fields) = 'array' THEN
-        RETURN v_key_fields->>0;
     END IF;
     
     -- Default to 'id'
@@ -298,7 +286,8 @@ BEGIN
     END IF;
     
     -- Get all record IDs that match the where clause
-    v_sql := format('SELECT array_agg(id) FROM %I WHERE %s', p_table_name, v_final_where_clause);
+    v_sql := format('SELECT array_agg(%I) FROM %I WHERE %s', 
+        get_id_field_for_table(p_table_name), p_table_name, v_final_where_clause);
     
     EXECUTE v_sql INTO v_record_ids;
     
@@ -324,8 +313,8 @@ BEGIN
                 SET download_profiles = normalize_download_profiles(
                     array_remove(download_profiles, %L::uuid)
                 )
-                WHERE id = %L
-            ', p_table_name, p_profile_id, v_record_id);
+                WHERE %I = %L
+            ', p_table_name, p_profile_id, get_id_field_for_table(p_table_name), v_record_id);
         END IF;
     END LOOP;
 END;
@@ -497,50 +486,7 @@ BEGIN
 END;
 $$;
 
--- Count references from composite key link tables
-CREATE OR REPLACE FUNCTION count_composite_key_references_to_record(
-    p_tree jsonb,
-    p_target_table text,
-    p_target_record_id uuid,
-    p_profile_id uuid
-)
-RETURNS integer
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_total_count integer := 0;
-    v_count integer := 0;
-    v_link_table text;
-    v_target_field text;
-    v_parent_field text;
-    v_parent_table text;
-    v_sql text;
-BEGIN
-    -- Find all composite key link tables that reference the target table
-    FOR v_link_table, v_target_field, v_parent_field, v_parent_table IN
-        SELECT 
-            link_info.link_table,
-            link_info.target_field,
-            link_info.parent_field,
-            link_info.parent_table
-        FROM find_composite_key_links_to_table(p_tree, p_target_table) as link_info
-    LOOP
-        -- Count downloaded parent records that are linked to this target record
-        v_sql := format('
-            SELECT COUNT(DISTINCT p.id)
-            FROM %I p
-            JOIN %I l ON l.%I = p.id
-            WHERE l.%I = %L
-              AND p.download_profiles @> ARRAY[%L]
-        ', v_parent_table, v_link_table, v_parent_field, v_target_field, p_target_record_id, p_profile_id);
-        
-        EXECUTE v_sql INTO v_count;
-        v_total_count := v_total_count + v_count;
-    END LOOP;
-    
-    RETURN v_total_count;
-END;
-$$;
+
 
 -- Helper function to find all parent relationships for a table in the tree
 CREATE OR REPLACE FUNCTION find_all_parent_relationships(
@@ -609,63 +555,7 @@ BEGIN
 END;
 $$;
 
--- Helper function to find composite key link tables that reference a target table
-CREATE OR REPLACE FUNCTION find_composite_key_links_to_table(
-    p_tree jsonb,
-    p_target_table text
-)
-RETURNS TABLE(
-    link_table text,
-    target_field text,
-    parent_field text,
-    parent_table text
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RETURN QUERY
-    WITH RECURSIVE tree_traversal AS (
-        -- Base case: start with root
-        SELECT p_tree as node, NULL::jsonb as parent
-        
-        UNION ALL
-        
-        -- Recursive case: traverse children
-        SELECT 
-            child.value as node,
-            t.node as parent
-        FROM tree_traversal t,
-             jsonb_array_elements(t.node->'children') as child
-        WHERE t.node->'children' IS NOT NULL
-    )
-    SELECT DISTINCT
-        t.node->>'table' as link_table,
-        CASE 
-            -- If the link table references our target table directly
-            WHEN EXISTS (
-                SELECT 1 FROM jsonb_array_elements(t.node->'children') as child_elem
-                WHERE child_elem->>'table' = p_target_table
-            ) THEN 
-                -- Find the field name that references the target table
-                CASE p_target_table
-                    WHEN 'tag' THEN 'tag_id'
-                    WHEN 'asset' THEN 'asset_id'
-                    WHEN 'quest' THEN 'quest_id'
-                    ELSE 'id'
-                END
-            ELSE NULL
-        END as target_field,
-        t.node->>'parentField' as parent_field,
-        t.parent->>'table' as parent_table
-    FROM tree_traversal t
-    WHERE t.node->'keyFields' IS NOT NULL  -- This is a composite key table
-      AND t.parent IS NOT NULL
-      AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements(t.node->'children') as child_elem
-          WHERE child_elem->>'table' = p_target_table
-      );
-END;
-$$;
+
 
 -- Get download_profiles from a parent record
 CREATE OR REPLACE FUNCTION get_parent_download_profiles(
@@ -676,16 +566,13 @@ RETURNS uuid[]
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_parent_id_field text;
     v_parent_profiles uuid[];
 BEGIN
-    v_parent_id_field := get_id_field_for_table(p_parent_table);
-    
     EXECUTE format('
         SELECT download_profiles 
         FROM %I 
         WHERE %I = %L
-    ', p_parent_table, v_parent_id_field, p_parent_id) INTO v_parent_profiles;
+    ', p_parent_table, get_id_field_for_table(p_parent_table), p_parent_id) INTO v_parent_profiles;
     
     RETURN v_parent_profiles;
 END;
@@ -713,12 +600,12 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_child_table text;
-    v_id_field text;
+    v_child_id_field text;
     v_child_ids uuid[];
     v_sql text;
 BEGIN
     v_child_table := p_child_node->>'table';
-    v_id_field := get_id_field_from_node(p_child_node);
+    v_child_id_field := get_id_field_from_node(p_child_node);
     
     -- Check if this is a reverse relationship (parent has FK to child)
     IF p_child_node->'childField' IS NOT NULL THEN
@@ -726,16 +613,17 @@ BEGIN
         v_sql := format('
             SELECT array_agg(DISTINCT %I) 
             FROM %I 
-            WHERE id = ANY(%L::uuid[])
+            WHERE %I = ANY(%L::uuid[])
               AND %I IS NOT NULL
-        ', p_child_node->>'childField', p_parent_table, p_parent_ids, p_child_node->>'childField');
+        ', p_child_node->>'childField', p_parent_table, 
+           get_id_field_for_table(p_parent_table), p_parent_ids, p_child_node->>'childField');
     ELSE
         -- Normal relationship (child has FK to parent)
         v_sql := format('
             SELECT array_agg(DISTINCT %I) 
             FROM %I 
             WHERE %I = ANY(%L::uuid[])
-        ', v_id_field, v_child_table, p_child_node->>'parentField', p_parent_ids);
+        ', v_child_id_field, v_child_table, p_child_node->>'parentField', p_parent_ids);
     END IF;
     
     EXECUTE v_sql INTO v_child_ids;
@@ -786,7 +674,7 @@ BEGIN
         p_table_name, 
         p_profile_id, 
         p_operation,
-        'id = ANY(%L::uuid[])',
+        format('%I = ANY(%%L::uuid[])', get_id_field_for_table(p_table_name)),
         ARRAY[p_record_ids::text]
     );
     
@@ -795,88 +683,24 @@ BEGIN
     IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
-            -- Check if this is a composite key table
-            IF v_child->'keyFields' IS NOT NULL THEN
-                -- Handle composite key tables
-                PERFORM process_composite_key_table(
-                    v_child,
-                    p_record_ids,
-                    p_profile_id,
-                    p_operation,
-                    v_child->>'parentField'
+            -- Handle all tables the same way
+            v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
+            
+            -- Recursively process children
+            IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
+                PERFORM process_download_tree(
+                    v_child->>'table', 
+                    v_child_ids, 
+                    p_profile_id, 
+                    p_operation
                 );
-            ELSE
-                -- Handle regular tables
-                v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
-                
-                -- Recursively process children
-                IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
-                    PERFORM process_download_tree(
-                        v_child->>'table', 
-                        v_child_ids, 
-                        p_profile_id, 
-                        p_operation
-                    );
-                END IF;
             END IF;
         END LOOP;
     END IF;
 END;
 $$;
 
--- Helper function to process composite key tables
-CREATE OR REPLACE FUNCTION process_composite_key_table(
-    p_node jsonb,
-    p_parent_ids uuid[],
-    p_profile_id uuid,
-    p_operation text,
-    p_parent_field text
-)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_table_name text;
-    v_id_field text;
-    v_child_ids uuid[];
-    v_children jsonb;
-    v_child jsonb;
-BEGIN
-    v_table_name := p_node->>'table';
-    v_id_field := get_id_field_from_node(p_node);
-    
-    -- Update download_profiles for the composite key table using helper
-    PERFORM update_download_profiles(
-        v_table_name,
-        p_profile_id,
-        p_operation,
-        format('%I = ANY(%%L::uuid[])', p_parent_field),
-        ARRAY[p_parent_ids::text]
-    );
-    
-    -- Get the IDs for child processing
-    EXECUTE format('
-        SELECT array_agg(DISTINCT %I) 
-        FROM %I 
-        WHERE %I = ANY(%L::uuid[])
-    ', v_id_field, v_table_name, p_parent_field, p_parent_ids) INTO v_child_ids;
-    
-    -- Process children if any
-    v_children := p_node->'children';
-    IF is_non_empty_array(v_children) AND 
-       v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
-        FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
-        LOOP
-            PERFORM process_download_tree(
-                v_child->>'table', 
-                v_child_ids, 
-                p_profile_id, 
-                p_operation
-            );
-        END LOOP;
-    END IF;
-END;
-$$;
+
 
 -- Helper function to normalize download_profiles (convert empty arrays to null)
 CREATE OR REPLACE FUNCTION normalize_download_profiles(p_profiles uuid[])
@@ -1363,7 +1187,6 @@ DECLARE
     v_child jsonb;
     v_child_ids uuid[];
     v_child_records jsonb;
-    v_id_field text;
     v_sql text;
     v_record jsonb;
 BEGIN
@@ -1375,14 +1198,13 @@ BEGIN
         );
     END IF;
     
-    v_id_field := get_id_field_from_node(p_node);
-    
     -- Get the records for current table
     v_sql := format('
         SELECT jsonb_agg(%I) 
         FROM %I 
         WHERE %I = ANY(%L::uuid[])
-    ', v_id_field, p_table_name, v_id_field, p_record_ids);
+    ', get_id_field_for_table(p_table_name), p_table_name, 
+      get_id_field_for_table(p_table_name), p_record_ids);
     
     EXECUTE v_sql INTO v_records;
     
@@ -1397,30 +1219,20 @@ BEGIN
     IF is_non_empty_array(v_children) THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
-            -- Check if this is a composite key table
-            IF v_child->'keyFields' IS NOT NULL THEN
-                -- Handle composite key tables
-                v_child_records := get_composite_key_child_records(
+            -- Handle all tables the same way
+            v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
+            
+            IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
+                v_child_records := get_records_for_node(
                     v_child,
-                    p_table_name,
-                    p_record_ids
+                    v_child->>'table',
+                    v_child_ids
                 );
             ELSE
-                -- Handle regular tables
-                v_child_ids := get_child_ids_for_node(v_child, p_table_name, p_record_ids);
-                
-                IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
-                    v_child_records := get_records_for_node(
-                        v_child,
-                        v_child->>'table',
-                        v_child_ids
-                    );
-                ELSE
-                    v_child_records := jsonb_build_object(
-                        'ids', '[]'::jsonb,
-                        'children', '{}'::jsonb
-                    );
-                END IF;
+                v_child_records := jsonb_build_object(
+                    'ids', '[]'::jsonb,
+                    'children', '{}'::jsonb
+                );
             END IF;
             
             -- Add child records to result
@@ -1436,89 +1248,7 @@ BEGIN
 END;
 $$;
 
--- Helper function to get composite key child records
-CREATE OR REPLACE FUNCTION get_composite_key_child_records(
-    p_node jsonb,
-    p_parent_table text,
-    p_parent_ids uuid[]
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_table_name text;
-    v_id_field text;
-    v_parent_field text;
-    v_key_fields text[];
-    v_child_ids uuid[];
-    v_records jsonb;
-    v_children jsonb;
-    v_child jsonb;
-    v_child_records jsonb;
-    v_result jsonb;
-    v_sql text;
-BEGIN
-    v_table_name := p_node->>'table';
-    v_id_field := get_id_field_from_node(p_node);
-    v_parent_field := p_node->>'parentField';
-    
-    -- Get the composite key records
-    v_sql := format('
-        SELECT jsonb_agg(
-            jsonb_build_object(
-                %s
-            )
-        )
-        FROM %I 
-        WHERE %I = ANY(%L::uuid[])
-    ', 
-        -- Build the key fields dynamically
-        (SELECT string_agg(format('%L, %I', elem::text, elem::text), ', ')
-         FROM jsonb_array_elements_text(p_node->'keyFields') elem),
-        v_table_name,
-        v_parent_field,
-        p_parent_ids
-    );
-    
-    EXECUTE v_sql INTO v_records;
-    
-    -- Get the IDs for child processing
-    EXECUTE format('
-        SELECT array_agg(DISTINCT %I) 
-        FROM %I 
-        WHERE %I = ANY(%L::uuid[])
-    ', v_id_field, v_table_name, v_parent_field, p_parent_ids) INTO v_child_ids;
-    
-    -- Initialize result
-    v_result := jsonb_build_object(
-        'ids', COALESCE(v_records, '[]'::jsonb),
-        'children', '{}'::jsonb
-    );
-    
-    -- Process children if any
-    v_children := p_node->'children';
-    IF is_non_empty_array(v_children) AND 
-       v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
-        FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
-        LOOP
-            v_child_records := get_records_for_node(
-                v_child,
-                v_child->>'table',
-                v_child_ids
-            );
-            
-            -- Add child records to result
-            v_result := jsonb_set(
-                v_result,
-                ARRAY['children', v_child->>'table'],
-                v_child_records
-            );
-        END LOOP;
-    END IF;
-    
-    RETURN v_result;
-END;
-$$;
+
 
 CREATE OR REPLACE FUNCTION download_records(
     p_table_name text,
@@ -1624,11 +1354,8 @@ SELECT get_download_tree_structure() AS tree;
 -- GRANT EXECUTE ON FUNCTION get_parent_download_profiles TO authenticated;
 -- GRANT EXECUTE ON FUNCTION is_non_empty_array TO authenticated;
 -- GRANT EXECUTE ON FUNCTION get_child_ids_for_node TO authenticated;
--- GRANT EXECUTE ON FUNCTION count_records_with_profile TO authenticated;
 -- GRANT EXECUTE ON FUNCTION process_download_tree TO authenticated;
--- GRANT EXECUTE ON FUNCTION process_composite_key_table TO authenticated;
 -- GRANT EXECUTE ON FUNCTION normalize_download_profiles TO authenticated;
--- GRANT EXECUTE ON FUNCTION is_downloaded TO authenticated;
 -- GRANT EXECUTE ON FUNCTION propagate_download_profiles_on_insert TO authenticated;
 -- GRANT EXECUTE ON FUNCTION find_parent_table_for_field TO authenticated;
 -- GRANT EXECUTE ON FUNCTION has_child_table TO authenticated;
@@ -1638,9 +1365,6 @@ SELECT get_download_tree_structure() AS tree;
 -- GRANT EXECUTE ON FUNCTION handle_download_profiles_update TO authenticated;
 -- GRANT EXECUTE ON FUNCTION handle_parent_change_update TO authenticated;
 -- GRANT EXECUTE ON FUNCTION create_download_update_triggers TO authenticated;
--- GRANT EXECUTE ON FUNCTION backfill_download_profiles TO authenticated;
--- GRANT EXECUTE ON FUNCTION refresh_download_profiles TO authenticated;
 -- GRANT EXECUTE ON FUNCTION get_all_related_records TO authenticated;
 -- GRANT EXECUTE ON FUNCTION get_records_for_node TO authenticated;
--- GRANT EXECUTE ON FUNCTION get_composite_key_child_records TO authenticated;
 -- GRANT SELECT ON download_tree_structure TO authenticated; 

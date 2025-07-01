@@ -9,6 +9,7 @@ import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 // import { system } from '../powersync/system';
 import { getCurrentUser } from '@/contexts/AuthContext';
+import { isNotNull } from 'drizzle-orm';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -67,40 +68,108 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     // Watch for changes in ALL download records
-    this.db.watch(this.db.query.asset.findMany(), {
-      onResult: (assets) => {
-        // const currentUserId = await this.getCurrentUserId();
-        // if (!currentUserId) {
-        //   // User is logged out - don't delete anything, just stop syncing
-        //   onUpdate([]);
-        //   return;
-        // }
+    this.db.watch(
+      this.db.query.asset.findMany({
+        columns: { images: true },
+        where: (asset) => isNotNull(asset.images)
+      }),
+      {
+        onResult: (assets) => {
+          // const currentUserId = await this.getCurrentUserId();
+          // if (!currentUserId) {
+          //   // User is logged out - don't delete anything, just stop syncing
+          //   onUpdate([]);
+          //   return;
+          // }
 
-        // Filter to current user's downloads
-        // const userDownloads = downloads.filter(
-        //   (download) => download.profile_id === currentUserId
-        // );
-        // console.log(`User downloads: ${userDownloads.length}`);
+          // Filter to current user's downloads
+          // const userDownloads = downloads.filter(
+          //   (download) => download.profile_id === currentUserId
+          // );
+          // console.log(`User downloads: ${userDownloads.length}`);
 
-        // Split into active and inactive downloads
-        const runAsync = async () => {
-          // Get all attachments for active assets
+          // Split into active and inactive downloads
           const activeAttachments: string[] = [];
-          for (const asset of assets) {
-            const attachments = await this.getAllAssetAttachments(asset.id);
-            activeAttachments.push(...attachments);
-          }
+          activeAttachments.push(...assets.flatMap((asset) => asset.images!));
 
           // Remove duplicates
           const uniqueActiveAttachments = [...new Set(activeAttachments)];
 
           // Tell PowerSync which attachments to keep synced
           onUpdate(uniqueActiveAttachments);
-        };
-
-        void runAsync();
+        }
       }
-    });
+    );
+
+    this.db.watch(
+      this.db.query.asset_content_link.findMany({
+        columns: { audio_id: true },
+        where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
+      }),
+      {
+        onResult: (asset_content_links) => {
+          // const currentUserId = await this.getCurrentUserId();
+          // if (!currentUserId) {
+          //   // User is logged out - don't delete anything, just stop syncing
+          //   onUpdate([]);
+          //   return;
+          // }
+
+          // Filter to current user's downloads
+          // const userDownloads = downloads.filter(
+          //   (download) => download.profile_id === currentUserId
+          // );
+          // console.log(`User downloads: ${userDownloads.length}`);
+
+          // Split into active and inactive downloads
+          const activeAttachments: string[] = [];
+          activeAttachments.push(
+            ...asset_content_links.flatMap((asset) => asset.audio_id!)
+          );
+
+          // Remove duplicates
+          const uniqueActiveAttachments = [...new Set(activeAttachments)];
+
+          // Tell PowerSync which attachments to keep synced
+          onUpdate(uniqueActiveAttachments);
+        }
+      }
+    );
+
+    this.db.watch(
+      this.db.query.translation.findMany({
+        columns: { audio: true },
+        where: (translation) => isNotNull(translation.audio)
+      }),
+      {
+        onResult: (translations) => {
+          // const currentUserId = await this.getCurrentUserId();
+          // if (!currentUserId) {
+          //   // User is logged out - don't delete anything, just stop syncing
+          //   onUpdate([]);
+          //   return;
+          // }
+
+          // Filter to current user's downloads
+          // const userDownloads = downloads.filter(
+          //   (download) => download.profile_id === currentUserId
+          // );
+          // console.log(`User downloads: ${userDownloads.length}`);
+
+          // Split into active and inactive downloads
+          const activeAttachments: string[] = [];
+          activeAttachments.push(
+            ...translations.flatMap((asset) => asset.audio!)
+          );
+
+          // Remove duplicates
+          const uniqueActiveAttachments = [...new Set(activeAttachments)];
+
+          // Tell PowerSync which attachments to keep synced
+          onUpdate(uniqueActiveAttachments);
+        }
+      }
+    );
 
     // Watch for changes in asset content links
     // this.db.watch(

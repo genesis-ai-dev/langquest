@@ -1,6 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { useAuth } from '@/contexts/AuthContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import type { Project } from '@/hooks/db/useProjects';
@@ -13,12 +12,10 @@ export const QuestCard: React.FC<{
   project: Project;
   quest: Quest & { tags: { tag: Tag }[] };
 }> = React.memo(({ quest, project }) => {
-  const { currentUser: _currentUser } = useAuth();
-
   // Use the new download hook
   const {
     isDownloaded,
-    isLoading: _isDownloadLoading,
+    isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('quest', quest.id);
 
@@ -56,10 +53,8 @@ export const QuestCard: React.FC<{
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              // isDownloaded={isDownloaded && assetsDownloaded}
-              isDownloaded={false}
-              // isLoading={isLoading && isDownloadLoading}
-              isLoading={false}
+              isDownloaded={isDownloaded}
+              isLoading={isDownloadLoading}
               onPress={
                 hasAccess || isDownloaded ? handleDownloadToggle : onPress
               }
