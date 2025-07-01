@@ -3,7 +3,7 @@ import type { CompilableQuery } from '@powersync/react-native';
 import { parseQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
@@ -21,13 +21,13 @@ type HybridQueryOptions<T> = Omit<GetQueryParam<T>, 'queryFn' | 'query'> &
 
 type HybridQueryConfig<T> = (
   | {
-      offlineFn: GetQueryParam<T>['queryFn'];
-      offlineQuery?: never;
-    }
+    offlineFn: GetQueryParam<T>['queryFn'];
+    offlineQuery?: never;
+  }
   | {
-      offlineQuery: string | CompilableQuery<T>;
-      offlineFn?: never;
-    }
+    offlineQuery: string | CompilableQuery<T>;
+    offlineFn?: never;
+  }
 ) & {
   onlineFn: GetQueryParam<T>['queryFn'];
   alwaysOnline?: boolean;
@@ -193,17 +193,17 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
   // Type-narrow the options to call the correct overload
   const result = offlineFn
     ? useHybridQuery<T>({
-        queryKey,
-        offlineFn,
-        onlineFn,
-        ...otherOptions
-      } as HybridQueryOptions<T>)
+      queryKey,
+      offlineFn,
+      onlineFn,
+      ...otherOptions
+    } as HybridQueryOptions<T>)
     : useHybridQuery<T>({
-        queryKey,
-        offlineQuery,
-        onlineFn,
-        ...otherOptions
-      } as HybridQueryOptions<T>);
+      queryKey,
+      offlineQuery,
+      onlineFn,
+      ...otherOptions
+    } as HybridQueryOptions<T>);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -274,13 +274,13 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
  */
 type HybridFetchConfig<T extends Record<string, unknown>> = (
   | {
-      offlineFn: () => Promise<T[] | undefined>;
-      offlineQuery?: never;
-    }
+    offlineFn: () => Promise<T[] | undefined>;
+    offlineQuery?: never;
+  }
   | {
-      offlineQuery: string | CompilableQuery<T>;
-      offlineFn?: never;
-    }
+    offlineQuery: string | CompilableQuery<T>;
+    offlineFn?: never;
+  }
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
@@ -356,4 +356,151 @@ export function convertToFetchConfig<T extends Record<string, unknown>>(
     offlineQuery,
     queryKey
   } as HybridFetchConfig<T>;
+}
+
+/**
+ * Page data structure for hybrid infinite queries
+ */
+interface HybridPageData<T, TPageParam = unknown> {
+  data: T[];
+  nextCursor?: TPageParam;
+  hasMore?: boolean;
+  totalCount?: number;
+}
+
+/**
+ * Configuration for hybrid infinite queries
+ */
+interface HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = unknown> {
+  queryKey: readonly unknown[];
+  onlineFn: (context: { pageParam: TPageParam }) => Promise<HybridPageData<T, TPageParam>>;
+  offlineFn: (context: { pageParam: TPageParam }) => Promise<HybridPageData<T, TPageParam>>;
+  initialPageParam: TPageParam;
+  getNextPageParam: (lastPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
+  getPreviousPageParam?: (firstPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
+  getId?: (record: T | Partial<T>) => string | number;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
+}
+
+/**
+ * useHybridInfiniteQuery
+ *
+ * A hook that provides infinite scrolling with automatic online/offline switching.
+ * Follows TKDodo's best practices for infinite queries with proper TypeScript support.
+ *
+ * @example
+ * const {
+ *   data,
+ *   fetchNextPage,
+ *   hasNextPage,
+ *   isFetching,
+ *   isFetchingNextPage
+ * } = useHybridInfiniteQuery({
+ *   queryKey: ['assets', 'paginated', questId],
+ *   onlineFn: async ({ pageParam = 0 }: { pageParam: number }) => {
+ *     const response = await supabaseClient
+ *       .from('assets')
+ *       .select('*')
+ *       .range(pageParam * 20, (pageParam + 1) * 20 - 1);
+ *     return {
+ *       data: response.data || [],
+ *       nextCursor: response.data?.length === 20 ? pageParam + 1 : undefined,
+ *       hasMore: response.data?.length === 20
+ *     };
+ *   },
+ *   offlineFn: async ({ pageParam = 0 }: { pageParam: number }) => {
+ *     const assets = await db.query.asset.findMany({
+ *       limit: 20,
+ *       offset: pageParam * 20
+ *     });
+ *     return {
+ *       data: assets,
+ *       nextCursor: assets.length === 20 ? pageParam + 1 : undefined,
+ *       hasMore: assets.length === 20
+ *     };
+ *   },
+ *   initialPageParam: 0,
+ *   getNextPageParam: (lastPage) => lastPage.nextCursor
+ * });
+ */
+export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageParam = unknown>(
+  options: HybridInfiniteQueryOptions<T, TPageParam>
+) {
+  const {
+    queryKey,
+    onlineFn,
+    offlineFn,
+    initialPageParam,
+    getNextPageParam,
+    getPreviousPageParam,
+    ...restOptions
+  } = options;
+
+  const isOnline = useNetworkStatus();
+  const queryClient = useQueryClient();
+
+  // Create network-aware query keys for better cache management
+  const hybridQueryKey = [...queryKey, 'infinite', isOnline];
+  const oppositeQueryKey = [...queryKey, 'infinite', !isOnline];
+
+  // Get cached data from opposite network state for initial data
+  const oppositeCachedQueryState = queryClient.getQueryState(oppositeQueryKey);
+
+  return useInfiniteQuery({
+    queryKey: hybridQueryKey,
+    queryFn: async (context) => {
+      try {
+        const { pageParam } = context;
+        if (isOnline) {
+          return await onlineFn({ pageParam: pageParam as TPageParam });
+        } else {
+          return await offlineFn({ pageParam: pageParam as TPageParam });
+        }
+      } catch (error) {
+        console.error('HybridInfiniteQuery error:', error);
+        throw error;
+      }
+    },
+    initialPageParam,
+    getNextPageParam,
+    getPreviousPageParam,
+    // Remove problematic initialData for now
+    initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
+    // Use placeholderData for smooth transitions when switching between online/offline
+    placeholderData: keepPreviousData,
+    // Optimize for performance
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    // Network mode that works with both online and offline
+    networkMode: 'always',
+    // Refetch settings optimized for hybrid usage
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: false, // Prevent excessive refetching
+    refetchOnMount: true,
+    ...restOptions
+  });
+}
+
+/**
+ * Traditional paginated hybrid query with keepPreviousData for smooth page transitions
+ * Use this when you need discrete page navigation (Previous/Next buttons)
+ */
+export function useHybridPaginatedQuery<T extends Record<string, unknown>>(
+  options: HybridQueryOptions<T> & {
+    page: number;
+    pageSize: number;
+  }
+) {
+  const { page, pageSize, ...hybridOptions } = options;
+
+  return useHybridQuery({
+    ...hybridOptions,
+    queryKey: [...hybridOptions.queryKey, 'paginated', page, pageSize],
+    placeholderData: keepPreviousData, // Smooth page transitions
+  });
 }
