@@ -1,4 +1,3 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -58,7 +57,7 @@ export function useQuestsByProjectId(project_id: string) {
 }
 
 export function useQuestsWithTagsByProjectId(project_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: quests,
@@ -111,7 +110,7 @@ export function useQuestsWithTagsByProjectId(project_id: string) {
  * Fetches a single quest by ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useQuestById(quest_id: string | undefined) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid query
   const {
@@ -151,7 +150,7 @@ export function useQuestById(quest_id: string | undefined) {
  */
 export function useInfiniteQuestsWithTagsByProjectId(
   project_id: string,
-  pageSize = 20,
+  pageSize = 10,
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
@@ -284,11 +283,11 @@ export function useInfiniteQuestsWithTagsByProjectId(
 export function usePaginatedQuestsWithTagsByProjectId(
   project_id: string,
   page = 0,
-  pageSize = 20,
+  pageSize = 10,
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   return useHybridQuery({
     queryKey: ['quests', 'paginated', 'by-project', 'with-tags', project_id, page, pageSize, sortField, sortOrder],

@@ -1,19 +1,19 @@
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { SystemProvider } from '@/contexts/SystemContext';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
+import { PowerSyncContext } from '@powersync/react';
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useEffect } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import { LogBox } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
@@ -24,7 +24,13 @@ LogBox.ignoreAllLogs();
 const RootStack = memo(() => (
   <Stack
     screenOptions={{
-      headerShown: false
+      headerShown: false,
+      // Speed up route transitions
+      animationTypeForReplace: 'push',
+      animation: 'simple_push',
+      animationDuration: 200,
+      gestureEnabled: true,
+      fullScreenGestureEnabled: true
     }}
   >
     <Stack.Screen
@@ -40,6 +46,7 @@ RootStack.displayName = 'RootStack';
 
 export default function RootLayout() {
   const router = useRouter();
+  const systemInitialized = useRef(false);
 
   useEffect(() => {
     void ScreenOrientation.lockAsync(
@@ -47,6 +54,16 @@ export default function RootLayout() {
     );
     const unsubscribe = initializeNetwork();
     void TranslationUtils.initialize();
+
+    // Initialize system singleton
+    if (!systemInitialized.current) {
+      systemInitialized.current = true;
+      console.log('🚀 Initializing system singleton directly...');
+      void system.init().catch((error) => {
+        console.error('System init error:', error);
+        systemInitialized.current = false; // Allow retry on error
+      });
+    }
 
     return () => {
       unsubscribe();
@@ -92,7 +109,7 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="light" backgroundColor="#000" translucent={false} />
-      <SystemProvider>
+      <PowerSyncContext.Provider value={system.powersync}>
         <AuthProvider>
           <AudioProvider>
             <QueryProvider>
@@ -101,7 +118,7 @@ export default function RootLayout() {
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>
-      </SystemProvider>
+      </PowerSyncContext.Provider>
     </>
   );
 }

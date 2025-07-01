@@ -173,6 +173,8 @@ export class System {
       // First initialize the database if not already done
       if (!this.initialized) {
         await this.powersync.init();
+        // Freeze the object to prevent further modifications
+        Object.freeze(this);
       }
 
       // If we're already connected, check if we need to reconnect
@@ -201,13 +203,11 @@ export class System {
       this.lastConnectedUserId = session.data.session?.user.id;
 
       // Wait for the initial sync to complete
-      await this.waitForInitialSync();
+      // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
-      console.log('PowerSync initialization complete');
+      // console.log('PowerSync initialization complete');
 
-      // Freeze the object to prevent further modifications
-      Object.freeze(this);
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;
@@ -221,36 +221,6 @@ export class System {
 
   isInitialized() {
     return this.initialized && this.powersync.connected;
-  }
-
-  async waitForInitialSync() {
-    console.log('Waiting for initial PowerSync sync...');
-
-    // Wait for the first sync to establish baseline
-    return new Promise<void>((resolve) => {
-      // If already synced, resolve immediately
-      if (this.powersync.currentStatus.lastSyncedAt) {
-        resolve();
-        return;
-      }
-
-      const unsubscribe = this.powersync.registerListener({
-        statusChanged: (status) => {
-          if (status.lastSyncedAt) {
-            console.log(`Initial sync completed at: ${status.lastSyncedAt.toISOString()}`);
-            unsubscribe();
-            resolve();
-          }
-        }
-      });
-
-      // Add timeout to prevent hanging forever
-      setTimeout(() => {
-        console.warn('Initial sync timeout - proceeding anyway');
-        unsubscribe();
-        resolve();
-      }, 30000); // 30 second timeout
-    });
   }
 
   async waitForLatestSync() {
@@ -304,4 +274,29 @@ export class System {
   }
 }
 
-export const system = System.getInstance();
+// Create and export the system singleton safely
+let systemInstance: System | null = null;
+
+export function getSystem(): System {
+  if (!systemInstance) {
+    try {
+      systemInstance = System.getInstance();
+    } catch (error) {
+      console.error('Failed to create system instance:', error);
+      throw error;
+    }
+  }
+  return systemInstance;
+}
+
+// Create a proxy that provides helpful error messages if accessed too early
+export const system = new Proxy({} as System, {
+  get(_target, prop, _receiver) {
+    const instance = getSystem();
+    const value = instance[prop as keyof System];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  }
+});

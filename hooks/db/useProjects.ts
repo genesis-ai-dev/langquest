@@ -1,5 +1,5 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { project as projectTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq } from 'drizzle-orm';
@@ -13,7 +13,7 @@ export type Project = InferSelectModel<typeof projectTable>;
  * Subscribes to Supabase realtime and updates cache on changes
  */
 export function useProjects() {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid realtime query
   const {
@@ -26,7 +26,6 @@ export function useProjects() {
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('visible', true)
         .eq('active', true)
         .overrideTypes<Project[]>();
       if (error) throw error;
@@ -34,8 +33,7 @@ export function useProjects() {
     },
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
-        where: (fields, { eq, and }) =>
-          and(eq(fields.visible, true), eq(fields.active, true))
+        where: (fields, { eq, and }) => and(eq(fields.active, true))
       })
     )
   });
@@ -49,11 +47,11 @@ export function useProjects() {
  * Follows TKDodo's best practices for infinite queries
  */
 export function useInfiniteProjects(
-  pageSize = 20,
+  pageSize = 10,
   sortField?: 'name' | 'created_at' | 'last_updated',
   sortOrder?: 'asc' | 'desc'
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   return useHybridInfiniteQuery({
     queryKey: ['projects', 'infinite', pageSize, sortField, sortOrder],
@@ -158,7 +156,7 @@ export function useInfiniteProjects(
  * Subscribes to Supabase realtime and updates cache on changes
  */
 export function useProjectById(projectId: string | undefined) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid query
   const {

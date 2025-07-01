@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -8,7 +8,7 @@ import { and, eq } from 'drizzle-orm';
 
 export function useNotifications() {
   const { currentUser } = useAuth();
-  const { db } = useSystem();
+  const { db } = system;
 
   // Get all pending invites for the user's email
   const { data: inviteRequests = [] } = useQuery({

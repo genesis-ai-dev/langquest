@@ -1,6 +1,6 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { useSystem } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
@@ -37,7 +37,7 @@ export default function Register() {
   const currentLanguage = useLocalStore((state) => state.language);
   const { t } = useLocalization();
   const router = useRouter();
-  const { supabaseConnector } = useSystem();
+  const { supabaseConnector } = system;
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   const {

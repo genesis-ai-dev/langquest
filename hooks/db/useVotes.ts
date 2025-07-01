@@ -1,4 +1,3 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -21,7 +20,7 @@ export function useUserVoteForTranslation(
   translation_id: string,
   user_id: string
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: voteArray,

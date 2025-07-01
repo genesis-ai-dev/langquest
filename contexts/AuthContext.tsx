@@ -1,4 +1,5 @@
 import type { Profile } from '@/database_services/profileService';
+import { system } from '@/db/powersync/system';
 import { getProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
@@ -13,7 +14,13 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { useSystem } from './SystemContext';
+
+const DEBUG_MODE = false;
+const debug = (...args: unknown[]) => {
+  if (DEBUG_MODE) {
+    console.log('AuthContext:', ...args);
+  }
+};
 
 interface AuthContextType {
   currentUser: Profile | null;
@@ -28,14 +35,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentUser = useLocalStore((state) => state.currentUser);
   const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
-  const system = useSystem();
   const mounted = useRef(true);
   const authInitialized = useRef(false);
 
   useEffect(() => {
+    debug('useEffect');
     mounted.current = true;
 
     const loadAuthData = async () => {
+      debug('loadAuthData');
       if (authInitialized.current) return;
       authInitialized.current = true;
 
@@ -67,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
+        debug('onAuthStateChange', state, session);
         if (!mounted.current) return;
 
         // always maintain a session
@@ -114,9 +123,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted.current = false;
       subscription.data.subscription.unsubscribe();
     };
-  }, [system, setCurrentUser]);
+  }, [setCurrentUser]);
 
   const signOut = useCallback(async () => {
+    debug('signOut');
     try {
       // will bring you back to the sign-in screen
       setCurrentUser(null);
@@ -126,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  }, [system, setCurrentUser]);
+  }, [setCurrentUser]);
 
   const contextValue = useMemo(
     () => ({

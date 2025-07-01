@@ -1,5 +1,5 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { blocked_content, blocked_users } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
@@ -13,7 +13,7 @@ export type BlockedContent = InferSelectModel<typeof blocked_content>;
  * Fetches blocked users for a profile from Supabase (online) or local Drizzle DB (offline)
  */
 export function useUserBlockedUsers(profile_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: blockedUsers,
@@ -46,7 +46,7 @@ export function useUserBlockedUsers(profile_id: string) {
  * Fetches blocked content for a profile from Supabase (online) or local Drizzle DB (offline)
  */
 export function useUserBlockedContent(profile_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: blockedContent,

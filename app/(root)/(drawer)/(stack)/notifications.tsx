@@ -1,6 +1,5 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -62,7 +61,7 @@ const { db } = system;
 export default function NotificationsPage() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { db: drizzleDb } = useSystem();
+  const { db: drizzleDb } = system;
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [downloadToggles, setDownloadToggles] = useState<
     Record<string, boolean>

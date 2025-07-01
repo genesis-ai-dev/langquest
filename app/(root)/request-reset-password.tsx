@@ -1,4 +1,4 @@
-import { useSystem } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +24,7 @@ interface RequestResetFormData {
 
 export default function RequestResetPassword() {
   const { t } = useLocalization();
-  const { supabaseConnector } = useSystem();
+  const { supabaseConnector } = system;
 
   const {
     control,

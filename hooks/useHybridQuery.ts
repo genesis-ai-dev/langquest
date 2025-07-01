@@ -435,6 +435,7 @@ type HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = 
 export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageParam = unknown>(
   options: HybridInfiniteQueryOptions<T, TPageParam>
 ) {
+  const timestamp = performance.now();
   const {
     queryKey,
     onlineFn,
@@ -497,8 +498,9 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
       ...restOptions
     });
   }
-
-  return useOfflineInfiniteQuery();
+  const result = useOfflineInfiniteQuery();
+  console.log(`[${performance.now() - timestamp}ms] useOfflineInfiniteQuery ${options.queryKey.join(',')}`);
+  return result;
 }
 
 /**

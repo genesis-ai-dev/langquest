@@ -65,7 +65,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
     this.storage = new SupabaseStorageAdapter({ client: this.client });
 
-    console.log('Supabase client created: ', this.client);
+    // console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
       console.log('------------------------------------');
       console.log('Auth state changed:', event);
@@ -73,7 +73,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       console.log('User ID:', session?.user.id);
       console.log('------------------------------------');
     });
-    console.log('Supabase client created: ', this.client);
+    // console.log('Supabase client created: ', this.client);
 
     // Initialize composite key tables
     this.initCompositeKeyTables();
@@ -241,8 +241,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         const opData =
           isCompositeTable && op.opData
             ? Object.fromEntries(
-                Object.entries(op.opData).filter(([key]) => key !== 'id')
-              )
+              Object.entries(op.opData).filter(([key]) => key !== 'id')
+            )
             : op.opData;
 
         switch (op.op) {

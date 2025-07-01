@@ -1,5 +1,5 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { project as projectTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -37,7 +37,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  const { db } = useSystem();
+  const { db } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for project details

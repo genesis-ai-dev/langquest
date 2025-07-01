@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -44,7 +44,6 @@ function DrawerItems() {
   const pathname = usePathname();
   const { t } = useLocalization();
   const { signOut, currentUser } = useAuth();
-  const system = useSystem();
   const systemReady = system.isInitialized();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -285,8 +284,14 @@ export function Drawer() {
       screenOptions={{
         drawerPosition: 'right',
         headerShown: false,
-        drawerType: 'slide',
-        swipeEdgeWidth: 100
+        drawerType: 'front', // 'front' type often performs better than 'slide'
+        swipeEdgeWidth: 100,
+        drawerStyle: {
+          width: '85%'
+        },
+        // Optimize for performance
+        swipeEnabled: true,
+        swipeMinDistance: 20 // Reduce minimum swipe distance for faster response
       }}
       drawerContent={DrawerContent}
     ></ExpoDrawer>

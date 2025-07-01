@@ -1,6 +1,5 @@
-import { useSystem } from '@/contexts/SystemContext';
-import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { language } from '@/db/drizzleSchema';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
@@ -11,8 +10,7 @@ import {
 export type Language = InferSelectModel<typeof language>;
 
 export function useUIReadyLanguages() {
-  const { db, supabaseConnector } = useSystem();
-  console.log('useSystem hook state vs system', { useSystem: useSystem(), system: system })
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid realtime query
   const {
@@ -50,7 +48,7 @@ export function useUIReadyLanguages() {
  * Subscribes to Supabase realtime and updates cache on changes
  */
 export function useLanguages() {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid realtime query
   const {
@@ -83,7 +81,7 @@ export function useLanguages() {
  * Fetches a single language by ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useLanguageById(language_id?: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: languageArray,

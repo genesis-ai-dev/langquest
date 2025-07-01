@@ -1,4 +1,3 @@
-import { useSystem } from '@/contexts/SystemContext';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -84,7 +83,7 @@ export function useHasUserReported(
  * Fetches all reports for a specific record from Supabase (online) or local Drizzle DB (offline)
  */
 export function useReportsByRecord(record_id: string, record_table: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: reportsList,

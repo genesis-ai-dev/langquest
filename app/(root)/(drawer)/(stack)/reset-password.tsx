@@ -1,5 +1,5 @@
 import { PasswordInput } from '@/components/PasswordInput';
-import { useSystem } from '@/contexts/SystemContext';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,7 @@ interface ResetPasswordFormData {
 }
 
 export default function ResetPassword() {
-  const { supabaseConnector } = useSystem();
+  const { supabaseConnector } = system;
   const [userLanguage, setUserLanguage] = useState<string | null>(null);
   const { t } = useLocalization(userLanguage);
   const [isLoading, setIsLoading] = useState(true);

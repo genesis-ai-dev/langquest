@@ -1,5 +1,13 @@
+import { LanguageSelect } from '@/components/LanguageSelect';
+import { PasswordInput } from '@/components/PasswordInput';
+import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
+import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,21 +20,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// import { userRepository } from '@/database_services/repositories';
-// import { initDatabase } from '@/database_services/dbInit';
-
-// import { userd, languaged } from '../db/drizzleSchema';
-// import { seedDatabase } from '../db/seedDatabase';
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { PasswordInput } from '@/components/PasswordInput';
-import { useSystem } from '@/contexts/SystemContext';
-import { useLocalization } from '@/hooks/useLocalization';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Controller, useForm } from 'react-hook-form';
-
-// const { profile, language } = schema;
 
 interface LoginFormData {
   email: string;
@@ -37,7 +30,7 @@ interface LoginFormData {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignIn() {
-  const { supabaseConnector } = useSystem();
+  const { supabaseConnector } = system;
   const { t } = useLocalization();
   const router = useRouter();
 

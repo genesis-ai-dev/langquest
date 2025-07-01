@@ -44,6 +44,7 @@ export const useLocalStore = create<LocalState>()(
       setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
 
       initialize: async () => {
+        console.log('initializing local store');
         const langId = get().languageId;
         if (langId) {
           const language = await getLanguageById(langId);

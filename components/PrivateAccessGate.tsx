@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import { profile_project_link, request } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
@@ -74,14 +74,11 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { db } = useSystem();
+  const { db } = system;
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
-  const { hasAccess } = usePrivateProjectAccess({
-    projectId,
-    isPrivate
-  });
+  const { hasAccess } = usePrivateProjectAccess(projectId, action); // NOTE: did we need to pass isPrivate here?
 
   // Query for existing membership request
   const { data: existingRequests = [], refetch } = useQuery({

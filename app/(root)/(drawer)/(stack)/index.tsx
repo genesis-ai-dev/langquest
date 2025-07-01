@@ -5,9 +5,9 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProgressBars } from '@/components/ProgressBars';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -44,7 +44,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
-  const { db } = useSystem();
+  const { db } = system;
   const [progress] = useState({
     approvedPercentage: 0,
     userContributedPercentage: 0,
@@ -175,7 +175,7 @@ export default function Projects() {
   const { t } = useLocalization();
   const { goToProject } = useProjectContext();
   const { currentUser } = useAuth();
-  const { db } = useSystem();
+  const { db } = system;
   const { languages: allLanguages } = useLanguages();
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const targetFilter = useLocalStore((state) => state.projectTargetFilter);
@@ -244,6 +244,7 @@ export default function Projects() {
   };
 
   const handleExplore = async (project: Project) => {
+    console.log('handleExplore clicked at', performance.now());
     // Check if project is private
     if (project.private) {
       if (currentUser) {

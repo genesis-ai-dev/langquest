@@ -284,14 +284,11 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_record record;
+    v_record_id uuid;
+    v_record_ids uuid[];
     v_sql text;
     v_final_where_clause text;
     v_is_still_needed boolean;
-    v_node jsonb;
-    v_tree jsonb;
-    v_tag_still_needed boolean;
-    v_link_still_needed boolean;
 BEGIN
     -- Build the complete WHERE clause with values substituted
     IF p_where_values IS NOT NULL AND array_length(p_where_values, 1) > 0 THEN
@@ -300,183 +297,37 @@ BEGIN
         v_final_where_clause := p_where_clause;
     END IF;
     
-    -- Get the tree structure and find the node for this table
-    v_tree := get_download_tree_structure();
-    v_node := find_node_in_tree(v_tree, p_table_name);
+    -- Get all record IDs that match the where clause
+    v_sql := format('SELECT array_agg(id) FROM %I WHERE %s', p_table_name, v_final_where_clause);
     
-    -- Special handling for composite key link tables
-    IF v_node IS NOT NULL AND v_node->'keyFields' IS NOT NULL THEN
-        -- This is a composite key table (like quest_tag_link or asset_tag_link)
+    EXECUTE v_sql INTO v_record_ids;
+    
+    -- If no records found, nothing to do
+    IF v_record_ids IS NULL OR array_length(v_record_ids, 1) IS NULL THEN
+        RETURN;
+    END IF;
+    
+    -- Check each record individually
+    FOREACH v_record_id IN ARRAY v_record_ids
+    LOOP
+        -- Check if this profile is still needed by other downloaded records
+        v_is_still_needed := is_profile_still_needed_for_shared_resource(
+            p_table_name, 
+            v_record_id, 
+            p_profile_id
+        );
         
-        -- For quest_tag_link
-        IF p_table_name = 'quest_tag_link' THEN
-            -- Process each quest_tag_link record individually
-            v_sql := format('
-                SELECT quest_id, tag_id 
-                FROM %I 
-                WHERE %s
-            ', p_table_name, v_final_where_clause);
-            
-            FOR v_record IN EXECUTE v_sql
-            LOOP
-                -- Check if this specific link is still needed
-                -- (i.e., the tag is used by another downloaded quest)
-                v_link_still_needed := false;
-                
-                -- Check if there are other downloaded quests using this tag
-                SELECT EXISTS(
-                    SELECT 1
-                    FROM quest_tag_link qtl
-                    JOIN quest q ON q.id = qtl.quest_id
-                    WHERE qtl.tag_id = v_record.tag_id
-                      AND qtl.quest_id != v_record.quest_id  -- Different quest
-                      AND q.download_profiles @> ARRAY[p_profile_id]
-                ) INTO v_link_still_needed;
-                
-                IF NOT v_link_still_needed THEN
-                    -- This tag is not used by any other downloaded quest
-                    -- Check if it's used by any downloaded asset
-                    SELECT EXISTS(
-                        SELECT 1
-                        FROM asset_tag_link atl
-                        JOIN asset a ON a.id = atl.asset_id
-                        WHERE atl.tag_id = v_record.tag_id
-                          AND a.download_profiles @> ARRAY[p_profile_id]
-                    ) INTO v_tag_still_needed;
-                    
-                    IF NOT v_tag_still_needed THEN
-                        -- Remove profile from the tag itself
-                        UPDATE tag 
-                        SET download_profiles = normalize_download_profiles(
-                            array_remove(download_profiles, p_profile_id)
-                        )
-                        WHERE id = v_record.tag_id;
-                    END IF;
-                END IF;
-                
-                -- Always remove from the link record
-                UPDATE quest_tag_link
-                SET download_profiles = normalize_download_profiles(
-                    array_remove(download_profiles, p_profile_id)
-                )
-                WHERE quest_id = v_record.quest_id AND tag_id = v_record.tag_id;
-            END LOOP;
-            
-        -- For asset_tag_link
-        ELSIF p_table_name = 'asset_tag_link' THEN
-            -- Process each asset_tag_link record individually
-            v_sql := format('
-                SELECT asset_id, tag_id 
-                FROM %I 
-                WHERE %s
-            ', p_table_name, v_final_where_clause);
-            
-            FOR v_record IN EXECUTE v_sql
-            LOOP
-                -- Check if this specific link is still needed
-                v_link_still_needed := false;
-                
-                -- Check if there are other downloaded assets using this tag
-                SELECT EXISTS(
-                    SELECT 1
-                    FROM asset_tag_link atl
-                    JOIN asset a ON a.id = atl.asset_id
-                    WHERE atl.tag_id = v_record.tag_id
-                      AND atl.asset_id != v_record.asset_id  -- Different asset
-                      AND a.download_profiles @> ARRAY[p_profile_id]
-                ) INTO v_link_still_needed;
-                
-                IF NOT v_link_still_needed THEN
-                    -- This tag is not used by any other downloaded asset
-                    -- Check if it's used by any downloaded quest
-                    SELECT EXISTS(
-                        SELECT 1
-                        FROM quest_tag_link qtl
-                        JOIN quest q ON q.id = qtl.quest_id
-                        WHERE qtl.tag_id = v_record.tag_id
-                          AND q.download_profiles @> ARRAY[p_profile_id]
-                    ) INTO v_tag_still_needed;
-                    
-                    IF NOT v_tag_still_needed THEN
-                        -- Remove profile from the tag itself
-                        UPDATE tag 
-                        SET download_profiles = normalize_download_profiles(
-                            array_remove(download_profiles, p_profile_id)
-                        )
-                        WHERE id = v_record.tag_id;
-                    END IF;
-                END IF;
-                
-                -- Always remove from the link record
-                UPDATE asset_tag_link
-                SET download_profiles = normalize_download_profiles(
-                    array_remove(download_profiles, p_profile_id)
-                )
-                WHERE asset_id = v_record.asset_id AND tag_id = v_record.tag_id;
-            END LOOP;
-            
-        -- For quest_asset_link
-        ELSIF p_table_name = 'quest_asset_link' THEN
-            -- Process each quest_asset_link record individually
-            v_sql := format('
-                SELECT quest_id, asset_id 
-                FROM %I 
-                WHERE %s
-            ', p_table_name, v_final_where_clause);
-            
-            FOR v_record IN EXECUTE v_sql
-            LOOP
-                -- Check if this asset is still needed by other downloaded quests
-                v_is_still_needed := false;
-                
-                SELECT EXISTS(
-                    SELECT 1
-                    FROM quest_asset_link qal
-                    JOIN quest q ON q.id = qal.quest_id
-                    WHERE qal.asset_id = v_record.asset_id
-                      AND qal.quest_id != v_record.quest_id  -- Different quest
-                      AND q.download_profiles @> ARRAY[p_profile_id]
-                ) INTO v_is_still_needed;
-                
-                IF NOT v_is_still_needed THEN
-                    -- This asset is not used by any other downloaded quest
-                    -- Recursively remove the asset and its children
-                    -- The process_download_tree will handle shared resources correctly now
-                    PERFORM process_download_tree('asset', ARRAY[v_record.asset_id], p_profile_id, 'remove');
-                END IF;
-                
-                -- Always remove from the link record
-                UPDATE quest_asset_link
-                SET download_profiles = normalize_download_profiles(
-                    array_remove(download_profiles, p_profile_id)
-                )
-                WHERE quest_id = v_record.quest_id AND asset_id = v_record.asset_id;
-            END LOOP;
-        ELSE
-            -- Generic composite key table handling
-            v_sql := format('
+        -- Only remove the profile if it's not still needed
+        IF NOT v_is_still_needed THEN
+            EXECUTE format('
                 UPDATE %I 
                 SET download_profiles = normalize_download_profiles(
                     array_remove(download_profiles, %L::uuid)
                 )
-                WHERE %s
-            ', p_table_name, p_profile_id, v_final_where_clause);
-            
-            EXECUTE v_sql;
+                WHERE id = %L
+            ', p_table_name, p_profile_id, v_record_id);
         END IF;
-        
-    ELSE
-        -- Regular table handling (non-composite key)
-        v_sql := format('
-            UPDATE %I 
-            SET download_profiles = normalize_download_profiles(
-                array_remove(download_profiles, %L::uuid)
-            )
-            WHERE %s
-        ', p_table_name, p_profile_id, v_final_where_clause);
-        
-        EXECUTE v_sql;
-    END IF;
+    END LOOP;
 END;
 $$;
 
@@ -491,84 +342,22 @@ RETURNS boolean
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_count integer := 0;
-    v_sql text;
+    v_tree jsonb;
+    v_reference_count integer := 0;
 BEGIN
-    -- Special handling for commonly shared resources
-    CASE p_table_name
-        WHEN 'tag' THEN
-            -- Check if this tag is still referenced by any downloaded quests (via quest_tag_link)
-            -- or any downloaded assets (via asset_tag_link)
-            v_sql := '
-                SELECT COUNT(*)
-                FROM (
-                    -- Check quest references
-                    SELECT 1
-                    FROM quest_tag_link qtl
-                    JOIN quest q ON q.id = qtl.quest_id
-                    WHERE qtl.tag_id = $1
-                      AND q.download_profiles @> ARRAY[$2]
-                    
-                    UNION
-                    
-                    -- Check asset references
-                    SELECT 1
-                    FROM asset_tag_link atl
-                    JOIN asset a ON a.id = atl.asset_id
-                    WHERE atl.tag_id = $1
-                      AND a.download_profiles @> ARRAY[$2]
-                ) AS refs
-            ';
-            EXECUTE v_sql USING p_record_id, p_profile_id INTO v_count;
-            RETURN v_count > 0;
-            
-        WHEN 'language' THEN
-            -- Check if this language is still referenced by any downloaded projects or assets
-            v_sql := '
-                SELECT COUNT(*)
-                FROM (
-                    -- Check project source language references
-                    SELECT 1
-                    FROM project p
-                    WHERE p.source_language_id = $1
-                      AND p.download_profiles @> ARRAY[$2]
-                    
-                    UNION
-                    
-                    -- Check project target language references
-                    SELECT 1
-                    FROM project p
-                    WHERE p.target_language_id = $1
-                      AND p.download_profiles @> ARRAY[$2]
-                    
-                    UNION
-                    
-                    -- Check asset source language references
-                    SELECT 1
-                    FROM asset a
-                    WHERE a.source_language_id = $1
-                      AND a.download_profiles @> ARRAY[$2]
-                ) AS refs
-            ';
-            EXECUTE v_sql USING p_record_id, p_profile_id INTO v_count;
-            RETURN v_count > 0;
-            
-        WHEN 'asset' THEN
-            -- Check if this asset is still referenced by any downloaded quests (via quest_asset_link)
-            v_sql := '
-                SELECT COUNT(*)
-                FROM quest_asset_link qal
-                JOIN quest q ON q.id = qal.quest_id
-                WHERE qal.asset_id = $1
-                  AND q.download_profiles @> ARRAY[$2]
-            ';
-            EXECUTE v_sql USING p_record_id, p_profile_id INTO v_count;
-            RETURN v_count > 0;
-            
-        ELSE
-            -- For other tables, don't protect (allow removal)
-            RETURN false;
-    END CASE;
+    -- Get the tree structure
+    v_tree := get_download_tree_structure();
+    
+    -- Find all references to this record in the download tree
+    v_reference_count := count_references_to_record_in_tree(
+        v_tree, 
+        p_table_name, 
+        p_record_id, 
+        p_profile_id
+    );
+    
+    -- Record is still needed if there are any references from downloaded records
+    RETURN v_reference_count > 0;
 END;
 $$;
 
@@ -638,38 +427,6 @@ BEGIN
     END LOOP;
     
     RETURN v_total_count;
-END;
-$$;
-
--- Helper function to find all paths from downloaded parent tables to the target table
--- Currently returns empty set to avoid errors
-CREATE OR REPLACE FUNCTION find_all_paths_to_table(
-    p_tree jsonb,
-    p_target_table text
-)
-RETURNS SETOF jsonb
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    -- For now, return empty set since this function is not properly implemented
-    -- This will effectively skip the direct reference counting
-    RETURN;
-END;
-$$;
-
--- Helper function to build SQL for counting references
--- Currently returns NULL to skip checks
-CREATE OR REPLACE FUNCTION build_reference_count_sql(
-    p_link_path jsonb,
-    p_target_record_id uuid,
-    p_profile_id uuid
-)
-RETURNS text
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    -- Return NULL to skip this check
-    RETURN NULL;
 END;
 $$;
 
@@ -1003,7 +760,6 @@ DECLARE
     v_child_ids uuid[];
     v_children jsonb;
     v_child jsonb;
-    v_id_field text;
 BEGIN
     -- Validate operation
     IF p_operation NOT IN ('add', 'remove') THEN
@@ -1025,15 +781,12 @@ BEGIN
         RAISE EXCEPTION 'Table % not found in download tree', p_table_name;
     END IF;
     
-    -- Get the correct ID field for this table
-    v_id_field := get_id_field_from_node(v_node);
-    
     -- Update download_profiles for the current table using helper
     PERFORM update_download_profiles(
         p_table_name, 
         p_profile_id, 
         p_operation,
-        format('%I = ANY(%%L::uuid[])', v_id_field),
+        'id = ANY(%L::uuid[])',
         ARRAY[p_record_ids::text]
     );
     
@@ -1058,13 +811,6 @@ BEGIN
                 
                 -- Recursively process children
                 IF v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
-                    -- Special handling for certain child tables during removal
-                    IF p_operation = 'remove' AND v_child->>'table' IN ('language', 'tag') THEN
-                        -- Don't recursively process shared resources during removal
-                        -- They will be handled by safe_remove_download_profiles
-                        CONTINUE;
-                    END IF;
-                    
                     PERFORM process_download_tree(
                         v_child->>'table', 
                         v_child_ids, 
@@ -1095,13 +841,11 @@ DECLARE
     v_child_ids uuid[];
     v_children jsonb;
     v_child jsonb;
-    v_child_table text;
 BEGIN
     v_table_name := p_node->>'table';
     v_id_field := get_id_field_from_node(p_node);
     
     -- Update download_profiles for the composite key table using helper
-    -- This will handle the safe removal for shared resources
     PERFORM update_download_profiles(
         v_table_name,
         p_profile_id,
@@ -1110,15 +854,6 @@ BEGIN
         ARRAY[p_parent_ids::text]
     );
     
-    -- For remove operations, we should NOT recursively process shared resources
-    -- The safe_remove_download_profiles function already handles this
-    IF p_operation = 'remove' THEN
-        -- Don't process children for composite key tables during removal
-        -- This prevents tags and other shared resources from being incorrectly removed
-        RETURN;
-    END IF;
-    
-    -- For add operations, we still need to process children
     -- Get the IDs for child processing
     EXECUTE format('
         SELECT array_agg(DISTINCT %I) 
@@ -1126,17 +861,14 @@ BEGIN
         WHERE %I = ANY(%L::uuid[])
     ', v_id_field, v_table_name, p_parent_field, p_parent_ids) INTO v_child_ids;
     
-    -- Process children if any (only for add operations)
+    -- Process children if any
     v_children := p_node->'children';
     IF is_non_empty_array(v_children) AND 
        v_child_ids IS NOT NULL AND array_length(v_child_ids, 1) > 0 THEN
         FOR v_child IN SELECT * FROM jsonb_array_elements(v_children)
         LOOP
-            v_child_table := v_child->>'table';
-            
-            -- For add operations, process all children normally
             PERFORM process_download_tree(
-                v_child_table, 
+                v_child->>'table', 
                 v_child_ids, 
                 p_profile_id, 
                 p_operation

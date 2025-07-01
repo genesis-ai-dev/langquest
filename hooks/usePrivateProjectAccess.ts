@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import { profile_project_link } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
@@ -12,43 +12,47 @@ export type PrivateAccessAction =
   | 'edit-transcription'
   | 'download';
 
-interface UsePrivateProjectAccessOptions {
-  projectId: string;
-  isPrivate: boolean;
-}
-
-export function usePrivateProjectAccess({
-  projectId,
-  isPrivate
-}: UsePrivateProjectAccessOptions) {
+export function usePrivateProjectAccess(
+  project_id: string,
+  action: PrivateAccessAction
+) {
   const { currentUser } = useAuth();
-  const { db } = useSystem();
+  const { db } = system;
 
-  // Query for membership status
-  const { data: membershipLinks = [] } = useQuery({
-    queryKey: ['membership-status', projectId, currentUser?.id],
+  const {
+    data: membershipData,
+    isLoading: isMembershipLoading,
+    ...rest
+  } = useQuery({
+    queryKey: ['private-project-access', project_id, currentUser?.id, action],
     query: toCompilableQuery(
-      db.query.profile_project_link.findMany({
+      db.query.profile_project_link.findFirst({
         where: and(
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.project_id, projectId),
-          eq(profile_project_link.active, true)
+          eq(profile_project_link.project_id, project_id),
+          eq(profile_project_link.profile_id, currentUser?.id || '')
         )
       })
     ),
-    enabled: !!currentUser?.id && !!projectId && isPrivate
+    enabled: !!project_id && !!currentUser?.id
   });
 
-  const isMember = membershipLinks.length > 0;
-  const hasAccess = !isPrivate || isMember;
-  const requiresAuth = isPrivate && !currentUser;
-  const requiresMembership = isPrivate && currentUser && !isMember;
+  // Check if user has the required permissions
+  const hasAccess = Boolean(
+    membershipData?.active &&
+    (membershipData.membership === 'owner' ||
+      membershipData.membership === 'admin' ||
+      (action === 'view-members' && membershipData.membership === 'member') ||
+      (action === 'vote' && membershipData.membership === 'member') ||
+      (action === 'translate' && membershipData.membership === 'member') ||
+      (action === 'download' && membershipData.membership === 'member') ||
+      (action === 'edit-transcription' &&
+        (membershipData.membership === 'admin' || membershipData.membership === 'owner')))
+  );
 
   return {
     hasAccess,
-    isMember,
-    requiresAuth,
-    requiresMembership,
-    isPrivate
+    membership: membershipData,
+    isMembershipLoading,
+    ...rest
   };
 }

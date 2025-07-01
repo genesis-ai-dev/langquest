@@ -1,4 +1,3 @@
-import { useSystem } from '@/contexts/SystemContext';
 import type { translation, vote } from '@/db/drizzleSchema';
 import {
   asset,
@@ -63,7 +62,7 @@ export async function getAssetById(asset_id: string) {
 }
 
 export function useAssetById(asset_id: string | undefined) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   // Main query using hybrid query
   const {
@@ -321,7 +320,7 @@ export function useAssetsByQuestId(quest_id: string) {
  * Fetches assets by project ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useAssetsByProjectId(project_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: assets,
@@ -387,7 +386,7 @@ export function useAssetsByProjectId(project_id: string) {
  */
 
 export function useAssetsWithTagsByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: assets,
@@ -441,7 +440,7 @@ export function useAssetsWithTagsByQuestId(quest_id: string) {
 }
 
 export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: assets,
@@ -506,7 +505,7 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
  * Fetches assets with translations and votes by quest ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: assets,
@@ -574,7 +573,7 @@ export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
 export function useAssetsWithTranslationsAndVotesByProjectId(
   project_id: string
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: assets,
@@ -659,7 +658,7 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
  */
 export function useInfiniteAssetsWithTagsAndContentByQuestId(
   quest_id: string,
-  pageSize = 20,
+  pageSize = 10,
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
@@ -813,11 +812,11 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
 export function usePaginatedAssetsWithTagsAndContentByQuestId(
   quest_id: string,
   page = 0,
-  pageSize = 20,
+  pageSize = 10,
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   return useHybridQuery({
     queryKey: ['assets', 'paginated', 'by-quest', 'with-tags-content', quest_id, page, pageSize, sortField, sortOrder],

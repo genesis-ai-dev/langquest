@@ -1,16 +1,13 @@
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { GemIcon } from '@/components/GemIcon';
 import { PageHeader } from '@/components/PageHeader';
-import PickaxeIcon from '@/components/PickaxeIcon';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
+// import { useAttachmentAssetDownloadStatus } from '@/hooks/useAssetDownloadStatus';
 import {
   borderRadius,
   colors,
@@ -18,7 +15,6 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { getGemColor, shouldCountTranslation } from '@/utils/progressUtils';
 import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,8 +37,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { AssetContent } from '@/hooks/db/useAssets';
 import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
-import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
-import { useDownload } from '@/hooks/useDownloads';
+// import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalization } from '@/hooks/useLocalization';
 
 interface SortingOption {
@@ -50,7 +45,7 @@ interface SortingOption {
   order: 'asc' | 'desc';
 }
 
-type AggregatedGems = Record<string, number>;
+// type AggregatedGems = Record<string, number>;
 
 // Helper functions outside component to prevent recreation
 const filterAssets = (
@@ -91,43 +86,43 @@ const filterAssets = (
 };
 
 function AssetCard({ asset }: { asset: Asset }) {
-  const { currentUser } = useAuth();
+  // const { currentUser } = useAuth();
   const { activeProject } = useProjectContext();
-  const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
-    useAttachmentAssetDownloadStatus([asset.id]);
+  // const { isDownloaded: assetsDownloaded, isLoading: isLoadingDownloadStatus } =
+  //   useAttachmentAssetDownloadStatus([asset.id]);
 
-  const {
-    isDownloaded,
-    isLoading: isDownloadLoading,
-    toggleDownload
-  } = useDownload('asset', asset.id);
+  // const {
+  //   isDownloaded,
+  //   isLoading: isDownloadLoading,
+  //   toggleDownload
+  // } = useDownload('asset', asset.id);
 
-  const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
+  // const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
 
-  const handleDownloadToggle = async () => {
-    await toggleDownload();
-  };
+  // const handleDownloadToggle = async () => {
+  //   await toggleDownload();
+  // };
 
   // Aggregate translations by gem color
-  const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
-    (acc, translation) => {
-      // Only count translations that should be displayed
-      if (!shouldCountTranslation(translation.votes)) {
-        return acc;
-      }
+  // const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
+  //   (acc, translation) => {
+  //     // Only count translations that should be displayed
+  //     if (!shouldCountTranslation(translation.votes)) {
+  //       return acc;
+  //     }
 
-      const gemColor = getGemColor(
-        translation,
-        translation.votes,
-        currentUser?.id ?? null
-      );
+  //     const gemColor = getGemColor(
+  //       translation,
+  //       translation.votes,
+  //       currentUser?.id ?? null
+  //     );
 
-      acc[gemColor] = (acc[gemColor] ?? 0) + 1;
+  //     acc[gemColor] = (acc[gemColor] ?? 0) + 1;
 
-      return acc;
-    },
-    {}
-  );
+  //     return acc;
+  //   },
+  //   {}
+  // );
 
   return (
     <View style={sharedStyles.card}>
@@ -145,20 +140,27 @@ function AssetCard({ asset }: { asset: Asset }) {
           isPrivate={activeProject?.private || false}
           action="download"
           allowBypass={true}
-          onBypass={handleDownloadToggle}
+          // onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isDownloaded={isDownloaded && assetsDownloaded}
-              isLoading={isLoadingDownloadStatus || isDownloadLoading}
+              // isDownloaded={isDownloaded && assetsDownloaded}
+              isDownloaded={false}
+              // isLoading={isLoadingDownloadStatus || isDownloadLoading}
+              isLoading={false}
               onPress={
-                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                // hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                hasAccess
+                  ? onPress
+                  : () => {
+                      console.log('no access');
+                    }
               }
             />
           )}
         />
       </View>
       <View style={styles.translationCount}>
-        {aggregatedGems &&
+        {/* {aggregatedGems &&
           Object.entries(aggregatedGems).map(([color, count]) => (
             <View key={color} style={styles.gemContainer}>
               {count < 4 ? (
@@ -189,7 +191,7 @@ function AssetCard({ asset }: { asset: Asset }) {
                 </>
               )}
             </View>
-          ))}
+          ))} */}
       </View>
     </View>
   );
@@ -228,7 +230,7 @@ export default function Assets() {
     refetch
   } = useInfiniteAssetsWithTagsAndContentByQuestId(
     questId,
-    20, // pageSize
+    10, // pageSize
     activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
     activeSorting[0]?.order
   );

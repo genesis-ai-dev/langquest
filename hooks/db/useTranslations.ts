@@ -1,5 +1,4 @@
 import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import type { project, quest } from '@/db/drizzleSchema';
 import {
   blocked_content,
@@ -156,7 +155,7 @@ export function getTranslationsByAssetIds(asset_ids: string[]) {
 }
 
 export function useTranslationsByAssetId(asset_id: string) {
-  const { db } = useSystem();
+  const { db } = system;
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
 
@@ -250,7 +249,7 @@ export function useTranslationById(
   translation_id: string,
   current_user_id?: string
 ) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
 
   const {
     data: translationArray,
@@ -331,7 +330,7 @@ export function useTranslationById(
  * Filters out blocked users and content if current_user_id is provided
  */
 export function useTranslationsWithVotesByAssetId(asset_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
@@ -539,7 +538,7 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
  * Filters out blocked users and content if current_user_id is provided
  */
 export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
-  const { db, supabaseConnector } = useSystem();
+  const { db, supabaseConnector } = system;
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
@@ -864,7 +863,7 @@ export function useTranslationsWithAudioByAssetIds(asset_ids: string[]) {
  * Includes quest and project details
  */
 export function useTranslationProjectInfo(asset_id: string | undefined) {
-  const { db } = useSystem();
+  const { db } = system;
 
   const {
     data: projectInfoArray,
