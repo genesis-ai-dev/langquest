@@ -131,8 +131,8 @@ const QuestCard: React.FC<{
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
         <PrivateAccessGate
           projectId={quest.project_id}
-          projectName={project.name || ''}
-          isPrivate={project.private || false}
+          projectName={project?.name || ''}
+          isPrivate={project?.private || false}
           action="download"
           allowBypass={true}
           onBypass={handleDownloadToggle}

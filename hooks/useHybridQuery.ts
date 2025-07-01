@@ -1,4 +1,4 @@
-import { system } from '@/db/powersync/system';
+import type { System } from '@/db/powersync/system';
 import type { CompilableQuery } from '@powersync/react-native';
 import { parseQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -285,6 +285,7 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
+  system?: System; // System instance for PowerSync queries
   /**
    * Optional network status. If not provided, will attempt to check navigator.onLine
    */
@@ -295,6 +296,7 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
  *
  * A standalone function that automatically chooses between an online fetch function and an offline query,
  * depending on network connectivity. Can be used outside of React components.
+ * Note: When using offlineQuery (string variant), you must provide the system parameter.
  *
  * @example
  * const projects = await hybridFetch({
@@ -308,13 +310,13 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
  *   offlineQuery: toCompilableQuery(system.db.query.project.findMany({
  *     where: (fields, { eq }) => eq(fields.visible, true)
  *   })),
- *   isOnline: navigator.onLine // Optional: will default to navigator.onLine
+ *   system: system // Required when using offlineQuery string variant
  * });
  */
 export async function hybridFetch<T extends Record<string, unknown>>(
   config: HybridFetchConfig<T>
 ) {
-  const { onlineFn, ...restConfig } = config;
+  const { onlineFn, system, ...restConfig } = config;
 
   const runOfflineQuery = async () => {
     if ('offlineFn' in restConfig && restConfig.offlineFn) {
@@ -322,6 +324,9 @@ export async function hybridFetch<T extends Record<string, unknown>>(
     } else if ('offlineQuery' in restConfig) {
       // For PowerSync/Drizzle queries, we need to execute the query
       if (typeof restConfig.offlineQuery === 'string') {
+        if (!system) {
+          throw new Error('System parameter is required when using offlineQuery string variant');
+        }
         const parsedQuery = parseQuery(restConfig.offlineQuery, []);
         return await system.powersync.getAll<T>(
           parsedQuery.sqlStatement,

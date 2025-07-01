@@ -62,16 +62,38 @@ export async function getAssetById(asset_id: string) {
   )?.[0];
 }
 
-export function useAssetById(asset_id: string) {
+export function useAssetById(asset_id: string | undefined) {
+  const { db, supabaseConnector } = useSystem();
+
+  // Main query using hybrid query
   const {
     data: assetArray,
     isLoading: isAssetLoading,
     ...rest
-  } = useHybridQuery(getAssetByIdConfig(asset_id));
+  } = useHybridQuery({
+    queryKey: ['asset', asset_id],
+    enabled: !!asset_id,
+    onlineFn: async () => {
+      const { data, error } = await supabaseConnector.client
+        .from('asset')
+        .select('*')
+        .eq('id', asset_id)
+        .limit(1)
+        .overrideTypes<Asset[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.asset.findMany({
+        where: (fields, { eq }) => eq(fields.id, asset_id!),
+        limit: 1
+      })
+    )
+  });
 
-  const assetData = assetArray?.[0] || null;
+  const asset = assetArray?.[0] || null;
 
-  return { asset: assetData, isAssetLoading, ...rest };
+  return { asset, isAssetLoading, ...rest };
 }
 
 export function getAssetsById(asset_ids: string[]) {

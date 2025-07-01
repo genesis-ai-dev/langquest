@@ -1,17 +1,14 @@
 import { useSystem } from '@/contexts/SystemContext';
-import { language as languageTable } from '@/db/drizzleSchema';
+import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import {
-  convertToFetchConfig,
-  createHybridQueryConfig,
-  hybridFetch,
   useHybridQuery
 } from '../useHybridQuery';
 
-export type Language = InferSelectModel<typeof languageTable>;
+export type Language = InferSelectModel<typeof language>;
 
 export function useUIReadyLanguages() {
   const { db, supabaseConnector } = useSystem();
@@ -36,8 +33,8 @@ export function useUIReadyLanguages() {
     offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         where: and(
-          eq(languageTable.active, true),
-          eq(languageTable.ui_ready, true)
+          eq(language.active, true),
+          eq(language.ui_ready, true)
         )
       })
     )
@@ -72,7 +69,7 @@ export function useLanguages() {
     },
     offlineQuery: toCompilableQuery(
       db.query.language.findMany({
-        where: eq(languageTable.active, true)
+        where: eq(language.active, true)
       })
     )
   });
@@ -80,11 +77,22 @@ export function useLanguages() {
   return { languages, isLanguagesLoading, ...rest };
 }
 
-function getLanguageByIdConfig(language_id?: string) {
-  return createHybridQueryConfig({
+/**
+ * Returns { language, isLoading, error }
+ * Fetches a single language by ID from Supabase (online) or local Drizzle DB (offline)
+ */
+export function useLanguageById(language_id?: string) {
+  const { db, supabaseConnector } = useSystem();
+
+  const {
+    data: languageArray,
+    isLoading: isLanguageLoading,
+    ...rest
+  } = useHybridQuery({
     queryKey: ['language', language_id],
+    enabled: !!language_id,
     onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
+      const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
         .eq('id', language_id)
@@ -93,32 +101,39 @@ function getLanguageByIdConfig(language_id?: string) {
       return data;
     },
     offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: eq(languageTable.id, language_id!)
+      db.query.language.findMany({
+        where: eq(language.id, language_id!)
       })
-    ),
-    enabled: !!language_id
+    )
   });
+
+  const language_result = languageArray?.[0] || null;
+
+  return { language: language_result, isLanguageLoading, ...rest };
 }
 
-export async function getLanguageById(language_id: string) {
-  return (
-    await hybridFetch(convertToFetchConfig(getLanguageByIdConfig(language_id)))
-  )?.[0];
-}
+// Standalone function for use outside React components (like Zustand stores)
+export async function getLanguageById(language_id: string): Promise<Language | null> {
+  try {
+    // Try online first
+    const { data, error } = await system.supabaseConnector.client
+      .from('language')
+      .select('*')
+      .eq('id', language_id)
+      .single<Language>();
 
-/**
- * Returns { language, isLoading, error }
- * Fetches a single language by ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useLanguageById(language_id?: string) {
-  const {
-    data: languageArray,
-    isLoading: isLanguageLoading,
-    ...rest
-  } = useHybridQuery(getLanguageByIdConfig(language_id));
+    if (!error) {
+      return data;
+    }
 
-  const language = languageArray?.[0] || null;
+    // Fallback to offline
+    const offlineResult = await system.db.query.language.findFirst({
+      where: eq(language.id, language_id)
+    });
 
-  return { language, isLanguageLoading, ...rest };
+    return offlineResult || null;
+  } catch (error) {
+    console.error('Error fetching language by ID:', error);
+    return null;
+  }
 }

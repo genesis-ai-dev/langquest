@@ -5,7 +5,7 @@ import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useCallback, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -15,18 +15,38 @@ import {
   View
 } from 'react-native';
 
-export default function Terms() {
+function Terms() {
   const router = useRouter();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const { t } = useLocalization();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const handleAcceptTerms = () => {
+  const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
     acceptTerms();
     router.navigate('/');
-  };
+  }, [acceptTerms, router]);
+
+  const handleToggleTerms = useCallback(() => {
+    setTermsAccepted(!termsAccepted);
+  }, [termsAccepted]);
+
+  const handleClosePress = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  }, [router]);
+
+  const handleViewTerms = useCallback(() => {
+    void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`);
+  }, []);
+
+  const handleViewPrivacy = useCallback(() => {
+    void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`);
+  }, []);
 
   const canAcceptTerms = !dateTermsAccepted;
 
@@ -44,9 +64,7 @@ export default function Terms() {
         {!canAcceptTerms && (
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() =>
-              router.canGoBack() ? router.back() : router.replace('/')
-            }
+            onPress={handleClosePress}
           >
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -69,9 +87,7 @@ export default function Terms() {
         <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
         <Text style={styles.modalText}>{t('analyticsInfo')}</Text>
         <TouchableOpacity
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
-          }
+          onPress={handleViewTerms}
           style={{ marginTop: spacing.medium }}
         >
           <Text style={[sharedStyles.link, styles.linkText]}>
@@ -79,9 +95,7 @@ export default function Terms() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
-          }
+          onPress={handleViewPrivacy}
           style={{ marginTop: spacing.medium }}
         >
           <Text style={[sharedStyles.link, styles.linkText]}>
@@ -94,7 +108,7 @@ export default function Terms() {
         <>
           <View style={styles.termsCheckbox}>
             <TouchableOpacity
-              onPress={() => setTermsAccepted(!termsAccepted)}
+              onPress={handleToggleTerms}
               style={styles.checkboxContainer}
             >
               <Ionicons
@@ -124,6 +138,8 @@ export default function Terms() {
     </View>
   );
 }
+
+export default memo(Terms);
 
 const styles = StyleSheet.create({
   modalContainer: {

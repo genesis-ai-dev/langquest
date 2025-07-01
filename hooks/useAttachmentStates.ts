@@ -1,8 +1,9 @@
 // In a new hook file (useAttachmentStates.ts)
+import type { AttachmentRecord } from '@powersync/attachments';
+import { ATTACHMENT_TABLE, AttachmentState } from '@powersync/attachments';
+import type { QueryResult } from '@powersync/react-native';
 import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
-import { ATTACHMENT_TABLE, AttachmentRecord, AttachmentState } from '@powersync/attachments';
-import { QueryResult } from '@powersync/react-native';
 
 export function useAttachmentStates(attachmentIds: string[]) {
   const [attachmentStates, setAttachmentStates] = useState<

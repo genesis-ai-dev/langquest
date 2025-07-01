@@ -6,8 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState
 } from 'react';
@@ -114,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [system, setCurrentUser]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       // will bring you back to the sign-in screen
       setCurrentUser(null);
@@ -124,19 +126,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
+  }, [system, setCurrentUser]);
+
+  const contextValue = useMemo(
+    () => ({
+      currentUser,
+      setCurrentUser,
+      signOut,
+      isLoading
+    }),
+    [currentUser, setCurrentUser, signOut, isLoading]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        currentUser,
-        setCurrentUser,
-        signOut,
-        isLoading
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
 

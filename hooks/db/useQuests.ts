@@ -110,30 +110,33 @@ export function useQuestsWithTagsByProjectId(project_id: string) {
  * Returns { quest, isLoading, error }
  * Fetches a single quest by ID from Supabase (online) or local Drizzle DB (offline)
  */
-export function useQuestById(quest_id: string) {
+export function useQuestById(quest_id: string | undefined) {
   const { db, supabaseConnector } = useSystem();
 
+  // Main query using hybrid query
   const {
     data: questArray,
     isLoading: isQuestLoading,
     ...rest
   } = useHybridQuery({
     queryKey: ['quest', quest_id],
+    enabled: !!quest_id,
     onlineFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('quest')
         .select('*')
         .eq('id', quest_id)
+        .limit(1)
         .overrideTypes<Quest[]>();
       if (error) throw error;
       return data;
     },
     offlineQuery: toCompilableQuery(
       db.query.quest.findMany({
-        where: eq(questTable.id, quest_id)
+        where: (fields, { eq }) => eq(fields.id, quest_id!),
+        limit: 1
       })
-    ),
-    enabled: !!quest_id
+    )
   });
 
   const quest = questArray?.[0] || null;

@@ -6,7 +6,13 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import type { Href } from 'expo-router';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
-import React, { createContext, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState
+} from 'react';
 
 interface ProjectContextType {
   activeProject?: Project | null;
@@ -43,100 +49,126 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     assetId: string;
   }>();
 
+  // Only run database hooks when IDs are actually present
   const { project: activeProject } = useProjectById(projectId);
   const { quest: activeQuest } = useQuestById(questId);
   const { asset: activeAsset } = useAssetById(assetId);
 
-  function goToProject(project: Project, navigate?: boolean) {
-    const path: Href = {
-      pathname: '/projects/[projectId]/quests',
-      params: { projectId: project.id, projectName: project.name }
-    };
-    router[navigate ? 'navigate' : 'push'](path);
+  const goToProject = useCallback(
+    (project: Project, navigate?: boolean) => {
+      const path: Href = {
+        pathname: '/projects/[projectId]/quests',
+        params: { projectId: project.id, projectName: project.name }
+      };
+      router[navigate ? 'navigate' : 'push'](path);
 
-    setRecentProjects((prev) => {
-      const filtered = prev.filter((p) => p.id !== project.id);
-      return [
-        {
-          ...project,
-          path
-        },
-        ...filtered
-      ].slice(0, 3);
-    });
-  }
+      setRecentProjects((prev) => {
+        const filtered = prev.filter((p) => p.id !== project.id);
+        return [
+          {
+            ...project,
+            path
+          },
+          ...filtered
+        ].slice(0, 3);
+      });
+    },
+    [router]
+  );
 
-  function goToQuest(quest: Quest, navigate?: boolean) {
-    const path: Href = {
-      pathname: '/projects/[projectId]/quests/[questId]/assets',
-      params: {
-        projectId: quest.project_id,
-        questId: quest.id
-      }
-    };
-    router[navigate ? 'navigate' : 'push'](path);
+  const goToQuest = useCallback(
+    (quest: Quest, navigate?: boolean) => {
+      const path: Href = {
+        pathname: '/projects/[projectId]/quests/[questId]/assets',
+        params: {
+          projectId: quest.project_id,
+          questId: quest.id
+        }
+      };
+      router[navigate ? 'navigate' : 'push'](path);
 
-    setRecentQuests((prev) => {
-      const filtered = prev.filter((q) => q.id !== quest.id);
-      return [
-        {
-          ...quest,
-          path
-        },
-        ...filtered
-      ].slice(0, 3);
-    });
-  }
+      setRecentQuests((prev) => {
+        const filtered = prev.filter((q) => q.id !== quest.id);
+        return [
+          {
+            ...quest,
+            path
+          },
+          ...filtered
+        ].slice(0, 3);
+      });
+    },
+    [router]
+  );
 
-  function goToAsset(
-    href: { asset: Asset; projectId: string; questId: string } | { path: Href },
-    navigate?: boolean
-  ) {
-    const path: Href =
-      'path' in href
-        ? href.path
-        : {
-            pathname: '/projects/[projectId]/quests/[questId]/assets/[assetId]',
-            params: {
-              projectId,
-              questId,
-              assetId: href.asset.id,
-              assetName: href.asset.name
-            }
-          };
+  const goToAsset = useCallback(
+    (
+      href:
+        | { asset: Asset; projectId: string; questId: string }
+        | { path: Href },
+      navigate?: boolean
+    ) => {
+      const path: Href =
+        'path' in href
+          ? href.path
+          : {
+              pathname:
+                '/projects/[projectId]/quests/[questId]/assets/[assetId]',
+              params: {
+                projectId,
+                questId,
+                assetId: href.asset.id,
+                assetName: href.asset.name
+              }
+            };
 
-    router[navigate ? 'navigate' : 'push'](path);
+      router[navigate ? 'navigate' : 'push'](path);
 
-    setRecentAssets((prev) => {
-      const filtered = prev.filter((a) =>
-        'asset' in href ? a.id !== href.asset.id : a.path !== href.path
-      );
-      return [
-        'asset' in href
-          ? {
-              ...href.asset,
-              path
-            }
-          : prev.find((a) => a.path === href.path)!,
-        ...filtered
-      ].slice(0, 3);
-    });
-  }
+      setRecentAssets((prev) => {
+        const filtered = prev.filter((a) =>
+          'asset' in href ? a.id !== href.asset.id : a.path !== href.path
+        );
+        return [
+          'asset' in href
+            ? {
+                ...href.asset,
+                path
+              }
+            : prev.find((a) => a.path === href.path)!,
+          ...filtered
+        ].slice(0, 3);
+      });
+    },
+    [router, projectId, questId]
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      activeProject,
+      recentProjects,
+      activeQuest,
+      recentQuests,
+      activeAsset,
+      recentAssets,
+      goToProject,
+      goToQuest,
+      goToAsset
+    }),
+    [
+      activeProject,
+      recentProjects,
+      activeQuest,
+      recentQuests,
+      activeAsset,
+      recentAssets,
+      goToProject,
+      goToQuest,
+      goToAsset
+    ]
+  );
 
   return (
-    <ProjectContext.Provider
-      value={{
-        activeProject,
-        recentProjects,
-        activeQuest,
-        recentQuests,
-        activeAsset,
-        recentAssets,
-        goToProject,
-        goToQuest,
-        goToAsset
-      }}
-    >
+    <ProjectContext.Provider value={contextValue}>
       {children}
     </ProjectContext.Provider>
   );

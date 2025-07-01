@@ -1,6 +1,5 @@
 import { useSystem } from '@/contexts/SystemContext';
 import { project as projectTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq } from 'drizzle-orm';
@@ -54,11 +53,13 @@ export function useInfiniteProjects(
   sortField?: 'name' | 'created_at' | 'last_updated',
   sortOrder?: 'asc' | 'desc'
 ) {
+  const { db, supabaseConnector } = useSystem();
+
   return useHybridInfiniteQuery({
     queryKey: ['projects', 'infinite', pageSize, sortField, sortOrder],
     onlineFn: async ({ pageParam }) => {
       // Online query with proper pagination using Supabase range
-      let query = system.supabaseConnector.client
+      let query = supabaseConnector.client
         .from('project')
         .select('*', { count: 'exact' })
         .eq('visible', true)
@@ -98,7 +99,7 @@ export function useInfiniteProjects(
       try {
         console.log(`[OfflineProjects] Loading page ${pageParam}, offset: ${offsetValue}`);
 
-        const allProjects = await system.db.query.project.findMany({
+        const allProjects = await db.query.project.findMany({
           where: and(
             eq(projectTable.visible, true),
             eq(projectTable.active, true)
@@ -115,7 +116,7 @@ export function useInfiniteProjects(
         });
 
         // Get total count for hasMore calculation
-        const countQuery = await system.db.query.project.findMany({
+        const countQuery = await db.query.project.findMany({
           where: and(
             eq(projectTable.visible, true),
             eq(projectTable.active, true)
@@ -166,7 +167,7 @@ export function useProjectById(projectId: string | undefined) {
     ...rest
   } = useHybridQuery({
     queryKey: ['project', projectId],
-    enabled: !!projectId,
+    enabled: !!projectId, // NOTE: only run the query if projectId is defined
     onlineFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('project')

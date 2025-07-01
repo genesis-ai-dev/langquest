@@ -13,13 +13,30 @@ import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { memo, useCallback, useEffect } from 'react';
 import { LogBox } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
 void SplashScreen.preventAutoHideAsync();
 
 LogBox.ignoreAllLogs();
+
+const RootStack = memo(() => (
+  <Stack
+    screenOptions={{
+      headerShown: false
+    }}
+  >
+    <Stack.Screen
+      name="terms"
+      options={{
+        presentation: 'modal'
+      }}
+    />
+  </Stack>
+));
+
+RootStack.displayName = 'RootStack';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -36,36 +53,39 @@ export default function RootLayout() {
     };
   }, []);
 
+  const handleAuthDeepLink = useCallback(
+    (url: string) => {
+      console.log('[handleAuthDeepLink] URL:', url);
+      const { params, path } = getQueryParams(url);
+
+      if (params.access_token && params.refresh_token) {
+        const handleRedirect = async () => {
+          await system.supabaseConnector.client.auth.setSession({
+            access_token: params.access_token!,
+            refresh_token: params.refresh_token!
+          });
+          router.replace(path as Href);
+        };
+        void handleRedirect();
+      }
+    },
+    [router]
+  );
+
   useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
-      void handleAuthDeepLink(event.url);
+      handleAuthDeepLink(event.url);
     });
 
     // Check for initial URL (app opened via link)
     void Linking.getInitialURL().then((url) => {
-      if (url) void handleAuthDeepLink(url);
+      if (url) handleAuthDeepLink(url);
     });
 
     return () => {
       subscription.remove();
     };
-  }, []);
-
-  const handleAuthDeepLink = (url: string) => {
-    console.log('[handleAuthDeepLink] URL:', url);
-    const { params, path } = getQueryParams(url);
-
-    if (params.access_token && params.refresh_token) {
-      const handleRedirect = async () => {
-        await system.supabaseConnector.client.auth.setSession({
-          access_token: params.access_token!,
-          refresh_token: params.refresh_token!
-        });
-        router.replace(path as Href);
-      };
-      void handleRedirect();
-    }
-  };
+  }, [handleAuthDeepLink]);
 
   console.log('[RootLayout] Rendering...');
 
@@ -77,18 +97,7 @@ export default function RootLayout() {
           <AudioProvider>
             <QueryProvider>
               <UpdateBanner />
-              <Stack
-                screenOptions={{
-                  headerShown: false
-                }}
-              >
-                <Stack.Screen
-                  name="terms"
-                  options={{
-                    presentation: 'modal'
-                  }}
-                />
-              </Stack>
+              <RootStack />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>
