@@ -1,6 +1,4 @@
-import type { System } from '@/db/powersync/system';
 import type { CompilableQuery } from '@powersync/react-native';
-import { parseQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { QueryFunctionContext } from '@tanstack/react-query';
@@ -285,7 +283,6 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
-  system?: System; // System instance for PowerSync queries
   /**
    * Optional network status. If not provided, will attempt to check navigator.onLine
    */
@@ -296,7 +293,6 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
  *
  * A standalone function that automatically chooses between an online fetch function and an offline query,
  * depending on network connectivity. Can be used outside of React components.
- * Note: When using offlineQuery (string variant), you must provide the system parameter.
  *
  * @example
  * const projects = await hybridFetch({
@@ -307,31 +303,25 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
  *       .eq('visible', true);
  *     return response.data || [];
  *   },
- *   offlineQuery: toCompilableQuery(system.db.query.project.findMany({
- *     where: (fields, { eq }) => eq(fields.visible, true)
- *   })),
- *   system: system // Required when using offlineQuery string variant
+ *   offlineFn: async () => {
+ *     return await system.db.query.project.findMany({
+ *       where: (fields, { eq }) => eq(fields.visible, true)
+ *     });
+ *   }
  * });
  */
 export async function hybridFetch<T extends Record<string, unknown>>(
   config: HybridFetchConfig<T>
 ) {
-  const { onlineFn, system, ...restConfig } = config;
+  const { onlineFn, ...restConfig } = config;
 
   const runOfflineQuery = async () => {
     if ('offlineFn' in restConfig && restConfig.offlineFn) {
       return await restConfig.offlineFn();
     } else if ('offlineQuery' in restConfig) {
-      // For PowerSync/Drizzle queries, we need to execute the query
+      // For standalone usage, offlineQuery should be a CompilableQuery, not string
       if (typeof restConfig.offlineQuery === 'string') {
-        if (!system) {
-          throw new Error('System parameter is required when using offlineQuery string variant');
-        }
-        const parsedQuery = parseQuery(restConfig.offlineQuery, []);
-        return await system.powersync.getAll<T>(
-          parsedQuery.sqlStatement,
-          parsedQuery.parameters
-        );
+        throw new Error('String queries not supported in standalone hybridFetch. Use offlineFn instead.');
       } else {
         return await restConfig.offlineQuery.execute();
       }

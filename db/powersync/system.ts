@@ -28,6 +28,8 @@ import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 Logger.useDefaults();
 
 export class System {
+  private static instance: System | null = null;
+
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabase;
@@ -36,6 +38,10 @@ export class System {
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   constructor() {
+    // Prevent multiple instantiation
+    if (System.instance) {
+      throw new Error('System instance already exists. Use System.getInstance() instead.');
+    }
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
 
@@ -128,6 +134,13 @@ export class System {
     }
   }
 
+  static getInstance(): System {
+    if (!System.instance) {
+      System.instance = new System();
+    }
+    return System.instance;
+  }
+
   private initialized = false;
   private connecting = false;
   private connectionPromise: Promise<void> | null = null;
@@ -192,6 +205,9 @@ export class System {
 
       this.initialized = true;
       console.log('PowerSync initialization complete');
+
+      // Freeze the object to prevent further modifications
+      Object.freeze(this);
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;
@@ -288,4 +304,4 @@ export class System {
   }
 }
 
-export const system = new System();
+export const system = System.getInstance();

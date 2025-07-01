@@ -12,6 +12,7 @@ export type Language = InferSelectModel<typeof language>;
 
 export function useUIReadyLanguages() {
   const { db, supabaseConnector } = useSystem();
+  console.log('useSystem hook state vs system', { useSystem: useSystem(), system: system })
 
   // Main query using hybrid realtime query
   const {
