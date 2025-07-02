@@ -1,0 +1,81 @@
+name: Deploy to preview
+
+on:
+  push:
+    branches: ['dev']
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    outputs:
+      android_fingerprint_hash: ${{ steps.fingerprint_step_id.outputs.android_fingerprint_hash }}
+      ios_fingerprint_hash: ${{ steps.fingerprint_step_id.outputs.ios_fingerprint_hash }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Install additional tools
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+      - name: Set fingerprint variables
+        id: fingerprint_step_id
+        run: |
+          ANDROID_FINGERPRINT=$(npx expo-updates fingerprint:generate --platform android)
+          ANDROID_FINGERPRINT_HASH=$(echo $ANDROID_FINGERPRINT | jq -r '.hash')
+          set-output android_fingerprint_hash $ANDROID_FINGERPRINT_HASH
+  get_android_build:
+    name: Check for existing android build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: preview
+  # get_ios_build:
+  #   name: Check for existing ios build
+  #   needs: [fingerprint]
+  #   type: get-build
+  #   params:
+  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+  #     profile: production
+  build_android:
+    name: Build Android
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    params:
+      platform: android
+      profile: preview
+  # build_ios:
+  #   name: Build iOS
+  #   needs: [get_ios_build]
+  #   if: ${{ !needs.get_ios_build.outputs.build_id }}
+  #   type: build
+  #   params:
+  #     platform: ios
+  #     profile: production
+  submit_android_build:
+    name: Submit Android Build
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+  # submit_ios_build:
+  #   name: Submit iOS Build
+  #   needs: [build_ios]
+  #   type: submit
+  #   params:
+  #     build_id: ${{ needs.build_ios.outputs.build_id }}
+  publish_android_update:
+    name: Publish Android update
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
+    params:
+      branch: dev
+      platform: android
+  # publish_ios_update:
+  #   name: Publish iOS update
+  #   needs: [get_ios_build]
+  #   if: ${{ needs.get_ios_build.outputs.build_id }}
+  #   type: update
+  #   params:
+  #     branch: production
+  #     platform: ios
