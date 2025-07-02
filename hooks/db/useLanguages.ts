@@ -1,11 +1,9 @@
-import { system } from '@/db/powersync/system';
 import { language } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
-import {
-  useHybridQuery
-} from '../useHybridQuery';
+import { useHybridQuery } from '../useHybridQuery';
 
 export type Language = InferSelectModel<typeof language>;
 
@@ -31,10 +29,7 @@ export function useUIReadyLanguages() {
     },
     offlineQuery: toCompilableQuery(
       db.query.language.findMany({
-        where: and(
-          eq(language.active, true),
-          eq(language.ui_ready, true)
-        )
+        where: and(eq(language.active, true), eq(language.ui_ready, true))
       })
     )
   });
@@ -69,6 +64,43 @@ export function useLanguages() {
     offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         where: eq(language.active, true)
+      })
+    )
+  });
+
+  return { languages, isLanguagesLoading, ...rest };
+}
+
+export function useLanguageNames(languageIds: string[] | string) {
+  const { db, supabaseConnector } = system;
+
+  const languageIdsArray = Array.isArray(languageIds)
+    ? languageIds
+    : [languageIds];
+  // Main query using hybrid realtime query
+  const {
+    data: languages,
+    isLoading: isLanguagesLoading,
+    ...rest
+  } = useHybridQuery({
+    queryKey: ['languages'],
+    onlineFn: async () => {
+      const { data, error } = await supabaseConnector.client
+        .from('language')
+        .select('id, native_name, english_name')
+        .eq('active', true)
+        .in('id', languageIdsArray)
+        .overrideTypes<
+          { id: string; native_name: string; english_name: string }[]
+        >();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.language.findMany({
+        columns: { id: true, native_name: true, english_name: true },
+        where: (fields, { eq, inArray }) =>
+          and(eq(fields.active, true), inArray(fields.id, languageIdsArray))
       })
     )
   });
@@ -112,7 +144,9 @@ export function useLanguageById(language_id?: string) {
 }
 
 // Standalone function for use outside React components (like Zustand stores)
-export async function getLanguageById(language_id: string): Promise<Language | null> {
+export async function getLanguageById(
+  language_id: string
+): Promise<Language | null> {
   try {
     // Try online first
     const { data, error } = await system.supabaseConnector.client

@@ -1,5 +1,5 @@
 import type { project } from '@/db/drizzleSchema';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useLanguageNames } from '@/hooks/db/useLanguages';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { default as React } from 'react';
@@ -22,11 +22,16 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  const { language: sourceLanguage } = useLanguageById(
-    project.source_language_id
-  );
-  const { language: targetLanguage } = useLanguageById(
+  const { languages } = useLanguageNames([
+    project.source_language_id,
     project.target_language_id
+  ]);
+
+  const sourceLanguage = languages?.find(
+    (language) => language.id === project.source_language_id
+  );
+  const targetLanguage = languages?.find(
+    (language) => language.id === project.target_language_id
   );
 
   return (
