@@ -3,10 +3,10 @@ import type { Tag } from '@/database_services/tagService';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useInfiniteQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { FlashList } from '@shopify/flash-list';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -123,7 +123,7 @@ export const QuestList = React.memo(
     }
 
     return (
-      <FlatList
+      <FlashList
         data={filteredQuests}
         renderItem={({ item }) => (
           <QuestItem
@@ -136,15 +136,6 @@ export const QuestList = React.memo(
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}
-        windowSize={8}
-        maxToRenderPerBatch={8}
-        updateCellsBatchingPeriod={16}
-        initialNumToRender={6}
-        getItemLayout={(data, index) => ({
-          length: 120,
-          offset: 120 * index,
-          index
-        })}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={

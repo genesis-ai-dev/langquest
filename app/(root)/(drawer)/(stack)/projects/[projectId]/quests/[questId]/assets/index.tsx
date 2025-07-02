@@ -26,7 +26,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  FlatList,
   Modal,
   RefreshControl,
   StyleSheet,
@@ -42,6 +41,7 @@ import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAsse
 import { useQuestById } from '@/hooks/db/useQuests';
 // import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalization } from '@/hooks/useLocalization';
+import { FlashList } from '@shopify/flash-list';
 
 interface SortingOption {
   field: string;
@@ -503,7 +503,7 @@ export default function Assets() {
             </View>
           </View>
 
-          <FlatList
+          <FlashList
             data={filteredAssets}
             renderItem={renderAssetItem}
             keyExtractor={(item) => item.id}
@@ -522,10 +522,6 @@ export default function Assets() {
             showsVerticalScrollIndicator={false}
             // Performance optimizations from TKDodo's guide
             removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            updateCellsBatchingPeriod={100}
-            initialNumToRender={10}
-            windowSize={10}
           />
           <TouchableOpacity
             onPress={toggleQuestStats}
