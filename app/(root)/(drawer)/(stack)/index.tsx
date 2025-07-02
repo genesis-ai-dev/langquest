@@ -3,9 +3,11 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  useSessionLanguages,
+  useSessionMemberships
+} from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
-import { profile_project_link } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigation } from '@/hooks/useNavigation';
@@ -27,18 +29,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useLanguageById, useLanguageNames } from '@/hooks/db/useLanguages';
-import {
-  useInfiniteProjects,
-  useSupabaseProjects
-} from '@/hooks/db/useProjects';
+import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
 import { FlashList } from '@shopify/flash-list';
-import { and, eq } from 'drizzle-orm';
 
 type Project = typeof project.$inferSelect;
 
@@ -46,13 +41,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
   const { currentUser } = useAuth();
-  const { db } = system;
-  // const [progress] = useState({
-  //   approvedPercentage: 0,
-  //   userContributedPercentage: 0,
-  //   pendingTranslationsCount: 0,
-  //   totalAssets: 0
-  // });
+  const { getLanguageById } = useSessionLanguages();
+  const { getUserMembership } = useSessionMemberships();
 
   // Use the new download hook
   const {
@@ -61,40 +51,17 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     toggleDownload
   } = useDownload('project', project.id);
 
-  const { language: sourceLanguage } = useLanguageById(
-    project.source_language_id
-  );
-  const { language: targetLanguage } = useLanguageById(
-    project.target_language_id
-  );
+  // Get languages from session cache instead of individual queries
+  const sourceLanguage = getLanguageById(project.source_language_id);
+  const targetLanguage = getLanguageById(project.target_language_id);
 
-  // Only get asset IDs for download status, not full assets
-  // const [assetIds, setAssetIds] = useState<string[]>([]);
-
-  const { data: membershipData = [] } = useQuery(
-    toCompilableQuery(
-      db.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.project_id, project.id),
-          eq(profile_project_link.active, true)
-        )
-      })
-    )
-  );
-
-  const membershipRole = membershipData[0]?.membership as
-    | 'owner'
-    | 'member'
-    | undefined;
+  // Get membership from session cache instead of individual query
+  const membership = getUserMembership(project.id);
+  const membershipRole = membership?.membership;
 
   const handleDownloadToggle = async () => {
     await toggleDownload();
   };
-
-  // TODO: Replace with a more efficient server-side calculation or dedicated endpoint
-  // For now, we'll just show basic project info without progress
-  // This prevents the app from loading ALL data for every project
 
   return (
     <View style={sharedStyles.card}>
@@ -153,14 +120,6 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
         </Text>
       </View>
 
-      {/* Temporarily disabled progress bars to prevent performance issues */}
-      {/* TODO: Implement efficient progress calculation */}
-      {/* <ProgressBars
-          approvedPercentage={progress.approvedPercentage}
-          userContributedPercentage={progress.userContributedPercentage}
-          pickaxeCount={progress.pendingTranslationsCount}
-        /> */}
-
       {project.description && (
         <Text style={sharedStyles.cardDescription}>{project.description}</Text>
       )}
@@ -172,10 +131,13 @@ export default function Projects() {
   const { t } = useLocalization();
   const { goToProject } = useNavigation();
   const { currentUser } = useAuth();
-  const { db } = system;
 
   // Add performance tracking
   useRenderCounter('Projects');
+
+  // Use session cache for languages instead of individual queries
+  const { languages: allLanguages, isLanguagesLoading } = useSessionLanguages();
+  const { isUserMember } = useSessionMemberships();
 
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const targetFilter = useLocalStore((state) => state.projectTargetFilter);
@@ -200,52 +162,17 @@ export default function Projects() {
     hasNextPage,
     isFetching,
     isFetchingNextPage,
-    isLoading,
+    isLoading: isProjectsLoading,
     isError,
     error,
     refetch
-  } = useInfiniteProjects(); // 10 projects per page
+  } = useInfiniteProjects(10, 'name', 'asc');
 
-  const { data: supabaseProjects } = useSupabaseProjects();
+  const projects = useMemo(() => {
+    return infiniteData?.pages.flatMap((page) => page.data) ?? [];
+  }, [infiniteData]);
 
-  const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
-
-  const { languages: allLanguages } = useLanguageNames(
-    Array.from(
-      new Set(
-        allProjects
-          .map((project) => project.source_language_id)
-          .concat(allProjects.map((project) => project.target_language_id))
-      )
-    )
-  );
-
-  // Apply client-side filtering based on language filters
-  const filteredProjects = useMemo(() => {
-    if (!allProjects.length) return [];
-
-    return allProjects.filter((project) => {
-      // Find the source and target language objects
-      const sourceLanguage = allLanguages?.find(
-        (l) => l.id === project.source_language_id
-      );
-      const targetLanguage = allLanguages?.find(
-        (l) => l.id === project.target_language_id
-      );
-
-      // Get language names (prefer native name, fall back to English name)
-      const sourceName =
-        sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
-      const targetName =
-        targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
-
-      // Check if this project matches the filters
-      const sourceMatch = sourceFilter === 'All' || sourceFilter === sourceName;
-      const targetMatch = targetFilter === 'All' || targetFilter === targetName;
-
-      return sourceMatch && targetMatch;
-    });
-  }, [allProjects, allLanguages, sourceFilter, targetFilter]);
+  const isLoading = isProjectsLoading || isLanguagesLoading;
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
@@ -256,16 +183,8 @@ export default function Projects() {
     // Check if project is private
     if (project.private) {
       if (currentUser) {
-        // Check if user is a member or owner
-        const membershipLinks = await db.query.profile_project_link.findMany({
-          where: and(
-            eq(profile_project_link.profile_id, currentUser.id),
-            eq(profile_project_link.project_id, project.id),
-            eq(profile_project_link.active, true)
-          )
-        });
-
-        const isMember = membershipLinks.length > 0;
+        // Use session cache to check membership
+        const isMember = isUserMember(project.id);
 
         if (!isMember) {
           // Show private project modal
@@ -374,12 +293,12 @@ export default function Projects() {
   }
 
   const uniqueSourceLanguageIds = [
-    ...new Set(allProjects.map((project) => project.source_language_id))
+    ...new Set(projects.map((project) => project.source_language_id))
   ];
 
   // Get unique target languages from projects
   const uniqueTargetLanguageIds = [
-    ...new Set(allProjects.map((project) => project.target_language_id))
+    ...new Set(projects.map((project) => project.target_language_id))
   ];
 
   // Filter and map source languages
@@ -433,7 +352,7 @@ export default function Projects() {
           </View>
 
           <FlashList
-            data={filteredProjects}
+            data={projects}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleExplore(item)}>
                 <ProjectCard project={item} />

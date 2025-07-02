@@ -72,14 +72,20 @@ export function useHybridQuery<T extends Record<string, unknown>>(
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
 
-  // Filter out undefined/null values from the query key
-  const cleanQueryKey = queryKey.filter(key => key !== undefined && key !== null);
+  // FIXED: Stabilize query keys with useMemo to prevent infinite loops
+  const stableQueryKeys = React.useMemo(() => {
+    // Filter out undefined/null values from the query key
+    const cleanQueryKey = queryKey.filter(key => key !== undefined && key !== null);
 
-  // Use dual cache system for better offline/online separation
-  const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...cleanQueryKey, isOnline ? 'offline' : 'online'];
-  const cachedOppositeData = queryClient.getQueryData<T[]>(oppositeQueryKey);
-  const oppositeCachedQueryState = queryClient.getQueryState<T[]>(oppositeQueryKey);
+    // Use dual cache system for better offline/online separation
+    const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
+    const oppositeQueryKey = [...cleanQueryKey, isOnline ? 'offline' : 'online'];
+
+    return { hybridQueryKey, oppositeQueryKey };
+  }, [queryKey, isOnline]);
+
+  const cachedOppositeData = queryClient.getQueryData<T[]>(stableQueryKeys.oppositeQueryKey);
+  const oppositeCachedQueryState = queryClient.getQueryState<T[]>(stableQueryKeys.oppositeQueryKey);
 
   // Memoize the merged data to prevent infinite re-renders
   const stableMergedData = React.useMemo(() => {
@@ -118,7 +124,7 @@ export function useHybridQuery<T extends Record<string, unknown>>(
   }, [cachedOppositeData, select, getId]);
 
   const sharedQueryOptions = {
-    queryKey: hybridQueryKey,
+    queryKey: stableQueryKeys.hybridQueryKey,
     initialData: stableMergedData,
     initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
     select: stableSelect,
@@ -150,8 +156,8 @@ export function useHybridQuery<T extends Record<string, unknown>>(
       ...sharedQueryOptions,
       queryFn: onlineFn,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
+      refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
+      refetchOnMount: false, // FIXED: Prevent refetch on every mount
       networkMode: 'always'
     });
   }
@@ -480,21 +486,26 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
 
   // Performance tracking is handled in the query functions below
 
-  // Use dual cache system for better offline/online separation
-  // Don't add 'infinite' again if it's already in the queryKey
-  const hasInfinite = queryKey.includes('infinite');
-  const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
+  // FIXED: Stabilize query keys with useMemo to prevent infinite loops
+  const stableQueryKeys = React.useMemo(() => {
+    // Use dual cache system for better offline/online separation
+    // Don't add 'infinite' again if it's already in the queryKey
+    const hasInfinite = queryKey.includes('infinite');
+    const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
 
-  // Filter out undefined/null values from the query key
-  const cleanBaseKey = baseKey.filter(key => key !== undefined && key !== null);
-  const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
+    // Filter out undefined/null values from the query key
+    const cleanBaseKey = baseKey.filter(key => key !== undefined && key !== null);
+    const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
+    const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
+
+    return { hybridQueryKey, oppositeQueryKey };
+  }, [queryKey, isOnline]);
 
   // Get cached data from opposite network state for initial data
-  const oppositeCachedQueryState = queryClient.getQueryState(oppositeQueryKey);
+  const oppositeCachedQueryState = queryClient.getQueryState(stableQueryKeys.oppositeQueryKey);
 
   const sharedOptions = {
-    queryKey: hybridQueryKey,
+    queryKey: stableQueryKeys.hybridQueryKey,
     initialPageParam,
     getNextPageParam,
     getPreviousPageParam,
@@ -505,7 +516,7 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
     networkMode: 'always' as const,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: false, // FIXED: Prevent excessive refetching
     ...restOptions
   };
 
@@ -527,15 +538,15 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
       ...sharedOptions,
       queryFn: onlineFn,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
+      refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
+      refetchOnMount: false, // FIXED: Prevent refetch on every mount
     });
-    console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(hybridQueryKey)}`);
+    console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`);
     return result;
   }
 
   const result = useOfflineInfiniteQuery();
-  console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(hybridQueryKey)}`);
+  console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`);
   return result;
 }
 

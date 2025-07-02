@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authInitialized = useRef(false);
 
   useEffect(() => {
-    debug('useEffect');
+    debug('useEffect - AuthContext initialization');
     mounted.current = true;
 
     const loadAuthData = async () => {
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted.current = false;
       subscription.data.subscription.unsubscribe();
     };
-  }, [setCurrentUser]);
+  }, []); // 🔥 FIXED: Empty dependency array - this should only run ONCE!
 
   const signOut = useCallback(async () => {
     debug('signOut');
