@@ -16,7 +16,6 @@
     },
     "preview": {
       "autoIncrement": true,
-      "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
       "env": {
@@ -36,6 +35,11 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "track": "production"
+      }
+    },
+    "preview": {
       "android": {
         "track": "alpha"
       }

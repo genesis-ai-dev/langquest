@@ -27,7 +27,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
+import { useLanguageById, useLanguageNames } from '@/hooks/db/useLanguages';
 import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
 import { useRenderCounter } from '@/utils/performanceUtils';
@@ -174,7 +174,6 @@ export default function Projects() {
   // Add performance tracking
   useRenderCounter('Projects');
 
-  const { languages: allLanguages } = useLanguages();
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const targetFilter = useLocalStore((state) => state.projectTargetFilter);
   const setSourceFilter = useLocalStore(
@@ -202,13 +201,19 @@ export default function Projects() {
     isError,
     error,
     refetch
-  } = useInfiniteProjects(20); // 20 projects per page
+  } = useInfiniteProjects(); // 10 projects per page
 
-  // Extract all projects from pages
-  const allProjects = useMemo(() => {
-    if (!infiniteData?.pages) return [];
-    return infiniteData.pages.flatMap((page) => page.data);
-  }, [infiniteData]);
+  const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
+
+  const { languages: allLanguages } = useLanguageNames(
+    Array.from(
+      new Set(
+        allProjects
+          .map((project) => project.source_language_id)
+          .concat(allProjects.map((project) => project.target_language_id))
+      )
+    )
+  );
 
   // Apply client-side filtering based on language filters
   const filteredProjects = useMemo(() => {

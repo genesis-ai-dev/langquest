@@ -22,10 +22,6 @@ export class TranslationUtils {
 
   static t(key: keyof typeof localizations) {
     const localization = localizations[key];
-    if (!localization) {
-      console.warn(`Localization key "${key}" not found`);
-      return key;
-    }
     return localization[this.currentLanguage];
   }
 
