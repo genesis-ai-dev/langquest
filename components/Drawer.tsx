@@ -60,6 +60,9 @@ function DrawerItems() {
     'backup' | 'restore' | null
   >(null);
 
+  // Get PowerSync status
+  const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
+
   // Use the notifications hook
   const { notificationCount } = useNotifications();
 
@@ -223,6 +226,21 @@ function DrawerItems() {
     return t('syncProgress', { current: syncProgress, total: syncTotal });
   };
 
+  // Debug function to log PowerSync status
+  const logPowerSyncStatus = () => {
+    console.log('=== PowerSync Status Debug ===');
+    console.log('systemReady:', systemReady);
+    console.log('powersyncStatus:', powersyncStatus);
+    if (powersyncStatus) {
+      console.log('connected:', powersyncStatus.connected);
+      console.log('connecting:', powersyncStatus.connecting);
+      console.log('dataFlowStatus:', powersyncStatus.dataFlowStatus);
+      console.log('hasSynced:', powersyncStatus.hasSynced);
+      console.log('lastSyncedAt:', powersyncStatus.lastSyncedAt);
+    }
+    console.log('==============================');
+  };
+
   return (
     <View style={styles.drawerItems}>
       {!systemReady && (
@@ -272,6 +290,25 @@ function DrawerItems() {
         disabled={!systemReady || isOperationActive}
         style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
+
+      {/* Sync status section */}
+      <TouchableOpacity
+        style={styles.stalePercentageContainer}
+        onPress={logPowerSyncStatus}
+      >
+        <Text style={styles.stalePercentageText}>
+          {powersyncStatus?.connected
+            ? powersyncStatus.dataFlowStatus.downloading
+              ? 'Syncing...'
+              : powersyncStatus.hasSynced
+                ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                : 'Not synced'
+            : powersyncStatus?.connecting
+              ? 'Connecting...'
+              : 'Disconnected'}
+        </Text>
+      </TouchableOpacity>
+
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
@@ -657,5 +694,17 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     color: colors.text,
     textAlign: 'center'
+  },
+  stalePercentageContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    alignItems: 'center',
+    marginBottom: spacing.small
+  },
+  stalePercentageText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500'
   }
 });

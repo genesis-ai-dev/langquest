@@ -40,7 +40,9 @@ export class System {
   constructor() {
     // Prevent multiple instantiation
     if (System.instance) {
-      throw new Error('System instance already exists. Use System.getInstance() instead.');
+      throw new Error(
+        'System instance already exists. Use System.getInstance() instead.'
+      );
     }
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
@@ -180,7 +182,8 @@ export class System {
       // If we're already connected, check if we need to reconnect
       if (this.powersync.connected) {
         // Check if the current user has changed
-        const currentSession = await this.supabaseConnector.client.auth.getSession();
+        const currentSession =
+          await this.supabaseConnector.client.auth.getSession();
         const currentUserId = currentSession.data.session?.user.id;
 
         // Only disconnect and reconnect if there's a meaningful change
@@ -207,7 +210,6 @@ export class System {
 
       this.initialized = true;
       // console.log('PowerSync initialization complete');
-
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;

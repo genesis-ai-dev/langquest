@@ -57,7 +57,11 @@ interface LocalState {
   setLanguage: (lang: Language) => void;
 
   // Navigation context setters
-  setCurrentContext: (projectId?: string, questId?: string, assetId?: string) => void;
+  setCurrentContext: (
+    projectId?: string,
+    questId?: string,
+    assetId?: string
+  ) => void;
   clearCurrentContext: () => void;
 
   // Recently visited functions
@@ -98,30 +102,37 @@ export const useLocalStore = create<LocalState>()(
       setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
 
       // Navigation context setters
-      setCurrentContext: (projectId, questId, assetId) => set({
-        currentProjectId: projectId || null,
-        currentQuestId: questId || null,
-        currentAssetId: assetId || null
-      }),
-      clearCurrentContext: () => set({
-        currentProjectId: null,
-        currentQuestId: null,
-        currentAssetId: null
-      }),
+      setCurrentContext: (projectId, questId, assetId) =>
+        set({
+          currentProjectId: projectId || null,
+          currentQuestId: questId || null,
+          currentAssetId: assetId || null
+        }),
+      clearCurrentContext: () =>
+        set({
+          currentProjectId: null,
+          currentQuestId: null,
+          currentAssetId: null
+        }),
 
       // Recently visited functions
-      addRecentProject: (project) => set(state => {
-        const filtered = state.recentProjects.filter(p => p.id !== project.id);
-        return { recentProjects: [project, ...filtered].slice(0, 5) };
-      }),
-      addRecentQuest: (quest) => set(state => {
-        const filtered = state.recentQuests.filter(q => q.id !== quest.id);
-        return { recentQuests: [quest, ...filtered].slice(0, 5) };
-      }),
-      addRecentAsset: (asset) => set(state => {
-        const filtered = state.recentAssets.filter(a => a.id !== asset.id);
-        return { recentAssets: [asset, ...filtered].slice(0, 5) };
-      }),
+      addRecentProject: (project) =>
+        set((state) => {
+          const filtered = state.recentProjects.filter(
+            (p) => p.id !== project.id
+          );
+          return { recentProjects: [project, ...filtered].slice(0, 5) };
+        }),
+      addRecentQuest: (quest) =>
+        set((state) => {
+          const filtered = state.recentQuests.filter((q) => q.id !== quest.id);
+          return { recentQuests: [quest, ...filtered].slice(0, 5) };
+        }),
+      addRecentAsset: (asset) =>
+        set((state) => {
+          const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
+          return { recentAssets: [asset, ...filtered].slice(0, 5) };
+        }),
 
       initialize: async () => {
         console.log('initializing local store');
@@ -139,7 +150,14 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['language', 'currentUser', 'currentProjectId', 'currentQuestId', 'currentAssetId'].includes(key)
+            ([key]) =>
+              ![
+                'language',
+                'currentUser',
+                'currentProjectId',
+                'currentQuestId',
+                'currentAssetId'
+              ].includes(key)
           )
         )
     }
