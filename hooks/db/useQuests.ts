@@ -154,9 +154,14 @@ export function useInfiniteQuestsWithTagsByProjectId(
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
+  // Filter out undefined values from query key to prevent null values
+  const queryKeyParts = ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize];
+  if (sortField) queryKeyParts.push(sortField);
+  if (sortOrder) queryKeyParts.push(sortOrder);
+
   return useHybridInfiniteQuery({
-    queryKey: ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize, sortField, sortOrder],
-    onlineFn: async ({ pageParam }) => {
+    queryKey: queryKeyParts,
+    onlineFn: async ({ pageParam, signal }) => {
       try {
         // Online query with proper pagination using Supabase range
         let query = system.supabaseConnector.client
@@ -191,7 +196,9 @@ export function useInfiniteQuestsWithTagsByProjectId(
         const to = from + pageSize - 1;
         query = query.range(from, to);
 
+        // Add abort signal for proper cleanup
         const { data, error, count } = await query
+          .abortSignal(signal)
           .overrideTypes<(Quest & { tags: { tag: Tag }[] })[]>();
 
         if (error) {

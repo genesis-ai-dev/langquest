@@ -3,11 +3,12 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useDownload } from '@/hooks/useDownloads';
+import { useNavigation } from '@/hooks/useNavigation';
 import {
   borderRadius,
   colors,
@@ -87,7 +88,11 @@ const filterAssets = (
 
 function AssetCard({ asset }: { asset: Asset }) {
   // const { currentUser } = useAuth();
-  const { activeProject } = useProjectContext();
+  const { questId, projectId } = useGlobalSearchParams<{
+    questId: string;
+    projectId: string;
+  }>();
+  const { project: activeProject } = useProjectById(projectId);
 
   const {
     isDownloaded,
@@ -192,7 +197,7 @@ export default function Assets() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
   const { t } = useLocalization();
-  const { goToAsset } = useProjectContext();
+  const { goToAsset } = useNavigation();
   const { questId, projectId } = useGlobalSearchParams<{
     questId: string;
     projectId: string;
@@ -268,7 +273,12 @@ export default function Assets() {
   };
 
   const handleAssetPress = (asset: Asset) => {
-    goToAsset({ asset, questId, projectId });
+    goToAsset({
+      id: asset.id,
+      name: asset.name,
+      projectId,
+      questId
+    });
   };
 
   const handleCloseDetails = () => {

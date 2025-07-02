@@ -72,9 +72,12 @@ export function useHybridQuery<T extends Record<string, unknown>>(
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
 
+  // Filter out undefined/null values from the query key
+  const cleanQueryKey = queryKey.filter(key => key !== undefined && key !== null);
+
   // Use dual cache system for better offline/online separation
-  const hybridQueryKey = [...queryKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...queryKey, isOnline ? 'offline' : 'online'];
+  const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
+  const oppositeQueryKey = [...cleanQueryKey, isOnline ? 'offline' : 'online'];
   const cachedOppositeData = queryClient.getQueryData<T[]>(oppositeQueryKey);
   const oppositeCachedQueryState = queryClient.getQueryState<T[]>(oppositeQueryKey);
 
@@ -475,12 +478,17 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
 
+  // Performance tracking is handled in the query functions below
+
   // Use dual cache system for better offline/online separation
   // Don't add 'infinite' again if it's already in the queryKey
   const hasInfinite = queryKey.includes('infinite');
   const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
-  const hybridQueryKey = [...baseKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...baseKey, isOnline ? 'offline' : 'online'];
+
+  // Filter out undefined/null values from the query key
+  const cleanBaseKey = baseKey.filter(key => key !== undefined && key !== null);
+  const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
+  const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
 
   // Get cached data from opposite network state for initial data
   const oppositeCachedQueryState = queryClient.getQueryState(oppositeQueryKey);

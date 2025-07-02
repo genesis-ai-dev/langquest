@@ -1,29 +1,28 @@
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  useProjectContext,
-  useProjectRecentItems
-} from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigation } from '@/hooks/useNavigation';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
   backupUnsyncedAudio,
   prepareBackupPaths,
   requestBackupDirectory
 } from '@/utils/backupUtils';
+import { useRenderCounter } from '@/utils/performanceUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
-import { Link, usePathname, useRouter } from 'expo-router';
+import { Link, usePathname } from 'expo-router';
 import { Drawer as ExpoDrawer } from 'expo-router/drawer';
-import { Fragment, forwardRef, useCallback, useState } from 'react';
+import { forwardRef, useCallback, useState } from 'react';
 import type { TouchableOpacityProps } from 'react-native';
 import {
   ActivityIndicator,
@@ -47,6 +46,10 @@ function DrawerItems() {
   const pathname = usePathname();
   const { t } = useLocalization();
   const { signOut, currentUser } = useAuth();
+
+  // Add performance tracking
+  useRenderCounter('DrawerItems');
+
   const systemReady = system.isInitialized();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -303,9 +306,31 @@ export function Drawer() {
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useLocalization();
-  const { goToProject, goToQuest, goToAsset } = useProjectContext();
-  const { recentProjects, recentQuests, recentAssets } =
-    useProjectRecentItems();
+  const { goToProject, goToQuest, goToAsset } = useNavigation();
+
+  // Add performance tracking
+  useRenderCounter('DrawerContent');
+
+  // Get recently visited from local store
+  const recentProjects = useLocalStore((state) => state.recentProjects);
+  const recentQuests = useLocalStore((state) => state.recentQuests);
+  const recentAssets = useLocalStore((state) => state.recentAssets);
+
+  // Convert to format expected by Category component
+  const recentProjectsWithPath = recentProjects.map((project) => ({
+    ...project,
+    path: `/projects/${project.id}/quests` as Href
+  }));
+
+  const recentQuestsWithPath = recentQuests.map((quest) => ({
+    ...quest,
+    path: `/projects/${quest.projectId}/quests/${quest.id}/assets` as Href
+  }));
+
+  const recentAssetsWithPath = recentAssets.map((asset) => ({
+    ...asset,
+    path: `/projects/${asset.projectId}/quests/${asset.questId}/assets/${asset.id}` as Href
+  }));
 
   return (
     <LinearGradient
@@ -316,18 +341,39 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <Text style={styles.drawerHeader}>{t('recentlyVisited')}</Text>
         <Category
           title={t('projects')}
-          items={recentProjects}
-          onPress={(item) => goToProject(item as Project, true)}
+          items={recentProjectsWithPath as any}
+          onPress={(item) =>
+            goToProject({ id: item.id, name: item.name }, true)
+          }
         />
         <Category
           title={t('quests')}
-          items={recentQuests}
-          onPress={(item) => goToQuest(item as Quest, true)}
+          items={recentQuestsWithPath as any}
+          onPress={(item) =>
+            goToQuest(
+              {
+                id: item.id,
+                project_id: (item as any).projectId,
+                name: item.name
+              },
+              true
+            )
+          }
         />
         <Category
           title={t('assets')}
-          items={recentAssets}
-          onPress={(item) => goToAsset({ path: item.path }, true)}
+          items={recentAssetsWithPath as any}
+          onPress={(item) =>
+            goToAsset(
+              {
+                id: item.id,
+                name: item.name,
+                projectId: (item as any).projectId,
+                questId: (item as any).questId
+              },
+              true
+            )
+          }
         />
       </DrawerContentScrollView>
       <DrawerItems />
@@ -423,10 +469,14 @@ const DrawerItem = forwardRef<
 });
 
 function DrawerFooter() {
+  // Temporarily disabled to fix infinite loop
+  return null;
+
+  /* 
   const router = useRouter();
   const pathname = usePathname();
-  const { goToProject, goToQuest, activeProject, activeQuest } =
-    useProjectContext();
+  const { goToProject, goToQuest } = useNavigation();
+  const { currentProject, currentQuest } = useCurrentNavigation();
 
   if (!pathname.startsWith('/projects')) return null;
 
@@ -436,11 +486,11 @@ function DrawerFooter() {
         <Ionicons name="home" size={20} color={colors.text} />
       </TouchableOpacity>
       <View style={styles.footerTextContainer}>
-        {activeProject && (
+        {currentProject && (
           <Fragment>
             <Ionicons name="chevron-forward" size={14} color={colors.text} />
             <TouchableOpacity
-              onPress={() => goToProject(activeProject, true)}
+              onPress={() => goToProject(currentProject)}
               style={styles.footerTextItem}
             >
               <Text
@@ -448,17 +498,17 @@ function DrawerFooter() {
                 ellipsizeMode="tail"
                 style={{ color: colors.text }}
               >
-                {activeProject.name}
+                {currentProject.name}
               </Text>
             </TouchableOpacity>
           </Fragment>
         )}
 
-        {activeQuest && (
+        {currentQuest && (
           <Fragment>
             <Ionicons name="chevron-forward" size={14} color={colors.text} />
             <TouchableOpacity
-              onPress={() => goToQuest(activeQuest, true)}
+              onPress={() => goToQuest(currentQuest)}
               style={styles.footerTextItem}
             >
               <Text
@@ -466,7 +516,7 @@ function DrawerFooter() {
                 ellipsizeMode="tail"
                 style={{ color: colors.text }}
               >
-                {activeQuest.name}
+                {currentQuest.name}
               </Text>
             </TouchableOpacity>
           </Fragment>
@@ -474,6 +524,7 @@ function DrawerFooter() {
       </View>
     </View>
   );
+  */
 }
 
 const styles = StyleSheet.create({

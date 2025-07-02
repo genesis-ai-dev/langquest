@@ -17,7 +17,6 @@ import ThumbsUpIcon from '@/components/ThumbsUpIcon';
 import { TranslationModal } from '@/components/TranslationModal';
 import WaveformIcon from '@/components/WaveformIcon';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
@@ -25,6 +24,7 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAssetById, useAssetContent } from '@/hooks/db/useAssets';
 import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useProjectById } from '@/hooks/db/useProjects';
 import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -33,18 +33,19 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  FlatList,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import { FlatList, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ASSET_VIEWER_PROPORTION = 0.4;
@@ -68,8 +69,9 @@ type SortOption = 'voteCount' | 'dateSubmitted';
 export default function AssetView() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('text');
-  const { assetId } = useGlobalSearchParams<{
+  const { assetId, projectId } = useLocalSearchParams<{
     assetId: string;
+    projectId: string;
   }>();
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
@@ -94,7 +96,7 @@ export default function AssetView() {
   const [pendingTranslationType, setPendingTranslationType] =
     useState<TranslationModalType | null>(null);
 
-  const { activeProject } = useProjectContext();
+  const { project: activeProject } = useProjectById(projectId);
 
   // Check private project access
   const { hasAccess } = usePrivateProjectAccess({

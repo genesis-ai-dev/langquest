@@ -1,6 +1,5 @@
 import { Drawer } from '@/components/Drawer';
 import { useAuth } from '@/contexts/AuthContext';
-import { ProjectProvider } from '@/contexts/ProjectContext';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
@@ -28,12 +27,10 @@ export default function AuthLayout() {
   }
 
   return (
-    <ProjectProvider>
-      <PostHogSurveyProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <Drawer />
-        </GestureHandlerRootView>
-      </PostHogSurveyProvider>
-    </ProjectProvider>
+    <PostHogSurveyProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Drawer />
+      </GestureHandlerRootView>
+    </PostHogSurveyProvider>
   );
 }

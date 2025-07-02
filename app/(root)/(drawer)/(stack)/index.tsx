@@ -3,12 +3,12 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import type { project } from '@/db/drizzleSchema';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigation } from '@/hooks/useNavigation';
 import {
   borderRadius,
   colors,
@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguageById, useLanguages } from '@/hooks/db/useLanguages';
 import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
+import { useRenderCounter } from '@/utils/performanceUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/react-native';
@@ -166,9 +167,13 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
 export default function Projects() {
   const { t } = useLocalization();
-  const { goToProject } = useProjectContext();
+  const { goToProject } = useNavigation();
   const { currentUser } = useAuth();
   const { db } = system;
+
+  // Add performance tracking
+  useRenderCounter('Projects');
+
   const { languages: allLanguages } = useLanguages();
   const sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const targetFilter = useLocalStore((state) => state.projectTargetFilter);

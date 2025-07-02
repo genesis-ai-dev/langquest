@@ -188,4 +188,4 @@ export function useQueryPerformanceTracker(queryKey: string[]) {
     });
 }
 
-export default performanceMonitor; 
+export default performanceMonitor;

@@ -4,12 +4,12 @@ import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigation } from '@/hooks/useNavigation';
 import { colors, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useRenderCounter } from '@/utils/performanceUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
@@ -90,6 +91,10 @@ const Quests = React.memo(() => {
     projectId: string;
     projectName: string;
   }>();
+
+  // Add performance tracking
+  useRenderCounter('Quests');
+
   const [searchQuery, setSearchQuery] = useState('');
   const { db } = system;
   const { currentUser } = useAuth();
@@ -107,7 +112,7 @@ const Quests = React.memo(() => {
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const { goToQuest } = useProjectContext();
+  const { goToQuest } = useNavigation();
 
   const { project: selectedProject } = useProjectById(projectId);
 

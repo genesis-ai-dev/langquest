@@ -662,9 +662,14 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
+  // Filter out undefined values from query key to prevent null values
+  const queryKeyParts = ['assets', 'infinite', 'by-quest', 'with-tags-content', quest_id, pageSize];
+  if (sortField) queryKeyParts.push(sortField);
+  if (sortOrder) queryKeyParts.push(sortOrder);
+
   return useHybridInfiniteQuery({
-    queryKey: ['assets', 'infinite', 'by-quest', 'with-tags-content', quest_id, pageSize, sortField, sortOrder],
-    onlineFn: async ({ pageParam }) => {
+    queryKey: queryKeyParts,
+    onlineFn: async ({ pageParam, signal }) => {
       // Calculate pagination range
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
@@ -704,7 +709,9 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       // Add pagination
       query = query.range(from, to);
 
+      // Add abort signal for proper cleanup
       const { data, error, count } = await query
+        .abortSignal(signal)
         .overrideTypes<
           { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
         >();
@@ -818,8 +825,13 @@ export function usePaginatedAssetsWithTagsAndContentByQuestId(
 ) {
   const { db, supabaseConnector } = system;
 
+  // Filter out undefined values from query key to prevent null values
+  const queryKeyParts = ['assets', 'paginated', 'by-quest', 'with-tags-content', quest_id, page, pageSize];
+  if (sortField) queryKeyParts.push(sortField);
+  if (sortOrder) queryKeyParts.push(sortOrder);
+
   return useHybridQuery({
-    queryKey: ['assets', 'paginated', 'by-quest', 'with-tags-content', quest_id, page, pageSize, sortField, sortOrder],
+    queryKey: queryKeyParts,
     onlineFn: async () => {
       let query = supabaseConnector.client
         .from('quest_asset_link')

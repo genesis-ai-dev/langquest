@@ -7,6 +7,28 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type Language = typeof language.$inferSelect;
 
+// Recently visited item types
+export interface RecentProject {
+  id: string;
+  name: string;
+  visitedAt: Date;
+}
+
+export interface RecentQuest {
+  id: string;
+  name: string;
+  projectId: string;
+  visitedAt: Date;
+}
+
+export interface RecentAsset {
+  id: string;
+  name: string;
+  projectId: string;
+  questId: string;
+  visitedAt: Date;
+}
+
 interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
@@ -17,11 +39,32 @@ interface LocalState {
   analyticsOptOut: boolean;
   projectSourceFilter: string;
   projectTargetFilter: string;
+
+  // Navigation context - just IDs, not full data
+  currentProjectId: string | null;
+  currentQuestId: string | null;
+  currentAssetId: string | null;
+
+  // Recently visited items (max 5 each)
+  recentProjects: RecentProject[];
+  recentQuests: RecentQuest[];
+  recentAssets: RecentAsset[];
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
   acceptTerms: () => void;
   setLanguage: (lang: Language) => void;
+
+  // Navigation context setters
+  setCurrentContext: (projectId?: string, questId?: string, assetId?: string) => void;
+  clearCurrentContext: () => void;
+
+  // Recently visited functions
+  addRecentProject: (project: RecentProject) => void;
+  addRecentQuest: (quest: RecentQuest) => void;
+  addRecentAsset: (asset: RecentAsset) => void;
+
   initialize: () => Promise<void>;
 }
 
@@ -35,6 +78,17 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+
+      // Navigation context
+      currentProjectId: null,
+      currentQuestId: null,
+      currentAssetId: null,
+
+      // Recently visited items (max 5 each)
+      recentProjects: [],
+      recentQuests: [],
+      recentAssets: [],
+
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
@@ -42,6 +96,32 @@ export const useLocalStore = create<LocalState>()(
       projectTargetFilter: 'All',
       setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
       setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
+
+      // Navigation context setters
+      setCurrentContext: (projectId, questId, assetId) => set({
+        currentProjectId: projectId || null,
+        currentQuestId: questId || null,
+        currentAssetId: assetId || null
+      }),
+      clearCurrentContext: () => set({
+        currentProjectId: null,
+        currentQuestId: null,
+        currentAssetId: null
+      }),
+
+      // Recently visited functions
+      addRecentProject: (project) => set(state => {
+        const filtered = state.recentProjects.filter(p => p.id !== project.id);
+        return { recentProjects: [project, ...filtered].slice(0, 5) };
+      }),
+      addRecentQuest: (quest) => set(state => {
+        const filtered = state.recentQuests.filter(q => q.id !== quest.id);
+        return { recentQuests: [quest, ...filtered].slice(0, 5) };
+      }),
+      addRecentAsset: (asset) => set(state => {
+        const filtered = state.recentAssets.filter(a => a.id !== asset.id);
+        return { recentAssets: [asset, ...filtered].slice(0, 5) };
+      }),
 
       initialize: async () => {
         console.log('initializing local store');
@@ -59,7 +139,7 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['language', 'currentUser'].includes(key)
+            ([key]) => !['language', 'currentUser', 'currentProjectId', 'currentQuestId', 'currentAssetId'].includes(key)
           )
         )
     }
