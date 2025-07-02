@@ -2,8 +2,8 @@ import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, asc, desc, eq } from 'drizzle-orm';
-import React from 'react';
+import { asc, desc } from 'drizzle-orm';
+import { useMemo } from 'react';
 import { useHybridInfiniteQuery, useHybridQuery } from '../useHybridQuery';
 
 export type Project = InferSelectModel<typeof projectTable>;
@@ -55,7 +55,7 @@ export function useInfiniteProjects(
   const { db, supabaseConnector } = system;
 
   // FIXED: Create stable query key with useMemo to prevent infinite loops
-  const queryKey = React.useMemo(() => {
+  const queryKey = useMemo(() => {
     const baseKey = ['projects', 'infinite', pageSize];
 
     // Only add optional parameters if they have values
@@ -107,36 +107,43 @@ export function useInfiniteProjects(
       const offsetValue = pageParam * pageSize;
 
       try {
-        console.log(`[OfflineProjects] Loading page ${pageParam}, offset: ${offsetValue}`);
+        console.log(
+          `[OfflineProjects] Loading page ${pageParam}, offset: ${offsetValue}`
+        );
 
         const allProjects = await db.query.project.findMany({
-          where: and(
-            eq(projectTable.visible, true),
-            eq(projectTable.active, true)
-          ),
+          where: (fields, { eq, and }) =>
+            and(eq(fields.visible, true), eq(fields.active, true)),
           limit: pageSize,
           offset: offsetValue,
-          orderBy: sortField === 'name' && sortOrder
-            ? (sortOrder === 'asc' ? asc(projectTable.name) : desc(projectTable.name))
-            : sortField === 'created_at' && sortOrder
-              ? (sortOrder === 'asc' ? asc(projectTable.created_at) : desc(projectTable.created_at))
-              : sortField === 'last_updated' && sortOrder
-                ? (sortOrder === 'asc' ? asc(projectTable.last_updated) : desc(projectTable.last_updated))
-                : asc(projectTable.name)
+          orderBy:
+            sortField === 'name' && sortOrder
+              ? sortOrder === 'asc'
+                ? asc(projectTable.name)
+                : desc(projectTable.name)
+              : sortField === 'created_at' && sortOrder
+                ? sortOrder === 'asc'
+                  ? asc(projectTable.created_at)
+                  : desc(projectTable.created_at)
+                : sortField === 'last_updated' && sortOrder
+                  ? sortOrder === 'asc'
+                    ? asc(projectTable.last_updated)
+                    : desc(projectTable.last_updated)
+                  : asc(projectTable.name)
         });
 
         // Get total count for hasMore calculation
         const countQuery = await db.query.project.findMany({
-          where: and(
-            eq(projectTable.visible, true),
-            eq(projectTable.active, true)
-          )
+          where: (fields, { eq, and }) =>
+            and(eq(fields.visible, true), eq(fields.active, true))
         });
 
         const totalCount = countQuery.length;
         const hasMore = offsetValue + pageSize < totalCount;
 
-        console.log(`[OfflineProjects] Found ${allProjects.length} projects, total: ${totalCount}, hasMore: ${hasMore}`);
+        console.log(
+          `[OfflineProjects] Found ${allProjects.length} projects, total: ${totalCount}, hasMore: ${hasMore}`
+        );
 
         return {
           data: allProjects,
@@ -158,7 +165,7 @@ export function useInfiniteProjects(
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000 // 10 minutes
   });
 }
 

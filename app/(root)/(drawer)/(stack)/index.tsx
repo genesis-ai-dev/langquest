@@ -40,7 +40,6 @@ type Project = typeof project.$inferSelect;
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
-  const { currentUser } = useAuth();
   const { getLanguageById } = useSessionLanguages();
   const { getUserMembership } = useSessionMemberships();
 
@@ -168,17 +167,50 @@ export default function Projects() {
     refetch
   } = useInfiniteProjects(10, 'name', 'asc');
 
-  const projects = useMemo(() => {
-    return infiniteData?.pages.flatMap((page) => page.data) ?? [];
-  }, [infiniteData]);
+  const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
 
-  const isLoading = isProjectsLoading || isLanguagesLoading;
+  // const { languages: allLanguages } = useLanguageNames(
+  //   Array.from(
+  //     new Set(
+  //       allProjects
+  //         .map((project) => project.source_language_id)
+  //         .concat(allProjects.map((project) => project.target_language_id))
+  //     )
+  //   )
+  // );
+
+  // Apply client-side filtering based on language filters
+  const filteredProjects = useMemo(() => {
+    if (!allProjects.length) return [];
+
+    return allProjects.filter((project) => {
+      // Find the source and target language objects
+      const sourceLanguage = allLanguages?.find(
+        (l) => l.id === project.source_language_id
+      );
+      const targetLanguage = allLanguages?.find(
+        (l) => l.id === project.target_language_id
+      );
+
+      // Get language names (prefer native name, fall back to English name)
+      const sourceName =
+        sourceLanguage?.native_name ?? sourceLanguage?.english_name ?? '';
+      const targetName =
+        targetLanguage?.native_name ?? targetLanguage?.english_name ?? '';
+
+      // Check if this project matches the filters
+      const sourceMatch = sourceFilter === 'All' || sourceFilter === sourceName;
+      const targetMatch = targetFilter === 'All' || targetFilter === targetName;
+
+      return sourceMatch && targetMatch;
+    });
+  }, [allProjects, allLanguages, sourceFilter, targetFilter]);
 
   const toggleDropdown = (dropdown: 'source' | 'target') => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
 
-  const handleExplore = async (project: Project) => {
+  const handleExplore = (project: Project) => {
     console.log('handleExplore clicked at', performance.now());
     // Check if project is private
     if (project.private) {
@@ -221,7 +253,7 @@ export default function Projects() {
     );
   };
 
-  if (isLoading) {
+  if (isProjectsLoading || isLanguagesLoading) {
     return (
       <LinearGradient
         colors={[colors.gradientStart, colors.gradientEnd]}
@@ -293,12 +325,12 @@ export default function Projects() {
   }
 
   const uniqueSourceLanguageIds = [
-    ...new Set(projects.map((project) => project.source_language_id))
+    ...new Set(filteredProjects.map((project) => project.source_language_id))
   ];
 
   // Get unique target languages from projects
   const uniqueTargetLanguageIds = [
-    ...new Set(projects.map((project) => project.target_language_id))
+    ...new Set(filteredProjects.map((project) => project.target_language_id))
   ];
 
   // Filter and map source languages
@@ -352,7 +384,7 @@ export default function Projects() {
           </View>
 
           <FlashList
-            data={projects}
+            data={filteredProjects}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handleExplore(item)}>
                 <ProjectCard project={item} />
