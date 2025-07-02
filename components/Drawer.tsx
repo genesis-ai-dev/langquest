@@ -291,7 +291,7 @@ function DrawerItems() {
         style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
 
-      {/* Sync status section */}
+      {/* Sync status section with progress bar */}
       <TouchableOpacity
         style={styles.stalePercentageContainer}
         onPress={logPowerSyncStatus}
@@ -307,6 +307,15 @@ function DrawerItems() {
               ? 'Connecting...'
               : 'Disconnected'}
         </Text>
+        {/* Progress bar for download progress */}
+        {powersyncStatus?.downloadProgress && (
+          <ProgressBarAndroid
+            styleAttr="Horizontal"
+            indeterminate={true}
+            color={colors.primary}
+            style={styles.syncStatusProgressBar}
+          />
+        )}
       </TouchableOpacity>
 
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
@@ -706,5 +715,10 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     color: colors.text,
     fontWeight: '500'
+  },
+  syncStatusProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
   }
 });

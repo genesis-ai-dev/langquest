@@ -176,7 +176,7 @@ export class System {
       if (!this.initialized) {
         await this.powersync.init();
         // Freeze the object to prevent further modifications
-        Object.freeze(this);
+        // Object.freeze(this);
       }
 
       // If we're already connected, check if we need to reconnect
@@ -209,7 +209,7 @@ export class System {
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
-      // console.log('PowerSync initialization complete');
+      console.log('PowerSync initialization complete');
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;
