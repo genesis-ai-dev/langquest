@@ -28,10 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useLanguageById, useLanguageNames } from '@/hooks/db/useLanguages';
-import {
-  useInfiniteProjects,
-  useSupabaseProjects
-} from '@/hooks/db/useProjects';
+import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -205,8 +202,6 @@ export default function Projects() {
     error,
     refetch
   } = useInfiniteProjects(); // 10 projects per page
-
-  const { data: supabaseProjects } = useSupabaseProjects();
 
   const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
 
