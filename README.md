@@ -7,7 +7,7 @@ Internal mobile app for collaborative language translation.
 1. Clone repository:
 
 ```bash
-git clone https://github.com/eten-genesis/langquest.git
+git clone https://github.com/genesis-ai-dev/langquest.git
 ```
 
 2. Switch to the dev branch:
