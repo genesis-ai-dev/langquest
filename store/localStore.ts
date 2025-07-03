@@ -50,6 +50,16 @@ interface LocalState {
   recentQuests: RecentQuest[];
   recentAssets: RecentAsset[];
 
+  // Attachment sync progress
+  attachmentSyncProgress: {
+    downloading: boolean;
+    uploading: boolean;
+    downloadCurrent: number;
+    downloadTotal: number;
+    uploadCurrent: number;
+    uploadTotal: number;
+  };
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
@@ -68,6 +78,12 @@ interface LocalState {
   addRecentProject: (project: RecentProject) => void;
   addRecentQuest: (quest: RecentQuest) => void;
   addRecentAsset: (asset: RecentAsset) => void;
+
+  // Attachment sync methods
+  setAttachmentSyncProgress: (
+    progress: Partial<LocalState['attachmentSyncProgress']>
+  ) => void;
+  resetAttachmentSyncProgress: () => void;
 
   initialize: () => Promise<void>;
 }
@@ -92,6 +108,16 @@ export const useLocalStore = create<LocalState>()(
       recentProjects: [],
       recentQuests: [],
       recentAssets: [],
+
+      // Attachment sync progress
+      attachmentSyncProgress: {
+        downloading: false,
+        uploading: false,
+        downloadCurrent: 0,
+        downloadTotal: 0,
+        uploadCurrent: 0,
+        uploadTotal: 0
+      },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
@@ -132,6 +158,26 @@ export const useLocalStore = create<LocalState>()(
         set((state) => {
           const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
+        }),
+
+      // Attachment sync methods
+      setAttachmentSyncProgress: (progress) =>
+        set((state) => ({
+          attachmentSyncProgress: {
+            ...state.attachmentSyncProgress,
+            ...progress
+          }
+        })),
+      resetAttachmentSyncProgress: () =>
+        set({
+          attachmentSyncProgress: {
+            downloading: false,
+            uploading: false,
+            downloadCurrent: 0,
+            downloadTotal: 0,
+            uploadCurrent: 0,
+            uploadTotal: 0
+          }
         }),
 
       initialize: async () => {

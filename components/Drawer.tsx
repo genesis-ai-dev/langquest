@@ -63,6 +63,11 @@ function DrawerItems() {
   // Get PowerSync status
   const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
 
+  // Get attachment sync progress from store
+  const attachmentSyncProgress = useLocalStore(
+    (state) => state.attachmentSyncProgress
+  );
+
   // Use the notifications hook
   const { notificationCount } = useNotifications();
 
@@ -318,6 +323,35 @@ function DrawerItems() {
           />
         )}
       </TouchableOpacity>
+
+      {/* Attachment sync progress section */}
+      {(attachmentSyncProgress.downloading ||
+        attachmentSyncProgress.uploading) && (
+        <View style={styles.attachmentSyncContainer}>
+          <Text style={styles.attachmentSyncText}>
+            {attachmentSyncProgress.downloading
+              ? `Downloading files: ${attachmentSyncProgress.downloadCurrent}/${attachmentSyncProgress.downloadTotal}`
+              : `Uploading files: ${attachmentSyncProgress.uploadCurrent}/${attachmentSyncProgress.uploadTotal}`}
+          </Text>
+          <ProgressBarAndroid
+            styleAttr="Horizontal"
+            indeterminate={false}
+            progress={
+              attachmentSyncProgress.downloading
+                ? attachmentSyncProgress.downloadTotal > 0
+                  ? attachmentSyncProgress.downloadCurrent /
+                    attachmentSyncProgress.downloadTotal
+                  : 0
+                : attachmentSyncProgress.uploadTotal > 0
+                  ? attachmentSyncProgress.uploadCurrent /
+                    attachmentSyncProgress.uploadTotal
+                  : 0
+            }
+            color={colors.primaryLight}
+            style={styles.attachmentProgressBar}
+          />
+        </View>
+      )}
 
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
@@ -718,6 +752,23 @@ const styles = StyleSheet.create({
     fontWeight: '500'
   },
   syncStatusProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
+  },
+  attachmentSyncContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.small
+  },
+  attachmentSyncText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500',
+    marginBottom: spacing.xsmall
+  },
+  attachmentProgressBar: {
     height: 4,
     width: '100%',
     marginTop: spacing.xsmall
