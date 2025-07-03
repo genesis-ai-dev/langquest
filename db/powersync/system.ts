@@ -209,6 +209,8 @@ export class System {
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
+      void this.permAttachmentQueue?.init();
+      void this.tempAttachmentQueue?.init();
       console.log('PowerSync initialization complete');
     } catch (error) {
       console.error('PowerSync initialization error:', error);

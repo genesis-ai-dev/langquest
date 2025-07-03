@@ -101,6 +101,7 @@ function DrawerItems() {
 
     try {
       // 1. System & Queue Init Checks
+      console.log('systemReady', systemReady);
       if (!systemReady) {
         throw new Error(t('databaseNotReady'));
       }
