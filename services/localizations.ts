@@ -344,11 +344,12 @@ export const localizations = {
     brazilian_portuguese: 'Entrar'
   },
   signInError: {
-    english: 'Unable to sign in. Please check your credentials and try again.',
+    english:
+      "Something went wrong… Please, check your email and password. New here? Click on '{{newUser}}'",
     spanish:
-      'No se puede iniciar sesión. Por favor verifique sus credenciales e intente nuevamente.',
+      "Algo salió mal… Por favor, revisa tu correo y contraseña. ¿Eres nuevo? Haz clic en '{{newUser}}'",
     brazilian_portuguese:
-      'Não foi possível fazer login. Por favor, verifique suas credenciais e tente novamente.'
+      "Algo deu errado… Por favor, verifique seu e-mail e senha. Novo por aqui? Clique em '{{newUser}}'"
   },
   logOut: {
     english: 'Log Out',
