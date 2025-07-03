@@ -34,8 +34,6 @@ export default function SignIn() {
   const { t } = useLocalization();
   const router = useRouter();
 
-  const signUpText = `${t('newUser')} ${t('register')}`;
-
   const {
     control,
     handleSubmit,
@@ -83,12 +81,15 @@ export default function SignIn() {
     } catch (error) {
       console.error('Error during sign in:', error);
 
-      Alert.alert(
-        t('error'),
-        t('signInError', {
-          newUser: signUpText
-        })
-      );
+      Alert.alert(t('error'), t('signInError'), [
+        {
+          text: t('ok')
+        },
+        {
+          text: t('newUser'),
+          onPress: () => router.push('/register')
+        }
+      ]);
     }
   };
 
@@ -272,7 +273,7 @@ export default function SignIn() {
                       <Text
                         style={[sharedStyles.link, { textAlign: 'center' }]}
                       >
-                        {signUpText}
+                        {t('newUser')} {t('register')}
                       </Text>
                     </Link>
                   </View>
