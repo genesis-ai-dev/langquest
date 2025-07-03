@@ -3,6 +3,7 @@ import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { asc, desc } from 'drizzle-orm';
+import { useMemo } from 'react';
 import { useHybridInfiniteQuery, useHybridQuery } from '../useHybridQuery';
 
 export type Project = InferSelectModel<typeof projectTable>;
@@ -53,14 +54,16 @@ export function useInfiniteProjects(
 ) {
   const { db, supabaseConnector } = system;
 
-  // Create clean query key without undefined values
-  const queryKey = [
-    'projects',
-    'infinite',
-    pageSize,
-    ...(sortField ? [sortField] : []),
-    ...(sortOrder ? [sortOrder] : [])
-  ];
+  // FIXED: Create stable query key with useMemo to prevent infinite loops
+  const queryKey = useMemo(() => {
+    const baseKey = ['projects', 'infinite', pageSize];
+
+    // Only add optional parameters if they have values
+    if (sortField) baseKey.push(sortField);
+    if (sortOrder) baseKey.push(sortOrder);
+
+    return baseKey;
+  }, [pageSize, sortField, sortOrder]);
 
   return useHybridInfiniteQuery({
     queryKey,

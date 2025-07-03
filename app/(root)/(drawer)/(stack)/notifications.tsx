@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -39,8 +40,6 @@ type RequestWithRelations = typeof request.$inferSelect & {
   sender: typeof profile.$inferSelect;
 };
 
-type ProfileProjectLink = typeof profile_project_link.$inferSelect;
-
 interface NotificationItem {
   id: string;
   type: 'invite' | 'request';
@@ -66,6 +65,20 @@ export default function NotificationsPage() {
   const [downloadToggles, setDownloadToggles] = useState<
     Record<string, boolean>
   >({});
+
+  // Use session cache for user memberships instead of separate query
+  const { userMemberships } = useSessionMemberships();
+
+  // Get owner project IDs from session cache
+  const ownerProjectIds = React.useMemo(() => {
+    return (
+      userMemberships
+        ?.filter(
+          (membership) => membership.membership === 'owner' && membership.active
+        )
+        .map((membership) => membership.project_id) ?? []
+    );
+  }, [userMemberships]);
 
   // Query for invite notifications (where user's email matches)
   const { data: inviteData = [], refetch: refetchInvites } = useQuery({
@@ -126,27 +139,7 @@ export default function NotificationsPage() {
     });
   }, [inviteNotifications.length, projectStatuses]);
 
-  // Query for request notifications (where user is project owner)
-  // First get all projects where the user is an owner
-  const { data: ownerProjects = [] } = useQuery({
-    queryKey: ['owner-projects', currentUser?.id],
-    query: toCompilableQuery(
-      drizzleDb.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.membership, 'owner'),
-          eq(profile_project_link.active, true)
-        )
-      })
-    ),
-    enabled: !!currentUser?.id
-  });
-
-  const ownerProjectIds = ownerProjects.map(
-    (link: ProfileProjectLink) => link.project_id
-  );
-
-  // Then get all pending requests for those projects
+  // Get pending requests for owner projects (using session cache for owner project IDs)
   const { data: requestData = [], refetch: refetchRequests } = useQuery({
     queryKey: ['request-notifications', ownerProjectIds],
     query: toCompilableQuery(

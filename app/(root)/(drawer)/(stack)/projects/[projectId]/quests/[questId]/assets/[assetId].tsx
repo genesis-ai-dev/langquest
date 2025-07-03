@@ -32,13 +32,13 @@ import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -527,7 +527,7 @@ export default function AssetView() {
               </View>
 
               <GestureHandlerRootView style={{ flex: 1 }}>
-                <FlatList
+                <FlashList
                   data={translationsWithVotesAndLanguage?.sort((a, b) => {
                     if (sortOption === 'voteCount') {
                       return (
@@ -854,9 +854,6 @@ const styles = StyleSheet.create({
   },
   arrowButtonDisabled: {
     opacity: 0.5
-  },
-  flatListContent: {
-    paddingRight: spacing.medium
   },
   carouselWrapper: {
     flex: 1,

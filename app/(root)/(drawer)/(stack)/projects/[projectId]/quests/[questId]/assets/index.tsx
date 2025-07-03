@@ -3,12 +3,14 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
+import { useSessionProjects } from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useDownload } from '@/hooks/useDownloads';
 import { useNavigation } from '@/hooks/useNavigation';
+import { useProfiler } from '@/hooks/useProfiler';
 import {
   borderRadius,
   colors,
@@ -24,7 +26,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  FlatList,
   Modal,
   RefreshControl,
   StyleSheet,
@@ -40,6 +41,7 @@ import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAsse
 import { useQuestById } from '@/hooks/db/useQuests';
 // import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalization } from '@/hooks/useLocalization';
+import { FlashList } from '@shopify/flash-list';
 
 interface SortingOption {
   field: string;
@@ -86,13 +88,20 @@ const filterAssets = (
   });
 };
 
-function AssetCard({ asset }: { asset: Asset }) {
-  // const { currentUser } = useAuth();
-  const { questId, projectId } = useGlobalSearchParams<{
+// Memoized AssetCard component to prevent unnecessary re-renders
+const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
+  const { projectId } = useGlobalSearchParams<{
     questId: string;
     projectId: string;
   }>();
-  const { project: activeProject } = useProjectById(projectId);
+
+  // Use session cache for project data instead of fresh query
+  const { getCachedProject } = useSessionProjects();
+  const cachedProject = getCachedProject(projectId);
+
+  // Fallback to fresh query only if not in cache
+  const { project: freshProject } = useProjectById(projectId);
+  const activeProject = cachedProject || freshProject;
 
   const {
     isDownloaded,
@@ -102,9 +111,9 @@ function AssetCard({ asset }: { asset: Asset }) {
 
   // const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
 
-  const handleDownloadToggle = async () => {
+  const handleDownloadToggle = useCallback(async () => {
     await toggleDownload();
-  };
+  }, [toggleDownload]);
 
   // Aggregate translations by gem color
   // const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
@@ -191,9 +200,16 @@ function AssetCard({ asset }: { asset: Asset }) {
       </View>
     </View>
   );
-}
+});
+
+AssetCard.displayName = 'AssetCard';
 
 export default function Assets() {
+  const { trackRenders } = useProfiler({
+    componentName: 'Assets',
+    trackRenders: true
+  });
+
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
   const { t } = useLocalization();
@@ -231,15 +247,25 @@ export default function Assets() {
     activeSorting[0]?.order
   );
 
-  // Extract all assets from pages and apply client-side filtering
+  // Extract all assets from pages - removed trackEffect to prevent instability
   const allAssets = useMemo(() => {
-    if (!infiniteData?.pages) return [];
+    if (!infiniteData?.pages) {
+      return [];
+    }
+
     return infiniteData.pages.flatMap((page) => page.data);
   }, [infiniteData]);
 
-  // Apply client-side filtering and sorting (consider moving search to server-side for better performance)
+  // Apply client-side filtering and sorting - removed trackEffect to prevent instability
   const filteredAssets = useMemo(() => {
-    if (!allAssets.length) return [];
+    if (!allAssets.length) {
+      return [];
+    }
+
+    console.log(
+      `🔍 [PERFORMANCE] Starting filteredAssets calculation with ${allAssets.length} assets`
+    );
+    const startTime = performance.now();
 
     const assetTagsRecord: Record<string, Tag[]> = {};
     const assetContentsRecord: Record<string, AssetContent[]> = {};
@@ -259,11 +285,18 @@ export default function Assets() {
     );
 
     // Apply additional sorting if needed (beyond what's handled by the query)
-    return sortItems(
+    const result = sortItems(
       filtered,
       activeSorting,
       (assetId: string) => assetTagsRecord[assetId] ?? []
     );
+
+    const duration = performance.now() - startTime;
+    console.log(
+      `🔍 [PERFORMANCE] filteredAssets calculation took ${duration.toFixed(2)}ms, filtered from ${allAssets.length} to ${result.length}`
+    );
+
+    return result;
   }, [allAssets, searchQuery, activeFilters, activeSorting]);
 
   const getActiveOptionsCount = () => {
@@ -272,14 +305,27 @@ export default function Assets() {
     return filterCount + sortCount;
   };
 
-  const handleAssetPress = (asset: Asset) => {
-    goToAsset({
-      id: asset.id,
-      name: asset.name,
-      projectId,
-      questId
-    });
-  };
+  const handleAssetPress = useCallback(
+    (asset: Asset) => {
+      goToAsset({
+        id: asset.id,
+        name: asset.name,
+        projectId,
+        questId
+      });
+    },
+    [goToAsset, projectId, questId]
+  );
+
+  // Stable renderItem function to prevent re-renders
+  const renderAssetItem = useCallback(
+    ({ item }: { item: Asset }) => (
+      <TouchableOpacity onPress={() => handleAssetPress(item)}>
+        <AssetCard asset={item} />
+      </TouchableOpacity>
+    ),
+    [handleAssetPress]
+  );
 
   const handleCloseDetails = () => {
     setSelectedAsset(null);
@@ -457,13 +503,9 @@ export default function Assets() {
             </View>
           </View>
 
-          <FlatList
+          <FlashList
             data={filteredAssets}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => handleAssetPress(item)}>
-                <AssetCard asset={item} />
-              </TouchableOpacity>
-            )}
+            renderItem={renderAssetItem}
             keyExtractor={(item) => item.id}
             style={sharedStyles.list}
             onEndReached={handleLoadMore}
@@ -480,10 +522,6 @@ export default function Assets() {
             showsVerticalScrollIndicator={false}
             // Performance optimizations from TKDodo's guide
             removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            updateCellsBatchingPeriod={100}
-            initialNumToRender={10}
-            windowSize={10}
           />
           <TouchableOpacity
             onPress={toggleQuestStats}

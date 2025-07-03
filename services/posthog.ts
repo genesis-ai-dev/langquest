@@ -1,11 +1,7 @@
-import { useLocalStore } from '@/store/localStore';
 import PostHog from 'posthog-react-native';
 
-const createPostHogInstance = () => {
-  // Get fresh state without hooks
-  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
-  const defaultOptIn = !analyticsOptOut && !!dateTermsAccepted;
-
+// Simple initialization without circular dependency
+const createPostHogInstance = (optIn = false) => {
   return new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
     host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
     enableSessionReplay: true,
@@ -14,7 +10,7 @@ const createPostHogInstance = () => {
       maskAllTextInputs: false
     },
     enablePersistSessionIdAcrossRestart: true,
-    defaultOptIn,
+    defaultOptIn: optIn,
     disabled:
       process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
       __DEV__ ||
@@ -23,33 +19,57 @@ const createPostHogInstance = () => {
   });
 };
 
-// Initialize PostHog instance
-export let posthog = createPostHogInstance();
+// Initialize PostHog with basic settings immediately (no circular dependency)
+const posthog = createPostHogInstance(false);
 
-// Subscribe to store changes and recreate PostHog when analytics settings change
-let previousAnalyticsOptOut: boolean | undefined;
-let previousDateTermsAccepted: Date | null | undefined;
+// Function to update PostHog settings once store is available
+// This will be called from the app initialization, not during module import
+export const initializePostHogWithStore = (
+  getStoreState: () => { dateTermsAccepted: Date | null; analyticsOptOut: boolean },
+  subscribeToStore: (callback: (state: { dateTermsAccepted: Date | null; analyticsOptOut: boolean }) => void) => void
+) => {
+  try {
+    const { dateTermsAccepted, analyticsOptOut } = getStoreState();
 
-useLocalStore.subscribe((state) => {
-  const { analyticsOptOut, dateTermsAccepted } = state;
+    // Update PostHog opt-in status based on store
+    const shouldOptIn = !analyticsOptOut && !!dateTermsAccepted;
 
-  // Check if analytics-related settings have changed
-  if (
-    analyticsOptOut !== previousAnalyticsOptOut ||
-    dateTermsAccepted !== previousDateTermsAccepted
-  ) {
-    // Update previous values
-    previousAnalyticsOptOut = analyticsOptOut;
-    previousDateTermsAccepted = dateTermsAccepted;
+    if (shouldOptIn) {
+      void posthog.optIn();
+    } else {
+      void posthog.optOut();
+    }
 
-    // Recreate PostHog instance with new settings
-    posthog = createPostHogInstance();
+    // Subscribe to future changes
+    let previousAnalyticsOptOut = analyticsOptOut;
+    let previousDateTermsAccepted = dateTermsAccepted;
+
+    subscribeToStore((state) => {
+      const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } = state;
+
+      // Check if analytics-related settings have changed
+      if (
+        newOptOut !== previousAnalyticsOptOut ||
+        newTermsDate !== previousDateTermsAccepted
+      ) {
+        // Update previous values
+        previousAnalyticsOptOut = newOptOut;
+        previousDateTermsAccepted = newTermsDate;
+
+        // Update PostHog opt-in status
+        const newShouldOptIn = !newOptOut && !!newTermsDate;
+
+        if (newShouldOptIn) {
+          void posthog.optIn();
+        } else {
+          void posthog.optOut();
+        }
+      }
+    });
+  } catch (error) {
+    console.warn('Failed to initialize PostHog with store:', error);
   }
-});
+};
 
-// Initialize previous values
-const initialState = useLocalStore.getState();
-previousAnalyticsOptOut = initialState.analyticsOptOut;
-previousDateTermsAccepted = initialState.dateTermsAccepted;
-
+export { posthog };
 export default posthog;

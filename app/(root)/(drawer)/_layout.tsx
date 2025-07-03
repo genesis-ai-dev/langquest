@@ -1,5 +1,6 @@
 import { Drawer } from '@/components/Drawer';
 import { useAuth } from '@/contexts/AuthContext';
+import { SessionCacheProvider } from '@/contexts/SessionCacheContext';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
@@ -27,10 +28,12 @@ export default function AuthLayout() {
   }
 
   return (
-    <PostHogSurveyProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Drawer />
-      </GestureHandlerRootView>
-    </PostHogSurveyProvider>
+    <SessionCacheProvider>
+      <PostHogSurveyProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Drawer />
+        </GestureHandlerRootView>
+      </PostHogSurveyProvider>
+    </SessionCacheProvider>
   );
 }

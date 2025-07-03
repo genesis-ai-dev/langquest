@@ -4,10 +4,12 @@ import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  useSessionMemberships,
+  useSessionProjects
+} from '@/contexts/SessionCacheContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
-import { profile_project_link } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigation } from '@/hooks/useNavigation';
 import { colors, sharedStyles } from '@/styles/theme';
@@ -27,9 +29,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useRenderCounter } from '@/utils/performanceUtils';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery as useTanstackQuery } from '@powersync/tanstack-react-query';
-import { and, eq } from 'drizzle-orm';
 import { QuestList } from './_questsComponents/QuestList';
 import { QuestListSkeleton } from './_questsComponents/QuestListSkeleton';
 import { QuestsScreenStyles } from './_questsComponents/QuestsScreenStyles';
@@ -96,8 +95,11 @@ const Quests = React.memo(() => {
   useRenderCounter('Quests');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const { db } = system;
   const { currentUser } = useAuth();
+
+  // Use session cache for user membership
+  const { isUserOwner } = useSessionMemberships();
+  const { getCachedProject, setCachedProject } = useSessionProjects();
 
   // Feature flags to toggle button visibility
   const SHOW_SETTINGS_BUTTON = true;
@@ -114,24 +116,22 @@ const Quests = React.memo(() => {
 
   const { goToQuest } = useNavigation();
 
-  const { project: selectedProject } = useProjectById(projectId);
+  // Try to get project from cache first, fallback to fresh query
+  const cachedProject = getCachedProject(projectId);
+  const { project: freshProject } = useProjectById(projectId);
 
-  // Query to check if current user is an owner
-  const { data: [currentUserLink] = [] } = useTanstackQuery({
-    queryKey: ['current-user-project-link', projectId, currentUser?.id],
-    query: toCompilableQuery(
-      db.query.profile_project_link.findFirst({
-        where: and(
-          eq(profile_project_link.project_id, projectId),
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.active, true)
-        )
-      })
-    ),
-    enabled: !!currentUser?.id && !!projectId
-  });
+  // Use cached project if available, otherwise use fresh data
+  const selectedProject = cachedProject || freshProject;
 
-  const isOwner = currentUserLink?.membership === 'owner';
+  // Cache the project data when fresh data arrives
+  useEffect(() => {
+    if (freshProject && !cachedProject) {
+      setCachedProject(freshProject);
+    }
+  }, [freshProject, cachedProject, setCachedProject]);
+
+  // Check if current user is an owner using session cache
+  const isOwner = isUserOwner(projectId);
 
   const getActiveOptionsCount = () => {
     const filterCount = Object.values(activeFilters).flat().length;

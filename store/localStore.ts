@@ -1,5 +1,4 @@
 import type { language } from '@/db/drizzleSchema';
-import { getLanguageById } from '@/hooks/db/useLanguages';
 import type { Profile } from '@/hooks/db/useProfiles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
@@ -85,12 +84,12 @@ interface LocalState {
   ) => void;
   resetAttachmentSyncProgress: () => void;
 
-  initialize: () => Promise<void>;
+  initialize: () => void;
 }
 
 export const useLocalStore = create<LocalState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       languageId: null,
@@ -180,13 +179,10 @@ export const useLocalStore = create<LocalState>()(
           }
         }),
 
-      initialize: async () => {
+      initialize: () => {
         console.log('initializing local store');
-        const langId = get().languageId;
-        if (langId) {
-          const language = await getLanguageById(langId);
-          set({ language, isLanguageLoading: false });
-        }
+        // Language loading moved to app initialization to avoid circular dependency
+        set({ isLanguageLoading: false });
       }
     }),
     {

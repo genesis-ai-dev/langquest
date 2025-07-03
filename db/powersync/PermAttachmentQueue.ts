@@ -8,7 +8,6 @@ import * as FileSystem from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 // import { system } from '../powersync/system';
-import { getCurrentUser } from '@/contexts/AuthContext';
 import { isNotNull } from 'drizzle-orm';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
@@ -62,11 +61,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   // }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    const currentUser = getCurrentUser();
-
-    if (!currentUser) {
-      return;
-    }
 
     // Watch for changes in ALL download records
     this.db.watch(
