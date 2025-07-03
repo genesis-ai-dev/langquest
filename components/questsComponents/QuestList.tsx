@@ -12,8 +12,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import type { SortingOption } from '..';
-import { filterQuests } from '..';
+import type { SortingOption } from '../../app/_(root)/(drawer)/(stack)/projects/[projectId]/quests';
+import { filterQuests } from '../../app/_(root)/(drawer)/(stack)/projects/[projectId]/quests';
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';

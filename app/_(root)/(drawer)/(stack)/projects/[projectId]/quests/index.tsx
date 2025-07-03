@@ -29,9 +29,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useRenderCounter } from '@/utils/performanceUtils';
-import { QuestList } from './_questsComponents/QuestList';
-import { QuestListSkeleton } from './_questsComponents/QuestListSkeleton';
-import { QuestsScreenStyles } from './_questsComponents/QuestsScreenStyles';
+import { QuestList } from '../../../../../../../components/questsComponents/QuestList';
+import { QuestListSkeleton } from '../../../../../../../components/questsComponents/QuestListSkeleton';
+import { QuestsScreenStyles } from '../../../../../../../components/questsComponents/QuestsScreenStyles';
 
 export interface SortingOption {
   field: string;

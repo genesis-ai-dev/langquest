@@ -4,6 +4,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+// Navigation types (forward declaration to avoid circular import)
+export type AppView =
+  | 'projects'
+  | 'quests'
+  | 'assets'
+  | 'asset-detail'
+  | 'profile'
+  | 'notifications'
+  | 'settings';
+
+export interface NavigationStackItem {
+  view: AppView;
+  projectId?: string;
+  projectName?: string;
+  questId?: string;
+  questName?: string;
+  assetId?: string;
+  assetName?: string;
+  timestamp: number;
+}
+
 export type Language = typeof language.$inferSelect;
 
 // Recently visited item types
@@ -44,6 +65,10 @@ interface LocalState {
   currentQuestId: string | null;
   currentAssetId: string | null;
 
+  // State-driven navigation stack
+  navigationStack: NavigationStackItem[];
+  setNavigationStack: (stack: NavigationStackItem[]) => void;
+
   // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
   recentQuests: RecentQuest[];
@@ -82,6 +107,10 @@ export const useLocalStore = create<LocalState>()(
       currentProjectId: null,
       currentQuestId: null,
       currentAssetId: null,
+
+      // State-driven navigation stack
+      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
+      setNavigationStack: (stack) => set({ navigationStack: stack }),
 
       // Recently visited items (max 5 each)
       recentProjects: [],
@@ -135,7 +164,7 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['language', 'currentUser', 'currentProjectId', 'currentQuestId', 'currentAssetId'].includes(key)
+            ([key]) => !['language', 'currentUser', 'currentProjectId', 'currentQuestId', 'currentAssetId', 'navigationStack'].includes(key)
           )
         )
     }

@@ -1,12 +1,8 @@
-import { Drawer } from '@/components/Drawer';
 import { useAuth } from '@/contexts/AuthContext';
-import { SessionCacheProvider } from '@/contexts/SessionCacheContext';
 import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
-import { PostHogSurveyProvider } from 'posthog-react-native';
 import { ActivityIndicator } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function AuthLayout() {
   const { isLoading, currentUser } = useAuth();
@@ -27,13 +23,6 @@ export default function AuthLayout() {
     return <Redirect href="/sign-in" />;
   }
 
-  return (
-    <SessionCacheProvider>
-      <PostHogSurveyProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <Drawer />
-        </GestureHandlerRootView>
-      </PostHogSurveyProvider>
-    </SessionCacheProvider>
-  );
+  // Redirect to the new single-route app
+  return <Redirect href="/app" />;
 }
