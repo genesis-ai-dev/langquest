@@ -130,6 +130,8 @@ export default function AssetView() {
       .map((content) => content.audio_id!)
       .filter(Boolean);
 
+    console.log('contentAudioIds', contentAudioIds);
+
     const translationAudioIds = translationsWithVotesAndLanguage
       .filter((translation) => translation.audio)
       .map((translation) => translation.audio)
@@ -378,7 +380,16 @@ export default function AssetView() {
                               sourceLanguage={sourceLanguage ?? null}
                               audioUri={
                                 content.audio_id
-                                  ? attachmentStates.get(content.audio_id)?.uri
+                                  ? (() => {
+                                      const localUri = attachmentStates.get(
+                                        content.audio_id
+                                      )?.local_uri;
+                                      return localUri
+                                        ? system.permAttachmentQueue?.getLocalUri(
+                                            localUri
+                                          )
+                                        : null;
+                                    })()
                                   : null
                               }
                               isLoading={isLoading}
@@ -392,7 +403,13 @@ export default function AssetView() {
                   <ImageCarousel
                     uris={
                       asset?.images
-                        ?.map((imageId) => attachmentStates.get(imageId)?.uri)
+                        ?.map((imageId) => {
+                          const localUri =
+                            attachmentStates.get(imageId)?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })
                         .filter(Boolean) ?? []
                     }
                   />
