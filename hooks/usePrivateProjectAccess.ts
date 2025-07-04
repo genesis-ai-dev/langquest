@@ -17,11 +17,14 @@ export function usePrivateProjectAccess(
   action: PrivateAccessAction
 ): {
   hasAccess: boolean;
-  membership: typeof profile_project_link | null;
+  membership: 'member' | 'admin' | 'owner' | null | undefined;
   isMembershipLoading: boolean;
 } {
   const { currentUser } = useAuth();
   const { db } = system;
+
+  // Don't run queries if project_id is empty or invalid
+  const isValidProjectId = Boolean(project_id && project_id.trim() !== '');
 
   // Query for membership status
   const { data: membershipLinks = [] } = useHybridQuery({
@@ -33,24 +36,32 @@ export function usePrivateProjectAccess(
         .eq('profile_id', currentUser?.id || '')
         .eq('project_id', project_id)
         .eq('active', true);
-      return data as typeof profile_project_link[];
+      return data as typeof profile_project_link.$inferSelect[];
     },
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, project_id),
-          eq(profile_project_link.profile_id, currentUser?.id || '')
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
         ),
         limit: 1
       })
     ),
-    enabled: !!project_id && !!currentUser?.id
+    enabled: isValidProjectId && !!currentUser?.id
   });
 
-  console.log('RYDER', { membershipLinks, project_id, currentUser })
-
   // Get the first (and should be only) membership record
-  const membershipData = membershipLinks?.[0];
+  const membershipData = membershipLinks[0];
+
+  // If project_id is invalid, return no access
+  if (!isValidProjectId) {
+    return {
+      hasAccess: false,
+      membership: undefined,
+      isMembershipLoading: false,
+    };
+  }
 
   // Define permission levels and their allowed actions
   const memberActions = ['view-members', 'vote', 'translate', 'download'];
@@ -74,8 +85,7 @@ export function usePrivateProjectAccess(
 
   return {
     hasAccess,
-    membership: membershipData,
-    isMembershipLoading: isLoading,
-    ...rest
+    membership: membershipData ? membershipData.membership as 'member' | 'admin' | 'owner' | null : undefined,
+    isMembershipLoading: false,
   };
 }
