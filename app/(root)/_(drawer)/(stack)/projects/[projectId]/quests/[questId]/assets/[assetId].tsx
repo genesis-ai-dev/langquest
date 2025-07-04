@@ -99,10 +99,10 @@ export default function AssetView() {
   const { project: activeProject } = useProjectById(projectId);
 
   // Check private project access
-  const { hasAccess } = usePrivateProjectAccess({
-    projectId: activeProject?.id || '',
-    isPrivate: activeProject?.private || false
-  });
+  const { hasAccess } = usePrivateProjectAccess(
+    activeProject?.id || '',
+    'translate'
+  );
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;

@@ -20,33 +20,44 @@ export function usePrivateProjectAccess(
   const { db } = system;
 
   const {
-    data: membershipData,
+    data: membershipDataArray,
     isLoading: isMembershipLoading,
     ...rest
   } = useQuery({
     queryKey: ['private-project-access', project_id, currentUser?.id, action],
     query: toCompilableQuery(
-      db.query.profile_project_link.findFirst({
+      db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, project_id),
           eq(profile_project_link.profile_id, currentUser?.id || '')
-        )
+        ),
+        limit: 1
       })
     ),
     enabled: !!project_id && !!currentUser?.id
   });
 
-  // Check if user has the required permissions
+  // Get the first (and should be only) membership record
+  const membershipData = membershipDataArray?.[0];
+
+  // Define permission levels and their allowed actions
+  const memberActions = ['view-members', 'vote', 'translate', 'download'];
+  const adminActions = [...memberActions, 'edit-transcription'];
+  const ownerActions = [...adminActions];
+
+  const permissionLevels = {
+    member: memberActions,
+    admin: adminActions,
+    owner: ownerActions
+  };
+
+  // Check if user has the required permissions based on role
   const hasAccess = Boolean(
     membershipData?.active &&
-    (membershipData.membership === 'owner' ||
-      membershipData.membership === 'admin' ||
-      (action === 'view-members' && membershipData.membership === 'member') ||
-      (action === 'vote' && membershipData.membership === 'member') ||
-      (action === 'translate' && membershipData.membership === 'member') ||
-      (action === 'download' && membershipData.membership === 'member') ||
-      (action === 'edit-transcription' &&
-        (membershipData.membership === 'admin' || membershipData.membership === 'owner')))
+    membershipData.membership &&
+    permissionLevels[
+      membershipData.membership as keyof typeof permissionLevels
+    ].includes(action)
   );
 
   return {

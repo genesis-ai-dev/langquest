@@ -86,10 +86,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const project = projectInfo?.quest.project;
 
   // Check if user has access to edit translations in this project
-  const { hasAccess: canEditTranslation } = usePrivateProjectAccess({
-    projectId: project?.id || '',
-    isPrivate: project?.private || false
-  });
+  const { hasAccess: canEditTranslation } = usePrivateProjectAccess(
+    project?.id || '',
+    'edit-transcription'
+  );
 
   useEffect(() => {
     setEditedText(translation?.text ?? '');
