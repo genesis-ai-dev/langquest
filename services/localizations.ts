@@ -200,6 +200,11 @@ export const localizations = {
     spanish: 'Debe iniciar sesión para votar',
     brazilian_portuguese: 'Você precisa estar logado para votar'
   },
+  menu: {
+    english: 'Menu',
+    spanish: 'Menú',
+    brazilian_portuguese: 'Menu'
+  },
   newTranslation: {
     english: 'New Translation',
     spanish: 'Nueva Traducción',
@@ -344,11 +349,10 @@ export const localizations = {
     brazilian_portuguese: 'Entrar'
   },
   signInError: {
-    english: 'Unable to sign in. Please check your credentials and try again.',
-    spanish:
-      'No se puede iniciar sesión. Por favor verifique sus credenciales e intente nuevamente.',
+    english: 'Something went wrong… Please, check your email and password.',
+    spanish: 'Algo salió mal… Por favor, revisa tu correo y contraseña.',
     brazilian_portuguese:
-      'Não foi possível fazer login. Por favor, verifique suas credenciais e tente novamente.'
+      'Algo deu errado… Por favor, verifique seu e-mail e senha.'
   },
   logOut: {
     english: 'Log Out',

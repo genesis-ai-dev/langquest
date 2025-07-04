@@ -4,6 +4,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+// Navigation types (forward declaration to avoid circular import)
+export type AppView =
+  | 'projects'
+  | 'quests'
+  | 'assets'
+  | 'asset-detail'
+  | 'profile'
+  | 'notifications'
+  | 'settings';
+
+export interface NavigationStackItem {
+  view: AppView;
+  projectId?: string;
+  projectName?: string;
+  questId?: string;
+  questName?: string;
+  assetId?: string;
+  assetName?: string;
+  timestamp: number;
+}
+
 export type Language = typeof language.$inferSelect;
 
 // Recently visited item types
@@ -44,6 +65,10 @@ interface LocalState {
   currentQuestId: string | null;
   currentAssetId: string | null;
 
+  // State-driven navigation stack
+  navigationStack: NavigationStackItem[];
+  setNavigationStack: (stack: NavigationStackItem[]) => void;
+
   // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
   recentQuests: RecentQuest[];
@@ -80,7 +105,7 @@ interface LocalState {
   ) => void;
   resetAttachmentSyncProgress: () => void;
 
-  initialize: () => void;
+  initialize: () => Promise<void>;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -98,6 +123,10 @@ export const useLocalStore = create<LocalState>()(
       currentProjectId: null,
       currentQuestId: null,
       currentAssetId: null,
+
+      // State-driven navigation stack
+      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
+      setNavigationStack: (stack) => set({ navigationStack: stack }),
 
       // Recently visited items (max 5 each)
       recentProjects: [],
@@ -171,6 +200,7 @@ export const useLocalStore = create<LocalState>()(
         console.log('initializing local store');
         // Language loading moved to app initialization to avoid circular dependency
         set({ isLanguageLoading: false });
+        return Promise.resolve();
       }
     }),
     {
@@ -186,7 +216,8 @@ export const useLocalStore = create<LocalState>()(
                 'currentUser',
                 'currentProjectId',
                 'currentQuestId',
-                'currentAssetId'
+                'currentAssetId',
+                'navigationStack'
               ].includes(key)
           )
         )

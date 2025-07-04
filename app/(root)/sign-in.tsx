@@ -80,10 +80,16 @@ export default function SignIn() {
       router.replace('/');
     } catch (error) {
       console.error('Error during sign in:', error);
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : t('signInError')
-      );
+
+      Alert.alert(t('error'), t('signInError'), [
+        {
+          text: t('ok')
+        },
+        {
+          text: t('newUser'),
+          onPress: () => router.push('/register')
+        }
+      ]);
     }
   };
 
