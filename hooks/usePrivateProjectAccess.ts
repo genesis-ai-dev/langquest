@@ -12,10 +12,15 @@ export type PrivateAccessAction =
   | 'edit-transcription'
   | 'download';
 
-export function usePrivateProjectAccess(
-  project_id: string,
-  action: PrivateAccessAction
-) {
+interface UsePrivateProjectAccessOptions {
+  projectId: string;
+  isPrivate: boolean;
+}
+
+export function usePrivateProjectAccess({
+  projectId,
+  isPrivate
+}: UsePrivateProjectAccessOptions) {
   const { currentUser } = useAuth();
   const { db } = system;
 
@@ -24,34 +29,39 @@ export function usePrivateProjectAccess(
     isLoading: isMembershipLoading,
     ...rest
   } = useQuery({
-    queryKey: ['private-project-access', project_id, currentUser?.id, action],
+    queryKey: ['private-project-access', projectId, currentUser?.id],
     query: toCompilableQuery(
       db.query.profile_project_link.findFirst({
         where: and(
-          eq(profile_project_link.project_id, project_id),
-          eq(profile_project_link.profile_id, currentUser?.id || '')
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.active, true)
         )
       })
     ),
-    enabled: !!project_id && !!currentUser?.id
+    enabled: !!projectId && !!currentUser?.id && isPrivate
   });
 
-  // Check if user has the required permissions
-  const hasAccess = Boolean(
-    membershipData?.active &&
-    (membershipData.membership === 'owner' ||
-      membershipData.membership === 'admin' ||
-      (action === 'view-members' && membershipData.membership === 'member') ||
-      (action === 'vote' && membershipData.membership === 'member') ||
-      (action === 'translate' && membershipData.membership === 'member') ||
-      (action === 'download' && membershipData.membership === 'member') ||
-      (action === 'edit-transcription' &&
-        (membershipData.membership === 'admin' || membershipData.membership === 'owner')))
-  );
+  const isMember = !!membershipData?.[0];
+  const hasAccess = !isPrivate || isMember;
+  const requiresAuth = isPrivate && !currentUser;
+  const requiresMembership = isPrivate && currentUser && !isMember;
+
+  //log all the variables
+  console.log('isMember', isMember);
+  console.log('hasAccess', hasAccess);
+  console.log('requiresAuth', requiresAuth);
+  console.log('requiresMembership', requiresMembership);
+  console.log('isPrivate', isPrivate);
+  console.log('isMembershipLoading', isMembershipLoading);
+  console.log('rest', rest);
 
   return {
     hasAccess,
-    membership: membershipData,
+    isMember,
+    requiresAuth,
+    requiresMembership,
+    isPrivate,
     isMembershipLoading,
     ...rest
   };

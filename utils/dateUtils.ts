@@ -66,3 +66,19 @@ export function formatRelativeDate(dateString: string): string {
 export function toPostgresDate(date: Date) {
   return date.toISOString().replace('T', ' ').slice(0, 19) + '+00';
 }
+
+export function formatTimeSinceLastSync(lastSyncedAt?: Date | null): string {
+  if (!lastSyncedAt) return 'Never synced';
+
+  const now = new Date();
+  const lastSync = new Date(lastSyncedAt);
+  const diffMs = now.getTime() - lastSync.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+}

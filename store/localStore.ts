@@ -53,10 +53,6 @@ interface LocalState {
   attachmentSyncProgress: {
     downloading: boolean;
     uploading: boolean;
-    downloadCurrent: number;
-    downloadTotal: number;
-    uploadCurrent: number;
-    uploadTotal: number;
   };
 
   setProjectSourceFilter: (filter: string) => void;
@@ -111,11 +107,7 @@ export const useLocalStore = create<LocalState>()(
       // Attachment sync progress
       attachmentSyncProgress: {
         downloading: false,
-        uploading: false,
-        downloadCurrent: 0,
-        downloadTotal: 0,
-        uploadCurrent: 0,
-        uploadTotal: 0
+        uploading: false
       },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
@@ -171,11 +163,7 @@ export const useLocalStore = create<LocalState>()(
         set({
           attachmentSyncProgress: {
             downloading: false,
-            uploading: false,
-            downloadCurrent: 0,
-            downloadTotal: 0,
-            uploadCurrent: 0,
-            uploadTotal: 0
+            uploading: false
           }
         }),
 

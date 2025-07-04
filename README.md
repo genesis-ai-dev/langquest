@@ -7,7 +7,7 @@ Internal mobile app for collaborative language translation.
 1. Clone repository:
 
 ```bash
-git clone https://github.com/eten-genesis/langquest.git
+git clone https://github.com/genesis-ai-dev/langquest.git
 ```
 
 2. Switch to the dev branch:
@@ -25,7 +25,7 @@ npm i
 4. **To obtain the .env file**, request an invite from an existing admin developer to the existing eten-genesis expo organization (secrets required the the APK build to be built in EAS are in the organization)
   ![EAS Login](readme_images/eas_login.jpg)
 
-Obtain the .env file by logging into EAS and running the `eas env:pull <production|preview|development>` command, and change the newly created `.env.local` file to `.env`.
+Obtain the `.env.local` file by logging into EAS and running the `eas env:pull <production|preview|development>` command.
 
 5. If you're using a physical android device, enable USB debugging before connecting to your machine:
 

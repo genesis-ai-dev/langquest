@@ -87,7 +87,20 @@ function DrawerItems() {
           }
         ]
       : []),
-    { name: t('profile'), icon: 'person', path: '/profile' }
+    { name: t('profile'), icon: 'person', path: '/profile' },
+    {
+      name: 'Sync Status',
+      icon: 'sync',
+      path: '/sync-status',
+      // Add sync indicator to the drawer item
+      notificationCount:
+        powersyncStatus?.dataFlowStatus.downloading ||
+        powersyncStatus?.dataFlowStatus.uploading ||
+        attachmentSyncProgress.downloading ||
+        attachmentSyncProgress.uploading
+          ? -1
+          : undefined // -1 will show a dot instead of number
+    }
   ] as const;
 
   const handleProgress = (current: number, total: number) => {
@@ -232,21 +245,6 @@ function DrawerItems() {
     return t('syncProgress', { current: syncProgress, total: syncTotal });
   };
 
-  // Debug function to log PowerSync status
-  const logPowerSyncStatus = () => {
-    console.log('=== PowerSync Status Debug ===');
-    console.log('systemReady:', systemReady);
-    console.log('powersyncStatus:', powersyncStatus);
-    if (powersyncStatus) {
-      console.log('connected:', powersyncStatus.connected);
-      console.log('connecting:', powersyncStatus.connecting);
-      console.log('dataFlowStatus:', powersyncStatus.dataFlowStatus);
-      console.log('hasSynced:', powersyncStatus.hasSynced);
-      console.log('lastSyncedAt:', powersyncStatus.lastSyncedAt);
-    }
-    console.log('==============================');
-  };
-
   return (
     <View style={styles.drawerItems}>
       {!systemReady && (
@@ -296,62 +294,6 @@ function DrawerItems() {
         disabled={!systemReady || isOperationActive}
         style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
-
-      {/* Sync status section with progress bar */}
-      <TouchableOpacity
-        style={styles.stalePercentageContainer}
-        onPress={logPowerSyncStatus}
-      >
-        <Text style={styles.stalePercentageText}>
-          {powersyncStatus?.connected
-            ? powersyncStatus.dataFlowStatus.downloading
-              ? 'Syncing...'
-              : powersyncStatus.hasSynced
-                ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                : 'Not synced'
-            : powersyncStatus?.connecting
-              ? 'Connecting...'
-              : 'Disconnected'}
-        </Text>
-        {/* Progress bar for download progress */}
-        {powersyncStatus?.downloadProgress && (
-          <ProgressBarAndroid
-            styleAttr="Horizontal"
-            indeterminate={true}
-            color={colors.primary}
-            style={styles.syncStatusProgressBar}
-          />
-        )}
-      </TouchableOpacity>
-
-      {/* Attachment sync progress section */}
-      {(attachmentSyncProgress.downloading ||
-        attachmentSyncProgress.uploading) && (
-        <View style={styles.attachmentSyncContainer}>
-          <Text style={styles.attachmentSyncText}>
-            {attachmentSyncProgress.downloading
-              ? `Downloading files: ${attachmentSyncProgress.downloadCurrent}/${attachmentSyncProgress.downloadTotal}`
-              : `Uploading files: ${attachmentSyncProgress.uploadCurrent}/${attachmentSyncProgress.uploadTotal}`}
-          </Text>
-          <ProgressBarAndroid
-            styleAttr="Horizontal"
-            indeterminate={false}
-            progress={
-              attachmentSyncProgress.downloading
-                ? attachmentSyncProgress.downloadTotal > 0
-                  ? attachmentSyncProgress.downloadCurrent /
-                    attachmentSyncProgress.downloadTotal
-                  : 0
-                : attachmentSyncProgress.uploadTotal > 0
-                  ? attachmentSyncProgress.uploadCurrent /
-                    attachmentSyncProgress.uploadTotal
-                  : 0
-            }
-            color={colors.primaryLight}
-            style={styles.attachmentProgressBar}
-          />
-        </View>
-      )}
 
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
@@ -536,15 +478,18 @@ const DrawerItem = forwardRef<
         <Ionicons name={item.icon} size={20} color={colors.text} />
         <Text style={{ color: colors.text }}>{item.name}</Text>
       </View>
-      {item.notificationCount != null && item.notificationCount > 0 && (
-        <View style={styles.notificationBadge}>
-          <Text style={styles.notificationBadgeText}>
-            {item.notificationCount > 99
-              ? '99+'
-              : String(item.notificationCount)}
-          </Text>
-        </View>
-      )}
+      {item.notificationCount != null &&
+        (item.notificationCount === -1 ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : item.notificationCount > 0 ? (
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>
+              {item.notificationCount > 99
+                ? '99+'
+                : String(item.notificationCount)}
+            </Text>
+          </View>
+        ) : null)}
     </TouchableOpacity>
   );
 });
@@ -739,38 +684,32 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center'
   },
-  stalePercentageContainer: {
+  syncStatusContainer: {
     backgroundColor: colors.backgroundSecondary,
     padding: spacing.small,
     borderRadius: borderRadius.small,
-    alignItems: 'center',
     marginBottom: spacing.small
   },
-  stalePercentageText: {
+  syncStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  syncStatusLeft: {
+    flex: 1
+  },
+  syncStatusText: {
     fontSize: fontSizes.small,
     color: colors.text,
     fontWeight: '500'
   },
-  syncStatusProgressBar: {
-    height: 4,
-    width: '100%',
-    marginTop: spacing.xsmall
-  },
-  attachmentSyncContainer: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    marginBottom: spacing.small
-  },
-  attachmentSyncText: {
+  syncStatusTime: {
     fontSize: fontSizes.small,
-    color: colors.text,
-    fontWeight: '500',
-    marginBottom: spacing.xsmall
+    color: colors.textSecondary,
+    opacity: 0.8
   },
-  attachmentProgressBar: {
-    height: 4,
-    width: '100%',
-    marginTop: spacing.xsmall
+  syncStatusRight: {
+    justifyContent: 'center',
+    alignItems: 'center'
   }
 });

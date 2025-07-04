@@ -78,7 +78,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
-  const { hasAccess } = usePrivateProjectAccess(projectId, action); // NOTE: did we need to pass isPrivate here?
+  const { hasAccess } = usePrivateProjectAccess({ projectId, isPrivate }); // NOTE: did we need to pass isPrivate here?
 
   // Query for existing membership request
   const { data: existingRequests = [], refetch } = useQuery({
