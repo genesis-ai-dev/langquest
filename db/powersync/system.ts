@@ -37,6 +37,10 @@ export class System {
   tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
+  // Add tracking for attachment queue initialization
+  private attachmentQueuesInitialized = false;
+  private attachmentQueueInitPromise: Promise<void> | null = null;
+
   constructor() {
     // Prevent multiple instantiation
     if (System.instance) {
@@ -190,9 +194,16 @@ export class System {
         if (currentUserId && this.lastConnectedUserId !== currentUserId) {
           console.log('User changed, reconnecting PowerSync...');
           await this.powersync.disconnect();
+          // Reset attachment queue initialization state
+          this.attachmentQueuesInitialized = false;
+          this.attachmentQueueInitPromise = null;
         } else {
           // Already connected with the same user
           this.initialized = true;
+          // Still need to ensure attachment queues are initialized
+          if (!this.attachmentQueuesInitialized) {
+            await this.initializeAttachmentQueues();
+          }
           return;
         }
       }
@@ -209,8 +220,10 @@ export class System {
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
-      void this.permAttachmentQueue?.init();
-      void this.tempAttachmentQueue?.init();
+
+      // Initialize attachment queues and wait for completion
+      await this.initializeAttachmentQueues();
+
       console.log('PowerSync initialization complete');
     } catch (error) {
       console.error('PowerSync initialization error:', error);
@@ -221,10 +234,73 @@ export class System {
     }
   }
 
+  // New method to properly initialize attachment queues
+  private async initializeAttachmentQueues(): Promise<void> {
+    // If already initializing, wait for existing promise
+    if (this.attachmentQueueInitPromise) {
+      await this.attachmentQueueInitPromise;
+      return;
+    }
+
+    // If already initialized, return immediately
+    if (this.attachmentQueuesInitialized) {
+      return;
+    }
+
+    // Create new initialization promise
+    this.attachmentQueueInitPromise = this._initializeAttachmentQueues();
+
+    try {
+      await this.attachmentQueueInitPromise;
+    } finally {
+      this.attachmentQueueInitPromise = null;
+    }
+  }
+
+  private async _initializeAttachmentQueues(): Promise<void> {
+    try {
+      console.log('Initializing attachment queues...');
+
+      // Check if bucket is configured
+      if (!AppConfig.supabaseBucket) {
+        console.warn('No Supabase bucket configured, attachment queues will be disabled');
+        this.attachmentQueuesInitialized = true;
+        return;
+      }
+
+      // Initialize both queues in parallel if they exist
+      const initPromises: Promise<void>[] = [];
+
+      if (this.permAttachmentQueue) {
+        initPromises.push(this.permAttachmentQueue.init());
+      }
+
+      if (this.tempAttachmentQueue) {
+        initPromises.push(this.tempAttachmentQueue.init());
+      }
+
+      if (initPromises.length > 0) {
+        await Promise.all(initPromises);
+        console.log('Attachment queues initialized successfully');
+      }
+
+      this.attachmentQueuesInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize attachment queues:', error);
+      this.attachmentQueuesInitialized = false;
+      throw error;
+    }
+  }
+
   private lastConnectedUserId?: string;
 
   isInitialized() {
-    return this.initialized && this.powersync.connected;
+    return this.initialized && this.powersync.connected && this.attachmentQueuesInitialized;
+  }
+
+  // Add method to check attachment queue readiness specifically
+  areAttachmentQueuesReady(): boolean {
+    return this.attachmentQueuesInitialized;
   }
 
   async waitForLatestSync() {
@@ -271,6 +347,8 @@ export class System {
       }
 
       this.initialized = false;
+      this.attachmentQueuesInitialized = false;
+      this.attachmentQueueInitPromise = null;
       this.lastConnectedUserId = undefined;
     } catch (error) {
       console.error('Error during system cleanup:', error);

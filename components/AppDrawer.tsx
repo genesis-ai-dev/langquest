@@ -13,12 +13,11 @@ import {
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  Pressable,
   ProgressBarAndroid,
   ScrollView,
   StyleSheet,
@@ -35,52 +34,6 @@ interface DrawerItemType {
   disabled?: boolean;
 }
 
-interface CategoryProps {
-  title: string;
-  items: any[];
-  onPress: (item: any) => void;
-}
-
-function Category({ title, items, onPress }: CategoryProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  const toggleExpand = useCallback(() => {
-    setIsExpanded(!isExpanded);
-  }, [isExpanded]);
-
-  return (
-    <View style={styles.drawerCategory}>
-      <Pressable
-        style={styles.categoryHeader}
-        onPress={toggleExpand}
-        disabled={items.length === 0}
-      >
-        <Text style={styles.drawerCategoryTitle}>{title}</Text>
-        {items.length > 0 && (
-          <Ionicons
-            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
-            size={20}
-            color={colors.text}
-          />
-        )}
-      </Pressable>
-      {isExpanded && (
-        <View style={styles.categoryContent}>
-          {items.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => onPress(item)}
-              style={styles.categoryItem}
-            >
-              <Text style={styles.categoryItemText}>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
-
 export default function AppDrawer({
   drawerIsVisible,
   setDrawerIsVisible
@@ -95,19 +48,11 @@ export default function AppDrawer({
     goToProfile,
     goToNotifications,
     goToSettings,
-    goToProject,
-    goToQuest,
-    goToAsset,
     currentView
   } = useAppNavigation();
 
   // Add performance tracking
   useRenderCounter('AppDrawer');
-
-  // Get recently visited from local store
-  const recentProjects = useLocalStore((state) => state.recentProjects);
-  const recentQuests = useLocalStore((state) => state.recentQuests);
-  const recentAssets = useLocalStore((state) => state.recentAssets);
 
   // PowerSync and system status
   const systemReady = system.isInitialized();
@@ -154,16 +99,29 @@ export default function AppDrawer({
       if (!systemReady) {
         throw new Error(t('databaseNotReady'));
       }
-      // Attempt to initialize queues, warn if not available but don't throw
-      try {
-        await system.permAttachmentQueue?.init();
-      } catch (qError) {
-        console.warn('Error initializing permanent attachment queue:', qError);
-      }
-      try {
-        await system.tempAttachmentQueue?.init();
-      } catch (qError) {
-        console.warn('Error initializing temporary attachment queue:', qError);
+
+      // Check if attachment queues are ready (no manual init needed anymore)
+      if (!system.areAttachmentQueuesReady()) {
+        console.log(
+          'Attachment queues not ready, waiting for system initialization...'
+        );
+        // Poll for attachment queues to be ready, with timeout
+        const MAX_WAIT_TIME = 5000; // 5 seconds max wait
+        const POLL_INTERVAL = 200; // Check every 200ms
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < MAX_WAIT_TIME) {
+          if (system.areAttachmentQueuesReady()) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+        }
+
+        if (!system.areAttachmentQueuesReady()) {
+          throw new Error(
+            'Attachment queues failed to initialize after timeout. Check if Supabase bucket is configured.'
+          );
+        }
       }
 
       // 2. Permissions
@@ -377,8 +335,8 @@ export default function AppDrawer({
             onPress={closeDrawer}
           />
 
-          <View style={styles.drawerContainer}>
-            <View style={styles.drawerHeader}>
+          <View style={[styles.drawerContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.drawerHeader, { backgroundColor: colors.background }]}>
               <Text style={styles.drawerTitle}>{t('menu')}</Text>
               <TouchableOpacity
                 onPress={closeDrawer}
@@ -388,45 +346,10 @@ export default function AppDrawer({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.drawerContent}>
-              {/* Recently visited sections
-              <Category
-                title={t('projects')}
-                items={recentProjects}
-                onPress={(item) => {
-                  goToProject({ id: item.id, name: item.name });
-                  setDrawerIsVisible(false);
-                }}
-              />
-              <Category
-                title={t('quests')}
-                items={recentQuests}
-                onPress={(item) => {
-                  goToQuest({
-                    id: item.id,
-                    project_id: item.projectId,
-                    name: item.name
-                  });
-                  setDrawerIsVisible(false);
-                }}
-              />
-              <Category
-                title={t('assets')}
-                items={recentAssets}
-                onPress={(item) => {
-                  goToAsset({
-                    id: item.id,
-                    name: item.name,
-                    projectId: item.projectId,
-                    questId: item.questId
-                  });
-                  setDrawerIsVisible(false);
-                }}
-              /> */}
-
+            <ScrollView style={[styles.drawerContent, { backgroundColor: colors.background }]}>
               {/* System status and progress indicators */}
               {!systemReady && (
-                <View style={styles.initializingIndicator}>
+                <View style={[styles.initializingIndicator, { backgroundColor: colors.background }]}>
                   <ActivityIndicator size="small" color={colors.text} />
                   <Text style={styles.initializingText}>
                     {t('initializing')}...
@@ -556,14 +479,6 @@ export default function AppDrawer({
           </View>
         </View>
       </Modal>
-      {/* Drawer Toggle Button
-      <TouchableOpacity
-        style={styles.drawerToggle}
-        onPress={toggleDrawer}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons name="menu" size={24} color={colors.text} />
-      </TouchableOpacity> */}
     </>
   );
 }

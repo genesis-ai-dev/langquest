@@ -144,7 +144,7 @@ export default function ProjectsView() {
   useRenderCounter('ProjectsView');
 
   // Use session cache for languages instead of individual queries
-  const { languages: allLanguages, isLanguagesLoading: _isLanguagesLoading } =
+  const { languages: _allLanguages, isLanguagesLoading: _isLanguagesLoading } =
     useSessionLanguages();
   const { isUserMember: _isUserMember } = useSessionMemberships();
 

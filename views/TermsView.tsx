@@ -1,10 +1,13 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
+import { useAuth } from '@/contexts/AuthContext';
+import { profileService } from '@/database_services/profileService';
+import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -15,16 +18,52 @@ import {
 } from 'react-native';
 
 function TermsView() {
+  const { currentUser } = useAuth();
+  const { profile, isProfileLoading } = useProfileByUserId(
+    currentUser?.id ?? ''
+  );
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const { t } = useLocalization();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const handleAcceptTerms = useCallback(() => {
+  // Sync database terms acceptance with local store
+  useEffect(() => {
+    if (profile?.terms_accepted_at) {
+      const dbTermsDate = new Date(profile.terms_accepted_at);
+      // Only update local store if database has a more recent acceptance
+      if (!dateTermsAccepted || dbTermsDate > new Date(dateTermsAccepted)) {
+        acceptTerms(); // This will update the local store
+      }
+    }
+  }, [profile, dateTermsAccepted, acceptTerms]);
+
+  const handleAcceptTerms = useCallback(async () => {
     console.log('Accepting terms...');
+
+    // Update local store immediately for UI responsiveness
     acceptTerms();
+
+    // Update database if user is logged in
+    if (currentUser?.id) {
+      try {
+        const now = new Date().toISOString();
+        await profileService.updateProfile({
+          id: currentUser.id,
+          terms_accepted: true,
+          terms_accepted_at: now
+        });
+        console.log(
+          'Terms acceptance updated in database for user:',
+          currentUser.id
+        );
+      } catch (error) {
+        console.error('Error updating terms acceptance in database:', error);
+      }
+    }
+
     // Navigation will be handled automatically by app.tsx when terms are accepted
-  }, [acceptTerms]);
+  }, [acceptTerms, currentUser?.id]);
 
   const handleToggleTerms = useCallback(() => {
     setTermsAccepted(!termsAccepted);
@@ -38,7 +77,9 @@ function TermsView() {
     void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`);
   }, []);
 
-  const canAcceptTerms = !dateTermsAccepted;
+  // Check terms acceptance from database first, fall back to local store
+  const hasAcceptedTerms = profile?.terms_accepted || !!dateTermsAccepted;
+  const canAcceptTerms = !hasAcceptedTerms && !isProfileLoading;
 
   const [languagesLoaded, setLanguagesLoaded] = useState(false);
   const onLayoutView = useCallback(() => {
