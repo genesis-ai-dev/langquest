@@ -99,16 +99,29 @@ export default function AppDrawer({
       if (!systemReady) {
         throw new Error(t('databaseNotReady'));
       }
-      // Attempt to initialize queues, warn if not available but don't throw
-      try {
-        await system.permAttachmentQueue?.init();
-      } catch (qError) {
-        console.warn('Error initializing permanent attachment queue:', qError);
-      }
-      try {
-        await system.tempAttachmentQueue?.init();
-      } catch (qError) {
-        console.warn('Error initializing temporary attachment queue:', qError);
+
+      // Check if attachment queues are ready (no manual init needed anymore)
+      if (!system.areAttachmentQueuesReady()) {
+        console.log(
+          'Attachment queues not ready, waiting for system initialization...'
+        );
+        // Poll for attachment queues to be ready, with timeout
+        const MAX_WAIT_TIME = 5000; // 5 seconds max wait
+        const POLL_INTERVAL = 200; // Check every 200ms
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < MAX_WAIT_TIME) {
+          if (system.areAttachmentQueuesReady()) {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        }
+
+        if (!system.areAttachmentQueuesReady()) {
+          throw new Error(
+            'Attachment queues failed to initialize after timeout. Check if Supabase bucket is configured.'
+          );
+        }
       }
 
       // 2. Permissions
