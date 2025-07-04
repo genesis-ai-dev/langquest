@@ -48,13 +48,13 @@ export function usePrivateProjectAccess({
   const requiresMembership = isPrivate && currentUser && !isMember;
 
   //log all the variables
-  console.log('isMember', isMember);
-  console.log('hasAccess', hasAccess);
-  console.log('requiresAuth', requiresAuth);
-  console.log('requiresMembership', requiresMembership);
-  console.log('isPrivate', isPrivate);
-  console.log('isMembershipLoading', isMembershipLoading);
-  console.log('rest', rest);
+  // console.log('isMember', isMember);
+  // console.log('hasAccess', hasAccess);
+  // console.log('requiresAuth', requiresAuth);
+  // console.log('requiresMembership', requiresMembership);
+  // console.log('isPrivate', isPrivate);
+  // console.log('isMembershipLoading', isMembershipLoading);
+  // console.log('rest', rest);
 
   return {
     hasAccess,
