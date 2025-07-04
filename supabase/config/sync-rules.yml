@@ -1,8 +1,8 @@
 bucket_definitions:
-  global:
-  data:
-    # Sync all rows-- Select all data from User table
-    - SELECT * FROM "profile"
+  global_bucket:
+    data:
+      #   Sync all rows-- Select all data from User table
+      - SELECT * FROM "profile"
   # - SELECT * FROM "project"
   # - SELECT * FROM "quest"
   # - SELECT quest_id || '_' || tag_id as id, quest_id, tag_id FROM quest_tag_link
@@ -48,14 +48,13 @@ bucket_definitions:
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
     data:
-      # - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id # NOTE: should be covered by global sync 'profile'
+      #   - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
       - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
       - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
-      - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
