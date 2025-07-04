@@ -1,16 +1,84 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import {
+  backupUnsyncedAudio,
+  prepareBackupPaths,
+  requestBackupDirectory
+} from '@/utils/backupUtils';
+import { useRenderCounter } from '@/utils/performanceUtils';
+import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ProgressBarAndroid,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 interface DrawerItemType {
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   notificationCount?: number;
+  disabled?: boolean;
+}
+
+interface CategoryProps {
+  title: string;
+  items: any[];
+  onPress: (item: any) => void;
+}
+
+function Category({ title, items, onPress }: CategoryProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const toggleExpand = useCallback(() => {
+    setIsExpanded(!isExpanded);
+  }, [isExpanded]);
+
+  return (
+    <View style={styles.drawerCategory}>
+      <Pressable
+        style={styles.categoryHeader}
+        onPress={toggleExpand}
+        disabled={items.length === 0}
+      >
+        <Text style={styles.drawerCategoryTitle}>{title}</Text>
+        {items.length > 0 && (
+          <Ionicons
+            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+            size={20}
+            color={colors.text}
+          />
+        )}
+      </Pressable>
+      {isExpanded && (
+        <View style={styles.categoryContent}>
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => onPress(item)}
+              style={styles.categoryItem}
+            >
+              <Text style={styles.categoryItemText}>{item.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
 }
 
 export default function AppDrawer({
@@ -21,19 +89,207 @@ export default function AppDrawer({
   setDrawerIsVisible: (isVisible: boolean) => void;
 }) {
   const { t } = useLocalization();
+  const { signOut, currentUser } = useAuth();
   const {
     goToProjects,
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToProject,
+    goToQuest,
+    goToAsset,
     currentView
   } = useAppNavigation();
+
+  // Add performance tracking
+  useRenderCounter('AppDrawer');
+
+  // Get recently visited from local store
+  const recentProjects = useLocalStore((state) => state.recentProjects);
+  const recentQuests = useLocalStore((state) => state.recentQuests);
+  const recentAssets = useLocalStore((state) => state.recentAssets);
+
+  // PowerSync and system status
+  const systemReady = system.isInitialized();
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  // Progress tracking states
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncTotal, setSyncTotal] = useState(0);
+  const [syncOperation, setSyncOperation] = useState<
+    'backup' | 'restore' | null
+  >(null);
+
+  // Get PowerSync status
+  const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
+
+  // Get attachment sync progress from store
+  const attachmentSyncProgress = useLocalStore(
+    (state) => state.attachmentSyncProgress
+  );
 
   // Use the notifications hook
   const { notificationCount } = useNotifications();
 
   // Feature flag to toggle notifications visibility
   const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
+
+  const handleProgress = (current: number, total: number) => {
+    setSyncProgress(current);
+    setSyncTotal(total);
+  };
+
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    setSyncOperation('backup');
+    setSyncProgress(0);
+    setSyncTotal(1); // Default to 1 to avoid division by zero
+
+    let finalAlertTitle = t('backupErrorTitle'); // Default to error
+    let finalAlertMessage = '';
+
+    try {
+      // 1. System & Queue Init Checks
+      console.log('systemReady', systemReady);
+      if (!systemReady) {
+        throw new Error(t('databaseNotReady'));
+      }
+      // Attempt to initialize queues, warn if not available but don't throw
+      try {
+        await system.permAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing permanent attachment queue:', qError);
+      }
+      try {
+        await system.tempAttachmentQueue?.init();
+      } catch (qError) {
+        console.warn('Error initializing temporary attachment queue:', qError);
+      }
+
+      // 2. Permissions
+      console.log('[handleBackup] Requesting directory permissions...');
+      const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
+      if (!baseDirectoryUri) {
+        throw new Error(t('storagePermissionDenied'));
+      }
+      console.log('[handleBackup] Permissions granted, preparing paths...');
+
+      // 3. Prepare Paths
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      prepareBackupPaths(timestamp); // Call it but don't store result if unneeded
+      console.log('[handleBackup] Paths prepared, attempting audio backup...');
+
+      // 4. Execute Backup (Audio Only) with progress callback
+      const audioResult = await backupUnsyncedAudio(
+        system,
+        baseDirectoryUri,
+        handleProgress
+      );
+
+      // 5. Construct Success Message (Audio Only)
+      finalAlertTitle = t('backupCompleteTitle');
+      finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
+    } catch (error: unknown) {
+      // Handle errors from any awaited step above
+      console.log('[handleBackup] Entered CATCH block.');
+      console.error('Error during backup process:', error);
+      const errorString =
+        error instanceof Error ? error.message : String(error);
+      finalAlertMessage = t('criticalBackupError', {
+        error: errorString || 'Unknown error occurred'
+      });
+    } finally {
+      // 6. Final Alert & State Reset
+      console.log('[handleBackup] Entered FINALLY block.');
+      setIsBackingUp(false);
+      // Set operation to null after a delay to allow seeing the final progress
+      setTimeout(() => {
+        setSyncOperation(null);
+      }, 1500);
+
+      // Ensure message isn't empty if something went wrong before catch block assignment
+      if (!finalAlertMessage) {
+        finalAlertMessage = t('criticalBackupError', {
+          error: 'Backup failed unexpectedly'
+        });
+      }
+      Alert.alert(finalAlertTitle, finalAlertMessage);
+    }
+  };
+
+  const confirmAndStartBackup = () => {
+    Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('backupAudioAction'),
+        onPress: () => void handleBackup()
+      }
+    ]);
+  };
+
+  const handleRestore = () => {
+    const onStart = () => {
+      setIsRestoring(true);
+      setSyncOperation('restore');
+      setSyncProgress(0);
+      setSyncTotal(1); // Default until we know the total
+    };
+
+    const onFinish = () => {
+      setIsRestoring(false);
+      // Set operation to null after a delay to allow seeing the final progress
+      setTimeout(() => {
+        setSyncOperation(null);
+      }, 1500);
+    };
+
+    if (!currentUser?.id) {
+      Alert.alert(t('error'), t('userNotLoggedIn'));
+      return;
+    }
+
+    void selectAndInitiateRestore(
+      system,
+      currentUser.id,
+      t,
+      onStart,
+      onFinish,
+      handleProgress
+    );
+  };
+
+  // Calculate progress percentage for the progress bar
+  const progressPercentage = syncTotal > 0 ? syncProgress / syncTotal : 0;
+  const isOperationActive = isBackingUp || isRestoring;
+
+  // Progress status text
+  const getProgressText = () => {
+    if (!syncOperation) return '';
+
+    if (syncProgress === syncTotal && syncTotal > 0) {
+      return t('syncComplete');
+    }
+
+    return t('syncProgress', { current: syncProgress, total: syncTotal });
+  };
+
+  // Debug function to log PowerSync status
+  const logPowerSyncStatus = () => {
+    console.log('=== PowerSync Status Debug ===');
+    console.log('systemReady:', systemReady);
+    console.log('powersyncStatus:', powersyncStatus);
+    if (powersyncStatus) {
+      console.log('connected:', powersyncStatus.connected);
+      console.log('connecting:', powersyncStatus.connecting);
+      console.log('dataFlowStatus:', powersyncStatus.dataFlowStatus);
+      console.log('hasSynced:', powersyncStatus.hasSynced);
+      console.log('lastSyncedAt:', powersyncStatus.lastSyncedAt);
+    }
+    console.log('==============================');
+  };
 
   const drawerItems: DrawerItemType[] = [
     {
@@ -73,8 +329,33 @@ export default function AppDrawer({
         goToSettings();
         setDrawerIsVisible(false);
       }
+    },
+    {
+      name: isBackingUp ? t('backingUp') : t('backup'),
+      icon: isBackingUp ? 'hourglass-outline' : 'save',
+      onPress: confirmAndStartBackup,
+      disabled: !systemReady || isOperationActive
+    },
+    {
+      name: isRestoring ? t('restoring') : t('restoreBackup'),
+      icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline',
+      onPress: handleRestore,
+      disabled: !systemReady || isOperationActive
     }
   ] as const;
+
+  // Add logout for development
+  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development') {
+    drawerItems.push({
+      name: t('logOut'),
+      icon: 'log-out',
+      onPress: () => {
+        void signOut();
+        setDrawerIsVisible(false);
+      },
+      disabled: !systemReady || isOperationActive
+    });
+  }
 
   const closeDrawer = () => {
     setDrawerIsVisible(false);
@@ -106,44 +387,172 @@ export default function AppDrawer({
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <View style={styles.drawerContent}>
-              {drawerItems.map((item, index) => {
-                const isActive =
-                  currentView === 'projects' &&
-                  item.name.toLowerCase() === t('projects').toLowerCase();
 
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.drawerItem,
-                      isActive && styles.drawerItemActive
-                    ]}
-                    onPress={item.onPress}
-                  >
-                    <View style={styles.drawerItemContent}>
-                      <Ionicons
-                        name={item.icon}
-                        size={20}
-                        color={colors.text}
-                      />
-                      <Text style={styles.drawerItemText}>{item.name}</Text>
-                      {item.notificationCount
-                        ? item.notificationCount > 0 && (
-                            <View style={styles.notificationBadge}>
-                              <Text style={styles.notificationText}>
-                                {item.notificationCount > 99
-                                  ? '99+'
-                                  : item.notificationCount}
-                              </Text>
-                            </View>
-                          )
-                        : null}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <ScrollView style={styles.drawerContent}>
+              {/* Recently visited sections
+              <Category
+                title={t('projects')}
+                items={recentProjects}
+                onPress={(item) => {
+                  goToProject({ id: item.id, name: item.name });
+                  setDrawerIsVisible(false);
+                }}
+              />
+              <Category
+                title={t('quests')}
+                items={recentQuests}
+                onPress={(item) => {
+                  goToQuest({
+                    id: item.id,
+                    project_id: item.projectId,
+                    name: item.name
+                  });
+                  setDrawerIsVisible(false);
+                }}
+              />
+              <Category
+                title={t('assets')}
+                items={recentAssets}
+                onPress={(item) => {
+                  goToAsset({
+                    id: item.id,
+                    name: item.name,
+                    projectId: item.projectId,
+                    questId: item.questId
+                  });
+                  setDrawerIsVisible(false);
+                }}
+              /> */}
+
+              {/* System status and progress indicators */}
+              {!systemReady && (
+                <View style={styles.initializingIndicator}>
+                  <ActivityIndicator size="small" color={colors.text} />
+                  <Text style={styles.initializingText}>
+                    {t('initializing')}...
+                  </Text>
+                </View>
+              )}
+
+              {/* File sync progress indicator */}
+              {syncOperation && (
+                <View style={styles.syncProgressContainer}>
+                  <Text style={styles.syncProgressText}>
+                    {syncOperation === 'backup'
+                      ? t('backingUp')
+                      : t('restoring')}
+                  </Text>
+                  <ProgressBarAndroid
+                    styleAttr="Horizontal"
+                    indeterminate={syncTotal === 0}
+                    progress={progressPercentage}
+                    color={colors.primary}
+                    style={styles.progressBar}
+                  />
+                  <Text style={styles.syncProgressText}>
+                    {getProgressText()}
+                  </Text>
+                </View>
+              )}
+
+              {/* PowerSync status section */}
+              <TouchableOpacity
+                style={styles.stalePercentageContainer}
+                onPress={logPowerSyncStatus}
+              >
+                <Text style={styles.stalePercentageText}>
+                  {powersyncStatus?.connected
+                    ? powersyncStatus.dataFlowStatus.downloading
+                      ? 'Syncing...'
+                      : powersyncStatus.hasSynced
+                        ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                        : 'Not synced'
+                    : powersyncStatus?.connecting
+                      ? 'Connecting...'
+                      : 'Disconnected'}
+                </Text>
+                {/* Progress bar for download progress */}
+                {powersyncStatus?.downloadProgress && (
+                  <ProgressBarAndroid
+                    styleAttr="Horizontal"
+                    indeterminate={true}
+                    color={colors.primary}
+                    style={styles.syncStatusProgressBar}
+                  />
+                )}
+              </TouchableOpacity>
+
+              {/* Attachment sync progress section */}
+              {(attachmentSyncProgress.downloading ||
+                attachmentSyncProgress.uploading) && (
+                <View style={styles.attachmentSyncContainer}>
+                  <Text style={styles.attachmentSyncText}>
+                    {attachmentSyncProgress.downloading
+                      ? `Downloading files: ${attachmentSyncProgress.downloadCurrent}/${attachmentSyncProgress.downloadTotal}`
+                      : `Uploading files: ${attachmentSyncProgress.uploadCurrent}/${attachmentSyncProgress.uploadTotal}`}
+                  </Text>
+                  <ProgressBarAndroid
+                    styleAttr="Horizontal"
+                    indeterminate={false}
+                    progress={
+                      attachmentSyncProgress.downloading
+                        ? attachmentSyncProgress.downloadTotal > 0
+                          ? attachmentSyncProgress.downloadCurrent /
+                            attachmentSyncProgress.downloadTotal
+                          : 0
+                        : attachmentSyncProgress.uploadTotal > 0
+                          ? attachmentSyncProgress.uploadCurrent /
+                            attachmentSyncProgress.uploadTotal
+                          : 0
+                    }
+                    color={colors.primaryLight}
+                    style={styles.attachmentProgressBar}
+                  />
+                </View>
+              )}
+
+              {/* Main drawer items */}
+              <View style={styles.drawerItems}>
+                {drawerItems.map((item, index) => {
+                  const isActive =
+                    currentView === 'projects' &&
+                    item.name.toLowerCase() === t('projects').toLowerCase();
+
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.drawerItem,
+                        isActive && styles.drawerItemActive,
+                        item.disabled && styles.drawerItemDisabled
+                      ]}
+                      onPress={item.onPress}
+                      disabled={item.disabled}
+                    >
+                      <View style={styles.drawerItemContent}>
+                        <Ionicons
+                          name={item.icon}
+                          size={20}
+                          color={colors.text}
+                        />
+                        <Text style={styles.drawerItemText}>{item.name}</Text>
+                        {item.notificationCount
+                          ? item.notificationCount > 0 && (
+                              <View style={styles.notificationBadge}>
+                                <Text style={styles.notificationText}>
+                                  {item.notificationCount > 99
+                                    ? '99+'
+                                    : item.notificationCount}
+                                </Text>
+                              </View>
+                            )
+                          : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -189,7 +598,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderTopLeftRadius: borderRadius.large,
     borderTopRightRadius: borderRadius.large,
-    maxHeight: '80%'
+    maxHeight: '90%'
   },
   drawerHeader: {
     flexDirection: 'row',
@@ -208,14 +617,50 @@ const styles = StyleSheet.create({
   drawerContent: {
     padding: spacing.medium
   },
+  drawerCategory: {
+    padding: spacing.small,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.medium,
+    color: colors.text,
+    marginVertical: spacing.small,
+    overflow: 'hidden'
+  },
+  drawerCategoryTitle: {
+    fontSize: fontSizes.medium,
+    fontWeight: '500',
+    color: colors.text
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xsmall
+  },
+  categoryContent: {
+    overflow: 'hidden'
+  },
+  categoryItem: {
+    paddingVertical: 5
+  },
+  categoryItemText: {
+    color: colors.text
+  },
+  drawerItems: {
+    gap: spacing.small,
+    marginTop: spacing.medium
+  },
   drawerItem: {
     paddingVertical: spacing.medium,
     paddingHorizontal: spacing.medium,
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.small
+    marginBottom: spacing.small,
+    backgroundColor: colors.backgroundSecondary
   },
   drawerItemActive: {
     backgroundColor: colors.primary + '20' // 20% opacity
+  },
+  drawerItemDisabled: {
+    opacity: 0.5
   },
   drawerItemContent: {
     flexDirection: 'row',
@@ -240,5 +685,68 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xsmall,
     color: '#FFFFFF',
     fontWeight: '600'
+  },
+  initializingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.medium,
+    gap: spacing.small,
+    opacity: 0.7
+  },
+  initializingText: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  },
+  // New styles for progress indicator
+  syncProgressContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.small
+  },
+  progressBar: {
+    height: 8,
+    width: '100%',
+    marginVertical: spacing.xsmall
+  },
+  syncProgressText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    textAlign: 'center'
+  },
+  stalePercentageContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    alignItems: 'center',
+    marginBottom: spacing.small
+  },
+  stalePercentageText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500'
+  },
+  syncStatusProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
+  },
+  attachmentSyncContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.small
+  },
+  attachmentSyncText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500',
+    marginBottom: spacing.xsmall
+  },
+  attachmentProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
   }
 });

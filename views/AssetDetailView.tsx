@@ -387,7 +387,16 @@ export default function AssetDetailView() {
                       sourceLanguage={sourceLanguage ?? null}
                       audioUri={
                         content.audio_id
-                          ? attachmentStates.get(content.audio_id)?.local_uri
+                          ? (() => {
+                              const localUri = attachmentStates.get(
+                                content.audio_id
+                              )?.local_uri;
+                              return localUri
+                                ? system.permAttachmentQueue?.getLocalUri(
+                                    localUri
+                                  )
+                                : null;
+                            })()
                           : null
                       }
                       isLoading={isLoading}
@@ -401,7 +410,12 @@ export default function AssetDetailView() {
             <ImageCarousel
               uris={
                 asset?.images
-                  ?.map((imageId) => attachmentStates.get(imageId)?.local_uri)
+                  ?.map((imageId) => {
+                    const localUri = attachmentStates.get(imageId)?.local_uri;
+                    return localUri
+                      ? system.permAttachmentQueue?.getLocalUri(localUri)
+                      : null;
+                  })
                   .filter(Boolean) ?? []
               }
             />
