@@ -114,7 +114,7 @@ export default function AppDrawer({
           if (system.areAttachmentQueuesReady()) {
             break;
           }
-          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
         }
 
         if (!system.areAttachmentQueuesReady()) {
@@ -335,8 +335,8 @@ export default function AppDrawer({
             onPress={closeDrawer}
           />
 
-          <View style={styles.drawerContainer}>
-            <View style={styles.drawerHeader}>
+          <View style={[styles.drawerContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.drawerHeader, { backgroundColor: colors.background }]}>
               <Text style={styles.drawerTitle}>{t('menu')}</Text>
               <TouchableOpacity
                 onPress={closeDrawer}
@@ -346,10 +346,10 @@ export default function AppDrawer({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.drawerContent}>
+            <ScrollView style={[styles.drawerContent, { backgroundColor: colors.background }]}>
               {/* System status and progress indicators */}
               {!systemReady && (
-                <View style={styles.initializingIndicator}>
+                <View style={[styles.initializingIndicator, { backgroundColor: colors.background }]}>
                   <ActivityIndicator size="small" color={colors.text} />
                   <Text style={styles.initializingText}>
                     {t('initializing')}...
