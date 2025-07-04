@@ -103,7 +103,7 @@ export default function AssetDetailView() {
 
   // Check private project access
   const { hasAccess } = usePrivateProjectAccess(
-    activeProject?.id || '',
+    currentProjectId || '',
     'translate'
   );
 

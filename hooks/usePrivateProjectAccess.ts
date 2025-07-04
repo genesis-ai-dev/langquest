@@ -1,8 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 
 export type PrivateAccessAction =
@@ -15,17 +15,27 @@ export type PrivateAccessAction =
 export function usePrivateProjectAccess(
   project_id: string,
   action: PrivateAccessAction
-) {
+): {
+  hasAccess: boolean;
+  membership: typeof profile_project_link | null;
+  isMembershipLoading: boolean;
+} {
   const { currentUser } = useAuth();
   const { db } = system;
 
-  const {
-    data: membershipDataArray,
-    isLoading: isMembershipLoading,
-    ...rest
-  } = useQuery({
-    queryKey: ['private-project-access', project_id, currentUser?.id, action],
-    query: toCompilableQuery(
+  // Query for membership status
+  const { data: membershipLinks = [] } = useHybridQuery({
+    queryKey: ['membership-status', project_id, currentUser?.id],
+    onlineFn: async () => {
+      const { data } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('project_id', project_id)
+        .eq('active', true);
+      return data as typeof profile_project_link[];
+    },
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, project_id),
@@ -37,8 +47,10 @@ export function usePrivateProjectAccess(
     enabled: !!project_id && !!currentUser?.id
   });
 
+  console.log('RYDER', { membershipLinks, project_id, currentUser })
+
   // Get the first (and should be only) membership record
-  const membershipData = membershipDataArray?.[0];
+  const membershipData = membershipLinks?.[0];
 
   // Define permission levels and their allowed actions
   const memberActions = ['view-members', 'vote', 'translate', 'download'];
@@ -63,7 +75,7 @@ export function usePrivateProjectAccess(
   return {
     hasAccess,
     membership: membershipData,
-    isMembershipLoading,
+    isMembershipLoading: isLoading,
     ...rest
   };
 }

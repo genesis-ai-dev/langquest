@@ -19,7 +19,6 @@ const linkColumns = {
     .notNull()
     .default(timestampDefault)
     .$onUpdate(() => timestampDefault),
-  download_profiles: text({ mode: 'json' }).$type<string[]>()
 };
 
 // Base columns that most tables will have
