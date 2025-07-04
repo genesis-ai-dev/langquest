@@ -93,21 +93,13 @@ export default function AssetDetailView() {
   const [pendingTranslationType, setPendingTranslationType] =
     useState<TranslationModalType | null>(null);
 
-  // Early return if no asset is selected
-  if (!currentAssetId || !currentProjectId) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>No asset selected</Text>
-      </View>
-    );
-  }
-
+  // Always call hooks before any conditional returns
   useEffect(() => {
     if (!currentAssetId) return;
     void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
   }, [currentAssetId]);
 
-  const { project: activeProject } = useProjectById(currentProjectId);
+  const { project: activeProject } = useProjectById(currentProjectId || '');
 
   // Check private project access
   const { hasAccess } = usePrivateProjectAccess(
@@ -115,20 +107,17 @@ export default function AssetDetailView() {
     'translate'
   );
 
-  const screenHeight = Dimensions.get('window').height;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
-  const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
-
-  // Use the hook to watch attachment states
-  const { asset, isAssetLoading } = useAssetById(currentAssetId);
-  const { assetContent, isAssetContentLoading } =
-    useAssetContent(currentAssetId);
+  // Use the hook to watch attachment states - always call these hooks
+  const { asset, isAssetLoading } = useAssetById(currentAssetId || '');
+  const { assetContent, isAssetContentLoading } = useAssetContent(
+    currentAssetId || ''
+  );
   const {
     language: sourceLanguage,
     isLanguageLoading: isSourceLanguageLoading
-  } = useLanguageById(asset?.source_language_id);
+  } = useLanguageById(asset?.source_language_id || '');
   const { translationsWithVotesAndLanguage, refetch } =
-    useTranslationsWithVotesAndLanguageByAssetId(currentAssetId);
+    useTranslationsWithVotesAndLanguageByAssetId(currentAssetId || '');
 
   const isLoading =
     isAssetLoading || isAssetContentLoading || isSourceLanguageLoading;
@@ -188,6 +177,19 @@ export default function AssetDetailView() {
     const firstAvailableTab = getFirstAvailableTab(asset, assetContent);
     setActiveTab(firstAvailableTab);
   }, [asset, assetContent]);
+
+  // Now handle conditional rendering after all hooks are called
+  if (!currentAssetId || !currentProjectId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.emptyText}>No asset selected</Text>
+      </View>
+    );
+  }
+
+  const screenHeight = Dimensions.get('window').height;
+  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
+  const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
 
   const renderTranslationCard = ({
     item: translation
