@@ -638,7 +638,16 @@ export default function AssetView() {
               translationType={translationModalType}
               assetContent={assetContent[activeTab === 'text' ? 0 : 1]}
               sourceLanguage={sourceLanguage}
-              attachmentUris={Object.fromEntries(attachmentStates.entries())}
+              attachmentUris={Object.fromEntries(
+                Array.from(attachmentStates.entries()).map(([id, record]) => [
+                  id,
+                  record.local_uri
+                    ? system.permAttachmentQueue?.getLocalUri(
+                        record.local_uri
+                      ) || ''
+                    : ''
+                ])
+              )}
               loadingAttachments={isLoadingAttachments}
             />
           )}

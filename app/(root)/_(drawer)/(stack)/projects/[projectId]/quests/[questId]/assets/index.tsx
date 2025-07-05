@@ -10,7 +10,7 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useDownload } from '@/hooks/useDownloads';
 import { useNavigation } from '@/hooks/useNavigation';
-import { useProfiler } from '@/hooks/useProfiler';
+// import { useProfiler } from '@/hooks/useProfiler';
 import {
   borderRadius,
   colors,
@@ -205,10 +205,10 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
 AssetCard.displayName = 'AssetCard';
 
 export default function Assets() {
-  const { trackRenders } = useProfiler({
-    componentName: 'Assets',
-    trackRenders: true
-  });
+  // const { trackRenders } = useProfiler({
+  //   componentName: 'Assets',
+  //   trackRenders: true
+  // });
 
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
