@@ -118,7 +118,9 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                       false: colors.disabled,
                       true: colors.primary
                     }}
-                    thumbColor={colors.buttonText}
+                    thumbColor={
+                      projectData?.private ? colors.primary : colors.disabled
+                    }
                   />
                 </View>
               </View>

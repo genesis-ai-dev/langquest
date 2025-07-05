@@ -29,7 +29,7 @@ function getAllDownloadedAssetsConfig(profileId: string) {
       const { data, error } = await system.supabaseConnector.client
         .from('asset')
         .select('id')
-        .in('download_profiles', [profileId])
+        .contains('download_profiles', [profileId])
         .overrideTypes<Asset[]>();
       if (error) throw error;
       return data;

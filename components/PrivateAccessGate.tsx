@@ -578,7 +578,11 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                         false: colors.textSecondary,
                         true: colors.primary
                       }}
-                      thumbColor={colors.buttonText}
+                      thumbColor={
+                        isProjectDownloaded
+                          ? colors.primary
+                          : colors.inputBackground
+                      }
                       disabled={isSubmitting || isProjectDownloaded}
                     />
                   </View>
@@ -616,7 +620,11 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                         false: colors.textSecondary,
                         true: colors.primary
                       }}
-                      thumbColor={colors.buttonText}
+                      thumbColor={
+                        isProjectDownloaded
+                          ? colors.primary
+                          : colors.inputBackground
+                      }
                       disabled={isSubmitting || isProjectDownloaded}
                     />
                   </View>

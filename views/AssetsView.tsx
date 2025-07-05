@@ -1,15 +1,25 @@
+/**
+ * AssetsView - Migrated from app/_(root)/(drawer)/(stack)/projects/[projectId]/quests/[questId]/assets/index.tsx
+ * Now works with state-driven navigation instead of routes
+ */
+
 import { AssetFilterModal } from '@/components/AssetFilterModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { PageHeader } from '@/components/PageHeader';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
 import { useSessionProjects } from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
+import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useQuestById } from '@/hooks/db/useQuests';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import { useDownload } from '@/hooks/useDownloads';
-import { useNavigation } from '@/hooks/useNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useProfiler } from '@/hooks/useProfiler';
 import {
   borderRadius,
@@ -20,8 +30,7 @@ import {
 } from '@/styles/theme';
 import { sortItems } from '@/utils/sortingUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams } from 'expo-router';
+import { FlashList } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,21 +43,13 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AssetContent } from '@/hooks/db/useAssets';
-import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
-import { useQuestById } from '@/hooks/db/useQuests';
-// import { useTranslationsWithVotesByAssetId } from '@/hooks/db/useTranslations';
-import { useLocalization } from '@/hooks/useLocalization';
-import { FlashList } from '@shopify/flash-list';
 
 interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
-
-// type AggregatedGems = Record<string, number>;
 
 // Helper functions outside component to prevent recreation
 const filterAssets = (
@@ -90,17 +91,15 @@ const filterAssets = (
 
 // Memoized AssetCard component to prevent unnecessary re-renders
 const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
-  const { projectId } = useGlobalSearchParams<{
-    questId: string;
-    projectId: string;
-  }>();
+  // Use current navigation to get project
+  const { currentProjectId } = useCurrentNavigation();
 
   // Use session cache for project data instead of fresh query
   const { getCachedProject } = useSessionProjects();
-  const cachedProject = getCachedProject(projectId);
+  const cachedProject = getCachedProject(currentProjectId || '');
 
   // Fallback to fresh query only if not in cache
-  const { project: freshProject } = useProjectById(projectId);
+  const { project: freshProject } = useProjectById(currentProjectId || '');
   const activeProject = cachedProject || freshProject;
 
   const {
@@ -109,32 +108,9 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
     toggleDownload
   } = useDownload('asset', asset.id);
 
-  // const { translationsWithVotes } = useTranslationsWithVotesByAssetId(asset.id);
-
   const handleDownloadToggle = useCallback(async () => {
     await toggleDownload();
   }, [toggleDownload]);
-
-  // Aggregate translations by gem color
-  // const aggregatedGems = translationsWithVotes?.reduce<AggregatedGems>(
-  //   (acc, translation) => {
-  //     // Only count translations that should be displayed
-  //     if (!shouldCountTranslation(translation.votes)) {
-  //       return acc;
-  //     }
-
-  //     const gemColor = getGemColor(
-  //       translation,
-  //       translation.votes,
-  //       currentUser?.id ?? null
-  //     );
-
-  //     acc[gemColor] = (acc[gemColor] ?? 0) + 1;
-
-  //     return acc;
-  //   },
-  //   {}
-  // );
 
   return (
     <View style={sharedStyles.card}>
@@ -165,38 +141,7 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
         />
       </View>
       <View style={styles.translationCount}>
-        {/* {aggregatedGems &&
-          Object.entries(aggregatedGems).map(([color, count]) => (
-            <View key={color} style={styles.gemContainer}>
-              {count < 4 ? (
-                // If count is less than 4, display that many gems
-                Array.from({ length: count }).map((_, index) =>
-                  color === colors.alert ? (
-                    <PickaxeIcon
-                      key={index}
-                      color={color}
-                      width={26}
-                      height={20}
-                    />
-                  ) : (
-                    <GemIcon key={index} color={color} width={26} height={20} />
-                  )
-                )
-              ) : (
-                // If count is 4 or more, display one gem with the count
-                <>
-                  {color === colors.alert ? (
-                    <PickaxeIcon color={color} width={26} height={20} />
-                  ) : (
-                    <GemIcon color={color} width={26} height={20} />
-                  )}
-                  <Text style={{ ...styles.gemCount, marginRight: 8 }}>
-                    {count}
-                  </Text>
-                </>
-              )}
-            </View>
-          ))} */}
+        {/* Translation gems could be added here later */}
       </View>
     </View>
   );
@@ -204,20 +149,18 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
 
 AssetCard.displayName = 'AssetCard';
 
-export default function Assets() {
-  const { trackRenders } = useProfiler({
-    componentName: 'Assets',
-    trackRenders: true
+export default function AssetsView() {
+  const { renderCount: _renderCount } = useProfiler({
+    componentName: 'AssetsView'
   });
 
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
   const { t } = useLocalization();
-  const { goToAsset } = useNavigation();
-  const { questId, projectId } = useGlobalSearchParams<{
-    questId: string;
-    projectId: string;
-  }>();
+  const { goToAsset } = useAppNavigation();
+
+  // Get current navigation state
+  const { currentQuestId, currentProjectId } = useCurrentNavigation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -227,7 +170,16 @@ export default function Assets() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
 
-  const { quest } = useQuestById(questId);
+  // Early return if no quest is selected
+  if (!currentQuestId || !currentProjectId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.emptyText}>No quest selected</Text>
+      </View>
+    );
+  }
+
+  const { quest } = useQuestById(currentQuestId);
 
   // Use the new hybrid infinite query hook for better performance and offline support
   const {
@@ -241,13 +193,13 @@ export default function Assets() {
     error,
     refetch
   } = useInfiniteAssetsWithTagsAndContentByQuestId(
-    questId,
+    currentQuestId,
     10, // pageSize
     activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
     activeSorting[0]?.order
   );
 
-  // Extract all assets from pages - removed trackEffect to prevent instability
+  // Extract all assets from pages
   const allAssets = useMemo(() => {
     if (!infiniteData?.pages) {
       return [];
@@ -256,7 +208,7 @@ export default function Assets() {
     return infiniteData.pages.flatMap((page) => page.data);
   }, [infiniteData]);
 
-  // Apply client-side filtering and sorting - removed trackEffect to prevent instability
+  // Apply client-side filtering and sorting
   const filteredAssets = useMemo(() => {
     if (!allAssets.length) {
       return [];
@@ -310,11 +262,11 @@ export default function Assets() {
       goToAsset({
         id: asset.id,
         name: asset.name,
-        projectId,
-        questId
+        projectId: currentProjectId,
+        questId: currentQuestId
       });
     },
-    [goToAsset, projectId, questId]
+    [goToAsset, currentProjectId, currentQuestId]
   );
 
   // Stable renderItem function to prevent re-renders
@@ -345,7 +297,7 @@ export default function Assets() {
     setShowQuestStats((prev) => !prev);
   };
 
-  // Load more data when user reaches end of list - TKDodo's best practice
+  // Load more data when user reaches end of list
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage && !isFetching) {
       void fetchNextPage();
@@ -357,7 +309,7 @@ export default function Assets() {
     void refetch();
   }, [refetch]);
 
-  // Render footer with loading indicator - TKDodo's pattern
+  // Render footer with loading indicator
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;
 
@@ -392,145 +344,126 @@ export default function Assets() {
   // Loading state with better UX
   if (isLoading) {
     return (
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          <View
-            style={[
-              sharedStyles.container,
-              {
-                backgroundColor: 'transparent',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }
-            ]}
+      <View style={styles.container}>
+        <View
+          style={[
+            sharedStyles.container,
+            {
+              backgroundColor: 'transparent',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }
+          ]}
+        >
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: fontSizes.medium,
+              marginTop: spacing.medium
+            }}
           >
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: fontSizes.medium,
-                marginTop: spacing.medium
-              }}
-            >
-              Loading assets...
-            </Text>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+            Loading assets...
+          </Text>
+        </View>
+      </View>
     );
   }
 
   // Error state with retry option
   if (isError) {
     return (
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-          <View
-            style={[
-              sharedStyles.container,
-              {
-                backgroundColor: 'transparent',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }
-            ]}
+      <View style={styles.container}>
+        <View
+          style={[
+            sharedStyles.container,
+            {
+              backgroundColor: 'transparent',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }
+          ]}
+        >
+          <Text
+            style={{
+              color: colors.error,
+              fontSize: fontSizes.medium,
+              textAlign: 'center'
+            }}
           >
-            <Text
-              style={{
-                color: colors.error,
-                fontSize: fontSizes.medium,
-                textAlign: 'center'
-              }}
-            >
-              Error loading assets: {error.message}
-            </Text>
-            <TouchableOpacity
-              onPress={handleRefresh}
-              style={[styles.retryButton, { marginTop: spacing.medium }]}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+            Error loading assets: {error.message}
+          </Text>
+          <TouchableOpacity
+            onPress={handleRefresh}
+            style={[styles.retryButton, { marginTop: spacing.medium }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <View
-          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
-        >
-          <PageHeader title={quest?.name ?? ''} />
-          <View style={styles.headerContainer}>
-            <View style={styles.searchContainer}>
-              <Ionicons
-                name="search"
-                size={20}
-                color={colors.text}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('searchAssets')}
-                placeholderTextColor={colors.text}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              <TouchableOpacity
-                onPress={() => setIsFilterModalVisible(true)}
-                style={styles.filterIcon}
-              >
-                <Ionicons name="filter" size={20} color={colors.text} />
-                {getActiveOptionsCount() > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {getActiveOptionsCount()}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
+    <View style={styles.container}>
+      <View
+        style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
+      >
+        <View style={styles.headerContainer}>
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search"
+              size={20}
+              color={colors.text}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('searchAssets')}
+              placeholderTextColor={colors.text}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity
+              onPress={() => setIsFilterModalVisible(true)}
+              style={styles.filterIcon}
+            >
+              <Ionicons name="filter" size={20} color={colors.text} />
+              {getActiveOptionsCount() > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {getActiveOptionsCount()}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
-
-          <FlashList
-            data={filteredAssets}
-            renderItem={renderAssetItem}
-            keyExtractor={(item) => item.id}
-            style={sharedStyles.list}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            refreshControl={
-              <RefreshControl
-                refreshing={isFetching && !isFetchingNextPage}
-                onRefresh={handleRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-            // Performance optimizations from TKDodo's guide
-            removeClippedSubviews={true}
-          />
-          <TouchableOpacity
-            onPress={toggleQuestStats}
-            style={styles.statsButton}
-          >
-            <Ionicons name="stats-chart" size={24} color={colors.text} />
-          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+
+        <FlashList
+          data={filteredAssets}
+          renderItem={renderAssetItem}
+          keyExtractor={(item) => item.id}
+          style={sharedStyles.list}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isFetchingNextPage}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          // Performance optimizations
+          removeClippedSubviews={true}
+        />
+        <TouchableOpacity onPress={toggleQuestStats} style={styles.statsButton}>
+          <Ionicons name="stats-chart" size={24} color={colors.text} />
+        </TouchableOpacity>
+      </View>
       <Modal
         visible={isFilterModalVisible}
         transparent={true}
@@ -554,11 +487,22 @@ export default function Assets() {
       {showQuestStats && quest && (
         <QuestDetails quest={quest} onClose={handleCloseDetails} />
       )}
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent'
+  },
+  emptyText: {
+    flex: 1,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 16,
+    color: colors.textSecondary
+  },
   headerContainer: {
     flexDirection: 'column',
     marginBottom: spacing.medium,
@@ -608,27 +552,11 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     fontWeight: 'bold'
   },
-  tag: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.small,
-    paddingHorizontal: spacing.small,
-    marginRight: spacing.small
-  },
   translationCount: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
     marginTop: spacing.small,
     gap: spacing.xsmall
-  },
-  gemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    justifyContent: 'center'
-  },
-  gemCount: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
   },
   footerLoader: {
     flexDirection: 'row',

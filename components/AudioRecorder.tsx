@@ -1,10 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { ATTACHMENT_QUEUE_LIMITS } from '@/db/powersync/constants';
-import { getAllDownloadedAssets } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { calculateTotalAttachments } from '@/utils/attachmentUtils';
-import { TranslationUtils } from '@/utils/translationUtils';
 import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
@@ -12,7 +8,6 @@ import type { RecordingOptions } from 'expo-av/build/Audio';
 import * as FileSystem from 'expo-file-system';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -92,28 +87,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const startRecording = async () => {
     try {
       if (!currentUser) return;
-
-      // Check attachment limit before starting
-      const downloadedAssets = await getAllDownloadedAssets(currentUser.id);
-      const totalAttachments =
-        await calculateTotalAttachments(downloadedAssets);
-      console.log('Total attachments:', totalAttachments);
-
-      if (totalAttachments >= ATTACHMENT_QUEUE_LIMITS.PERMANENT) {
-        Alert.alert(
-          TranslationUtils.t('downloadLimitExceeded'),
-          TranslationUtils.formatMessage(
-            TranslationUtils.t('downloadLimitMessage'),
-            {
-              newDownloads: (totalAttachments + 1).toString(),
-              totalDownloads: totalAttachments.toString(),
-              limit: ATTACHMENT_QUEUE_LIMITS.PERMANENT.toString()
-            }
-          ),
-          [{ text: 'OK' }]
-        );
-        return;
-      }
 
       if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
         console.log('Requesting permission..');

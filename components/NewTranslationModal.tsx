@@ -4,11 +4,11 @@ import { translationService } from '@/database_services/translationService';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
-import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -54,8 +54,8 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const { project: activeProject } = useProjectById(projectId);
+  const { currentProjectId } = useCurrentNavigation();
+  const { project: activeProject } = useProjectById(currentProjectId || '');
   const { stopCurrentSound } = useAudio();
   const [translationText, setTranslationText] = useState('');
   const [audioUri, setAudioUri] = useState<string | null>(null);

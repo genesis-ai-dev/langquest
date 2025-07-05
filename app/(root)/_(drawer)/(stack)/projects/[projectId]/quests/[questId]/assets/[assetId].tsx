@@ -99,10 +99,7 @@ export default function AssetView() {
   const { project: activeProject } = useProjectById(projectId);
 
   // Check private project access
-  const { hasAccess } = usePrivateProjectAccess({
-    projectId: activeProject?.id || '',
-    isPrivate: activeProject?.private || false
-  });
+  const { hasAccess } = usePrivateProjectAccess(projectId || '', 'translate');
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -129,6 +126,8 @@ export default function AssetView() {
       .filter((content) => content.audio_id)
       .map((content) => content.audio_id!)
       .filter(Boolean);
+
+    console.log('contentAudioIds', contentAudioIds);
 
     const translationAudioIds = translationsWithVotesAndLanguage
       .filter((translation) => translation.audio)
@@ -378,7 +377,16 @@ export default function AssetView() {
                               sourceLanguage={sourceLanguage ?? null}
                               audioUri={
                                 content.audio_id
-                                  ? attachmentStates.get(content.audio_id)?.uri
+                                  ? (() => {
+                                      const localUri = attachmentStates.get(
+                                        content.audio_id
+                                      )?.local_uri;
+                                      return localUri
+                                        ? system.permAttachmentQueue?.getLocalUri(
+                                            localUri
+                                          )
+                                        : null;
+                                    })()
                                   : null
                               }
                               isLoading={isLoading}
@@ -392,7 +400,13 @@ export default function AssetView() {
                   <ImageCarousel
                     uris={
                       asset?.images
-                        ?.map((imageId) => attachmentStates.get(imageId)?.uri)
+                        ?.map((imageId) => {
+                          const localUri =
+                            attachmentStates.get(imageId)?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })
                         .filter(Boolean) ?? []
                     }
                   />
@@ -624,7 +638,16 @@ export default function AssetView() {
               translationType={translationModalType}
               assetContent={assetContent[activeTab === 'text' ? 0 : 1]}
               sourceLanguage={sourceLanguage}
-              attachmentUris={Object.fromEntries(attachmentStates.entries())}
+              attachmentUris={Object.fromEntries(
+                Array.from(attachmentStates.entries()).map(([id, record]) => [
+                  id,
+                  record.local_uri
+                    ? system.permAttachmentQueue?.getLocalUri(
+                        record.local_uri
+                      ) || ''
+                    : ''
+                ])
+              )}
               loadingAttachments={isLoadingAttachments}
             />
           )}

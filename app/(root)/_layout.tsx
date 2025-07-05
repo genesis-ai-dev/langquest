@@ -51,7 +51,7 @@ export default function TermsLayout() {
       <SafeAreaProvider>
         <Stack
           screenOptions={{
-            headerShown: false,
+            headerShown: true,
             // Speed up route transitions
             animationTypeForReplace: 'push',
             animation: 'simple_push',

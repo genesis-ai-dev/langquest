@@ -181,9 +181,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       value={blockContentOption}
                       onValueChange={setBlockContentOption}
                       trackColor={{
-                        false: colors.inputBorder,
-                        true: colors.primary
+                        false: colors.textSecondary,
+                        true: colors.primary // Use primary color for better contrast
                       }}
+                      thumbColor={
+                        blockContentOption
+                          ? colors.primary
+                          : colors.inputBackground
+                      }
                     />
                   </View>
 
@@ -194,9 +199,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                         value={blockUserOption}
                         onValueChange={setBlockUserOption}
                         trackColor={{
-                          false: colors.inputBorder,
-                          true: colors.primary
+                          false: colors.textSecondary,
+                          true: colors.primary // Use primary color for better contrast
                         }}
+                        thumbColor={
+                          blockUserOption
+                            ? colors.primary
+                            : colors.inputBackground
+                        }
                       />
                     </View>
                   )}

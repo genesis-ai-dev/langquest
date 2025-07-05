@@ -4,6 +4,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+// Navigation types (forward declaration to avoid circular import)
+export type AppView =
+  | 'projects'
+  | 'quests'
+  | 'assets'
+  | 'asset-detail'
+  | 'profile'
+  | 'notifications'
+  | 'settings';
+
+export interface NavigationStackItem {
+  view: AppView;
+  projectId?: string;
+  projectName?: string;
+  questId?: string;
+  questName?: string;
+  assetId?: string;
+  assetName?: string;
+  timestamp: number;
+}
+
 export type Language = typeof language.$inferSelect;
 
 // Recently visited item types
@@ -44,10 +65,24 @@ interface LocalState {
   currentQuestId: string | null;
   currentAssetId: string | null;
 
+  // State-driven navigation stack
+  navigationStack: NavigationStackItem[];
+  setNavigationStack: (stack: NavigationStackItem[]) => void;
+
   // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
   recentQuests: RecentQuest[];
   recentAssets: RecentAsset[];
+
+  // Attachment sync progress
+  attachmentSyncProgress: {
+    downloading: boolean;
+    uploading: boolean;
+    downloadCurrent: number;
+    downloadTotal: number;
+    uploadCurrent: number;
+    uploadTotal: number;
+  };
 
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
@@ -56,7 +91,11 @@ interface LocalState {
   setLanguage: (lang: Language) => void;
 
   // Navigation context setters
-  setCurrentContext: (projectId?: string, questId?: string, assetId?: string) => void;
+  setCurrentContext: (
+    projectId?: string,
+    questId?: string,
+    assetId?: string
+  ) => void;
   clearCurrentContext: () => void;
 
   // Recently visited functions
@@ -64,7 +103,13 @@ interface LocalState {
   addRecentQuest: (quest: RecentQuest) => void;
   addRecentAsset: (asset: RecentAsset) => void;
 
-  initialize: () => void;
+  // Attachment sync methods
+  setAttachmentSyncProgress: (
+    progress: Partial<LocalState['attachmentSyncProgress']>
+  ) => void;
+  resetAttachmentSyncProgress: () => void;
+
+  initialize: () => Promise<void>;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -83,10 +128,24 @@ export const useLocalStore = create<LocalState>()(
       currentQuestId: null,
       currentAssetId: null,
 
+      // State-driven navigation stack
+      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
+      setNavigationStack: (stack) => set({ navigationStack: stack }),
+
       // Recently visited items (max 5 each)
       recentProjects: [],
       recentQuests: [],
       recentAssets: [],
+
+      // Attachment sync progress
+      attachmentSyncProgress: {
+        downloading: false,
+        uploading: false,
+        downloadCurrent: 0,
+        downloadTotal: 0,
+        uploadCurrent: 0,
+        uploadTotal: 0
+      },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
@@ -97,35 +156,63 @@ export const useLocalStore = create<LocalState>()(
       setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
 
       // Navigation context setters
-      setCurrentContext: (projectId, questId, assetId) => set({
-        currentProjectId: projectId || null,
-        currentQuestId: questId || null,
-        currentAssetId: assetId || null
-      }),
-      clearCurrentContext: () => set({
-        currentProjectId: null,
-        currentQuestId: null,
-        currentAssetId: null
-      }),
+      setCurrentContext: (projectId, questId, assetId) =>
+        set({
+          currentProjectId: projectId || null,
+          currentQuestId: questId || null,
+          currentAssetId: assetId || null
+        }),
+      clearCurrentContext: () =>
+        set({
+          currentProjectId: null,
+          currentQuestId: null,
+          currentAssetId: null
+        }),
 
       // Recently visited functions
-      addRecentProject: (project) => set(state => {
-        const filtered = state.recentProjects.filter(p => p.id !== project.id);
-        return { recentProjects: [project, ...filtered].slice(0, 5) };
-      }),
-      addRecentQuest: (quest) => set(state => {
-        const filtered = state.recentQuests.filter(q => q.id !== quest.id);
-        return { recentQuests: [quest, ...filtered].slice(0, 5) };
-      }),
-      addRecentAsset: (asset) => set(state => {
-        const filtered = state.recentAssets.filter(a => a.id !== asset.id);
-        return { recentAssets: [asset, ...filtered].slice(0, 5) };
-      }),
+      addRecentProject: (project) =>
+        set((state) => {
+          const filtered = state.recentProjects.filter(
+            (p) => p.id !== project.id
+          );
+          return { recentProjects: [project, ...filtered].slice(0, 5) };
+        }),
+      addRecentQuest: (quest) =>
+        set((state) => {
+          const filtered = state.recentQuests.filter((q) => q.id !== quest.id);
+          return { recentQuests: [quest, ...filtered].slice(0, 5) };
+        }),
+      addRecentAsset: (asset) =>
+        set((state) => {
+          const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
+          return { recentAssets: [asset, ...filtered].slice(0, 5) };
+        }),
+
+      // Attachment sync methods
+      setAttachmentSyncProgress: (progress) =>
+        set((state) => ({
+          attachmentSyncProgress: {
+            ...state.attachmentSyncProgress,
+            ...progress
+          }
+        })),
+      resetAttachmentSyncProgress: () =>
+        set({
+          attachmentSyncProgress: {
+            downloading: false,
+            uploading: false,
+            downloadCurrent: 0,
+            downloadTotal: 0,
+            uploadCurrent: 0,
+            uploadTotal: 0
+          }
+        }),
 
       initialize: () => {
         console.log('initializing local store');
         // Language loading moved to app initialization to avoid circular dependency
         set({ isLanguageLoading: false });
+        return Promise.resolve();
       }
     }),
     {
@@ -135,7 +222,15 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['language', 'currentUser', 'currentProjectId', 'currentQuestId', 'currentAssetId'].includes(key)
+            ([key]) =>
+              ![
+                'language',
+                'currentUser',
+                'currentProjectId',
+                'currentQuestId',
+                'currentAssetId',
+                'navigationStack'
+              ].includes(key)
           )
         )
     }

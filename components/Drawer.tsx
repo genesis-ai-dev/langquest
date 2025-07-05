@@ -60,6 +60,14 @@ function DrawerItems() {
     'backup' | 'restore' | null
   >(null);
 
+  // Get PowerSync status
+  const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
+
+  // Get attachment sync progress from store
+  const attachmentSyncProgress = useLocalStore(
+    (state) => state.attachmentSyncProgress
+  );
+
   // Use the notifications hook
   const { notificationCount } = useNotifications();
 
@@ -98,6 +106,7 @@ function DrawerItems() {
 
     try {
       // 1. System & Queue Init Checks
+      console.log('systemReady', systemReady);
       if (!systemReady) {
         throw new Error(t('databaseNotReady'));
       }
@@ -223,6 +232,21 @@ function DrawerItems() {
     return t('syncProgress', { current: syncProgress, total: syncTotal });
   };
 
+  // Debug function to log PowerSync status
+  const logPowerSyncStatus = () => {
+    console.log('=== PowerSync Status Debug ===');
+    console.log('systemReady:', systemReady);
+    console.log('powersyncStatus:', powersyncStatus);
+    if (powersyncStatus) {
+      console.log('connected:', powersyncStatus.connected);
+      console.log('connecting:', powersyncStatus.connecting);
+      console.log('dataFlowStatus:', powersyncStatus.dataFlowStatus);
+      console.log('hasSynced:', powersyncStatus.hasSynced);
+      console.log('lastSyncedAt:', powersyncStatus.lastSyncedAt);
+    }
+    console.log('==============================');
+  };
+
   return (
     <View style={styles.drawerItems}>
       {!systemReady && (
@@ -272,6 +296,63 @@ function DrawerItems() {
         disabled={!systemReady || isOperationActive}
         style={!systemReady || isOperationActive ? { opacity: 0.5 } : {}}
       />
+
+      {/* Sync status section with progress bar */}
+      <TouchableOpacity
+        style={styles.stalePercentageContainer}
+        onPress={logPowerSyncStatus}
+      >
+        <Text style={styles.stalePercentageText}>
+          {powersyncStatus?.connected
+            ? powersyncStatus.dataFlowStatus.downloading
+              ? 'Syncing...'
+              : powersyncStatus.hasSynced
+                ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                : 'Not synced'
+            : powersyncStatus?.connecting
+              ? 'Connecting...'
+              : 'Disconnected'}
+        </Text>
+        {/* Progress bar for download progress */}
+        {powersyncStatus?.downloadProgress && (
+          <ProgressBarAndroid
+            styleAttr="Horizontal"
+            indeterminate={true}
+            color={colors.primary}
+            style={styles.syncStatusProgressBar}
+          />
+        )}
+      </TouchableOpacity>
+
+      {/* Attachment sync progress section */}
+      {(attachmentSyncProgress.downloading ||
+        attachmentSyncProgress.uploading) && (
+        <View style={styles.attachmentSyncContainer}>
+          <Text style={styles.attachmentSyncText}>
+            {attachmentSyncProgress.downloading
+              ? `Downloading files: ${attachmentSyncProgress.downloadCurrent}/${attachmentSyncProgress.downloadTotal}`
+              : `Uploading files: ${attachmentSyncProgress.uploadCurrent}/${attachmentSyncProgress.uploadTotal}`}
+          </Text>
+          <ProgressBarAndroid
+            styleAttr="Horizontal"
+            indeterminate={false}
+            progress={
+              attachmentSyncProgress.downloading
+                ? attachmentSyncProgress.downloadTotal > 0
+                  ? attachmentSyncProgress.downloadCurrent /
+                    attachmentSyncProgress.downloadTotal
+                  : 0
+                : attachmentSyncProgress.uploadTotal > 0
+                  ? attachmentSyncProgress.uploadCurrent /
+                    attachmentSyncProgress.uploadTotal
+                  : 0
+            }
+            color={colors.primaryLight}
+            style={styles.attachmentProgressBar}
+          />
+        </View>
+      )}
+
       {process.env.EXPO_PUBLIC_APP_VARIANT === 'development' && (
         <DrawerItem
           item={{ name: t('logOut'), icon: 'log-out' }}
@@ -657,5 +738,39 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     color: colors.text,
     textAlign: 'center'
+  },
+  stalePercentageContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    alignItems: 'center',
+    marginBottom: spacing.small
+  },
+  stalePercentageText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500'
+  },
+  syncStatusProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
+  },
+  attachmentSyncContainer: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.small
+  },
+  attachmentSyncText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500',
+    marginBottom: spacing.xsmall
+  },
+  attachmentProgressBar: {
+    height: 4,
+    width: '100%',
+    marginTop: spacing.xsmall
   }
 });

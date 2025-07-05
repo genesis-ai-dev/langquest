@@ -46,7 +46,13 @@ export const OfflineUndownloadWarning: React.FC<
             <Switch
               value={dontShowAgain}
               onValueChange={setDontShowAgain}
-              trackColor={{ false: colors.inputBorder, true: colors.primary }}
+              trackColor={{
+                false: colors.textSecondary,
+                true: colors.primary // Use primary color for better contrast
+              }}
+              thumbColor={
+                dontShowAgain ? colors.primary : colors.inputBackground
+              }
             />
           </View>
           <View style={styles.buttonContainer}>

@@ -30,6 +30,7 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
+    console.log('TempAttachmentQueue init');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up TempAttachmentQueue.'

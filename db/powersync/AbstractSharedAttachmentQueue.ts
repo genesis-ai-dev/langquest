@@ -1,3 +1,4 @@
+import { useLocalStore } from '@/store/localStore';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -303,5 +304,149 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     } catch {
       return [];
     }
+  }
+
+  // Override downloadRecords to track progress
+  async downloadRecordsWithProgress() {
+    if (!this.options.downloadAttachments) {
+      return;
+    }
+    if (this.downloading) {
+      return;
+    }
+    const idsToDownload = await this.getIdsToDownload();
+    idsToDownload.forEach((id) => this.downloadQueue.add(id));
+
+    if (this.downloadQueue.size === 0) {
+      return;
+    }
+
+    this.downloading = true;
+    const totalToDownload = this.downloadQueue.size;
+    let downloaded = 0;
+
+    // Update store with download starting
+    useLocalStore.getState().setAttachmentSyncProgress({
+      downloading: true,
+      downloadCurrent: 0,
+      downloadTotal: totalToDownload
+    });
+
+    try {
+      console.log(`Downloading ${this.downloadQueue.size} attachments...`);
+      while (this.downloadQueue.size > 0) {
+        const id = this.downloadQueue.values().next().value as string;
+        this.downloadQueue.delete(id);
+        const record = await this.record(id);
+        if (!record) {
+          continue;
+        }
+        await this.downloadRecord(record);
+        downloaded++;
+
+        // Update progress
+        useLocalStore.getState().setAttachmentSyncProgress({
+          downloadCurrent: downloaded,
+          downloadTotal: totalToDownload
+        });
+      }
+      console.log('Finished downloading attachments');
+    } catch (e) {
+      console.log('Downloads failed:', e);
+    } finally {
+      this.downloading = false;
+      // Reset download status
+      useLocalStore.getState().setAttachmentSyncProgress({
+        downloading: false
+      });
+    }
+  }
+
+  // Override uploadRecords to track progress
+  async uploadRecordsWithProgress() {
+    if (this.uploading) {
+      return;
+    }
+    this.uploading = true;
+
+    try {
+      // Get count of records to upload
+      const uploadCount = await this.powersync.get<{ count: number }>(
+        `SELECT COUNT(*) as count FROM ${this.table} WHERE local_uri IS NOT NULL AND (state = ${AttachmentState.QUEUED_UPLOAD} OR state = ${AttachmentState.QUEUED_SYNC})`
+      );
+
+      const totalToUpload = uploadCount.count;
+      let uploaded = 0;
+
+      if (totalToUpload > 0) {
+        // Update store with upload starting
+        useLocalStore.getState().setAttachmentSyncProgress({
+          uploading: true,
+          uploadCurrent: 0,
+          uploadTotal: totalToUpload
+        });
+      }
+
+      let record = await this.getNextUploadRecord();
+      if (!record) {
+        return;
+      }
+
+      console.log(`Uploading attachments...`);
+      while (record) {
+        const uploadedSuccessfully = await this.uploadAttachment(record);
+        if (!uploadedSuccessfully) {
+          // Then attachment failed to upload. We try all uploads when the next trigger() is called
+          break;
+        }
+        uploaded++;
+
+        // Update progress
+        useLocalStore.getState().setAttachmentSyncProgress({
+          uploadCurrent: uploaded,
+          uploadTotal: totalToUpload
+        });
+
+        record = await this.getNextUploadRecord();
+      }
+      console.log('Finished uploading attachments');
+    } catch (error) {
+      console.log('Upload failed:', error);
+    } finally {
+      this.uploading = false;
+      // Reset upload status
+      useLocalStore.getState().setAttachmentSyncProgress({
+        uploading: false
+      });
+    }
+  }
+
+  // Override trigger to use our progress-tracking methods
+  trigger() {
+    void this.uploadRecordsWithProgress();
+    void this.downloadRecordsWithProgress();
+    void this.expireCache();
+  }
+
+  // Override watchDownloads to use our progress-tracking method
+  watchDownloads() {
+    if (!this.options.downloadAttachments) {
+      return;
+    }
+    this.idsToDownload((ids) => {
+      ids.forEach((id) => this.downloadQueue.add(id));
+      // Use our progress-tracking method
+      void this.downloadRecordsWithProgress();
+    });
+  }
+
+  // Override watchUploads to use our progress-tracking method
+  watchUploads() {
+    this.idsToUpload((ids) => {
+      if (ids.length > 0) {
+        // Use our progress-tracking method
+        void this.uploadRecordsWithProgress();
+      }
+    });
   }
 }
