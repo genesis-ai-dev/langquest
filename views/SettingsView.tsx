@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
-    marginBottom: spacing.tiny
+    marginBottom: spacing.xsmall
   },
   settingDescription: {
     fontSize: 14,
