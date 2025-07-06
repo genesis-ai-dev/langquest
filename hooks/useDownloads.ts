@@ -107,7 +107,7 @@ function getDownloadStatusConfig(
       if (error) throw error;
       return data;
     },
-    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1'`,
+    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1`,
     enabled: !!recordId && !!currentUser?.id
   });
 }

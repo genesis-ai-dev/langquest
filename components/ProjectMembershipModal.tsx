@@ -132,7 +132,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return a.name.localeCompare(b.name);
   });
 
-  console.log('members', members);
+  // console.log('members', members);
 
   // Query for invited users
   const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
