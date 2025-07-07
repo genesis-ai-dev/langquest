@@ -664,7 +664,14 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
 ) {
   // FIXED: Create stable query key with useMemo to prevent infinite loops
   const queryKey = useMemo(() => {
-    const baseKey = ['assets', 'infinite', 'by-quest', 'with-tags-content', quest_id, pageSize];
+    const baseKey = [
+      'assets',
+      'infinite',
+      'by-quest',
+      'with-tags-content',
+      quest_id,
+      pageSize
+    ];
 
     // Only add optional parameters if they have values
     if (sortField) baseKey.push(sortField);

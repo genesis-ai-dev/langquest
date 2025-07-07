@@ -157,7 +157,14 @@ export function useInfiniteQuestsWithTagsByProjectId(
 ) {
   // FIXED: Create stable query key with useMemo to prevent infinite loops
   const queryKey = useMemo(() => {
-    const baseKey = ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize];
+    const baseKey = [
+      'quests',
+      'infinite',
+      'by-project',
+      'with-tags',
+      project_id,
+      pageSize
+    ];
 
     // Only add optional parameters if they have values
     if (sortField) baseKey.push(sortField);
@@ -378,11 +385,11 @@ export function usePaginatedQuestsWithTagsByProjectId(
           sortField && sortOrder
             ? sortOrder === 'asc'
               ? asc(
-                questTable[sortField as keyof typeof questTable] as AnyColumn
-              )
+                  questTable[sortField as keyof typeof questTable] as AnyColumn
+                )
               : desc(
-                questTable[sortField as keyof typeof questTable] as AnyColumn
-              )
+                  questTable[sortField as keyof typeof questTable] as AnyColumn
+                )
             : asc(questTable.name)
       })
     ),
