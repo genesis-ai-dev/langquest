@@ -376,7 +376,6 @@ export default function AppDrawer({
                   </Text>
                 </View>
               )}
-
               {/* File sync progress indicator */}
               {syncOperation && (
                 <View style={styles.syncProgressContainer}>
@@ -399,33 +398,32 @@ export default function AppDrawer({
               )}
 
               {/* PowerSync status section */}
-              {false && (
-                <TouchableOpacity
-                  style={styles.stalePercentageContainer}
-                  onPress={logPowerSyncStatus}
-                >
-                  <Text style={styles.stalePercentageText}>
-                    {powersyncStatus?.connected
-                      ? powersyncStatus.dataFlowStatus.downloading
-                        ? 'Syncing...'
-                        : powersyncStatus.hasSynced
-                          ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                          : 'Not synced'
-                      : powersyncStatus?.connecting
-                        ? 'Connecting...'
-                        : 'Disconnected'}
-                  </Text>
-                  {/* Progress bar for download progress */}
-                  {powersyncStatus?.downloadProgress && (
-                    <ProgressBarAndroid
-                      styleAttr="Horizontal"
-                      indeterminate={true}
-                      color={colors.primary}
-                      style={styles.syncStatusProgressBar}
-                    />
-                  )}
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.stalePercentageContainer}
+                onPress={logPowerSyncStatus}
+              >
+                <Text style={styles.stalePercentageText}>
+                  {powersyncStatus?.connected
+                    ? powersyncStatus.dataFlowStatus.downloading
+                      ? 'Syncing...'
+                      : powersyncStatus.hasSynced
+                        ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                        : 'Not synced'
+                    : powersyncStatus?.connecting
+                      ? 'Connecting...'
+                      : 'Disconnected'}
+                </Text>
+
+                {/* Progress bar for download progress */}
+                {powersyncStatus?.downloadProgress && (
+                  <ProgressBarAndroid
+                    styleAttr="Horizontal"
+                    indeterminate={true}
+                    color={colors.primary}
+                    style={styles.syncStatusProgressBar}
+                  />
+                )}
+              </TouchableOpacity>
 
               {/* Attachment sync progress section */}
               {(attachmentSyncProgress.downloading ||
@@ -455,7 +453,6 @@ export default function AppDrawer({
                   />
                 </View>
               )}
-
               {/* Main drawer items */}
               <View style={styles.drawerItems}>
                 {drawerItems.map((item, index) => {
