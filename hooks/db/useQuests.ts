@@ -4,6 +4,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { keepPreviousData } from '@tanstack/react-query';
 import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
 import { asc, desc, eq } from 'drizzle-orm';
+import { useMemo } from 'react';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
@@ -154,20 +155,19 @@ export function useInfiniteQuestsWithTagsByProjectId(
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
-  // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = [
-    'quests',
-    'infinite',
-    'by-project',
-    'with-tags',
-    project_id,
-    pageSize
-  ];
-  if (sortField) queryKeyParts.push(sortField);
-  if (sortOrder) queryKeyParts.push(sortOrder);
+  // FIXED: Create stable query key with useMemo to prevent infinite loops
+  const queryKey = useMemo(() => {
+    const baseKey = ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize];
+
+    // Only add optional parameters if they have values
+    if (sortField) baseKey.push(sortField);
+    if (sortOrder) baseKey.push(sortOrder);
+
+    return baseKey;
+  }, [project_id, pageSize, sortField, sortOrder]);
 
   return useHybridInfiniteQuery({
-    queryKey: queryKeyParts,
+    queryKey: queryKey,
     onlineFn: async ({ pageParam, signal }) => {
       try {
         // Online query with proper pagination using Supabase range
@@ -378,11 +378,11 @@ export function usePaginatedQuestsWithTagsByProjectId(
           sortField && sortOrder
             ? sortOrder === 'asc'
               ? asc(
-                  questTable[sortField as keyof typeof questTable] as AnyColumn
-                )
+                questTable[sortField as keyof typeof questTable] as AnyColumn
+              )
               : desc(
-                  questTable[sortField as keyof typeof questTable] as AnyColumn
-                )
+                questTable[sortField as keyof typeof questTable] as AnyColumn
+              )
             : asc(questTable.name)
       })
     ),

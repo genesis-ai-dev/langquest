@@ -4,6 +4,7 @@
  */
 
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
@@ -314,9 +315,10 @@ export default function AssetsView() {
     if (!isFetchingNextPage) return null;
 
     return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Loading more...</Text>
+      <View style={{ paddingVertical: spacing.medium }}>
+        <AssetSkeleton />
+        <AssetSkeleton />
+        <AssetSkeleton />
       </View>
     );
   };

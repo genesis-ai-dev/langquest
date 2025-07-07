@@ -5,6 +5,7 @@
 
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { ProjectSkeleton } from '@/components/ProjectSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useSessionLanguages,
@@ -181,8 +182,10 @@ export default function ProjectsView() {
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;
     return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View style={{ paddingVertical: spacing.medium }}>
+        <ProjectSkeleton />
+        <ProjectSkeleton />
+        <ProjectSkeleton />
       </View>
     );
   };

@@ -1,8 +1,8 @@
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function AppHeader({
   drawerToggleCallback
@@ -14,6 +14,8 @@ export default function AppHeader({
     canGoBack: _canGoBack,
     goBack: _goBack
   } = useAppNavigation();
+
+  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
 
   return (
     <View style={styles.container}>
@@ -54,19 +56,27 @@ export default function AppHeader({
                   }
                 >
                   {crumb.onPress ? (
-                    <TouchableOpacity
+                    <Pressable
                       onPress={crumb.onPress}
+                      onPressIn={() => setPressedIndex(index)}
+                      onPressOut={() => setPressedIndex(null)}
                       hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                      style={styles.breadcrumbTouchable}
+                      style={({ pressed }) => [
+                        styles.breadcrumbTouchable,
+                        pressed && styles.breadcrumbPressed
+                      ]}
                     >
                       <Text
-                        style={styles.breadcrumbLink}
+                        style={[
+                          styles.breadcrumbLink,
+                          pressedIndex === index && styles.breadcrumbTextPressed
+                        ]}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
                         {crumb.label}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ) : (
                     <Text
                       style={styles.breadcrumbCurrent}
@@ -82,12 +92,13 @@ export default function AppHeader({
           })}
         </View>
 
-        <TouchableOpacity
+        <Pressable
           onPress={drawerToggleCallback}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={({ pressed }) => pressed && styles.menuButtonPressed}
         >
           <Ionicons name="menu" size={24} color={colors.text} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -102,7 +113,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44 // Standard touch target
+    minHeight: 54 // Standard touch target
   },
   backButton: {
     marginRight: spacing.small,
@@ -128,7 +139,21 @@ const styles = StyleSheet.create({
     flexShrink: 1
   },
   breadcrumbTouchable: {
-    flexShrink: 1
+    flexShrink: 1,
+    padding: 4,
+    borderRadius: 4
+  },
+  breadcrumbPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Subtle white overlay
+    transform: [{ scale: 0.98 }] // Slight scale down for tactile feedback
+  },
+  breadcrumbTextPressed: {
+    opacity: 0.8 // Less opacity reduction
+  },
+  menuButtonPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Match breadcrumb style
+    borderRadius: 4,
+    transform: [{ scale: 0.98 }]
   },
   breadcrumbSeparator: {
     marginHorizontal: spacing.xsmall,

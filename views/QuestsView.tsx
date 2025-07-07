@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles } from '@/styles/theme';
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { Ionicons } from '@expo/vector-icons';
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import {
   BackHandler,
   Modal,
@@ -176,10 +176,6 @@ export default function QuestsView() {
     setShowProjectStats((prev) => !prev);
   };
 
-  const handleLoadMore = useCallback(() => {
-    // Load more logic will be handled by QuestList component
-  }, []);
-
   // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -233,7 +229,6 @@ export default function QuestsView() {
             searchQuery={searchQuery}
             activeFilters={activeFilters}
             onQuestPress={handleQuestPress}
-            onLoadMore={handleLoadMore}
           />
         </Suspense>
 

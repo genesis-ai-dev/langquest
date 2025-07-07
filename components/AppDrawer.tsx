@@ -399,31 +399,33 @@ export default function AppDrawer({
               )}
 
               {/* PowerSync status section */}
-              <TouchableOpacity
-                style={styles.stalePercentageContainer}
-                onPress={logPowerSyncStatus}
-              >
-                <Text style={styles.stalePercentageText}>
-                  {powersyncStatus?.connected
-                    ? powersyncStatus.dataFlowStatus.downloading
-                      ? 'Syncing...'
-                      : powersyncStatus.hasSynced
-                        ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                        : 'Not synced'
-                    : powersyncStatus?.connecting
-                      ? 'Connecting...'
-                      : 'Disconnected'}
-                </Text>
-                {/* Progress bar for download progress */}
-                {powersyncStatus?.downloadProgress && (
-                  <ProgressBarAndroid
-                    styleAttr="Horizontal"
-                    indeterminate={true}
-                    color={colors.primary}
-                    style={styles.syncStatusProgressBar}
-                  />
-                )}
-              </TouchableOpacity>
+              {false && (
+                <TouchableOpacity
+                  style={styles.stalePercentageContainer}
+                  onPress={logPowerSyncStatus}
+                >
+                  <Text style={styles.stalePercentageText}>
+                    {powersyncStatus?.connected
+                      ? powersyncStatus.dataFlowStatus.downloading
+                        ? 'Syncing...'
+                        : powersyncStatus.hasSynced
+                          ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                          : 'Not synced'
+                      : powersyncStatus?.connecting
+                        ? 'Connecting...'
+                        : 'Disconnected'}
+                  </Text>
+                  {/* Progress bar for download progress */}
+                  {powersyncStatus?.downloadProgress && (
+                    <ProgressBarAndroid
+                      styleAttr="Horizontal"
+                      indeterminate={true}
+                      color={colors.primary}
+                      style={styles.syncStatusProgressBar}
+                    />
+                  )}
+                </TouchableOpacity>
+              )}
 
               {/* Attachment sync progress section */}
               {(attachmentSyncProgress.downloading ||
