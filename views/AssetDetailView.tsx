@@ -4,6 +4,7 @@
  * Features: Translation interface, tab switching, gesture navigation, voting
  */
 
+import { AssetSkeleton } from '@/components/AssetSkeleton';
 import CalendarIcon from '@/components/CalendarIcon';
 import Carousel from '@/components/Carousel';
 import { GemIcon } from '@/components/GemIcon';
@@ -41,7 +42,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   ScrollView,
   StyleSheet,
@@ -329,8 +329,7 @@ export default function AssetDetailView() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading asset...</Text>
+          <AssetSkeleton />
         </View>
       </View>
     );
