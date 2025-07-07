@@ -43,8 +43,7 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        // @ts-expect-error - Old paths from routes
-        pathname: '/projects/[projectId]/quests',
+        pathname: '/_(drawer)/projects/[projectId]/quests',
         params: {
           projectId: projectData.id,
           ...(projectData.name && { projectName: projectData.name })
@@ -73,8 +72,7 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        // @ts-expect-error - Old paths from routes
-        pathname: '/projects/[projectId]/quests/[questId]/assets',
+        pathname: '/_(drawer)/projects/[projectId]/quests/[questId]/assets',
         params: {
           projectId: questData.project_id,
           questId: questData.id,
@@ -119,8 +117,7 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        // @ts-expect-error - Old paths from routes
-        pathname: '/projects/[projectId]/quests/[questId]/assets/[assetId]',
+        pathname: '/_(drawer)/projects/[projectId]/quests/[questId]/assets/[assetId]',
         params: {
           projectId: targetProjectId,
           questId: targetQuestId,
@@ -166,30 +163,30 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-          id: currentProjectId,
-          name: projectName || 'Project'
-        }
+        id: currentProjectId,
+        name: projectName || 'Project'
+      }
       : null;
   }, [currentProjectId, projectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-          id: currentQuestId,
-          name: questName || 'Quest',
-          project_id: currentProjectId || ''
-        }
+        id: currentQuestId,
+        name: questName || 'Quest',
+        project_id: currentProjectId || ''
+      }
       : null;
   }, [currentQuestId, questName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-          id: currentAssetId,
-          name: assetName || 'Asset',
-          projectId: currentProjectId,
-          questId: currentQuestId
-        }
+        id: currentAssetId,
+        name: assetName || 'Asset',
+        projectId: currentProjectId,
+        questId: currentQuestId
+      }
       : null;
   }, [currentAssetId, assetName, currentProjectId, currentQuestId]);
 
