@@ -2,6 +2,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, spacing } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -27,7 +28,7 @@ interface SettingsItem {
   type: 'toggle' | 'button' | 'link';
   value?: boolean;
   onPress?: () => void;
-  href?: string;
+  href?: Href;
   disabled?: boolean;
 }
 

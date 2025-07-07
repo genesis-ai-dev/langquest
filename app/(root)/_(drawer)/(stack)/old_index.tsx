@@ -409,7 +409,7 @@ export default function Projects() {
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
           isPrivate={privateProjectModal.project.private}
-          action="view-members"
+          action="view_membership"
           onMembershipGranted={() => {
             // Navigate to the project when membership is granted
             goToProject(privateProjectModal.project!);

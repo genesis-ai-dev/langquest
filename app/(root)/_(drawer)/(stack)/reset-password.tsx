@@ -97,7 +97,7 @@ export default function ResetPassword() {
       Alert.alert(t('success'), t('passwordResetSuccess'), [
         {
           text: t('ok'),
-          onPress: () => router.replace('/')
+          onPress: () => router.replace('/app')
         }
       ]);
     } catch (error) {
@@ -128,7 +128,7 @@ export default function ResetPassword() {
             <Text style={sharedStyles.subtitle}>{t('invalidResetLink')}</Text>
             <TouchableOpacity
               style={[sharedStyles.button, styles.button]}
-              onPress={() => router.replace('/')}
+              onPress={() => router.replace('/app')}
             >
               <Text style={sharedStyles.buttonText}>{t('backToLogin')}</Text>
             </TouchableOpacity>
@@ -242,7 +242,7 @@ export default function ResetPassword() {
 
           <TouchableOpacity
             style={styles.bottomLink}
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace('/app')}
           >
             <Text style={sharedStyles.link}>{t('backToLogin')}</Text>
           </TouchableOpacity>

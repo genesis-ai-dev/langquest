@@ -3,7 +3,6 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   useSessionMemberships,
   useSessionProjects
@@ -95,7 +94,6 @@ const Quests = React.memo(() => {
   useRenderCounter('Quests');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const { currentUser: _currentUser } = useAuth();
 
   // Use session cache for user membership
   const { isUserOwner } = useSessionMemberships();

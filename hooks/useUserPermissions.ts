@@ -61,7 +61,8 @@ export type Permission =
   | 'vote_button_lock';
 
 // Actions that PrivateAccessGate handles (subset of Permission)
-export type PrivateAccessAction = Extract<Permission,
+export type PrivateAccessAction = Extract<
+  Permission,
   | 'download'
   | 'contribute'
   | 'vote'
@@ -92,9 +93,7 @@ const ADMIN_PERMISSIONS: Permission[] = [
   'withdraw_invite_button'
 ];
 
-const OWNER_PERMISSIONS: Permission[] = [
-  ...ADMIN_PERMISSIONS,
-];
+const OWNER_PERMISSIONS: Permission[] = [...ADMIN_PERMISSIONS];
 
 const ROLE_PERMISSIONS: Record<NonNullable<MembershipRole>, Permission[]> = {
   member: MEMBER_PERMISSIONS,
@@ -103,10 +102,13 @@ const ROLE_PERMISSIONS: Record<NonNullable<MembershipRole>, Permission[]> = {
 };
 
 // Efficient lookup: Create Sets for O(1) permission checking
-const PERMISSION_LOOKUP = Object.entries(ROLE_PERMISSIONS).reduce((acc, [role, permissions]) => {
-  acc[role as NonNullable<MembershipRole>] = new Set(permissions);
-  return acc;
-}, {} as Record<NonNullable<MembershipRole>, Set<Permission>>);
+const PERMISSION_LOOKUP = Object.entries(ROLE_PERMISSIONS).reduce(
+  (acc, [role, permissions]) => {
+    acc[role as NonNullable<MembershipRole>] = new Set(permissions);
+    return acc;
+  },
+  {} as Record<NonNullable<MembershipRole>, Set<Permission>>
+);
 
 export function useUserPermissions(
   project_id: string,
@@ -173,8 +175,13 @@ export function useUserPermissions(
   });
 
   // Get the first (and should be only) membership record
-  const membershipData = membershipLinks[0] as typeof profile_project_link.$inferSelect | undefined;
-  const isPrivate = knownIsPrivate ?? (projectData[0] as { private: boolean } | undefined)?.private ?? false;
+  const membershipData = membershipLinks[0] as
+    | typeof profile_project_link.$inferSelect
+    | undefined;
+  const isPrivate =
+    knownIsPrivate ??
+    (projectData[0] as { private: boolean } | undefined)?.private ??
+    false;
   const membership = membershipData?.membership as MembershipRole;
 
   // If project_id is invalid, return no access
@@ -227,8 +234,7 @@ export function useUserPermissions(
 
   // For private projects or always-gated actions, check membership permissions
   const hasRolePermission = Boolean(
-    membership &&
-    PERMISSION_LOOKUP[membership].has(action)
+    membership && PERMISSION_LOOKUP[membership].has(action)
   );
 
   return {
