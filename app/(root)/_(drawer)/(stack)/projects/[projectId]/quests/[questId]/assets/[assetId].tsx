@@ -28,7 +28,7 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,7 +99,7 @@ export default function AssetView() {
   const { project: activeProject } = useProjectById(projectId);
 
   // Check private project access
-  const { hasAccess } = usePrivateProjectAccess(projectId || '', 'translate');
+  const { hasAccess } = useUserPermissions(projectId || '', 'translate');
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;

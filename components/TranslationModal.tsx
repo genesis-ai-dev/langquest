@@ -8,8 +8,8 @@ import {
 } from '@/hooks/db/useTranslations';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
 import { useLocalization } from '@/hooks/useLocalization';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,9 +86,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const project = projectInfo?.quest.project;
 
   // Check if user has access to edit translations in this project
-  const { hasAccess: canEditTranslation } = usePrivateProjectAccess(
+  const { hasAccess: canEditTranslation } = useUserPermissions(
     project?.id || '',
-    'edit-transcription'
+    'edit_transcription',
+    project?.private
   );
 
   useEffect(() => {
@@ -310,7 +311,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                   projectId={project?.id || ''}
                   projectName={project?.name || ''}
                   isPrivate={project?.private || false}
-                  action="vote"
+                  action="edit_transcription"
                   inline={true}
                 >
                   <View

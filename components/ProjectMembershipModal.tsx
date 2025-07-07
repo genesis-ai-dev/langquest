@@ -673,7 +673,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     projectId={projectId}
                     projectName={project?.name || ''}
                     isPrivate={true}
-                    action="view-members"
+                    action="view_membership"
                     inline={true}
                   >
                     <View style={styles.tabContainer}>

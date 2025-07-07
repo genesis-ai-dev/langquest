@@ -3,8 +3,8 @@ import { profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
-import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
+import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -78,7 +78,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
-  const { hasAccess } = usePrivateProjectAccess(projectId, action); // NOTE: did we need to pass isPrivate here?
+  const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
   // Query for existing membership request
   const { data: existingRequests = [], refetch } = useQuery({
@@ -248,14 +248,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     if (customMessage) return customMessage;
 
     switch (action) {
-      case 'view-members':
+      case 'view_membership':
         return t('privateProjectMembersMessage');
       case 'vote':
         return t('privateProjectVotingMessage');
       case 'translate':
         return t('privateProjectTranslationMessage');
-      case 'edit-transcription':
+      case 'edit_transcription':
         return t('privateProjectEditingMessage');
+      case 'contribute':
+        return t('privateProjectTranslationMessage');
       case 'download':
         return t('privateProjectDownloadMessage');
       default:
@@ -265,14 +267,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const getActionTitle = () => {
     switch (action) {
-      case 'view-members':
+      case 'view_membership':
         return t('privateProjectMembers');
       case 'vote':
         return t('privateProjectVoting');
       case 'translate':
         return t('privateProjectTranslation');
-      case 'edit-transcription':
+      case 'edit_transcription':
         return t('privateProjectEditing');
+      case 'contribute':
+        return t('privateProjectTranslation');
       case 'download':
         return t('privateProjectDownload');
       default:
