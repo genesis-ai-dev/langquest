@@ -200,6 +200,11 @@ export const localizations = {
     spanish: 'Debe iniciar sesión para votar',
     brazilian_portuguese: 'Você precisa estar logado para votar'
   },
+  menu: {
+    english: 'Menu',
+    spanish: 'Menú',
+    brazilian_portuguese: 'Menu'
+  },
   newTranslation: {
     english: 'New Translation',
     spanish: 'Nueva Traducción',

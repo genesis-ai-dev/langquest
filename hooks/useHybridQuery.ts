@@ -2,7 +2,11 @@ import type { CompilableQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { QueryFunctionContext } from '@tanstack/react-query';
-import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQueryClient
+} from '@tanstack/react-query';
 import React, { useEffect, useRef } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
@@ -20,13 +24,13 @@ type HybridQueryOptions<T> = Omit<GetQueryParam<T>, 'queryFn' | 'query'> &
 
 type HybridQueryConfig<T> = (
   | {
-    offlineFn: GetQueryParam<T>['queryFn'];
-    offlineQuery?: never;
-  }
+      offlineFn: GetQueryParam<T>['queryFn'];
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   onlineFn: GetQueryParam<T>['queryFn'];
   alwaysOnline?: boolean;
@@ -75,17 +79,26 @@ export function useHybridQuery<T extends Record<string, unknown>>(
   // FIXED: Stabilize query keys with useMemo to prevent infinite loops
   const stableQueryKeys = React.useMemo(() => {
     // Filter out undefined/null values from the query key
-    const cleanQueryKey = queryKey.filter(key => key !== undefined && key !== null);
+    const cleanQueryKey = queryKey.filter(
+      (key) => key !== undefined && key !== null
+    );
 
     // Use dual cache system for better offline/online separation
     const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
-    const oppositeQueryKey = [...cleanQueryKey, isOnline ? 'offline' : 'online'];
+    const oppositeQueryKey = [
+      ...cleanQueryKey,
+      isOnline ? 'offline' : 'online'
+    ];
 
     return { hybridQueryKey, oppositeQueryKey };
   }, [queryKey, isOnline]);
 
-  const cachedOppositeData = queryClient.getQueryData<T[]>(stableQueryKeys.oppositeQueryKey);
-  const oppositeCachedQueryState = queryClient.getQueryState<T[]>(stableQueryKeys.oppositeQueryKey);
+  const cachedOppositeData = queryClient.getQueryData<T[]>(
+    stableQueryKeys.oppositeQueryKey
+  );
+  const oppositeCachedQueryState = queryClient.getQueryState<T[]>(
+    stableQueryKeys.oppositeQueryKey
+  );
 
   // Memoize the merged data to prevent infinite re-renders
   const stableMergedData = React.useMemo(() => {
@@ -96,32 +109,35 @@ export function useHybridQuery<T extends Record<string, unknown>>(
   }, [cachedOppositeData]);
 
   // Create a stable select function that only changes when user's select function changes
-  const stableSelect = React.useCallback((data: T[]) => {
-    if (!cachedOppositeData && !data.length) {
-      return select ? select([]) : [];
-    }
+  const stableSelect = React.useCallback(
+    (data: T[]) => {
+      if (!cachedOppositeData && !data.length) {
+        return select ? select([]) : [];
+      }
 
-    // Only merge if we have both datasets
-    if (cachedOppositeData && data.length > 0) {
-      const combinedMap = new Map<string | number, T>();
+      // Only merge if we have both datasets
+      if (cachedOppositeData && data.length > 0) {
+        const combinedMap = new Map<string | number, T>();
 
-      // Add cached data first
-      cachedOppositeData.forEach((item) => {
-        combinedMap.set(getId(item), item);
-      });
+        // Add cached data first
+        cachedOppositeData.forEach((item) => {
+          combinedMap.set(getId(item), item);
+        });
 
-      // Override with fresh data
-      data.forEach((item) => {
-        combinedMap.set(getId(item), item);
-      });
+        // Override with fresh data
+        data.forEach((item) => {
+          combinedMap.set(getId(item), item);
+        });
 
-      const mergedArray = Array.from(combinedMap.values());
-      return select ? select(mergedArray) : mergedArray;
-    }
+        const mergedArray = Array.from(combinedMap.values());
+        return select ? select(mergedArray) : mergedArray;
+      }
 
-    // If no cached data, just use current data
-    return select ? select(data) : data;
-  }, [cachedOppositeData, select, getId]);
+      // If no cached data, just use current data
+      return select ? select(data) : data;
+    },
+    [cachedOppositeData, select, getId]
+  );
 
   const sharedQueryOptions = {
     queryKey: stableQueryKeys.hybridQueryKey,
@@ -227,17 +243,17 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
   // Type-narrow the options to call the correct overload
   const result = offlineFn
     ? useHybridQuery<T>({
-      queryKey,
-      offlineFn,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>)
+        queryKey,
+        offlineFn,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>)
     : useHybridQuery<T>({
-      queryKey,
-      offlineQuery,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>);
+        queryKey,
+        offlineQuery,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -308,13 +324,13 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
  */
 type HybridFetchConfig<T extends Record<string, unknown>> = (
   | {
-    offlineFn: () => Promise<T[] | undefined>;
-    offlineQuery?: never;
-  }
+      offlineFn: () => Promise<T[] | undefined>;
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
@@ -356,7 +372,9 @@ export async function hybridFetch<T extends Record<string, unknown>>(
     } else if ('offlineQuery' in restConfig) {
       // For standalone usage, offlineQuery should be a CompilableQuery, not string
       if (typeof restConfig.offlineQuery === 'string') {
-        throw new Error('String queries not supported in standalone hybridFetch. Use offlineFn instead.');
+        throw new Error(
+          'String queries not supported in standalone hybridFetch. Use offlineFn instead.'
+        );
       } else {
         return await restConfig.offlineQuery.execute();
       }
@@ -402,12 +420,21 @@ interface HybridPageData<T, TPageParam = unknown> {
 /**
  * Configuration for hybrid infinite queries
  */
-type HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = unknown> = {
+type HybridInfiniteQueryOptions<
+  T extends Record<string, unknown>,
+  TPageParam = unknown
+> = {
   queryKey: readonly unknown[];
-  onlineFn: (context: QueryFunctionContext<readonly unknown[], TPageParam>) => Promise<HybridPageData<T, TPageParam>>;
+  onlineFn: (
+    context: QueryFunctionContext<readonly unknown[], TPageParam>
+  ) => Promise<HybridPageData<T, TPageParam>>;
   initialPageParam: TPageParam;
-  getNextPageParam: (lastPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
-  getPreviousPageParam?: (firstPage: HybridPageData<T, TPageParam>) => TPageParam | undefined;
+  getNextPageParam: (
+    lastPage: HybridPageData<T, TPageParam>
+  ) => TPageParam | undefined;
+  getPreviousPageParam?: (
+    firstPage: HybridPageData<T, TPageParam>
+  ) => TPageParam | undefined;
   enabled?: boolean;
   staleTime?: number;
   gcTime?: number;
@@ -416,15 +443,17 @@ type HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = 
   refetchOnReconnect?: boolean;
   getId?: (record: T | Partial<T>) => string | number;
 } & (
-    | {
-      offlineFn: (context: QueryFunctionContext<readonly unknown[], TPageParam>) => Promise<HybridPageData<T, TPageParam>>;
+  | {
+      offlineFn: (
+        context: QueryFunctionContext<readonly unknown[], TPageParam>
+      ) => Promise<HybridPageData<T, TPageParam>>;
       offlineQuery?: never;
     }
-    | {
+  | {
       offlineQuery: string | CompilableQuery<T>;
       offlineFn?: never;
     }
-  );
+);
 
 /**
  * useHybridInfiniteQuery
@@ -467,9 +496,10 @@ type HybridInfiniteQueryOptions<T extends Record<string, unknown>, TPageParam = 
  *   getNextPageParam: (lastPage) => lastPage.nextCursor
  * });
  */
-export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageParam = unknown>(
-  options: HybridInfiniteQueryOptions<T, TPageParam>
-) {
+export function useHybridInfiniteQuery<
+  T extends Record<string, unknown>,
+  TPageParam = unknown
+>(options: HybridInfiniteQueryOptions<T, TPageParam>) {
   const timestamp = performance.now();
   const {
     queryKey,
@@ -494,7 +524,9 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
     const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
 
     // Filter out undefined/null values from the query key
-    const cleanBaseKey = baseKey.filter(key => key !== undefined && key !== null);
+    const cleanBaseKey = baseKey.filter(
+      (key) => key !== undefined && key !== null
+    );
     const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
     const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
 
@@ -502,7 +534,9 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
   }, [queryKey, isOnline]);
 
   // Get cached data from opposite network state for initial data
-  const oppositeCachedQueryState = queryClient.getQueryState(stableQueryKeys.oppositeQueryKey);
+  const oppositeCachedQueryState = queryClient.getQueryState(
+    stableQueryKeys.oppositeQueryKey
+  );
 
   const sharedOptions = {
     queryKey: stableQueryKeys.hybridQueryKey,
@@ -525,11 +559,15 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
       return useInfiniteQuery({
         ...sharedOptions,
         queryFn: options.offlineFn,
-        enabled: true,
+        enabled: true
       });
     } else {
-      console.error('[HybridInfiniteQuery] offlineQuery not supported in infinite queries, use offlineFn instead');
-      throw new Error('offlineQuery not supported in infinite queries, use offlineFn instead');
+      console.error(
+        '[HybridInfiniteQuery] offlineQuery not supported in infinite queries, use offlineFn instead'
+      );
+      throw new Error(
+        'offlineQuery not supported in infinite queries, use offlineFn instead'
+      );
     }
   };
 
@@ -539,14 +577,18 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>, TPageP
       queryFn: onlineFn,
       refetchOnReconnect: true,
       refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
-      refetchOnMount: false, // FIXED: Prevent refetch on every mount
+      refetchOnMount: false // FIXED: Prevent refetch on every mount
     });
-    console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`);
+    console.log(
+      `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
+    );
     return result;
   }
 
   const result = useOfflineInfiniteQuery();
-  console.log(`[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`);
+  console.log(
+    `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
+  );
   return result;
 }
 
@@ -565,6 +607,6 @@ export function useHybridPaginatedQuery<T extends Record<string, unknown>>(
   return useHybridQuery({
     ...hybridOptions,
     queryKey: [...hybridOptions.queryKey, 'paginated', page, pageSize],
-    placeholderData: keepPreviousData, // Smooth page transitions
+    placeholderData: keepPreviousData // Smooth page transitions
   });
 }

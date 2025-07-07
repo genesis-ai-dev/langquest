@@ -15,6 +15,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { memo, useCallback, useEffect, useRef } from 'react';
 import { LogBox } from 'react-native';
+import App from './app';
 
 // Keep the splash screen visible while we fetch resources
 void SplashScreen.preventAutoHideAsync();
@@ -24,7 +25,7 @@ LogBox.ignoreAllLogs();
 const RootStack = memo(() => (
   <Stack
     screenOptions={{
-      headerShown: false,
+      headerShown: true,
       // Speed up route transitions
       animationTypeForReplace: 'push',
       animation: 'simple_push',
@@ -114,7 +115,7 @@ export default function RootLayout() {
           <AudioProvider>
             <QueryProvider>
               <UpdateBanner />
-              <RootStack />
+              <App />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>

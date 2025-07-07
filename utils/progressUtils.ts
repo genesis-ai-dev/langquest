@@ -183,8 +183,7 @@ export interface ProjectProgress {
 export const calculateProjectProgress = (
   questProgresses: QuestProgress[]
 ): ProjectProgress => {
-  const totalProgress =
-  {
+  const totalProgress = {
     totalAssets: 0,
     approvedAssets: 0,
     userContributedAssets: 0,
@@ -214,7 +213,7 @@ export const calculateProjectProgress = (
     userContributedPercentage:
       totalProgress.totalAssets > 0
         ? (totalProgress.userContributedAssets / totalProgress.totalAssets) *
-        100
+          100
         : 0,
     pendingTranslationsCount: totalProgress.pendingTranslationsCount,
     totalAssets: totalProgress.totalAssets

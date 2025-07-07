@@ -25,8 +25,16 @@ const posthog = createPostHogInstance(false);
 // Function to update PostHog settings once store is available
 // This will be called from the app initialization, not during module import
 export const initializePostHogWithStore = (
-  getStoreState: () => { dateTermsAccepted: Date | null; analyticsOptOut: boolean },
-  subscribeToStore: (callback: (state: { dateTermsAccepted: Date | null; analyticsOptOut: boolean }) => void) => void
+  getStoreState: () => {
+    dateTermsAccepted: Date | null;
+    analyticsOptOut: boolean;
+  },
+  subscribeToStore: (
+    callback: (state: {
+      dateTermsAccepted: Date | null;
+      analyticsOptOut: boolean;
+    }) => void
+  ) => void
 ) => {
   try {
     const { dateTermsAccepted, analyticsOptOut } = getStoreState();
@@ -45,7 +53,8 @@ export const initializePostHogWithStore = (
     let previousDateTermsAccepted = dateTermsAccepted;
 
     subscribeToStore((state) => {
-      const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } = state;
+      const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } =
+        state;
 
       // Check if analytics-related settings have changed
       if (

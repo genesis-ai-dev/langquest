@@ -663,7 +663,14 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
   sortOrder?: 'asc' | 'desc'
 ) {
   // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = ['assets', 'infinite', 'by-quest', 'with-tags-content', quest_id, pageSize];
+  const queryKeyParts = [
+    'assets',
+    'infinite',
+    'by-quest',
+    'with-tags-content',
+    quest_id,
+    pageSize
+  ];
   if (sortField) queryKeyParts.push(sortField);
   if (sortOrder) queryKeyParts.push(sortOrder);
 
@@ -751,7 +758,9 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       const offsetValue = pageParam * pageSize;
 
       try {
-        console.log(`[OfflineAssets] Loading page ${pageParam} for quest ${quest_id}, offset: ${offsetValue}`);
+        console.log(
+          `[OfflineAssets] Loading page ${pageParam} for quest ${quest_id}, offset: ${offsetValue}`
+        );
 
         const allAssets = await system.db.query.asset.findMany({
           where: inArray(
@@ -771,9 +780,12 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
           },
           limit: pageSize,
           offset: offsetValue,
-          orderBy: sortField === 'name' && sortOrder
-            ? (sortOrder === 'asc' ? asc(asset.name) : desc(asset.name))
-            : asc(asset.name)
+          orderBy:
+            sortField === 'name' && sortOrder
+              ? sortOrder === 'asc'
+                ? asc(asset.name)
+                : desc(asset.name)
+              : asc(asset.name)
         });
 
         // Get total count for hasMore calculation
@@ -785,7 +797,9 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
         const totalCount = totalAssets.length;
         const hasMore = offsetValue + pageSize < totalCount;
 
-        console.log(`[OfflineAssets] Found ${allAssets.length} assets, total: ${totalCount}, hasMore: ${hasMore}`);
+        console.log(
+          `[OfflineAssets] Found ${allAssets.length} assets, total: ${totalCount}, hasMore: ${hasMore}`
+        );
 
         return {
           data: allAssets,
@@ -808,7 +822,7 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!quest_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000 // 10 minutes
   });
 }
 
@@ -826,7 +840,15 @@ export function usePaginatedAssetsWithTagsAndContentByQuestId(
   const { db, supabaseConnector } = system;
 
   // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = ['assets', 'paginated', 'by-quest', 'with-tags-content', quest_id, page, pageSize];
+  const queryKeyParts = [
+    'assets',
+    'paginated',
+    'by-quest',
+    'with-tags-content',
+    quest_id,
+    page,
+    pageSize
+  ];
   if (sortField) queryKeyParts.push(sortField);
   if (sortOrder) queryKeyParts.push(sortOrder);
 
@@ -855,7 +877,9 @@ export function usePaginatedAssetsWithTagsAndContentByQuestId(
 
       // Add sorting
       if (sortField && sortOrder) {
-        query = query.order(`asset.${sortField}`, { ascending: sortOrder === 'asc' });
+        query = query.order(`asset.${sortField}`, {
+          ascending: sortOrder === 'asc'
+        });
       } else {
         query = query.order('asset.name', { ascending: true });
       }
@@ -865,8 +889,8 @@ export function usePaginatedAssetsWithTagsAndContentByQuestId(
       const to = from + pageSize - 1;
       query = query.range(from, to);
 
-      const { data, error } = await query
-        .overrideTypes<
+      const { data, error } =
+        await query.overrideTypes<
           { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
         >();
 
@@ -895,15 +919,16 @@ export function usePaginatedAssetsWithTagsAndContentByQuestId(
         },
         limit: pageSize,
         offset: page * pageSize,
-        orderBy: sortField && sortOrder
-          ? (sortOrder === 'asc'
-            ? asc(asset[sortField as keyof typeof asset] as AnyColumn)
-            : desc(asset[sortField as keyof typeof asset] as AnyColumn))
-          : asc(asset.name)
+        orderBy:
+          sortField && sortOrder
+            ? sortOrder === 'asc'
+              ? asc(asset[sortField as keyof typeof asset] as AnyColumn)
+              : desc(asset[sortField as keyof typeof asset] as AnyColumn)
+            : asc(asset.name)
       })
     ),
     enabled: !!quest_id,
     placeholderData: keepPreviousData, // This provides smooth transitions between pages
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }

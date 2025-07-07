@@ -20,34 +20,32 @@ export function useAttachmentStates(attachmentIds: string[]) {
     }
 
     // Abort any previous query
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
+    abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     const formattedIds = attachmentIds.map((id) => `'${id}'`).join(',');
 
-    const subscription = system.powersync.watch(
+    system.powersync.watch(
       `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${formattedIds})`,
       [],
       {
-        signal: abortController.signal,
         onResult: (results: QueryResult) => {
           const newStates = new Map<string, AttachmentRecord>();
           const currentPreviousStates = previousStatesRef.current;
 
-          results.rows?._array?.forEach((row) => {
+          results.rows?._array.forEach((row) => {
             const record = row as unknown as AttachmentRecord;
             newStates.set(record.id, record);
 
             // Only log significant state changes
             const previousState = currentPreviousStates.get(record.id)?.state;
             if (previousState !== undefined && previousState !== record.state) {
-              if (record.state === AttachmentState.SYNCED) { // SYNCED state
+              if (record.state === AttachmentState.SYNCED) {
+                // SYNCED state
                 console.log(`[Attachment] Synced: ${record.id}`);
-              } else if (record.state === AttachmentState.QUEUED_SYNC) { // QUEUED state
+              } else if (record.state === AttachmentState.QUEUED_SYNC) {
+                // QUEUED state
                 console.log(`[Attachment] Queued: ${record.id}`);
               }
             }
@@ -56,15 +54,17 @@ export function useAttachmentStates(attachmentIds: string[]) {
           previousStatesRef.current = newStates;
           setAttachmentStates(newStates);
           setIsLoading(false);
-        }
-      }
+        },
+        onError: (err) => console.error('useAttachmentStates watch error', err)
+      },
+      { signal: abortController.signal }
     );
 
     return () => {
       abortController.abort();
-      if (subscription && typeof subscription === 'function') {
-        subscription();
-      }
+      // if (subscription && typeof subscription === 'function') {
+      //   subscription();
+      // }
     };
   }, [JSON.stringify(attachmentIds.sort())]);
 

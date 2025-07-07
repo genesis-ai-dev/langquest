@@ -29,7 +29,7 @@ function getAllDownloadedAssetsConfig(profileId: string) {
       const { data, error } = await system.supabaseConnector.client
         .from('asset')
         .select('id')
-        .in('download_profiles', [profileId])
+        .contains('download_profiles', [profileId])
         .overrideTypes<Asset[]>();
       if (error) throw error;
       return data;
@@ -107,7 +107,7 @@ function getDownloadStatusConfig(
       if (error) throw error;
       return data;
     },
-    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1'`,
+    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1`,
     enabled: !!recordId && !!currentUser?.id
   });
 }

@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   closeButton: {
     fontSize: fontSizes.large,
     color: colors.text,
-    padding: spacing.tiny
+    padding: spacing.xsmall
   },
   content: {
     padding: spacing.small
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.tiny,
+    marginBottom: spacing.xsmall,
     textTransform: 'uppercase'
   },
   stat: {
@@ -248,16 +248,16 @@ const styles = StyleSheet.create({
   },
   blockingEvent: {
     backgroundColor: colors.background,
-    padding: spacing.tiny,
+    padding: spacing.xsmall,
     borderRadius: 4,
-    marginBottom: spacing.tiny
+    marginBottom: spacing.xsmall
   },
   blockingTime: {
     fontSize: fontSizes.small,
     fontWeight: 'bold'
   },
   blockingDetail: {
-    fontSize: fontSizes.tiny,
+    fontSize: fontSizes.xsmall,
     color: colors.textSecondary,
     marginTop: 2
   },
