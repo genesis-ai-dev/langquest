@@ -61,7 +61,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   // }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-
     // Watch for changes in ALL download records
     this.db.watch(
       this.db.query.asset.findMany({

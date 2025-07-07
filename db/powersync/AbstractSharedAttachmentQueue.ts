@@ -274,7 +274,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
       // 2. Get asset_content_link entries for audio - using direct database query
       const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (asset_content_link, { eq }) => eq(asset_content_link.asset_id, assetId),
+        where: (asset_content_link, { eq }) =>
+          eq(asset_content_link.asset_id, assetId),
         columns: { audio_id: true }
       });
 

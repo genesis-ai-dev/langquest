@@ -155,7 +155,14 @@ export function useInfiniteQuestsWithTagsByProjectId(
   sortOrder?: 'asc' | 'desc'
 ) {
   // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = ['quests', 'infinite', 'by-project', 'with-tags', project_id, pageSize];
+  const queryKeyParts = [
+    'quests',
+    'infinite',
+    'by-project',
+    'with-tags',
+    project_id,
+    pageSize
+  ];
   if (sortField) queryKeyParts.push(sortField);
   if (sortOrder) queryKeyParts.push(sortOrder);
 
@@ -239,9 +246,12 @@ export function useInfiniteQuestsWithTagsByProjectId(
           },
           limit: pageSize,
           offset: offsetValue,
-          orderBy: sortField === 'name' && sortOrder
-            ? (sortOrder === 'asc' ? asc(questTable.name) : desc(questTable.name))
-            : asc(questTable.name)
+          orderBy:
+            sortField === 'name' && sortOrder
+              ? sortOrder === 'asc'
+                ? asc(questTable.name)
+                : desc(questTable.name)
+              : asc(questTable.name)
         });
 
         // Get total count for hasMore calculation
@@ -279,7 +289,7 @@ export function useInfiniteQuestsWithTagsByProjectId(
     },
     enabled: !!project_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes,
+    gcTime: 10 * 60 * 1000 // 10 minutes,
   });
 }
 
@@ -297,7 +307,17 @@ export function usePaginatedQuestsWithTagsByProjectId(
   const { db, supabaseConnector } = system;
 
   return useHybridQuery({
-    queryKey: ['quests', 'paginated', 'by-project', 'with-tags', project_id, page, pageSize, sortField, sortOrder],
+    queryKey: [
+      'quests',
+      'paginated',
+      'by-project',
+      'with-tags',
+      project_id,
+      page,
+      pageSize,
+      sortField,
+      sortOrder
+    ],
     onlineFn: async () => {
       let query = supabaseConnector.client
         .from('quest')
@@ -330,8 +350,11 @@ export function usePaginatedQuestsWithTagsByProjectId(
       const to = from + pageSize - 1;
       query = query.range(from, to);
 
-      const { data, error, count: _count } = await query
-        .overrideTypes<(Quest & { tags: { tag: Tag }[] })[]>();
+      const {
+        data,
+        error,
+        count: _count
+      } = await query.overrideTypes<(Quest & { tags: { tag: Tag }[] })[]>();
 
       if (error) throw error;
 
@@ -351,15 +374,20 @@ export function usePaginatedQuestsWithTagsByProjectId(
         },
         limit: pageSize,
         offset: page * pageSize,
-        orderBy: sortField && sortOrder
-          ? (sortOrder === 'asc'
-            ? asc(questTable[sortField as keyof typeof questTable] as AnyColumn)
-            : desc(questTable[sortField as keyof typeof questTable] as AnyColumn))
-          : asc(questTable.name)
+        orderBy:
+          sortField && sortOrder
+            ? sortOrder === 'asc'
+              ? asc(
+                  questTable[sortField as keyof typeof questTable] as AnyColumn
+                )
+              : desc(
+                  questTable[sortField as keyof typeof questTable] as AnyColumn
+                )
+            : asc(questTable.name)
       })
     ),
     enabled: !!project_id,
     placeholderData: keepPreviousData, // This provides smooth transitions between pages
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }

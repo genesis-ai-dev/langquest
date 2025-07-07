@@ -77,17 +77,20 @@ export const checkAndClearStorage = async (): Promise<void> => {
       }
     }
 
-    console.log(`[Storage] Total AsyncStorage usage: ${formatBytes(totalSize)}`);
+    console.log(
+      `[Storage] Total AsyncStorage usage: ${formatBytes(totalSize)}`
+    );
 
     // If storage is over 50MB, clear old cache data
     if (totalSize > 50 * 1024 * 1024) {
       console.log('[Storage] Storage exceeds 50MB, clearing old cache...');
 
       // Clear React Query cache keys (they often start with 'REACT_QUERY')
-      const cacheKeys = keys.filter(key =>
-        key.includes('REACT_QUERY') ||
-        key.includes('cache') ||
-        key.includes('temp_')
+      const cacheKeys = keys.filter(
+        (key) =>
+          key.includes('REACT_QUERY') ||
+          key.includes('cache') ||
+          key.includes('temp_')
       );
 
       await AsyncStorage.multiRemove(cacheKeys);
@@ -104,12 +107,13 @@ export const checkAndClearStorage = async (): Promise<void> => {
 export const clearAllCacheData = async (): Promise<void> => {
   try {
     const keys = await AsyncStorage.getAllKeys();
-    const cacheKeys = keys.filter(key =>
-      key.includes('REACT_QUERY') ||
-      key.includes('cache') ||
-      key.includes('temp_') ||
-      key.includes('pending_') ||
-      !key.includes('auth') // Don't clear auth data
+    const cacheKeys = keys.filter(
+      (key) =>
+        key.includes('REACT_QUERY') ||
+        key.includes('cache') ||
+        key.includes('temp_') ||
+        key.includes('pending_') ||
+        !key.includes('auth') // Don't clear auth data
     );
 
     await AsyncStorage.multiRemove(cacheKeys);

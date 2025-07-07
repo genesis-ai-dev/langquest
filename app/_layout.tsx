@@ -107,9 +107,6 @@ export default function RootLayout() {
 
   console.log('[RootLayout] Rendering...');
 
-
-
-
   return (
     <>
       <StatusBar style="light" backgroundColor="#000" translucent={false} />
@@ -118,7 +115,7 @@ export default function RootLayout() {
           <AudioProvider>
             <QueryProvider>
               <UpdateBanner />
-              <App/>
+              <App />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>

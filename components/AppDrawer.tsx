@@ -335,8 +335,18 @@ export default function AppDrawer({
             onPress={closeDrawer}
           />
 
-          <View style={[styles.drawerContainer, { backgroundColor: colors.background }]}>
-            <View style={[styles.drawerHeader, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.drawerContainer,
+              { backgroundColor: colors.background }
+            ]}
+          >
+            <View
+              style={[
+                styles.drawerHeader,
+                { backgroundColor: colors.background }
+              ]}
+            >
               <Text style={styles.drawerTitle}>{t('menu')}</Text>
               <TouchableOpacity
                 onPress={closeDrawer}
@@ -346,10 +356,20 @@ export default function AppDrawer({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={[styles.drawerContent, { backgroundColor: colors.background }]}>
+            <ScrollView
+              style={[
+                styles.drawerContent,
+                { backgroundColor: colors.background }
+              ]}
+            >
               {/* System status and progress indicators */}
               {!systemReady && (
-                <View style={[styles.initializingIndicator, { backgroundColor: colors.background }]}>
+                <View
+                  style={[
+                    styles.initializingIndicator,
+                    { backgroundColor: colors.background }
+                  ]}
+                >
                   <ActivityIndicator size="small" color={colors.text} />
                   <Text style={styles.initializingText}>
                     {t('initializing')}...

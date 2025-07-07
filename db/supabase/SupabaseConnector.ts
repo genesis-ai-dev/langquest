@@ -240,8 +240,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         const opData =
           isCompositeTable && op.opData
             ? Object.fromEntries(
-              Object.entries(op.opData).filter(([key]) => key !== 'id')
-            )
+                Object.entries(op.opData).filter(([key]) => key !== 'id')
+              )
             : op.opData;
 
         switch (op.op) {

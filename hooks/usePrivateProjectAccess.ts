@@ -36,7 +36,7 @@ export function usePrivateProjectAccess(
         .eq('profile_id', currentUser?.id || '')
         .eq('project_id', project_id)
         .eq('active', true);
-      return data as typeof profile_project_link.$inferSelect[];
+      return data as (typeof profile_project_link.$inferSelect)[];
     },
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
@@ -59,7 +59,7 @@ export function usePrivateProjectAccess(
     return {
       hasAccess: false,
       membership: undefined,
-      isMembershipLoading: false,
+      isMembershipLoading: false
     };
   }
 
@@ -77,15 +77,17 @@ export function usePrivateProjectAccess(
   // Check if user has the required permissions based on role
   const hasAccess = Boolean(
     membershipData?.active &&
-    membershipData.membership &&
-    permissionLevels[
-      membershipData.membership as keyof typeof permissionLevels
-    ].includes(action)
+      membershipData.membership &&
+      permissionLevels[
+        membershipData.membership as keyof typeof permissionLevels
+      ].includes(action)
   );
 
   return {
     hasAccess,
-    membership: membershipData ? membershipData.membership as 'member' | 'admin' | 'owner' | null : undefined,
-    isMembershipLoading: false,
+    membership: membershipData
+      ? (membershipData.membership as 'member' | 'admin' | 'owner' | null)
+      : undefined,
+    isMembershipLoading: false
   };
 }

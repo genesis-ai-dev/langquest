@@ -263,7 +263,9 @@ export class System {
 
       // Check if bucket is configured
       if (!AppConfig.supabaseBucket) {
-        console.warn('No Supabase bucket configured, attachment queues will be disabled');
+        console.warn(
+          'No Supabase bucket configured, attachment queues will be disabled'
+        );
         this.attachmentQueuesInitialized = true;
         return;
       }
@@ -295,7 +297,11 @@ export class System {
   private lastConnectedUserId?: string;
 
   isInitialized() {
-    return this.initialized && this.powersync.connected && this.attachmentQueuesInitialized;
+    return (
+      this.initialized &&
+      this.powersync.connected &&
+      this.attachmentQueuesInitialized
+    );
   }
 
   // Add method to check attachment queue readiness specifically
