@@ -7,9 +7,9 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { keepPreviousData } from '@tanstack/react-query';
-import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
+import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { useMemo } from 'react';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
@@ -662,20 +662,19 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
-  // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = [
-    'assets',
-    'infinite',
-    'by-quest',
-    'with-tags-content',
-    quest_id,
-    pageSize
-  ];
-  if (sortField) queryKeyParts.push(sortField);
-  if (sortOrder) queryKeyParts.push(sortOrder);
+  // FIXED: Create stable query key with useMemo to prevent infinite loops
+  const queryKey = useMemo(() => {
+    const baseKey = ['assets', 'infinite', 'by-quest', 'with-tags-content', quest_id, pageSize];
+
+    // Only add optional parameters if they have values
+    if (sortField) baseKey.push(sortField);
+    if (sortOrder) baseKey.push(sortOrder);
+
+    return baseKey;
+  }, [quest_id, pageSize, sortField, sortOrder]);
 
   return useHybridInfiniteQuery({
-    queryKey: queryKeyParts,
+    queryKey: queryKey,
     onlineFn: async ({ pageParam, signal }) => {
       // Calculate pagination range
       const from = pageParam * pageSize;
@@ -823,112 +822,5 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
     enabled: !!quest_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000 // 10 minutes
-  });
-}
-
-/**
- * Traditional paginated assets with keepPreviousData for smooth page transitions
- * Use this when you need discrete page navigation (Previous/Next buttons)
- */
-export function usePaginatedAssetsWithTagsAndContentByQuestId(
-  quest_id: string,
-  page = 0,
-  pageSize = 10,
-  sortField?: string,
-  sortOrder?: 'asc' | 'desc'
-) {
-  const { db, supabaseConnector } = system;
-
-  // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = [
-    'assets',
-    'paginated',
-    'by-quest',
-    'with-tags-content',
-    quest_id,
-    page,
-    pageSize
-  ];
-  if (sortField) queryKeyParts.push(sortField);
-  if (sortOrder) queryKeyParts.push(sortOrder);
-
-  return useHybridQuery({
-    queryKey: queryKeyParts,
-    onlineFn: async () => {
-      let query = supabaseConnector.client
-        .from('quest_asset_link')
-        .select(
-          `
-          asset:asset_id (
-            *,
-            content:asset_content_link (
-              *
-            ),
-            tags:asset_tag_link (
-              tag:tag_id (
-                *
-              )
-            )
-          )
-        `,
-          { count: 'exact' }
-        )
-        .eq('quest_id', quest_id);
-
-      // Add sorting
-      if (sortField && sortOrder) {
-        query = query.order(`asset.${sortField}`, {
-          ascending: sortOrder === 'asc'
-        });
-      } else {
-        query = query.order('asset.name', { ascending: true });
-      }
-
-      // Add pagination
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
-      query = query.range(from, to);
-
-      const { data, error } =
-        await query.overrideTypes<
-          { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
-        >();
-
-      if (error) throw error;
-
-      const assets = data.map((item) => item.asset).filter(Boolean);
-
-      return assets;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(
-          asset.id,
-          db
-            .select({ asset_id: quest_asset_link.asset_id })
-            .from(quest_asset_link)
-            .where(eq(quest_asset_link.quest_id, quest_id))
-        ),
-        with: {
-          content: true,
-          tags: {
-            with: {
-              tag: true
-            }
-          }
-        },
-        limit: pageSize,
-        offset: page * pageSize,
-        orderBy:
-          sortField && sortOrder
-            ? sortOrder === 'asc'
-              ? asc(asset[sortField as keyof typeof asset] as AnyColumn)
-              : desc(asset[sortField as keyof typeof asset] as AnyColumn)
-            : asc(asset.name)
-      })
-    ),
-    enabled: !!quest_id,
-    placeholderData: keepPreviousData, // This provides smooth transitions between pages
-    staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }
