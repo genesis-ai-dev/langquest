@@ -1,17 +1,39 @@
+import { toCompilableQuery } from '@/db/drizzle/utils';
 import type { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { AttachmentState } from '@powersync/attachments';
-import { useQuery } from '@powersync/tanstack-react-query';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 
 export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
-  const { data: attachmentIds = [] } = useQuery({
+  const { data: attachmentIds = [] } = useHybridQuery({
     queryKey: ['asset-attachments', assetIds],
-    queryFn: () => getAssetAttachmentIds(assetIds)
+    onlineFn: async () => {
+      const attachmentIds = await getAssetAttachmentIds(assetIds);
+      return attachmentIds;
+    }
   });
 
-  const { data: attachments = [] } = useQuery({
+  const { data: attachments = [] } = useHybridQuery({
     queryKey: ['attachments', attachmentIds],
-    query: `SELECT * FROM attachments WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')}) AND storage_type = 'permanent'`,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('attachment')
+        .select('*')
+        .in('id', attachmentIds)
+        .eq('storage_type', 'permanent');
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.attachment.findMany({
+        where: and(
+          inArray(attachment.id, attachmentIds),
+          eq(attachment.storage_type, 'permanent')
+        )
+      })
+    ),
     enabled: attachmentIds.length > 0
   });
 

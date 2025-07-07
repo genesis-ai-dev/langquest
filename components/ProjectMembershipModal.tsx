@@ -6,6 +6,7 @@ import {
   project as projectTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -17,7 +18,6 @@ import {
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -83,9 +83,17 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for project details to check if it's private
-  const { data: [project] = [], isLoading: projectLoading } = useQuery({
+  const { data: [project] = [], isLoading: projectLoading } = useHybridQuery({
     queryKey: ['project', projectId],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.project.findFirst({
         where: eq(projectTable.id, projectId)
       })
@@ -93,9 +101,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   });
 
   // Query for active project members
-  const { data: memberData = [], refetch: refetchMembers } = useQuery({
+  const { data: memberData = [], refetch: refetchMembers } = useHybridQuery({
     queryKey: ['project-members', projectId],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*, profile(*)')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
@@ -135,20 +152,29 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   // console.log('members', members);
 
   // Query for invited users
-  const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
-    queryKey: ['project-invitations', projectId],
-    query: toCompilableQuery(
-      db.query.invite.findMany({
-        where: and(
-          eq(invite.project_id, projectId)
-          // Include pending, expired, declined, and withdrawn statuses
-        ),
-        with: {
-          receiver: true
-        }
-      })
-    )
-  });
+  const { data: invitationData = [], refetch: refetchInvitations } =
+    useHybridQuery({
+      queryKey: ['project-invitations', projectId],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('invite')
+          .select('*, receiver(*)')
+          .eq('project_id', projectId);
+        if (error) throw error;
+        return data;
+      },
+      offlineQuery: toCompilableQuery(
+        db.query.invite.findMany({
+          where: and(
+            eq(invite.project_id, projectId)
+            // Include pending, expired, declined, and withdrawn statuses
+          ),
+          with: {
+            receiver: true
+          }
+        })
+      )
+    });
 
   const invitations: Invitation[] = invitationData
     .filter((inv) =>

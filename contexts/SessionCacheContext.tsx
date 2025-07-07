@@ -3,7 +3,7 @@ import { language, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { Language } from '@/hooks/db/useLanguages';
 import type { Project } from '@/hooks/db/useProjects';
-import { useQuery } from '@powersync/tanstack-react-query';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import React, { createContext, useContext } from 'react';
@@ -42,11 +42,10 @@ export function SessionCacheProvider({ children }: { children: ReactNode }) {
   const { db, supabaseConnector } = system;
 
   // Cache all languages for the session
-  const { data: languages, isLoading: isLanguagesLoading } = useQuery({
+  const { data: languages, isLoading: isLanguagesLoading } = useHybridQuery({
     queryKey: ['session-languages'],
-    queryFn: async () => {
+    onlineFn: async () => {
       try {
-        // Try online first
         const { data, error } = await supabaseConnector.client
           .from('language')
           .select('*')
@@ -67,19 +66,23 @@ export function SessionCacheProvider({ children }: { children: ReactNode }) {
         });
       }
     },
+    offlineFn: async () => {
+      return await db.query.language.findMany({
+        where: eq(language.active, true)
+      });
+    },
     staleTime: 60 * 60 * 1000, // 1 hour - languages rarely change
     gcTime: 2 * 60 * 60 * 1000 // 2 hours
   });
 
   // Cache user memberships for the session
   const { data: userMemberships, isLoading: isUserMembershipsLoading } =
-    useQuery({
+    useHybridQuery({
       queryKey: ['session-user-memberships', currentUser?.id],
-      queryFn: async () => {
+      onlineQueryFn: async () => {
         if (!currentUser?.id) return [];
 
         try {
-          // Try online first
           const { data, error } = await supabaseConnector.client
             .from('profile_project_link')
             .select('project_id, membership, active')
@@ -110,6 +113,16 @@ export function SessionCacheProvider({ children }: { children: ReactNode }) {
             }
           })) as UserMembership[];
         }
+      },
+      offlineQueryFn: async () => {
+        return (await db.query.profile_project_link.findMany({
+          where: eq(profile_project_link.profile_id, currentUser?.id),
+          columns: {
+            project_id: true,
+            membership: true,
+            active: true
+          }
+        })) as UserMembership[];
       },
       enabled: !!currentUser?.id,
       staleTime: 10 * 60 * 1000, // 10 minutes - memberships don't change often

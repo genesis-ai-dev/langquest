@@ -1,20 +1,32 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import {
+  invite,
+  profile_project_link,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 
-export function useNotifications() {
+export const useNotifications = () => {
   const { currentUser } = useAuth();
-  const { db } = system;
 
   // Get all pending invites for the user's email
-  const { data: inviteRequests = [] } = useQuery({
+  const { data: inviteRequests = [] } = useHybridQuery({
     queryKey: ['invite-notifications-count', currentUser?.email],
-    query: toCompilableQuery(
-      db.query.invite.findMany({
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('email', currentUser?.email || '')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
           eq(invite.status, 'pending'),
@@ -26,45 +38,66 @@ export function useNotifications() {
   });
 
   // Get all projects where the user is an owner
-  const { data: ownerProjects = [] } = useQuery({
+  const { data: ownerProjects = [] } = useHybridQuery({
     queryKey: ['owner-projects-count', currentUser?.id],
-    query: toCompilableQuery(
-      db.query.profile_project_link.findMany({
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('project_id')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('membership', 'owner')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, currentUser?.id || ''),
           eq(profile_project_link.membership, 'owner'),
           eq(profile_project_link.active, true)
-        )
+        ),
+        columns: { project_id: true }
       })
     ),
     enabled: !!currentUser?.id
   });
 
-  const ownerProjectIds = ownerProjects.map((link) => link.project_id);
+  const ownerProjectIds = ownerProjects.map((p) => p.project_id);
 
   // Get all pending requests for projects where user is owner
-  const { data: requestNotifications = [] } = useQuery({
+  const { data: requestNotifications = [] } = useHybridQuery({
     queryKey: ['request-notifications-count', ownerProjectIds],
-    query: toCompilableQuery(
-      db.query.request.findMany({
-        where: and(eq(request.status, 'pending'), eq(request.active, true))
+    onlineFn: async () => {
+      if (ownerProjectIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .in('project_id', ownerProjectIds)
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.request.findMany({
+        where: and(
+          eq(request.status, 'pending'),
+          eq(request.active, true)
+        )
       })
     ),
     enabled: ownerProjectIds.length > 0
   });
 
-  // Filter request notifications to only include those for owned projects
-  const validRequestNotifications = requestNotifications.filter((item) =>
-    ownerProjectIds.includes(item.project_id)
-  );
-
-  // Combine all notifications and filter out expired ones
-  const allNotifications = [...inviteRequests, ...validRequestNotifications];
-  const validNotificationsCount = allNotifications.filter(
-    (item) => !isExpiredByLastUpdated(item.last_updated)
+  const inviteCount = inviteRequests.length;
+  const requestCount = requestNotifications.filter(notification =>
+    ownerProjectIds.includes(notification.project_id)
   ).length;
 
   return {
-    notificationCount: validNotificationsCount
+    inviteCount,
+    requestCount,
+    totalCount: inviteCount + requestCount
   };
-}
+};

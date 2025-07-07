@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
+import { useSessionCache } from '@/contexts/SessionCacheContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -7,12 +7,12 @@ import {
   downloadRecord,
   useProjectsDownloadStatus
 } from '@/hooks/useDownloads';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
@@ -66,7 +66,7 @@ export default function NotificationsView() {
   >({});
 
   // Use session cache for user memberships instead of separate query
-  const { userMemberships } = useSessionMemberships();
+  const { userMemberships } = useSessionCache();
 
   // Get owner project IDs from session cache
   const ownerProjectIds = React.useMemo(() => {
@@ -80,9 +80,19 @@ export default function NotificationsView() {
   }, [userMemberships]);
 
   // Query for invite notifications (where user's email matches)
-  const { data: inviteData = [], refetch: refetchInvites } = useQuery({
+  const { data: inviteData = [], refetch: refetchInvites } = useHybridQuery({
     queryKey: ['invite-notifications', currentUser?.email],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('email', currentUser?.email || '')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       drizzleDb.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
@@ -139,9 +149,18 @@ export default function NotificationsView() {
   }, [inviteNotifications.length, projectStatuses]);
 
   // Get pending requests for owner projects (using session cache for owner project IDs)
-  const { data: requestData = [], refetch: refetchRequests } = useQuery({
+  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
     queryKey: ['request-notifications', ownerProjectIds],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       drizzleDb.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true)),
         with: {

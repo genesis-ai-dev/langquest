@@ -1,15 +1,14 @@
 import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Asset } from './db/useAssets';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
-  hybridFetch,
-  useHybridQuery
+  hybridFetch
 } from './useHybridQuery';
 
 interface TreeNode {
@@ -66,9 +65,13 @@ async function getDownloadTreeStructure() {
 export function useDownloadTreeStructure(
   options?: Omit<UseQueryOptions<TreeNode | null>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useHybridQuery({
     queryKey: ['download-tree-structure'],
-    queryFn: () => getDownloadTreeStructure(),
+    onlineFn: async () => {
+      const data = await getDownloadTreeStructure();
+      return [data]; // Return as array for consistency
+    },
+    offlineFn: () => [{ children: undefined, table: '', idField: undefined, parentField: undefined, childField: undefined, keyFields: undefined }], // No offline equivalent for this RPC call
     ...options
   });
 }
@@ -135,11 +138,11 @@ export function useProjectsDownloadStatus(projectIds: string[]) {
     data: projectStatuses,
     isLoading,
     ...rest
-  } = useQuery({
+  } = useHybridQuery({
     queryKey: ['projects-download-status', projectIds.sort()],
-    queryFn: async () => {
+    onlineFn: async () => {
       if (!downloadTreeStructure || !projectIds.length) {
-        return {};
+        return [{}];
       }
 
       // Check all projects in parallel
@@ -159,14 +162,17 @@ export function useProjectsDownloadStatus(projectIds: string[]) {
       const results = await Promise.all(statusPromises);
 
       // Convert to object for easy lookup
-      return results.reduce(
+      const statusObject = results.reduce(
         (acc, { projectId, isDownloaded }) => {
           acc[projectId] = isDownloaded;
           return acc;
         },
         {} as Record<string, boolean>
       );
+
+      return [statusObject];
     },
+    offlineFn: () => [{}],
     enabled: !!downloadTreeStructure && projectIds.length > 0
   });
 

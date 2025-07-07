@@ -7,13 +7,13 @@ import {
   useTranslationProjectInfo
 } from '@/hooks/db/useTranslations';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
@@ -68,9 +68,18 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
-  const { data: audioUri, isLoading: loadingAudio } = useQuery({
+  const { data: audioUri, isLoading: loadingAudio } = useHybridQuery({
     queryKey: ['audio', translation?.audio],
-    queryFn: async () => {
+    onlineFn: async () => {
+      if (!translation?.audio) return null;
+      try {
+        return await getLocalUriFromAssetId(translation.audio);
+      } catch (error) {
+        console.error('Error loading audio URI:', error);
+        return null;
+      }
+    },
+    offlineFn: async () => {
       if (!translation?.audio) return null;
       try {
         return await getLocalUriFromAssetId(translation.audio);
