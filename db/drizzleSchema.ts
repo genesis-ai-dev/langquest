@@ -582,7 +582,9 @@ export const quest_closure = sqliteTable(
     tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    asset_content_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_content_link_ids: text({ mode: 'json' })
+      .$type<string[]>()
+      .default([]),
     quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
 
