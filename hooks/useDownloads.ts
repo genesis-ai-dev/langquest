@@ -54,6 +54,11 @@ async function getDownloadTreeStructure() {
   return data;
 }
 
+/**
+ * Hook for getting download tree structure (legacy system)
+ * Used for non-quest downloads (projects, assets, etc.)
+ * Quest downloads now use the efficient quest_closure system
+ */
 export function useDownloadTreeStructure(
   options?: Omit<
     UseQueryOptions<Record<string, unknown>[]>,
@@ -132,6 +137,11 @@ export function useDownloadStatus(
   return { isDownloaded: !!data?.[0]?.id, isLoading, ...rest };
 }
 
+/**
+ * Downloads a record and all its related data
+ * - For quests: uses the efficient quest_closure system that marks all related records in one operation
+ * - For other records: uses the legacy tree-based download system
+ */
 export async function downloadRecord(
   recordTable: keyof typeof system.db.query,
   recordId: string,
@@ -152,39 +162,76 @@ export async function downloadRecord(
   }
 
   try {
-    const downloadTree =
-      downloadTreeStructure ?? (await getDownloadTreeStructure());
-
-    if (!downloadTree) throw new Error('No download tree found.');
-
-    const isCurrentlyDownloaded =
-      downloaded ?? (await getDownloadStatus(recordTable, recordId));
-
-    const operation = isCurrentlyDownloaded ? 'remove' : 'add';
-    console.log(
-      `📡 [DOWNLOAD RPC] Calling 'download_record' RPC with operation: ${operation} for ${recordTable}:${recordId}`
-    );
-
-    const { error } = await system.supabaseConnector.client.rpc(
-      'download_record',
-      {
-        p_table_name: recordTable,
-        p_record_id: recordId,
-        p_operation: operation
-      }
-    );
-
-    if (error) {
-      console.error(
-        `📡 [DOWNLOAD RPC] ❌ Error in download_record RPC:`,
-        error
-      );
-      throw error;
+    const currentUser = getCurrentUser();
+    if (!currentUser?.id) {
+      throw new Error('User not authenticated');
     }
 
-    console.log(
-      `📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`
-    );
+    // Use the new quest closure system for quest downloads
+    if (recordTable === 'quest') {
+      console.log(
+        `📡 [DOWNLOAD RPC] Using quest closure download for quest:${recordId}`
+      );
+
+      const { data, error } = await system.supabaseConnector.client
+        .rpc('download_quest_closure', {
+          quest_id_param: recordId,
+          profile_id_param: currentUser
+        })
+        .overrideTypes<{ table_name: string; records_updated: number }[]>();
+
+      if (error) {
+        console.error(
+          `📡 [DOWNLOAD RPC] ❌ Error in download_quest_closure RPC:`,
+          error
+        );
+        throw error;
+      }
+
+      console.log(
+        `📡 [DOWNLOAD RPC] ✅ Successfully completed quest closure download for quest:${recordId}`,
+        data
+      );
+    } else {
+      // Fall back to old system for non-quest records
+      console.log(
+        `📡 [DOWNLOAD RPC] Using legacy download for ${recordTable}:${recordId}`
+      );
+
+      const downloadTree =
+        downloadTreeStructure ?? (await getDownloadTreeStructure());
+
+      if (!downloadTree) throw new Error('No download tree found.');
+
+      const isCurrentlyDownloaded =
+        downloaded ?? (await getDownloadStatus(recordTable, recordId));
+
+      const operation = isCurrentlyDownloaded ? 'remove' : 'add';
+      console.log(
+        `📡 [DOWNLOAD RPC] Calling 'download_record' RPC with operation: ${operation} for ${recordTable}:${recordId}`
+      );
+
+      const { error } = await system.supabaseConnector.client.rpc(
+        'download_record',
+        {
+          p_table_name: recordTable,
+          p_record_id: recordId,
+          p_operation: operation
+        }
+      );
+
+      if (error) {
+        console.error(
+          `📡 [DOWNLOAD RPC] ❌ Error in download_record RPC:`,
+          error
+        );
+        throw error;
+      }
+
+      console.log(
+        `📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`
+      );
+    }
   } finally {
     // ✅ RESUME ATTACHMENT COLLECTION AFTER DOWNLOAD
     if (stateManager) {
