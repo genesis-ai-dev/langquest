@@ -40,12 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           {
             scheme: 'https',
             host: siteHost,
-            pathPrefix: '/reset-password'
-          },
-          {
-            scheme: 'https',
-            host: siteHost,
-            pathPrefix: '/registration-confirmation'
+            pathPrefix: '/app'
           },
           {
             scheme: 'langquest',

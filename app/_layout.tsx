@@ -9,45 +9,19 @@ import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
 import { PowerSyncContext } from '@powersync/react';
-import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
-import type { Href } from 'expo-router';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LogBox } from 'react-native';
-import { DevToolsBubble } from 'react-native-react-query-devtools';
 import App from './app';
 
 // Keep the splash screen visible while we fetch resources
 void SplashScreen.preventAutoHideAsync();
 
 LogBox.ignoreAllLogs();
-
-const RootStack = memo(() => (
-  <Stack
-    screenOptions={{
-      headerShown: true,
-      // Speed up route transitions
-      animationTypeForReplace: 'push',
-      animation: 'simple_push',
-      animationDuration: 200,
-      gestureEnabled: true,
-      fullScreenGestureEnabled: true
-    }}
-  >
-    <Stack.Screen
-      name="terms"
-      options={{
-        presentation: 'modal'
-      }}
-    />
-  </Stack>
-));
-
-RootStack.displayName = 'RootStack';
 
 export default function RootLayout() {
   const [isSystemReady, setIsSystemReady] = React.useState(false);
@@ -86,7 +60,11 @@ function InitializingApp({
       const unsubscribe = initializeNetwork();
       void TranslationUtils.initialize();
 
-      setHasRehydrated(useLocalStore.persist.hasHydrated());
+      // Manually trigger rehydration since skipHydration is true
+      console.log('🔄 Triggering local store rehydration...');
+      await useLocalStore.persist.rehydrate();
+      setHasRehydrated(true);
+      console.log('✅ Local store rehydrated!');
 
       // Initialize system singleton and WAIT for it
       if (!systemInitialized.current) {
@@ -125,7 +103,7 @@ function InitializingApp({
     return () => {
       unsubscribe?.();
     };
-  }, [onReady]);
+  }, [onReady, setHasRehydrated]);
 
   return null; // Keep splash screen visible
 }
@@ -145,7 +123,11 @@ function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
             access_token: params.access_token!,
             refresh_token: params.refresh_token!
           });
-          router.replace(path as Href);
+          // Navigate to main app route - state-driven navigation will handle the rest
+          console.log(
+            `[handleAuthDeepLink] Auth completed for path: ${path}, redirecting to main app`
+          );
+          router.replace('/app');
         };
         void handleRedirect();
       }
@@ -169,16 +151,6 @@ function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
   }, [handleAuthDeepLink]);
 
   console.log('[MainApp] Rendering...');
-  // Define copy function for DevTools
-  const onCopy = useCallback(async (text: string) => {
-    try {
-      await Clipboard.setStringAsync(text);
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
   console.log('[RootLayout] Rendering...');
 
   return (
@@ -192,7 +164,6 @@ function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
                 <UpdateBanner />
                 <App hasRehydrated={hasRehydrated} />
               </SessionCacheProvider>
-              <DevToolsBubble onCopy={onCopy} />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>
