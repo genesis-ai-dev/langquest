@@ -173,10 +173,12 @@ export async function downloadRecord(
         `📡 [DOWNLOAD RPC] Using quest closure download for quest:${recordId}`
       );
 
+      console.log('currentUser', { currentUser });
+
       const { data, error } = await system.supabaseConnector.client
         .rpc('download_quest_closure', {
           quest_id_param: recordId,
-          profile_id_param: currentUser
+          profile_id_param: currentUser.id
         })
         .overrideTypes<{ table_name: string; records_updated: number }[]>();
 
