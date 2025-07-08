@@ -82,6 +82,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Guard clause: Don't render if currentUser is null
+  if (!currentUser) {
+    return null;
+  }
+
   // Query for project details to check if it's private
   const { data: [project] = [], isLoading: projectLoading } = useHybridQuery({
     queryKey: ['project', projectId],
@@ -125,13 +130,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     )
   });
 
-  const members: Member[] = memberData.map((link) => ({
-    id: link.profile.id,
-    email: link.profile.email || '',
-    name: link.profile.username || link.profile.email || '',
-    role: link.membership as 'owner' | 'member',
-    active: true
-  }));
+  const members: Member[] = memberData
+    .filter((link) => link?.profile?.id) // Filter out entries with null profiles
+    .map((link) => ({
+      id: link.profile?.id || '',
+      email: link.profile?.email || '',
+      name: link.profile?.username || link.profile?.email || '',
+      role: (link.membership as 'owner' | 'member') || 'member',
+      active: true
+    }));
 
   // Sort members: current user first, then owners alphabetically, then members alphabetically
   const sortedMembers = [...members].sort((a, b) => {
@@ -301,7 +308,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 .set({ active: false, last_updated: new Date().toISOString() })
                 .where(
                   and(
-                    eq(profile_project_link.profile_id, currentUser!.id),
+                    eq(profile_project_link.profile_id, currentUser.id),
                     eq(profile_project_link.project_id, projectId)
                   )
                 );
@@ -365,7 +372,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             status: 'pending',
             count: (invitation.count || 0) + 1,
             last_updated: new Date().toISOString(),
-            sender_profile_id: currentUser!.id // Update sender in case it's different
+            sender_profile_id: currentUser.id // Update sender in case it's different
           })
           .where(eq(invite.id, inviteId));
 
@@ -450,7 +457,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 as_owner: inviteAsOwner,
                 count: (existingInvite.count || 0) + 1,
                 last_updated: new Date().toISOString(),
-                sender_profile_id: currentUser!.id // Update sender in case it's different
+                sender_profile_id: currentUser.id // Update sender in case it's different
               })
               .where(eq(invite.id, existingInvite.id));
 
@@ -474,7 +481,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
       // Create new invitation
       await db.insert(invite).values({
-        sender_profile_id: currentUser!.id,
+        sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,
         status: 'pending',
