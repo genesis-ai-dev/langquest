@@ -1,6 +1,6 @@
 import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
-import { reasonOptions } from '@/db/constants';
+import type { reasonOptions } from '@/db/constants';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';

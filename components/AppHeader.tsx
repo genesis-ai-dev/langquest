@@ -1,8 +1,17 @@
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useIsSyncing } from '@/hooks/useSyncState';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 
 export default function AppHeader({
   drawerToggleCallback
@@ -16,6 +25,36 @@ export default function AppHeader({
   } = useAppNavigation();
 
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  const { totalCount: notificationCount } = useNotifications();
+  const isSyncing = useIsSyncing();
+
+  // Animation for sync indicator
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isSyncing) {
+      // Start spinning animation
+      const spinAnimation = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.linear,
+          useNativeDriver: true
+        })
+      );
+      spinAnimation.start();
+
+      return () => {
+        spinAnimation.stop();
+        spinValue.setValue(0);
+      };
+    }
+  }, [isSyncing, spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
 
   return (
     <View style={styles.container}>
@@ -92,13 +131,38 @@ export default function AppHeader({
           })}
         </View>
 
-        <Pressable
-          onPress={drawerToggleCallback}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={({ pressed }) => pressed && styles.menuButtonPressed}
-        >
-          <Ionicons name="menu" size={24} color={colors.text} />
-        </Pressable>
+        {/* Menu Button with Indicators */}
+        <View style={styles.menuButtonContainer}>
+          <Pressable
+            onPress={drawerToggleCallback}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={({ pressed }) => [
+              styles.menuButton,
+              pressed && styles.menuButtonPressed
+            ]}
+          >
+            <Ionicons name="menu" size={24} color={colors.text} />
+
+            {/* Sync Indicator - Bottom Right Corner */}
+            {isSyncing && (
+              <Animated.View
+                style={[
+                  styles.syncIndicator,
+                  { transform: [{ rotate: spin }] }
+                ]}
+              >
+                <Ionicons name="sync-outline" size={10} color="white" />
+              </Animated.View>
+            )}
+
+            {/* Notification Badge - Top Right Corner */}
+            {notificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <View style={styles.notificationDot} />
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -150,10 +214,55 @@ const styles = StyleSheet.create({
   breadcrumbTextPressed: {
     opacity: 0.8 // Less opacity reduction
   },
+  menuButtonContainer: {
+    position: 'relative'
+  },
+  menuButton: {
+    padding: spacing.xsmall,
+    borderRadius: 4,
+    position: 'relative'
+  },
   menuButtonPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)', // Match breadcrumb style
-    borderRadius: 4,
     transform: [{ scale: 0.98 }]
+  },
+  syncIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF4444', // Red color for notifications
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2
+  },
+  notificationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'white'
   },
   breadcrumbSeparator: {
     marginHorizontal: spacing.xsmall,

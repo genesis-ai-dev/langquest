@@ -344,8 +344,24 @@ export class System {
 
   async cleanup() {
     try {
-      // Note: AttachmentQueues don't have a stop method
-      // They will be cleaned up when PowerSync disconnects
+      // Cleanup attachment queues first
+      if (this.permAttachmentQueue) {
+        try {
+          // Call destroy method if it exists
+          (this.permAttachmentQueue as unknown as { destroy?: () => void }).destroy?.();
+        } catch (error) {
+          console.warn('Error destroying permanent attachment queue:', error);
+        }
+      }
+
+      if (this.tempAttachmentQueue) {
+        try {
+          // Call destroy method if it exists
+          (this.tempAttachmentQueue as unknown as { destroy?: () => void }).destroy?.();
+        } catch (error) {
+          console.warn('Error destroying temporary attachment queue:', error);
+        }
+      }
 
       // Disconnect PowerSync
       if (this.powersync.connected) {

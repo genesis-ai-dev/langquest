@@ -23,7 +23,7 @@ export const useNotifications = () => {
         .eq('status', 'pending')
         .eq('active', true);
       if (error) throw error;
-      return data;
+      return data || [];
     },
     offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
@@ -48,7 +48,7 @@ export const useNotifications = () => {
         .eq('membership', 'owner')
         .eq('active', true);
       if (error) throw error;
-      return data;
+      return data || [];
     },
     offlineQuery: toCompilableQuery(
       system.db.query.profile_project_link.findMany({
@@ -63,7 +63,7 @@ export const useNotifications = () => {
     enabled: !!currentUser?.id
   });
 
-  const ownerProjectIds = ownerProjects.map((p) => p.project_id);
+  const ownerProjectIds = ownerProjects.map((p) => String(p.project_id || ''));
 
   // Get all pending requests for projects where user is owner
   const { data: requestNotifications = [] } = useHybridQuery({
@@ -77,7 +77,7 @@ export const useNotifications = () => {
         .eq('status', 'pending')
         .eq('active', true);
       if (error) throw error;
-      return data;
+      return data || [];
     },
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
@@ -92,7 +92,7 @@ export const useNotifications = () => {
 
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.filter(notification =>
-    ownerProjectIds.includes(notification.project_id)
+    ownerProjectIds.includes(String(notification.project_id || ''))
   ).length;
 
   return {
