@@ -348,7 +348,9 @@ export class System {
       if (this.permAttachmentQueue) {
         try {
           // Call destroy method if it exists
-          (this.permAttachmentQueue as unknown as { destroy?: () => void }).destroy?.();
+          (
+            this.permAttachmentQueue as unknown as { destroy?: () => void }
+          ).destroy?.();
         } catch (error) {
           console.warn('Error destroying permanent attachment queue:', error);
         }
@@ -357,7 +359,9 @@ export class System {
       if (this.tempAttachmentQueue) {
         try {
           // Call destroy method if it exists
-          (this.tempAttachmentQueue as unknown as { destroy?: () => void }).destroy?.();
+          (
+            this.tempAttachmentQueue as unknown as { destroy?: () => void }
+          ).destroy?.();
         } catch (error) {
           console.warn('Error destroying temporary attachment queue:', error);
         }

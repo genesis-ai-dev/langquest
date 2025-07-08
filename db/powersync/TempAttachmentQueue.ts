@@ -42,7 +42,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
       void this.cleanupOldTempAttachments();
     }, TempAttachmentQueue.TEMP_CACHE_DURATION);
 
-    console.log('[TEMP QUEUE] ✅ Initialized with unified attachment state manager');
+    console.log(
+      '[TEMP QUEUE] ✅ Initialized with unified attachment state manager'
+    );
   }
 
   // Clean up temporary attachments that haven't been accessed recently
@@ -58,7 +60,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
       );
 
       if (oldTempAttachments.length > 0) {
-        console.log(`[TEMP QUEUE] Cleaning up ${oldTempAttachments.length} old temporary attachments`);
+        console.log(
+          `[TEMP QUEUE] Cleaning up ${oldTempAttachments.length} old temporary attachments`
+        );
 
         await this.powersync.writeTransaction(async (tx) => {
           for (const record of oldTempAttachments) {
@@ -91,14 +95,17 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
       console.log(`[TEMP QUEUE] Loading attachments for asset: ${assetId}`);
 
       // Use unified AttachmentStateManager for consistency
-      const attachmentIds = await this.attachmentStateManager.getAttachmentIdsForAssets([assetId]);
+      const attachmentIds =
+        await this.attachmentStateManager.getAttachmentIdsForAssets([assetId]);
 
       if (attachmentIds.length === 0) {
         console.log(`[TEMP QUEUE] No attachments found for asset ${assetId}`);
         return;
       }
 
-      console.log(`[TEMP QUEUE] Found ${attachmentIds.length} attachments for asset ${assetId}: ${attachmentIds.join(', ')}`);
+      console.log(
+        `[TEMP QUEUE] Found ${attachmentIds.length} attachments for asset ${assetId}: ${attachmentIds.join(', ')}`
+      );
 
       // Add new attachments to current set
       let hasChanges = false;
@@ -111,11 +118,16 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
 
       // Update PowerSync if there are changes
       if (hasChanges && this._onUpdateCallback) {
-        console.log(`[TEMP QUEUE] Updated temp attachments, now tracking ${this.currentTempAttachments.size} attachments`);
+        console.log(
+          `[TEMP QUEUE] Updated temp attachments, now tracking ${this.currentTempAttachments.size} attachments`
+        );
         this._onUpdateCallback([...this.currentTempAttachments]);
       }
     } catch (error) {
-      console.error(`[TEMP QUEUE] Error loading attachments for asset ${assetId}:`, error);
+      console.error(
+        `[TEMP QUEUE] Error loading attachments for asset ${assetId}:`,
+        error
+      );
     }
   }
 
@@ -131,7 +143,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     if (hasChanges && this._onUpdateCallback) {
-      console.log(`[TEMP QUEUE] Added ${attachmentIds.length} temp attachments, now tracking ${this.currentTempAttachments.size} attachments`);
+      console.log(
+        `[TEMP QUEUE] Added ${attachmentIds.length} temp attachments, now tracking ${this.currentTempAttachments.size} attachments`
+      );
       this._onUpdateCallback([...this.currentTempAttachments]);
     }
   }
@@ -148,7 +162,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     if (hasChanges && this._onUpdateCallback) {
-      console.log(`[TEMP QUEUE] Removed ${attachmentIds.length} temp attachments, now tracking ${this.currentTempAttachments.size} attachments`);
+      console.log(
+        `[TEMP QUEUE] Removed ${attachmentIds.length} temp attachments, now tracking ${this.currentTempAttachments.size} attachments`
+      );
       this._onUpdateCallback([...this.currentTempAttachments]);
     }
   }
@@ -156,7 +172,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   // Clear all temporary attachments from tracking
   clearTempAttachments(): void {
     if (this.currentTempAttachments.size > 0) {
-      console.log(`[TEMP QUEUE] Clearing all ${this.currentTempAttachments.size} temp attachments`);
+      console.log(
+        `[TEMP QUEUE] Clearing all ${this.currentTempAttachments.size} temp attachments`
+      );
       this.currentTempAttachments.clear();
 
       if (this._onUpdateCallback) {

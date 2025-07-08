@@ -117,7 +117,8 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        pathname: '/_(drawer)/projects/[projectId]/quests/[questId]/assets/[assetId]',
+        pathname:
+          '/_(drawer)/projects/[projectId]/quests/[questId]/assets/[assetId]',
         params: {
           projectId: targetProjectId,
           questId: targetQuestId,
@@ -163,30 +164,30 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-        id: currentProjectId,
-        name: projectName || 'Project'
-      }
+          id: currentProjectId,
+          name: projectName || 'Project'
+        }
       : null;
   }, [currentProjectId, projectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-        id: currentQuestId,
-        name: questName || 'Quest',
-        project_id: currentProjectId || ''
-      }
+          id: currentQuestId,
+          name: questName || 'Quest',
+          project_id: currentProjectId || ''
+        }
       : null;
   }, [currentQuestId, questName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-        id: currentAssetId,
-        name: assetName || 'Asset',
-        projectId: currentProjectId,
-        questId: currentQuestId
-      }
+          id: currentAssetId,
+          name: assetName || 'Asset',
+          projectId: currentProjectId,
+          questId: currentQuestId
+        }
       : null;
   }, [currentAssetId, assetName, currentProjectId, currentQuestId]);
 

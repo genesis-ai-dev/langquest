@@ -26,7 +26,7 @@ export const useHasUserReported = (
         .eq('record_table', recordTable)
         .eq('reporter_id', reporterId);
       if (error) throw error;
-      return data as Report[];
+      return data as Record<string, unknown>[];
     },
     offlineQuery: toCompilableQuery(
       system.db.query.reports.findMany({
@@ -48,9 +48,9 @@ export const useHasUserReported = (
  * Main useReports hook used by ReportModal and other components
  */
 export const useReports = (
-  recordId: string,
-  recordTable: string,
-  reporterId?: string
+  _recordId: string,
+  _recordTable: string,
+  _reporterId?: string
 ) => {
   const queryClient = useQueryClient();
 
@@ -59,7 +59,7 @@ export const useReports = (
       record_id: string;
       record_table: string;
       reporter_id: string;
-      reason: typeof reasonOptions[number];
+      reason: (typeof reasonOptions)[number];
       details?: string;
     }) => {
       return await reportService.createReport(data);
@@ -72,10 +72,7 @@ export const useReports = (
   });
 
   const blockUserMutation = useMutation({
-    mutationFn: async (data: {
-      blocker_id: string;
-      blocked_id: string;
-    }) => {
+    mutationFn: async (data: { blocker_id: string; blocked_id: string }) => {
       return await blockService.blockUser(data);
     },
     onSuccess: () => {

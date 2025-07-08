@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import React, { createContext, useContext } from 'react';
 
-interface UserMembership {
+interface UserMembership extends Record<string, unknown> {
   project_id: string;
   membership: 'owner' | 'member';
   active: boolean;
@@ -114,9 +114,10 @@ export function SessionCacheProvider({ children }: { children: ReactNode }) {
           })) as UserMembership[];
         }
       },
-      offlineQueryFn: async () => {
+      offlineFn: async () => {
+        if (!currentUser?.id) return [];
         return (await db.query.profile_project_link.findMany({
-          where: eq(profile_project_link.profile_id, currentUser?.id),
+          where: eq(profile_project_link.profile_id, currentUser.id),
           columns: {
             project_id: true,
             membership: true,

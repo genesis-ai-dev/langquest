@@ -3,10 +3,7 @@ import { useSessionCache } from '@/contexts/SessionCacheContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import {
-  downloadRecord,
-  useProjectsDownloadStatus
-} from '@/hooks/useDownloads';
+import { downloadRecord } from '@/hooks/useDownloads';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -132,9 +129,9 @@ export default function NotificationsView() {
     })
   );
 
-  // Query for existing project download statuses
-  const projectIds = inviteNotifications.map((item) => item.project_id);
-  const { projectStatuses } = useProjectsDownloadStatus(projectIds);
+  // Query for existing project download statuses - removed since useProjectsDownloadStatus doesn't exist
+  // const projectIds = inviteNotifications.map((item) => item.project_id);
+  // const { projectStatuses } = useProjectsDownloadStatus(projectIds);
 
   // Memoize notification IDs to prevent unnecessary re-renders
   const notificationIds = React.useMemo(
@@ -156,19 +153,14 @@ export default function NotificationsView() {
       inviteNotifications.forEach((notification) => {
         // Only initialize if not already set
         if (newToggles[notification.id] === undefined) {
-          // Check if project is already downloaded
-          const isDownloaded =
-            !!projectStatuses[
-              notification.project_id as keyof typeof projectStatuses
-            ];
-          // Default to true (download) unless already downloaded
-          newToggles[notification.id] = !isDownloaded;
+          // Default to true (download) since we can't check existing status easily
+          newToggles[notification.id] = true;
         }
       });
 
       return newToggles;
     });
-  }, [notificationIds, projectStatuses]);
+  }, [notificationIds]);
 
   // Get pending requests for owner projects (using session cache for owner project IDs)
   const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({

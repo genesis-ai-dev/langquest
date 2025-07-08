@@ -7,7 +7,9 @@ import { useEffect, useState } from 'react';
 
 export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
   // Use unified AttachmentStateManager for consistent attachment ID collection
-  const [attachmentStateManager] = useState(() => new AttachmentStateManager(system.db));
+  const [attachmentStateManager] = useState(
+    () => new AttachmentStateManager(system.db)
+  );
 
   // Clean up on unmount
   useEffect(() => {
@@ -20,48 +22,64 @@ export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
   const { data: attachmentIds = [] } = useHybridQuery({
     queryKey: ['asset-attachments', assetIds],
     onlineFn: async () => {
-      console.log(`[ASSET DOWNLOAD STATUS] Getting attachment IDs for assets (ONLINE): ${assetIds.join(', ')}`);
-      const attachmentIds = await attachmentStateManager.getAttachmentIdsForAssets(assetIds);
-      console.log(`[ASSET DOWNLOAD STATUS] Found ${attachmentIds.length} attachment IDs (ONLINE): ${attachmentIds.join(', ')}`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Getting attachment IDs for assets (ONLINE): ${assetIds.join(', ')}`
+      );
+      const attachmentIds =
+        await attachmentStateManager.getAttachmentIdsForAssets(assetIds);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Found ${attachmentIds.length} attachment IDs (ONLINE): ${attachmentIds.join(', ')}`
+      );
 
       // Return as array of objects for useHybridQuery compatibility
-      return attachmentIds.map(id => ({ id }));
+      return attachmentIds.map((id) => ({ id }));
     },
     offlineFn: async () => {
-      console.log(`[ASSET DOWNLOAD STATUS] Getting attachment IDs for assets (OFFLINE): ${assetIds.join(', ')}`);
-      const attachmentIds = await attachmentStateManager.getAttachmentIdsForAssets(assetIds);
-      console.log(`[ASSET DOWNLOAD STATUS] Found ${attachmentIds.length} attachment IDs (OFFLINE): ${attachmentIds.join(', ')}`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Getting attachment IDs for assets (OFFLINE): ${assetIds.join(', ')}`
+      );
+      const attachmentIds =
+        await attachmentStateManager.getAttachmentIdsForAssets(assetIds);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Found ${attachmentIds.length} attachment IDs (OFFLINE): ${attachmentIds.join(', ')}`
+      );
 
       // Return as array of objects for useHybridQuery compatibility
-      return attachmentIds.map(id => ({ id }));
+      return attachmentIds.map((id) => ({ id }));
     },
     enabled: assetIds.length > 0
   });
 
   // Extract the actual IDs from the wrapper objects
-  const actualAttachmentIds = attachmentIds.map(item => item.id);
+  const actualAttachmentIds = attachmentIds.map((item) => item.id);
 
   // Get attachment states using PowerSync directly (since attachment table is managed by PowerSync, not Drizzle)
   const { data: attachments = [] } = useHybridQuery({
     queryKey: ['attachments', actualAttachmentIds],
     onlineFn: async () => {
-      console.log(`[ASSET DOWNLOAD STATUS] Getting attachment states (ONLINE) for ${String(actualAttachmentIds.length)} attachments`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Getting attachment states (ONLINE) for ${actualAttachmentIds.length} attachments`
+      );
       const { data, error } = await system.supabaseConnector.client
         .from('attachment')
         .select('*')
         .in('id', actualAttachmentIds)
         .eq('storage_type', 'permanent');
       if (error) throw error;
-      console.log(`[ASSET DOWNLOAD STATUS] Retrieved ${String(data.length)} attachment records (ONLINE)`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Retrieved ${data.length} attachment records (ONLINE)`
+      );
       return data as Record<string, unknown>[];
     },
     offlineFn: async () => {
-      console.log(`[ASSET DOWNLOAD STATUS] Getting attachment states (OFFLINE) for ${String(actualAttachmentIds.length)} attachments`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Getting attachment states (OFFLINE) for ${actualAttachmentIds.length} attachments`
+      );
 
       // Use PowerSync direct query since attachment table is managed by PowerSync
       if (actualAttachmentIds.length === 0) return [];
 
-      const formattedIds = actualAttachmentIds.map(id => `'${id}'`).join(',');
+      const formattedIds = actualAttachmentIds.map((id) => `'${id}'`).join(',');
       const result = await system.powersync.execute(
         `SELECT * FROM attachments WHERE id IN (${formattedIds}) AND storage_type = 'permanent'`
       );
@@ -74,7 +92,9 @@ export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
         }
       }
 
-      console.log(`[ASSET DOWNLOAD STATUS] Retrieved ${String(attachments.length)} attachment records (OFFLINE)`);
+      console.log(
+        `[ASSET DOWNLOAD STATUS] Retrieved ${attachments.length} attachment records (OFFLINE)`
+      );
       return attachments;
     },
     enabled: actualAttachmentIds.length > 0
@@ -82,35 +102,49 @@ export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
 
   // If we have no attachments for any asset, consider it not downloaded
   if (actualAttachmentIds.length === 0) {
-    console.log(`[ASSET DOWNLOAD STATUS] No attachments found for assets: ${assetIds.join(', ')}`);
+    console.log(
+      `[ASSET DOWNLOAD STATUS] No attachments found for assets: ${assetIds.join(', ')}`
+    );
     return { isDownloaded: false, isLoading: false };
   }
 
   // Check if all attachments are either SYNCED or QUEUED_UPLOAD
   console.log(`[ASSET DOWNLOAD STATUS] Checking download status:`);
-  console.log(`  - Expected attachment IDs (${actualAttachmentIds.length}): ${actualAttachmentIds.join(', ')}`);
-  console.log(`  - Found attachment records (${attachments.length}): ${attachments.map(a => `${a.id}:${a.state}`).join(', ')}`);
+  console.log(
+    `  - Expected attachment IDs (${actualAttachmentIds.length}): ${actualAttachmentIds.join(', ')}`
+  );
+  console.log(
+    `  - Found attachment records (${attachments.length}): ${attachments.map((a) => `${String(a.id)}:${String(a.state)}`).join(', ')}`
+  );
 
   // If we have fewer attachments than attachmentIds, some attachments are missing from attachments table
   if (attachments.length < actualAttachmentIds.length) {
-    const missingIds = actualAttachmentIds.filter(id => !attachments.some(a => a.id === id));
-    console.log(`[ASSET DOWNLOAD STATUS] Missing attachment records for: ${missingIds.join(', ')}`);
+    const missingIds = actualAttachmentIds.filter(
+      (id) => !attachments.some((a) => a.id === id)
+    );
+    console.log(
+      `[ASSET DOWNLOAD STATUS] Missing attachment records for: ${missingIds.join(', ')}`
+    );
     return { isDownloaded: false, isLoading: false };
   }
 
   console.log('TYPES: attachments', { attachments });
-  const isDownloaded = (attachments as ExtendedAttachmentRecord[]).every(
+  const isDownloaded = (
+    attachments as unknown as ExtendedAttachmentRecord[]
+  ).every(
     (attachment) =>
       attachment.state === AttachmentState.SYNCED ||
       attachment.state === AttachmentState.QUEUED_UPLOAD
   );
 
-  const isLoading = (attachments as ExtendedAttachmentRecord[]).some(
+  const isLoading = (attachments as unknown as ExtendedAttachmentRecord[]).some(
     (attachment) =>
       attachment.state === AttachmentState.QUEUED_DOWNLOAD ||
       attachment.state === AttachmentState.QUEUED_SYNC
   );
 
-  console.log(`[ASSET DOWNLOAD STATUS] Final status: isDownloaded=${isDownloaded}, isLoading=${isLoading}`);
+  console.log(
+    `[ASSET DOWNLOAD STATUS] Final status: isDownloaded=${isDownloaded}, isLoading=${isLoading}`
+  );
   return { isDownloaded, isLoading };
 }

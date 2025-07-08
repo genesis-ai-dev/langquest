@@ -2,8 +2,6 @@ import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Updates from 'expo-updates';
 
-
-
 export function useExpoUpdates() {
   const queryClient = useQueryClient();
 
@@ -17,19 +15,27 @@ export function useExpoUpdates() {
     onlineFn: async () => {
       try {
         const update = await Updates.checkForUpdateAsync();
-        return {
-          isUpdateAvailable: update.isAvailable,
-          manifest: update.manifest
-        };
+        return [
+          {
+            isUpdateAvailable: update.isAvailable,
+            manifest: update.manifest || null
+          }
+        ] as Record<string, unknown>[];
       } catch (error) {
         console.error('Error checking for updates:', error);
-        return {
-          isUpdateAvailable: false,
-          manifest: null
-        };
+        return [
+          {
+            isUpdateAvailable: false,
+            manifest: null
+          }
+        ] as Record<string, unknown>[];
       }
     },
-    offlineFn: () => [{ isUpdateAvailable: false, manifest: null }],
+    offlineFn: () =>
+      [{ isUpdateAvailable: false, manifest: null }] as Record<
+        string,
+        unknown
+      >[],
     // Check for updates less frequently
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000 // 10 minutes
@@ -37,7 +43,7 @@ export function useExpoUpdates() {
 
   const downloadUpdateMutation = useMutation({
     mutationFn: async () => {
-      if (!updateInfo?.isUpdateAvailable) {
+      if (!updateInfo?.[0]?.isUpdateAvailable) {
         throw new Error('No update available');
       }
       await Updates.fetchUpdateAsync();

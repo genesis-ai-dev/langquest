@@ -13,7 +13,7 @@ export function PageHeader({
   showBackButton?: boolean;
 }) {
   const navigation = useNavigation();
-  const { notificationCount } = useNotifications();
+  const { totalCount: notificationCount } = useNotifications();
 
   return (
     <View

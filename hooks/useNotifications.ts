@@ -1,9 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  invite,
-  profile_project_link,
-  request
-} from '@/db/drizzleSchema';
+import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -81,17 +77,14 @@ export const useNotifications = () => {
     },
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
-        where: and(
-          eq(request.status, 'pending'),
-          eq(request.active, true)
-        )
+        where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
     ),
     enabled: ownerProjectIds.length > 0
   });
 
   const inviteCount = inviteRequests.length;
-  const requestCount = requestNotifications.filter(notification =>
+  const requestCount = requestNotifications.filter((notification) =>
     ownerProjectIds.includes(String(notification.project_id || ''))
   ).length;
 

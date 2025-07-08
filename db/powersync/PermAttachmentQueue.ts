@@ -28,14 +28,18 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async init() {
     await super.init();
-    console.log('[PERM QUEUE] ✅ Initialized with unified attachment state manager');
+    console.log(
+      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
+    );
   }
 
   // Remove the old collectAllAttachmentIds method since we're using AttachmentStateManager
   // Remove the old updateAttachmentIds method since we're using AttachmentStateManager
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log('[PERM QUEUE] Setting up unified attachment watcher with AttachmentStateManager');
+    console.log(
+      '[PERM QUEUE] Setting up unified attachment watcher with AttachmentStateManager'
+    );
 
     // Single coordinated watcher using AttachmentStateManager
     const updateWithSource = (source: string) => {
@@ -49,7 +53,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }),
       {
         onResult: () => {
-          console.log('[PERM QUEUE] Asset downloads changed, updating attachments via state manager');
+          console.log(
+            '[PERM QUEUE] Asset downloads changed, updating attachments via state manager'
+          );
           void updateWithSource('asset_downloads');
         }
       }
@@ -62,7 +68,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }),
       {
         onResult: () => {
-          console.log('[PERM QUEUE] Quest downloads changed, updating attachments via state manager');
+          console.log(
+            '[PERM QUEUE] Quest downloads changed, updating attachments via state manager'
+          );
           void updateWithSource('quest_downloads');
         }
       }
@@ -75,7 +83,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }),
       {
         onResult: () => {
-          console.log('[PERM QUEUE] Quest-asset links changed, updating attachments via state manager');
+          console.log(
+            '[PERM QUEUE] Quest-asset links changed, updating attachments via state manager'
+          );
           void updateWithSource('quest_asset_links');
         }
       }
@@ -88,7 +98,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }),
       {
         onResult: () => {
-          console.log('[PERM QUEUE] Asset content changed, updating attachments via state manager');
+          console.log(
+            '[PERM QUEUE] Asset content changed, updating attachments via state manager'
+          );
           void updateWithSource('asset_content');
         }
       }
@@ -101,14 +113,18 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }),
       {
         onResult: () => {
-          console.log('[PERM QUEUE] Translations changed, updating attachments via state manager');
+          console.log(
+            '[PERM QUEUE] Translations changed, updating attachments via state manager'
+          );
           void updateWithSource('translations');
         }
       }
     );
 
     // Initial load
-    console.log('[PERM QUEUE] Running initial attachment ID collection via state manager');
+    console.log(
+      '[PERM QUEUE] Running initial attachment ID collection via state manager'
+    );
     void updateWithSource('initial_load');
   }
 

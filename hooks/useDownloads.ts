@@ -31,7 +31,9 @@ interface AttachmentQueueWithStateManager {
 }
 
 function getAttachmentStateManager(): AttachmentStateManager | null {
-  const permQueue = system.permAttachmentQueue as AttachmentQueueWithStateManager | undefined;
+  const permQueue = system.permAttachmentQueue as
+    | AttachmentQueueWithStateManager
+    | undefined;
   if (!permQueue) return null;
 
   // Try to get state manager directly
@@ -53,7 +55,10 @@ async function getDownloadTreeStructure() {
 }
 
 export function useDownloadTreeStructure(
-  options?: Omit<UseQueryOptions<Record<string, unknown>[]>, 'queryKey' | 'queryFn'>
+  options?: Omit<
+    UseQueryOptions<Record<string, unknown>[]>,
+    'queryKey' | 'queryFn'
+  >
 ) {
   return useHybridQuery({
     queryKey: ['download-tree-structure'],
@@ -61,7 +66,16 @@ export function useDownloadTreeStructure(
       const data = await getDownloadTreeStructure();
       return [data as Record<string, unknown>]; // Return as array for consistency
     },
-    offlineFn: (): Record<string, unknown>[] => [{ children: undefined, table: '', idField: undefined, parentField: undefined, childField: undefined, keyFields: undefined }], // No offline equivalent for this RPC call
+    offlineFn: (): Record<string, unknown>[] => [
+      {
+        children: undefined,
+        table: '',
+        idField: undefined,
+        parentField: undefined,
+        childField: undefined,
+        keyFields: undefined
+      }
+    ], // No offline equivalent for this RPC call
     ...options
   });
 }
@@ -124,12 +138,16 @@ export async function downloadRecord(
   downloaded?: boolean,
   downloadTreeStructure?: TreeNode | null
 ) {
-  console.log(`📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`);
+  console.log(
+    `📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`
+  );
 
   // 🚫 PREVENT ATTACHMENT COLLECTION DURING DOWNLOAD
   const stateManager = getAttachmentStateManager();
   if (stateManager) {
-    console.log('🚫 [DOWNLOAD RPC] Marking download operation start to prevent attachment collection');
+    console.log(
+      '🚫 [DOWNLOAD RPC] Marking download operation start to prevent attachment collection'
+    );
     stateManager.markDownloadOperationStart();
   }
 
@@ -143,7 +161,9 @@ export async function downloadRecord(
       downloaded ?? (await getDownloadStatus(recordTable, recordId));
 
     const operation = isCurrentlyDownloaded ? 'remove' : 'add';
-    console.log(`📡 [DOWNLOAD RPC] Calling 'download_record' RPC with operation: ${operation} for ${recordTable}:${recordId}`);
+    console.log(
+      `📡 [DOWNLOAD RPC] Calling 'download_record' RPC with operation: ${operation} for ${recordTable}:${recordId}`
+    );
 
     const { error } = await system.supabaseConnector.client.rpc(
       'download_record',
@@ -155,20 +175,28 @@ export async function downloadRecord(
     );
 
     if (error) {
-      console.error(`📡 [DOWNLOAD RPC] ❌ Error in download_record RPC:`, error);
+      console.error(
+        `📡 [DOWNLOAD RPC] ❌ Error in download_record RPC:`,
+        error
+      );
       throw error;
     }
 
-    console.log(`📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`);
-
+    console.log(
+      `📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`
+    );
   } finally {
     // ✅ RESUME ATTACHMENT COLLECTION AFTER DOWNLOAD
     if (stateManager) {
-      console.log('✅ [DOWNLOAD RPC] Marking download operation complete - resuming attachment collection');
+      console.log(
+        '✅ [DOWNLOAD RPC] Marking download operation complete - resuming attachment collection'
+      );
       stateManager.markDownloadOperationComplete();
 
       // Process any pending updates
-      console.log('🔄 [DOWNLOAD RPC] Attachment updates will be processed when next triggered');
+      console.log(
+        '🔄 [DOWNLOAD RPC] Attachment updates will be processed when next triggered'
+      );
     }
   }
 }
@@ -197,24 +225,34 @@ export function useDownload(
   const toggleDownload = async () => {
     if (!recordId) return;
 
-    console.log(`🎯 [QUEST DOWNLOAD] Starting download for ${recordTable}:${recordId}`);
+    console.log(
+      `🎯 [QUEST DOWNLOAD] Starting download for ${recordTable}:${recordId}`
+    );
 
     const isCurrentlyDownloaded = await getDownloadStatus(
       recordTable,
       recordId
     );
 
-    console.log(`🎯 [QUEST DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`);
+    console.log(
+      `🎯 [QUEST DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+    );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
-      console.log(`🎯 [QUEST DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`);
+      console.log(
+        `🎯 [QUEST DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
+      );
       return;
     }
 
-    console.log(`🎯 [QUEST DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`);
+    console.log(
+      `🎯 [QUEST DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
+    );
     await mutation.mutateAsync(false); // always download
-    console.log(`🎯 [QUEST DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`);
+    console.log(
+      `🎯 [QUEST DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
+    );
   };
 
   return {
