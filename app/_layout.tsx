@@ -1,7 +1,7 @@
 import { UpdateBanner } from '@/components/UpdateBanner';
-import { AudioProvider } from '@/contexts/AudioProvider';
-import { AuthProvider } from '@/contexts/AuthProvider';
-import { SessionCacheProvider } from '@/contexts/SessionCacheProvider';
+import { AudioProvider } from '@/contexts/AudioContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { SessionCacheProvider } from '@/contexts/SessionCacheContext';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { useLocalStore } from '@/store/localStore';
