@@ -7,58 +7,26 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { processSql, renderHttp } from 'npm:@supabase/sql-to-rest';
 
 Deno.serve(async (req) => {
-  let requestBody;
-
-  try {
-    requestBody = await req.json();
-  } catch (error) {
-    return new Response('Invalid JSON in request body', { status: 400 });
-  }
-
-  const { sql } = requestBody;
+  const url = new URL(req.url);
+  const params = new URLSearchParams(url.search);
+  const sql = params.get('sql');
 
   if (!sql) {
-    return new Response('No `sql` provided', { status: 400 });
+    return new Response('No ?sql= provided', { status: 400 });
   }
 
-  console.log('sql', sql);
+  const statement = await processSql(sql);
+  const httpRequest = await renderHttp(statement);
 
-  let url: string;
-  try {
-    const statement = await processSql(sql);
-    const httpRequest = await renderHttp(statement);
+  const response = await fetch(
+    `${Deno.env.get('SUPABASE_URL')}/rest/v1${httpRequest.fullPath}`,
+    {
+      method: httpRequest.method
+    }
+  );
 
-    url =
-      `${Deno.env.get('SUPABASE_URL')}/rest/v1${httpRequest.fullPath}&apikey=${Deno.env.get('SUPABASE_ANON_KEY')}`.replace(
-        '\n',
-        ''
-      );
-  } catch (error: unknown) {
-    console.error(error);
-    return new Response(`Unsupported SQL: ${error}`, { status: 400 });
-  }
-
-  if (!url) {
-    return new Response('No URL generated', { status: 400 });
-  }
-
-  const response = await fetch(url);
-
-  const text = await response.text();
-  if (!response.ok)
-    throw new Error(
-      JSON.stringify({
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        text
-      })
-    );
-
-  return new Response(text, {
-    headers: { 'Content-Type': 'application/json' },
-    status: response.status,
-    statusText: response.statusText
+  return new Response(JSON.stringify(await response.json()), {
+    headers: { 'Content-Type': 'application/json' }
   });
 });
 

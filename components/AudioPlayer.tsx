@@ -1,4 +1,4 @@
-import { useAudio } from '@/contexts/AudioProvider';
+import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';

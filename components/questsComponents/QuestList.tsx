@@ -5,6 +5,8 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import type { SortingOption } from '@/views/QuestsView';
+import { filterQuests } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import React, { useMemo } from 'react';
@@ -18,7 +20,6 @@ import {
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';
-import { filterQuests, SortingOption } from '@/views/QuestsView';
 
 // Main quest list component with performance optimizations
 export const QuestList = React.memo(
@@ -27,15 +28,13 @@ export const QuestList = React.memo(
     activeSorting,
     searchQuery,
     activeFilters,
-    onQuestPress,
-    onLoadMore
+    onQuestPress
   }: {
     projectId: string;
     activeSorting: SortingOption[];
     searchQuery: string;
     activeFilters: Record<string, string[]>;
     onQuestPress: (quest: Quest) => void;
-    onLoadMore: () => void;
   }) => {
     const { project: selectedProject } = useProjectById(projectId);
 
@@ -206,7 +205,6 @@ export const QuestList = React.memo(
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}
-        onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
           isFetchingNextPage ? (

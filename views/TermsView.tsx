@@ -1,5 +1,5 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalization } from '@/hooks/useLocalization';

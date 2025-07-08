@@ -1,6 +1,6 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridSupabaseQuery } from '@/hooks/useHybridSupabaseQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -10,6 +10,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -40,12 +41,21 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for project details
-  const { data: projectDataArray = [], refetch } = useHybridSupabaseQuery({
+  const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
-    query: db.query.project.findMany({
-      where: eq(project.id, projectId),
-      limit: 1
-    })
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.project.findFirst({
+        where: eq(project.id, projectId)
+      })
+    )
   });
 
   const projectData = projectDataArray[0];

@@ -1,9 +1,8 @@
-import type { language, profile } from '@/db/drizzleSchema';
+import type { language } from '@/db/drizzleSchema';
+import type { Profile } from '@/hooks/db/useProfiles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-
-export type Profile = typeof profile.$inferSelect;
 
 // Navigation types (forward declaration to avoid circular import)
 export type AppView =
@@ -113,15 +112,6 @@ interface LocalState {
   initialize: () => Promise<void>;
 }
 
-const initialAttachmentSyncProgress: LocalState['attachmentSyncProgress'] = {
-  downloading: false,
-  uploading: false,
-  downloadCurrent: 0,
-  downloadTotal: 0,
-  uploadCurrent: 0,
-  uploadTotal: 0
-};
-
 export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
@@ -148,7 +138,14 @@ export const useLocalStore = create<LocalState>()(
       recentAssets: [],
 
       // Attachment sync progress
-      attachmentSyncProgress: initialAttachmentSyncProgress,
+      attachmentSyncProgress: {
+        downloading: false,
+        uploading: false,
+        downloadCurrent: 0,
+        downloadTotal: 0,
+        uploadCurrent: 0,
+        uploadTotal: 0
+      },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
@@ -201,7 +198,14 @@ export const useLocalStore = create<LocalState>()(
         })),
       resetAttachmentSyncProgress: () =>
         set({
-          attachmentSyncProgress: initialAttachmentSyncProgress
+          attachmentSyncProgress: {
+            downloading: false,
+            uploading: false,
+            downloadCurrent: 0,
+            downloadTotal: 0,
+            uploadCurrent: 0,
+            uploadTotal: 0
+          }
         }),
 
       initialize: () => {
@@ -221,6 +225,7 @@ export const useLocalStore = create<LocalState>()(
             ([key]) =>
               ![
                 'language',
+                'currentUser',
                 'currentProjectId',
                 'currentQuestId',
                 'currentAssetId',

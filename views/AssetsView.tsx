@@ -8,7 +8,9 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useSessionProjects } from '@/contexts/SessionCacheProvider';
+import { useSessionProjects } from '@/contexts/SessionCacheContext';
+import type { Asset } from '@/database_services/assetService';
+import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -43,8 +45,7 @@ import {
 } from 'react-native';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
-import type { Asset, AssetContent } from '@/hooks/db/useAssets';
-import type { Tag } from '@/hooks/db/useTags';
+import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
   field: string;

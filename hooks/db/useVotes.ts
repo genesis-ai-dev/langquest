@@ -1,13 +1,14 @@
 import { vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import {
-  convertToSupabaseFetchConfig,
-  createHybridSupabaseQueryConfig,
-  hybridSupabaseFetch,
-  useHybridSupabaseRealtimeQuery
-} from '../useHybridSupabaseQuery';
+  convertToFetchConfig,
+  createHybridQueryConfig,
+  hybridFetch,
+  useHybridRealtimeQuery
+} from '../useHybridQuery';
 
 export type Vote = InferSelectModel<typeof vote>;
 
@@ -25,27 +26,28 @@ export function useUserVoteForTranslation(
     data: voteArray,
     isLoading: isVoteLoading,
     ...rest
-  } = useHybridSupabaseRealtimeQuery({
+  } = useHybridRealtimeQuery({
     queryKey: ['vote', 'user', translation_id, user_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('vote')
         .select('*')
         .eq('translation_id', translation_id)
         .eq('creator_id', user_id)
         .eq('active', true)
-        .abortSignal(signal)
         .overrideTypes<Vote[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: db.query.vote.findMany({
-      where: and(
-        eq(vote.translation_id, translation_id),
-        eq(vote.creator_id, user_id),
-        eq(vote.active, true)
-      )
-    }),
+    offlineQuery: toCompilableQuery(
+      db.query.vote.findMany({
+        where: and(
+          eq(vote.translation_id, translation_id),
+          eq(vote.creator_id, user_id),
+          eq(vote.active, true)
+        )
+      })
+    ),
     subscribeRealtime: (onChange) => {
       const channel = supabaseConnector.client
         .channel('public:vote')
@@ -66,29 +68,33 @@ export function useUserVoteForTranslation(
 }
 
 function getVotesByTranslationIdConfig(translation_id: string) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['votes', 'by-translation', translation_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('vote')
         .select('*')
         .eq('translation_id', translation_id)
         .eq('active', true)
-        .abortSignal(signal)
         .overrideTypes<Vote[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.vote.findMany({
-      where: and(eq(vote.translation_id, translation_id), eq(vote.active, true))
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.vote.findMany({
+        where: and(
+          eq(vote.translation_id, translation_id),
+          eq(vote.active, true)
+        )
+      })
+    ),
     enabled: !!translation_id
   });
 }
 
 export function getVotesByTranslationId(translation_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getVotesByTranslationIdConfig(translation_id))
+  return hybridFetch(
+    convertToFetchConfig(getVotesByTranslationIdConfig(translation_id))
   );
 }
 
@@ -101,7 +107,7 @@ export function useVotesByTranslationId(translation_id: string) {
     data: votes,
     isLoading: isVotesLoading,
     ...rest
-  } = useHybridSupabaseRealtimeQuery({
+  } = useHybridRealtimeQuery({
     ...getVotesByTranslationIdConfig(translation_id),
     subscribeRealtime: (onChange) => {
       const channel = system.supabaseConnector.client

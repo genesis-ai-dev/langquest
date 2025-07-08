@@ -1,13 +1,14 @@
-import { getCurrentUser } from '@/contexts/AuthProvider';
+import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  convertToSupabaseFetchConfig,
-  createHybridSupabaseQueryConfig,
-  hybridSupabaseFetch,
-  useHybridSupabaseQuery
-} from './useHybridSupabaseQuery';
+  convertToFetchConfig,
+  createHybridQueryConfig,
+  hybridFetch
+} from './useHybridQuery';
 
 interface TreeNode {
   table: string;
@@ -65,7 +66,7 @@ export function useDownloadTreeStructure(
     'queryKey' | 'queryFn'
   >
 ) {
-  return useHybridSupabaseQuery({
+  return useHybridQuery({
     queryKey: ['download-tree-structure'],
     onlineFn: async (): Promise<Record<string, unknown>[]> => {
       const data = await getDownloadTreeStructure();
@@ -93,10 +94,10 @@ export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const data = await hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getDownloadStatusConfig(recordTable, recordId))
+  const data = await hybridFetch(
+    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
   );
-  return !!data[0]?.id;
+  return !!data?.[0]?.id;
 }
 
 function getDownloadStatusConfig(
@@ -104,7 +105,7 @@ function getDownloadStatusConfig(
   recordId: string
 ) {
   const currentUser = getCurrentUser();
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['download-status', recordTable, recordId],
     onlineFn: async () => {
       console.log('recordId', recordId);
@@ -130,7 +131,7 @@ export function useDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const { data, isLoading, ...rest } = useHybridSupabaseQuery(
+  const { data, isLoading, ...rest } = useHybridQuery(
     getDownloadStatusConfig(recordTable, recordId)
   );
 
@@ -190,6 +191,30 @@ export async function downloadRecord(
 
       console.log(
         `📡 [DOWNLOAD RPC] ✅ Successfully completed quest closure download for quest:${recordId}`,
+        data
+      );
+    } else if (recordTable === 'project') {
+      console.log(
+        `📡 [DOWNLOAD RPC] Using project closure download for project:${recordId}`
+      );
+
+      const { data, error } = await system.supabaseConnector.client
+        .rpc('download_project_closure', {
+          project_id_param: recordId,
+          profile_id_param: currentUser.id
+        })
+        .overrideTypes<{ table_name: string; records_updated: number }[]>();
+
+      if (error) {
+        console.error(
+          `📡 [DOWNLOAD RPC] ❌ Error in download_project_closure RPC:`,
+          error
+        );
+        throw error;
+      }
+
+      console.log(
+        `📡 [DOWNLOAD RPC] ✅ Successfully completed project closure download for project:${recordId}`,
         data
       );
     } else {
@@ -307,5 +332,166 @@ export function useDownload(
     isLoading: isLoading || mutation.isPending,
     toggleDownload,
     mutation
+  };
+}
+
+/**
+ * Enhanced hook for quest download status using quest closure table
+ * Provides progress information and efficient status checking
+ */
+export function useQuestDownloadStatus(questId: string) {
+  const currentUser = getCurrentUser();
+
+  const { data: questClosure, isLoading } = useHybridQuery({
+    queryKey: ['quest-closure', questId],
+    enabled: !!questId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_closure')
+        .select('*')
+        .eq('quest_id', questId)
+        .limit(1)
+        .overrideTypes<
+          {
+            quest_id: string;
+            project_id: string;
+            total_assets: number;
+            total_translations: number;
+            approved_translations: number;
+            last_updated: string;
+          }[]
+        >();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest_closure.findMany({
+        where: (fields, { eq }) => eq(fields.quest_id, questId),
+        limit: 1
+      })
+    )
+  });
+
+  // Check if quest is downloaded by looking at quest's download_profiles
+  const { data: questDownloadStatus } = useHybridQuery({
+    queryKey: ['quest-download-status', questId],
+    enabled: !!questId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('id, download_profiles')
+        .eq('id', questId)
+        .contains('download_profiles', [currentUser!.id])
+        .limit(1)
+        .overrideTypes<{ id: string; download_profiles: string[] }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT id, download_profiles FROM quest WHERE id = '${questId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
+  });
+
+  const closureData = questClosure?.[0];
+  const isDownloaded = !!questDownloadStatus?.[0]?.id;
+
+  // Calculate progress percentage
+  const progressPercentage = closureData
+    ? Math.round(
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
+    : 0;
+
+  return {
+    isDownloaded,
+    isLoading,
+    questClosure: closureData,
+    progressPercentage,
+    totalAssets: closureData?.total_assets || 0,
+    totalTranslations: closureData?.total_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0
+  };
+}
+
+/**
+ * Enhanced hook for project download status using project closure table
+ * Provides progress information and efficient status checking for entire projects
+ */
+export function useProjectDownloadStatus(projectId: string) {
+  const currentUser = getCurrentUser();
+
+  const { data: projectClosure, isLoading } = useHybridQuery({
+    queryKey: ['project-closure', projectId],
+    enabled: !!projectId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_closure')
+        .select('*')
+        .eq('project_id', projectId)
+        .limit(1)
+        .overrideTypes<
+          {
+            project_id: string;
+            total_quests: number;
+            total_assets: number;
+            total_translations: number;
+            approved_translations: number;
+            last_updated: string;
+          }[]
+        >();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT * FROM project_closure WHERE project_id = '${projectId}' LIMIT 1`
+  });
+
+  // Check if project is downloaded by looking at project's download_profiles
+  const { data: projectDownloadStatus } = useHybridQuery({
+    queryKey: ['project-download-status', projectId],
+    enabled: !!projectId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, download_profiles')
+        .eq('id', projectId)
+        .contains('download_profiles', [currentUser!.id])
+        .limit(1)
+        .overrideTypes<{ id: string; download_profiles: string[] }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT id, download_profiles FROM project WHERE id = '${projectId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
+  });
+
+  const closureData = projectClosure?.[0] as
+    | {
+        project_id: string;
+        total_quests: number;
+        total_assets: number;
+        total_translations: number;
+        approved_translations: number;
+        last_updated: string;
+      }
+    | undefined;
+  const isDownloaded = !!projectDownloadStatus?.[0]?.id;
+
+  // Calculate progress percentage based on approved translations vs total assets
+  const progressPercentage = closureData
+    ? Math.round(
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
+    : 0;
+
+  return {
+    isDownloaded,
+    isLoading,
+    projectClosure: closureData,
+    progressPercentage,
+    totalQuests: closureData?.total_quests || 0,
+    totalAssets: closureData?.total_assets || 0,
+    totalTranslations: closureData?.total_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0
   };
 }

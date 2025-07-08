@@ -439,7 +439,7 @@ export default function LoginView() {
                                   style={{ flex: 1, color: colors.text }}
                                   placeholder={t('confirmPassword')}
                                   placeholderTextColor={colors.text}
-                                  value={value ?? ''}
+                                  value={value || ''}
                                   onChangeText={onChange}
                                 />
                               </View>

@@ -6,11 +6,11 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectSkeleton } from '@/components/ProjectSkeleton';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   useSessionLanguages,
   useSessionMemberships
-} from '@/contexts/SessionCacheProvider';
+} from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useDownload } from '@/hooks/useDownloads';
@@ -139,6 +139,9 @@ export default function ProjectsView() {
   // Add performance tracking
   useRenderCounter('ProjectsView');
 
+  // Use session cache for languages instead of individual queries
+  const { languages: _allLanguages, isLanguagesLoading: _isLanguagesLoading } =
+    useSessionLanguages();
   const { isUserMember: _isUserMember } = useSessionMemberships();
 
   const _sourceFilter = useLocalStore((state) => state.projectSourceFilter);
@@ -164,11 +167,7 @@ export default function ProjectsView() {
     isError,
     error: _error,
     refetch
-  } = useInfiniteProjects({
-    pageSize: 10,
-    sortField: 'name',
-    sortOrder: 'asc'
-  });
+  } = useInfiniteProjects(10, 'name', 'asc');
 
   const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
 

@@ -3,9 +3,10 @@ import { reportService } from '@/database_services/reportService';
 import type { reasonOptions } from '@/db/constants';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
-import { useHybridSupabaseQuery } from './useHybridSupabaseQuery';
 
 /**
  * Hook for checking if a user has reported a specific record
@@ -15,15 +16,27 @@ export const useHasUserReported = (
   recordTable: string,
   reporterId: string
 ) => {
-  const { data: reportArray, isLoading } = useHybridSupabaseQuery({
+  const { data: reportArray, isLoading } = useHybridQuery({
     queryKey: ['reports', 'hasReported', recordId, recordTable, reporterId],
-    query: system.db.query.reports.findMany({
-      where: and(
-        eq(reports.record_id, recordId),
-        eq(reports.record_table, recordTable),
-        eq(reports.reporter_id, reporterId)
-      )
-    }),
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('reports')
+        .select('*')
+        .eq('record_id', recordId)
+        .eq('record_table', recordTable)
+        .eq('reporter_id', reporterId);
+      if (error) throw error;
+      return data as Record<string, unknown>[];
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.reports.findMany({
+        where: and(
+          eq(reports.record_id, recordId),
+          eq(reports.record_table, recordTable),
+          eq(reports.reporter_id, reporterId)
+        )
+      })
+    ),
     enabled: !!recordId && !!recordTable && !!reporterId
   });
 

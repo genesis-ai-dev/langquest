@@ -6,15 +6,17 @@ import {
   quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { useMemo } from 'react';
 import {
-  convertToSupabaseFetchConfig,
-  createHybridSupabaseQueryConfig,
-  hybridSupabaseFetch,
-  useHybridSupabaseInfiniteQuery,
-  useHybridSupabaseQuery
-} from '../useHybridSupabaseQuery';
+  convertToFetchConfig,
+  createHybridQueryConfig,
+  hybridFetch,
+  useHybridInfiniteQuery,
+  useHybridQuery
+} from '../useHybridQuery';
 import type { Tag } from './useTags';
 
 export type Asset = InferSelectModel<typeof asset>;
@@ -29,21 +31,34 @@ export type Vote = InferSelectModel<typeof vote>;
 
 function getAssetByIdConfig(asset_id: string | string[]) {
   const assetIds = Array.isArray(asset_id) ? asset_id : [asset_id];
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['asset', asset_id],
-    query: system.db.query.asset.findMany({
-      where: inArray(asset.id, assetIds)
-    }),
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select('*')
+        .in('id', assetIds)
+        .overrideTypes<(Omit<Asset, 'images'> & { images: string })[]>();
+      if (error) throw error;
+
+      return data.map((asset) => ({
+        ...asset,
+        images: JSON.parse(asset.images) as Asset['images']
+      }));
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findMany({
+        where: inArray(asset.id, assetIds)
+      })
+    ),
     enabled: !!assetIds.length
   });
 }
 
 export async function getAssetById(asset_id: string) {
   return (
-    await hybridSupabaseFetch(
-      convertToSupabaseFetchConfig(getAssetByIdConfig(asset_id))
-    )
-  )[0];
+    await hybridFetch(convertToFetchConfig(getAssetByIdConfig(asset_id)))
+  )?.[0];
 }
 
 export function useAssetById(asset_id: string | undefined) {
@@ -54,24 +69,25 @@ export function useAssetById(asset_id: string | undefined) {
     data: assetArray,
     isLoading: isAssetLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['asset', asset_id],
     enabled: !!asset_id,
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('asset')
         .select('*')
         .eq('id', asset_id)
         .limit(1)
-        .abortSignal(signal)
         .overrideTypes<Asset[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: db.query.asset.findMany({
-      where: (fields, { eq }) => eq(fields.id, asset_id!),
-      limit: 1
-    })
+    offlineQuery: toCompilableQuery(
+      db.query.asset.findMany({
+        where: (fields, { eq }) => eq(fields.id, asset_id!),
+        limit: 1
+      })
+    )
   });
 
   const asset = assetArray?.[0] || null;
@@ -80,9 +96,7 @@ export function useAssetById(asset_id: string | undefined) {
 }
 
 export function getAssetsById(asset_ids: string[]) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetByIdConfig(asset_ids))
-  );
+  return hybridFetch(convertToFetchConfig(getAssetByIdConfig(asset_ids)));
 }
 
 /**
@@ -91,29 +105,28 @@ export function getAssetsById(asset_ids: string[]) {
  */
 
 function getAssetContentConfig(asset_id: string) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['asset-content', asset_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
-        .abortSignal(signal)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.asset_content_link.findMany({
-      where: eq(asset_content_link.asset_id, asset_id)
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: eq(asset_content_link.asset_id, asset_id)
+      })
+    ),
     enabled: !!asset_id
   });
 }
 
 export function getAssetContent(asset_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetContentConfig(asset_id))
-  );
+  return hybridFetch(convertToFetchConfig(getAssetContentConfig(asset_id)));
 }
 
 export function useAssetContent(asset_id: string) {
@@ -121,35 +134,34 @@ export function useAssetContent(asset_id: string) {
     data: assetContent,
     isLoading: isAssetContentLoading,
     ...rest
-  } = useHybridSupabaseQuery(getAssetContentConfig(asset_id));
+  } = useHybridQuery(getAssetContentConfig(asset_id));
 
   return { assetContent, isAssetContentLoading, ...rest };
 }
 
 function getAssetsContentConfig(asset_ids: string[]) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['asset-content', asset_ids],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
-        .abortSignal(signal)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.asset_content_link.findMany({
-      where: inArray(asset_content_link.asset_id, asset_ids)
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: inArray(asset_content_link.asset_id, asset_ids)
+      })
+    ),
     enabled: !!asset_ids.length
   });
 }
 
 export function getAssetsContent(asset_ids: string[]) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetsContentConfig(asset_ids))
-  );
+  return hybridFetch(convertToFetchConfig(getAssetsContentConfig(asset_ids)));
 }
 
 export function useAssetsContent(asset_ids: string[]) {
@@ -157,38 +169,39 @@ export function useAssetsContent(asset_ids: string[]) {
     data: assetsContent,
     isLoading: isAssetContentLoading,
     ...rest
-  } = useHybridSupabaseQuery(getAssetsContentConfig(asset_ids));
+  } = useHybridQuery(getAssetsContentConfig(asset_ids));
 
   return { assetsContent, isAssetContentLoading, ...rest };
 }
 
 function getAssetAudioContentConfig(asset_id: string) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['asset-audio-content', asset_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
         .not('audio_id', 'is', null)
-        .abortSignal(signal)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.asset_content_link.findMany({
-      where: and(
-        eq(asset_content_link.asset_id, asset_id),
-        isNotNull(asset_content_link.audio_id)
-      )
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: and(
+          eq(asset_content_link.asset_id, asset_id),
+          isNotNull(asset_content_link.audio_id)
+        )
+      })
+    ),
     enabled: !!asset_id
   });
 }
 
 export function getAssetAudioContent(asset_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetAudioContentConfig(asset_id))
+  return hybridFetch(
+    convertToFetchConfig(getAssetAudioContentConfig(asset_id))
   );
 }
 
@@ -197,38 +210,39 @@ export function useAssetAudioContent(asset_id: string) {
     data: assetAudioContent,
     isLoading: isAssetAudioContentLoading,
     ...rest
-  } = useHybridSupabaseQuery(getAssetAudioContentConfig(asset_id));
+  } = useHybridQuery(getAssetAudioContentConfig(asset_id));
 
   return { assetAudioContent, isAssetAudioContentLoading, ...rest };
 }
 
 function getAssetsAudioContentConfig(asset_ids: string[]) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['assets-audio-content', asset_ids],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
         .not('audio_id', 'is', null)
-        .abortSignal(signal)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.asset_content_link.findMany({
-      where: and(
-        inArray(asset_content_link.asset_id, asset_ids),
-        isNotNull(asset_content_link.audio_id)
-      )
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: and(
+          inArray(asset_content_link.asset_id, asset_ids),
+          isNotNull(asset_content_link.audio_id)
+        )
+      })
+    ),
     enabled: !!asset_ids.length
   });
 }
 
 export function getAssetsAudioContent(asset_ids: string[]) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetsAudioContentConfig(asset_ids))
+  return hybridFetch(
+    convertToFetchConfig(getAssetsAudioContentConfig(asset_ids))
   );
 }
 
@@ -237,15 +251,15 @@ export function useAssetsAudioContent(asset_ids: string[]) {
     data: assetsAudioContent,
     isLoading: isAssetsAudioContentLoading,
     ...rest
-  } = useHybridSupabaseQuery(getAssetsAudioContentConfig(asset_ids));
+  } = useHybridQuery(getAssetsAudioContentConfig(asset_ids));
 
   return { assetsAudioContent, isAssetsAudioContentLoading, ...rest };
 }
 
 function getAssetsByQuestIdConfig(quest_id: string) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['assets', 'by-quest', quest_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through junction table
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
@@ -257,35 +271,34 @@ function getAssetsByQuestIdConfig(quest_id: string) {
         `
         )
         .eq('quest_id', quest_id)
-        .abortSignal(signal)
         .overrideTypes<{ asset: Asset }[]>();
 
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: system.db
-      .select({
-        id: asset.id,
-        name: asset.name,
-        source_language_id: asset.source_language_id,
-        images: asset.images,
-        creator_id: asset.creator_id,
-        visible: asset.visible,
-        active: asset.active,
-        created_at: asset.created_at,
-        last_updated: asset.last_updated
-      })
-      .from(asset)
-      .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-      .where(eq(quest_asset_link.quest_id, quest_id)),
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          id: asset.id,
+          name: asset.name,
+          source_language_id: asset.source_language_id,
+          images: asset.images,
+          creator_id: asset.creator_id,
+          visible: asset.visible,
+          active: asset.active,
+          created_at: asset.created_at,
+          last_updated: asset.last_updated
+        })
+        .from(asset)
+        .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+        .where(eq(quest_asset_link.quest_id, quest_id))
+    ),
     enabled: !!quest_id
   });
 }
 
 export function getAssetsByQuestId(quest_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getAssetsByQuestIdConfig(quest_id))
-  );
+  return hybridFetch(convertToFetchConfig(getAssetsByQuestIdConfig(quest_id)));
 }
 
 /**
@@ -297,7 +310,7 @@ export function useAssetsByQuestId(quest_id: string) {
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery(getAssetsByQuestIdConfig(quest_id));
+  } = useHybridQuery(getAssetsByQuestIdConfig(quest_id));
 
   return { assets, isAssetsLoading, ...rest };
 }
@@ -313,9 +326,9 @@ export function useAssetsByProjectId(project_id: string) {
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['assets', 'by-project', project_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through quest -> quest_asset_link -> asset
       const { data, error } = await supabaseConnector.client
         .from('quest')
@@ -329,7 +342,6 @@ export function useAssetsByProjectId(project_id: string) {
         `
         )
         .eq('project_id', project_id)
-        .abortSignal(signal)
         .overrideTypes<{ quest_asset_link: { asset: Asset }[] }[]>();
 
       if (error) throw error;
@@ -344,22 +356,24 @@ export function useAssetsByProjectId(project_id: string) {
 
       return Array.from(uniqueAssets.values());
     },
-    offlineQuery: db
-      .selectDistinct({
-        id: asset.id,
-        name: asset.name,
-        source_language_id: asset.source_language_id,
-        images: asset.images,
-        creator_id: asset.creator_id,
-        visible: asset.visible,
-        active: asset.active,
-        created_at: asset.created_at,
-        last_updated: asset.last_updated
-      })
-      .from(asset)
-      .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-      .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
-      .where(eq(quest.project_id, project_id)),
+    offlineQuery: toCompilableQuery(
+      db
+        .selectDistinct({
+          id: asset.id,
+          name: asset.name,
+          source_language_id: asset.source_language_id,
+          images: asset.images,
+          creator_id: asset.creator_id,
+          visible: asset.visible,
+          active: asset.active,
+          created_at: asset.created_at,
+          last_updated: asset.last_updated
+        })
+        .from(asset)
+        .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+        .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
+        .where(eq(quest.project_id, project_id))
+    ),
     enabled: !!project_id
   });
 
@@ -378,9 +392,9 @@ export function useAssetsWithTagsByQuestId(quest_id: string) {
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['assets', 'by-quest', 'with-tags', quest_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through junction table with tags
       const { data, error } = await supabaseConnector.client
         .from('quest_asset_link')
@@ -397,27 +411,28 @@ export function useAssetsWithTagsByQuestId(quest_id: string) {
         `
         )
         .eq('quest_id', quest_id)
-        .abortSignal(signal)
         .overrideTypes<{ asset: Asset & { tags: { tag: Tag }[] } }[]>();
 
       if (error) throw error;
       return data;
     },
-    offlineQuery: db.query.quest_asset_link.findMany({
-      where: eq(quest_asset_link.quest_id, quest_id),
-      columns: {},
-      with: {
-        asset: {
-          with: {
-            tags: {
-              with: {
-                tag: true
+    offlineQuery: toCompilableQuery(
+      db.query.quest_asset_link.findMany({
+        where: eq(quest_asset_link.quest_id, quest_id),
+        columns: {},
+        with: {
+          asset: {
+            with: {
+              tags: {
+                with: {
+                  tag: true
+                }
               }
             }
           }
         }
-      }
-    }),
+      })
+    ),
     enabled: !!quest_id
   });
 
@@ -431,9 +446,9 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['assets', 'by-quest', 'with-tags-content', quest_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through junction table with tags and content
       const { data, error } = await supabaseConnector.client
         .from('quest_asset_link')
@@ -453,7 +468,6 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
         `
         )
         .eq('quest_id', quest_id)
-        .abortSignal(signal)
         .overrideTypes<
           { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
         >();
@@ -461,23 +475,25 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: db.query.asset.findMany({
-      where: inArray(
-        asset.id,
-        db
-          .select({ asset_id: quest_asset_link.asset_id })
-          .from(quest_asset_link)
-          .where(eq(quest_asset_link.quest_id, quest_id))
-      ),
-      with: {
-        content: true,
-        tags: {
-          with: {
-            tag: true
+    offlineQuery: toCompilableQuery(
+      db.query.asset.findMany({
+        where: inArray(
+          asset.id,
+          db
+            .select({ asset_id: quest_asset_link.asset_id })
+            .from(quest_asset_link)
+            .where(eq(quest_asset_link.quest_id, quest_id))
+        ),
+        with: {
+          content: true,
+          tags: {
+            with: {
+              tag: true
+            }
           }
         }
-      }
-    }),
+      })
+    ),
     enabled: !!quest_id
   });
 
@@ -495,9 +511,9 @@ export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['assets', 'by-quest', 'with-translations-votes', quest_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through junction table with translations and votes
       const { data, error } = await supabaseConnector.client
         .from('quest_asset_link')
@@ -515,7 +531,6 @@ export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
         `
         )
         .eq('quest_id', quest_id)
-        .abortSignal(signal)
         .overrideTypes<
           {
             asset: Asset & {
@@ -527,22 +542,24 @@ export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: db.query.asset.findMany({
-      where: inArray(
-        asset.id,
-        system.db
-          .select({ asset_id: quest_asset_link.asset_id })
-          .from(quest_asset_link)
-          .where(eq(quest_asset_link.quest_id, quest_id))
-      ),
-      with: {
-        translations: {
-          with: {
-            votes: true
+    offlineQuery: toCompilableQuery(
+      db.query.asset.findMany({
+        where: inArray(
+          asset.id,
+          db
+            .select({ asset_id: quest_asset_link.asset_id })
+            .from(quest_asset_link)
+            .where(eq(quest_asset_link.quest_id, quest_id))
+        ),
+        with: {
+          translations: {
+            with: {
+              votes: true
+            }
           }
         }
-      }
-    }),
+      })
+    ),
     enabled: !!quest_id
   });
 
@@ -562,9 +579,9 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
     data: assets,
     isLoading: isAssetsLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['assets', 'by-project', 'with-translations-votes', project_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       // Get assets through quest -> quest_asset_link -> asset with translations and votes
       const { data, error } = await supabaseConnector.client
         .from('quest')
@@ -584,7 +601,6 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
         `
         )
         .eq('project_id', project_id)
-        .abortSignal(signal)
         .overrideTypes<
           {
             quest_asset_link: {
@@ -610,23 +626,25 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
 
       return Array.from(uniqueAssets.values());
     },
-    offlineQuery: db.query.asset.findMany({
-      where: inArray(
-        asset.id,
-        system.db
-          .selectDistinct({ asset_id: quest_asset_link.asset_id })
-          .from(quest_asset_link)
-          .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
-          .where(eq(quest.project_id, project_id))
-      ),
-      with: {
-        translations: {
-          with: {
-            votes: true
+    offlineQuery: toCompilableQuery(
+      db.query.asset.findMany({
+        where: inArray(
+          asset.id,
+          db
+            .selectDistinct({ asset_id: quest_asset_link.asset_id })
+            .from(quest_asset_link)
+            .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
+            .where(eq(quest.project_id, project_id))
+        ),
+        with: {
+          translations: {
+            with: {
+              votes: true
+            }
           }
         }
-      }
-    }),
+      })
+    ),
     enabled: !!project_id
   });
 
@@ -644,23 +662,27 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
   sortField?: string,
   sortOrder?: 'asc' | 'desc'
 ) {
-  // Filter out undefined values from query key to prevent null values
-  const queryKeyParts = [
-    'assets',
-    'infinite',
-    'by-quest',
-    'with-tags-content',
-    quest_id,
-    pageSize
-  ];
-  if (sortField) queryKeyParts.push(sortField);
-  if (sortOrder) queryKeyParts.push(sortOrder);
+  // FIXED: Create stable query key with useMemo to prevent infinite loops
+  const queryKey = useMemo(() => {
+    const baseKey = [
+      'assets',
+      'infinite',
+      'by-quest',
+      'with-tags-content',
+      quest_id,
+      pageSize
+    ];
 
-  return useHybridSupabaseInfiniteQuery<
-    Asset & { tags: { tag: Tag }[]; content: AssetContent[] }
-  >({
-    queryKey: queryKeyParts,
-    onlineFn: async ({ pageParam, pageSize, signal }) => {
+    // Only add optional parameters if they have values
+    if (sortField) baseKey.push(sortField);
+    if (sortOrder) baseKey.push(sortOrder);
+
+    return baseKey;
+  }, [quest_id, pageSize, sortField, sortOrder]);
+
+  return useHybridInfiniteQuery({
+    queryKey: queryKey,
+    onlineFn: async ({ pageParam, signal }) => {
       // Calculate pagination range
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
@@ -681,7 +703,8 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
               )
             )
           )
-        `
+        `,
+          { count: 'exact' }
         )
         .eq('quest_id', quest_id);
 
@@ -699,7 +722,8 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       // Add pagination
       query = query.range(from, to);
 
-      const { data, error } = await query
+      // Add abort signal for proper cleanup
+      const { data, error, count } = await query
         .abortSignal(signal)
         .overrideTypes<
           { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
@@ -725,9 +749,17 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
         });
       }
 
-      return assets;
+      const totalCount = count ?? 0;
+      const hasMore = from + pageSize < totalCount;
+
+      return {
+        data: assets,
+        nextCursor: hasMore ? pageParam + 1 : undefined,
+        hasMore,
+        totalCount
+      };
     },
-    offlineFn: async ({ pageParam, pageSize }) => {
+    offlineFn: async ({ pageParam }) => {
       // Offline query with manual pagination using Drizzle
       const offsetValue = pageParam * pageSize;
 
@@ -762,18 +794,40 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
               : asc(asset.name)
         });
 
-        console.log(`[OfflineAssets] Found ${allAssets.length} assets`);
+        // Get total count for hasMore calculation
+        const totalAssets = await system.db
+          .select({ asset_id: quest_asset_link.asset_id })
+          .from(quest_asset_link)
+          .where(eq(quest_asset_link.quest_id, quest_id));
 
-        return allAssets;
+        const totalCount = totalAssets.length;
+        const hasMore = offsetValue + pageSize < totalCount;
+
+        console.log(
+          `[OfflineAssets] Found ${allAssets.length} assets, total: ${totalCount}, hasMore: ${hasMore}`
+        );
+
+        return {
+          data: allAssets,
+          nextCursor: hasMore ? pageParam + 1 : undefined,
+          hasMore,
+          totalCount
+        };
       } catch (error) {
         console.error('[OfflineAssets] Error in offline query:', error);
         // Return empty result rather than throwing
-        return [];
+        return {
+          data: [],
+          nextCursor: undefined,
+          hasMore: false,
+          totalCount: 0
+        };
       }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!quest_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    pageSize
+    gcTime: 10 * 60 * 1000 // 10 minutes
   });
 }

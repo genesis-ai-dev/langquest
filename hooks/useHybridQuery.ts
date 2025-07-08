@@ -16,10 +16,6 @@ import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
 type GetQueryParam<T> = Parameters<typeof useQuery<T>>[0];
 
-type GetInfiniteQueryParam<T> = Parameters<
-  typeof useInfiniteQuery<HybridPageData<T>>
->[0];
-
 /**
  * Options for online queries (excludes the 'query' property)
  */
@@ -43,11 +39,6 @@ type HybridQueryConfig<T> = (
    */
   getId?: (record: T | Partial<T>) => string | number;
 };
-
-interface InfiniteQueryContext<T>
-  extends QueryFunctionContext<GetQueryParam<T>['queryKey'], number> {
-  pageSize: number;
-}
 
 /**
  * useHybridQuery
@@ -419,9 +410,9 @@ export function convertToFetchConfig<T extends Record<string, unknown>>(
 /**
  * Page data structure for hybrid infinite queries
  */
-interface HybridPageData<T> {
+interface HybridPageData<T, TPageParam = unknown> {
   data: T[];
-  nextCursor?: number;
+  nextCursor?: TPageParam;
   hasMore?: boolean;
   totalCount?: number;
 }
@@ -429,16 +420,41 @@ interface HybridPageData<T> {
 /**
  * Configuration for hybrid infinite queries
  */
-interface HybridInfiniteQueryOptions<T extends Record<string, unknown>>
-  extends Omit<
-    GetInfiniteQueryParam<T>,
-    'queryFn' | 'initialPageParam' | 'getNextPageParam' | 'getPreviousPageParam'
-  > {
-  onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
-  offlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
+type HybridInfiniteQueryOptions<
+  T extends Record<string, unknown>,
+  TPageParam = unknown
+> = {
+  queryKey: readonly unknown[];
+  onlineFn: (
+    context: QueryFunctionContext<readonly unknown[], TPageParam>
+  ) => Promise<HybridPageData<T, TPageParam>>;
+  initialPageParam: TPageParam;
+  getNextPageParam: (
+    lastPage: HybridPageData<T, TPageParam>
+  ) => TPageParam | undefined;
+  getPreviousPageParam?: (
+    firstPage: HybridPageData<T, TPageParam>
+  ) => TPageParam | undefined;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
   getId?: (record: T | Partial<T>) => string | number;
-  pageSize: number;
-}
+} & (
+  | {
+      offlineFn: (
+        context: QueryFunctionContext<readonly unknown[], TPageParam>
+      ) => Promise<HybridPageData<T, TPageParam>>;
+      offlineQuery?: never;
+    }
+  | {
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
+);
+
 /**
  * useHybridInfiniteQuery
  *
@@ -480,14 +496,18 @@ interface HybridInfiniteQueryOptions<T extends Record<string, unknown>>
  *   getNextPageParam: (lastPage) => lastPage.nextCursor
  * });
  */
-export function useHybridInfiniteQuery<T extends Record<string, unknown>>(
-  options: HybridInfiniteQueryOptions<T>
-) {
+export function useHybridInfiniteQuery<
+  T extends Record<string, unknown>,
+  TPageParam = unknown
+>(options: HybridInfiniteQueryOptions<T, TPageParam>) {
+  const timestamp = performance.now();
   const {
     queryKey,
     onlineFn,
     offlineFn: _offlineFn,
-    pageSize = 10,
+    initialPageParam,
+    getNextPageParam,
+    getPreviousPageParam,
     ...restOptions
   } = options;
 
@@ -507,16 +527,8 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>>(
     const cleanBaseKey = baseKey.filter(
       (key) => key !== undefined && key !== null
     );
-    const hybridQueryKey = [
-      ...cleanBaseKey,
-      pageSize,
-      isOnline ? 'online' : 'offline'
-    ];
-    const oppositeQueryKey = [
-      ...cleanBaseKey,
-      pageSize,
-      isOnline ? 'offline' : 'online'
-    ];
+    const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
+    const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
 
     return { hybridQueryKey, oppositeQueryKey };
   }, [queryKey, isOnline]);
@@ -528,9 +540,9 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>>(
 
   const sharedOptions = {
     queryKey: stableQueryKeys.hybridQueryKey,
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    getPreviousPageParam: (firstPage) => firstPage.nextCursor,
+    initialPageParam,
+    getNextPageParam,
+    getPreviousPageParam,
     initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000, // Data fresh for 30 seconds
@@ -540,29 +552,13 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>>(
     refetchOnWindowFocus: false,
     refetchOnMount: false, // FIXED: Prevent excessive refetching
     ...restOptions
-  } satisfies GetInfiniteQueryParam<T>;
+  };
 
   const useOfflineInfiniteQuery = () => {
     if (typeof options.offlineFn === 'function') {
       return useInfiniteQuery({
         ...sharedOptions,
-        queryFn: async (context) => {
-          const completeContext = {
-            ...context,
-            pageSize,
-            pageParam: context.pageParam as number
-          } satisfies InfiniteQueryContext<T>;
-
-          const results = await options.offlineFn(completeContext);
-          return {
-            data: results,
-            nextCursor:
-              results.length === pageSize
-                ? (context.pageParam as number) + 1
-                : undefined,
-            hasMore: results.length === pageSize
-          };
-        },
+        queryFn: options.offlineFn,
         enabled: true
       });
     } else {
@@ -578,23 +574,7 @@ export function useHybridInfiniteQuery<T extends Record<string, unknown>>(
   if (isOnline) {
     const result = useInfiniteQuery({
       ...sharedOptions,
-      queryFn: async (context) => {
-        const completeContext = {
-          ...context,
-          pageSize,
-          pageParam: context.pageParam as number
-        } satisfies InfiniteQueryContext<T>;
-
-        const results = await onlineFn(completeContext);
-        return {
-          data: results,
-          nextCursor:
-            results.length === pageSize
-              ? (context.pageParam as number) + 1
-              : undefined,
-          hasMore: results.length === pageSize
-        };
-      },
+      queryFn: onlineFn,
       refetchOnReconnect: true,
       refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
       refetchOnMount: false // FIXED: Prevent refetch on every mount

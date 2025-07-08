@@ -3,7 +3,7 @@
  * Uses state-driven navigation for instant view transitions
  */
 
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import AppView from '@/views/AppView';
