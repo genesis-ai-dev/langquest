@@ -5,6 +5,8 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import type { SortingOption } from '@/views/QuestsView';
+import { filterQuests } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import React, { useMemo } from 'react';
@@ -18,7 +20,6 @@ import {
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';
-import { filterQuests, SortingOption } from '@/views/QuestsView';
 
 // Main quest list component with performance optimizations
 export const QuestList = React.memo(
@@ -202,7 +203,7 @@ export const QuestList = React.memo(
             onPress={onQuestPress}
           />
         )}
-        keyExtractor={(item: QuestWithTags) => item.id}
+        keyExtractor={(item) => item.id}
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}

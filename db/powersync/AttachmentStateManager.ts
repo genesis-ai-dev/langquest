@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
+import { getCurrentUser } from '@/contexts/AuthProvider';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import type * as drizzleSchema from '../drizzleSchema';
 

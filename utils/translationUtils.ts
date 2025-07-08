@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
+import { getCurrentUser } from '@/contexts/AuthProvider';
 import { getLanguageById } from '@/hooks/db/useLanguages';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';

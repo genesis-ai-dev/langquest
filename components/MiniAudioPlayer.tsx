@@ -1,4 +1,4 @@
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio } from '@/contexts/AudioProvider';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';

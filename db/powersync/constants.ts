@@ -1,4 +1,4 @@
 export const ATTACHMENT_QUEUE_LIMITS = {
-  PERMANENT: 20000,
+  PERMANENT: 100000,
   TEMPORARY: 200
 } as const;
