@@ -593,6 +593,9 @@ export const quest_closure = sqliteTable(
     total_translations: int().notNull().default(0),
     approved_translations: int().notNull().default(0),
 
+    // Download tracking
+    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
+
     last_updated: text().notNull().default(timestampDefault)
   },
   (table) => [
@@ -608,6 +611,50 @@ export const quest_closureRelations = relations(quest_closure, ({ one }) => ({
   }),
   project: one(project, {
     fields: [quest_closure.project_id],
+    references: [project.id]
+  })
+}));
+
+export const project_closure = sqliteTable(
+  'project_closure',
+  {
+    project_id: text()
+      .primaryKey()
+      .references(() => project.id),
+
+    // ID Arrays (for bulk downloads - aggregated from all quest closures)
+    asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    quest_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_content_link_ids: text({ mode: 'json' })
+      .$type<string[]>()
+      .default([]),
+    quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    // Computed Aggregates (for progress display)
+    total_quests: int().notNull().default(0),
+    total_assets: int().notNull().default(0),
+    total_translations: int().notNull().default(0),
+    approved_translations: int().notNull().default(0),
+
+    // Download tracking
+    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    last_updated: text().notNull().default(timestampDefault)
+  },
+  (table) => [
+    index('project_closure_last_updated_idx').on(table.last_updated)
+  ]
+);
+
+export const project_closureRelations = relations(project_closure, ({ one }) => ({
+  project: one(project, {
+    fields: [project_closure.project_id],
     references: [project.id]
   })
 }));

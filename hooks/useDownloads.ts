@@ -193,6 +193,30 @@ export async function downloadRecord(
         `📡 [DOWNLOAD RPC] ✅ Successfully completed quest closure download for quest:${recordId}`,
         data
       );
+    } else if (recordTable === 'project') {
+      console.log(
+        `📡 [DOWNLOAD RPC] Using project closure download for project:${recordId}`
+      );
+
+      const { data, error } = await system.supabaseConnector.client
+        .rpc('download_project_closure', {
+          project_id_param: recordId,
+          profile_id_param: currentUser.id
+        })
+        .overrideTypes<{ table_name: string; records_updated: number }[]>();
+
+      if (error) {
+        console.error(
+          `📡 [DOWNLOAD RPC] ❌ Error in download_project_closure RPC:`,
+          error
+        );
+        throw error;
+      }
+
+      console.log(
+        `📡 [DOWNLOAD RPC] ✅ Successfully completed project closure download for project:${recordId}`,
+        data
+      );
     } else {
       // Fall back to old system for non-quest records
       console.log(
@@ -377,6 +401,81 @@ export function useQuestDownloadStatus(questId: string) {
     isLoading,
     questClosure: closureData,
     progressPercentage,
+    totalAssets: closureData?.total_assets || 0,
+    totalTranslations: closureData?.total_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0,
+  };
+}
+
+/**
+ * Enhanced hook for project download status using project closure table
+ * Provides progress information and efficient status checking for entire projects
+ */
+export function useProjectDownloadStatus(projectId: string) {
+  const currentUser = getCurrentUser();
+
+  const { data: projectClosure, isLoading } = useHybridQuery({
+    queryKey: ['project-closure', projectId],
+    enabled: !!projectId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_closure')
+        .select('*')
+        .eq('project_id', projectId)
+        .limit(1)
+        .overrideTypes<{
+          project_id: string;
+          total_quests: number;
+          total_assets: number;
+          total_translations: number;
+          approved_translations: number;
+          last_updated: string;
+        }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT * FROM project_closure WHERE project_id = '${projectId}' LIMIT 1`
+  });
+
+  // Check if project is downloaded by looking at project's download_profiles
+  const { data: projectDownloadStatus } = useHybridQuery({
+    queryKey: ['project-download-status', projectId],
+    enabled: !!projectId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, download_profiles')
+        .eq('id', projectId)
+        .contains('download_profiles', [currentUser!.id])
+        .limit(1)
+        .overrideTypes<{ id: string; download_profiles: string[] }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT id, download_profiles FROM project WHERE id = '${projectId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
+  });
+
+  const closureData = projectClosure?.[0] as {
+    project_id: string;
+    total_quests: number;
+    total_assets: number;
+    total_translations: number;
+    approved_translations: number;
+    last_updated: string;
+  } | undefined;
+  const isDownloaded = !!(projectDownloadStatus?.[0]?.id);
+
+  // Calculate progress percentage based on approved translations vs total assets
+  const progressPercentage = closureData
+    ? Math.round((closureData.approved_translations / Math.max(closureData.total_assets, 1)) * 100)
+    : 0;
+
+  return {
+    isDownloaded,
+    isLoading,
+    projectClosure: closureData,
+    progressPercentage,
+    totalQuests: closureData?.total_quests || 0,
     totalAssets: closureData?.total_assets || 0,
     totalTranslations: closureData?.total_translations || 0,
     approvedTranslations: closureData?.approved_translations || 0,
