@@ -1,9 +1,8 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
+import { useHybridSupabaseQuery } from './useHybridSupabaseQuery';
 
 /**
  * # Access Control Constraints
@@ -129,48 +128,27 @@ export function useUserPermissions(
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
   // Query for project details to get privacy setting
-  const { data: projectData = [] } = useHybridQuery({
+  const { data: projectData = [] } = useHybridSupabaseQuery({
     queryKey: ['project-privacy', project_id],
-    onlineFn: async () => {
-      const { data } = await system.supabaseConnector.client
-        .from('project')
-        .select('private')
-        .eq('id', project_id)
-        .single();
-      return data ? [data] : [];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: eq(project.id, project_id),
-        columns: { private: true },
-        limit: 1
-      })
-    ),
+    query: system.db.query.project.findMany({
+      where: eq(project.id, project_id),
+      columns: { private: true },
+      limit: 1
+    }),
     enabled: shouldQueryPrivacy
   });
 
   // Query for membership status
-  const { data: membershipLinks = [] } = useHybridQuery({
+  const { data: membershipLinks = [] } = useHybridSupabaseQuery({
     queryKey: ['membership-status', project_id, currentUser?.id],
-    onlineFn: async () => {
-      const { data } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*')
-        .eq('profile_id', currentUser?.id || '')
-        .eq('project_id', project_id)
-        .eq('active', true);
-      return data as (typeof profile_project_link.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.project_id, project_id),
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.active, true)
-        ),
-        limit: 1
-      })
-    ),
+    query: db.query.profile_project_link.findMany({
+      where: and(
+        eq(profile_project_link.project_id, project_id),
+        eq(profile_project_link.profile_id, currentUser?.id || ''),
+        eq(profile_project_link.active, true)
+      ),
+      limit: 1
+    }),
     enabled: isValidProjectId && !!currentUser?.id
   });
 

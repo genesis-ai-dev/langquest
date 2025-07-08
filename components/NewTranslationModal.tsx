@@ -1,5 +1,5 @@
-import { useAudio } from '@/contexts/AudioContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAudio } from '@/contexts/AudioProvider';
+import { useAuth } from '@/contexts/AuthProvider';
 import { translationService } from '@/database_services/translationService';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';

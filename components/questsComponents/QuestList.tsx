@@ -1,16 +1,24 @@
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
+import { quest } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useInfiniteQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
+import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
+import { eq } from 'drizzle-orm';
 import React, { useMemo } from 'react';
-import { RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import type { SortingOption } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
 import { filterQuests } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
-import { QuestSkeleton } from './QuestSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';
 
 // Main quest list component with performance optimizations
@@ -20,89 +28,135 @@ export const QuestList = React.memo(
     activeSorting,
     searchQuery,
     activeFilters,
-    onQuestPress
+    onQuestPress,
+    onLoadMore
   }: {
     projectId: string;
     activeSorting: SortingOption[];
     searchQuery: string;
     activeFilters: Record<string, string[]>;
     onQuestPress: (quest: Quest) => void;
+    onLoadMore: () => void;
   }) => {
     const { project: selectedProject } = useProjectById(projectId);
 
-    // FIXED: Stabilize sorting parameters to prevent infinite loops
-    const stableSortField = React.useMemo(() => {
-      return activeSorting[0]?.field === 'name'
-        ? activeSorting[0].field
-        : undefined;
-    }, [activeSorting]);
+    const sortOrder = activeSorting[0]?.order;
+    const sortField = activeSorting[0]?.field;
 
-    const stableSortOrder = React.useMemo(() => {
-      return activeSorting[0]?.order;
-    }, [activeSorting]);
+    // Define the quest type with tags
+    type QuestWithTags = Quest & { tags: { tag: Tag }[] };
 
     // Use optimized query with better caching
+    // const {
+    //   data: infiniteData,
+    //   isFetching,
+    //   isFetchingNextPage,
+    //   isLoading,
+    //   isError,
+    //   error,
+    //   refetch
+    // } = useHybridInfiniteQuery({
+    //   queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
+    //   onlineFn: async (pageParam, pageSize) => {
+    //     const { data, error } = await system.supabaseConnector.client
+    //       .from('quest')
+    //       .select('*, tags:quest_tag_link(tag(*))')
+    //       .eq('project_id', projectId)
+    //       .order('created_at', { ascending: false })
+    //       .limit(pageSize)
+    //       .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1)
+    //       .overrideTypes<
+    //         (typeof quest.$inferSelect & {
+    //           tags: { tag: typeof tag.$inferInsert }[];
+    //         })[]
+    //       >();
+    //     if (error) throw error;
+    //     return data;
+    //   },
+    //   offlineFn: async (pageParam, pageSize) => {
+    //     return await system.db.query.quest.findMany({
+    //       where: eq(quest.project_id, projectId),
+    //       limit: pageSize,
+    //       offset: pageParam * pageSize,
+    //       ...(sortOrder &&
+    //         sortField && {
+    //           orderBy: (fields, { ...options }) =>
+    //             options[sortOrder](fields[sortField as keyof typeof fields])
+    //         }),
+    //       with: {
+    //         tags: {
+    //           with: {
+    //             tag: true
+    //           }
+    //         }
+    //       }
+    //     });
+    //   },
+    //   pageSize: 10
+    // });
+
     const {
       data: infiniteData,
-      fetchNextPage,
-      hasNextPage,
       isFetching,
       isFetchingNextPage,
       isLoading,
       isError,
       error,
       refetch
-    } = useInfiniteQuestsWithTagsByProjectId(
-      projectId,
-      15, // Reduced page size for faster initial load
-      stableSortField,
-      stableSortOrder
-    );
+    } = useHybridSupabaseInfiniteQuery<QuestWithTags>({
+      queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
+      onlineFn: async ({ pageParam, pageSize }) => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('quest')
+          .select('*, tags:quest_tag_link(tag(*))')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(pageSize)
+          .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1)
+          .overrideTypes<QuestWithTags[]>();
+        if (error) throw error;
+        return data;
+      },
+      offlineFn: async ({ pageParam, pageSize }) =>
+        await system.db.query.quest.findMany({
+          where: eq(quest.project_id, projectId),
+          limit: pageSize,
+          offset: pageParam * pageSize,
+          with: {
+            tags: {
+              with: {
+                tag: true
+              }
+            }
+          }
+        }),
+      pageSize: 10
+    });
 
-    // Handle load more internally instead of relying on parent
-    const handleLoadMore = React.useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage && !isFetching) {
-        void fetchNextPage();
-      }
-    }, [hasNextPage, isFetchingNextPage, isFetching, fetchNextPage]);
-
-    // Extract and memoize quests with better performance
-    const { /* allQuests, questTags, */ filteredQuests } = useMemo(() => {
-      const quests = infiniteData?.pages.length
+    // Extract and memoize quests with tags
+    const { filteredQuests } = useMemo(() => {
+      const questsWithTags = infiniteData?.pages.length
         ? infiniteData.pages.flatMap((page) => page.data)
         : [];
 
-      const tags = quests.length
-        ? quests.reduce(
-            (acc, quest) => {
-              const questTags = quest.tags as { tag: Tag }[] | undefined;
-              acc[quest.id] = questTags?.map((tag) => tag.tag) ?? [];
-              return acc;
-            },
-            {} as Record<string, Tag[]>
-          )
-        : {};
+      const tags = questsWithTags.reduce(
+        (acc, quest) => {
+          acc[quest.id] = quest.tags.map((tag) => tag.tag);
+          return acc;
+        },
+        {} as Record<string, Tag[]>
+      );
 
       const filtered =
-        quests.length && (searchQuery || Object.keys(activeFilters).length > 0)
-          ? filterQuests(
-              quests as (Quest & { tags: { tag: Tag }[] })[],
-              tags,
-              searchQuery,
-              activeFilters
-            )
-          : quests;
+        questsWithTags.length &&
+        (searchQuery || Object.keys(activeFilters).length > 0)
+          ? filterQuests(questsWithTags, tags, searchQuery, activeFilters)
+          : questsWithTags;
 
       return {
-        allQuests: quests,
-        questTags: tags,
         filteredQuests: filtered
       };
-    }, [
-      infiniteData?.pages.length, // Use length instead of array reference
-      searchQuery,
-      JSON.stringify(activeFilters) // Serialize object for stable comparison
-    ]);
+    }, [infiniteData?.pages, searchQuery, activeFilters]);
 
     // Show skeleton during initial load
     if (isLoading) {
@@ -144,7 +198,7 @@ export const QuestList = React.memo(
         data={filteredQuests}
         renderItem={({ item }) => (
           <QuestItem
-            quest={item as Quest & { tags: { tag: Tag }[] }}
+            quest={item}
             project={selectedProject}
             onPress={onQuestPress}
           />
@@ -153,14 +207,12 @@ export const QuestList = React.memo(
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}
-        onEndReached={handleLoadMore}
+        onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
           isFetchingNextPage ? (
-            <View style={{ paddingVertical: spacing.medium }}>
-              <QuestSkeleton />
-              <QuestSkeleton />
-              <QuestSkeleton />
+            <View style={QuestsScreenStyles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : null
         }

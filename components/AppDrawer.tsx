@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -302,7 +302,7 @@ export default function AppDrawer({
   ] as const;
 
   // Add logout for development
-  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development') {
+  if (process.env.EXPO_PUBLIC_APP_VARIANT !== 'production') {
     drawerItems.push({
       name: t('logOut'),
       icon: 'log-out',

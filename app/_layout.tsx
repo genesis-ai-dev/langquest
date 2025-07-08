@@ -1,20 +1,24 @@
 import { UpdateBanner } from '@/components/UpdateBanner';
-import { AudioProvider } from '@/contexts/AudioContext';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AudioProvider } from '@/contexts/AudioProvider';
+import { AuthProvider } from '@/contexts/AuthProvider';
+import { SessionCacheProvider } from '@/contexts/SessionCacheProvider';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
+import { useLocalStore } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
 import { PowerSyncContext } from '@powersync/react';
+import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { LogBox } from 'react-native';
+import { DevToolsBubble } from 'react-native-react-query-devtools';
 import App from './app';
 
 // Keep the splash screen visible while we fetch resources
@@ -47,18 +51,30 @@ RootStack.displayName = 'RootStack';
 
 export default function RootLayout() {
   const [isSystemReady, setIsSystemReady] = React.useState(false);
+  const [hasRehydrated, setHasRehydrated] = useState(false);
 
   // Don't render the app until system is ready
   if (!isSystemReady) {
     // Keep splash screen visible while initializing
-    return <InitializingApp onReady={() => setIsSystemReady(true)} />;
+    return (
+      <InitializingApp
+        onReady={() => setIsSystemReady(true)}
+        setHasRehydrated={setHasRehydrated}
+      />
+    );
   }
 
-  return <MainApp />;
+  return <MainApp hasRehydrated={hasRehydrated} />;
 }
 
 // Separate component for initialization logic
-function InitializingApp({ onReady }: { onReady: () => void }) {
+function InitializingApp({
+  onReady,
+  setHasRehydrated
+}: {
+  onReady: () => void;
+  setHasRehydrated: (hasRehydrated: boolean) => void;
+}) {
   const systemInitialized = useRef(false);
 
   useEffect(() => {
@@ -69,6 +85,8 @@ function InitializingApp({ onReady }: { onReady: () => void }) {
       );
       const unsubscribe = initializeNetwork();
       void TranslationUtils.initialize();
+
+      setHasRehydrated(useLocalStore.persist.hasHydrated());
 
       // Initialize system singleton and WAIT for it
       if (!systemInitialized.current) {
@@ -113,7 +131,7 @@ function InitializingApp({ onReady }: { onReady: () => void }) {
 }
 
 // Main app component with all the routing logic
-function MainApp() {
+function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
   const router = useRouter();
 
   const handleAuthDeepLink = useCallback(
@@ -151,6 +169,17 @@ function MainApp() {
   }, [handleAuthDeepLink]);
 
   console.log('[MainApp] Rendering...');
+  // Define copy function for DevTools
+  const onCopy = useCallback(async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  console.log('[RootLayout] Rendering...');
 
   return (
     <>
@@ -159,8 +188,11 @@ function MainApp() {
         <AuthProvider>
           <AudioProvider>
             <QueryProvider>
-              <UpdateBanner />
-              <App />
+              <SessionCacheProvider>
+                <UpdateBanner />
+                <App hasRehydrated={hasRehydrated} />
+              </SessionCacheProvider>
+              <DevToolsBubble onCopy={onCopy} />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>

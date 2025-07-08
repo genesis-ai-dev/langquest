@@ -1,8 +1,8 @@
-import { useAuth } from '@/contexts/AuthContext';
-import type { Asset } from '@/database_services/assetService';
-import type { Project } from '@/database_services/projectService';
-import type { Quest } from '@/database_services/questService';
+import { useAuth } from '@/contexts/AuthProvider';
 import { system } from '@/db/powersync/system';
+import type { Asset } from '@/hooks/db/useAssets';
+import type { Project } from '@/hooks/db/useProjects';
+import type { Quest } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigation } from '@/hooks/useNavigation';
 import { useNotifications } from '@/hooks/useNotifications';
