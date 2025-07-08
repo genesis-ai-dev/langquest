@@ -26,6 +26,10 @@
     "powersync:clean": "npm run powersync:stop && docker volume rm -f powersync_mongo_storage",
     "supabase:clean": "git clean -xdf supabase/**/.DS_Store && npm run supabase db reset && npm run supabase stop",
     "supabase": "npx supabase",
+    "supabase:migration:diff": "npm run supabase:migration:diff:prep && npm run supabase:migration:diff:run; npm run supabase:migration:diff:cleanup",
+    "supabase:migration:diff:prep": "mv supabase/schemas/storage.sql supabase/schemas/storage.sql.bak 2>/dev/null || true",
+    "supabase:migration:diff:run": "npx supabase@beta db diff -f",
+    "supabase:migration:diff:cleanup": "mv supabase/schemas/storage.sql.bak supabase/schemas/storage.sql 2>/dev/null || true",
     "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb"
@@ -124,6 +128,7 @@
     "prettier": "^3.4.2",
     "react-test-renderer": "18.2.0",
     "sharp-cli": "^2.1.1",
+    "supabase": "^2.30.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "~5.3.3",
