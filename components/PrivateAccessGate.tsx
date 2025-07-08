@@ -1,8 +1,8 @@
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
-import { useHybridSupabaseQuery } from '@/hooks/useHybridSupabaseQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -15,6 +15,7 @@ import {
 } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
@@ -80,27 +81,50 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
   // Query for existing membership request
-  const { data: existingRequests = [], refetch } = useHybridSupabaseQuery({
+  const { data: existingRequests = [], refetch } = useHybridQuery({
     queryKey: ['membership-request', projectId, currentUser?.id],
-    query: db.query.request.findMany({
-      where: and(
-        eq(request.sender_profile_id, currentUser?.id || ''),
-        eq(request.project_id, projectId)
-      )
-    }),
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('sender_profile_id', currentUser?.id || '')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.request.findMany({
+        where: and(
+          eq(request.sender_profile_id, currentUser?.id || ''),
+          eq(request.project_id, projectId)
+        )
+      })
+    ),
     enabled: !!currentUser?.id && !!projectId
   });
 
   // Query for membership status (for modal mode)
-  const { data: membershipLinks = [] } = useHybridSupabaseQuery({
+  const { data: membershipLinks = [] } = useHybridQuery({
     queryKey: ['membership-status', projectId, currentUser?.id],
-    query: db.query.profile_project_link.findMany({
-      where: and(
-        eq(profile_project_link.profile_id, currentUser?.id || ''),
-        eq(profile_project_link.project_id, projectId),
-        eq(profile_project_link.active, true)
-      )
-    }),
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, currentUser?.id || ''),
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
     enabled: !!currentUser?.id && !!projectId && modal,
     refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
   });

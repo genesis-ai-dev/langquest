@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';

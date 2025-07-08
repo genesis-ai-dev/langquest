@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';

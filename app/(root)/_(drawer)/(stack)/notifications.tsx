@@ -1,5 +1,6 @@
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessionCache } from '@/contexts/SessionCacheContext';
+import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -27,13 +28,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Type definitions for query results
 type InviteWithRelations = typeof invite.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-  sender: typeof profile.$inferSelect | null;
+  project: typeof project.$inferSelect;
+  sender: typeof profile.$inferSelect;
 };
 
 type RequestWithRelations = typeof request.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-  sender: typeof profile.$inferSelect | null;
+  project: typeof project.$inferSelect;
+  sender: typeof profile.$inferSelect;
 };
 
 interface NotificationItem {
@@ -51,16 +52,19 @@ interface NotificationItem {
   last_updated: string;
 }
 
-export default function NotificationsView() {
+const { db } = system;
+
+export default function NotificationsPage() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const { db: drizzleDb } = system;
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [downloadToggles, setDownloadToggles] = useState<
     Record<string, boolean>
   >({});
 
   // Use session cache for user memberships instead of separate query
-  const { userMemberships } = useSessionCache();
+  const { userMemberships } = useSessionMemberships();
 
   // Get owner project IDs from session cache
   const ownerProjectIds = React.useMemo(() => {
@@ -79,25 +83,15 @@ export default function NotificationsView() {
     onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('invite')
-        .select(
-          `
-          *,
-          project!inner(id, name),
-          sender:profile!sender_profile_id(id, username, email)
-        `
-        )
+        .select('*, project(*), sender(*)')
         .eq('email', currentUser?.email || '')
         .eq('status', 'pending')
         .eq('active', true);
-      if (error) {
-        console.error('Invite query error:', error);
-        throw error;
-      }
-      console.log('Invite query result:', data);
-      return data as InviteWithRelations[];
+      if (error) throw error;
+      return data;
     },
     offlineQuery: toCompilableQuery(
-      system.db.query.invite.findMany({
+      drizzleDb.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
           eq(invite.status, 'pending'),
@@ -119,10 +113,10 @@ export default function NotificationsView() {
       status: item.status,
       email: item.email,
       project_id: item.project_id,
-      project_name: item.project?.name || 'Unknown Project',
+      project_name: item.project.name,
       sender_profile_id: item.sender_profile_id,
-      sender_name: item.sender?.username || '',
-      sender_email: item.sender?.email || '',
+      sender_name: item.sender.username || '',
+      sender_email: item.sender.email || '',
       as_owner: item.as_owner || false,
       created_at: item.created_at,
       last_updated: item.last_updated
@@ -133,23 +127,12 @@ export default function NotificationsView() {
   // const projectIds = inviteNotifications.map((item) => item.project_id);
   // const { projectStatuses } = useProjectsDownloadStatus(projectIds);
 
-  // Memoize notification IDs to prevent unnecessary re-renders
-  const notificationIds = React.useMemo(
-    () =>
-      inviteNotifications
-        .map((n) => n.id)
-        .sort()
-        .join(','),
-    [inviteNotifications]
-  );
-
   // Initialize download toggles for invites
   useEffect(() => {
     if (inviteNotifications.length === 0) return;
 
     setDownloadToggles((prev) => {
       const newToggles = { ...prev };
-
       inviteNotifications.forEach((notification) => {
         // Only initialize if not already set
         if (newToggles[notification.id] === undefined) {
@@ -157,10 +140,9 @@ export default function NotificationsView() {
           newToggles[notification.id] = true;
         }
       });
-
       return newToggles;
     });
-  }, [notificationIds]);
+  }, [inviteNotifications.length]);
 
   // Get pending requests for owner projects (using session cache for owner project IDs)
   const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
@@ -168,24 +150,14 @@ export default function NotificationsView() {
     onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('request')
-        .select(
-          `
-          *,
-          project!inner(id, name),
-          sender:profile!sender_profile_id(id, username, email)
-        `
-        )
+        .select('*, project(*), sender(*)')
         .eq('status', 'pending')
         .eq('active', true);
-      if (error) {
-        console.error('Request query error:', error);
-        throw error;
-      }
-      console.log('Request query result:', data);
-      return data as RequestWithRelations[];
+      if (error) throw error;
+      return data;
     },
     offlineQuery: toCompilableQuery(
-      system.db.query.request.findMany({
+      drizzleDb.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true)),
         with: {
           project: true,
@@ -207,10 +179,10 @@ export default function NotificationsView() {
       status: item.status,
       email: undefined,
       project_id: item.project_id,
-      project_name: item.project?.name || 'Unknown Project',
+      project_name: item.project.name,
       sender_profile_id: item.sender_profile_id,
-      sender_name: item.sender?.username || '',
-      sender_email: item.sender?.email || '',
+      sender_name: item.sender.username || '',
+      sender_email: item.sender.email || '',
       as_owner: false,
       created_at: item.created_at,
       last_updated: item.last_updated
@@ -253,31 +225,18 @@ export default function NotificationsView() {
       // Update the appropriate table based on type
       if (type === 'invite') {
         console.log('[handleAccept] Updating invite to accepted...');
-
-        // First check if the record exists
-        const existingRecord = await system.db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Existing invite record:', existingRecord);
-
-        const updateResult = await system.db
+        await db
           .update(invite)
           .set({
             status: 'accepted',
             last_updated: new Date().toISOString()
           })
           .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Invite update result:', updateResult);
 
         // Verify the update worked by querying the record
-        const updatedRecord = await system.db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Updated invite record:', updatedRecord);
+        await db.select().from(invite).where(eq(invite.id, notificationId));
 
-        const existingLink = await system.db
+        const existingLink = await db
           .select()
           .from(profile_project_link)
           .where(
@@ -289,7 +248,7 @@ export default function NotificationsView() {
 
         if (existingLink.length > 0) {
           // Update existing link
-          await system.db
+          await db
             .update(profile_project_link)
             .set({
               active: true,
@@ -313,7 +272,7 @@ export default function NotificationsView() {
           };
           console.log('[handleAccept] New link data:', newLinkData);
 
-          const insertResult = await system.db
+          const insertResult = await db
             .insert(profile_project_link)
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
@@ -329,24 +288,13 @@ export default function NotificationsView() {
               downloadError
             );
             // Don't fail the entire operation if download fails
-            Alert.alert('Warning', 'Invitation accepted but download failed');
+            Alert.alert(t('warning'), t('invitationAcceptedButDownloadFailed'));
           }
         }
       } else {
         // type === 'request'
         console.log('[handleAccept] Updating request to accepted...');
-
-        // First check if the record exists
-        const existingRequestRecord = await system.db
-          .select()
-          .from(request)
-          .where(eq(request.id, notificationId));
-        console.log(
-          '[handleAccept] Existing request record:',
-          existingRequestRecord
-        );
-
-        const updateResult = await system.db
+        const updateResult = await db
           .update(request)
           .set({
             status: 'accepted',
@@ -354,10 +302,10 @@ export default function NotificationsView() {
           })
           .where(eq(request.id, notificationId));
 
-        console.log('[handleAccept] Request update result:', updateResult);
+        console.log('[handleAccept] Update result:', updateResult);
 
         // For requests, we need to get the sender_profile_id from the request
-        const requestRecord = await system.db
+        const requestRecord = await db
           .select()
           .from(request)
           .where(eq(request.id, notificationId));
@@ -366,7 +314,7 @@ export default function NotificationsView() {
           const senderProfileId = requestRecord[0].sender_profile_id;
 
           // Create or update profile_project_link for the requester
-          const existingLink = await system.db
+          const existingLink = await db
             .select()
             .from(profile_project_link)
             .where(
@@ -378,7 +326,7 @@ export default function NotificationsView() {
 
           if (existingLink.length > 0) {
             // Update existing link
-            await system.db
+            await db
               .update(profile_project_link)
               .set({
                 active: true,
@@ -393,7 +341,7 @@ export default function NotificationsView() {
               );
           } else {
             // Create new link
-            await system.db.insert(profile_project_link).values({
+            await db.insert(profile_project_link).values({
               id: `${senderProfileId}_${projectId}`,
               profile_id: senderProfileId,
               project_id: projectId,
@@ -409,7 +357,7 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation accepted successfully');
+      Alert.alert(t('success'), t('invitationAcceptedSuccess'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -417,7 +365,7 @@ export default function NotificationsView() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert('Error', 'Failed to accept invitation');
+      Alert.alert(t('error'), t('failedToAcceptInvitation'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -439,7 +387,7 @@ export default function NotificationsView() {
     try {
       // Update the appropriate table based on type
       if (type === 'invite') {
-        await system.db
+        await db
           .update(invite)
           .set({
             status: 'declined',
@@ -448,7 +396,7 @@ export default function NotificationsView() {
           .where(eq(invite.id, notificationId));
       } else {
         // type === 'request'
-        await system.db
+        await db
           .update(request)
           .set({
             status: 'declined',
@@ -461,10 +409,10 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation declined');
+      Alert.alert(t('success'), t('invitationDeclined'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert('Error', 'Failed to decline invitation');
+      Alert.alert(t('error'), t('failedToDeclineInvitation'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -504,8 +452,16 @@ export default function NotificationsView() {
 
           <Text style={styles.notificationMessage}>
             {item.type === 'invite'
-              ? `${item.sender_name || item.sender_email} invited you to join "${item.project_name}" as ${roleText}`
-              : `${item.sender_name || item.sender_email} requested to join "${item.project_name}" as ${roleText}`}
+              ? t('projectInvitationFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })
+              : t('projectJoinRequestFrom', {
+                  sender: item.sender_name || item.sender_email,
+                  project: item.project_name,
+                  role: t(roleText)
+                })}
           </Text>
 
           <Text style={styles.notificationDate}>
@@ -516,7 +472,7 @@ export default function NotificationsView() {
           {item.type === 'invite' && (
             <View style={styles.downloadSection}>
               <View style={styles.downloadToggleRow}>
-                <Text style={styles.downloadLabel}>Download Project</Text>
+                <Text style={styles.downloadLabel}>{t('downloadProject')}</Text>
                 <Switch
                   value={shouldDownload}
                   onValueChange={(value) => {
@@ -539,9 +495,7 @@ export default function NotificationsView() {
                     false: colors.textSecondary,
                     true: colors.primary
                   }}
-                  thumbColor={
-                    shouldDownload ? colors.primary : colors.inputBackground
-                  }
+                  thumbColor={colors.buttonText}
                   disabled={isProcessing}
                 />
               </View>
@@ -549,7 +503,7 @@ export default function NotificationsView() {
                 <View style={styles.warningContainer}>
                   <Ionicons name="warning" size={16} color={colors.alert} />
                   <Text style={styles.warningText}>
-                    Project will not be available offline without download
+                    {t('downloadProjectOfflineWarning')}
                   </Text>
                 </View>
               )}
@@ -611,7 +565,7 @@ export default function NotificationsView() {
     >
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <Text style={styles.pageTitle}>{t('notifications')}</Text>
+          <PageHeader title={t('notifications')} />
 
           <ScrollView
             style={styles.scrollView}
@@ -624,9 +578,11 @@ export default function NotificationsView() {
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyStateText}>No Notifications</Text>
+                <Text style={styles.emptyStateText}>
+                  {t('noNotifications')}
+                </Text>
                 <Text style={styles.emptyStateSubtext}>
-                  You'll see project invitations and join requests here
+                  {t('noNotificationsSubtext')}
                 </Text>
               </View>
             ) : (
@@ -646,12 +602,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.medium,
     paddingTop: spacing.medium
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.large
   },
   scrollView: {
     flex: 1,

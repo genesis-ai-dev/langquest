@@ -1,6 +1,6 @@
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Updates from 'expo-updates';
-import { useHybridSupabaseQuery } from './useHybridSupabaseQuery';
 
 export function useExpoUpdates() {
   const queryClient = useQueryClient();
@@ -10,7 +10,7 @@ export function useExpoUpdates() {
     isLoading,
     refetch: checkForUpdate,
     error
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['updates'],
     onlineFn: async () => {
       try {

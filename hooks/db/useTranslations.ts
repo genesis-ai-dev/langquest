@@ -1,4 +1,4 @@
-import { getCurrentUser, useAuth } from '@/contexts/AuthProvider';
+import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
 import type { project, quest } from '@/db/drizzleSchema';
 import {
   blocked_content,
@@ -9,17 +9,18 @@ import {
   vote
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm';
 import { useEffect } from 'react';
 import {
-  convertToSupabaseFetchConfig,
-  createHybridSupabaseQueryConfig,
-  hybridSupabaseFetch,
-  useHybridSupabaseQuery,
-  useHybridSupabaseRealtimeQuery
-} from '../useHybridSupabaseQuery';
+  convertToFetchConfig,
+  createHybridQueryConfig,
+  hybridFetch,
+  useHybridQuery,
+  useHybridRealtimeQuery
+} from '../useHybridQuery';
 import { useNetworkStatus } from '../useNetworkStatus';
 
 export type Translation = InferSelectModel<typeof translation>;
@@ -38,21 +39,20 @@ export type Project = InferSelectModel<typeof project>;
 function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
   const currentUser = getCurrentUser();
   const assetIds = Array.isArray(asset_id) ? asset_id : [asset_id];
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: [
       'translations',
       'by-asset',
       asset_id,
       currentUser?.id || 'anonymous'
     ],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       if (!currentUser) {
         // No user logged in, return all translations
         const { data, error } = await system.supabaseConnector.client
           .from('translation')
           .select('*')
           .in('asset_id', assetIds)
-          .abortSignal(signal)
           .overrideTypes<Translation[]>();
         if (error) throw error;
         return data;
@@ -63,14 +63,12 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
         system.supabaseConnector.client
           .from('blocked_users')
           .select('blocked_id')
-          .eq('blocker_id', currentUser.id)
-          .abortSignal(signal),
+          .eq('blocker_id', currentUser.id),
         system.supabaseConnector.client
           .from('blocked_content')
           .select('content_id')
           .eq('profile_id', currentUser.id)
           .eq('content_table', 'translations')
-          .abortSignal(signal)
       ]);
 
       if (blockedUsersResult.error) throw blockedUsersResult.error;
@@ -97,9 +95,7 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
         query = query.not('id', 'in', `(${blockedContentIds.join(',')})`);
       }
 
-      const { data, error } = await query
-        .abortSignal(signal)
-        .overrideTypes<Translation[]>();
+      const { data, error } = await query.overrideTypes<Translation[]>();
       if (error) throw error;
       return data;
     },
@@ -147,14 +143,14 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
 }
 
 export function getTranslationsByAssetId(asset_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getTranslationsByAssetIdConfig(asset_id))
+  return hybridFetch(
+    convertToFetchConfig(getTranslationsByAssetIdConfig(asset_id))
   );
 }
 
 export function getTranslationsByAssetIds(asset_ids: string[]) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getTranslationsByAssetIdConfig(asset_ids))
+  return hybridFetch(
+    convertToFetchConfig(getTranslationsByAssetIdConfig(asset_ids))
   );
 }
 
@@ -226,7 +222,7 @@ export function useTranslationsByAssetId(asset_id: string) {
     data: translations,
     isLoading: isTranslationsLoading,
     ...rest
-  } = useHybridSupabaseRealtimeQuery({
+  } = useHybridRealtimeQuery({
     ...getTranslationsByAssetIdConfig(asset_id),
     subscribeRealtime: (onChange) => {
       const channel = system.supabaseConnector.client
@@ -259,16 +255,15 @@ export function useTranslationById(
     data: translationArray,
     isLoading: isTranslationLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: ['translation', translation_id, current_user_id || 'anonymous'],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       if (!current_user_id) {
         // No user logged in, return translation directly
         const { data, error } = await supabaseConnector.client
           .from('translation')
           .select('*')
           .eq('id', translation_id)
-          .abortSignal(signal)
           .overrideTypes<Translation[]>();
         if (error) throw error;
         return data;
@@ -281,8 +276,7 @@ export function useTranslationById(
           .select('content_id')
           .eq('profile_id', current_user_id)
           .eq('content_id', translation_id)
-          .eq('content_table', 'translation')
-          .abortSignal(signal);
+          .eq('content_table', 'translation');
 
       if (blockedError) throw blockedError;
       if (blockedContent.length > 0) {
@@ -295,7 +289,6 @@ export function useTranslationById(
           .from('translation')
           .select('*')
           .eq('id', translation_id)
-          .abortSignal(signal)
           .overrideTypes<Translation[]>();
 
       if (translationError) throw translationError;
@@ -309,8 +302,7 @@ export function useTranslationById(
           .from('blocked_users')
           .select('blocked_id')
           .eq('blocker_id', current_user_id)
-          .eq('blocked_id', translationData[0]?.creator_id || '')
-          .abortSignal(signal);
+          .eq('blocked_id', translationData[0]?.creator_id || '');
 
       if (blockedUserError) throw blockedUserError;
       if (blockedUser.length > 0) {
@@ -319,9 +311,11 @@ export function useTranslationById(
 
       return translationData;
     },
-    offlineQuery: db.query.translation.findMany({
-      where: eq(translation.id, translation_id)
-    }),
+    offlineQuery: toCompilableQuery(
+      db.query.translation.findMany({
+        where: eq(translation.id, translation_id)
+      })
+    ),
     enabled: !!translation_id
   });
 
@@ -416,14 +410,14 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
     data: translationsWithVotes,
     isLoading: isTranslationsWithVotesLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: [
       'translations-with-votes',
       'by-asset',
       asset_id,
       currentUser?.id || 'anonymous'
     ],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       if (!currentUser) {
         // No user logged in, return all translations with votes
         const { data, error } = await supabaseConnector.client
@@ -435,7 +429,6 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
           `
           )
           .eq('asset_id', asset_id)
-          .abortSignal(signal)
           .overrideTypes<(Translation & { votes: Vote[] })[]>();
         if (error) throw error;
         return data;
@@ -446,14 +439,12 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
         supabaseConnector.client
           .from('blocked_users')
           .select('blocked_id')
-          .eq('blocker_id', currentUser.id)
-          .abortSignal(signal),
+          .eq('blocker_id', currentUser.id),
         supabaseConnector.client
           .from('blocked_content')
           .select('content_id')
           .eq('profile_id', currentUser.id)
           .eq('content_table', 'translations')
-          .abortSignal(signal)
       ]);
 
       if (blockedUsersResult.error) throw blockedUsersResult.error;
@@ -485,9 +476,8 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
         query = query.not('id', 'in', `(${blockedContentIds.join(',')})`);
       }
 
-      const { data, error } = await query
-        .abortSignal(signal)
-        .overrideTypes<(Translation & { votes: Vote[] })[]>();
+      const { data, error } =
+        await query.overrideTypes<(Translation & { votes: Vote[] })[]>();
       if (error) throw error;
       return data;
     },
@@ -609,7 +599,8 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
     db.watch(
       db
         .select({
-          id: blocked_content.content_id
+          id: blocked_content.profile_id,
+          content_id: blocked_content.content_id
         })
         .from(blocked_content)
         .innerJoin(translation, eq(blocked_content.content_id, translation.id))
@@ -650,14 +641,14 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
     data: translationsWithVotesAndLanguage,
     isLoading: isTranslationsWithVotesAndLanguageLoading,
     ...rest
-  } = useHybridSupabaseQuery({
+  } = useHybridQuery({
     queryKey: [
       'translations-with-votes-and-language',
       'by-asset',
       asset_id,
       currentUser?.id || 'anonymous'
     ],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       if (!currentUser) {
         // No user logged in, return all translations with votes and language
         const { data, error } = await supabaseConnector.client
@@ -666,11 +657,10 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
             `
             *,
             votes:vote (*),
-            target_language:target_language_id (*)
+            target_language:language (*)
           `
           )
           .eq('asset_id', asset_id)
-          .abortSignal(signal)
           .overrideTypes<
             (Translation & { votes: Vote[]; target_language: Language })[]
           >();
@@ -683,14 +673,12 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
         supabaseConnector.client
           .from('blocked_users')
           .select('blocked_id')
-          .eq('blocker_id', currentUser.id)
-          .abortSignal(signal),
+          .eq('blocker_id', currentUser.id),
         supabaseConnector.client
           .from('blocked_content')
           .select('content_id')
           .eq('profile_id', currentUser.id)
           .eq('content_table', 'translations')
-          .abortSignal(signal)
       ]);
 
       if (blockedUsersResult.error) throw blockedUsersResult.error;
@@ -710,7 +698,7 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
           `
           *,
           votes:vote (*),
-          target_language:target_language_id (*)
+          target_language:language (*)
         `
         )
         .eq('asset_id', asset_id);
@@ -723,9 +711,8 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
         query = query.not('id', 'in', `(${blockedContentIds.join(',')})`);
       }
 
-      const { data, error } = await query
-        .abortSignal(signal)
-        .overrideTypes<
+      const { data, error } =
+        await query.overrideTypes<
           (Translation & { votes: Vote[]; target_language: Language })[]
         >();
       if (error) throw error;
@@ -789,34 +776,33 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
 }
 
 function getTranslationsWithAudioByAssetIdConfig(asset_id: string) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['translations-with-audio', 'by-asset', asset_id],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('translation')
         .select('*')
         .eq('asset_id', asset_id)
         .not('audio', 'is', null)
-        .abortSignal(signal)
         .overrideTypes<Translation[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.translation.findMany({
-      where: and(
-        eq(translation.asset_id, asset_id),
-        isNotNull(translation.audio)
-      )
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.translation.findMany({
+        where: and(
+          eq(translation.asset_id, asset_id),
+          isNotNull(translation.audio)
+        )
+      })
+    ),
     enabled: !!asset_id
   });
 }
 
 export function getTranslationsWithAudioByAssetId(asset_id: string) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(
-      getTranslationsWithAudioByAssetIdConfig(asset_id)
-    )
+  return hybridFetch(
+    convertToFetchConfig(getTranslationsWithAudioByAssetIdConfig(asset_id))
   );
 }
 
@@ -825,40 +811,39 @@ export function useTranslationsWithAudioByAssetId(asset_id: string) {
     data: translationsWithAudio,
     isLoading: isTranslationsWithAudioLoading,
     ...rest
-  } = useHybridSupabaseQuery(getTranslationsWithAudioByAssetIdConfig(asset_id));
+  } = useHybridQuery(getTranslationsWithAudioByAssetIdConfig(asset_id));
 
   return { translationsWithAudio, isTranslationsWithAudioLoading, ...rest };
 }
 
 function getTranslationsWithAudioByAssetIdsConfig(asset_ids: string[]) {
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['translations-with-audio', 'by-assets', asset_ids],
-    onlineFn: async ({ signal }) => {
+    onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('translation')
         .select('*')
         .in('asset_id', asset_ids)
         .not('audio', 'is', null)
-        .abortSignal(signal)
         .overrideTypes<Translation[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: system.db.query.translation.findMany({
-      where: and(
-        inArray(translation.asset_id, asset_ids),
-        isNotNull(translation.audio)
-      )
-    }),
+    offlineQuery: toCompilableQuery(
+      system.db.query.translation.findMany({
+        where: and(
+          inArray(translation.asset_id, asset_ids),
+          isNotNull(translation.audio)
+        )
+      })
+    ),
     enabled: !!asset_ids.length
   });
 }
 
 export function getTranslationsWithAudioByAssetIds(asset_ids: string[]) {
-  return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(
-      getTranslationsWithAudioByAssetIdsConfig(asset_ids)
-    )
+  return hybridFetch(
+    convertToFetchConfig(getTranslationsWithAudioByAssetIdsConfig(asset_ids))
   );
 }
 
@@ -867,9 +852,7 @@ export function useTranslationsWithAudioByAssetIds(asset_ids: string[]) {
     data: translationsWithAudio,
     isLoading: isTranslationsWithAudioLoading,
     ...rest
-  } = useHybridSupabaseQuery(
-    getTranslationsWithAudioByAssetIdsConfig(asset_ids)
-  );
+  } = useHybridQuery(getTranslationsWithAudioByAssetIdsConfig(asset_ids));
 
   return { translationsWithAudio, isTranslationsWithAudioLoading, ...rest };
 }
@@ -880,29 +863,30 @@ export function useTranslationsWithAudioByAssetIds(asset_ids: string[]) {
  * Includes quest and project details
  */
 export function useTranslationProjectInfo(asset_id: string | undefined) {
-  const { db, supabaseConnector } = system;
+  const { db } = system;
 
   const {
-    data: projectInfo,
+    data: projectInfoArray,
     isLoading: isProjectInfoLoading,
     ...rest
-  } = useHybridSupabaseQuery({
-    queryKey: ['project-info', 'by-asset', asset_id],
-    onlineFn: async ({ signal }) => {
-      const { data, error } = await supabaseConnector.client
+  } = useHybridQuery({
+    queryKey: ['translation-project', asset_id],
+    onlineFn: async () => {
+      if (!asset_id) return [];
+
+      const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select(
           `
           *,
           quest:quest_id (
             *,
-            project:project_id(*)
+            project:project_id (*)
           )
         `
         )
         .eq('asset_id', asset_id)
         .limit(1)
-        .abortSignal(signal)
         .overrideTypes<
           (QuestAssetLink & {
             quest: Quest & {
@@ -914,19 +898,28 @@ export function useTranslationProjectInfo(asset_id: string | undefined) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: db.query.quest_asset_link.findMany({
-      where: eq(quest_asset_link.asset_id, asset_id!),
-      with: {
-        quest: {
-          with: {
-            project: true
+    offlineFn: async () => {
+      if (!asset_id) return [];
+
+      const result = await db.query.quest_asset_link.findFirst({
+        where: eq(quest_asset_link.asset_id, asset_id),
+        with: {
+          quest: {
+            with: {
+              project: true
+            }
           }
         }
-      },
-      limit: 1
-    }),
+      });
+
+      return result ? [result] : [];
+    },
     enabled: !!asset_id
   });
 
-  return { projectInfo: projectInfo?.[0], isProjectInfoLoading, ...rest };
+  const projectInfo = Array.isArray(projectInfoArray)
+    ? projectInfoArray[0]
+    : projectInfoArray;
+
+  return { projectInfo, isProjectInfoLoading, ...rest };
 }

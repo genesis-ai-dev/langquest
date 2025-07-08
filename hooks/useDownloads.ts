@@ -1,13 +1,13 @@
-import { getCurrentUser } from '@/contexts/AuthProvider';
+import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  convertToSupabaseFetchConfig,
-  createHybridSupabaseQueryConfig,
-  hybridSupabaseFetch,
-  useHybridSupabaseQuery
-} from './useHybridSupabaseQuery';
+  convertToFetchConfig,
+  createHybridQueryConfig,
+  hybridFetch
+} from './useHybridQuery';
 
 interface TreeNode {
   table: string;
@@ -65,7 +65,7 @@ export function useDownloadTreeStructure(
     'queryKey' | 'queryFn'
   >
 ) {
-  return useHybridSupabaseQuery({
+  return useHybridQuery({
     queryKey: ['download-tree-structure'],
     onlineFn: async (): Promise<Record<string, unknown>[]> => {
       const data = await getDownloadTreeStructure();
@@ -93,10 +93,10 @@ export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const data = await hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getDownloadStatusConfig(recordTable, recordId))
+  const data = await hybridFetch(
+    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
   );
-  return !!data[0]?.id;
+  return !!data?.[0]?.id;
 }
 
 function getDownloadStatusConfig(
@@ -104,7 +104,7 @@ function getDownloadStatusConfig(
   recordId: string
 ) {
   const currentUser = getCurrentUser();
-  return createHybridSupabaseQueryConfig({
+  return createHybridQueryConfig({
     queryKey: ['download-status', recordTable, recordId],
     onlineFn: async () => {
       console.log('recordId', recordId);
@@ -130,7 +130,7 @@ export function useDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const { data, isLoading, ...rest } = useHybridSupabaseQuery(
+  const { data, isLoading, ...rest } = useHybridQuery(
     getDownloadStatusConfig(recordTable, recordId)
   );
 

@@ -1,5 +1,13 @@
-import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
-import { getTranslationsWithAudioByAssetId } from '@/hooks/db/useTranslations';
+import {
+  getAssetAudioContent,
+  getAssetById,
+  getAssetsById,
+  getAssetsContent
+} from '@/hooks/db/useAssets';
+import {
+  getTranslationsByAssetIds,
+  getTranslationsWithAudioByAssetId
+} from '@/hooks/db/useTranslations';
 import { AttachmentState } from '@powersync/attachments';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
@@ -45,24 +53,93 @@ export async function calculateTotalAttachments(assetIds: string[]) {
       // 2. Get asset_content_link entries for audio
       const assetContents = await getAssetAudioContent(assetId);
 
-      const contentAudioIds = assetContents.map((content) => content.audio_id!);
+      const contentAudioIds = assetContents
+        ?.filter((content) => content.audio_id)
+        .map((content) => content.audio_id!);
 
-      totalAttachments += contentAudioIds.length;
+      if (contentAudioIds) {
+        totalAttachments += contentAudioIds.length;
+      }
 
       // 3. Get translations for the asset and their audio
       const translations = await getTranslationsWithAudioByAssetId(assetId);
 
-      const translationAudioIds = translations.map(
-        (translation) => translation.audio!
-      );
+      const translationAudioIds = translations
+        ?.filter((translation) => translation.audio)
+        .map((translation) => translation.audio!);
 
-      totalAttachments += translationAudioIds.length;
+      if (translationAudioIds) {
+        totalAttachments += translationAudioIds.length;
+      }
     }
 
     return totalAttachments;
   } catch (error) {
     console.error('Error calculating total attachments:', error);
     return 0;
+  }
+}
+
+export async function getAssetAttachmentIds(
+  assetIds: string[]
+): Promise<string[]> {
+  const startTime = performance.now();
+  try {
+    const attachmentIds: string[] = [];
+
+    // Execute all queries in parallel using Promise.allSettled
+    const [assetResult, contentResult, translationResult] =
+      await Promise.allSettled([
+        // 1. Get the assets for images
+        await getAssetsById(assetIds),
+        // 2. Get asset_content_link entries for audio
+        await getAssetsContent(assetIds),
+        // 3. Get translations for the assets and their audio
+        await getTranslationsByAssetIds(assetIds)
+      ]);
+
+    // Process asset images if successful
+    if (assetResult.status === 'fulfilled') {
+      assetResult.value?.forEach((asset) => {
+        if (asset.images) {
+          attachmentIds.push(...asset.images);
+        }
+      });
+    }
+
+    // Process content audio IDs if successful
+    if (contentResult.status === 'fulfilled') {
+      const contentAudioIds = contentResult.value
+        ?.filter((content) => content.audio_id)
+        .map((content) => content.audio_id!);
+      if (contentAudioIds) {
+        attachmentIds.push(...contentAudioIds);
+      }
+    }
+
+    // Process translation audio IDs if successful
+    if (translationResult.status === 'fulfilled') {
+      const translationAudioIds = translationResult.value
+        ?.filter((translation) => translation.audio)
+        .map((translation) => translation.audio!);
+      if (translationAudioIds) {
+        attachmentIds.push(...translationAudioIds);
+      }
+    }
+
+    // Return unique attachment IDs
+    const uniqueAttachmentIds = [...new Set(attachmentIds)];
+
+    console.log(`Total execution time: ${performance.now() - startTime}ms`);
+    console.log(
+      `Found ${uniqueAttachmentIds.length} unique attachments for ${assetIds.length} assets`
+    );
+
+    return uniqueAttachmentIds;
+  } catch (error) {
+    console.error('Error getting asset attachment IDs:', error);
+    console.log(`Failed after ${performance.now() - startTime}ms`);
+    return [];
   }
 }
 

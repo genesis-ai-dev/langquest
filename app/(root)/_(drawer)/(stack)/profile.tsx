@@ -1,4 +1,5 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -30,26 +31,23 @@ interface ProfileFormData {
   newPassword: string;
   confirmPassword: string;
   selectedLanguageId: string;
+  // selectedAvatar: string;
   termsAccepted: boolean;
   analyticsOptOut: boolean;
 }
 
-export default function ProfileView() {
+export default function Profile() {
   const { currentUser, setCurrentUser } = useAuth();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
-
   // Handle analytics opt-out toggle
   const handleAnalyticsToggle = async (value: boolean) => {
     try {
       setAnalyticsOptOut(value);
-      if (posthog) {
-        // NOTE: ryder was getting errors where posthog was undefined when using usePostHog()
-        await posthog[`opt${value ? 'Out' : 'In'}`]();
-      }
+      await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);
       Alert.alert('Error', t('failedSaveAnalyticsPreference'));
@@ -68,6 +66,7 @@ export default function ProfileView() {
       newPassword: '',
       confirmPassword: '',
       selectedLanguageId: currentUser?.ui_language_id ?? '',
+      // selectedAvatar: 'cat',
       termsAccepted: !!currentUser?.terms_accepted
     }
   });
@@ -80,6 +79,7 @@ export default function ProfileView() {
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
+        // selectedAvatar: 'cat',
         termsAccepted: !!currentUser.terms_accepted
       });
     }
@@ -100,6 +100,8 @@ export default function ProfileView() {
           return;
         }
       }
+
+      // Update analytics preference
 
       // Update user profile
       const updatedUser = await profileService.updateProfile({
@@ -138,9 +140,9 @@ export default function ProfileView() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView style={styles.container}>
           <View style={styles.contentContainer}>
-            <Text style={styles.pageTitle}>{t('profile')}</Text>
+            <PageHeader title={t('profile')} />
 
-            {posthog && !posthog.isDisabled && (
+            {!posthog.isDisabled && (
               <TouchableOpacity
                 style={styles.saveButton}
                 onPress={async () => {
@@ -161,12 +163,9 @@ export default function ProfileView() {
                 value={analyticsOptOut}
                 onValueChange={handleAnalyticsToggle}
                 trackColor={{
-                  false: colors.textSecondary,
-                  true: colors.primary // Use primary color for better contrast
+                  false: colors.inputBorder,
+                  true: colors.primary
                 }}
-                thumbColor={
-                  analyticsOptOut ? colors.primary : colors.inputBackground
-                }
               />
             </View>
             <Text style={styles.settingDescription}>
@@ -192,7 +191,6 @@ export default function ProfileView() {
                 </Text>
               )}
             </View>
-
             {/* Password Change - Only when online */}
             {isOnline ? (
               <View style={styles.passwordSection}>
@@ -319,12 +317,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     gap: spacing.large
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.large
   },
   passwordSection: {
     gap: spacing.medium
