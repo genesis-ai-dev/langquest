@@ -1,6 +1,7 @@
 import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -307,5 +308,77 @@ export function useDownload(
     isLoading: isLoading || mutation.isPending,
     toggleDownload,
     mutation
+  };
+}
+
+/**
+ * Enhanced hook for quest download status using quest closure table
+ * Provides progress information and efficient status checking
+ */
+export function useQuestDownloadStatus(questId: string) {
+  const currentUser = getCurrentUser();
+
+  const { data: questClosure, isLoading } = useHybridQuery({
+    queryKey: ['quest-closure', questId],
+    enabled: !!questId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_closure')
+        .select('*')
+        .eq('quest_id', questId)
+        .limit(1)
+        .overrideTypes<{
+          quest_id: string;
+          project_id: string;
+          total_assets: number;
+          total_translations: number;
+          approved_translations: number;
+          last_updated: string;
+        }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest_closure.findMany({
+        where: (fields, { eq }) => eq(fields.quest_id, questId),
+        limit: 1
+      })
+    )
+  });
+
+  // Check if quest is downloaded by looking at quest's download_profiles
+  const { data: questDownloadStatus } = useHybridQuery({
+    queryKey: ['quest-download-status', questId],
+    enabled: !!questId && !!currentUser?.id,
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('id, download_profiles')
+        .eq('id', questId)
+        .contains('download_profiles', [currentUser!.id])
+        .limit(1)
+        .overrideTypes<{ id: string; download_profiles: string[] }[]>();
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: `SELECT id, download_profiles FROM quest WHERE id = '${questId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
+  });
+
+  const closureData = questClosure?.[0];
+  const isDownloaded = !!(questDownloadStatus?.[0]?.id);
+
+  // Calculate progress percentage
+  const progressPercentage = closureData
+    ? Math.round((closureData.approved_translations / Math.max(closureData.total_assets, 1)) * 100)
+    : 0;
+
+  return {
+    isDownloaded,
+    isLoading,
+    questClosure: closureData,
+    progressPercentage,
+    totalAssets: closureData?.total_assets || 0,
+    totalTranslations: closureData?.total_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0,
   };
 }
