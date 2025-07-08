@@ -15,11 +15,10 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import type { SortingOption } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
-import { filterQuests } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';
+import { filterQuests, SortingOption } from '@/views/QuestsView';
 
 // Main quest list component with performance optimizations
 export const QuestList = React.memo(
@@ -203,7 +202,7 @@ export const QuestList = React.memo(
             onPress={onQuestPress}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: QuestWithTags) => item.id}
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}
