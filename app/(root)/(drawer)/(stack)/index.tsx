@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthProvider';
 import {
   useSessionLanguages,
   useSessionMemberships
-} from '@/contexts/SessionCacheProvider';
+} from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
 import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -409,7 +409,7 @@ export default function Projects() {
           projectId={privateProjectModal.project.id}
           projectName={privateProjectModal.project.name}
           isPrivate={privateProjectModal.project.private}
-          action="view_membership"
+          action="view-members"
           onMembershipGranted={() => {
             // Navigate to the project when membership is granted
             goToProject(privateProjectModal.project!);

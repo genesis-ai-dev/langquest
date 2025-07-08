@@ -1,6 +1,5 @@
-import type { Profile } from '@/database_services/profileService';
+import type { profile } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { getProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,12 +10,14 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState
 } from 'react';
 
+export type Profile = typeof profile.$inferSelect;
+
 const DEBUG_MODE = false;
 const debug = (...args: unknown[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
     console.log('AuthContext:', ...args);
   }
@@ -35,19 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentUser = useLocalStore((state) => state.currentUser);
   const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
-  const mounted = useRef(true);
-  const authInitialized = useRef(false);
 
   useEffect(() => {
     debug('useEffect - AuthContext initialization');
-    mounted.current = true;
 
     const loadAuthData = async () => {
-      debug('loadAuthData');
-      if (authInitialized.current) return;
-      authInitialized.current = true;
-
-      setIsLoading(true);
       try {
         const supabaseAuthKey = await getSupabaseAuthKey();
 
@@ -55,19 +48,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
           if (sessionString) {
             const session = JSON.parse(sessionString) as Session | null;
-            const profile = await getProfileByUserId(session?.user.id ?? '');
-            if (mounted.current) {
-              setCurrentUser(profile ?? null);
-            }
+            console.log('session', session?.user.id);
+            const { data: profile } = (await system.supabaseConnector.client
+              .from('profile')
+              .select('*')
+              .eq('id', session?.user.id)
+              .single()) as { data: Profile };
+            console.log('profile', profile);
+            setCurrentUser(profile);
           }
         }
       } catch (error) {
         console.error('Error loading auth data:', error);
       } finally {
-        if (mounted.current) {
-          console.log('setting auth isLoading to false');
-          setIsLoading(false);
-        }
+        console.log('setting auth isLoading to false');
+        setIsLoading(false);
       }
     };
 
@@ -76,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
         debug('onAuthStateChange', state, session);
-        if (!mounted.current) return;
 
         // always maintain a session
         if (!session) {
@@ -90,9 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const profile = await system.supabaseConnector.getUserProfile(
               session.user.id
             );
-            if (mounted.current) {
-              setCurrentUser(profile);
-            }
+            setCurrentUser(profile);
 
             // Only reinitialize attachment queues if system is already initialized
             if (system.isInitialized()) {
@@ -108,19 +100,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.error('Error during auth state change:', error);
             // Still set the user even if queue init fails
-            if (mounted.current) {
-              const profile = await system.supabaseConnector.getUserProfile(
-                session.user.id
-              );
-              setCurrentUser(profile);
-            }
+            const profile = await system.supabaseConnector.getUserProfile(
+              session.user.id
+            );
+            setCurrentUser(profile);
           }
         }
       }
     );
 
     return () => {
-      mounted.current = false;
       subscription.data.subscription.unsubscribe();
     };
   }, []); // 🔥 FIXED: Empty dependency array - this should only run ONCE!

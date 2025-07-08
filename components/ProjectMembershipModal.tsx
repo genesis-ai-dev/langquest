@@ -1,12 +1,13 @@
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
+import type { profile } from '@/db/drizzleSchema';
 import {
   invite,
   profile_project_link,
   project as projectTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useHybridSupabaseQuery } from '@/hooks/useHybridSupabaseQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -17,7 +18,6 @@ import {
 } from '@/styles/theme';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -88,37 +88,34 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }
 
   // Query for project details to check if it's private
-  const { data: [project] = [], isLoading: projectLoading } = useHybridQuery({
-    queryKey: ['project', projectId],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', projectId);
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findFirst({
-        where: eq(projectTable.id, projectId)
+  const { data: [project] = [], isLoading: projectLoading } =
+    useHybridSupabaseQuery({
+      queryKey: ['project', projectId],
+      query: db.query.project.findMany({
+        where: eq(projectTable.id, projectId),
+        limit: 1
       })
-    )
-  });
+    });
 
   // Query for active project members
-  const { data: memberData = [], refetch: refetchMembers } = useHybridQuery({
-    queryKey: ['project-members', projectId],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*, profile(*)')
-        .eq('project_id', projectId)
-        .eq('active', true);
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.profile_project_link.findMany({
+  const { data: memberData = [], refetch: refetchMembers } =
+    useHybridSupabaseQuery({
+      queryKey: ['project-members', projectId],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('*, profile(*)')
+          .eq('project_id', projectId)
+          .eq('active', true)
+          .overrideTypes<
+            (typeof profile_project_link.$inferSelect & {
+              profile: typeof profile.$inferSelect;
+            })[]
+          >();
+        if (error) throw error;
+        return data;
+      },
+      offlineQuery: db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
           eq(profile_project_link.active, true)
@@ -127,8 +124,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           profile: true
         }
       })
-    )
-  });
+    });
 
   const members: Member[] = memberData
     .filter((link) => link?.profile?.id) // Filter out entries with null profiles
@@ -160,27 +156,30 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   // Query for invited users
   const { data: invitationData = [], refetch: refetchInvitations } =
-    useHybridQuery({
+    useHybridSupabaseQuery({
       queryKey: ['project-invitations', projectId],
       onlineFn: async () => {
         const { data, error } = await system.supabaseConnector.client
           .from('invite')
           .select('*, receiver(*)')
-          .eq('project_id', projectId);
+          .eq('project_id', projectId)
+          .overrideTypes<
+            (typeof invite.$inferSelect & {
+              receiver: typeof profile.$inferSelect;
+            })[]
+          >();
         if (error) throw error;
         return data;
       },
-      offlineQuery: toCompilableQuery(
-        db.query.invite.findMany({
-          where: and(
-            eq(invite.project_id, projectId)
-            // Include pending, expired, declined, and withdrawn statuses
-          ),
-          with: {
-            receiver: true
-          }
-        })
-      )
+      offlineQuery: db.query.invite.findMany({
+        where: and(
+          eq(invite.project_id, projectId)
+          // Include pending, expired, declined, and withdrawn statuses
+        ),
+        with: {
+          receiver: true
+        }
+      })
     });
 
   const invitations: Invitation[] = invitationData

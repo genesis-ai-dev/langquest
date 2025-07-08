@@ -7,11 +7,11 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import {
   useSessionMemberships,
   useSessionProjects
-} from '@/contexts/SessionCacheContext';
+} from '@/contexts/SessionCacheProvider';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -229,6 +229,7 @@ export default function QuestsView() {
             searchQuery={searchQuery}
             activeFilters={activeFilters}
             onQuestPress={handleQuestPress}
+            onLoadMore={() => void 0}
           />
         </Suspense>
 

@@ -3,10 +3,11 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
+import { useAuth } from '@/contexts/AuthProvider';
 import {
   useSessionMemberships,
   useSessionProjects
-} from '@/contexts/SessionCacheProvider';
+} from '@/contexts/SessionCacheContext';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -15,7 +16,7 @@ import { colors, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   Modal,
@@ -28,9 +29,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useRenderCounter } from '@/utils/performanceUtils';
-import { QuestList } from '../../../../../../../components/questsComponents/QuestList';
-import { QuestListSkeleton } from '../../../../../../../components/questsComponents/QuestListSkeleton';
-import { QuestsScreenStyles } from '../../../../../../../components/questsComponents/QuestsScreenStyles';
+import { QuestList } from './_questsComponents/QuestList';
+import { QuestListSkeleton } from './_questsComponents/QuestListSkeleton';
+import { QuestsScreenStyles } from './_questsComponents/QuestsScreenStyles';
 
 export interface SortingOption {
   field: string;
@@ -40,7 +41,7 @@ export interface SortingOption {
 // Helper functions outside component to prevent recreation
 export const filterQuests = <T extends Quest>(
   quests: T[],
-  questTags: Record<string, Pick<Tag, 'name'>[]>,
+  questTags: Record<string, Tag[]>,
   searchQuery: string,
   activeFilters: Record<string, string[]>
 ) => {
@@ -94,6 +95,7 @@ const Quests = React.memo(() => {
   useRenderCounter('Quests');
 
   const [searchQuery, setSearchQuery] = useState('');
+  const { currentUser } = useAuth();
 
   // Use session cache for user membership
   const { isUserOwner } = useSessionMemberships();
@@ -158,6 +160,10 @@ const Quests = React.memo(() => {
     setShowProjectStats((prev) => !prev);
   };
 
+  const handleLoadMore = useCallback(() => {
+    // Load more logic will be handled by QuestList component
+  }, []);
+
   // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -217,7 +223,7 @@ const Quests = React.memo(() => {
               searchQuery={searchQuery}
               activeFilters={activeFilters}
               onQuestPress={handleQuestPress}
-              onLoadMore={() => void 0}
+              onLoadMore={handleLoadMore}
             />
           </Suspense>
 

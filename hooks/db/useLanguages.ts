@@ -1,9 +1,8 @@
 import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
-import { useHybridQuery } from '../useHybridQuery';
+import { useHybridSupabaseQuery } from '../useHybridSupabaseQuery';
 
 export type Language = InferSelectModel<typeof language>;
 
@@ -15,23 +14,22 @@ export function useUIReadyLanguages() {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['languages'],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
         .eq('active', true)
         .eq('ui_ready', true)
+        .abortSignal(signal)
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: and(eq(language.active, true), eq(language.ui_ready, true))
-      })
-    )
+    offlineQuery: db.query.language.findMany({
+      where: and(eq(language.active, true), eq(language.ui_ready, true))
+    })
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -50,22 +48,21 @@ export function useLanguages() {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['languages'],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
         .eq('active', true)
+        .abortSignal(signal)
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.active, true)
-      })
-    )
+    offlineQuery: db.query.language.findMany({
+      where: eq(language.active, true)
+    })
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -82,27 +79,26 @@ export function useLanguageNames(languageIds: string[] | string) {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['languages'],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('id, native_name, english_name')
         .eq('active', true)
         .in('id', languageIdsArray)
+        .abortSignal(signal)
         .overrideTypes<
           { id: string; native_name: string; english_name: string }[]
         >();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        columns: { id: true, native_name: true, english_name: true },
-        where: (fields, { eq, inArray }) =>
-          and(eq(fields.active, true), inArray(fields.id, languageIdsArray))
-      })
-    )
+    offlineQuery: db.query.language.findMany({
+      columns: { id: true, native_name: true, english_name: true },
+      where: (fields, { eq, inArray }) =>
+        and(eq(fields.active, true), inArray(fields.id, languageIdsArray))
+    })
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -119,23 +115,22 @@ export function useLanguageById(language_id?: string) {
     data: languageArray,
     isLoading: isLanguageLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['language', language_id],
     enabled: !!language_id,
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
         .eq('id', language_id)
+        .abortSignal(signal)
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.id, language_id!)
-      })
-    )
+    offlineQuery: db.query.language.findMany({
+      where: eq(language.id, language_id!)
+    })
   });
 
   const language_result = languageArray?.[0] || null;

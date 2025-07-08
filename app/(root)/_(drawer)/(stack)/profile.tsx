@@ -1,6 +1,6 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PageHeader } from '@/components/PageHeader';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { profileService } from '@/database_services/profileService';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
