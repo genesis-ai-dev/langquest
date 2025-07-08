@@ -66,7 +66,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
-        console.debug(`Queuing for sync, attachment IDs: [${_ids}]`);
+        // console.debug(`Queuing for sync, attachment IDs: [${_ids}]`);
 
         if (this.initialSync) {
           this.initialSync = false;

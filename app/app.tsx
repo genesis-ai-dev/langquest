@@ -28,7 +28,12 @@ export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
   }, [dateTermsAccepted]);
 
   if (!hasRehydrated || isLoading) {
-    console.log('auth is loading');
+    console.log(
+      'auth is loading - hasRehydrated:',
+      hasRehydrated,
+      'isLoading:',
+      isLoading
+    );
     return (
       <LinearGradient
         colors={[colors.gradientStart, colors.gradientEnd]}

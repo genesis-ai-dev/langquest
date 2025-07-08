@@ -41,32 +41,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     debug('useEffect - AuthContext initialization');
 
     const loadAuthData = async () => {
+      console.log('🔄 [AuthProvider] Starting loadAuthData...');
       try {
+        console.log('🔄 [AuthProvider] Getting supabase auth key...');
         const supabaseAuthKey = await getSupabaseAuthKey();
+        console.log('🔄 [AuthProvider] Got auth key:', !!supabaseAuthKey);
 
         if (supabaseAuthKey) {
+          console.log('🔄 [AuthProvider] Getting session from AsyncStorage...');
           const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
+          console.log('🔄 [AuthProvider] Got session string:', !!sessionString);
+
           if (sessionString) {
+            console.log('🔄 [AuthProvider] Parsing session...');
             const session = JSON.parse(sessionString) as Session | null;
-            console.log('session', session?.user.id);
+            console.log('🔄 [AuthProvider] Session user ID:', session?.user.id);
+
+            console.log('🔄 [AuthProvider] Fetching profile from Supabase...');
             const { data: profile } = (await system.supabaseConnector.client
               .from('profile')
               .select('*')
               .eq('id', session?.user.id)
               .single()) as { data: Profile };
-            console.log('profile', profile);
+            console.log('🔄 [AuthProvider] Got profile:', !!profile);
             setCurrentUser(profile);
+
+            // Sync terms acceptance from profile to local store
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store'
+                );
+                localStore.acceptTerms();
+              }
+            }
+          } else {
+            console.log('🔄 [AuthProvider] No session string found');
           }
+        } else {
+          console.log('🔄 [AuthProvider] No auth key found');
         }
       } catch (error) {
-        console.error('Error loading auth data:', error);
+        console.error('❌ [AuthProvider] Error loading auth data:', error);
       } finally {
-        console.log('setting auth isLoading to false');
+        console.log('✅ [AuthProvider] Setting isLoading to false');
         setIsLoading(false);
       }
     };
 
-    void loadAuthData();
+    // Add timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.log(
+        '⚠️ [AuthProvider] Timeout fallback - forcing isLoading to false'
+      );
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
+
+    void loadAuthData().finally(() => {
+      clearTimeout(timeoutId);
+    });
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
@@ -86,6 +120,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             setCurrentUser(profile);
 
+            // Sync terms acceptance from profile to local store
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change)'
+                );
+                localStore.acceptTerms();
+              }
+            }
+
             // Only reinitialize attachment queues if system is already initialized
             if (system.isInitialized()) {
               console.log(
@@ -104,6 +149,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               session.user.id
             );
             setCurrentUser(profile);
+
+            // Sync terms acceptance from profile to local store (fallback)
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change - fallback)'
+                );
+                localStore.acceptTerms();
+              }
+            }
           }
         }
       }

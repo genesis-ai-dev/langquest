@@ -631,7 +631,7 @@ export function useHybridSupabaseInfiniteQuery<T>(
     ...restOptions
   } satisfies GetInfiniteQueryParam<T>;
 
-  console.log('sharedOptions', sharedOptions);
+  // console.log('sharedOptions', sharedOptions);
   return useInfiniteQuery({
     ...sharedOptions,
     queryFn: async (context) => {
@@ -700,10 +700,10 @@ export function useHybridSupabaseInfiniteQuery<T>(
         }
       }
 
-      console.log(`data ${JSON.stringify(results)}`);
-      console.log(
-        `[${performance.now() - timestamp}ms] useHybridSupabaseInfiniteQuery (${isOnline ? 'online' : 'offline'}) ${JSON.stringify(hybridQueryKey)}`
-      );
+      // console.log(`data ${JSON.stringify(results)}`);
+      // console.log(
+      //   `[${performance.now() - timestamp}ms] useHybridSupabaseInfiniteQuery (${isOnline ? 'online' : 'offline'}) ${JSON.stringify(hybridQueryKey)}`
+      // );
       return {
         data: results,
         nextCursor:

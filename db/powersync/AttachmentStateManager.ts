@@ -8,6 +8,13 @@ interface AttachmentSource {
   attachmentIds: string[];
 }
 
+const DEBUG_ATTACHMENT_STATE = false;
+const debug = (...message: any[]) => {
+  if (DEBUG_ATTACHMENT_STATE) {
+    console.log(...message);
+  }
+};
+
 export class AttachmentStateManager {
   private unifiedAttachmentIds = new Set<string>();
   private updateInProgress = false;
@@ -27,7 +34,7 @@ export class AttachmentStateManager {
    * This prevents attachment collection during the operation to avoid lock contention
    */
   markDownloadOperationStart(): void {
-    console.log(
+    debug(
       '🚫 [ATTACHMENT STATE] Download operation started - pausing attachment updates'
     );
     this.downloadOperationInProgress = true;
@@ -39,7 +46,7 @@ export class AttachmentStateManager {
 
     // Auto-clear the download operation flag after 30 seconds (safety timeout)
     this.downloadOperationTimer = setTimeout(() => {
-      console.log(
+      debug(
         '⏰ [ATTACHMENT STATE] Download operation timeout - resuming attachment updates'
       );
       this.markDownloadOperationComplete();
@@ -51,7 +58,7 @@ export class AttachmentStateManager {
    * This resumes attachment collection and processes any pending updates
    */
   markDownloadOperationComplete(): void {
-    console.log(
+    debug(
       '✅ [ATTACHMENT STATE] Download operation completed - resuming attachment updates'
     );
     this.downloadOperationInProgress = false;
@@ -63,7 +70,7 @@ export class AttachmentStateManager {
 
     // Process any pending updates
     if (this.pendingUpdates.size > 0) {
-      console.log(
+      debug(
         `🔄 [ATTACHMENT STATE] Processing ${this.pendingUpdates.size} pending updates: ${Array.from(this.pendingUpdates).join(', ')}`
       );
       const pendingSources = Array.from(this.pendingUpdates);
@@ -87,7 +94,7 @@ export class AttachmentStateManager {
       if (sortedSources.length > 0) {
         // We'll need to get the onUpdate callback, but we can't store it here
         // Instead, we'll trigger through the normal debounce mechanism
-        console.log(
+        debug(
           `🎯 [ATTACHMENT STATE] Processing priority update: ${sortedSources[0]}`
         );
       }
@@ -112,13 +119,13 @@ export class AttachmentStateManager {
       const currentUser = getCurrentUser();
 
       if (!currentUser?.id) {
-        console.log(
+        debug(
           '[ATTACHMENT STATE] No current user, returning empty attachment list'
         );
         return [];
       }
 
-      console.log(
+      debug(
         '[ATTACHMENT STATE] 🔍 Collecting unified permanent attachment IDs...'
       );
 
@@ -129,7 +136,7 @@ export class AttachmentStateManager {
         columns: { id: true, images: true }
       });
 
-      console.log(
+      debug(
         `[ATTACHMENT STATE] Found ${directAssets.length} directly downloaded assets`
       );
 
@@ -139,7 +146,7 @@ export class AttachmentStateManager {
         columns: { id: true }
       });
 
-      console.log(
+      debug(
         `[ATTACHMENT STATE] Found ${downloadedQuests.length} downloaded quests`
       );
 
@@ -156,7 +163,7 @@ export class AttachmentStateManager {
             })
           : [];
 
-      console.log(
+      debug(
         `[ATTACHMENT STATE] Found ${questAssetLinks.length} assets in downloaded quests`
       );
 
@@ -243,7 +250,7 @@ export class AttachmentStateManager {
       // Deduplicate and return
       const uniqueAttachmentIds = [...new Set(allAttachmentIds)];
 
-      console.log(
+      debug(
         `[ATTACHMENT STATE] ✅ Collected ${uniqueAttachmentIds.length} unique permanent attachment IDs from ${processedAssetIds.size} assets`
       );
 
@@ -267,7 +274,7 @@ export class AttachmentStateManager {
         });
       });
 
-      console.log(
+      debug(
         `[ATTACHMENT STATE] 📊 Breakdown: ${totalImages} images, ${totalContent} content audio, ${totalTranslations} translation audio`
       );
 
@@ -289,7 +296,7 @@ export class AttachmentStateManager {
     if (!assetIds.length) return [];
 
     try {
-      console.log(
+      debug(
         `[ATTACHMENT STATE] 🔍 Getting attachments for specific assets: ${assetIds.join(', ')}`
       );
 
@@ -333,7 +340,7 @@ export class AttachmentStateManager {
       }
 
       const uniqueAttachmentIds = [...new Set(allAttachmentIds)];
-      console.log(
+      debug(
         `[ATTACHMENT STATE] ✅ Found ${uniqueAttachmentIds.length} attachments for ${assetIds.length} assets`
       );
 
@@ -355,11 +362,11 @@ export class AttachmentStateManager {
     onUpdate: (ids: string[]) => void,
     triggerSource: string
   ): void {
-    console.log(`⏱️ [ATTACHMENT STATE] Update triggered by: ${triggerSource}`);
+    debug(`⏱️ [ATTACHMENT STATE] Update triggered by: ${triggerSource}`);
 
     // Skip updates if download operation is in progress to avoid lock contention
     if (this.downloadOperationInProgress) {
-      console.log(
+      debug(
         `🚫 [ATTACHMENT STATE] Skipping update (${triggerSource}) - download operation in progress`
       );
       this.pendingUpdates.add(triggerSource);
@@ -379,7 +386,7 @@ export class AttachmentStateManager {
     ].includes(triggerSource);
     const debounceTime = isDownloadRelated ? 5000 : 1000; // 5 seconds for download operations, 1 second for others
 
-    console.log(
+    debug(
       `⏱️ [ATTACHMENT STATE] Using ${debounceTime}ms debounce for trigger: ${triggerSource}`
     );
 
@@ -397,7 +404,7 @@ export class AttachmentStateManager {
     triggerSource: string
   ): Promise<void> {
     if (this.updateInProgress) {
-      console.log(
+      debug(
         `🔒 [ATTACHMENT STATE] Update already in progress, skipping trigger from ${triggerSource}`
       );
       return;
@@ -407,7 +414,7 @@ export class AttachmentStateManager {
     const updateStartTime = Date.now();
 
     try {
-      console.log(
+      debug(
         `🔄 [ATTACHMENT STATE] Starting attachment state update (triggered by: ${triggerSource})`
       );
 
@@ -420,11 +427,11 @@ export class AttachmentStateManager {
         !newAttachmentIds.every((id) => this.unifiedAttachmentIds.has(id));
 
       if (hasChanged) {
-        console.log(`🔄 [ATTACHMENT STATE] ✅ ATTACHMENT LIST CHANGED!`);
-        console.log(
+        debug(`🔄 [ATTACHMENT STATE] ✅ ATTACHMENT LIST CHANGED!`);
+        debug(
           `🔄 [ATTACHMENT STATE] Previous: ${this.unifiedAttachmentIds.size} attachments`
         );
-        console.log(
+        debug(
           `🔄 [ATTACHMENT STATE] New: ${newAttachmentIds.length} attachments`
         );
 
@@ -436,12 +443,10 @@ export class AttachmentStateManager {
         const removed = previousIds.filter((id) => !newAttachmentSet.has(id));
 
         if (added.length > 0) {
-          console.log(
-            `🔄 [ATTACHMENT STATE] ➕ Added ${added.length} attachments: ${added.slice(0, 5).join(', ')}${added.length > 5 ? '...' : ''}`
-          );
+          debug(`🔄 [ATTACHMENT STATE] ➕ Added ${added.length} attachments'}`);
         }
         if (removed.length > 0) {
-          console.log(
+          debug(
             `🔄 [ATTACHMENT STATE] ➖ Removed ${removed.length} attachments: ${removed.slice(0, 5).join(', ')}${removed.length > 5 ? '...' : ''}`
           );
         }
@@ -450,21 +455,19 @@ export class AttachmentStateManager {
         this.unifiedAttachmentIds = newAttachmentSet;
         this.lastUpdateTime = updateStartTime;
 
-        console.log(
+        debug(
           `🔄 [ATTACHMENT STATE] 📤 Calling PowerSync onUpdate with ${newAttachmentIds.length} attachments...`
         );
         onUpdate(newAttachmentIds);
-        console.log(`🔄 [ATTACHMENT STATE] ✅ PowerSync onUpdate completed`);
+        debug(`🔄 [ATTACHMENT STATE] ✅ PowerSync onUpdate completed`);
       } else {
-        console.log(
+        debug(
           `🔄 [ATTACHMENT STATE] ⏭️ No change in attachment list (${newAttachmentIds.length} attachments), skipping PowerSync update`
         );
       }
 
       const updateDuration = Date.now() - updateStartTime;
-      console.log(
-        `🔄 [ATTACHMENT STATE] Update completed in ${updateDuration}ms`
-      );
+      debug(`🔄 [ATTACHMENT STATE] Update completed in ${updateDuration}ms`);
     } catch (error) {
       console.error(`🔄 [ATTACHMENT STATE] ❌ Error during update:`, error);
     } finally {
@@ -503,7 +506,7 @@ export class AttachmentStateManager {
    */
   processPendingUpdates(onUpdate: (ids: string[]) => void): void {
     if (this.pendingUpdates.size > 0 && !this.downloadOperationInProgress) {
-      console.log(
+      debug(
         `🔄 [ATTACHMENT STATE] Processing ${this.pendingUpdates.size} pending updates: ${Array.from(this.pendingUpdates).join(', ')}`
       );
 
@@ -526,7 +529,7 @@ export class AttachmentStateManager {
       this.pendingUpdates.clear();
 
       if (sortedSources.length > 0) {
-        console.log(
+        debug(
           `🎯 [ATTACHMENT STATE] Processing deferred update: ${sortedSources[0]}`
         );
         this.updateWithDebounce(onUpdate, `deferred_${sortedSources[0]}`);
