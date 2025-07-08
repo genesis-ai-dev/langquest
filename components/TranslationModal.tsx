@@ -55,7 +55,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
-  const { hasReported } = useTranslationReports(translationId, currentUser!.id);
+  const { hasReported } = useTranslationReports(translationId, currentUser?.id);
 
   const queryClient = useQueryClient();
 
@@ -68,28 +68,32 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
-  const { data: audioUri, isLoading: loadingAudio } = useHybridQuery({
+  const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
     queryKey: ['audio', translation?.audio],
     onlineFn: async () => {
-      if (!translation?.audio) return null;
+      if (!translation?.audio) return [];
       try {
-        return await getLocalUriFromAssetId(translation.audio);
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
       } catch (error) {
         console.error('Error loading audio URI:', error);
-        return null;
+        return [];
       }
     },
     offlineFn: async () => {
-      if (!translation?.audio) return null;
+      if (!translation?.audio) return [];
       try {
-        return await getLocalUriFromAssetId(translation.audio);
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
       } catch (error) {
         console.error('Error loading audio URI:', error);
-        return null;
+        return [];
       }
     },
     enabled: !!translation?.audio
   });
+
+  const audioUri = audioUriData?.[0]?.uri || null;
 
   const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
   const project = projectInfo?.quest.project;
@@ -238,7 +242,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
               }
             ]}
             onPress={handleReportPress}
-            disabled={isOwnTranslation || hasReported}
+            disabled={isOwnTranslation || !!hasReported}
           >
             <Ionicons
               name={hasReported ? 'flag' : 'flag-outline'}

@@ -1,61 +1,109 @@
+import { blockService } from '@/database_services/blockService';
+import { reportService } from '@/database_services/reportService';
+import { reasonOptions } from '@/db/constants';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasUserReported } from './db/useReports';
+import { and, eq } from 'drizzle-orm';
 
-export const useReportUserHasReported = (
+/**
+ * Hook for checking if a user has reported a specific record
+ */
+export const useHasUserReported = (
   recordId: string,
   recordTable: string,
   reporterId: string
 ) => {
-  const queryClient = useQueryClient();
-
-  const { data: hasReported } = useHybridQuery({
-    queryKey: ['reports', recordId, recordTable, reporterId],
+  const { data: reportArray, isLoading } = useHybridQuery({
+    queryKey: ['reports', 'hasReported', recordId, recordTable, reporterId],
     onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('reports')
-        .select('id')
+        .select('*')
         .eq('record_id', recordId)
         .eq('record_table', recordTable)
-        .eq('reporter_id', reporterId)
-        .limit(1);
+        .eq('reporter_id', reporterId);
       if (error) throw error;
-      return data.length > 0;
+      return data as Report[];
     },
     offlineQuery: toCompilableQuery(
-      hasUserReported(system.db, recordId, recordTable, reporterId)
+      system.db.query.reports.findMany({
+        where: and(
+          eq(reports.record_id, recordId),
+          eq(reports.record_table, recordTable),
+          eq(reports.reporter_id, reporterId)
+        )
+      })
     ),
     enabled: !!recordId && !!recordTable && !!reporterId
   });
 
-  const reportMutation = useMutation({
-    mutationFn: async ({
-      reportType,
-      description
-    }: {
-      reportType: string;
-      description: string;
+  const hasReported = (reportArray?.length ?? 0) > 0;
+  return { hasReported, isLoading };
+};
+
+/**
+ * Main useReports hook used by ReportModal and other components
+ */
+export const useReports = (
+  recordId: string,
+  recordTable: string,
+  reporterId?: string
+) => {
+  const queryClient = useQueryClient();
+
+  const createReportMutation = useMutation({
+    mutationFn: async (data: {
+      record_id: string;
+      record_table: string;
+      reporter_id: string;
+      reason: typeof reasonOptions[number];
+      details?: string;
     }) => {
-      return await system.db.insert(reports).values({
-        record_id: recordId,
-        record_table: recordTable,
-        reporter_id: reporterId,
-        report_type: reportType,
-        description
-      });
+      return await reportService.createReport(data);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['reports', recordId, recordTable, reporterId]
+        queryKey: ['reports']
+      });
+    }
+  });
+
+  const blockUserMutation = useMutation({
+    mutationFn: async (data: {
+      blocker_id: string;
+      blocked_id: string;
+    }) => {
+      return await blockService.blockUser(data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['blockedUsers']
+      });
+    }
+  });
+
+  const blockContentMutation = useMutation({
+    mutationFn: async (data: {
+      profile_id: string;
+      content_id: string;
+      content_table: string;
+    }) => {
+      return await blockService.blockContent(data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['blockedContent']
       });
     }
   });
 
   return {
-    hasReported,
-    reportMutation
+    createReport: createReportMutation.mutateAsync,
+    isCreatingReport: createReportMutation.isPending,
+    blockUser: blockUserMutation.mutateAsync,
+    blockContent: blockContentMutation.mutateAsync
   };
 };

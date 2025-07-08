@@ -46,30 +46,75 @@ const RootStack = memo(() => (
 RootStack.displayName = 'RootStack';
 
 export default function RootLayout() {
-  const router = useRouter();
+  const [isSystemReady, setIsSystemReady] = React.useState(false);
+
+  // Don't render the app until system is ready
+  if (!isSystemReady) {
+    // Keep splash screen visible while initializing
+    return <InitializingApp onReady={() => setIsSystemReady(true)} />;
+  }
+
+  return <MainApp />;
+}
+
+// Separate component for initialization logic
+function InitializingApp({ onReady }: { onReady: () => void }) {
   const systemInitialized = useRef(false);
 
   useEffect(() => {
-    void ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.PORTRAIT_UP
-    );
-    const unsubscribe = initializeNetwork();
-    void TranslationUtils.initialize();
+    const initializeApp = async () => {
+      // Start other initializations
+      void ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      );
+      const unsubscribe = initializeNetwork();
+      void TranslationUtils.initialize();
 
-    // Initialize system singleton
-    if (!systemInitialized.current) {
-      systemInitialized.current = true;
-      console.log('🚀 Initializing system singleton directly...');
-      void system.init().catch((error) => {
-        console.error('System init error:', error);
-        systemInitialized.current = false; // Allow retry on error
-      });
-    }
+      // Initialize system singleton and WAIT for it
+      if (!systemInitialized.current) {
+        systemInitialized.current = true;
+        console.log('🚀 Initializing system singleton directly...');
+
+        try {
+          await system.init();
+          console.log('✅ System initialization completed!');
+          onReady();
+          // Hide splash screen now that system is ready
+          void SplashScreen.hideAsync();
+        } catch (error) {
+          console.error('❌ System init error:', error);
+          systemInitialized.current = false; // Allow retry on error
+          // Still set ready to true to allow app to load (graceful degradation)
+          onReady();
+          // Hide splash screen even on error to prevent infinite loading
+          void SplashScreen.hideAsync();
+        }
+      } else {
+        // Already initialized
+        onReady();
+        void SplashScreen.hideAsync();
+      }
+
+      return unsubscribe;
+    };
+
+    let unsubscribe: (() => void) | undefined;
+
+    void initializeApp().then((cleanup) => {
+      unsubscribe = cleanup;
+    });
 
     return () => {
-      unsubscribe();
+      unsubscribe?.();
     };
-  }, []);
+  }, [onReady]);
+
+  return null; // Keep splash screen visible
+}
+
+// Main app component with all the routing logic
+function MainApp() {
+  const router = useRouter();
 
   const handleAuthDeepLink = useCallback(
     (url: string) => {
@@ -105,7 +150,7 @@ export default function RootLayout() {
     };
   }, [handleAuthDeepLink]);
 
-  console.log('[RootLayout] Rendering...');
+  console.log('[MainApp] Rendering...');
 
   return (
     <>

@@ -20,8 +20,11 @@ export const QuestCard: React.FC<{
   } = useDownload('quest', quest.id);
 
   const handleDownloadToggle = useCallback(async () => {
+    console.log(
+      `🎯 [QUEST CARD] User tapped download button for quest: ${quest.id} (${quest.name})`
+    );
     await toggleDownload();
-  }, [toggleDownload]);
+  }, [toggleDownload, quest.id, quest.name]);
 
   // Memoize tag processing for performance
   const displayTags = useMemo(() => {

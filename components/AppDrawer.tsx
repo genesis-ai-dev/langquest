@@ -54,7 +54,6 @@ export default function AppDrawer({
   // Add performance tracking
   useRenderCounter('AppDrawer');
 
-  // PowerSync and system status
   const systemReady = system.isInitialized();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -74,7 +73,7 @@ export default function AppDrawer({
   );
 
   // Use the notifications hook
-  const { notificationCount } = useNotifications();
+  const { totalCount: notificationCount } = useNotifications();
 
   // Feature flag to toggle notifications visibility
   const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
@@ -362,6 +361,25 @@ export default function AppDrawer({
                 { backgroundColor: colors.background }
               ]}
             >
+              {/* <Text style={{ color: 'red' }}>
+                {JSON.stringify(
+                  {
+                    attachmentSyncProgress,
+                    powersyncStatus,
+                    syncOperation,
+                    syncProgress,
+                    syncTotal,
+                    system,
+                    isBackingUp,
+                    isRestoring,
+                    systemReady,
+                    isOperationActive,
+                    progressPercentage
+                  },
+                  null,
+                  2
+                )}
+              </Text> */}
               {/* System status and progress indicators */}
               {!systemReady && (
                 <View

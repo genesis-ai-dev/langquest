@@ -79,7 +79,7 @@ export function SessionCacheProvider({ children }: { children: ReactNode }) {
   const { data: userMemberships, isLoading: isUserMembershipsLoading } =
     useHybridQuery({
       queryKey: ['session-user-memberships', currentUser?.id],
-      onlineQueryFn: async () => {
+      onlineFn: async () => {
         if (!currentUser?.id) return [];
 
         try {
