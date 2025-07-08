@@ -4,6 +4,7 @@
  */
 
 import { AssetFilterModal } from '@/components/AssetFilterModal';
+import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
@@ -33,7 +34,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   Modal,
   RefreshControl,
@@ -44,6 +44,7 @@ import {
   View
 } from 'react-native';
 
+import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
@@ -314,9 +315,10 @@ export default function AssetsView() {
     if (!isFetchingNextPage) return null;
 
     return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Loading more...</Text>
+      <View style={{ paddingVertical: spacing.medium }}>
+        <AssetSkeleton />
+        <AssetSkeleton />
+        <AssetSkeleton />
       </View>
     );
   };
@@ -346,25 +348,9 @@ export default function AssetsView() {
     return (
       <View style={styles.container}>
         <View
-          style={[
-            sharedStyles.container,
-            {
-              backgroundColor: 'transparent',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }
-          ]}
+          style={[sharedStyles.container, { backgroundColor: 'transparent' }]}
         >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: fontSizes.medium,
-              marginTop: spacing.medium
-            }}
-          >
-            Loading assets...
-          </Text>
+          <AssetListSkeleton />
         </View>
       </View>
     );

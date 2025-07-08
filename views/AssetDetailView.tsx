@@ -4,6 +4,7 @@
  * Features: Translation interface, tab switching, gesture navigation, voting
  */
 
+import { AssetSkeleton } from '@/components/AssetSkeleton';
 import CalendarIcon from '@/components/CalendarIcon';
 import Carousel from '@/components/Carousel';
 import { GemIcon } from '@/components/GemIcon';
@@ -34,14 +35,13 @@ import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   ScrollView,
   StyleSheet,
@@ -102,9 +102,10 @@ export default function AssetDetailView() {
   const { project: activeProject } = useProjectById(currentProjectId || '');
 
   // Check private project access
-  const { hasAccess } = usePrivateProjectAccess(
+  const { hasAccess } = useUserPermissions(
     currentProjectId || '',
-    'translate'
+    'translate',
+    activeProject?.private
   );
 
   // Use the hook to watch attachment states - always call these hooks
@@ -328,8 +329,7 @@ export default function AssetDetailView() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading asset...</Text>
+          <AssetSkeleton />
         </View>
       </View>
     );

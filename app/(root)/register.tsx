@@ -93,7 +93,7 @@ export default function Register() {
 
       // Email confirmation is required
       Alert.alert(t('success'), t('checkEmail'), [
-        { text: 'OK', onPress: () => router.replace('/') }
+        { text: 'OK', onPress: () => router.replace('/app') }
       ]);
       return;
     } catch (error) {

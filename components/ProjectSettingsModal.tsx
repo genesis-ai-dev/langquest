@@ -1,5 +1,6 @@
-import { project as projectTable } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -10,7 +11,6 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -41,11 +41,19 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Query for project details
-  const { data: projectDataArray = [], refetch } = useQuery({
+  const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.project.findFirst({
-        where: eq(projectTable.id, projectId)
+        where: eq(project.id, projectId)
       })
     )
   });
@@ -58,12 +66,12 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     setIsSubmitting(true);
     try {
       await db
-        .update(projectTable)
+        .update(project)
         .set({
           private: !projectData.private,
           last_updated: new Date().toISOString()
         })
-        .where(eq(projectTable.id, projectId));
+        .where(eq(project.id, projectId));
 
       await refetch();
       Alert.alert(

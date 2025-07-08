@@ -5,6 +5,7 @@
 
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { ProjectSkeleton } from '@/components/ProjectSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useSessionLanguages,
@@ -22,14 +23,9 @@ import {
   spacing
 } from '@/styles/theme';
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
 import { useRenderCounter } from '@/utils/performanceUtils';
@@ -181,8 +177,10 @@ export default function ProjectsView() {
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;
     return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View style={{ paddingVertical: spacing.medium }}>
+        <ProjectSkeleton />
+        <ProjectSkeleton />
+        <ProjectSkeleton />
       </View>
     );
   };
@@ -195,9 +193,8 @@ export default function ProjectsView() {
 
   if (isProjectsLoading && !filteredProjects.length) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={styles.container}>
+        <ProjectListSkeleton />
       </View>
     );
   }

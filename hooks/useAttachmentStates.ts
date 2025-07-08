@@ -42,11 +42,21 @@ export function useAttachmentStates(attachmentIds: string[]) {
             const previousState = currentPreviousStates.get(record.id)?.state;
             if (previousState !== undefined && previousState !== record.state) {
               if (record.state === AttachmentState.SYNCED) {
-                // SYNCED state
-                console.log(`[Attachment] Synced: ${record.id}`);
+                console.log(
+                  `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
+                );
               } else if (record.state === AttachmentState.QUEUED_SYNC) {
-                // QUEUED state
-                console.log(`[Attachment] Queued: ${record.id}`);
+                console.log(
+                  `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
+                );
+              } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+                console.log(
+                  `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
+                );
+              } else {
+                console.log(
+                  `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
+                );
               }
             }
           });

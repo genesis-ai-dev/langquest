@@ -43,7 +43,7 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        pathname: '/projects/[projectId]/quests',
+        pathname: '/_(drawer)/projects/[projectId]/quests',
         params: {
           projectId: projectData.id,
           ...(projectData.name && { projectName: projectData.name })
@@ -72,7 +72,7 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        pathname: '/projects/[projectId]/quests/[questId]/assets',
+        pathname: '/_(drawer)/projects/[projectId]/quests/[questId]/assets',
         params: {
           projectId: questData.project_id,
           questId: questData.id,
@@ -117,7 +117,8 @@ export function useNavigation() {
       });
 
       const path: Href = {
-        pathname: '/projects/[projectId]/quests/[questId]/assets/[assetId]',
+        pathname:
+          '/_(drawer)/projects/[projectId]/quests/[questId]/assets/[assetId]',
         params: {
           projectId: targetProjectId,
           questId: targetQuestId,

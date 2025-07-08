@@ -4,16 +4,13 @@ import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import {
-  downloadRecord,
-  useProjectsDownloadStatus
-} from '@/hooks/useDownloads';
+import { downloadRecord } from '@/hooks/useDownloads';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
@@ -81,9 +78,19 @@ export default function NotificationsPage() {
   }, [userMemberships]);
 
   // Query for invite notifications (where user's email matches)
-  const { data: inviteData = [], refetch: refetchInvites } = useQuery({
+  const { data: inviteData = [], refetch: refetchInvites } = useHybridQuery({
     queryKey: ['invite-notifications', currentUser?.email],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('*, project(*), sender(*)')
+        .eq('email', currentUser?.email || '')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       drizzleDb.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
@@ -116,9 +123,9 @@ export default function NotificationsPage() {
     })
   );
 
-  // Query for existing project download statuses
-  const projectIds = inviteNotifications.map((item) => item.project_id);
-  const { projectStatuses } = useProjectsDownloadStatus(projectIds);
+  // Query for existing project download statuses - removed since useProjectsDownloadStatus doesn't exist
+  // const projectIds = inviteNotifications.map((item) => item.project_id);
+  // const { projectStatuses } = useProjectsDownloadStatus(projectIds);
 
   // Initialize download toggles for invites
   useEffect(() => {
@@ -129,20 +136,27 @@ export default function NotificationsPage() {
       inviteNotifications.forEach((notification) => {
         // Only initialize if not already set
         if (newToggles[notification.id] === undefined) {
-          // Check if project is already downloaded
-          const isDownloaded = !!projectStatuses[notification.project_id];
-          // Default to true (download) unless already downloaded
-          newToggles[notification.id] = !isDownloaded;
+          // Default to true (download) since we can't check existing status easily
+          newToggles[notification.id] = true;
         }
       });
       return newToggles;
     });
-  }, [inviteNotifications.length, projectStatuses]);
+  }, [inviteNotifications.length]);
 
   // Get pending requests for owner projects (using session cache for owner project IDs)
-  const { data: requestData = [], refetch: refetchRequests } = useQuery({
+  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
     queryKey: ['request-notifications', ownerProjectIds],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*, project(*), sender(*)')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       drizzleDb.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true)),
         with: {

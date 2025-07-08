@@ -579,16 +579,16 @@ export function useHybridInfiniteQuery<
       refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
       refetchOnMount: false // FIXED: Prevent refetch on every mount
     });
-    console.log(
-      `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
-    );
+    // console.log(
+    //   `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (online) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
+    // );
     return result;
   }
 
   const result = useOfflineInfiniteQuery();
-  console.log(
-    `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
-  );
+  // console.log(
+  //   `[${performance.now() - timestamp}ms] useHybridInfiniteQuery (offline) ${JSON.stringify(stableQueryKeys.hybridQueryKey)}`
+  // );
   return result;
 }
 

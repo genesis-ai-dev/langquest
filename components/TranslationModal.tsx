@@ -7,13 +7,13 @@ import {
   useTranslationProjectInfo
 } from '@/hooks/db/useTranslations';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
@@ -55,7 +55,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
-  const { hasReported } = useTranslationReports(translationId, currentUser!.id);
+  const { hasReported } = useTranslationReports(translationId, currentUser?.id);
 
   const queryClient = useQueryClient();
 
@@ -68,27 +68,41 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
-  const { data: audioUri, isLoading: loadingAudio } = useQuery({
+  const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
     queryKey: ['audio', translation?.audio],
-    queryFn: async () => {
-      if (!translation?.audio) return null;
+    onlineFn: async () => {
+      if (!translation?.audio) return [];
       try {
-        return await getLocalUriFromAssetId(translation.audio);
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
       } catch (error) {
         console.error('Error loading audio URI:', error);
-        return null;
+        return [];
+      }
+    },
+    offlineFn: async () => {
+      if (!translation?.audio) return [];
+      try {
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
+      } catch (error) {
+        console.error('Error loading audio URI:', error);
+        return [];
       }
     },
     enabled: !!translation?.audio
   });
 
+  const audioUri = audioUriData?.[0]?.uri || null;
+
   const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
   const project = projectInfo?.quest.project;
 
   // Check if user has access to edit translations in this project
-  const { hasAccess: canEditTranslation } = usePrivateProjectAccess(
+  const { hasAccess: canEditTranslation } = useUserPermissions(
     project?.id || '',
-    'edit-transcription'
+    'edit_transcription',
+    project?.private
   );
 
   useEffect(() => {
@@ -228,7 +242,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
               }
             ]}
             onPress={handleReportPress}
-            disabled={isOwnTranslation || hasReported}
+            disabled={isOwnTranslation || !!hasReported}
           >
             <Ionicons
               name={hasReported ? 'flag' : 'flag-outline'}
@@ -310,7 +324,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                   projectId={project?.id || ''}
                   projectName={project?.name || ''}
                   isPrivate={project?.private || false}
-                  action="vote"
+                  action="edit_transcription"
                   inline={true}
                 >
                   <View

@@ -25,7 +25,7 @@ function Terms() {
   const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
     acceptTerms();
-    router.navigate('/');
+    router.navigate('/app');
   }, [acceptTerms, router]);
 
   const handleToggleTerms = useCallback(() => {
@@ -36,7 +36,7 @@ function Terms() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/');
+      router.replace('/app');
     }
   }, [router]);
 

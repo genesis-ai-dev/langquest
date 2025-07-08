@@ -77,7 +77,7 @@ export default function SignIn() {
       // Email is verified, proceed with login
       // await system.init();
       reset();
-      router.replace('/');
+      router.replace('/app');
     } catch (error) {
       console.error('Error during sign in:', error);
 

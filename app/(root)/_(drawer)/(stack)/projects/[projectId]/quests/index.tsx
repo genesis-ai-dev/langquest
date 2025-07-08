@@ -3,7 +3,6 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   useSessionMemberships,
   useSessionProjects
@@ -16,7 +15,7 @@ import { colors, sharedStyles } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import {
   BackHandler,
   Modal,
@@ -95,7 +94,6 @@ const Quests = React.memo(() => {
   useRenderCounter('Quests');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const { currentUser } = useAuth();
 
   // Use session cache for user membership
   const { isUserOwner } = useSessionMemberships();
@@ -160,10 +158,6 @@ const Quests = React.memo(() => {
     setShowProjectStats((prev) => !prev);
   };
 
-  const handleLoadMore = useCallback(() => {
-    // Load more logic will be handled by QuestList component
-  }, []);
-
   // Handle back button press
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -223,7 +217,6 @@ const Quests = React.memo(() => {
               searchQuery={searchQuery}
               activeFilters={activeFilters}
               onQuestPress={handleQuestPress}
-              onLoadMore={handleLoadMore}
             />
           </Suspense>
 

@@ -5,17 +5,12 @@ import { useInfiniteQuestsWithTagsByProjectId } from '@/hooks/db/useQuests';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
 import React, { useMemo } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import type { SortingOption } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
 import { filterQuests } from '../../app/(root)/_(drawer)/(stack)/projects/[projectId]/quests';
 import { QuestItem } from './QuestItem';
 import { QuestListSkeleton } from './QuestListSkeleton';
+import { QuestSkeleton } from './QuestSkeleton';
 import { QuestsScreenStyles } from './QuestsScreenStyles';
 
 // Main quest list component with performance optimizations
@@ -25,21 +20,32 @@ export const QuestList = React.memo(
     activeSorting,
     searchQuery,
     activeFilters,
-    onQuestPress,
-    onLoadMore
+    onQuestPress
   }: {
     projectId: string;
     activeSorting: SortingOption[];
     searchQuery: string;
     activeFilters: Record<string, string[]>;
     onQuestPress: (quest: Quest) => void;
-    onLoadMore: () => void;
   }) => {
     const { project: selectedProject } = useProjectById(projectId);
+
+    // FIXED: Stabilize sorting parameters to prevent infinite loops
+    const stableSortField = React.useMemo(() => {
+      return activeSorting[0]?.field === 'name'
+        ? activeSorting[0].field
+        : undefined;
+    }, [activeSorting]);
+
+    const stableSortOrder = React.useMemo(() => {
+      return activeSorting[0]?.order;
+    }, [activeSorting]);
 
     // Use optimized query with better caching
     const {
       data: infiniteData,
+      fetchNextPage,
+      hasNextPage,
       isFetching,
       isFetchingNextPage,
       isLoading,
@@ -49,9 +55,16 @@ export const QuestList = React.memo(
     } = useInfiniteQuestsWithTagsByProjectId(
       projectId,
       15, // Reduced page size for faster initial load
-      activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
-      activeSorting[0]?.order
+      stableSortField,
+      stableSortOrder
     );
+
+    // Handle load more internally instead of relying on parent
+    const handleLoadMore = React.useCallback(() => {
+      if (hasNextPage && !isFetchingNextPage && !isFetching) {
+        void fetchNextPage();
+      }
+    }, [hasNextPage, isFetchingNextPage, isFetching, fetchNextPage]);
 
     // Extract and memoize quests with better performance
     const { /* allQuests, questTags, */ filteredQuests } = useMemo(() => {
@@ -85,7 +98,11 @@ export const QuestList = React.memo(
         questTags: tags,
         filteredQuests: filtered
       };
-    }, [infiniteData?.pages, searchQuery, activeFilters]);
+    }, [
+      infiniteData?.pages.length, // Use length instead of array reference
+      searchQuery,
+      JSON.stringify(activeFilters) // Serialize object for stable comparison
+    ]);
 
     // Show skeleton during initial load
     if (isLoading) {
@@ -136,12 +153,14 @@ export const QuestList = React.memo(
         style={sharedStyles.list}
         // Performance optimizations
         removeClippedSubviews={true}
-        onEndReached={onLoadMore}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
           isFetchingNextPage ? (
-            <View style={QuestsScreenStyles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            <View style={{ paddingVertical: spacing.medium }}>
+              <QuestSkeleton />
+              <QuestSkeleton />
+              <QuestSkeleton />
             </View>
           ) : null
         }
