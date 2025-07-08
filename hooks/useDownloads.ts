@@ -351,14 +351,16 @@ export function useQuestDownloadStatus(questId: string) {
         .select('*')
         .eq('quest_id', questId)
         .limit(1)
-        .overrideTypes<{
-          quest_id: string;
-          project_id: string;
-          total_assets: number;
-          total_translations: number;
-          approved_translations: number;
-          last_updated: string;
-        }[]>();
+        .overrideTypes<
+          {
+            quest_id: string;
+            project_id: string;
+            total_assets: number;
+            total_translations: number;
+            approved_translations: number;
+            last_updated: string;
+          }[]
+        >();
       if (error) throw error;
       return data;
     },
@@ -389,11 +391,15 @@ export function useQuestDownloadStatus(questId: string) {
   });
 
   const closureData = questClosure?.[0];
-  const isDownloaded = !!(questDownloadStatus?.[0]?.id);
+  const isDownloaded = !!questDownloadStatus?.[0]?.id;
 
   // Calculate progress percentage
   const progressPercentage = closureData
-    ? Math.round((closureData.approved_translations / Math.max(closureData.total_assets, 1)) * 100)
+    ? Math.round(
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {
@@ -403,7 +409,7 @@ export function useQuestDownloadStatus(questId: string) {
     progressPercentage,
     totalAssets: closureData?.total_assets || 0,
     totalTranslations: closureData?.total_translations || 0,
-    approvedTranslations: closureData?.approved_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0
   };
 }
 
@@ -423,14 +429,16 @@ export function useProjectDownloadStatus(projectId: string) {
         .select('*')
         .eq('project_id', projectId)
         .limit(1)
-        .overrideTypes<{
-          project_id: string;
-          total_quests: number;
-          total_assets: number;
-          total_translations: number;
-          approved_translations: number;
-          last_updated: string;
-        }[]>();
+        .overrideTypes<
+          {
+            project_id: string;
+            total_quests: number;
+            total_assets: number;
+            total_translations: number;
+            approved_translations: number;
+            last_updated: string;
+          }[]
+        >();
       if (error) throw error;
       return data;
     },
@@ -455,19 +463,25 @@ export function useProjectDownloadStatus(projectId: string) {
     offlineQuery: `SELECT id, download_profiles FROM project WHERE id = '${projectId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
   });
 
-  const closureData = projectClosure?.[0] as {
-    project_id: string;
-    total_quests: number;
-    total_assets: number;
-    total_translations: number;
-    approved_translations: number;
-    last_updated: string;
-  } | undefined;
-  const isDownloaded = !!(projectDownloadStatus?.[0]?.id);
+  const closureData = projectClosure?.[0] as
+    | {
+        project_id: string;
+        total_quests: number;
+        total_assets: number;
+        total_translations: number;
+        approved_translations: number;
+        last_updated: string;
+      }
+    | undefined;
+  const isDownloaded = !!projectDownloadStatus?.[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
-    ? Math.round((closureData.approved_translations / Math.max(closureData.total_assets, 1)) * 100)
+    ? Math.round(
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {
@@ -478,6 +492,6 @@ export function useProjectDownloadStatus(projectId: string) {
     totalQuests: closureData?.total_quests || 0,
     totalAssets: closureData?.total_assets || 0,
     totalTranslations: closureData?.total_translations || 0,
-    approvedTranslations: closureData?.approved_translations || 0,
+    approvedTranslations: closureData?.approved_translations || 0
   };
 }

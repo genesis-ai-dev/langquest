@@ -647,17 +647,18 @@ export const project_closure = sqliteTable(
 
     last_updated: text().notNull().default(timestampDefault)
   },
-  (table) => [
-    index('project_closure_last_updated_idx').on(table.last_updated)
-  ]
+  (table) => [index('project_closure_last_updated_idx').on(table.last_updated)]
 );
 
-export const project_closureRelations = relations(project_closure, ({ one }) => ({
-  project: one(project, {
-    fields: [project_closure.project_id],
-    references: [project.id]
+export const project_closureRelations = relations(
+  project_closure,
+  ({ one }) => ({
+    project: one(project, {
+      fields: [project_closure.project_id],
+      references: [project.id]
+    })
   })
-}));
+);
 
 // Deprecated - remove after migration
 export const quest_aggregates = quest_closure;
