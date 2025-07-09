@@ -104,7 +104,7 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   const activeProject = cachedProject || freshProject;
 
   const {
-    isDownloaded,
+    isFlaggedForDownload,
     isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('asset', asset.id);
@@ -132,10 +132,12 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isFlaggedForDownload={isDownloaded}
+              isFlaggedForDownload={isFlaggedForDownload}
               isLoading={isDownloadLoading}
               onPress={
-                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                hasAccess || isFlaggedForDownload
+                  ? handleDownloadToggle
+                  : onPress
               }
             />
           )}

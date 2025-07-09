@@ -43,7 +43,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   // Use the new download hook
   const {
-    isDownloaded,
+    isFlaggedForDownload,
     isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('project', project.id);
@@ -107,10 +107,12 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
               onBypass={handleDownloadToggle}
               renderTrigger={({ onPress, hasAccess }) => (
                 <DownloadIndicator
-                  isFlaggedForDownload={isDownloaded}
+                  isFlaggedForDownload={isFlaggedForDownload}
                   isLoading={isDownloadLoading}
                   onPress={
-                    hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                    hasAccess || isFlaggedForDownload
+                      ? handleDownloadToggle
+                      : onPress
                   }
                 />
               )}
