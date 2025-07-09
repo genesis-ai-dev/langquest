@@ -6,43 +6,28 @@ import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import * as FileSystem from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
+import { AppConfig } from '../supabase/AppConfig';
+// import { system } from '../powersync/system';
+import { getCurrentUser } from '@/contexts/AuthContext';
+import { isNotNull } from 'drizzle-orm';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
-import { AttachmentStateManager } from './AttachmentStateManager';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
-  // Use unified attachment state manager instead of local state
-  private attachmentStateManager: AttachmentStateManager;
+  // db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  // Track previous active downloads to detect changes
+  // previousActiveDownloads: {
+  //   profile_id: string;
+  //   asset_id: string;
+  //   active: boolean;
+  // }[] = [];
 
   constructor(
-    options: Omit<
-      AttachmentQueueOptions,
-      'onDownloadError' | 'onUploadError'
-    > & {
+    options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
-      onDownloadError: (
-        attachment: AttachmentRecord,
-        exception: { toString: () => string; status?: number }
-      ) => void;
-      onUploadError: (
-        _attachment: AttachmentRecord,
-        _exception: {
-          error: string;
-          message: string;
-          statusCode: number;
-        }
-      ) => Promise<{
-        retry: boolean;
-      }>;
     }
   ) {
     super(options);
-    this.db = options.db;
-    console.log(
-      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
-    );
-
-    // Get the singleton AttachmentStateManager
-    this.attachmentStateManager = AttachmentStateManager.getInstance();
+    // this.db = options.db;
   }
 
   getStorageType(): 'permanent' | 'temporary' {
@@ -50,105 +35,120 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
+    console.log('PermAttachmentQueue init');
+    if (!AppConfig.supabaseBucket) {
+      console.debug(
+        'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
+      );
+      // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
+      this.options.syncInterval = 0; // This is weird, shouldn't be here
+      return;
+    }
+
     await super.init();
-    console.log(
-      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
-    );
   }
 
-  // Remove the old collectAllAttachmentIds method since we're using AttachmentStateManager
-  // Remove the old updateAttachmentIds method since we're using AttachmentStateManager
-
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log(
-      '[PERM QUEUE] Setting up unified attachment watcher with AttachmentStateManager'
-    );
+    console.log('onAttachmentIdsChange in PERM ATTACHMENT QUEUE');
 
-    // Single coordinated watcher using AttachmentStateManager
-    const updateWithSource = (source: string) => {
-      void this.attachmentStateManager.updateWithDebounce(onUpdate, source);
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+      return;
+    }
+
+    // Unified function to query all tables and update PowerSync with complete list
+    const refreshAllAttachments = async () => {
+      console.log('Refreshing all attachments from all tables');
+
+      try {
+        // Query all three tables fresh to get current state
+        const [assets, assetContentLinks, translations] = await Promise.all([
+          this.db.query.asset.findMany({
+            columns: { images: true },
+            where: (asset) => isNotNull(asset.images)
+          }),
+          this.db.query.asset_content_link.findMany({
+            columns: { audio_id: true },
+            where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
+          }),
+          this.db.query.translation.findMany({
+            columns: { audio: true },
+            where: (translation) => isNotNull(translation.audio)
+          })
+        ]);
+
+        // Collect all attachment IDs
+        const assetImages = assets.flatMap((asset) => asset.images!);
+        const contentLinkAudioIds = assetContentLinks.map((link) => link.audio_id!);
+        const translationAudioIds = translations.map((translation) => translation.audio!);
+
+        // Merge and deduplicate
+        const allAttachments = [
+          ...assetImages,
+          ...contentLinkAudioIds,
+          ...translationAudioIds
+        ];
+        const uniqueAttachments = [...new Set(allAttachments)];
+
+        console.log(`Total unique attachments to sync: ${uniqueAttachments.length}`, {
+          assetImages: assetImages.length,
+          contentLinkAudioIds: contentLinkAudioIds.length,
+          translationAudioIds: translationAudioIds.length
+        });
+
+        console.log('RYDER: about to call onUpdate with ', uniqueAttachments.length, 'attachments');
+        // Tell PowerSync which attachments to keep synced
+        onUpdate(uniqueAttachments);
+      } catch (error) {
+        console.error('Error refreshing attachments:', error);
+      }
     };
 
-    // Watch for changes in downloaded assets (direct downloads)
+    // Watch for changes in asset images - trigger full refresh
     this.db.watch(
       this.db.query.asset.findMany({
-        columns: { id: true, download_profiles: true, images: true }
+        columns: { images: true },
+        where: (asset) => isNotNull(asset.images)
       }),
       {
         onResult: () => {
-          console.log(
-            '[PERM QUEUE] Asset downloads changed, updating attachments via state manager'
-          );
-          void updateWithSource('asset_downloads');
+          console.log('Asset images changed - triggering full refresh');
+          void refreshAllAttachments();
         }
       }
     );
 
-    // Watch for changes in downloaded quests (quest downloads)
-    this.db.watch(
-      this.db.query.quest.findMany({
-        columns: { id: true, download_profiles: true }
-      }),
-      {
-        onResult: () => {
-          console.log(
-            '[PERM QUEUE] Quest downloads changed, updating attachments via state manager'
-          );
-          void updateWithSource('quest_downloads');
-        }
-      }
-    );
-
-    // Watch for changes in quest-asset links (affects which assets are in downloaded quests)
-    this.db.watch(
-      this.db.query.quest_asset_link.findMany({
-        columns: { quest_id: true, asset_id: true }
-      }),
-      {
-        onResult: () => {
-          console.log(
-            '[PERM QUEUE] Quest-asset links changed, updating attachments via state manager'
-          );
-          void updateWithSource('quest_asset_links');
-        }
-      }
-    );
-
-    // Watch for changes in asset content links (affects downloaded assets)
+    // Watch for changes in asset content link audio - trigger full refresh
     this.db.watch(
       this.db.query.asset_content_link.findMany({
-        columns: { asset_id: true, audio_id: true }
+        columns: { audio_id: true },
+        where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
       }),
       {
         onResult: () => {
-          console.log(
-            '[PERM QUEUE] Asset content changed, updating attachments via state manager'
-          );
-          void updateWithSource('asset_content');
+          console.log('Asset content links changed - triggering full refresh');
+          void refreshAllAttachments();
         }
       }
     );
 
-    // Watch for changes in translations (affects downloaded assets)
+    // Watch for changes in translation audio - trigger full refresh
     this.db.watch(
       this.db.query.translation.findMany({
-        columns: { asset_id: true, audio: true }
+        columns: { audio: true },
+        where: (translation) => isNotNull(translation.audio)
       }),
       {
         onResult: () => {
-          console.log(
-            '[PERM QUEUE] Translations changed, updating attachments via state manager'
-          );
-          void updateWithSource('translations');
+          console.log('Translations changed - triggering full refresh');
+          void refreshAllAttachments();
         }
       }
     );
 
     // Initial load
-    console.log(
-      '[PERM QUEUE] Running initial attachment ID collection via state manager'
-    );
-    void updateWithSource('initial_load');
+    void refreshAllAttachments();
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
@@ -215,15 +215,5 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         await this.delete(record, tx);
       }
     });
-  }
-
-  // Get debug info from the attachment state manager
-  getDebugInfo() {
-    return this.attachmentStateManager.getDebugInfo();
-  }
-
-  // Cleanup method
-  destroy() {
-    this.attachmentStateManager.destroy();
   }
 }
