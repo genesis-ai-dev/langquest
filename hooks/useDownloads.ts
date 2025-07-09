@@ -19,32 +19,6 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-// Type guard and interface for attachment state manager
-interface AttachmentStateManager {
-  markDownloadOperationStart(): void;
-  markDownloadOperationComplete(): void;
-  processPendingUpdates(onUpdate: (ids: string[]) => void): void;
-}
-
-interface AttachmentQueueWithStateManager {
-  attachmentStateManager?: AttachmentStateManager;
-  getDebugInfo?(): { stateManager?: AttachmentStateManager };
-}
-
-function getAttachmentStateManager(): AttachmentStateManager | null {
-  const permQueue = system.permAttachmentQueue as
-    | AttachmentQueueWithStateManager
-    | undefined;
-  if (!permQueue) return null;
-
-  // Try to get state manager directly
-  if (permQueue.attachmentStateManager) {
-    return permQueue.attachmentStateManager;
-  }
-
-  return null;
-}
-
 async function getDownloadTreeStructure() {
   const { data, error } = await system.supabaseConnector.client
     .rpc('get_download_tree_structure')
@@ -156,15 +130,6 @@ export async function downloadRecord(
     `📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`
   );
 
-  // 🚫 PREVENT ATTACHMENT COLLECTION DURING DOWNLOAD
-  const stateManager = getAttachmentStateManager();
-  if (stateManager) {
-    console.log(
-      '🚫 [DOWNLOAD RPC] Marking download operation start to prevent attachment collection'
-    );
-    stateManager.markDownloadOperationStart();
-  }
-
   try {
     const currentUser = getCurrentUser();
     if (!currentUser?.id) {
@@ -260,19 +225,8 @@ export async function downloadRecord(
         `📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`
       );
     }
-  } finally {
-    // ✅ RESUME ATTACHMENT COLLECTION AFTER DOWNLOAD
-    if (stateManager) {
-      console.log(
-        '✅ [DOWNLOAD RPC] Marking download operation complete - resuming attachment collection'
-      );
-      stateManager.markDownloadOperationComplete();
-
-      // Process any pending updates
-      console.log(
-        '🔄 [DOWNLOAD RPC] Attachment updates will be processed when next triggered'
-      );
-    }
+  } catch (error) {
+    console.error('Error during downloadRecord:', error);
   }
 }
 

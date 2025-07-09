@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useLocalStore } from '@/store/localStore';
@@ -13,7 +14,8 @@ import {
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { AttachmentState } from '@powersync/attachments';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -71,6 +73,49 @@ export default function AppDrawer({
   const attachmentSyncProgress = useLocalStore(
     (state) => state.attachmentSyncProgress
   );
+
+  // Get all attachment states for accurate progress tracking
+  const { attachmentStates, isLoading: attachmentStatesLoading } =
+    useAttachmentStates([]);
+
+  // Calculate attachment progress stats
+  const attachmentProgress = useMemo(() => {
+    if (attachmentStatesLoading || attachmentStates.size === 0) {
+      return {
+        total: 0,
+        synced: 0,
+        downloading: 0,
+        queued: 0,
+        hasActivity: false
+      };
+    }
+
+    let synced = 0;
+    let downloading = 0;
+    let queued = 0;
+    const total = attachmentStates.size;
+
+    for (const record of attachmentStates.values()) {
+      if (record.state === AttachmentState.SYNCED) {
+        synced++;
+      } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+        downloading++;
+      } else if (record.state === AttachmentState.QUEUED_SYNC) {
+        queued++;
+      }
+    }
+
+    const hasActivity = downloading > 0 || queued > 0;
+
+    return {
+      total,
+      synced,
+      downloading,
+      queued,
+      hasActivity,
+      unsynced: total - synced
+    };
+  }, [attachmentStates, attachmentStatesLoading]);
 
   // Use the notifications hook
   const { totalCount: notificationCount } = useNotifications();
@@ -318,6 +363,18 @@ export default function AppDrawer({
     setDrawerIsVisible(false);
   };
 
+  // console.log(
+  //   JSON.stringify(
+  //     {
+  //       powersyncStatus,
+  //       dataFlowStatus: powersyncStatus?.dataFlowStatus,
+  //       priorityStatusEntries: powersyncStatus?.priorityStatusEntries
+  //     },
+  //     null,
+  //     2
+  //   )
+  // );
+
   return (
     <>
       {/* Drawer Modal */}
@@ -444,27 +501,23 @@ export default function AppDrawer({
               </TouchableOpacity>
 
               {/* Attachment sync progress section */}
-              {(attachmentSyncProgress.downloading ||
-                attachmentSyncProgress.uploading) && (
+              {attachmentProgress.hasActivity && (
                 <View style={styles.attachmentSyncContainer}>
                   <Text style={styles.attachmentSyncText}>
-                    {attachmentSyncProgress.downloading
-                      ? `Downloading files: ${attachmentSyncProgress.downloadCurrent}/${attachmentSyncProgress.downloadTotal}`
-                      : `Uploading files: ${attachmentSyncProgress.uploadCurrent}/${attachmentSyncProgress.uploadTotal}`}
+                    {attachmentProgress.downloading > 0 &&
+                    attachmentProgress.queued > 0
+                      ? `Downloading: ${attachmentProgress.downloading}, Queued: ${attachmentProgress.queued} (${attachmentProgress.synced}/${attachmentProgress.total} complete)`
+                      : attachmentProgress.downloading > 0
+                        ? `Downloading: ${attachmentProgress.downloading} files (${attachmentProgress.synced}/${attachmentProgress.total} complete)`
+                        : `Queued for download: ${attachmentProgress.queued} files (${attachmentProgress.synced}/${attachmentProgress.total} complete)`}
                   </Text>
                   <ProgressBarAndroid
                     styleAttr="Horizontal"
                     indeterminate={false}
                     progress={
-                      attachmentSyncProgress.downloading
-                        ? attachmentSyncProgress.downloadTotal > 0
-                          ? attachmentSyncProgress.downloadCurrent /
-                            attachmentSyncProgress.downloadTotal
-                          : 0
-                        : attachmentSyncProgress.uploadTotal > 0
-                          ? attachmentSyncProgress.uploadCurrent /
-                            attachmentSyncProgress.uploadTotal
-                          : 0
+                      attachmentProgress.total > 0
+                        ? attachmentProgress.synced / attachmentProgress.total
+                        : 0
                     }
                     color={colors.primaryLight}
                     style={styles.attachmentProgressBar}
