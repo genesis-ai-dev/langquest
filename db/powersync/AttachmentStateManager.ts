@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/contexts/AuthContext';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import type { AbstractPowerSyncDatabase } from '@powersync/react-native';
 import type * as drizzleSchema from '../drizzleSchema';
 
 interface AttachmentSource {
@@ -9,13 +10,16 @@ interface AttachmentSource {
 }
 
 const DEBUG_ATTACHMENT_STATE = false;
-const debug = (...message: any[]) => {
+const debug = (...message: unknown[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_ATTACHMENT_STATE) {
     console.log(...message);
   }
 };
 
 export class AttachmentStateManager {
+  private static instance: AttachmentStateManager | null = null;
+
   private unifiedAttachmentIds = new Set<string>();
   private updateInProgress = false;
   private updateTimer: NodeJS.Timeout | null = null;
@@ -27,7 +31,61 @@ export class AttachmentStateManager {
   private downloadOperationTimer: NodeJS.Timeout | null = null;
   private pendingUpdates = new Set<string>();
 
-  constructor(private db: PowerSyncSQLiteDatabase<typeof drizzleSchema>) {}
+  private constructor(
+    private db: PowerSyncSQLiteDatabase<typeof drizzleSchema>,
+    private powersync: AbstractPowerSyncDatabase
+  ) {}
+
+  /**
+   * Get the singleton instance of AttachmentStateManager
+   */
+  static getInstance(
+    db?: PowerSyncSQLiteDatabase<typeof drizzleSchema>,
+    powersync?: AbstractPowerSyncDatabase
+  ): AttachmentStateManager {
+    if (!AttachmentStateManager.instance) {
+      if (!db || !powersync) {
+        throw new Error(
+          'AttachmentStateManager must be initialized with db and powersync on first call'
+        );
+      }
+      AttachmentStateManager.instance = new AttachmentStateManager(
+        db,
+        powersync
+      );
+      debug('[ATTACHMENT STATE] ✅ Singleton instance created');
+    }
+    return AttachmentStateManager.instance;
+  }
+
+  /**
+   * Initialize the singleton instance (called from system.ts)
+   */
+  static initialize(
+    db: PowerSyncSQLiteDatabase<typeof drizzleSchema>,
+    powersync: AbstractPowerSyncDatabase
+  ): AttachmentStateManager {
+    if (AttachmentStateManager.instance) {
+      debug(
+        '[ATTACHMENT STATE] ⚠️ Instance already exists, returning existing instance'
+      );
+      return AttachmentStateManager.instance;
+    }
+    AttachmentStateManager.instance = new AttachmentStateManager(db, powersync);
+    debug('[ATTACHMENT STATE] ✅ Singleton instance initialized');
+    return AttachmentStateManager.instance;
+  }
+
+  /**
+   * Destroy the singleton instance (for cleanup)
+   */
+  static destroySingleton(): void {
+    if (AttachmentStateManager.instance) {
+      AttachmentStateManager.instance.destroy();
+      AttachmentStateManager.instance = null;
+      debug('[ATTACHMENT STATE] 🗑️ Singleton instance destroyed');
+    }
+  }
 
   /**
    * Mark that a download operation is starting
@@ -111,6 +169,7 @@ export class AttachmentStateManager {
   /**
    * Get all attachment IDs for permanent storage (downloaded content)
    * Uses consistent offline data source to prevent race conditions
+   * Only returns IDs that actually need to be managed (not already synced)
    */
   async getUnifiedPermanentAttachmentIds(): Promise<string[]> {
     try {
@@ -128,6 +187,31 @@ export class AttachmentStateManager {
       debug(
         '[ATTACHMENT STATE] 🔍 Collecting unified permanent attachment IDs...'
       );
+
+      // Get all attachment records to check their sync status
+      const attachmentRecords = await this.powersync.getAll<{
+        id: string;
+        state: number;
+        storage_type: string;
+        local_uri: string | null;
+      }>('SELECT id, state, storage_type, local_uri FROM attachments');
+
+      const attachmentStatusMap = new Map<
+        string,
+        {
+          state: number;
+          storage_type: string;
+          local_uri: string | null;
+        }
+      >();
+
+      for (const record of attachmentRecords) {
+        attachmentStatusMap.set(record.id, {
+          state: record.state,
+          storage_type: record.storage_type,
+          local_uri: record.local_uri
+        });
+      }
 
       // 1. Get directly downloaded assets
       const directAssets = await this.db.query.asset.findMany({
@@ -184,6 +268,29 @@ export class AttachmentStateManager {
       const allAssets = [...directAssets, ...questAssets];
       const assetSources = new Map<string, AttachmentSource[]>();
 
+      // Helper function to check if an attachment needs to be managed
+      const needsManagement = (attachmentId: string): boolean => {
+        const record = attachmentStatusMap.get(attachmentId);
+        if (!record) {
+          // Not in attachments table yet - needs to be added
+          return true;
+        }
+
+        // Check if it's temporary and needs to be converted to permanent
+        if (record.storage_type === 'temporary') {
+          return true;
+        }
+
+        // Check if it's already synced and permanent - no need to manage
+        if (record.state >= 4 && record.storage_type === 'permanent') {
+          // AttachmentState.SYNCED = 4
+          return false;
+        }
+
+        // Everything else needs management
+        return true;
+      };
+
       // Process each unique asset
       for (const asset of allAssets) {
         if (processedAssetIds.has(asset.id)) continue;
@@ -193,12 +300,15 @@ export class AttachmentStateManager {
 
         // 1. Asset images
         if (asset.images && asset.images.length > 0) {
-          allAttachmentIds.push(...asset.images);
-          sources.push({
-            type: 'asset_images',
-            assetId: asset.id,
-            attachmentIds: asset.images
-          });
+          const neededImages = asset.images.filter(needsManagement);
+          if (neededImages.length > 0) {
+            allAttachmentIds.push(...neededImages);
+            sources.push({
+              type: 'asset_images',
+              assetId: asset.id,
+              attachmentIds: neededImages
+            });
+          }
         }
 
         // 2. Asset content audio
@@ -209,7 +319,8 @@ export class AttachmentStateManager {
 
         const contentAudioIds = assetContents
           .filter((content) => content.audio_id)
-          .map((content) => content.audio_id!);
+          .map((content) => content.audio_id!)
+          .filter(needsManagement);
 
         if (contentAudioIds.length > 0) {
           allAttachmentIds.push(...contentAudioIds);
@@ -228,7 +339,8 @@ export class AttachmentStateManager {
 
         const translationAudioIds = translations
           .filter((translation) => translation.audio)
-          .map((translation) => translation.audio!);
+          .map((translation) => translation.audio!)
+          .filter(needsManagement);
 
         if (translationAudioIds.length > 0) {
           allAttachmentIds.push(...translationAudioIds);
@@ -251,7 +363,7 @@ export class AttachmentStateManager {
       const uniqueAttachmentIds = [...new Set(allAttachmentIds)];
 
       debug(
-        `[ATTACHMENT STATE] ✅ Collected ${uniqueAttachmentIds.length} unique permanent attachment IDs from ${processedAssetIds.size} assets`
+        `[ATTACHMENT STATE] ✅ Collected ${uniqueAttachmentIds.length} attachment IDs that need management from ${processedAssetIds.size} assets`
       );
 
       // Log sources breakdown
@@ -275,7 +387,7 @@ export class AttachmentStateManager {
       });
 
       debug(
-        `[ATTACHMENT STATE] 📊 Breakdown: ${totalImages} images, ${totalContent} content audio, ${totalTranslations} translation audio`
+        `[ATTACHMENT STATE] 📊 Breakdown: ${totalImages} images, ${totalContent} content audio, ${totalTranslations} translation audio (needing management)`
       );
 
       return uniqueAttachmentIds;
@@ -443,7 +555,7 @@ export class AttachmentStateManager {
         const removed = previousIds.filter((id) => !newAttachmentSet.has(id));
 
         if (added.length > 0) {
-          debug(`🔄 [ATTACHMENT STATE] ➕ Added ${added.length} attachments'}`);
+          debug(`🔄 [ATTACHMENT STATE] ➕ Added ${added.length} attachments`);
         }
         if (removed.length > 0) {
           debug(

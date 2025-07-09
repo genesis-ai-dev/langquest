@@ -19,15 +19,35 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   private attachmentStateManager: AttachmentStateManager;
 
   constructor(
-    options: AttachmentQueueOptions & {
+    options: Omit<
+      AttachmentQueueOptions,
+      'onDownloadError' | 'onUploadError'
+    > & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      onDownloadError: (
+        attachment: AttachmentRecord,
+        exception: { toString: () => string; status?: number }
+      ) => void;
+      onUploadError: (
+        _attachment: AttachmentRecord,
+        _exception: {
+          error: string;
+          message: string;
+          statusCode: number;
+        }
+      ) => Promise<{
+        retry: boolean;
+      }>;
     }
   ) {
-    super({
-      ...options,
-      cacheLimit: options.cacheLimit ?? 50 // Default to 50 if not specified
-    });
-    this.attachmentStateManager = new AttachmentStateManager(this.db);
+    super(options);
+    this.db = options.db;
+    console.log(
+      '[TEMP QUEUE] ✅ Initialized with unified attachment state manager'
+    );
+
+    // Get the singleton AttachmentStateManager
+    this.attachmentStateManager = AttachmentStateManager.getInstance();
   }
 
   getStorageType(): 'permanent' | 'temporary' {

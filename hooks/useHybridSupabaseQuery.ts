@@ -596,7 +596,7 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
 export function useHybridSupabaseInfiniteQuery<T>(
   options: HybridSupabaseInfiniteQueryOptions<T>
 ) {
-  const timestamp = performance.now();
+  // const timestamp = performance.now();
 
   const { queryKey, pageSize = 10, ...restOptions } = options;
 

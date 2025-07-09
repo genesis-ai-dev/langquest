@@ -14,12 +14,35 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   private attachmentStateManager: AttachmentStateManager;
 
   constructor(
-    options: AttachmentQueueOptions & {
+    options: Omit<
+      AttachmentQueueOptions,
+      'onDownloadError' | 'onUploadError'
+    > & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      onDownloadError: (
+        attachment: AttachmentRecord,
+        exception: { toString: () => string; status?: number }
+      ) => void;
+      onUploadError: (
+        _attachment: AttachmentRecord,
+        _exception: {
+          error: string;
+          message: string;
+          statusCode: number;
+        }
+      ) => Promise<{
+        retry: boolean;
+      }>;
     }
   ) {
     super(options);
-    this.attachmentStateManager = new AttachmentStateManager(this.db);
+    this.db = options.db;
+    console.log(
+      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
+    );
+
+    // Get the singleton AttachmentStateManager
+    this.attachmentStateManager = AttachmentStateManager.getInstance();
   }
 
   getStorageType(): 'permanent' | 'temporary' {

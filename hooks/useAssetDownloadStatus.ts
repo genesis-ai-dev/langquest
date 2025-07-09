@@ -3,13 +3,11 @@ import { AttachmentStateManager } from '@/db/powersync/AttachmentStateManager';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { AttachmentState } from '@powersync/attachments';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export function useAttachmentAssetDownloadStatus(assetIds: string[]) {
   // Use unified AttachmentStateManager for consistent attachment ID collection
-  const [attachmentStateManager] = useState(
-    () => new AttachmentStateManager(system.db)
-  );
+  const attachmentStateManager = AttachmentStateManager.getInstance();
 
   // Clean up on unmount
   useEffect(() => {
