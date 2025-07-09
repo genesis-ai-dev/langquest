@@ -107,7 +107,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
               onBypass={handleDownloadToggle}
               renderTrigger={({ onPress, hasAccess }) => (
                 <DownloadIndicator
-                  isDownloaded={isDownloaded}
+                  isFlaggedForDownload={isDownloaded}
                   isLoading={isDownloadLoading}
                   onPress={
                     hasAccess || isDownloaded ? handleDownloadToggle : onPress

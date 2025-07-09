@@ -132,7 +132,7 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isDownloaded={isDownloaded}
+              isFlaggedForDownload={isDownloaded}
               isLoading={isDownloadLoading}
               onPress={
                 hasAccess || isDownloaded ? handleDownloadToggle : onPress

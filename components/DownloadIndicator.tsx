@@ -12,7 +12,7 @@ import {
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 
 interface DownloadIndicatorProps {
-  isDownloaded: boolean;
+  isFlaggedForDownload: boolean;
   isLoading: boolean;
   onPress: () => void;
   size?: number;
@@ -22,7 +22,7 @@ interface DownloadIndicatorProps {
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
-  isDownloaded,
+  isFlaggedForDownload,
   isLoading,
   onPress,
   size = 24,
@@ -30,15 +30,12 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   showProgress = false
 }) => {
   const isConnected = useNetworkStatus();
-  const isDisabled = !isConnected && !isDownloaded;
+  const isDisabled = !isConnected && !isFlaggedForDownload;
   const [showWarning, setShowWarning] = useState(false);
 
   const handlePress = async () => {
-    console.log('isConnected', isConnected);
-    console.log('isDownloaded', isDownloaded);
-    if (!isConnected && isDownloaded) {
+    if (!isConnected && isFlaggedForDownload) {
       const showWarning = await storage.getOfflineUndownloadWarningEnabled();
-      console.log('showWarning', showWarning);
       if (showWarning) {
         setShowWarning(true);
         return;
@@ -58,9 +55,9 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
 
   // Determine icon and color based on state
   const getIconAndColor = () => {
-    if (isDownloaded) {
+    if (isFlaggedForDownload) {
       return {
-        name: 'arrow-down-circle' as const,
+        name: 'checkmark-circle' as const,
         color: colors.primary
       };
     }
@@ -90,7 +87,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={colors.primary} />
-        ) : showProgress && progressPercentage > 0 && !isDownloaded ? (
+        ) : showProgress && progressPercentage > 0 && !isFlaggedForDownload ? (
           // Custom progress indicator for quests
           <View
             style={[styles.progressContainer, { width: size, height: size }]}
