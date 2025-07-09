@@ -21,6 +21,7 @@ import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
+import { AttachmentStateManager } from './AttachmentStateManager';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
@@ -36,6 +37,7 @@ export class System {
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
   tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  attachmentStateManager: AttachmentStateManager;
 
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
@@ -71,6 +73,12 @@ export class System {
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: drizzleSchema
     });
+
+    // Initialize the singleton AttachmentStateManager
+    this.attachmentStateManager = AttachmentStateManager.initialize(
+      this.db,
+      this.powersync
+    );
 
     if (AppConfig.supabaseBucket) {
       this.permAttachmentQueue = new PermAttachmentQueue({
@@ -366,6 +374,9 @@ export class System {
           console.warn('Error destroying temporary attachment queue:', error);
         }
       }
+
+      // Cleanup the AttachmentStateManager singleton
+      AttachmentStateManager.destroySingleton();
 
       // Disconnect PowerSync
       if (this.powersync.connected) {
