@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { UseQueryOptions } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   convertToFetchConfig,
@@ -130,12 +130,15 @@ function getDownloadStatusConfig(
 export function useDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
-) {
+): {
+  isFlaggedForDownload: boolean;
+  isLoading: boolean;
+} {
   const { data, isLoading, ...rest } = useHybridQuery(
     getDownloadStatusConfig(recordTable, recordId)
   );
 
-  return { isDownloaded: !!data?.[0]?.id, isLoading, ...rest };
+  return { isFlaggedForDownload: !!data?.[0]?.id, isLoading, ...rest };
 }
 
 /**
@@ -279,9 +282,14 @@ export async function downloadRecord(
 export function useDownload(
   recordTable: keyof typeof system.db.query,
   recordId: string
-) {
+): {
+  isFlaggedForDownload: boolean;
+  isLoading: boolean;
+  toggleDownload: () => Promise<void>;
+  mutation: UseMutationResult<void, Error, boolean | undefined>;
+} {
   const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useDownloadStatus(recordTable, recordId);
+  const { isFlaggedForDownload, isLoading } = useDownloadStatus(recordTable, recordId);
 
   const mutation = useMutation({
     mutationFn: async (downloaded?: boolean) =>
@@ -328,7 +336,7 @@ export function useDownload(
   };
 
   return {
-    isDownloaded: !!isDownloaded,
+    isFlaggedForDownload,
     isLoading: isLoading || mutation.isPending,
     toggleDownload,
     mutation
@@ -396,10 +404,10 @@ export function useQuestDownloadStatus(questId: string) {
   // Calculate progress percentage
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {
@@ -465,23 +473,23 @@ export function useProjectDownloadStatus(projectId: string) {
 
   const closureData = projectClosure?.[0] as
     | {
-        project_id: string;
-        total_quests: number;
-        total_assets: number;
-        total_translations: number;
-        approved_translations: number;
-        last_updated: string;
-      }
+      project_id: string;
+      total_quests: number;
+      total_assets: number;
+      total_translations: number;
+      approved_translations: number;
+      last_updated: string;
+    }
     | undefined;
   const isDownloaded = !!projectDownloadStatus?.[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {

@@ -13,7 +13,7 @@ export const QuestCard: React.FC<{
   quest: Quest & { tags: { tag: Tag }[] };
 }> = React.memo(({ quest, project }) => {
   const {
-    isDownloaded,
+    isFlaggedForDownload,
     isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('quest', quest.id);
@@ -63,10 +63,10 @@ export const QuestCard: React.FC<{
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isFlaggedForDownload={isDownloaded}
+              isFlaggedForDownload={isFlaggedForDownload}
               isLoading={isLoading} // FIXME: for now, we are not showing download progress
               onPress={
-                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                hasAccess || isFlaggedForDownload ? handleDownloadToggle : onPress
               }
               // FIXME: for now, we are not showing download progress
               // progressPercentage={progressPercentage}
