@@ -1,5 +1,6 @@
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -10,7 +11,6 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -37,33 +37,45 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  const { db } = system;
+  const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPrjLoaded, setIsPrjLoaded] = useState(false);
 
-  // Query for project details
-  const { data: projectDataArray = [], refetch } = useQuery({
+  const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
-    query: toCompilableQuery(
-      db.query.project.findFirst({
+    onlineFn: async (): Promise<(typeof projectTable.$inferSelect)[]> => {
+      const { data, error } = await supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', projectId)
+        .limit(1);
+      if (error) throw error;
+      return data as (typeof projectTable.$inferSelect)[];
+    },
+    offlineQuery: toCompilableQuery(
+      db.query.project.findMany({
         where: eq(projectTable.id, projectId)
       })
     )
   });
 
   const projectData = projectDataArray[0];
+  if (projectData != undefined && !isPrjLoaded) {
+    setIsPrjLoaded(true);
+  }
 
   const handleTogglePrivate = async () => {
     if (!projectData) return;
 
     setIsSubmitting(true);
     try {
-      await db
-        .update(projectTable)
-        .set({
+      await supabaseConnector.client
+        .from('project')
+        .update({
           private: !projectData.private,
           last_updated: new Date().toISOString()
         })
-        .where(eq(projectTable.id, projectId));
+        .match({ id: projectId });
 
       await refetch();
       Alert.alert(
@@ -74,6 +86,83 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       );
     } catch (error) {
       console.error('Error updating project privacy:', error);
+      Alert.alert('Error', 'Failed to update project settings');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleVisible = async () => {
+    if (!projectData) return;
+
+    setIsSubmitting(true);
+    try {
+      let [visible, active] = [projectData.visible, projectData.active];
+
+      if (visible) {
+        visible = false;
+        active = false;
+      } else {
+        visible = true;
+      }
+
+      await supabaseConnector.client
+        .from('project')
+        .update({
+          visible,
+          active,
+          last_updated: new Date().toISOString()
+        })
+        .match({ id: projectId });
+
+      await refetch();
+
+      Alert.alert(
+        'Success',
+        projectData.visible
+          ? 'The project has been made invisible'
+          : 'The project has been made visible'
+      );
+    } catch (error) {
+      console.error('Error updating project visibility:', error);
+      Alert.alert('Error', 'Failed to update project settings');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!projectData) return;
+
+    setIsSubmitting(true);
+    try {
+      let [visible, active] = [projectData.visible, projectData.active];
+
+      if (!active) {
+        visible = true;
+        active = true;
+      } else {
+        active = false;
+      }
+
+      await supabaseConnector.client
+        .from('project')
+        .update({
+          visible,
+          active,
+          last_updated: new Date().toISOString()
+        })
+        .match({ id: projectId });
+
+      await refetch();
+      Alert.alert(
+        'Success',
+        projectData.active
+          ? 'The project has been made inactive'
+          : 'The project has been made active'
+      );
+    } catch (error) {
+      console.error('Error updating project active status:', error);
       Alert.alert('Error', 'Failed to update project settings');
     } finally {
       setIsSubmitting(false);
@@ -113,13 +202,63 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   <Switch
                     value={projectData?.private ?? false}
                     onValueChange={handleTogglePrivate}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isPrjLoaded}
                     trackColor={{
                       false: colors.disabled,
                       true: colors.primary
                     }}
                     thumbColor={
                       projectData?.private ? colors.primary : colors.disabled
+                    }
+                  />
+                </View>
+              </View>
+
+              <View style={styles.content}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingTitle}>{'Visibility'}</Text>
+                    <Text style={styles.settingDescription}>
+                      {projectData?.visible
+                        ? 'This project is visible to other users.'
+                        : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={projectData?.visible ?? false}
+                    onValueChange={handleToggleVisible}
+                    disabled={isSubmitting || !isPrjLoaded}
+                    trackColor={{
+                      false: colors.disabled,
+                      true: colors.primary
+                    }}
+                    thumbColor={
+                      projectData?.visible ? colors.primary : colors.disabled
+                    }
+                  />
+                </View>
+              </View>
+
+              <View style={styles.content}>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingTitle}>{'Active'}</Text>
+                    <Text style={styles.settingDescription}>
+                      {projectData?.active
+                        ? 'This project is currently active. An active project is also visible.'
+                        : 'This project is inactive. No actions can be performed unless it is reactivated.'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={projectData?.active ?? false}
+                    onValueChange={handleToggleActive}
+                    disabled={isSubmitting || !isPrjLoaded}
+                    trackColor={{
+                      false: colors.disabled,
+                      true: colors.primary
+                    }}
+                    thumbColor={
+                      projectData?.active ? colors.primary : colors.disabled
                     }
                   />
                 </View>
