@@ -235,6 +235,11 @@ export const localizations = {
     spanish: 'OK',
     brazilian_portuguese: 'OK'
   },
+  offline: {
+    english: 'Offline',
+    spanish: 'Sin conexión',
+    brazilian_portuguese: 'Offline'
+  },
   password: {
     english: 'Password',
     spanish: 'Contraseña',

@@ -3,6 +3,7 @@ import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -57,6 +58,7 @@ export default function AppDrawer({
   useRenderCounter('AppDrawer');
 
   const systemReady = system.isInitialized();
+  const isConnected = useNetworkStatus();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   // Progress tracking states
@@ -70,7 +72,7 @@ export default function AppDrawer({
   const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
 
   // Get attachment sync progress from store
-  const attachmentSyncProgress = useLocalStore(
+  const _attachmentSyncProgress = useLocalStore(
     (state) => state.attachmentSyncProgress
   );
 
@@ -445,10 +447,25 @@ export default function AppDrawer({
                     { backgroundColor: colors.background }
                   ]}
                 >
-                  <ActivityIndicator size="small" color={colors.text} />
-                  <Text style={styles.initializingText}>
-                    {t('initializing')}...
-                  </Text>
+                  {isConnected ? (
+                    <>
+                      <ActivityIndicator size="small" color={colors.text} />
+                      <Text style={styles.initializingText}>
+                        {t('initializing')}...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="cloud-offline-outline"
+                        size={16}
+                        color={colors.text}
+                      />
+                      <Text style={styles.initializingText}>
+                        {t('offline')}
+                      </Text>
+                    </>
+                  )}
                 </View>
               )}
               {/* File sync progress indicator */}
@@ -478,15 +495,17 @@ export default function AppDrawer({
                 onPress={logPowerSyncStatus}
               >
                 <Text style={styles.stalePercentageText}>
-                  {powersyncStatus?.connected
-                    ? powersyncStatus.dataFlowStatus.downloading
-                      ? 'Syncing...'
-                      : powersyncStatus.hasSynced
-                        ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                        : 'Not synced'
-                    : powersyncStatus?.connecting
-                      ? 'Connecting...'
-                      : 'Disconnected'}
+                  {!isConnected
+                    ? t('offline')
+                    : powersyncStatus?.connected
+                      ? powersyncStatus.dataFlowStatus.downloading
+                        ? 'Syncing...'
+                        : powersyncStatus.hasSynced
+                          ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                          : 'Not synced'
+                      : powersyncStatus?.connecting
+                        ? 'Connecting...'
+                        : 'Disconnected'}
                 </Text>
 
                 {/* Progress bar for download progress */}

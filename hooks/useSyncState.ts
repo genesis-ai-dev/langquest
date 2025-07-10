@@ -45,9 +45,6 @@ function getCurrentSyncStateWithoutAttachments() {
     // Get the current sync status from PowerSync
     const status = system.powersync.currentStatus;
 
-    // Debug: log the full status object to see what we're getting
-    console.log('PowerSync currentStatus:', JSON.stringify(status, null, 2));
-
     // Basic connection state
     const isConnected = status.connected || false;
     const isConnecting = status.connecting || false;
@@ -124,8 +121,6 @@ export function useSyncState(): SyncState {
     unsyncedAttachmentsCount,
     isLoading
   };
-
-  console.log('Derived sync state:', syncState);
 
   return syncState;
 }
