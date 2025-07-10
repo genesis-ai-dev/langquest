@@ -41,6 +41,7 @@ export default function SettingsView() {
   const [downloadOnWifiOnly, setDownloadOnWifiOnly] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [showHiddenContent, setShowHiddenContent] = useState(false);
 
   const handleNotificationToggle = (value: boolean) => {
     setNotificationsEnabled(value);
@@ -64,6 +65,12 @@ export default function SettingsView() {
     setDebugMode(value);
     // TODO: Implement debug mode logic
     console.log('Debug mode:', value);
+  };
+
+  const handleShowHiddenContentToggle = (value: boolean) => {
+    setShowHiddenContent(value);
+    // TODO: Implement Show hidden content logic
+    console.log('Show hidden content:', value);
   };
 
   const handleClearCache = () => {
@@ -107,6 +114,20 @@ export default function SettingsView() {
           type: 'toggle',
           value: notificationsEnabled,
           onPress: () => handleNotificationToggle(!notificationsEnabled)
+        }
+      ]
+    },
+    {
+      title: 'Content Preferences',
+      items: [
+        {
+          id: 'showHiddenContent',
+          title: 'Show Hidden Content',
+          description:
+            'Allow displaying content that has been marked as invisible',
+          type: 'toggle',
+          value: showHiddenContent,
+          onPress: () => handleShowHiddenContentToggle(!showHiddenContent)
         }
       ]
     },
