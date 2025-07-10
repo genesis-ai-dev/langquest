@@ -104,7 +104,7 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   const activeProject = cachedProject || freshProject;
 
   const {
-    isDownloaded,
+    isFlaggedForDownload,
     isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('asset', asset.id);
@@ -132,10 +132,12 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isDownloaded={isDownloaded}
+              isFlaggedForDownload={isFlaggedForDownload}
               isLoading={isDownloadLoading}
               onPress={
-                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                hasAccess || isFlaggedForDownload
+                  ? handleDownloadToggle
+                  : onPress
               }
             />
           )}
@@ -434,6 +436,11 @@ export default function AssetsView() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
+          ListEmptyComponent={
+            <View style={styles.emptyText}>
+              <Text style={styles.emptyText}>{t('noAssetsFound')}</Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={isFetching && !isFetchingNextPage}

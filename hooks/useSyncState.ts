@@ -1,90 +1,133 @@
 import { system } from '@/db/powersync/system';
+import { AttachmentState } from '@powersync/attachments';
 import { useEffect, useState } from 'react';
+import { useAttachmentStates } from './useAttachmentStates';
 
 interface SyncState {
-  isDownloadOperationInProgress: boolean;
-  isUpdateInProgress: boolean;
   isConnected: boolean;
   isConnecting: boolean;
+  isDownloadOperationInProgress: boolean;
+  isUpdateInProgress: boolean;
+  hasSynced: boolean | undefined;
+  lastSyncedAt: Date | undefined;
+  downloadError: Error | undefined;
+  uploadError: Error | undefined;
+  unsyncedAttachmentsCount: number;
+  isLoading: boolean;
 }
 
-// Type guard and interface for attachment state manager
-interface AttachmentStateManager {
-  isDownloadOperationInProgress(): boolean;
-  isUpdateInProgress(): boolean;
-}
+/**
+ * Returns the number of attachments that are not yet fully synced.
+ * @param attachmentIds Array of attachment IDs to check.
+ * @returns { unsyncedCount: number, isLoading: boolean }
+ */
+function useUnsyncedAttachmentsCount(): {
+  unsyncedCount: number;
+  isLoading: boolean;
+} {
+  // get all attachment ids from the attachment table
 
-interface AttachmentQueueWithStateManager {
-  attachmentStateManager?: AttachmentStateManager;
-}
+  const { attachmentStates, isLoading } = useAttachmentStates([]);
 
-function getAttachmentStateManager(): AttachmentStateManager | null {
-  const permQueue = system.permAttachmentQueue as
-    | AttachmentQueueWithStateManager
-    | undefined;
-  if (!permQueue) return null;
-
-  // Try to get state manager directly
-  if (permQueue.attachmentStateManager) {
-    return permQueue.attachmentStateManager;
+  // Count attachments with state less than SYNCED
+  let unsyncedCount = 0;
+  if (!isLoading && attachmentStates.size > 0) {
+    for (const record of attachmentStates.values()) {
+      if (record.state < AttachmentState.SYNCED) {
+        unsyncedCount++;
+      }
+    }
   }
 
-  return null;
+  return { unsyncedCount, isLoading };
+}
+
+function getCurrentSyncStateWithoutAttachments() {
+  try {
+    // Get the current sync status from PowerSync
+    const status = system.powersync.currentStatus;
+
+    // Basic connection state
+    const isConnected = status.connected || false;
+    const isConnecting = status.connecting || false;
+
+    // Data flow status for downloads and uploads
+    const dataFlow = status.dataFlowStatus;
+    const isDownloadOperationInProgress = dataFlow.downloading || false;
+    const isUpdateInProgress = dataFlow.uploading || false;
+
+    // Sync history information
+    const hasSynced = status.hasSynced;
+    const lastSyncedAt = status.lastSyncedAt;
+
+    // Error information
+    const downloadError = dataFlow.downloadError;
+    const uploadError = dataFlow.uploadError;
+
+    return {
+      isConnected,
+      isConnecting,
+      isDownloadOperationInProgress,
+      isUpdateInProgress,
+      hasSynced,
+      lastSyncedAt,
+      downloadError,
+      uploadError
+    };
+  } catch (error) {
+    console.warn('Error checking sync state:', error);
+    return {
+      isConnected: false,
+      isConnecting: false,
+      isDownloadOperationInProgress: false,
+      isUpdateInProgress: false,
+      hasSynced: undefined,
+      lastSyncedAt: undefined,
+      downloadError: undefined,
+      uploadError: undefined
+    };
+  }
 }
 
 export function useSyncState(): SyncState {
-  const [syncState, setSyncState] = useState<SyncState>({
-    isDownloadOperationInProgress: false,
-    isUpdateInProgress: false,
-    isConnected: false,
-    isConnecting: false
-  });
+  // Call hooks at the top level
+  const {
+    unsyncedCount: unsyncedAttachmentsCount,
+    isLoading: attachmentDataLoading
+  } = useUnsyncedAttachmentsCount();
+
+  const [baseSyncState, setBaseSyncState] = useState(() =>
+    getCurrentSyncStateWithoutAttachments()
+  );
 
   useEffect(() => {
-    const checkSyncState = () => {
-      try {
-        // Check PowerSync connection status
-        const isConnected = system.powersync.connected || false;
-        const isConnecting = system.powersync.connecting || false;
-
-        // Check AttachmentStateManager state if available
-        let isDownloadOperationInProgress = false;
-        let isUpdateInProgress = false;
-
-        const stateManager = getAttachmentStateManager();
-        if (stateManager) {
-          try {
-            isDownloadOperationInProgress =
-              stateManager.isDownloadOperationInProgress();
-            isUpdateInProgress = stateManager.isUpdateInProgress();
-          } catch (error) {
-            // Fail silently if we can't access the state manager methods
-            console.warn(
-              'Could not access AttachmentStateManager state:',
-              error
-            );
-          }
-        }
-
-        setSyncState({
-          isDownloadOperationInProgress,
-          isUpdateInProgress,
-          isConnected,
-          isConnecting
-        });
-      } catch (error) {
-        console.warn('Error checking sync state:', error);
+    // Subscribe to PowerSync status changes
+    const unsubscribe = system.powersync.registerListener({
+      statusChanged: () => {
+        setBaseSyncState(getCurrentSyncStateWithoutAttachments());
       }
-    };
+    });
 
-    // Initial check
-    checkSyncState();
-
-    // Set up polling to check sync state periodically
-    const interval = setInterval(checkSyncState, 1000); // Check every second
-
-    return () => clearInterval(interval);
+    return unsubscribe;
   }, []);
+
+  // Determine overall loading state based on:
+  // 1. PowerSync sync operations (connecting, downloading, uploading)
+  // 2. Unsynced attachments (< AttachmentState.SYNCED)
+  // 3. Whether attachment data is still loading
+  const isLoading =
+    attachmentDataLoading || // Attachment state data is still loading
+    baseSyncState.isConnecting || // PowerSync is connecting
+    baseSyncState.isDownloadOperationInProgress || // PowerSync is downloading
+    baseSyncState.isUpdateInProgress || // PowerSync is uploading
+    unsyncedAttachmentsCount > 0; // We have unsynced attachments
+
+  // Combine base sync state with attachment data
+  const syncState: SyncState = {
+    ...baseSyncState,
+    unsyncedAttachmentsCount,
+    isLoading
+  };
 
   return syncState;
 }
@@ -96,4 +139,20 @@ export function useIsSyncing(): boolean {
   const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
     useSyncState();
   return isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
+}
+
+/**
+ * Returns true if there are any sync errors
+ */
+export function useHasSyncErrors(): boolean {
+  const { downloadError, uploadError } = useSyncState();
+  return !!(downloadError || uploadError);
+}
+
+/**
+ * Returns the most recent sync error if any
+ */
+export function useSyncError(): Error | undefined {
+  const { downloadError, uploadError } = useSyncState();
+  return downloadError || uploadError;
 }

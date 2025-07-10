@@ -13,6 +13,7 @@ import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
   View
@@ -100,7 +101,9 @@ export const QuestList = React.memo(
       isLoading,
       isError,
       error,
-      refetch
+      refetch,
+      fetchNextPage,
+      hasNextPage
     } = useHybridSupabaseInfiniteQuery<QuestWithTags>({
       queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
       onlineFn: async ({ pageParam, pageSize }) => {
@@ -192,36 +195,52 @@ export const QuestList = React.memo(
     }
 
     return (
-      <FlashList
-        data={filteredQuests}
-        renderItem={({ item }) => (
-          <QuestItem
-            quest={item}
-            project={selectedProject}
-            onPress={onQuestPress}
-          />
-        )}
-        keyExtractor={(item: QuestWithTags) => item.id}
-        style={sharedStyles.list}
-        // Performance optimizations
-        removeClippedSubviews={true}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={QuestsScreenStyles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isFetching && !isFetchingNextPage}
-            onRefresh={() => void refetch()}
-            tintColor={colors.text}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      <>
+        <ScrollView style={{ flex: 1 }}>
+          <Text style={{ color: 'red' }}>
+            {JSON.stringify(
+              { selectedProject, projectId, filteredQuests },
+              null,
+              2
+            )}
+          </Text>
+        </ScrollView>
+        <FlashList
+          data={filteredQuests}
+          renderItem={({ item }) => (
+            <QuestItem
+              quest={item}
+              project={selectedProject}
+              onPress={onQuestPress}
+            />
+          )}
+          keyExtractor={(item: QuestWithTags) => item.id}
+          style={sharedStyles.list}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          onEndReachedThreshold={0.3}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              void fetchNextPage();
+            }
+          }}
+          ListFooterComponent={
+            isFetchingNextPage && hasNextPage ? (
+              <View style={QuestsScreenStyles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isFetchingNextPage}
+              onRefresh={() => void refetch()}
+              tintColor={colors.text}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </>
     );
   }
 );

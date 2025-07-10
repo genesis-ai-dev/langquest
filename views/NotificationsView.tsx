@@ -1,16 +1,22 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessionCache } from '@/contexts/SessionCacheContext';
-import type { profile, project } from '@/db/drizzleSchema';
-import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import type { project } from '@/db/drizzleSchema';
+import {
+  invite,
+  profile,
+  profile_project_link,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { downloadRecord } from '@/hooks/useDownloads';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
@@ -28,12 +34,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Type definitions for query results
 type InviteWithRelations = typeof invite.$inferSelect & {
   project: typeof project.$inferSelect | null;
-  sender: typeof profile.$inferSelect | null;
 };
 
 type RequestWithRelations = typeof request.$inferSelect & {
   project: typeof project.$inferSelect | null;
-  sender: typeof profile.$inferSelect | null;
 };
 
 interface NotificationItem {
@@ -51,9 +55,16 @@ interface NotificationItem {
   last_updated: string;
 }
 
+interface SenderProfile {
+  id: string;
+  username: string | null;
+  email: string | null;
+}
+
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const isConnected = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [downloadToggles, setDownloadToggles] = useState<
     Record<string, boolean>
@@ -73,7 +84,7 @@ export default function NotificationsView() {
     );
   }, [userMemberships]);
 
-  // Query for invite notifications (where user's email matches)
+  // Query for invite notifications (where user's email matches) - without sender relation
   const { data: inviteData = [], refetch: refetchInvites } = useHybridQuery({
     queryKey: ['invite-notifications', currentUser?.email],
     onlineFn: async () => {
@@ -82,8 +93,7 @@ export default function NotificationsView() {
         .select(
           `
           *,
-          project!inner(id, name),
-          sender:profile!sender_profile_id(id, username, email)
+          project!inner(id, name)
         `
         )
         .eq('email', currentUser?.email || '')
@@ -104,34 +114,125 @@ export default function NotificationsView() {
           eq(invite.active, true)
         ),
         with: {
-          project: true,
-          sender: true
+          project: true
         }
       })
     ),
     enabled: !!currentUser?.email
   });
 
-  const inviteNotifications: NotificationItem[] = inviteData.map(
-    (item: InviteWithRelations) => ({
-      id: item.id,
-      type: 'invite' as const,
-      status: item.status,
-      email: item.email,
-      project_id: item.project_id,
-      project_name: item.project?.name || 'Unknown Project',
-      sender_profile_id: item.sender_profile_id,
-      sender_name: item.sender?.username || '',
-      sender_email: item.sender?.email || '',
-      as_owner: item.as_owner || false,
-      created_at: item.created_at,
-      last_updated: item.last_updated
-    })
+  // Get pending requests for owner projects (using session cache for owner project IDs) - without sender relation
+  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
+    queryKey: ['request-notifications', ownerProjectIds],
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select(
+          `
+          *,
+          project!inner(id, name)
+        `
+        )
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) {
+        console.error('Request query error:', error);
+        throw error;
+      }
+      console.log('Request query result:', data);
+      return data as RequestWithRelations[];
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.request.findMany({
+        where: and(eq(request.status, 'pending'), eq(request.active, true)),
+        with: {
+          project: true
+        }
+      })
+    ),
+    enabled: ownerProjectIds.length > 0
+  });
+
+  // Filter to only include requests for projects where the user is an owner
+  const filteredRequestData = requestData.filter((item: RequestWithRelations) =>
+    ownerProjectIds.includes(item.project_id)
   );
 
-  // Query for existing project download statuses - removed since useProjectsDownloadStatus doesn't exist
-  // const projectIds = inviteNotifications.map((item) => item.project_id);
-  // const { projectStatuses } = useProjectsDownloadStatus(projectIds);
+  // Get unique sender profile IDs from both invites and requests
+  const senderProfileIds = React.useMemo(() => {
+    const ids = [
+      ...inviteData.map((invite) => invite.sender_profile_id),
+      ...filteredRequestData.map((request) => request.sender_profile_id)
+    ];
+    return [...new Set(ids)]; // Remove duplicates
+  }, [inviteData, filteredRequestData]);
+
+  // Query for sender profiles from local database
+  const { data: senderProfiles = [] } = useHybridQuery({
+    queryKey: ['sender-profiles', senderProfileIds],
+    onlineFn: async () => {
+      // For online, we still use the local database since profiles are always synced
+      const profiles = await system.db.query.profile.findMany({
+        where: inArray(profile.id, senderProfileIds)
+      });
+      return profiles;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile.findMany({
+        where: inArray(profile.id, senderProfileIds)
+      })
+    ),
+    enabled: senderProfileIds.length > 0
+  });
+
+  // Create a map of profile ID to profile data for easy lookup
+  const senderProfileMap = React.useMemo(() => {
+    const map: Record<string, SenderProfile> = {};
+    senderProfiles.forEach((senderProfile) => {
+      map[senderProfile.id] = senderProfile;
+    });
+    return map;
+  }, [senderProfiles]);
+
+  const inviteNotifications: NotificationItem[] = inviteData.map(
+    (item: InviteWithRelations) => {
+      const senderProfile = senderProfileMap[item.sender_profile_id];
+      return {
+        id: item.id,
+        type: 'invite' as const,
+        status: item.status,
+        email: item.email,
+        project_id: item.project_id,
+        project_name: item.project?.name || t('unknownProject'),
+        sender_profile_id: item.sender_profile_id,
+        sender_name: senderProfile?.username || '',
+        sender_email: senderProfile?.email || '',
+        as_owner: item.as_owner || false,
+        created_at: item.created_at,
+        last_updated: item.last_updated
+      };
+    }
+  );
+
+  const requestNotifications: NotificationItem[] = filteredRequestData.map(
+    (item: RequestWithRelations) => {
+      const senderProfile = senderProfileMap[item.sender_profile_id];
+      return {
+        id: item.id,
+        type: 'request' as const,
+        status: item.status,
+        email: undefined,
+        project_id: item.project_id,
+        project_name: item.project?.name || t('unknownProject'),
+        sender_profile_id: item.sender_profile_id,
+        sender_name: senderProfile?.username || '',
+        sender_email: senderProfile?.email || '',
+        as_owner: false,
+        created_at: item.created_at,
+        last_updated: item.last_updated
+      };
+    }
+  );
 
   // Memoize notification IDs to prevent unnecessary re-renders
   const notificationIds = React.useMemo(
@@ -161,60 +262,6 @@ export default function NotificationsView() {
       return newToggles;
     });
   }, [notificationIds]);
-
-  // Get pending requests for owner projects (using session cache for owner project IDs)
-  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
-    queryKey: ['request-notifications', ownerProjectIds],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select(
-          `
-          *,
-          project!inner(id, name),
-          sender:profile!sender_profile_id(id, username, email)
-        `
-        )
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) {
-        console.error('Request query error:', error);
-        throw error;
-      }
-      console.log('Request query result:', data);
-      return data as RequestWithRelations[];
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.request.findMany({
-        where: and(eq(request.status, 'pending'), eq(request.active, true)),
-        with: {
-          project: true,
-          sender: true
-        }
-      })
-    ),
-    enabled: ownerProjectIds.length > 0
-  });
-
-  // Filter to only include requests for projects where the user is an owner
-  const requestNotifications: NotificationItem[] = requestData
-    .filter((item: RequestWithRelations) =>
-      ownerProjectIds.includes(item.project_id)
-    )
-    .map((item: RequestWithRelations) => ({
-      id: item.id,
-      type: 'request' as const,
-      status: item.status,
-      email: undefined,
-      project_id: item.project_id,
-      project_name: item.project?.name || 'Unknown Project',
-      sender_profile_id: item.sender_profile_id,
-      sender_name: item.sender?.username || '',
-      sender_email: item.sender?.email || '',
-      as_owner: false,
-      created_at: item.created_at,
-      last_updated: item.last_updated
-    }));
 
   // Filter out expired notifications
   const validInviteNotifications = inviteNotifications.filter(
@@ -329,7 +376,7 @@ export default function NotificationsView() {
               downloadError
             );
             // Don't fail the entire operation if download fails
-            Alert.alert('Warning', 'Invitation accepted but download failed');
+            Alert.alert(t('warning'), t('invitationAcceptedDownloadFailed'));
           }
         }
       } else {
@@ -409,7 +456,7 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation accepted successfully');
+      Alert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -417,7 +464,7 @@ export default function NotificationsView() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert('Error', 'Failed to accept invitation');
+      Alert.alert(t('error'), t('failedToAcceptInvite'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -461,10 +508,10 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation declined');
+      Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert('Error', 'Failed to decline invitation');
+      Alert.alert(t('error'), t('failedToDeclineInvite'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -476,7 +523,7 @@ export default function NotificationsView() {
 
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
-    const roleText = item.as_owner ? 'owner' : 'member';
+    const roleText = item.as_owner ? t('ownerRole') : t('memberRole');
     const shouldDownload = downloadToggles[item.id] ?? true;
 
     console.log(
@@ -498,14 +545,24 @@ export default function NotificationsView() {
               color={colors.primary}
             />
             <Text style={styles.notificationTitle}>
-              {item.type === 'invite' ? 'Project Invitation' : 'Join Request'}
+              {item.type === 'invite'
+                ? t('projectInvitationTitle')
+                : t('joinRequestTitle')}
             </Text>
           </View>
 
           <Text style={styles.notificationMessage}>
             {item.type === 'invite'
-              ? `${item.sender_name || item.sender_email} invited you to join "${item.project_name}" as ${roleText}`
-              : `${item.sender_name || item.sender_email} requested to join "${item.project_name}" as ${roleText}`}
+              ? t('invitedYouToJoin', {
+                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                  project: item.project_name,
+                  role: roleText
+                })
+              : t('requestedToJoin', {
+                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                  project: item.project_name,
+                  role: roleText
+                })}
           </Text>
 
           <Text style={styles.notificationDate}>
@@ -516,7 +573,9 @@ export default function NotificationsView() {
           {item.type === 'invite' && (
             <View style={styles.downloadSection}>
               <View style={styles.downloadToggleRow}>
-                <Text style={styles.downloadLabel}>Download Project</Text>
+                <Text style={styles.downloadLabel}>
+                  {t('downloadProjectLabel')}
+                </Text>
                 <Switch
                   value={shouldDownload}
                   onValueChange={(value) => {
@@ -549,7 +608,7 @@ export default function NotificationsView() {
                 <View style={styles.warningContainer}>
                   <Ionicons name="warning" size={16} color={colors.alert} />
                   <Text style={styles.warningText}>
-                    Project will not be available offline without download
+                    {t('projectNotAvailableOfflineWarning')}
                   </Text>
                 </View>
               )}
@@ -613,6 +672,15 @@ export default function NotificationsView() {
         <View style={styles.container}>
           <Text style={styles.pageTitle}>{t('notifications')}</Text>
 
+          {!isConnected && (
+            <View style={styles.offlineBanner}>
+              <Ionicons name="wifi-outline" size={20} color={colors.alert} />
+              <Text style={styles.offlineBannerText}>
+                {t('offlineNotificationMessage')}
+              </Text>
+            </View>
+          )}
+
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
@@ -624,9 +692,11 @@ export default function NotificationsView() {
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyStateText}>No Notifications</Text>
+                <Text style={styles.emptyStateText}>
+                  {t('noNotificationsTitle')}
+                </Text>
                 <Text style={styles.emptyStateSubtext}>
-                  You'll see project invitations and join requests here
+                  {t('noNotificationsMessage')}
                 </Text>
               </View>
             ) : (
@@ -764,5 +834,21 @@ const styles = StyleSheet.create({
     color: colors.alert,
     flex: 1,
     lineHeight: 16
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.alert
+  },
+  offlineBannerText: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    marginLeft: spacing.small
   }
 });

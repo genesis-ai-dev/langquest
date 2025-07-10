@@ -408,19 +408,38 @@ export default function AssetDetailView() {
               />
             </View>
           )}
-          {activeTab === 'image' && (
+          {activeTab === 'image' &&
+          (asset as unknown as { images: string | string[] }).images ? (
             <ImageCarousel
               uris={
-                asset?.images
-                  ?.map((imageId) => {
-                    const localUri = attachmentStates.get(imageId)?.local_uri;
-                    return localUri
-                      ? system.permAttachmentQueue?.getLocalUri(localUri)
-                      : null;
-                  })
-                  .filter(Boolean) ?? []
+                typeof asset?.images === 'string'
+                  ? (asset.images as unknown as string)
+                      .split(',')
+                      .map((id) => id.trim())
+                      .filter(Boolean)
+                      .map((imageId) => {
+                        const localUri =
+                          attachmentStates.get(imageId)?.local_uri;
+                        return localUri
+                          ? system.permAttachmentQueue?.getLocalUri(localUri)
+                          : null;
+                      })
+                      .filter(Boolean)
+                  : Array.isArray(asset?.images)
+                    ? asset.images
+                        .map((imageId) => {
+                          const localUri =
+                            attachmentStates.get(imageId)?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })
+                        .filter(Boolean)
+                    : []
               }
             />
+          ) : (
+            <Text>No images</Text>
           )}
         </View>
 

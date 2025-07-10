@@ -235,6 +235,11 @@ export const localizations = {
     spanish: 'OK',
     brazilian_portuguese: 'OK'
   },
+  offline: {
+    english: 'Offline',
+    spanish: 'Sin conexión',
+    brazilian_portuguese: 'Offline'
+  },
   password: {
     english: 'Password',
     spanish: 'Contraseña',
@@ -322,6 +327,11 @@ export const localizations = {
     english: 'Search assets...',
     spanish: 'Buscar recursos...',
     brazilian_portuguese: 'Buscar recursos...'
+  },
+  noAssetsFound: {
+    english: 'No assets found',
+    spanish: 'No se encontraron recursos',
+    brazilian_portuguese: 'Nenhum recurso encontrado'
   },
   searchQuests: {
     english: 'Search quests...',
@@ -1428,6 +1438,97 @@ export const localizations = {
     english: 'Restore Failed: {{error}}',
     spanish: 'Restauración Fallida: {{error}}',
     brazilian_portuguese: 'Restauração Falhou: {{error}}'
+  },
+  projectInvitationTitle: {
+    english: 'Project Invitation',
+    spanish: 'Invitación al Proyecto',
+    brazilian_portuguese: 'Convite para o Projeto'
+  },
+  joinRequestTitle: {
+    english: 'Join Request',
+    spanish: 'Solicitud de Unión',
+    brazilian_portuguese: 'Solicitação de Adesão'
+  },
+  invitedYouToJoin: {
+    english: '{{sender}} invited you to join "{{project}}" as {{role}}',
+    spanish: '{{sender}} te invitó a unirte a "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} convidou você para participar de "{{project}}" como {{role}}'
+  },
+  requestedToJoin: {
+    english: '{{sender}} requested to join "{{project}}" as {{role}}',
+    spanish: '{{sender}} solicitó unirse a "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} solicitou participar de "{{project}}" como {{role}}'
+  },
+  downloadProjectLabel: {
+    english: 'Download Project',
+    spanish: 'Descargar Proyecto',
+    brazilian_portuguese: 'Baixar Projeto'
+  },
+  projectNotAvailableOfflineWarning: {
+    english: 'Project will not be available offline without download',
+    spanish: 'El proyecto no estará disponible sin conexión sin descarga',
+    brazilian_portuguese: 'O projeto não estará disponível offline sem download'
+  },
+  noNotificationsTitle: {
+    english: 'No Notifications',
+    spanish: 'Sin Notificaciones',
+    brazilian_portuguese: 'Sem Notificações'
+  },
+  noNotificationsMessage: {
+    english: "You'll see project invitations and join requests here",
+    spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
+    brazilian_portuguese:
+      'Aqui você verá convites para projetos e solicitações de participação'
+  },
+  invitationAcceptedSuccessfully: {
+    english: 'Invitation accepted successfully',
+    spanish: 'Invitación aceptada exitosamente',
+    brazilian_portuguese: 'Convite aceito com sucesso'
+  },
+  invitationDeclinedSuccessfully: {
+    english: 'Invitation declined',
+    spanish: 'Invitación rechazada',
+    brazilian_portuguese: 'Convite recusado'
+  },
+  failedToAcceptInvite: {
+    english: 'Failed to accept invitation',
+    spanish: 'Error al aceptar invitación',
+    brazilian_portuguese: 'Falha ao aceitar convite'
+  },
+  failedToDeclineInvite: {
+    english: 'Failed to decline invitation',
+    spanish: 'Error al rechazar invitación',
+    brazilian_portuguese: 'Falha ao recusar convite'
+  },
+  invitationAcceptedDownloadFailed: {
+    english: 'Invitation accepted but download failed',
+    spanish: 'Invitación aceptada pero la descarga falló',
+    brazilian_portuguese: 'Convite aceito mas o download falhou'
+  },
+  unknownProject: {
+    english: 'Unknown Project',
+    spanish: 'Proyecto Desconocido',
+    brazilian_portuguese: 'Projeto Desconhecido'
+  },
+  ownerRole: {
+    english: 'owner',
+    spanish: 'propietario',
+    brazilian_portuguese: 'proprietário'
+  },
+  memberRole: {
+    english: 'member',
+    spanish: 'miembro',
+    brazilian_portuguese: 'membro'
+  },
+  offlineNotificationMessage: {
+    english:
+      'You are offline. Any changes you make will sync when you are back online.',
+    spanish:
+      'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
+    brazilian_portuguese:
+      'Você está offline. Quaisquer alterações que você fizer serão sincronizadas quando você voltar a ficar online.'
   }
 } as const;
 
