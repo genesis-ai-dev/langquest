@@ -413,15 +413,3 @@ BEGIN
     SELECT 'quest_closure'::TEXT, quest_closures_updated;
 END;
 $function$; 
-
-alter publication "powersync" add table only "public"."quest_closure";
-
-alter publication "powersync" add table only "public"."project_closure";
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."notification";
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."request";
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."invite";
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."profile_project_link";
