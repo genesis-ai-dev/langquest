@@ -8,6 +8,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -76,6 +77,26 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+
+  // Get comprehensive user permissions for this project
+  const managePermissions = useUserPermissions(projectId, 'manage');
+  const sendInvitePermissions = useUserPermissions(
+    projectId,
+    'send_invite_section'
+  );
+  const promotePermissions = useUserPermissions(
+    projectId,
+    'promote_member_button'
+  );
+  const removePermissions = useUserPermissions(
+    projectId,
+    'remove_member_button'
+  );
+  const withdrawInvitePermissions = useUserPermissions(
+    projectId,
+    'withdraw_invite_button'
+  );
+
   const [activeTab, setActiveTab] = useState<'members' | 'invited'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
@@ -211,9 +232,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return true;
   });
 
-  // Check if current user is an owner
+  // Check if current user is an owner (keep for compatibility with leave project logic)
   const currentUserMembership = members.find((m) => m.id === currentUser?.id);
-  const currentUserIsOwner = currentUserMembership?.role === 'owner';
 
   // Count active owners
   const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
@@ -290,7 +310,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleLeaveProject = () => {
-    if (activeOwnerCount <= 1 && currentUserIsOwner) {
+    if (activeOwnerCount <= 1 && managePermissions.hasAccess) {
       Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
       return;
     }
@@ -535,9 +555,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         </View>
 
         <View style={styles.memberActions}>
-          {currentUserIsOwner && !isCurrentUser && (
+          {!isCurrentUser && (
             <>
-              {member.role === 'member' && (
+              {member.role === 'member' && promotePermissions.hasAccess && (
                 <TouchableOpacity
                   style={styles.iconButton}
                   onPress={() =>
@@ -551,7 +571,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   />
                 </TouchableOpacity>
               )}
-              {member.role === 'member' && (
+              {member.role === 'member' && removePermissions.hasAccess && (
                 <TouchableOpacity
                   style={styles.iconButton}
                   onPress={() =>
@@ -638,30 +658,32 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         </View>
 
         <View style={styles.memberActions}>
-          {currentUserIsOwner && invitation.status === 'expired' && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => void handleResendInvitation(invitation.id)}
-            >
-              <Ionicons
-                name="refresh-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          )}
-          {currentUserIsOwner && invitation.status !== 'withdrawn' && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => void handleWithdrawInvitation(invitation.id)}
-            >
-              <Ionicons
-                name="close-circle-outline"
-                size={20}
-                color={colors.error}
-              />
-            </TouchableOpacity>
-          )}
+          {withdrawInvitePermissions.hasAccess &&
+            invitation.status === 'expired' && (
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => void handleResendInvitation(invitation.id)}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            )}
+          {withdrawInvitePermissions.hasAccess &&
+            invitation.status !== 'withdrawn' && (
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => void handleWithdrawInvitation(invitation.id)}
+              >
+                <Ionicons
+                  name="close-circle-outline"
+                  size={20}
+                  color={colors.error}
+                />
+              </TouchableOpacity>
+            )}
         </View>
       </View>
     );
@@ -705,7 +727,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <PrivateAccessGate
                     projectId={projectId}
                     projectName={project?.name || ''}
-                    isPrivate={true}
+                    isPrivate={project?.private || false}
                     action="view_membership"
                     inline={true}
                   >
@@ -761,7 +783,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     </ScrollView>
 
                     <View style={styles.inviteSection}>
-                      {currentUserIsOwner ? (
+                      {sendInvitePermissions.hasAccess ? (
                         <>
                           <Text style={styles.inviteTitle}>
                             {t('inviteMembers')}
