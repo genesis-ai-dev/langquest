@@ -11,10 +11,9 @@ import {
 } from 'react-native';
 
 export function UpdateBanner() {
-  const { updateAvailable, checkingForUpdate, downloadAndReloadUpdate } =
-    useExpoUpdates();
+  const { updateInfo, isDownloadingUpdate, downloadUpdate } = useExpoUpdates();
 
-  if (!updateAvailable) {
+  if (!updateInfo?.[0]?.isUpdateAvailable) {
     return null;
   }
 
@@ -30,10 +29,10 @@ export function UpdateBanner() {
       </View>
       <TouchableOpacity
         style={styles.button}
-        onPress={() => downloadAndReloadUpdate()}
-        disabled={checkingForUpdate}
+        onPress={() => downloadUpdate()}
+        disabled={isDownloadingUpdate}
       >
-        {checkingForUpdate ? (
+        {isDownloadingUpdate ? (
           <ActivityIndicator size="small" color={colors.buttonText} />
         ) : (
           <Text style={styles.buttonText}>Update Now</Text>

@@ -117,10 +117,10 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 4. Generate a migration file with a descriptive name to describe your changes:
 
    ```bash
-   npx supabase@beta db diff -f "your_migration_description"
+   npm run supabase:migration:diff -- "your_migration_description"
    ```
 
-   > This creates a timestamped SQL migration file in the `supabase/migrations` directory
+   > This creates a timestamped SQL migration file in the `supabase/migrations` directory. The script automatically handles storage permissions issues during migration generation.
 
    - For **any new database tables** you create, add a publication statement for each new table, to the end of the new migration file that was just created [(hopefully this will be automatic at some point)](https://github.com/supabase/cli/issues/883):
 

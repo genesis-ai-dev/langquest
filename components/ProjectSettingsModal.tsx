@@ -1,4 +1,4 @@
-import { project as projectTable } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -76,7 +76,6 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           last_updated: new Date().toISOString()
         })
         .match({ id: projectId });
-
       await refetch();
       Alert.alert(
         'Success',

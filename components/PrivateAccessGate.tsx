@@ -2,9 +2,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
-import type { PrivateAccessAction } from '@/hooks/usePrivateProjectAccess';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
+import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -15,7 +16,6 @@ import {
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
@@ -78,12 +78,21 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
-  const { hasAccess } = usePrivateProjectAccess(projectId, action); // NOTE: did we need to pass isPrivate here?
+  const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
   // Query for existing membership request
-  const { data: existingRequests = [], refetch } = useQuery({
+  const { data: existingRequests = [], refetch } = useHybridQuery({
     queryKey: ['membership-request', projectId, currentUser?.id],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('sender_profile_id', currentUser?.id || '')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.request.findMany({
         where: and(
           eq(request.sender_profile_id, currentUser?.id || ''),
@@ -95,9 +104,19 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   });
 
   // Query for membership status (for modal mode)
-  const { data: membershipLinks = [] } = useQuery({
+  const { data: membershipLinks = [] } = useHybridQuery({
     queryKey: ['membership-status', projectId, currentUser?.id],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, currentUser?.id || ''),
@@ -248,14 +267,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     if (customMessage) return customMessage;
 
     switch (action) {
-      case 'view-members':
+      case 'view_membership':
         return t('privateProjectMembersMessage');
       case 'vote':
         return t('privateProjectVotingMessage');
       case 'translate':
         return t('privateProjectTranslationMessage');
-      case 'edit-transcription':
+      case 'edit_transcription':
         return t('privateProjectEditingMessage');
+      case 'contribute':
+        return t('privateProjectTranslationMessage');
       case 'download':
         return t('privateProjectDownloadMessage');
       default:
@@ -265,14 +286,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const getActionTitle = () => {
     switch (action) {
-      case 'view-members':
+      case 'view_membership':
         return t('privateProjectMembers');
       case 'vote':
         return t('privateProjectVoting');
       case 'translate':
         return t('privateProjectTranslation');
-      case 'edit-transcription':
+      case 'edit_transcription':
         return t('privateProjectEditing');
+      case 'contribute':
+        return t('privateProjectTranslation');
       case 'download':
         return t('privateProjectDownload');
       default:

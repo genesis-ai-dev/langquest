@@ -1,6 +1,5 @@
-import type { Profile } from '@/database_services/profileService';
+import type { profile } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { getProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,12 +10,14 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState
 } from 'react';
 
+export type Profile = typeof profile.$inferSelect;
+
 const DEBUG_MODE = false;
 const debug = (...args: unknown[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
     console.log('AuthContext:', ...args);
   }
@@ -35,48 +36,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentUser = useLocalStore((state) => state.currentUser);
   const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
-  const mounted = useRef(true);
-  const authInitialized = useRef(false);
 
   useEffect(() => {
     debug('useEffect - AuthContext initialization');
-    mounted.current = true;
 
     const loadAuthData = async () => {
-      debug('loadAuthData');
-      if (authInitialized.current) return;
-      authInitialized.current = true;
-
-      setIsLoading(true);
+      console.log('🔄 [AuthProvider] Starting loadAuthData...');
       try {
+        console.log('🔄 [AuthProvider] Getting supabase auth key...');
         const supabaseAuthKey = await getSupabaseAuthKey();
+        console.log('🔄 [AuthProvider] Got auth key:', !!supabaseAuthKey);
 
         if (supabaseAuthKey) {
+          console.log('🔄 [AuthProvider] Getting session from AsyncStorage...');
           const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
+          console.log('🔄 [AuthProvider] Got session string:', !!sessionString);
+
           if (sessionString) {
+            console.log('🔄 [AuthProvider] Parsing session...');
             const session = JSON.parse(sessionString) as Session | null;
-            const profile = await getProfileByUserId(session?.user.id ?? '');
-            if (mounted.current) {
-              setCurrentUser(profile ?? null);
+            console.log('🔄 [AuthProvider] Session user ID:', session?.user.id);
+
+            console.log('🔄 [AuthProvider] Fetching profile from Supabase...');
+            const { data: profile } = (await system.supabaseConnector.client
+              .from('profile')
+              .select('*')
+              .eq('id', session?.user.id)
+              .single()) as { data: Profile };
+            console.log('🔄 [AuthProvider] Got profile:', !!profile);
+            setCurrentUser(profile);
+
+            // Sync terms acceptance from profile to local store
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store'
+                );
+                localStore.acceptTerms();
+              }
             }
+          } else {
+            console.log('🔄 [AuthProvider] No session string found');
           }
+        } else {
+          console.log('🔄 [AuthProvider] No auth key found');
         }
       } catch (error) {
-        console.error('Error loading auth data:', error);
+        console.error('❌ [AuthProvider] Error loading auth data:', error);
       } finally {
-        if (mounted.current) {
-          console.log('setting auth isLoading to false');
-          setIsLoading(false);
-        }
+        console.log('✅ [AuthProvider] Setting isLoading to false');
+        setIsLoading(false);
       }
     };
 
-    void loadAuthData();
+    // Add timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.log(
+        '⚠️ [AuthProvider] Timeout fallback - forcing isLoading to false'
+      );
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
+
+    void loadAuthData().finally(() => {
+      clearTimeout(timeoutId);
+    });
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
         debug('onAuthStateChange', state, session);
-        if (!mounted.current) return;
 
         // always maintain a session
         if (!session) {
@@ -90,8 +118,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const profile = await system.supabaseConnector.getUserProfile(
               session.user.id
             );
-            if (mounted.current) {
-              setCurrentUser(profile);
+            setCurrentUser(profile);
+
+            // Sync terms acceptance from profile to local store
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change)'
+                );
+                localStore.acceptTerms();
+              }
             }
 
             // Only reinitialize attachment queues if system is already initialized
@@ -108,11 +145,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.error('Error during auth state change:', error);
             // Still set the user even if queue init fails
-            if (mounted.current) {
-              const profile = await system.supabaseConnector.getUserProfile(
-                session.user.id
-              );
-              setCurrentUser(profile);
+            const profile = await system.supabaseConnector.getUserProfile(
+              session.user.id
+            );
+            setCurrentUser(profile);
+
+            // Sync terms acceptance from profile to local store (fallback)
+            if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change - fallback)'
+                );
+                localStore.acceptTerms();
+              }
             }
           }
         }
@@ -120,7 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
-      mounted.current = false;
       subscription.data.subscription.unsubscribe();
     };
   }, []); // 🔥 FIXED: Empty dependency array - this should only run ONCE!

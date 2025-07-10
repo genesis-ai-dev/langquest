@@ -6,27 +6,43 @@ import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import * as FileSystem from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
-import { AppConfig } from '../supabase/AppConfig';
-// import { system } from '../powersync/system';
-import { isNotNull } from 'drizzle-orm';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
+import { AttachmentStateManager } from './AttachmentStateManager';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
-  // db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
-  // Track previous active downloads to detect changes
-  // previousActiveDownloads: {
-  //   profile_id: string;
-  //   asset_id: string;
-  //   active: boolean;
-  // }[] = [];
+  // Use unified attachment state manager instead of local state
+  private attachmentStateManager: AttachmentStateManager;
 
   constructor(
-    options: AttachmentQueueOptions & {
+    options: Omit<
+      AttachmentQueueOptions,
+      'onDownloadError' | 'onUploadError'
+    > & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      onDownloadError: (
+        attachment: AttachmentRecord,
+        exception: { toString: () => string; status?: number }
+      ) => void;
+      onUploadError: (
+        _attachment: AttachmentRecord,
+        _exception: {
+          error: string;
+          message: string;
+          statusCode: number;
+        }
+      ) => Promise<{
+        retry: boolean;
+      }>;
     }
   ) {
     super(options);
-    // this.db = options.db;
+    this.db = options.db;
+    console.log(
+      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
+    );
+
+    // Get the singleton AttachmentStateManager
+    this.attachmentStateManager = AttachmentStateManager.getInstance();
   }
 
   getStorageType(): 'permanent' | 'temporary' {
@@ -34,210 +50,105 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('PermAttachmentQueue init');
-    if (!AppConfig.supabaseBucket) {
-      console.debug(
-        'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
-      );
-      // Disable sync interval to prevent errors from trying to sync to a non-existent bucket
-      this.options.syncInterval = 0; // This is weird, shouldn't be here
-      return;
-    }
-
     await super.init();
+    console.log(
+      '[PERM QUEUE] ✅ Initialized with unified attachment state manager'
+    );
   }
 
-  // Helper method to get the current user's ID
-  // async getCurrentUserId(): Promise<string | null> {
-  //   try {
-  //     const {
-  //       data: { session }
-  //     } = await system.supabaseConnector.client.auth.getSession();
-  //     return session?.user?.id || null;
-  //   } catch (error) {
-  //     console.error('[DOWNLOAD WATCH] Error getting current user ID:', error);
-  //     return null;
-  //   }
-  // }
+  // Remove the old collectAllAttachmentIds method since we're using AttachmentStateManager
+  // Remove the old updateAttachmentIds method since we're using AttachmentStateManager
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    // Watch for changes in ALL download records
+    console.log(
+      '[PERM QUEUE] Setting up unified attachment watcher with AttachmentStateManager'
+    );
+
+    // Single coordinated watcher using AttachmentStateManager
+    const updateWithSource = (source: string) => {
+      void this.attachmentStateManager.updateWithDebounce(onUpdate, source);
+    };
+
+    // Watch for changes in downloaded assets (direct downloads)
     this.db.watch(
       this.db.query.asset.findMany({
-        columns: { images: true },
-        where: (asset) => isNotNull(asset.images)
+        columns: { id: true, download_profiles: true, images: true }
       }),
       {
-        onResult: (assets) => {
-          // const currentUserId = await this.getCurrentUserId();
-          // if (!currentUserId) {
-          //   // User is logged out - don't delete anything, just stop syncing
-          //   onUpdate([]);
-          //   return;
-          // }
-
-          // Filter to current user's downloads
-          // const userDownloads = downloads.filter(
-          //   (download) => download.profile_id === currentUserId
-          // );
-          // console.log(`User downloads: ${userDownloads.length}`);
-
-          // Split into active and inactive downloads
-          const activeAttachments: string[] = [];
-          activeAttachments.push(...assets.flatMap((asset) => asset.images!));
-
-          // Remove duplicates
-          const uniqueActiveAttachments = [...new Set(activeAttachments)];
-
-          // Tell PowerSync which attachments to keep synced
-          onUpdate(uniqueActiveAttachments);
+        onResult: () => {
+          console.log(
+            '[PERM QUEUE] Asset downloads changed, updating attachments via state manager'
+          );
+          void updateWithSource('asset_downloads');
         }
       }
     );
 
+    // Watch for changes in downloaded quests (quest downloads)
+    this.db.watch(
+      this.db.query.quest.findMany({
+        columns: { id: true, download_profiles: true }
+      }),
+      {
+        onResult: () => {
+          console.log(
+            '[PERM QUEUE] Quest downloads changed, updating attachments via state manager'
+          );
+          void updateWithSource('quest_downloads');
+        }
+      }
+    );
+
+    // Watch for changes in quest-asset links (affects which assets are in downloaded quests)
+    this.db.watch(
+      this.db.query.quest_asset_link.findMany({
+        columns: { quest_id: true, asset_id: true }
+      }),
+      {
+        onResult: () => {
+          console.log(
+            '[PERM QUEUE] Quest-asset links changed, updating attachments via state manager'
+          );
+          void updateWithSource('quest_asset_links');
+        }
+      }
+    );
+
+    // Watch for changes in asset content links (affects downloaded assets)
     this.db.watch(
       this.db.query.asset_content_link.findMany({
-        columns: { audio_id: true },
-        where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
+        columns: { asset_id: true, audio_id: true }
       }),
       {
-        onResult: (asset_content_links) => {
-          // const currentUserId = await this.getCurrentUserId();
-          // if (!currentUserId) {
-          //   // User is logged out - don't delete anything, just stop syncing
-          //   onUpdate([]);
-          //   return;
-          // }
-
-          // Filter to current user's downloads
-          // const userDownloads = downloads.filter(
-          //   (download) => download.profile_id === currentUserId
-          // );
-          // console.log(`User downloads: ${userDownloads.length}`);
-
-          // Split into active and inactive downloads
-          const activeAttachments: string[] = [];
-          activeAttachments.push(
-            ...asset_content_links.flatMap((asset) => asset.audio_id!)
+        onResult: () => {
+          console.log(
+            '[PERM QUEUE] Asset content changed, updating attachments via state manager'
           );
-
-          // Remove duplicates
-          const uniqueActiveAttachments = [...new Set(activeAttachments)];
-
-          // Tell PowerSync which attachments to keep synced
-          onUpdate(uniqueActiveAttachments);
+          void updateWithSource('asset_content');
         }
       }
     );
 
+    // Watch for changes in translations (affects downloaded assets)
     this.db.watch(
       this.db.query.translation.findMany({
-        columns: { audio: true },
-        where: (translation) => isNotNull(translation.audio)
+        columns: { asset_id: true, audio: true }
       }),
       {
-        onResult: (translations) => {
-          // const currentUserId = await this.getCurrentUserId();
-          // if (!currentUserId) {
-          //   // User is logged out - don't delete anything, just stop syncing
-          //   onUpdate([]);
-          //   return;
-          // }
-
-          // Filter to current user's downloads
-          // const userDownloads = downloads.filter(
-          //   (download) => download.profile_id === currentUserId
-          // );
-          // console.log(`User downloads: ${userDownloads.length}`);
-
-          // Split into active and inactive downloads
-          const activeAttachments: string[] = [];
-          activeAttachments.push(
-            ...translations.flatMap((asset) => asset.audio!)
+        onResult: () => {
+          console.log(
+            '[PERM QUEUE] Translations changed, updating attachments via state manager'
           );
-
-          // Remove duplicates
-          const uniqueActiveAttachments = [...new Set(activeAttachments)];
-
-          // Tell PowerSync which attachments to keep synced
-          onUpdate(uniqueActiveAttachments);
+          void updateWithSource('translations');
         }
       }
     );
 
-    // Watch for changes in asset content links
-    // this.db.watch(
-    //   this.db.query.asset_content_link.findMany({
-    //     where: (asset) => isNotNull(asset.audio_id)
-    //   }),
-    //   {
-    //     onResult: (assetContentLinks) => {
-    //       console.log(
-    //         `Asset content links updated: ${assetContentLinks.length}`
-    //       );
-    //       const runAsync = async () => {
-    //         // Get current user ID
-    //         // const currentUserId = await this.getCurrentUserId();
-    //         // if (!currentUserId) {
-    //         //   onUpdate([]);
-    //         //   return;
-    //         // }
-
-    //         const activeAssetIds = assetContentLinks.map(
-    //           (assetContentLink) => assetContentLink.asset_id
-    //         );
-
-    //         // Get all attachments for active assets
-    //         const allAttachments: string[] = [];
-    //         for (const assetId of activeAssetIds) {
-    //           const assetAttachments =
-    //             await this.getAllAssetAttachments(assetId);
-    //           allAttachments.push(...assetAttachments);
-    //         }
-
-    //         // Remove duplicates
-    //         const uniqueAttachments = [...new Set(allAttachments)];
-    //         console.log(
-    //           `Total unique attachments to sync: ${uniqueAttachments.length}`
-    //         );
-
-    //         // Update PowerSync
-    //         onUpdate(uniqueAttachments);
-    //       };
-
-    //       void runAsync();
-    //     }
-    //   }
-    // );
-
-    // this.db.watch(
-    //   this.db.query.asset.findMany({
-    //     where: (asset) => isNotNull(asset.images)
-    //   }),
-    //   {
-    //     onResult(assets) {
-    //       console.log('watched assets', assets);
-    //       const allImageAssets = assets.flatMap((asset) => asset.images!);
-    //       onUpdate([...lastAssetAudio, ...allImageAssets, ...lastTranslations]);
-    //       lastAssetImages = allImageAssets;
-    //     }
-    //   }
-    // );
-
-    // this.db.watch(
-    //   this.db.query.translation.findMany({
-    //     where: (translation) => isNotNull(translation.audio)
-    //   }),
-    //   {
-    //     onResult(translations) {
-    //       const allTranslations = translations.map(
-    //         (translation) => translation.audio!
-    //       );
-    //       onUpdate([...lastAssetAudio, ...lastAssetImages, ...allTranslations]);
-    //       lastTranslations = allTranslations;
-    //     }
-    //   }
-    // );
+    // Initial load
+    console.log(
+      '[PERM QUEUE] Running initial attachment ID collection via state manager'
+    );
+    void updateWithSource('initial_load');
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
@@ -304,5 +215,15 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         await this.delete(record, tx);
       }
     });
+  }
+
+  // Get debug info from the attachment state manager
+  getDebugInfo() {
+    return this.attachmentStateManager.getDebugInfo();
+  }
+
+  // Cleanup method
+  destroy() {
+    this.attachmentStateManager.destroy();
   }
 }

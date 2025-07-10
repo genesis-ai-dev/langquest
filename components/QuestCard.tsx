@@ -3,7 +3,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import type { Project } from '@/hooks/db/useProjects';
-import { useDownload } from '@/hooks/useDownloads';
+import { useDownload, useQuestDownloadStatus } from '@/hooks/useDownloads';
 import { sharedStyles, spacing } from '@/styles/theme';
 import React, { useCallback, useMemo } from 'react';
 import { Text, View } from 'react-native';
@@ -12,16 +12,28 @@ export const QuestCard: React.FC<{
   project: Project;
   quest: Quest & { tags: { tag: Tag }[] };
 }> = React.memo(({ quest, project }) => {
-  // Use the new download hook
+  // Use the enhanced quest download status hook for better performance and progress info
   const {
     isDownloaded,
-    isLoading: isDownloadLoading,
-    toggleDownload
-  } = useDownload('quest', quest.id);
+    isLoading: isDownloadStatusLoading,
+    progressPercentage,
+    totalAssets
+  } = useQuestDownloadStatus(quest.id);
+
+  // Keep the original download hook for the mutation functionality
+  const { isLoading: isDownloadMutationLoading, toggleDownload } = useDownload(
+    'quest',
+    quest.id
+  );
+
+  const isLoading = isDownloadStatusLoading || isDownloadMutationLoading;
 
   const handleDownloadToggle = useCallback(async () => {
+    console.log(
+      `🎯 [QUEST CARD] User tapped download button for quest: ${quest.id} (${quest.name})`
+    );
     await toggleDownload();
-  }, [toggleDownload]);
+  }, [toggleDownload, quest.id, quest.name]);
 
   // Memoize tag processing for performance
   const displayTags = useMemo(() => {
@@ -54,10 +66,12 @@ export const QuestCard: React.FC<{
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
               isDownloaded={isDownloaded}
-              isLoading={isDownloadLoading}
+              isLoading={isLoading}
               onPress={
                 hasAccess || isDownloaded ? handleDownloadToggle : onPress
               }
+              progressPercentage={progressPercentage}
+              showProgress={totalAssets > 0 && !isDownloaded}
             />
           )}
         />

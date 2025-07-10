@@ -154,7 +154,7 @@ export default function LoginView() {
         await supabaseConnector.client.auth.resetPasswordForEmail(
           data.email.toLowerCase().trim(),
           {
-            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/reset-password${process.env.EXPO_PUBLIC_APP_VARIANT !== 'production' ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}` : ''}`
+            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/app${process.env.EXPO_PUBLIC_APP_VARIANT !== 'production' ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}` : ''}`
           }
         );
 
