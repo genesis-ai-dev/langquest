@@ -68,10 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log('🔄 [AuthProvider] Got profile:', !!profile);
 
               if (profile) {
+                // Validate that this is a real user profile with username or email
+                if (!profile.username && !profile.email) {
+                  console.log(
+                    '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
+                  );
+                  setCurrentUser(null);
+                  return;
+                }
+
                 setCurrentUser(profile);
 
                 // Sync terms acceptance from profile to local store
-                if (profile?.terms_accepted && profile?.terms_accepted_at) {
+                if (profile.terms_accepted && profile.terms_accepted_at) {
                   const localStore = useLocalStore.getState();
                   if (!localStore.dateTermsAccepted) {
                     console.log(
@@ -119,30 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (state: string, session: Session | null) => {
         debug('onAuthStateChange', state, session);
 
-        // Always maintain a session - but be more careful about when to sign in anonymously
+        // If no session, just return without doing anything
         if (!session) {
           console.log(
-            '⚠️ [AuthProvider] No session detected, checking if we should sign in anonymously'
+            '⚠️ [AuthProvider] No session detected, staying logged out'
           );
-
-          // Only sign in anonymously if we don't have a current user
-          // This prevents clearing the user when session refresh temporarily fails
-          if (!currentUser) {
-            console.log('🔄 [AuthProvider] Signing in anonymously');
-            try {
-              await system.supabaseConnector.client.auth.signInAnonymously();
-            } catch (error) {
-              console.error(
-                '❌ [AuthProvider] Failed to sign in anonymously:',
-                error
-              );
-              // Don't clear currentUser - offline users should stay logged in
-            }
-          } else {
-            console.log(
-              '✅ [AuthProvider] Keeping current user despite no session'
-            );
-          }
           return;
         }
 
@@ -153,10 +143,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
 
             if (profile) {
+              // Validate that this is a real user profile with username or email
+              if (!profile.username && !profile.email) {
+                console.log(
+                  '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
+                );
+                setCurrentUser(null);
+                return;
+              }
+
               setCurrentUser(profile);
 
               // Sync terms acceptance from profile to local store
-              if (profile?.terms_accepted && profile?.terms_accepted_at) {
+              if (profile.terms_accepted && profile.terms_accepted_at) {
                 const localStore = useLocalStore.getState();
                 if (!localStore.dateTermsAccepted) {
                   console.log(
@@ -191,7 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Don't clear currentUser on error - maintain session persistence
 
             // Still try to sync terms if we have a current user
-            if (currentUser?.terms_accepted && currentUser?.terms_accepted_at) {
+            if (
+              currentUser &&
+              currentUser.terms_accepted &&
+              currentUser.terms_accepted_at
+            ) {
               const localStore = useLocalStore.getState();
               if (!localStore.dateTermsAccepted) {
                 console.log(
