@@ -328,6 +328,11 @@ export const localizations = {
     spanish: 'Buscar recursos...',
     brazilian_portuguese: 'Buscar recursos...'
   },
+  noAssetsFound: {
+    english: 'No assets found',
+    spanish: 'No se encontraron recursos',
+    brazilian_portuguese: 'Nenhum recurso encontrado'
+  },
   searchQuests: {
     english: 'Search quests...',
     spanish: 'Buscar misiones...',

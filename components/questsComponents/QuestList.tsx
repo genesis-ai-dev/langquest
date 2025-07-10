@@ -100,7 +100,9 @@ export const QuestList = React.memo(
       isLoading,
       isError,
       error,
-      refetch
+      refetch,
+      fetchNextPage,
+      hasNextPage
     } = useHybridSupabaseInfiniteQuery<QuestWithTags>({
       queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
       onlineFn: async ({ pageParam, pageSize }) => {
@@ -206,8 +208,13 @@ export const QuestList = React.memo(
         // Performance optimizations
         removeClippedSubviews={true}
         onEndReachedThreshold={0.3}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            void fetchNextPage();
+          }
+        }}
         ListFooterComponent={
-          isFetchingNextPage ? (
+          isFetchingNextPage && hasNextPage ? (
             <View style={QuestsScreenStyles.footerLoader}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>

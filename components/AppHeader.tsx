@@ -1,7 +1,7 @@
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useIsSyncing } from '@/hooks/useSyncState';
+import { useSyncState } from '@/hooks/useSyncState';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -27,7 +27,13 @@ export default function AppHeader({
 
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { totalCount: notificationCount } = useNotifications();
-  const isSyncing = useIsSyncing();
+  const {
+    isDownloadOperationInProgress,
+    isUpdateInProgress,
+    isConnecting
+  } = useSyncState();
+  const isSyncing =
+    isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
   const isConnected = useNetworkStatus();
 
   // Animation for sync indicator
@@ -145,7 +151,7 @@ export default function AppHeader({
           >
             <Ionicons name="menu" size={24} color={colors.text} />
 
-            {/* Sync/Offline Indicator - Bottom Right Corner */}
+            {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (
               <View style={styles.offlineIndicator}>
                 <Ionicons

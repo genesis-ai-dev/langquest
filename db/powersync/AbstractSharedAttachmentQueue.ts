@@ -68,7 +68,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
-        console.debug(`[ABSTRACT queue] Queuing for sync, attachment IDs: [${ids.length}]`);
 
         if (this.initialSync) {
           this.initialSync = false;
@@ -90,7 +89,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           );
 
         const storageType = this.getStorageType();
-        console.log(`Storage type: ${storageType}`);
 
         for (const id of ids) {
           const record = attachmentsInDatabase.find((r) => r.id == id);
@@ -100,18 +98,12 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               id: id,
               state: AttachmentState.QUEUED_SYNC
             });
-            console.debug(
-              `Attachment (${id}) not found in database, creating new record`
-            );
             await this.saveToQueue(newRecord);
           } else if (
             // 2. Attachment exists but needs to be converted to permanent
             storageType === 'permanent' &&
             record.storage_type === 'temporary'
           ) {
-            console.debug(
-              `Converting temporary attachment (${id}) to permanent`
-            );
             await this.update({
               ...record,
               state: AttachmentState.QUEUED_SYNC,
@@ -122,9 +114,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
           ) {
             // 3. Attachment in database but no local file, mark as queued download
-            console.debug(
-              `Attachment (${id}) found in database but no local file, marking as queued download`
-            );
             await this.update({
               ...record,
               state: AttachmentState.QUEUED_DOWNLOAD

@@ -496,7 +496,7 @@ export default function AppDrawer({
               >
                 <Text style={styles.stalePercentageText}>
                   {!isConnected
-                    ? t('offline')
+                    ? `${attachmentProgress.synced} files downloaded`
                     : powersyncStatus?.connected
                       ? powersyncStatus.dataFlowStatus.downloading
                         ? 'Syncing...'

@@ -436,6 +436,11 @@ export default function AssetsView() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
+          ListEmptyComponent={
+            <View style={styles.emptyText}>
+              <Text style={styles.emptyText}>{t('noAssetsFound')}</Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={isFetching && !isFetchingNextPage}
