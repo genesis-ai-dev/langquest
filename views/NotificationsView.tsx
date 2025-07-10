@@ -11,6 +11,7 @@ import { system } from '@/db/powersync/system';
 import { downloadRecord } from '@/hooks/useDownloads';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,6 +64,7 @@ interface SenderProfile {
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const isConnected = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [downloadToggles, setDownloadToggles] = useState<
     Record<string, boolean>
@@ -201,7 +203,7 @@ export default function NotificationsView() {
         status: item.status,
         email: item.email,
         project_id: item.project_id,
-        project_name: item.project?.name || 'Unknown Project',
+        project_name: item.project?.name || t('unknownProject'),
         sender_profile_id: item.sender_profile_id,
         sender_name: senderProfile?.username || '',
         sender_email: senderProfile?.email || '',
@@ -221,7 +223,7 @@ export default function NotificationsView() {
         status: item.status,
         email: undefined,
         project_id: item.project_id,
-        project_name: item.project?.name || 'Unknown Project',
+        project_name: item.project?.name || t('unknownProject'),
         sender_profile_id: item.sender_profile_id,
         sender_name: senderProfile?.username || '',
         sender_email: senderProfile?.email || '',
@@ -374,7 +376,7 @@ export default function NotificationsView() {
               downloadError
             );
             // Don't fail the entire operation if download fails
-            Alert.alert('Warning', 'Invitation accepted but download failed');
+            Alert.alert(t('warning'), t('invitationAcceptedDownloadFailed'));
           }
         }
       } else {
@@ -454,7 +456,7 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation accepted successfully');
+      Alert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -462,7 +464,7 @@ export default function NotificationsView() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert('Error', 'Failed to accept invitation');
+      Alert.alert(t('error'), t('failedToAcceptInvite'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -506,10 +508,10 @@ export default function NotificationsView() {
       void refetchInvites();
       void refetchRequests();
 
-      Alert.alert('Success', 'Invitation declined');
+      Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert('Error', 'Failed to decline invitation');
+      Alert.alert(t('error'), t('failedToDeclineInvite'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -521,7 +523,7 @@ export default function NotificationsView() {
 
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
-    const roleText = item.as_owner ? 'owner' : 'member';
+    const roleText = item.as_owner ? t('ownerRole') : t('memberRole');
     const shouldDownload = downloadToggles[item.id] ?? true;
 
     console.log(
@@ -543,14 +545,24 @@ export default function NotificationsView() {
               color={colors.primary}
             />
             <Text style={styles.notificationTitle}>
-              {item.type === 'invite' ? 'Project Invitation' : 'Join Request'}
+              {item.type === 'invite'
+                ? t('projectInvitationTitle')
+                : t('joinRequestTitle')}
             </Text>
           </View>
 
           <Text style={styles.notificationMessage}>
             {item.type === 'invite'
-              ? `${item.sender_name} ${item.sender_email ? `(${item.sender_email})` : ''} invited you to join "${item.project_name}" as ${roleText}`
-              : `${item.sender_name} ${item.sender_email ? `(${item.sender_email})` : ''} requested to join "${item.project_name}" as ${roleText}`}
+              ? t('invitedYouToJoin', {
+                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                  project: item.project_name,
+                  role: roleText
+                })
+              : t('requestedToJoin', {
+                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                  project: item.project_name,
+                  role: roleText
+                })}
           </Text>
 
           <Text style={styles.notificationDate}>
@@ -561,7 +573,9 @@ export default function NotificationsView() {
           {item.type === 'invite' && (
             <View style={styles.downloadSection}>
               <View style={styles.downloadToggleRow}>
-                <Text style={styles.downloadLabel}>Download Project</Text>
+                <Text style={styles.downloadLabel}>
+                  {t('downloadProjectLabel')}
+                </Text>
                 <Switch
                   value={shouldDownload}
                   onValueChange={(value) => {
@@ -594,7 +608,7 @@ export default function NotificationsView() {
                 <View style={styles.warningContainer}>
                   <Ionicons name="warning" size={16} color={colors.alert} />
                   <Text style={styles.warningText}>
-                    Project will not be available offline without download
+                    {t('projectNotAvailableOfflineWarning')}
                   </Text>
                 </View>
               )}
@@ -658,6 +672,15 @@ export default function NotificationsView() {
         <View style={styles.container}>
           <Text style={styles.pageTitle}>{t('notifications')}</Text>
 
+          {!isConnected && (
+            <View style={styles.offlineBanner}>
+              <Ionicons name="wifi-outline" size={20} color={colors.alert} />
+              <Text style={styles.offlineBannerText}>
+                {t('offlineNotificationMessage')}
+              </Text>
+            </View>
+          )}
+
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
@@ -669,9 +692,11 @@ export default function NotificationsView() {
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyStateText}>No Notifications</Text>
+                <Text style={styles.emptyStateText}>
+                  {t('noNotificationsTitle')}
+                </Text>
                 <Text style={styles.emptyStateSubtext}>
-                  You'll see project invitations and join requests here
+                  {t('noNotificationsMessage')}
                 </Text>
               </View>
             ) : (
@@ -809,5 +834,21 @@ const styles = StyleSheet.create({
     color: colors.alert,
     flex: 1,
     lineHeight: 16
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.alert
+  },
+  offlineBannerText: {
+    fontSize: fontSizes.medium,
+    color: colors.text,
+    marginLeft: spacing.small
   }
 });
