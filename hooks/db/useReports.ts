@@ -1,14 +1,13 @@
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import {
-  convertToFetchConfig,
-  createHybridQueryConfig,
-  hybridFetch,
-  useHybridQuery
-} from '../useHybridQuery';
+  convertToSupabaseFetchConfig,
+  createHybridSupabaseQueryConfig,
+  hybridSupabaseFetch,
+  useHybridSupabaseQuery
+} from '../useHybridSupabaseQuery';
 
 export type Report = InferSelectModel<typeof reports>;
 
@@ -17,28 +16,27 @@ function getHasUserReportedConfig(
   record_table: string,
   reporter_id: string
 ) {
-  return createHybridQueryConfig({
+  return createHybridSupabaseQueryConfig({
     queryKey: ['report-check', record_id, record_table, reporter_id],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await system.supabaseConnector.client
         .from('reports')
         .select('*')
         .eq('record_id', record_id)
         .eq('record_table', record_table)
         .eq('reporter_id', reporter_id)
+        .abortSignal(signal)
         .overrideTypes<Report[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      system.db.query.reports.findMany({
-        where: and(
-          eq(reports.record_id, record_id),
-          eq(reports.record_table, record_table),
-          eq(reports.reporter_id, reporter_id)
-        )
-      })
-    ),
+    offlineQuery: system.db.query.reports.findMany({
+      where: and(
+        eq(reports.record_id, record_id),
+        eq(reports.record_table, record_table),
+        eq(reports.reporter_id, reporter_id)
+      )
+    }),
     enabled: !!record_id && !!record_table && !!reporter_id
   });
 }
@@ -48,8 +46,8 @@ export async function hasUserReported(
   record_table: string,
   reporter_id: string
 ) {
-  const reportArray = await hybridFetch(
-    convertToFetchConfig(
+  const reportArray = await hybridSupabaseFetch(
+    convertToSupabaseFetchConfig(
       getHasUserReportedConfig(record_id, record_table, reporter_id)
     )
   );
@@ -69,7 +67,7 @@ export function useHasUserReported(
     data: reportArray,
     isLoading: isReportLoading,
     ...rest
-  } = useHybridQuery(
+  } = useHybridSupabaseQuery(
     getHasUserReportedConfig(record_id, record_table, reporter_id)
   );
 
@@ -89,26 +87,25 @@ export function useReportsByRecord(record_id: string, record_table: string) {
     data: reportsList,
     isLoading: isReportsLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['reports', 'by-record', record_id, record_table],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('reports')
         .select('*')
         .eq('record_id', record_id)
         .eq('record_table', record_table)
+        .abortSignal(signal)
         .overrideTypes<Report[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.reports.findMany({
-        where: and(
-          eq(reports.record_id, record_id),
-          eq(reports.record_table, record_table)
-        )
-      })
-    ),
+    offlineQuery: db.query.reports.findMany({
+      where: and(
+        eq(reports.record_id, record_id),
+        eq(reports.record_table, record_table)
+      )
+    }),
     enabled: !!record_id && !!record_table
   });
 

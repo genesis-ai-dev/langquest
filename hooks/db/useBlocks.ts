@@ -1,9 +1,8 @@
 import { blocked_content, blocked_users } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
-import { useHybridQuery } from '../useHybridQuery';
+import { useHybridSupabaseQuery } from '../useHybridSupabaseQuery';
 
 export type BlockedUser = InferSelectModel<typeof blocked_users>;
 export type BlockedContent = InferSelectModel<typeof blocked_content>;
@@ -19,22 +18,21 @@ export function useUserBlockedUsers(profile_id: string) {
     data: blockedUsers,
     isLoading: isBlockedUsersLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['blocked-users', profile_id],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('blocked_users')
         .select('*')
         .eq('blocker_id', profile_id)
+        .abortSignal(signal)
         .overrideTypes<BlockedUser[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.blocked_users.findMany({
-        where: eq(blocked_users.blocker_id, profile_id)
-      })
-    ),
+    offlineQuery: db.query.blocked_users.findMany({
+      where: eq(blocked_users.blocker_id, profile_id)
+    }),
     enabled: !!profile_id
   });
 
@@ -52,22 +50,21 @@ export function useUserBlockedContent(profile_id: string) {
     data: blockedContent,
     isLoading: isBlockedContentLoading,
     ...rest
-  } = useHybridQuery({
+  } = useHybridSupabaseQuery({
     queryKey: ['blocked-content', profile_id],
-    onlineFn: async () => {
+    onlineFn: async ({ signal }) => {
       const { data, error } = await supabaseConnector.client
         .from('blocked_content')
         .select('*')
         .eq('profile_id', profile_id)
+        .abortSignal(signal)
         .overrideTypes<BlockedContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.blocked_content.findMany({
-        where: eq(blocked_content.profile_id, profile_id)
-      })
-    ),
+    offlineQuery: db.query.blocked_content.findMany({
+      where: eq(blocked_content.profile_id, profile_id)
+    }),
     enabled: !!profile_id
   });
 

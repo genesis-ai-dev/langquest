@@ -631,7 +631,6 @@ export function useHybridSupabaseInfiniteQuery<T>(
     ...restOptions
   } satisfies GetInfiniteQueryParam<T>;
 
-  // console.log('sharedOptions', sharedOptions);
   return useInfiniteQuery({
     ...sharedOptions,
     queryFn: async (context) => {

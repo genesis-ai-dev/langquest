@@ -1,14 +1,13 @@
 import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  convertToFetchConfig,
-  createHybridQueryConfig,
-  hybridFetch
-} from './useHybridQuery';
+  convertToSupabaseFetchConfig,
+  createHybridSupabaseQueryConfig,
+  hybridSupabaseFetch,
+  useHybridSupabaseQuery
+} from './useHybridSupabaseQuery';
 
 interface TreeNode {
   table: string;
@@ -40,7 +39,7 @@ export function useDownloadTreeStructure(
     'queryKey' | 'queryFn'
   >
 ) {
-  return useHybridQuery({
+  return useHybridSupabaseQuery({
     queryKey: ['download-tree-structure'],
     onlineFn: async (): Promise<Record<string, unknown>[]> => {
       const data = await getDownloadTreeStructure();
@@ -68,10 +67,10 @@ export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
 ) {
-  const data = await hybridFetch(
-    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
+  const data = await hybridSupabaseFetch(
+    convertToSupabaseFetchConfig(getDownloadStatusConfig(recordTable, recordId))
   );
-  return !!data?.[0]?.id;
+  return !!data[0]?.id;
 }
 
 function getDownloadStatusConfig(
@@ -79,7 +78,7 @@ function getDownloadStatusConfig(
   recordId: string
 ) {
   const currentUser = getCurrentUser();
-  return createHybridQueryConfig({
+  return createHybridSupabaseQueryConfig({
     queryKey: ['download-status', recordTable, recordId],
     onlineFn: async () => {
       console.log('recordId', recordId);
