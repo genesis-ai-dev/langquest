@@ -12,6 +12,7 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
   const [isLoading, setIsLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const previousStatesRef = useRef<Map<string, AttachmentRecord>>(new Map());
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Abort any previous query
@@ -63,8 +64,16 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
           }
 
           previousStatesRef.current = newStates;
-          setAttachmentStates(newStates);
-          setIsLoading(false);
+
+          // Debounce the state updates to reduce render frequency
+          if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+          }
+
+          debounceTimeoutRef.current = setTimeout(() => {
+            setAttachmentStates(new Map(newStates));
+            setIsLoading(false);
+          }, 100); // 100ms debounce
         },
         onError: (err) => console.error('useAttachmentStates watch error', err)
       },
@@ -73,9 +82,9 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
 
     return () => {
       abortController.abort();
-      // if (subscription && typeof subscription === 'function') {
-      //   subscription();
-      // }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
   }, [JSON.stringify(attachmentIds.sort())]);
 

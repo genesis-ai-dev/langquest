@@ -338,22 +338,58 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
     try {
       console.log(`Downloading ${this.downloadQueue.size} attachments...`);
-      while (this.downloadQueue.size > 0) {
-        const id = this.downloadQueue.values().next().value as string;
-        this.downloadQueue.delete(id);
-        const record = await this.record(id);
-        if (!record) {
-          continue;
-        }
-        await this.downloadRecord(record);
-        downloaded++;
 
-        // Update progress
+      // Convert downloadQueue to array for concurrent processing
+      const idsArray = Array.from(this.downloadQueue);
+      this.downloadQueue.clear();
+
+      // Create a progress update function that's thread-safe
+      const updateProgress = () => {
+        downloaded++;
         useLocalStore.getState().setAttachmentSyncProgress({
           downloadCurrent: downloaded,
           downloadTotal: totalToDownload
         });
+      };
+
+      // Download with higher concurrency limit (8 simultaneous downloads)
+      const CONCURRENCY_LIMIT = 8;
+
+      // Create a queue-based concurrent download system
+      const downloadQueue = [...idsArray];
+      const downloadPromises: Promise<void>[] = [];
+
+      const processDownload = async (id: string): Promise<void> => {
+        try {
+          const record = await this.record(id);
+          if (!record) {
+            updateProgress(); // Count as completed even if no record
+            return;
+          }
+          await this.downloadRecord(record);
+          updateProgress(); // Update progress after successful download
+        } catch (error) {
+          console.error(`Failed to download attachment ${id}:`, error);
+          updateProgress(); // Count as completed even if failed
+        } finally {
+          // Start next download if queue not empty
+          if (downloadQueue.length > 0) {
+            const nextId = downloadQueue.shift()!;
+            downloadPromises.push(processDownload(nextId));
+          }
+        }
+      };
+
+      // Start initial batch of downloads
+      const initialBatch = downloadQueue.splice(0, CONCURRENCY_LIMIT);
+
+      for (const id of initialBatch) {
+        downloadPromises.push(processDownload(id));
       }
+
+      // Wait for all downloads to complete
+      await Promise.allSettled(downloadPromises);
+
       console.log('Finished downloading attachments');
     } catch (e) {
       console.log('Downloads failed:', e);

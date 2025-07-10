@@ -524,11 +524,44 @@ export default function AppDrawer({
                 <View style={styles.attachmentSyncContainer}>
                   <Text style={styles.attachmentSyncText}>
                     {attachmentProgress.downloading > 0 &&
-                    attachmentProgress.queued > 0
-                      ? `Downloading: ${attachmentProgress.downloading}, Queued: ${attachmentProgress.queued} (${attachmentProgress.synced}/${attachmentProgress.total} complete)`
-                      : attachmentProgress.downloading > 0
-                        ? `Downloading: ${attachmentProgress.downloading} files (${attachmentProgress.synced}/${attachmentProgress.total} complete)`
-                        : `Queued for download: ${attachmentProgress.queued} files (${attachmentProgress.synced}/${attachmentProgress.total} complete)`}
+                    attachmentProgress.queued > 0 ? (
+                      <>
+                        <Text style={styles.downloadingText}>
+                          Downloading: {attachmentProgress.downloading}
+                        </Text>
+                        <Text style={styles.separatorText}>, </Text>
+                        <Text style={styles.queuedText}>
+                          Queued: {attachmentProgress.queued}
+                        </Text>
+                        <Text style={styles.progressText}>
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} complete)
+                        </Text>
+                      </>
+                    ) : attachmentProgress.downloading > 0 ? (
+                      <>
+                        <Text style={styles.downloadingText}>
+                          Downloading: {attachmentProgress.downloading} files
+                        </Text>
+                        <Text style={styles.progressText}>
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} complete)
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.queuedText}>
+                          Queued for download: {attachmentProgress.queued} files
+                        </Text>
+                        <Text style={styles.progressText}>
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} complete)
+                        </Text>
+                      </>
+                    )}
                   </Text>
                   <ProgressBarAndroid
                     styleAttr="Horizontal"
@@ -772,5 +805,21 @@ const styles = StyleSheet.create({
     height: 4,
     width: '100%',
     marginTop: spacing.xsmall
+  },
+  downloadingText: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  },
+  separatorText: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  },
+  queuedText: {
+    color: colors.text,
+    fontSize: fontSizes.small
+  },
+  progressText: {
+    color: colors.text,
+    fontSize: fontSizes.small
   }
 });
