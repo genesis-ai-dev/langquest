@@ -408,7 +408,8 @@ export default function AssetDetailView() {
               />
             </View>
           )}
-          {activeTab === 'image' && (
+          {activeTab === 'image' &&
+          (asset as unknown as { images: string | string[] }).images ? (
             <ImageCarousel
               uris={
                 typeof asset?.images === 'string'
@@ -437,6 +438,8 @@ export default function AssetDetailView() {
                     : []
               }
             />
+          ) : (
+            <Text>No images</Text>
           )}
         </View>
 
