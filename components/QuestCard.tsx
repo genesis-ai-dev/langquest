@@ -3,7 +3,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import type { Project } from '@/hooks/db/useProjects';
-import { useDownload } from '@/hooks/useDownloads';
+import { useDownload, useQuestDownloadStatus } from '@/hooks/useDownloads';
 import { sharedStyles, spacing } from '@/styles/theme';
 import React, { useCallback, useMemo } from 'react';
 import { Text, View } from 'react-native';
@@ -18,13 +18,15 @@ export const QuestCard: React.FC<{
     toggleDownload
   } = useDownload('quest', quest.id);
 
+  // Get quest download stats for confirmation modal
+  const { questClosure } = useQuestDownloadStatus(quest.id);
+
   // Keep the original download hook for the mutation functionality
   const { isLoading: isDownloadMutationLoading } = useDownload(
     'quest',
     quest.id
   );
   const isLoading = isDownloadLoading || isDownloadMutationLoading;
-
 
   const handleDownloadToggle = useCallback(async () => {
     console.log(
@@ -66,8 +68,15 @@ export const QuestCard: React.FC<{
               isFlaggedForDownload={isFlaggedForDownload}
               isLoading={isLoading} // FIXME: for now, we are not showing download progress
               onPress={
-                hasAccess || isFlaggedForDownload ? handleDownloadToggle : onPress
+                hasAccess || isFlaggedForDownload
+                  ? handleDownloadToggle
+                  : onPress
               }
+              downloadType="quest"
+              stats={{
+                totalAssets: questClosure?.total_assets || 0,
+                totalTranslations: questClosure?.total_translations || 0
+              }}
               // FIXME: for now, we are not showing download progress
               // progressPercentage={progressPercentage}
               // showProgress={totalAssets > 0 && !isDownloaded}

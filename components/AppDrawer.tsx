@@ -16,10 +16,12 @@ import { useRenderCounter } from '@/utils/performanceUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { AttachmentState } from '@powersync/attachments';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { DimensionValue } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   ProgressBarAndroid,
   ScrollView,
@@ -36,6 +38,60 @@ interface DrawerItemType {
   notificationCount?: number;
   disabled?: boolean;
 }
+
+// Shimmer component for grace period
+const ShimmerBar: React.FC<{ width?: DimensionValue }> = ({
+  width = '100%'
+}) => {
+  const shimmerValue = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(100); // Default width
+
+  useEffect(() => {
+    const shimmerAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: false
+        }),
+        Animated.timing(shimmerValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: false
+        })
+      ])
+    );
+
+    shimmerAnimation.start();
+
+    return () => {
+      shimmerAnimation.stop();
+    };
+  }, [shimmerValue]);
+
+  const shimmerTranslate = shimmerValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-containerWidth, containerWidth]
+  });
+
+  return (
+    <View
+      style={[styles.shimmerContainer, { width }]}
+      onLayout={(event) => {
+        setContainerWidth(event.nativeEvent.layout.width);
+      }}
+    >
+      <Animated.View
+        style={[
+          styles.shimmerBar,
+          {
+            transform: [{ translateX: shimmerTranslate }]
+          }
+        ]}
+      />
+    </View>
+  );
+};
 
 export default function AppDrawer({
   drawerIsVisible,
@@ -67,6 +123,13 @@ export default function AppDrawer({
   const [syncOperation, setSyncOperation] = useState<
     'backup' | 'restore' | null
   >(null);
+
+  // Animation and grace period states
+  const [showAttachmentProgress, setShowAttachmentProgress] = useState(false);
+  const [isInGracePeriod, setIsInGracePeriod] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const gracePeriodTimer = useRef<NodeJS.Timeout | null>(null);
+  const GRACE_PERIOD_MS = 3000; // 3 seconds grace period
 
   // Get PowerSync status
   const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
@@ -118,6 +181,60 @@ export default function AppDrawer({
       unsynced: total - synced
     };
   }, [attachmentStates, attachmentStatesLoading]);
+
+  // Handle attachment progress visibility with grace period
+  useEffect(() => {
+    if (attachmentProgress.hasActivity) {
+      // Clear any existing timer
+      if (gracePeriodTimer.current) {
+        clearTimeout(gracePeriodTimer.current);
+        gracePeriodTimer.current = null;
+      }
+
+      // Show the progress section if not already showing
+      if (!showAttachmentProgress) {
+        setShowAttachmentProgress(true);
+        setIsInGracePeriod(false);
+
+        // Animate in
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: false
+        }).start();
+      } else {
+        // If we're in grace period and activity resumes, exit grace period
+        setIsInGracePeriod(false);
+      }
+    } else if (showAttachmentProgress && !isInGracePeriod) {
+      // Activity stopped, start grace period
+      setIsInGracePeriod(true);
+
+      gracePeriodTimer.current = setTimeout(() => {
+        // Hide the progress section after grace period
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: false
+        }).start(() => {
+          setShowAttachmentProgress(false);
+          setIsInGracePeriod(false);
+        });
+      }, GRACE_PERIOD_MS);
+    }
+
+    // Cleanup timer on unmount
+    return () => {
+      if (gracePeriodTimer.current) {
+        clearTimeout(gracePeriodTimer.current);
+      }
+    };
+  }, [
+    attachmentProgress.hasActivity,
+    showAttachmentProgress,
+    isInGracePeriod,
+    fadeAnim
+  ]);
 
   // Use the notifications hook
   const { totalCount: notificationCount } = useNotifications();
@@ -365,18 +482,6 @@ export default function AppDrawer({
     setDrawerIsVisible(false);
   };
 
-  // console.log(
-  //   JSON.stringify(
-  //     {
-  //       powersyncStatus,
-  //       dataFlowStatus: powersyncStatus?.dataFlowStatus,
-  //       priorityStatusEntries: powersyncStatus?.priorityStatusEntries
-  //     },
-  //     null,
-  //     2
-  //   )
-  // );
-
   return (
     <>
       {/* Drawer Modal */}
@@ -420,25 +525,6 @@ export default function AppDrawer({
                 { backgroundColor: colors.background }
               ]}
             >
-              {/* <Text style={{ color: 'red' }}>
-                {JSON.stringify(
-                  {
-                    attachmentSyncProgress,
-                    powersyncStatus,
-                    syncOperation,
-                    syncProgress,
-                    syncTotal,
-                    system,
-                    isBackingUp,
-                    isRestoring,
-                    systemReady,
-                    isOperationActive,
-                    progressPercentage
-                  },
-                  null,
-                  2
-                )}
-              </Text> */}
               {/* System status and progress indicators */}
               {!systemReady && (
                 <View
@@ -519,12 +605,28 @@ export default function AppDrawer({
                 )}
               </TouchableOpacity>
 
-              {/* Attachment sync progress section */}
-              {attachmentProgress.hasActivity && (
-                <View style={styles.attachmentSyncContainer}>
+              {/* Attachment sync progress section with graceful transitions */}
+              {showAttachmentProgress && (
+                <Animated.View
+                  style={[
+                    styles.attachmentSyncContainer,
+                    { opacity: fadeAnim }
+                  ]}
+                >
                   <Text style={styles.attachmentSyncText}>
-                    {attachmentProgress.downloading > 0 &&
-                    attachmentProgress.queued > 0 ? (
+                    {isInGracePeriod ? (
+                      <>
+                        <Text style={styles.completedText}>
+                          Download complete
+                        </Text>
+                        <Text style={styles.progressText}>
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} files)
+                        </Text>
+                      </>
+                    ) : attachmentProgress.downloading > 0 &&
+                      attachmentProgress.queued > 0 ? (
                       <>
                         <Text style={styles.downloadingText}>
                           Downloading: {attachmentProgress.downloading}
@@ -563,18 +665,22 @@ export default function AppDrawer({
                       </>
                     )}
                   </Text>
-                  <ProgressBarAndroid
-                    styleAttr="Horizontal"
-                    indeterminate={false}
-                    progress={
-                      attachmentProgress.total > 0
-                        ? attachmentProgress.synced / attachmentProgress.total
-                        : 0
-                    }
-                    color={colors.primaryLight}
-                    style={styles.attachmentProgressBar}
-                  />
-                </View>
+                  {isInGracePeriod ? (
+                    <ShimmerBar />
+                  ) : (
+                    <ProgressBarAndroid
+                      styleAttr="Horizontal"
+                      indeterminate={false}
+                      progress={
+                        attachmentProgress.total > 0
+                          ? attachmentProgress.synced / attachmentProgress.total
+                          : 0
+                      }
+                      color={colors.primaryLight}
+                      style={styles.attachmentProgressBar}
+                    />
+                  )}
+                </Animated.View>
               )}
               {/* Main drawer items */}
               <View style={styles.drawerItems}>
@@ -821,5 +927,25 @@ const styles = StyleSheet.create({
   progressText: {
     color: colors.text,
     fontSize: fontSizes.small
+  },
+  completedText: {
+    color: colors.primary,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  // Shimmer effect styles
+  shimmerContainer: {
+    height: 4,
+    backgroundColor: colors.disabled,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: spacing.xsmall
+  },
+  shimmerBar: {
+    height: '100%',
+    width: '50%',
+    backgroundColor: colors.primaryLight,
+    borderRadius: 2,
+    opacity: 0.6
   }
 });

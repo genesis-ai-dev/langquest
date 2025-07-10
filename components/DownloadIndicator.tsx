@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 
 interface DownloadIndicatorProps {
@@ -19,6 +20,13 @@ interface DownloadIndicatorProps {
   // Enhanced props for quest download progress
   progressPercentage?: number;
   showProgress?: boolean;
+  // New props for download confirmation
+  downloadType?: 'project' | 'quest';
+  stats?: {
+    totalAssets: number;
+    totalTranslations?: number;
+    totalQuests?: number;
+  };
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
@@ -27,11 +35,14 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   onPress,
   size = 24,
   progressPercentage = 0,
-  showProgress = false
+  showProgress = false,
+  downloadType,
+  stats
 }) => {
   const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isFlaggedForDownload;
   const [showWarning, setShowWarning] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handlePress = async () => {
     if (!isConnected && isFlaggedForDownload) {
@@ -41,15 +52,32 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         return;
       }
     }
+
+    // Show confirmation modal for project/quest downloads (not already downloaded)
+    if (downloadType && stats && !isFlaggedForDownload) {
+      setShowConfirmation(true);
+      return;
+    }
+
+    // Direct download for assets or already downloaded items
     onPress();
   };
 
-  const handleConfirm = () => {
+  const handleConfirmDownload = () => {
+    setShowConfirmation(false);
+    onPress();
+  };
+
+  const handleCancelDownload = () => {
+    setShowConfirmation(false);
+  };
+
+  const handleConfirmUndownload = () => {
     setShowWarning(false);
     onPress();
   };
 
-  const handleCancel = () => {
+  const handleCancelUndownload = () => {
     setShowWarning(false);
   };
 
@@ -123,10 +151,23 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
           <Ionicons name={iconName} size={size} color={color} />
         )}
       </TouchableOpacity>
+
+      {/* Download confirmation modal */}
+      {downloadType && stats && (
+        <DownloadConfirmationModal
+          visible={showConfirmation}
+          onConfirm={handleConfirmDownload}
+          onCancel={handleCancelDownload}
+          downloadType={downloadType}
+          stats={stats}
+        />
+      )}
+
+      {/* Offline undownload warning */}
       <OfflineUndownloadWarning
         visible={showWarning}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
+        onConfirm={handleConfirmUndownload}
+        onCancel={handleCancelUndownload}
       />
     </>
   );

@@ -1,10 +1,11 @@
-import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { sharedStyles, spacing } from '@/styles/theme';
 import React from 'react';
 import { View } from 'react-native';
+import { Shimmer } from './Shimmer';
 
 // Skeleton loader component for asset cards
 export const AssetSkeleton = React.memo(() => (
-  <View style={[sharedStyles.card, { opacity: 0.6 }]}>
+  <View style={[sharedStyles.card, { opacity: 0.8 }]}>
     <View
       style={{
         flexDirection: 'row',
@@ -13,23 +14,9 @@ export const AssetSkeleton = React.memo(() => (
       }}
     >
       {/* Asset title */}
-      <View
-        style={{
-          backgroundColor: colors.inputBackground,
-          height: 20,
-          flex: 1,
-          borderRadius: 4
-        }}
-      />
+      <Shimmer width="100%" height={20} borderRadius={4} style={{ flex: 1 }} />
       {/* Download indicator */}
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          backgroundColor: colors.inputBackground,
-          borderRadius: 16
-        }}
-      />
+      <Shimmer width={32} height={32} borderRadius={16} />
     </View>
 
     {/* Translation count/gems area */}
@@ -41,30 +28,9 @@ export const AssetSkeleton = React.memo(() => (
         gap: spacing.xsmall
       }}
     >
-      <View
-        style={{
-          width: 20,
-          height: 20,
-          backgroundColor: colors.inputBackground,
-          borderRadius: 10
-        }}
-      />
-      <View
-        style={{
-          width: 20,
-          height: 20,
-          backgroundColor: colors.inputBackground,
-          borderRadius: 10
-        }}
-      />
-      <View
-        style={{
-          width: 20,
-          height: 20,
-          backgroundColor: colors.inputBackground,
-          borderRadius: 10
-        }}
-      />
+      <Shimmer width={20} height={20} borderRadius={10} />
+      <Shimmer width={20} height={20} borderRadius={10} />
+      <Shimmer width={20} height={20} borderRadius={10} />
     </View>
   </View>
 ));

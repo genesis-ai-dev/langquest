@@ -194,41 +194,50 @@ export const QuestList = React.memo(
     }
 
     return (
-      <FlashList
-        data={filteredQuests}
-        renderItem={({ item }) => (
-          <QuestItem
-            quest={item}
-            project={selectedProject}
-            onPress={onQuestPress}
-          />
-        )}
-        keyExtractor={(item: QuestWithTags) => item.id}
-        style={sharedStyles.list}
-        // Performance optimizations
-        removeClippedSubviews={true}
-        onEndReachedThreshold={0.3}
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) {
-            void fetchNextPage();
+      <>
+        <Text style={{ color: 'red', flex: 1 }}>
+          {JSON.stringify(
+            { selectedProject, projectId, filteredQuests },
+            null,
+            2
+          )}
+        </Text>
+        <FlashList
+          data={filteredQuests}
+          renderItem={({ item }) => (
+            <QuestItem
+              quest={item}
+              project={selectedProject}
+              onPress={onQuestPress}
+            />
+          )}
+          keyExtractor={(item: QuestWithTags) => item.id}
+          style={sharedStyles.list}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          onEndReachedThreshold={0.3}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              void fetchNextPage();
+            }
+          }}
+          ListFooterComponent={
+            isFetchingNextPage && hasNextPage ? (
+              <View style={QuestsScreenStyles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
           }
-        }}
-        ListFooterComponent={
-          isFetchingNextPage && hasNextPage ? (
-            <View style={QuestsScreenStyles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isFetching && !isFetchingNextPage}
-            onRefresh={() => void refetch()}
-            tintColor={colors.text}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isFetchingNextPage}
+              onRefresh={() => void refetch()}
+              tintColor={colors.text}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </>
     );
   }
 );
