@@ -5,7 +5,7 @@ import type { QueryResult } from '@powersync/react-native';
 import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
 
-export function useAttachmentStates(attachmentIds: string[]) {
+export function useAttachmentStates(attachmentIds: string[] = []) {
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>
   >(new Map());
@@ -14,52 +14,53 @@ export function useAttachmentStates(attachmentIds: string[]) {
   const previousStatesRef = useRef<Map<string, AttachmentRecord>>(new Map());
 
   useEffect(() => {
-    if (!attachmentIds.length) {
-      setIsLoading(false);
-      return;
-    }
-
     // Abort any previous query
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    const formattedIds = attachmentIds.map((id) => `'${id}'`).join(',');
+    // Build query based on whether we have specific IDs or want all records
+    const query = attachmentIds.length > 0
+      ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')})`
+      : `SELECT * FROM ${ATTACHMENT_TABLE}`;
 
     system.powersync.watch(
-      `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${formattedIds})`,
+      query,
       [],
       {
         onResult: (results: QueryResult) => {
           const newStates = new Map<string, AttachmentRecord>();
           const currentPreviousStates = previousStatesRef.current;
 
-          results.rows?._array.forEach((row) => {
-            const record = row as unknown as AttachmentRecord;
-            newStates.set(record.id, record);
+          // Check if results and rows exist before accessing _array
+          if (results.rows?._array) {
+            results.rows._array.forEach((row) => {
+              const record = row as unknown as AttachmentRecord;
+              newStates.set(record.id, record);
 
-            // Only log significant state changes
-            const previousState = currentPreviousStates.get(record.id)?.state;
-            if (previousState !== undefined && previousState !== record.state) {
-              if (record.state === AttachmentState.SYNCED) {
-                console.log(
-                  `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
-                );
-              } else if (record.state === AttachmentState.QUEUED_SYNC) {
-                console.log(
-                  `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
-                );
-              } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
-                console.log(
-                  `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
-                );
-              } else {
-                console.log(
-                  `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
-                );
+              // Only log significant state changes
+              const previousState = currentPreviousStates.get(record.id)?.state;
+              if (previousState !== undefined && previousState !== record.state) {
+                if (record.state === AttachmentState.SYNCED) {
+                  console.log(
+                    `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
+                  );
+                } else if (record.state === AttachmentState.QUEUED_SYNC) {
+                  console.log(
+                    `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
+                  );
+                } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+                  console.log(
+                    `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
+                  );
+                } else {
+                  console.log(
+                    `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
+                  );
+                }
               }
-            }
-          });
+            });
+          }
 
           previousStatesRef.current = newStates;
           setAttachmentStates(newStates);

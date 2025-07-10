@@ -1,3 +1,5 @@
+import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
+import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalStore } from '@/store/localStore';
 import type {
   AttachmentQueueOptions,
@@ -66,7 +68,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
-        // console.debug(`Queuing for sync, attachment IDs: [${_ids}]`);
+        console.debug(`[ABSTRACT queue] Queuing for sync, attachment IDs: [${ids.length}]`);
 
         if (this.initialSync) {
           this.initialSync = false;
@@ -88,6 +90,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           );
 
         const storageType = this.getStorageType();
+        console.log(`Storage type: ${storageType}`);
 
         for (const id of ids) {
           const record = attachmentsInDatabase.find((r) => r.id == id);
@@ -259,50 +262,61 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Common method to identify all attachments related to an asset
   async getAllAssetAttachments(assetId: string): Promise<string[]> {
+    // const queueType =
+    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
+    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
     const attachmentIds: string[] = [];
 
     try {
-      // 1. Get the asset itself for images - using direct database query
-      const asset = await this.db.query.asset.findFirst({
-        where: (asset, { eq }) => eq(asset.id, assetId),
-        columns: { images: true }
-      });
+      // 1. Get the asset itself for images
+      const asset = await getAssetById(assetId);
 
       if (asset?.images) {
+        // console.log(
+        //   `${queueType} Found ${asset.images.length} images in asset`
+        // );
         attachmentIds.push(...asset.images);
       }
 
-      // 2. Get asset_content_link entries for audio - using direct database query
-      const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (asset_content_link, { eq }) =>
-          eq(asset_content_link.asset_id, assetId),
-        columns: { audio_id: true }
-      });
+      // 2. Get asset_content_link entries for audio
+      const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
+        ?.filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
 
-      if (contentAudioIds.length) {
+      if (contentAudioIds?.length) {
+        // console.log(
+        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
+        // );
         attachmentIds.push(...contentAudioIds);
       }
 
-      // 3. Get translations for the asset and their audio - using direct database query
-      const translations = await this.db.query.translation.findMany({
-        where: (translation, { eq }) => eq(translation.asset_id, assetId),
-        columns: { audio: true }
-      });
+      // 3. Get translations for the asset and their audio
+      const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio)
+        ?.filter((translation) => translation.audio)
         .map((translation) => translation.audio!);
 
-      if (translationAudioIds.length) {
+      if (translationAudioIds?.length) {
+        // console.log(
+        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
+        // );
         attachmentIds.push(...translationAudioIds);
       }
 
+      // Log all found attachments
+      // console.log(
+      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
+      // );
+
       return attachmentIds;
     } catch {
+      // console.error(
+      //   `${queueType} Error getting attachments for asset ${assetId}:`,
+      //   error
+      // );
       return [];
     }
   }
