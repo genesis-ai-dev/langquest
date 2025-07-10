@@ -402,9 +402,9 @@ BEGIN
 END;
 $function$; 
 
-alter publication "powersync" add table only "public.quest_closure";
+alter publication "powersync" add table only "public"."quest_closure";
 
-alter publication "powersync" add table only "public.project_closure";
+alter publication "powersync" add table only "public"."project_closure";
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."notification";
 
