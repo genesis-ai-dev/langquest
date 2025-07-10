@@ -43,18 +43,18 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
-    onlineFn: async (): Promise<(typeof projectTable.$inferSelect)[]> => {
+    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('*')
         .eq('id', projectId)
         .limit(1);
       if (error) throw error;
-      return data as (typeof projectTable.$inferSelect)[];
+      return data as (typeof project.$inferSelect)[];
     },
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
-        where: eq(projectTable.id, projectId)
+        where: eq(project.id, projectId)
       })
     )
   });
