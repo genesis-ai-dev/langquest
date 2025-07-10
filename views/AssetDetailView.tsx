@@ -411,14 +411,28 @@ export default function AssetDetailView() {
           {activeTab === 'image' && (
             <ImageCarousel
               uris={
-                asset?.images
-                  ?.map((imageId) => {
-                    const localUri = attachmentStates.get(imageId)?.local_uri;
-                    return localUri
-                      ? system.permAttachmentQueue?.getLocalUri(localUri)
-                      : null;
-                  })
-                  .filter(Boolean) ?? []
+                typeof asset?.images === 'string'
+                  ? asset.images
+                      .split(',')
+                      .map((id) => id.trim())
+                      .filter(Boolean)
+                      .map((imageId) => {
+                        const localUri = attachmentStates.get(imageId)?.local_uri;
+                        return localUri
+                          ? system.permAttachmentQueue?.getLocalUri(localUri)
+                          : null;
+                      })
+                      .filter(Boolean)
+                  : Array.isArray(asset?.images)
+                  ? asset.images
+                      .map((imageId) => {
+                        const localUri = attachmentStates.get(imageId)?.local_uri;
+                        return localUri
+                          ? system.permAttachmentQueue?.getLocalUri(localUri)
+                          : null;
+                      })
+                      .filter(Boolean)
+                  : []
               }
             />
           )}
