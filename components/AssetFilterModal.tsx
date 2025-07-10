@@ -1,6 +1,6 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
-import type { Asset } from '@/database_services/assetService';
-import type { Tag } from '@/database_services/tagService';
+import type { Asset } from '@/hooks/db/useAssets';
+import type { Tag } from '@/hooks/db/useTags';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,

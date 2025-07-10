@@ -4,12 +4,12 @@ import type { profile, project } from '@/db/drizzleSchema';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { downloadRecord } from '@/hooks/useDownloads';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useHybridSupabaseQuery } from '@/hooks/useHybridSupabaseQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
@@ -26,15 +26,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Type definitions for query results
-type InviteWithRelations = typeof invite.$inferSelect & {
+interface InviteWithRelations extends InferSelectModel<typeof invite> {
   project: typeof project.$inferSelect | null;
   sender: typeof profile.$inferSelect | null;
-};
+}
 
-type RequestWithRelations = typeof request.$inferSelect & {
+interface RequestWithRelations extends InferSelectModel<typeof request> {
   project: typeof project.$inferSelect | null;
   sender: typeof profile.$inferSelect | null;
-};
+}
 
 interface NotificationItem {
   id: string;
@@ -74,30 +74,31 @@ export default function NotificationsView() {
   }, [userMemberships]);
 
   // Query for invite notifications (where user's email matches)
-  const { data: inviteData = [], refetch: refetchInvites } = useHybridQuery({
-    queryKey: ['invite-notifications', currentUser?.email],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('invite')
-        .select(
-          `
+  const { data: inviteData = [], refetch: refetchInvites } =
+    useHybridSupabaseQuery({
+      queryKey: ['invite-notifications', currentUser?.email],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('invite')
+          .select(
+            `
           *,
           project!inner(id, name),
           sender:profile!sender_profile_id(id, username, email)
         `
-        )
-        .eq('email', currentUser?.email || '')
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) {
-        console.error('Invite query error:', error);
-        throw error;
-      }
-      console.log('Invite query result:', data);
-      return data as InviteWithRelations[];
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.invite.findMany({
+          )
+          .eq('email', currentUser?.email || '')
+          .eq('status', 'pending')
+          .eq('active', true)
+          .overrideTypes<InviteWithRelations[]>();
+        if (error) {
+          console.error('Invite query error:', error);
+          throw error;
+        }
+        console.log('Invite query result:', data);
+        return data;
+      },
+      offlineQuery: system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
           eq(invite.status, 'pending'),
@@ -107,10 +108,9 @@ export default function NotificationsView() {
           project: true,
           sender: true
         }
-      })
-    ),
-    enabled: !!currentUser?.email
-  });
+      }),
+      enabled: !!currentUser?.email
+    });
 
   const inviteNotifications: NotificationItem[] = inviteData.map(
     (item: InviteWithRelations) => ({
@@ -163,38 +163,38 @@ export default function NotificationsView() {
   }, [notificationIds]);
 
   // Get pending requests for owner projects (using session cache for owner project IDs)
-  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
-    queryKey: ['request-notifications', ownerProjectIds],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select(
-          `
+  const { data: requestData = [], refetch: refetchRequests } =
+    useHybridSupabaseQuery({
+      queryKey: ['request-notifications', ownerProjectIds],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('request')
+          .select(
+            `
           *,
           project!inner(id, name),
           sender:profile!sender_profile_id(id, username, email)
         `
-        )
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) {
-        console.error('Request query error:', error);
-        throw error;
-      }
-      console.log('Request query result:', data);
-      return data as RequestWithRelations[];
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.request.findMany({
+          )
+          .eq('status', 'pending')
+          .eq('active', true)
+          .overrideTypes<RequestWithRelations[]>();
+        if (error) {
+          console.error('Request query error:', error);
+          throw error;
+        }
+        console.log('Request query result:', data);
+        return data;
+      },
+      offlineQuery: system.db.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true)),
         with: {
           project: true,
           sender: true
         }
-      })
-    ),
-    enabled: ownerProjectIds.length > 0
-  });
+      }),
+      enabled: ownerProjectIds.length > 0
+    });
 
   // Filter to only include requests for projects where the user is an owner
   const requestNotifications: NotificationItem[] = requestData

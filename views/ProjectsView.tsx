@@ -169,7 +169,11 @@ export default function ProjectsView() {
     isError,
     error: _error,
     refetch
-  } = useInfiniteProjects(10, 'name', 'asc');
+  } = useInfiniteProjects({
+    pageSize: 10,
+    sortField: 'name',
+    sortOrder: 'asc'
+  });
 
   const allProjects = infiniteData?.pages.flatMap((page) => page.data) ?? [];
 

@@ -9,6 +9,7 @@ import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
 import { PowerSyncContext } from '@powersync/react';
+import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -16,6 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LogBox } from 'react-native';
+import { DevToolsBubble } from 'react-native-react-query-devtools';
 import App from './app';
 
 // Keep the splash screen visible while we fetch resources
@@ -151,6 +153,16 @@ function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
   }, [handleAuthDeepLink]);
 
   console.log('[MainApp] Rendering...');
+  // Define copy function for DevTools
+  const onCopy = useCallback(async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   console.log('[RootLayout] Rendering...');
 
   return (
@@ -164,6 +176,7 @@ function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
                 <UpdateBanner />
                 <App hasRehydrated={hasRehydrated} />
               </SessionCacheProvider>
+              <DevToolsBubble onCopy={onCopy} />
             </QueryProvider>
           </AudioProvider>
         </AuthProvider>

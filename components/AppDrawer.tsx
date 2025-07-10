@@ -349,7 +349,7 @@ export default function AppDrawer({
   ] as const;
 
   // Add logout for development
-  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development') {
+  if (process.env.EXPO_PUBLIC_APP_VARIANT !== 'production') {
     drawerItems.push({
       name: t('logOut'),
       icon: 'log-out',
@@ -364,18 +364,6 @@ export default function AppDrawer({
   const closeDrawer = () => {
     setDrawerIsVisible(false);
   };
-
-  // console.log(
-  //   JSON.stringify(
-  //     {
-  //       powersyncStatus,
-  //       dataFlowStatus: powersyncStatus?.dataFlowStatus,
-  //       priorityStatusEntries: powersyncStatus?.priorityStatusEntries
-  //     },
-  //     null,
-  //     2
-  //   )
-  // );
 
   return (
     <>

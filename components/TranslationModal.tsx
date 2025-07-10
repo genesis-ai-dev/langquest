@@ -7,14 +7,13 @@ import {
   useTranslationProjectInfo
 } from '@/hooks/db/useTranslations';
 import { useVotesByTranslationId } from '@/hooks/db/useVotes';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,7 +32,6 @@ import Shimmer from './Shimmer';
 
 interface TranslationModalProps {
   translationId: string;
-  assetId?: string;
   onClose: () => void;
   onVoteSubmitted?: () => void;
   onReportSubmitted?: () => void;
@@ -41,7 +39,6 @@ interface TranslationModalProps {
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
   translationId,
-  assetId,
   onClose,
   onVoteSubmitted,
   onReportSubmitted
@@ -59,7 +56,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
 
   const queryClient = useQueryClient();
 
-  const { translation } = useTranslationById(translationId, assetId);
+  const { translation } = useTranslationById(translationId);
   const { votes } = useVotesByTranslationId(translationId);
 
   const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
@@ -68,19 +65,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
-  const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
+  const { data: audioUriData, isLoading: loadingAudio } = useQuery({
     queryKey: ['audio', translation?.audio],
-    onlineFn: async () => {
-      if (!translation?.audio) return [];
-      try {
-        const uri = await getLocalUriFromAssetId(translation.audio);
-        return uri ? [{ uri }] : [];
-      } catch (error) {
-        console.error('Error loading audio URI:', error);
-        return [];
-      }
-    },
-    offlineFn: async () => {
+    queryFn: async () => {
       if (!translation?.audio) return [];
       try {
         const uri = await getLocalUriFromAssetId(translation.audio);
