@@ -124,7 +124,8 @@ export function useUserPermissions(
     active: boolean;
   };
 } {
-  const { getUserMembership, isUserMembershipsLoading } = useSessionMemberships();
+  const { getUserMembership, isUserMembershipsLoading } =
+    useSessionMemberships();
   const { db } = system;
 
   // Don't run queries if project_id is empty or invalid
@@ -161,8 +162,6 @@ export function useUserPermissions(
     (projectData[0] as { private: boolean } | undefined)?.private ??
     false;
   const membership = membershipData?.membership as MembershipRole;
-
-
 
   // If project_id is invalid, return no access
   if (!isValidProjectId) {
@@ -219,12 +218,10 @@ export function useUserPermissions(
     membership && PERMISSION_LOOKUP[membership].has(action)
   );
 
-
-
   return {
     hasAccess: hasRolePermission,
     membership,
     isMembershipLoading: isUserMembershipsLoading,
-    membershipData,
+    membershipData
   };
 }

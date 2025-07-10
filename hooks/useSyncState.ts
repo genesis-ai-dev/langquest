@@ -16,13 +16,15 @@ interface SyncState {
   isLoading: boolean;
 }
 
-
 /**
  * Returns the number of attachments that are not yet fully synced.
  * @param attachmentIds Array of attachment IDs to check.
  * @returns { unsyncedCount: number, isLoading: boolean }
  */
-function useUnsyncedAttachmentsCount(): { unsyncedCount: number; isLoading: boolean } {
+function useUnsyncedAttachmentsCount(): {
+  unsyncedCount: number;
+  isLoading: boolean;
+} {
   // get all attachment ids from the attachment table
 
   const { attachmentStates, isLoading } = useAttachmentStates([]);
@@ -89,9 +91,14 @@ function getCurrentSyncStateWithoutAttachments() {
 
 export function useSyncState(): SyncState {
   // Call hooks at the top level
-  const { unsyncedCount: unsyncedAttachmentsCount, isLoading: attachmentDataLoading } = useUnsyncedAttachmentsCount();
+  const {
+    unsyncedCount: unsyncedAttachmentsCount,
+    isLoading: attachmentDataLoading
+  } = useUnsyncedAttachmentsCount();
 
-  const [baseSyncState, setBaseSyncState] = useState(() => getCurrentSyncStateWithoutAttachments());
+  const [baseSyncState, setBaseSyncState] = useState(() =>
+    getCurrentSyncStateWithoutAttachments()
+  );
 
   useEffect(() => {
     // Subscribe to PowerSync status changes
@@ -129,7 +136,8 @@ export function useSyncState(): SyncState {
  * Returns true if any sync operation is in progress
  */
 export function useIsSyncing(): boolean {
-  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } = useSyncState();
+  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
+    useSyncState();
   return isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
 }
 

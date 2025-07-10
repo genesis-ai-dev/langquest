@@ -412,27 +412,29 @@ export default function AssetDetailView() {
             <ImageCarousel
               uris={
                 typeof asset?.images === 'string'
-                  ? asset.images
+                  ? (asset.images as unknown as string)
                       .split(',')
                       .map((id) => id.trim())
                       .filter(Boolean)
                       .map((imageId) => {
-                        const localUri = attachmentStates.get(imageId)?.local_uri;
+                        const localUri =
+                          attachmentStates.get(imageId)?.local_uri;
                         return localUri
                           ? system.permAttachmentQueue?.getLocalUri(localUri)
                           : null;
                       })
                       .filter(Boolean)
                   : Array.isArray(asset?.images)
-                  ? asset.images
-                      .map((imageId) => {
-                        const localUri = attachmentStates.get(imageId)?.local_uri;
-                        return localUri
-                          ? system.permAttachmentQueue?.getLocalUri(localUri)
-                          : null;
-                      })
-                      .filter(Boolean)
-                  : []
+                    ? asset.images
+                        .map((imageId) => {
+                          const localUri =
+                            attachmentStates.get(imageId)?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })
+                        .filter(Boolean)
+                    : []
               }
             />
           )}

@@ -27,11 +27,8 @@ export default function AppHeader({
 
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { totalCount: notificationCount } = useNotifications();
-  const {
-    isDownloadOperationInProgress,
-    isUpdateInProgress,
-    isConnecting
-  } = useSyncState();
+  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
+    useSyncState();
   const isSyncing =
     isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
   const isConnected = useNetworkStatus();

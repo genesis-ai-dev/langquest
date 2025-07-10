@@ -70,7 +70,8 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           }),
           this.db.query.asset_content_link.findMany({
             columns: { audio_id: true },
-            where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
+            where: (asset_content_link) =>
+              isNotNull(asset_content_link.audio_id)
           }),
           this.db.query.translation.findMany({
             columns: { audio: true },
@@ -80,8 +81,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
         // Collect all attachment IDs
         const assetImages = assets.flatMap((asset) => asset.images!);
-        const contentLinkAudioIds = assetContentLinks.map((link) => link.audio_id!);
-        const translationAudioIds = translations.map((translation) => translation.audio!);
+        const contentLinkAudioIds = assetContentLinks.map(
+          (link) => link.audio_id!
+        );
+        const translationAudioIds = translations.map(
+          (translation) => translation.audio!
+        );
 
         // Merge and deduplicate
         const allAttachments = [
@@ -91,13 +96,20 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         ];
         const uniqueAttachments = [...new Set(allAttachments)];
 
-        console.log(`Total unique attachments to sync: ${uniqueAttachments.length}`, {
-          assetImages: assetImages.length,
-          contentLinkAudioIds: contentLinkAudioIds.length,
-          translationAudioIds: translationAudioIds.length
-        });
+        console.log(
+          `Total unique attachments to sync: ${uniqueAttachments.length}`,
+          {
+            assetImages: assetImages.length,
+            contentLinkAudioIds: contentLinkAudioIds.length,
+            translationAudioIds: translationAudioIds.length
+          }
+        );
 
-        console.log('RYDER: about to call onUpdate with ', uniqueAttachments.length, 'attachments');
+        console.log(
+          'RYDER: about to call onUpdate with ',
+          uniqueAttachments.length,
+          'attachments'
+        );
         // Tell PowerSync which attachments to keep synced
         onUpdate(uniqueAttachments);
       } catch (error) {

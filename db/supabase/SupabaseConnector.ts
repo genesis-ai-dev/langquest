@@ -149,7 +149,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     }
 
     // If no local profile, try to fetch from Supabase
-    console.log('🔄 [SupabaseConnector] No local profile, attempting online fetch for user:', user);
+    console.log(
+      '🔄 [SupabaseConnector] No local profile, attempting online fetch for user:',
+      user
+    );
 
     try {
       const { data: userData, error: userError } = await this.client
@@ -159,11 +162,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         .single<Profile>();
 
       if (userError) {
-        console.error('❌ [SupabaseConnector] Error fetching user profile from Supabase:', userError);
+        console.error(
+          '❌ [SupabaseConnector] Error fetching user profile from Supabase:',
+          userError
+        );
 
         // For offline scenarios, create a minimal profile object to prevent logout
         // This ensures the user stays logged in even when profile fetch fails
-        console.log('🔄 [SupabaseConnector] Creating minimal profile for offline user:', user);
+        console.log(
+          '🔄 [SupabaseConnector] Creating minimal profile for offline user:',
+          user
+        );
         return {
           id: user,
           email: null,
@@ -179,13 +188,22 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         } as Profile;
       }
 
-      console.log('✅ [SupabaseConnector] Successfully fetched profile from Supabase for user:', user);
+      console.log(
+        '✅ [SupabaseConnector] Successfully fetched profile from Supabase for user:',
+        user
+      );
       return userData;
     } catch (error) {
-      console.error('❌ [SupabaseConnector] Network error while fetching profile:', error);
+      console.error(
+        '❌ [SupabaseConnector] Network error while fetching profile:',
+        error
+      );
 
       // For network errors (offline), create a minimal profile to prevent logout
-      console.log('🔄 [SupabaseConnector] Creating minimal profile due to network error for user:', user);
+      console.log(
+        '🔄 [SupabaseConnector] Creating minimal profile due to network error for user:',
+        user
+      );
       return {
         id: user,
         email: null,
@@ -283,8 +301,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         const opData =
           isCompositeTable && op.opData
             ? Object.fromEntries(
-              Object.entries(op.opData).filter(([key]) => key !== 'id')
-            )
+                Object.entries(op.opData).filter(([key]) => key !== 'id')
+              )
             : op.opData;
 
         switch (op.op) {

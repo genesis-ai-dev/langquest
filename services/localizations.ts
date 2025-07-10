@@ -1452,12 +1452,14 @@ export const localizations = {
   invitedYouToJoin: {
     english: '{{sender}} invited you to join "{{project}}" as {{role}}',
     spanish: '{{sender}} te invitó a unirte a "{{project}}" como {{role}}',
-    brazilian_portuguese: '{{sender}} convidou você para participar de "{{project}}" como {{role}}'
+    brazilian_portuguese:
+      '{{sender}} convidou você para participar de "{{project}}" como {{role}}'
   },
   requestedToJoin: {
     english: '{{sender}} requested to join "{{project}}" as {{role}}',
     spanish: '{{sender}} solicitó unirse a "{{project}}" como {{role}}',
-    brazilian_portuguese: '{{sender}} solicitou participar de "{{project}}" como {{role}}'
+    brazilian_portuguese:
+      '{{sender}} solicitou participar de "{{project}}" como {{role}}'
   },
   downloadProjectLabel: {
     english: 'Download Project',
@@ -1477,7 +1479,8 @@ export const localizations = {
   noNotificationsMessage: {
     english: "You'll see project invitations and join requests here",
     spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
-    brazilian_portuguese: 'Aqui você verá convites para projetos e solicitações de participação'
+    brazilian_portuguese:
+      'Aqui você verá convites para projetos e solicitações de participação'
   },
   invitationAcceptedSuccessfully: {
     english: 'Invitation accepted successfully',
@@ -1520,9 +1523,12 @@ export const localizations = {
     brazilian_portuguese: 'membro'
   },
   offlineNotificationMessage: {
-    english: 'You are offline. Any changes you make will sync when you are back online.',
-    spanish: 'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
-    brazilian_portuguese: 'Você está offline. Quaisquer alterações que você fizer serão sincronizadas quando você voltar a ficar online.'
+    english:
+      'You are offline. Any changes you make will sync when you are back online.',
+    spanish:
+      'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
+    brazilian_portuguese:
+      'Você está offline. Quaisquer alterações que você fizer serão sincronizadas quando você voltar a ficar online.'
   }
 } as const;
 

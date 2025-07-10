@@ -13,6 +13,7 @@ import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
   View
@@ -195,13 +196,15 @@ export const QuestList = React.memo(
 
     return (
       <>
-        <Text style={{ color: 'red', flex: 1 }}>
-          {JSON.stringify(
-            { selectedProject, projectId, filteredQuests },
-            null,
-            2
-          )}
-        </Text>
+        <ScrollView style={{ flex: 1 }}>
+          <Text style={{ color: 'red' }}>
+            {JSON.stringify(
+              { selectedProject, projectId, filteredQuests },
+              null,
+              2
+            )}
+          </Text>
+        </ScrollView>
         <FlashList
           data={filteredQuests}
           renderItem={({ item }) => (

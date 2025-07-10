@@ -21,9 +21,10 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
     abortControllerRef.current = abortController;
 
     // Build query based on whether we have specific IDs or want all records
-    const query = attachmentIds.length > 0
-      ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')})`
-      : `SELECT * FROM ${ATTACHMENT_TABLE}`;
+    const query =
+      attachmentIds.length > 0
+        ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')})`
+        : `SELECT * FROM ${ATTACHMENT_TABLE}`;
 
     system.powersync.watch(
       query,
@@ -41,7 +42,10 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
 
               // Only log significant state changes
               const previousState = currentPreviousStates.get(record.id)?.state;
-              if (previousState !== undefined && previousState !== record.state) {
+              if (
+                previousState !== undefined &&
+                previousState !== record.state
+              ) {
                 if (record.state === AttachmentState.SYNCED) {
                   console.log(
                     `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
