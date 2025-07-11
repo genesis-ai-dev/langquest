@@ -333,6 +333,16 @@ export const localizations = {
     spanish: 'No se encontraron recursos',
     brazilian_portuguese: 'Nenhum recurso encontrado'
   },
+  createNewProject: {
+    english: 'Create New Project',
+    spanish: 'Crear Nuevo Proyecto',
+    brazilian_portuguese: 'Criar Novo Projeto'
+  },
+  createFirstProject: {
+    english: 'Create First Project',
+    spanish: 'Crear Primer Proyecto',
+    brazilian_portuguese: 'Criar Primeiro Projeto'
+  },
   searchQuests: {
     english: 'Search quests...',
     spanish: 'Buscar misiones...',
