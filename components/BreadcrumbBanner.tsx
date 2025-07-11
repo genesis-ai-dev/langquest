@@ -1,13 +1,13 @@
-import React from 'react';
-import { View, Text } from 'react-native';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import React from 'react';
+import { Text, View } from 'react-native';
 
 interface BreadcrumbBannerProps {
   language: string;
 }
 
 export const BreadcrumbBanner: React.FC<BreadcrumbBannerProps> = ({
-  language
+  language: _language
 }) => {
   return (
     <View

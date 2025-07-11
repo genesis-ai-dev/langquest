@@ -1,24 +1,37 @@
-import { useSystem } from '@/contexts/SystemContext';
-import { vote as voteTable } from '@/db/drizzleSchema';
+import { vote } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { eq } from 'drizzle-orm';
 
-export function useVotes(translationId: string) {
-  const { db } = useSystem();
-
+export const useVotesForTranslation = (translationId: string) => {
   const {
-    data: votes,
-    isLoading: loadingVotes,
+    data: votes = [],
+    isLoading,
+    error,
     ...rest
-  } = useQuery({
+  } = useHybridQuery({
     queryKey: ['votes', translationId],
-    query: toCompilableQuery(
-      db.query.vote.findMany({
-        where: eq(voteTable.translation_id, translationId)
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('vote')
+        .select('*')
+        .eq('translation_id', translationId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.vote.findMany({
+        where: eq(vote.translation_id, translationId)
       })
-    )
+    ),
+    enabled: !!translationId
   });
 
-  return { votes, loadingVotes, ...rest };
-}
+  return {
+    votes,
+    isLoading,
+    error,
+    ...rest
+  };
+};

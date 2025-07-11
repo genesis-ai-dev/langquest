@@ -1,7 +1,5 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
-import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
-import { tagService } from '@/database_services/tagService';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -23,7 +21,7 @@ import {
 
 interface QuestFilterModalProps {
   onClose: () => void;
-  quests: Quest[];
+  questTags: Record<string, Tag[]>;
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -37,7 +35,7 @@ interface SortingOption {
 
 export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   onClose,
-  quests,
+  questTags,
   onApplyFilters,
   onApplySorting,
   initialFilters,
@@ -50,23 +48,6 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
     useState<Record<string, string[]>>(initialFilters);
   const [sortingOptions, setSortingOptions] =
     useState<SortingOption[]>(initialSorting);
-  const [questTags, setQuestTags] = useState<Record<string, Tag[]>>({});
-
-  useEffect(() => {
-    const loadAllTags = async () => {
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        quests.map(async (quest) => {
-          const questTags = (
-            await tagService.getTagsByQuestId(quest.id)
-          ).filter(Boolean);
-          tagsMap[quest.id] = questTags;
-        })
-      );
-      setQuestTags(tagsMap);
-    };
-    void loadAllTags();
-  }, [quests]);
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};

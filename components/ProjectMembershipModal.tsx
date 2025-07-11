@@ -6,7 +6,9 @@ import {
   project as projectTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -17,7 +19,6 @@ import {
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -76,16 +77,49 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+
+  // Get comprehensive user permissions for this project
+  const managePermissions = useUserPermissions(projectId, 'manage');
+  const sendInvitePermissions = useUserPermissions(
+    projectId,
+    'send_invite_section'
+  );
+  const promotePermissions = useUserPermissions(
+    projectId,
+    'promote_member_button'
+  );
+  const removePermissions = useUserPermissions(
+    projectId,
+    'remove_member_button'
+  );
+  const withdrawInvitePermissions = useUserPermissions(
+    projectId,
+    'withdraw_invite_button'
+  );
+
   const [activeTab, setActiveTab] = useState<'members' | 'invited'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Guard clause: Don't render if currentUser is null
+  if (!currentUser) {
+    return null;
+  }
+
   // Query for project details to check if it's private
-  const { data: [project] = [], isLoading: projectLoading } = useQuery({
+  const { data: [project] = [], isLoading: projectLoading } = useHybridQuery({
     queryKey: ['project', projectId],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', projectId);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.project.findFirst({
         where: eq(projectTable.id, projectId)
       })
@@ -93,9 +127,18 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   });
 
   // Query for active project members
-  const { data: memberData = [], refetch: refetchMembers } = useQuery({
+  const { data: memberData = [], refetch: refetchMembers } = useHybridQuery({
     queryKey: ['project-members', projectId],
-    query: toCompilableQuery(
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*, profile(*)')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data;
+    },
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
@@ -108,13 +151,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     )
   });
 
-  const members: Member[] = memberData.map((link) => ({
-    id: link.profile.id,
-    email: link.profile.email || '',
-    name: link.profile.username || link.profile.email || '',
-    role: link.membership as 'owner' | 'member',
-    active: true
-  }));
+  const members: Member[] = memberData
+    .filter((link) => link?.profile?.id) // Filter out entries with null profiles
+    .map((link) => ({
+      id: link.profile?.id || '',
+      email: link.profile?.email || '',
+      name: link.profile?.username || link.profile?.email || '',
+      role: (link.membership as 'owner' | 'member') || 'member',
+      active: true
+    }));
 
   // Sort members: current user first, then owners alphabetically, then members alphabetically
   const sortedMembers = [...members].sort((a, b) => {
@@ -132,23 +177,32 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return a.name.localeCompare(b.name);
   });
 
-  console.log('members', members);
+  // console.log('members', members);
 
   // Query for invited users
-  const { data: invitationData = [], refetch: refetchInvitations } = useQuery({
-    queryKey: ['project-invitations', projectId],
-    query: toCompilableQuery(
-      db.query.invite.findMany({
-        where: and(
-          eq(invite.project_id, projectId)
-          // Include pending, expired, declined, and withdrawn statuses
-        ),
-        with: {
-          receiver: true
-        }
-      })
-    )
-  });
+  const { data: invitationData = [], refetch: refetchInvitations } =
+    useHybridQuery({
+      queryKey: ['project-invitations', projectId],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('invite')
+          .select('*, receiver(*)')
+          .eq('project_id', projectId);
+        if (error) throw error;
+        return data;
+      },
+      offlineQuery: toCompilableQuery(
+        db.query.invite.findMany({
+          where: and(
+            eq(invite.project_id, projectId)
+            // Include pending, expired, declined, and withdrawn statuses
+          ),
+          with: {
+            receiver: true
+          }
+        })
+      )
+    });
 
   const invitations: Invitation[] = invitationData
     .filter((inv) =>
@@ -178,9 +232,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return true;
   });
 
-  // Check if current user is an owner
+  // Check if current user is an owner (keep for compatibility with leave project logic)
   const currentUserMembership = members.find((m) => m.id === currentUser?.id);
-  const currentUserIsOwner = currentUserMembership?.role === 'owner';
 
   // Count active owners
   const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
@@ -257,8 +310,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleLeaveProject = () => {
-    console.log('Attempting to leave project');
-    if (activeOwnerCount <= 1 && currentUserIsOwner) {
+    if (activeOwnerCount <= 1 && managePermissions.hasAccess) {
       Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
       return;
     }
@@ -270,18 +322,16 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            console.log('Leaving project');
             try {
               await db
                 .update(profile_project_link)
                 .set({ active: false, last_updated: new Date().toISOString() })
                 .where(
                   and(
-                    eq(profile_project_link.profile_id, currentUser!.id),
+                    eq(profile_project_link.profile_id, currentUser.id),
                     eq(profile_project_link.project_id, projectId)
                   )
                 );
-              console.log('Project left');
               onClose();
             } catch (error) {
               console.error('Error leaving project:', error);
@@ -342,7 +392,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             status: 'pending',
             count: (invitation.count || 0) + 1,
             last_updated: new Date().toISOString(),
-            sender_profile_id: currentUser!.id // Update sender in case it's different
+            sender_profile_id: currentUser.id // Update sender in case it's different
           })
           .where(eq(invite.id, inviteId));
 
@@ -427,7 +477,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 as_owner: inviteAsOwner,
                 count: (existingInvite.count || 0) + 1,
                 last_updated: new Date().toISOString(),
-                sender_profile_id: currentUser!.id // Update sender in case it's different
+                sender_profile_id: currentUser.id // Update sender in case it's different
               })
               .where(eq(invite.id, existingInvite.id));
 
@@ -451,7 +501,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
       // Create new invitation
       await db.insert(invite).values({
-        sender_profile_id: currentUser!.id,
+        sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,
         status: 'pending',
@@ -505,9 +555,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         </View>
 
         <View style={styles.memberActions}>
-          {currentUserIsOwner && !isCurrentUser && (
+          {!isCurrentUser && (
             <>
-              {member.role === 'member' && (
+              {member.role === 'member' && promotePermissions.hasAccess && (
                 <TouchableOpacity
                   style={styles.iconButton}
                   onPress={() =>
@@ -521,7 +571,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   />
                 </TouchableOpacity>
               )}
-              {member.role === 'member' && (
+              {member.role === 'member' && removePermissions.hasAccess && (
                 <TouchableOpacity
                   style={styles.iconButton}
                   onPress={() =>
@@ -608,30 +658,32 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         </View>
 
         <View style={styles.memberActions}>
-          {currentUserIsOwner && invitation.status === 'expired' && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => void handleResendInvitation(invitation.id)}
-            >
-              <Ionicons
-                name="refresh-outline"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          )}
-          {currentUserIsOwner && invitation.status !== 'withdrawn' && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => void handleWithdrawInvitation(invitation.id)}
-            >
-              <Ionicons
-                name="close-circle-outline"
-                size={20}
-                color={colors.error}
-              />
-            </TouchableOpacity>
-          )}
+          {withdrawInvitePermissions.hasAccess &&
+            invitation.status === 'expired' && (
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => void handleResendInvitation(invitation.id)}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            )}
+          {withdrawInvitePermissions.hasAccess &&
+            invitation.status !== 'withdrawn' && (
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => void handleWithdrawInvitation(invitation.id)}
+              >
+                <Ionicons
+                  name="close-circle-outline"
+                  size={20}
+                  color={colors.error}
+                />
+              </TouchableOpacity>
+            )}
         </View>
       </View>
     );
@@ -675,8 +727,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <PrivateAccessGate
                     projectId={projectId}
                     projectName={project?.name || ''}
-                    isPrivate={true}
-                    action="view-members"
+                    isPrivate={project?.private || false}
+                    action="view_membership"
                     inline={true}
                   >
                     <View style={styles.tabContainer}>
@@ -731,7 +783,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     </ScrollView>
 
                     <View style={styles.inviteSection}>
-                      {currentUserIsOwner ? (
+                      {sendInvitePermissions.hasAccess ? (
                         <>
                           <Text style={styles.inviteTitle}>
                             {t('inviteMembers')}

@@ -1,10 +1,27 @@
-import type { Profile } from '@/database_services/profileService';
-import { profileService } from '@/database_services/profileService';
+import type { profile } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useSystem } from './SystemContext';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+
+export type Profile = typeof profile.$inferSelect;
+
+const DEBUG_MODE = false;
+const debug = (...args: unknown[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (DEBUG_MODE) {
+    console.log('AuthContext:', ...args);
+  }
+};
 
 interface AuthContextType {
   currentUser: Profile | null;
@@ -16,56 +33,176 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const currentUser = useLocalStore((state) => state.currentUser);
+  const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
-  const system = useSystem();
 
   useEffect(() => {
+    debug('useEffect - AuthContext initialization');
+
     const loadAuthData = async () => {
-      setIsLoading(true);
-      const supabaseAuthKey = await getSupabaseAuthKey();
+      console.log('🔄 [AuthProvider] Starting loadAuthData...');
+      try {
+        console.log('🔄 [AuthProvider] Getting supabase auth key...');
+        const supabaseAuthKey = await getSupabaseAuthKey();
+        console.log('🔄 [AuthProvider] Got auth key:', !!supabaseAuthKey);
 
-      if (supabaseAuthKey) {
-        const session = JSON.parse(
-          (await AsyncStorage.getItem(supabaseAuthKey)) ?? '{}'
-        ) as Session | null;
-        const profile = await profileService.getProfileByUserId(
-          session?.user.id ?? ''
-        );
+        if (supabaseAuthKey) {
+          console.log('🔄 [AuthProvider] Getting session from AsyncStorage...');
+          const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
+          console.log('🔄 [AuthProvider] Got session string:', !!sessionString);
 
-        setCurrentUser(profile ?? null);
+          if (sessionString) {
+            console.log('🔄 [AuthProvider] Parsing session...');
+            const session = JSON.parse(sessionString) as Session | null;
+            console.log('🔄 [AuthProvider] Session user ID:', session?.user.id);
+
+            if (session?.user.id) {
+              console.log(
+                '🔄 [AuthProvider] Getting profile (offline-first)...'
+              );
+              // Use getUserProfile which checks local DB first, then falls back to online
+              const profile = await system.supabaseConnector.getUserProfile(
+                session.user.id
+              );
+              console.log('🔄 [AuthProvider] Got profile:', !!profile);
+
+              if (profile) {
+                // Validate that this is a real user profile with username or email
+                if (!profile.username && !profile.email) {
+                  console.log(
+                    '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
+                  );
+                  setCurrentUser(null);
+                  return;
+                }
+
+                setCurrentUser(profile);
+
+                // Sync terms acceptance from profile to local store
+                if (profile.terms_accepted && profile.terms_accepted_at) {
+                  const localStore = useLocalStore.getState();
+                  if (!localStore.dateTermsAccepted) {
+                    console.log(
+                      '🔄 [AuthProvider] Syncing terms acceptance from profile to local store'
+                    );
+                    localStore.acceptTerms();
+                  }
+                }
+              } else {
+                console.log(
+                  '⚠️ [AuthProvider] No profile found - keeping session but no user profile'
+                );
+                // Don't set currentUser to null - keep the session alive
+                // The user can still access the app with cached data
+              }
+            }
+          } else {
+            console.log('🔄 [AuthProvider] No session string found');
+          }
+        } else {
+          console.log('🔄 [AuthProvider] No auth key found');
+        }
+      } catch (error) {
+        console.error('❌ [AuthProvider] Error loading auth data:', error);
+        // Don't clear currentUser on error - maintain session persistence
+      } finally {
+        console.log('✅ [AuthProvider] Setting isLoading to false');
+        setIsLoading(false);
       }
-      console.log('setting auth isLoading to false', isLoading);
-      setIsLoading(false);
     };
 
-    void loadAuthData();
+    // Add timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.log(
+        '⚠️ [AuthProvider] Timeout fallback - forcing isLoading to false'
+      );
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
+
+    void loadAuthData().finally(() => {
+      clearTimeout(timeoutId);
+    });
 
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
-        // always maintain a session
+        debug('onAuthStateChange', state, session);
+
+        // If no session, just return without doing anything
         if (!session) {
-          await system.supabaseConnector.client.auth.signInAnonymously();
-          setCurrentUser(null);
+          console.log(
+            '⚠️ [AuthProvider] No session detected, staying logged out'
+          );
           return;
         }
+
         if (!session.user.is_anonymous && state !== 'TOKEN_REFRESHED') {
           try {
-            setCurrentUser(
-              await system.supabaseConnector.getUserProfile(session.user.id)
+            const profile = await system.supabaseConnector.getUserProfile(
+              session.user.id
             );
-            // Initialize system with new auth state
-            console.log('Reinitializing system after auth state change...');
-            await system.init();
-            await system.tempAttachmentQueue?.init();
-            await system.permAttachmentQueue?.init();
-            console.log('System reinitialization complete');
+
+            if (profile) {
+              // Validate that this is a real user profile with username or email
+              if (!profile.username && !profile.email) {
+                console.log(
+                  '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
+                );
+                setCurrentUser(null);
+                return;
+              }
+
+              setCurrentUser(profile);
+
+              // Sync terms acceptance from profile to local store
+              if (profile.terms_accepted && profile.terms_accepted_at) {
+                const localStore = useLocalStore.getState();
+                if (!localStore.dateTermsAccepted) {
+                  console.log(
+                    '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change)'
+                  );
+                  localStore.acceptTerms();
+                }
+              }
+
+              // Only reinitialize attachment queues if system is already initialized
+              if (system.isInitialized()) {
+                console.log(
+                  'Reinitializing attachment queues after auth state change...'
+                );
+                await Promise.all([
+                  system.tempAttachmentQueue?.init(),
+                  system.permAttachmentQueue?.init()
+                ]);
+                console.log('Attachment queue reinitialization complete');
+              }
+            } else {
+              console.log(
+                '⚠️ [AuthProvider] No profile found during auth state change - keeping current user'
+              );
+              // Don't clear currentUser if profile fetch fails - user stays logged in
+            }
           } catch (error) {
-            console.error('Error during system reinitialization:', error);
-            // Still set the user even if system init fails
-            setCurrentUser(
-              await system.supabaseConnector.getUserProfile(session.user.id)
+            console.error(
+              '❌ [AuthProvider] Error during auth state change:',
+              error
             );
+            // Don't clear currentUser on error - maintain session persistence
+
+            // Still try to sync terms if we have a current user
+            if (
+              currentUser &&
+              currentUser.terms_accepted &&
+              currentUser.terms_accepted_at
+            ) {
+              const localStore = useLocalStore.getState();
+              if (!localStore.dateTermsAccepted) {
+                console.log(
+                  '🔄 [AuthProvider] Syncing terms acceptance from current user (auth state change - fallback)'
+                );
+                localStore.acceptTerms();
+              }
+            }
           }
         }
       }
@@ -74,9 +211,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.data.subscription.unsubscribe();
     };
-  }, []);
+  }, []); // 🔥 FIXED: Empty dependency array - this should only run ONCE!
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    debug('signOut');
     try {
       // will bring you back to the sign-in screen
       setCurrentUser(null);
@@ -86,19 +224,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
+  }, [setCurrentUser]);
+
+  const contextValue = useMemo(
+    () => ({
+      currentUser,
+      setCurrentUser,
+      signOut,
+      isLoading
+    }),
+    [currentUser, setCurrentUser, signOut, isLoading]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        currentUser,
-        setCurrentUser,
-        signOut,
-        isLoading
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
 
@@ -108,4 +247,8 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+export function getCurrentUser() {
+  return useLocalStore.getState().currentUser;
 }

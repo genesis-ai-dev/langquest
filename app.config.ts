@@ -11,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   owner: 'eten-genesis',
   name: 'LangQuest',
   slug: 'langquest',
-  version: '1.1.0',
+  version: '1.2.0',
   orientation: 'portrait',
   icon: iconPath,
   scheme: 'langquest',
@@ -40,12 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           {
             scheme: 'https',
             host: siteHost,
-            pathPrefix: '/reset-password'
-          },
-          {
-            scheme: 'https',
-            host: siteHost,
-            pathPrefix: '/registration-confirmation'
+            pathPrefix: '/app'
           },
           {
             scheme: 'langquest',

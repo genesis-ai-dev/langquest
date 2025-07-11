@@ -62,7 +62,8 @@ export const language = sqliteTable(
     iso639_3: text(), // Enforce uniqueness across chains in the app
     locale: text(),
     ui_ready: int({ mode: 'boolean' }).notNull(),
-    creator_id: text().references(() => profile.id)
+    creator_id: text().references(() => profile.id),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [index('ui_ready_idx').on(table.ui_ready)]
 );
@@ -91,7 +92,8 @@ export const project = sqliteTable(
       .references(() => language.id),
     creator_id: text().references(() => profile.id),
     private: int({ mode: 'boolean' }).notNull().default(false),
-    visible: int({ mode: 'boolean' }).notNull().default(true)
+    visible: int({ mode: 'boolean' }).notNull().default(true),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [
     index('name_idx').on(table.name),
@@ -126,7 +128,8 @@ export const quest = sqliteTable(
       .notNull()
       .references(() => project.id),
     creator_id: text().references(() => profile.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true)
+    visible: int({ mode: 'boolean' }).notNull().default(true),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [
     index('project_id_idx').on(table.project_id),
@@ -145,7 +148,8 @@ export const questRelations = relations(quest, ({ one, many }) => ({
 
 export const tag = sqliteTable('tag', {
   ...baseColumns,
-  name: text().notNull()
+  name: text().notNull(),
+  download_profiles: text({ mode: 'json' }).$type<string[]>()
 });
 
 export const tagRelations = relations(tag, ({ many }) => ({
@@ -158,7 +162,8 @@ export const quest_tag_link = sqliteTable(
   {
     ...linkColumns,
     quest_id: text().notNull(),
-    tag_id: text().notNull()
+    tag_id: text().notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [primaryKey({ columns: [t.quest_id, t.tag_id] })]
 );
@@ -183,7 +188,8 @@ export const asset = sqliteTable(
       .references(() => language.id),
     images: text({ mode: 'json' }).$type<string[]>(),
     creator_id: text().references(() => profile.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true)
+    visible: int({ mode: 'boolean' }).notNull().default(true),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [
     index('name_idx').on(table.name),
@@ -207,7 +213,8 @@ export const asset_tag_link = sqliteTable(
   {
     ...linkColumns,
     asset_id: text().notNull(),
-    tag_id: text().notNull()
+    tag_id: text().notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [primaryKey({ columns: [t.asset_id, t.tag_id] })]
 );
@@ -228,7 +235,8 @@ export const quest_asset_link = sqliteTable(
   {
     ...linkColumns,
     quest_id: text().notNull(),
-    asset_id: text().notNull()
+    asset_id: text().notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
 );
@@ -261,7 +269,8 @@ export const translation = sqliteTable(
     creator_id: text()
       .notNull()
       .references(() => profile.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true)
+    visible: int({ mode: 'boolean' }).notNull().default(true),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [
     index('asset_id_idx').on(t.asset_id),
@@ -380,7 +389,8 @@ export const vote = sqliteTable(
     comment: text(),
     creator_id: text()
       .notNull()
-      .references(() => profile.id)
+      .references(() => profile.id),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [
     index('translation_id_idx').on(t.translation_id),
@@ -408,7 +418,8 @@ export const asset_content_link = sqliteTable(
       .notNull()
       .references(() => asset.id),
     text: text().notNull(),
-    audio_id: text()
+    audio_id: text(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (t) => [index('asset_id_idx').on(t.asset_id)]
 );
@@ -422,93 +433,6 @@ export const asset_content_linkRelations = relations(
     })
   })
 );
-
-export const project_download = sqliteTable(
-  'project_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    project_id: text()
-      .notNull()
-      .references(() => project.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.project_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const project_downloadRelations = relations(
-  project_download,
-  ({ one }) => ({
-    profile: one(profile, {
-      fields: [project_download.profile_id],
-      references: [profile.id]
-    }),
-    project: one(project, {
-      fields: [project_download.project_id],
-      references: [project.id]
-    })
-  })
-);
-
-export const quest_download = sqliteTable(
-  'quest_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    quest_id: text()
-      .notNull()
-      .references(() => quest.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.quest_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const quest_downloadRelations = relations(quest_download, ({ one }) => ({
-  profile: one(profile, {
-    fields: [quest_download.profile_id],
-    references: [profile.id]
-  }),
-  quest: one(quest, {
-    fields: [quest_download.quest_id],
-    references: [quest.id]
-  })
-}));
-
-export const asset_download = sqliteTable(
-  'asset_download',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile.id),
-    asset_id: text()
-      .notNull()
-      .references(() => asset.id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.profile_id, t.asset_id] }),
-    index('profile_id_idx').on(t.profile_id)
-  ]
-);
-
-export const asset_downloadRelations = relations(asset_download, ({ one }) => ({
-  profile: one(profile, {
-    fields: [asset_download.profile_id],
-    references: [profile.id]
-  }),
-  asset: one(asset, {
-    fields: [asset_download.asset_id],
-    references: [asset.id]
-  })
-}));
 
 export const flag = sqliteTable('flag', {
   ...baseColumns,
@@ -636,3 +560,105 @@ export const subscriptionRelations = relations(subscription, ({ one }) => ({
     references: [profile.id]
   })
 }));
+
+// ====================================
+// CLOSURE AND AGGREGATE TABLES
+// ====================================
+
+export const quest_closure = sqliteTable(
+  'quest_closure',
+  {
+    quest_id: text()
+      .primaryKey()
+      .references(() => quest.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+
+    // ID Arrays (for bulk downloads)
+    asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_content_link_ids: text({ mode: 'json' })
+      .$type<string[]>()
+      .default([]),
+    quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    // Computed Aggregates (for progress display)
+    total_assets: int().notNull().default(0),
+    total_translations: int().notNull().default(0),
+    approved_translations: int().notNull().default(0),
+
+    // Download tracking
+    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    last_updated: text().notNull().default(timestampDefault)
+  },
+  (table) => [
+    index('quest_closure_project_id_idx').on(table.project_id),
+    index('quest_closure_last_updated_idx').on(table.last_updated)
+  ]
+);
+
+export const quest_closureRelations = relations(quest_closure, ({ one }) => ({
+  quest: one(quest, {
+    fields: [quest_closure.quest_id],
+    references: [quest.id]
+  }),
+  project: one(project, {
+    fields: [quest_closure.project_id],
+    references: [project.id]
+  })
+}));
+
+export const project_closure = sqliteTable(
+  'project_closure',
+  {
+    project_id: text()
+      .primaryKey()
+      .references(() => project.id),
+
+    // ID Arrays (for bulk downloads - aggregated from all quest closures)
+    asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    quest_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_content_link_ids: text({ mode: 'json' })
+      .$type<string[]>()
+      .default([]),
+    quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    // Computed Aggregates (for progress display)
+    total_quests: int().notNull().default(0),
+    total_assets: int().notNull().default(0),
+    total_translations: int().notNull().default(0),
+    approved_translations: int().notNull().default(0),
+
+    // Download tracking
+    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
+
+    last_updated: text().notNull().default(timestampDefault)
+  },
+  (table) => [index('project_closure_last_updated_idx').on(table.last_updated)]
+);
+
+export const project_closureRelations = relations(
+  project_closure,
+  ({ one }) => ({
+    project: one(project, {
+      fields: [project_closure.project_id],
+      references: [project.id]
+    })
+  })
+);
+
+// Deprecated - remove after migration
+export const quest_aggregates = quest_closure;

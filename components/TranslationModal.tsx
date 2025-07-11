@@ -1,20 +1,20 @@
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
-import { quest_asset_link } from '@/db/drizzleSchema';
+import {
+  useTranslationById,
+  useTranslationProjectInfo
+} from '@/hooks/db/useTranslations';
+import { useVotesByTranslationId } from '@/hooks/db/useVotes';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
-import { usePrivateProjectAccess } from '@/hooks/usePrivateProjectAccess';
-import { useTranslationDataWithVotes } from '@/hooks/useTranslationData';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/tanstack-react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,7 +29,7 @@ import {
 import AudioPlayer from './AudioPlayer';
 import { PrivateAccessGate } from './PrivateAccessGate';
 import { ReportModal } from './ReportModal';
-import Shimmer from './Shimmer';
+import { Shimmer } from './Shimmer';
 
 interface TranslationModalProps {
   translationId: string;
@@ -49,63 +49,61 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { stopCurrentSound } = useAudio();
-  const { db } = useSystem();
   const [showReportModal, setShowReportModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
-  const { hasReported } = useTranslationReports(translationId, currentUser!.id);
+  const { hasReported } = useTranslationReports(translationId, currentUser?.id);
 
   const queryClient = useQueryClient();
 
-  const { translation } = useTranslationDataWithVotes(translationId, assetId);
+  const { translation } = useTranslationById(translationId, assetId);
+  const { votes } = useVotesByTranslationId(translationId);
 
-  const activeVotes = translation?.votes.filter((vote) => vote.active) || [];
-  const userVote = activeVotes.find(
-    (vote) => vote.creator_id === currentUser?.id
-  );
+  const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
 
-  const { data: audioUri, isLoading: loadingAudio } = useQuery({
+  const voteCount =
+    votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
+    0;
+
+  const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
     queryKey: ['audio', translation?.audio],
-    queryFn: async () => {
-      if (!translation?.audio) return null;
+    onlineFn: async () => {
+      if (!translation?.audio) return [];
       try {
-        return await getLocalUriFromAssetId(translation.audio);
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
       } catch (error) {
         console.error('Error loading audio URI:', error);
-        return null;
+        return [];
+      }
+    },
+    offlineFn: async () => {
+      if (!translation?.audio) return [];
+      try {
+        const uri = await getLocalUriFromAssetId(translation.audio);
+        return uri ? [{ uri }] : [];
+      } catch (error) {
+        console.error('Error loading audio URI:', error);
+        return [];
       }
     },
     enabled: !!translation?.audio
   });
 
-  const { data: projectInfoArray = [] } = useQuery({
-    queryKey: ['translation-project', translation?.asset_id],
-    query: toCompilableQuery(
-      db.query.quest_asset_link.findFirst({
-        where: eq(quest_asset_link.asset_id, translation?.asset_id || ''),
-        with: {
-          quest: {
-            with: {
-              project: true
-            }
-          }
-        }
-      })
-    ),
-    enabled: !!translation?.asset_id
-  });
+  const audioUri = audioUriData?.[0]?.uri || null;
 
-  const projectInfo = projectInfoArray[0];
+  const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
   const project = projectInfo?.quest.project;
 
   // Check if user has access to edit translations in this project
-  const { hasAccess: canEditTranslation } = usePrivateProjectAccess({
-    projectId: project?.id || '',
-    isPrivate: project?.private || false
-  });
+  const { hasAccess: canEditTranslation } = useUserPermissions(
+    project?.id || '',
+    'edit_transcription',
+    project?.private
+  );
 
   useEffect(() => {
     setEditedText(translation?.text ?? '');
@@ -244,7 +242,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
               }
             ]}
             onPress={handleReportPress}
-            disabled={isOwnTranslation || hasReported}
+            disabled={isOwnTranslation || !!hasReported}
           >
             <Ionicons
               name={hasReported ? 'flag' : 'flag-outline'}
@@ -326,7 +324,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                   projectId={project?.id || ''}
                   projectName={project?.name || ''}
                   isPrivate={project?.private || false}
-                  action="vote"
+                  action="edit_transcription"
                   inline={true}
                 >
                   <View
@@ -355,8 +353,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                           <Shimmer
                             width={200}
                             height={50}
-                            backgroundColor="transparent"
-                            highlightColor="rgba(255, 255, 255, 0.3)"
+                            shimmerColors={[
+                              'transparent',
+                              'rgba(255, 255, 255, 0.3)',
+                              'transparent'
+                            ]}
                           />
                         </View>
                       )}
@@ -391,8 +392,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                           <Shimmer
                             width={200}
                             height={50}
-                            backgroundColor="transparent"
-                            highlightColor="rgba(255, 255, 255, 0.3)"
+                            shimmerColors={[
+                              'transparent',
+                              'rgba(255, 255, 255, 0.3)',
+                              'transparent'
+                            ]}
                           />
                         </View>
                       )}
@@ -408,6 +412,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                     </TouchableOpacity>
                   </View>
                 </PrivateAccessGate>
+              )}
+              {isOwnTranslation && (
+                <View style={styles.feedbackContainer}>
+                  <Text style={styles.voteRank}>{voteCount}</Text>
+                </View>
               )}
             </View>
           </View>
@@ -506,7 +515,8 @@ const styles = StyleSheet.create({
   },
   feedbackContainer: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
+    flex: 1
   },
   feedbackButton: {
     padding: spacing.xsmall

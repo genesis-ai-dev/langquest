@@ -64,7 +64,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
     this.storage = new SupabaseStorageAdapter({ client: this.client });
 
-    console.log('Supabase client created: ', this.client);
+    // console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
       console.log('------------------------------------');
       console.log('Auth state changed:', event);
@@ -72,7 +72,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       console.log('User ID:', session?.user.id);
       console.log('------------------------------------');
     });
-    console.log('Supabase client created: ', this.client);
+    // console.log('Supabase client created: ', this.client);
 
     // Initialize composite key tables
     this.initCompositeKeyTables();
@@ -115,9 +115,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       { table: 'quest_tag_link', keys: ['quest_id', 'tag_id'] },
       { table: 'asset_tag_link', keys: ['asset_id', 'tag_id'] },
       { table: 'quest_asset_link', keys: ['quest_id', 'asset_id'] },
-      { table: 'project_download', keys: ['profile_id', 'project_id'] },
-      { table: 'quest_download', keys: ['profile_id', 'quest_id'] },
-      { table: 'asset_download', keys: ['profile_id', 'asset_id'] },
       { table: 'blocked_users', keys: ['blocker_id', 'blocked_id'] },
       { table: 'profile_project_link', keys: ['profile_id', 'project_id'] }
     ];
@@ -146,20 +143,81 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       await this.system.db.select().from(profile).where(eq(profile.id, user))
     )[0] as Profile | null;
 
-    if (localProfile) return localProfile;
-
-    const { data: userData, error: userError } = await this.client
-      .from('profile')
-      .select('*')
-      .eq('id', user)
-      .single<Profile>();
-
-    if (userError) {
-      console.error('Error fetching user profile:', userError);
-      return null;
+    if (localProfile) {
+      console.log('✅ [SupabaseConnector] Found local profile for user:', user);
+      return localProfile;
     }
 
-    return userData;
+    // If no local profile, try to fetch from Supabase
+    console.log(
+      '🔄 [SupabaseConnector] No local profile, attempting online fetch for user:',
+      user
+    );
+
+    try {
+      const { data: userData, error: userError } = await this.client
+        .from('profile')
+        .select('*')
+        .eq('id', user)
+        .single<Profile>();
+
+      if (userError) {
+        console.error(
+          '❌ [SupabaseConnector] Error fetching user profile from Supabase:',
+          userError
+        );
+
+        // For offline scenarios, create a minimal profile object to prevent logout
+        // This ensures the user stays logged in even when profile fetch fails
+        console.log(
+          '🔄 [SupabaseConnector] Creating minimal profile for offline user:',
+          user
+        );
+        return {
+          id: user,
+          email: null,
+          username: null,
+          password: null,
+          avatar: null,
+          ui_language_id: null,
+          terms_accepted: false,
+          terms_accepted_at: null,
+          active: true,
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        } as Profile;
+      }
+
+      console.log(
+        '✅ [SupabaseConnector] Successfully fetched profile from Supabase for user:',
+        user
+      );
+      return userData;
+    } catch (error) {
+      console.error(
+        '❌ [SupabaseConnector] Network error while fetching profile:',
+        error
+      );
+
+      // For network errors (offline), create a minimal profile to prevent logout
+      console.log(
+        '🔄 [SupabaseConnector] Creating minimal profile due to network error for user:',
+        user
+      );
+      return {
+        id: user,
+        email: null,
+        username: null,
+        password: null,
+        avatar: null,
+        ui_language_id: null,
+        terms_accepted: false,
+        terms_accepted_at: null,
+        active: true,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      } as Profile;
+    }
   }
 
   async login(username: string, password: string) {
@@ -233,14 +291,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           };
         }
 
-        if (op.table === 'asset_download') {
-          console.log('Operation:', {
-            table: op.table,
-            op: op.op,
-            id: op.id,
-            opData: op.opData,
-            clientId: op.clientId
-          });
+        if (
+          op.table === 'download' &&
+          typeof op.opData?.record_key === 'string'
+        ) {
+          op.opData.record_key = JSON.parse(op.opData.record_key);
         }
 
         const opData =
@@ -272,11 +327,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             } else {
               result = await table.delete().eq('id', op.id);
             }
+            console.log('delete result', result);
             break;
         }
 
         if (result.error) {
           console.error(result.error);
+          console.debug('Upload data:', result.data, opData);
           result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
             result
           )}`;
@@ -288,6 +345,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     } catch (ex) {
       console.debug(ex);
       const error = ex as Error & { code?: string };
+      // Note: PostHog integration moved to avoid circular dependency
+      console.error('Upload data exception:', error);
       if (
         typeof error.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code!))

@@ -30,7 +30,7 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('TempAttachmentQueue init entered...');
+    console.log('TempAttachmentQueue init');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up TempAttachmentQueue.'
@@ -58,7 +58,6 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   // Modified to store the callback and initialize empty list
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log('[TEMP QUEUE] Setting onAttachmentIdsChange callback');
     this._onUpdateCallback = onUpdate;
 
     // Initialize with empty list
@@ -67,7 +66,6 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   // Simple method to load attachments for an asset
   async loadAssetAttachments(assetId: string): Promise<void> {
-    console.log(`[TEMP QUEUE] Loading attachments for asset: ${assetId}`);
     const attachmentIds = await this.getAllAssetAttachments(assetId);
     if (this._onUpdateCallback) {
       this._onUpdateCallback(attachmentIds);
@@ -94,14 +92,9 @@ export class TempAttachmentQueue extends AbstractSharedAttachmentQueue {
     if (allTempAttachments.length > cacheLimit) {
       const attachmentsToDelete = allTempAttachments.slice(cacheLimit);
 
-      console.log(
-        `[TEMP QUEUE] Expiring ${attachmentsToDelete.length} temporary attachments`
-      );
-
       // Delete the oldest attachments
       await this.powersync.writeTransaction(async (tx) => {
         for (const record of attachmentsToDelete) {
-          console.log(`[TEMP QUEUE] Deleting attachment: ${record.id}`);
           await this.delete(record, tx);
         }
       });

@@ -1,169 +1,96 @@
 // In a new hook file (useAttachmentStates.ts)
-import { useState, useEffect, useRef } from 'react';
+import type { AttachmentRecord } from '@powersync/attachments';
+import { ATTACHMENT_TABLE, AttachmentState } from '@powersync/attachments';
+import type { QueryResult } from '@powersync/react-native';
+import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
-import { AttachmentState } from '@powersync/attachments';
-import { getLocalUriFromAssetId } from '../utils/attachmentUtils';
 
-export function useAttachmentStates(attachmentIds: string[]) {
-  const [attachmentUris, setAttachmentUris] = useState<Record<string, string>>(
-    {}
-  );
-  const [loadingAttachments, setLoadingAttachments] = useState(
-    attachmentIds.length > 0
-  );
-  const watchControllerRef = useRef<AbortController | null>(null);
-
-  // Track attachment states instead of just IDs
-  const processedAttachmentStates = useRef<Map<string, number>>(new Map());
-
-  // Add a timestamp for when we started this hook
-  const startTimeRef = useRef<number>(Date.now());
+export function useAttachmentStates(attachmentIds: string[] = []) {
+  const [attachmentStates, setAttachmentStates] = useState<
+    Map<string, AttachmentRecord>
+  >(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const previousStatesRef = useRef<Map<string, AttachmentRecord>>(new Map());
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    console.log(
-      '[useAttachmentStates] Hook called with attachmentIds:',
-      attachmentIds
-    );
-
-    // Reset the start time when attachmentIds change
-    startTimeRef.current = Date.now();
-
-    // Clear the processed states when attachmentIds change
-    processedAttachmentStates.current.clear();
-
-    if (!attachmentIds.length) {
-      console.log(
-        '[useAttachmentStates] No attachment IDs provided, setting loading to false'
-      );
-      setLoadingAttachments(false);
-      return;
-    }
-
-    // Create a new abort controller for this watch
+    // Abort any previous query
+    abortControllerRef.current?.abort();
     const abortController = new AbortController();
-    watchControllerRef.current = abortController;
-    console.log('[useAttachmentStates] Created new abort controller');
+    abortControllerRef.current = abortController;
 
-    // Format the IDs for the SQL query
-    const idsString = attachmentIds.map((id) => `'${id}'`).join(',');
-    console.log('[useAttachmentStates] Formatted IDs for query:', idsString);
+    // Build query based on whether we have specific IDs or want all records
+    const query =
+      attachmentIds.length > 0
+        ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')})`
+        : `SELECT * FROM ${ATTACHMENT_TABLE}`;
 
-    console.log(
-      '[useAttachmentStates] Starting PowerSync watch for attachments'
-    );
-
-    // Also make an immediate query to get any existing attachments
-    system.powersync
-      .getAll(`SELECT * FROM attachments WHERE id IN (${idsString})`)
-      .then((attachments) => {
-        processAttachments(attachments);
-      })
-      .catch((error) => {
-        console.error('[useAttachmentStates] Error in initial query:', error);
-      });
-
-    // Function to process attachments
-    const processAttachments = async (attachments: any[]) => {
-      // Use functional state update to ensure we're building on the latest state
-      let newUris: Record<string, string> = {};
-      let hasChanges = false;
-
-      // First get current values to work with
-      setAttachmentUris((currentUris) => {
-        newUris = { ...currentUris }; // Start with ALL current URIs
-
-        for (const attachment of attachments) {
-          const previousState = processedAttachmentStates.current.get(
-            attachment.id
-          );
-
-          console.log(
-            `[useAttachmentStates] Processing attachment: ${attachment.id}, State: ${attachment.state}, Previous state: ${previousState}`
-          );
-
-          if (previousState !== attachment.state) {
-            processedAttachmentStates.current.set(
-              attachment.id,
-              attachment.state
-            );
-
-            if (attachment.state === 3) {
-              // SYNCED state
-              // Process synchronously for the initial update
-              const existingUri = newUris[attachment.id];
-              if (!existingUri) {
-                getLocalUriFromAssetId(attachment.id)
-                  .then((uri) => {
-                    if (uri) {
-                      // Use another functional update to add this URI safely
-                      setAttachmentUris((latestUris) => ({
-                        ...latestUris,
-                        [attachment.id]: uri
-                      }));
-                      console.log(
-                        `[useAttachmentStates] Added URI later: ${attachment.id}, ${uri}`
-                      );
-                    }
-                  })
-                  .catch((error) => {
-                    console.error(
-                      `[useAttachmentStates] Error getting URI: ${error}`
-                    );
-                  });
-              }
-            }
-          } else {
-            console.log(
-              `[useAttachmentStates] Attachment state unchanged, skipping`
-            );
-          }
-        }
-
-        // Don't actually update state in this first pass - return unchanged
-        return currentUris;
-      });
-
-      // After processing all attachments
-      const foundCount = Object.keys(newUris).length;
-      const timeoutReached = Date.now() - startTimeRef.current > 10000;
-      const doneLoading = foundCount === attachmentIds.length || timeoutReached;
-
-      setLoadingAttachments(!doneLoading);
-    };
-
-    // Set up the watch
     system.powersync.watch(
-      `SELECT * FROM attachments WHERE id IN (${idsString})`,
+      query,
       [],
       {
-        onResult: (result) => {
-          const attachments = result.rows?._array || [];
-          processAttachments(attachments);
-        }
+        onResult: (results: QueryResult) => {
+          const newStates = new Map<string, AttachmentRecord>();
+          const currentPreviousStates = previousStatesRef.current;
+
+          // Check if results and rows exist before accessing _array
+          if (results.rows?._array) {
+            results.rows._array.forEach((row) => {
+              const record = row as unknown as AttachmentRecord;
+              newStates.set(record.id, record);
+
+              // Only log significant state changes
+              const previousState = currentPreviousStates.get(record.id)?.state;
+              if (
+                previousState !== undefined &&
+                previousState !== record.state
+              ) {
+                if (record.state === AttachmentState.SYNCED) {
+                  console.log(
+                    `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
+                  );
+                } else if (record.state === AttachmentState.QUEUED_SYNC) {
+                  console.log(
+                    `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
+                  );
+                } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+                  console.log(
+                    `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
+                  );
+                } else {
+                  console.log(
+                    `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
+                  );
+                }
+              }
+            });
+          }
+
+          previousStatesRef.current = newStates;
+
+          // Debounce the state updates to reduce render frequency
+          if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+          }
+
+          debounceTimeoutRef.current = setTimeout(() => {
+            setAttachmentStates(new Map(newStates));
+            setIsLoading(false);
+          }, 100); // 100ms debounce
+        },
+        onError: (err) => console.error('useAttachmentStates watch error', err)
       },
       { signal: abortController.signal }
     );
 
-    // Add a timeout to stop waiting after 10 seconds
-    const timeoutId = setTimeout(() => {
-      if (loadingAttachments) {
-        console.log(
-          '[useAttachmentStates] Loading timeout reached, marking as done'
-        );
-        setLoadingAttachments(false);
-      }
-    }, 10000);
-
-    // Clean up function
     return () => {
-      console.log('[useAttachmentStates] Cleaning up watch');
-      clearTimeout(timeoutId);
-      if (watchControllerRef.current) {
-        watchControllerRef.current.abort();
-        watchControllerRef.current = null;
+      abortController.abort();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [JSON.stringify(attachmentIds)]);
+  }, [JSON.stringify(attachmentIds.sort())]);
 
-  return { attachmentUris, loadingAttachments };
+  return { attachmentStates, isLoading };
 }

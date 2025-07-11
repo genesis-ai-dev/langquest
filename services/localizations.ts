@@ -5,10 +5,10 @@ export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
 export type LocalizationKey = keyof typeof localizations;
 
 // Type to ensure all translations have all supported languages
-type LocalizationSet = Record<SupportedLanguage, string>;
+// type LocalizationSet = Record<SupportedLanguage, string>;
 
 // All UI translations
-export const localizations: Record<string, LocalizationSet> = {
+export const localizations = {
   accept: {
     english: 'Accept',
     spanish: 'Aceptar',
@@ -200,6 +200,11 @@ export const localizations: Record<string, LocalizationSet> = {
     spanish: 'Debe iniciar sesión para votar',
     brazilian_portuguese: 'Você precisa estar logado para votar'
   },
+  menu: {
+    english: 'Menu',
+    spanish: 'Menú',
+    brazilian_portuguese: 'Menu'
+  },
   newTranslation: {
     english: 'New Translation',
     spanish: 'Nueva Traducción',
@@ -229,6 +234,11 @@ export const localizations: Record<string, LocalizationSet> = {
     english: 'OK',
     spanish: 'OK',
     brazilian_portuguese: 'OK'
+  },
+  offline: {
+    english: 'Offline',
+    spanish: 'Sin conexión',
+    brazilian_portuguese: 'Offline'
   },
   password: {
     english: 'Password',
@@ -318,6 +328,11 @@ export const localizations: Record<string, LocalizationSet> = {
     spanish: 'Buscar recursos...',
     brazilian_portuguese: 'Buscar recursos...'
   },
+  noAssetsFound: {
+    english: 'No assets found',
+    spanish: 'No se encontraron recursos',
+    brazilian_portuguese: 'Nenhum recurso encontrado'
+  },
   searchQuests: {
     english: 'Search quests...',
     spanish: 'Buscar misiones...',
@@ -344,11 +359,10 @@ export const localizations: Record<string, LocalizationSet> = {
     brazilian_portuguese: 'Entrar'
   },
   signInError: {
-    english: 'Unable to sign in. Please check your credentials and try again.',
-    spanish:
-      'No se puede iniciar sesión. Por favor verifique sus credenciales e intente nuevamente.',
+    english: 'Something went wrong… Please, check your email and password.',
+    spanish: 'Algo salió mal… Por favor, revisa tu correo y contraseña.',
     brazilian_portuguese:
-      'Não foi possível fazer login. Por favor, verifique suas credenciais e tente novamente.'
+      'Algo deu errado… Por favor, verifique seu e-mail e senha.'
   },
   logOut: {
     english: 'Log Out',
@@ -1368,6 +1382,153 @@ export const localizations: Record<string, LocalizationSet> = {
     english: 'Failed to resend invitation',
     spanish: 'Error al reenviar invitación',
     brazilian_portuguese: 'Falha ao reenviar convite'
+  },
+  // Restore-related translations
+  restoreAndroidOnly: {
+    english: 'Restore is only available on Android',
+    spanish: 'La restauración solo está disponible en Android',
+    brazilian_portuguese: 'A restauração só está disponível no Android'
+  },
+  permissionDenied: {
+    english: 'Permission Denied',
+    spanish: 'Permiso Denegado',
+    brazilian_portuguese: 'Permissão Negada'
+  },
+  confirmAudioRestore: {
+    english: 'Confirm Audio Restore',
+    spanish: 'Confirmar Restauración de Audio',
+    brazilian_portuguese: 'Confirmar Restauração de Áudio'
+  },
+  confirmAudioRestoreMessage: {
+    english: 'This will restore your audio files from the backup. Continue?',
+    spanish:
+      'Esto restaurará sus archivos de audio desde la copia de seguridad. ¿Continuar?',
+    brazilian_portuguese:
+      'Isso restaurará seus arquivos de áudio do backup. Continuar?'
+  },
+  restoreAudioOnly: {
+    english: 'Restore Audio',
+    spanish: 'Restaurar Audio',
+    brazilian_portuguese: 'Restaurar Áudio'
+  },
+  failedRestore: {
+    english: 'Failed to restore: {{error}}',
+    spanish: 'Error al restaurar: {{error}}',
+    brazilian_portuguese: 'Falha ao restaurar: {{error}}'
+  },
+  restoreCompleteBase: {
+    english:
+      'Restore completed: {{audioCopied}} audio files copied, {{audioSkippedDueToError}} skipped due to errors',
+    spanish:
+      'Restauración completada: {{audioCopied}} archivos de audio copiados, {{audioSkippedDueToError}} omitidos por errores',
+    brazilian_portuguese:
+      'Restauração concluída: {{audioCopied}} arquivos de áudio copiados, {{audioSkippedDueToError}} ignorados por erros'
+  },
+  restoreSkippedLocallyPart: {
+    english: ', {{audioSkippedLocally}} skipped (already exists)',
+    spanish: ', {{audioSkippedLocally}} omitidos (ya existen)',
+    brazilian_portuguese: ', {{audioSkippedLocally}} ignorados (já existem)'
+  },
+  restoreCompleteTitle: {
+    english: 'Restore Complete',
+    spanish: 'Restauración Completa',
+    brazilian_portuguese: 'Restauração Concluída'
+  },
+  restoreFailedTitle: {
+    english: 'Restore Failed: {{error}}',
+    spanish: 'Restauración Fallida: {{error}}',
+    brazilian_portuguese: 'Restauração Falhou: {{error}}'
+  },
+  projectInvitationTitle: {
+    english: 'Project Invitation',
+    spanish: 'Invitación al Proyecto',
+    brazilian_portuguese: 'Convite para o Projeto'
+  },
+  joinRequestTitle: {
+    english: 'Join Request',
+    spanish: 'Solicitud de Unión',
+    brazilian_portuguese: 'Solicitação de Adesão'
+  },
+  invitedYouToJoin: {
+    english: '{{sender}} invited you to join "{{project}}" as {{role}}',
+    spanish: '{{sender}} te invitó a unirte a "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} convidou você para participar de "{{project}}" como {{role}}'
+  },
+  requestedToJoin: {
+    english: '{{sender}} requested to join "{{project}}" as {{role}}',
+    spanish: '{{sender}} solicitó unirse a "{{project}}" como {{role}}',
+    brazilian_portuguese:
+      '{{sender}} solicitou participar de "{{project}}" como {{role}}'
+  },
+  downloadProjectLabel: {
+    english: 'Download Project',
+    spanish: 'Descargar Proyecto',
+    brazilian_portuguese: 'Baixar Projeto'
+  },
+  projectNotAvailableOfflineWarning: {
+    english: 'Project will not be available offline without download',
+    spanish: 'El proyecto no estará disponible sin conexión sin descarga',
+    brazilian_portuguese: 'O projeto não estará disponível offline sem download'
+  },
+  noNotificationsTitle: {
+    english: 'No Notifications',
+    spanish: 'Sin Notificaciones',
+    brazilian_portuguese: 'Sem Notificações'
+  },
+  noNotificationsMessage: {
+    english: "You'll see project invitations and join requests here",
+    spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
+    brazilian_portuguese:
+      'Aqui você verá convites para projetos e solicitações de participação'
+  },
+  invitationAcceptedSuccessfully: {
+    english: 'Invitation accepted successfully',
+    spanish: 'Invitación aceptada exitosamente',
+    brazilian_portuguese: 'Convite aceito com sucesso'
+  },
+  invitationDeclinedSuccessfully: {
+    english: 'Invitation declined',
+    spanish: 'Invitación rechazada',
+    brazilian_portuguese: 'Convite recusado'
+  },
+  failedToAcceptInvite: {
+    english: 'Failed to accept invitation',
+    spanish: 'Error al aceptar invitación',
+    brazilian_portuguese: 'Falha ao aceitar convite'
+  },
+  failedToDeclineInvite: {
+    english: 'Failed to decline invitation',
+    spanish: 'Error al rechazar invitación',
+    brazilian_portuguese: 'Falha ao recusar convite'
+  },
+  invitationAcceptedDownloadFailed: {
+    english: 'Invitation accepted but download failed',
+    spanish: 'Invitación aceptada pero la descarga falló',
+    brazilian_portuguese: 'Convite aceito mas o download falhou'
+  },
+  unknownProject: {
+    english: 'Unknown Project',
+    spanish: 'Proyecto Desconocido',
+    brazilian_portuguese: 'Projeto Desconhecido'
+  },
+  ownerRole: {
+    english: 'owner',
+    spanish: 'propietario',
+    brazilian_portuguese: 'proprietário'
+  },
+  memberRole: {
+    english: 'member',
+    spanish: 'miembro',
+    brazilian_portuguese: 'membro'
+  },
+  offlineNotificationMessage: {
+    english:
+      'You are offline. Any changes you make will sync when you are back online.',
+    spanish:
+      'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
+    brazilian_portuguese:
+      'Você está offline. Quaisquer alterações que você fizer serão sincronizadas quando você voltar a ficar online.'
   }
 } as const;
 

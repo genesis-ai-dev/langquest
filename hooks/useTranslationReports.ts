@@ -1,8 +1,12 @@
-import { useReports } from './useReports';
+import { useHasUserReported } from './useReports';
 
 export const useTranslationReports = (
   translationId: string,
   reporterId?: string
 ) => {
-  return useReports(translationId, 'translation', reporterId);
+  if (!reporterId) {
+    return { hasReported: false, isLoading: false };
+  }
+
+  return useHasUserReported(translationId, 'translations', reporterId);
 };

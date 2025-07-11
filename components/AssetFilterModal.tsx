@@ -1,7 +1,6 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
-import { tagService } from '@/database_services/tagService';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -11,9 +10,9 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -24,7 +23,7 @@ import {
 interface AssetFilterModalProps {
   visible: boolean;
   onClose: () => void;
-  assets: Asset[];
+  assets: (Asset & { tags: { tag: Tag }[] })[];
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -35,6 +34,22 @@ interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
+
+interface FilterListItem {
+  type: 'filter_section';
+  section: {
+    id: string;
+    heading: string;
+    options: { id: string; label: string }[];
+  };
+}
+
+interface SortingListItem {
+  type: 'sorting_row';
+  index: number;
+}
+
+type ListItem = FilterListItem | SortingListItem;
 
 export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
   onClose,
@@ -50,36 +65,20 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
     useState<Record<string, string[]>>(initialFilters);
   const [sortingOptions, setSortingOptions] =
     useState<SortingOption[]>(initialSorting);
-  const [assetTags, setAssetTags] = useState<Record<string, Tag[]>>({});
 
-  useEffect(() => {
-    const loadAllTags = async () => {
-      const tagsMap: Record<string, Tag[]> = {};
-      await Promise.all(
-        assets.map(async (asset) => {
-          const tags = (await tagService.getTagsByAssetId(asset.id)).filter(
-            Boolean
-          );
-          tagsMap[asset.id] = tags;
-        })
-      );
-      setAssetTags(tagsMap);
-    };
-    void loadAllTags();
-  }, [assets]);
   const { t } = useLocalization();
+
+  const tags = assets.flatMap((asset) => asset.tags.map((tag) => tag.tag));
 
   const filterData = useMemo(() => {
     const sections: Record<string, Set<string>> = {};
 
-    Object.values(assetTags)
-      .flat()
-      .forEach((tag) => {
-        const [heading, option] = tag.name.split(':');
-        if (!heading) return;
-        sections[heading] ??= new Set();
-        if (option) sections[heading]!.add(option);
-      });
+    tags.forEach((tag) => {
+      const [heading, option] = tag.name.split(':');
+      if (!heading) return;
+      sections[heading] ??= new Set();
+      if (option) sections[heading]!.add(option);
+    });
 
     return Object.entries(sections).map(([heading, options]) => {
       // Convert options to array and sort them properly
@@ -106,18 +105,16 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
         }))
       };
     });
-  }, [assetTags]);
+  }, [assets]);
 
   const sortingFields = useMemo(() => {
     const fields = new Set(['name']);
-    Object.values(assetTags)
-      .flat()
-      .forEach((tag) => {
-        const category = tag.name.split(':')[0];
-        if (category) fields.add(category);
-      });
+    tags.forEach((tag) => {
+      const category = tag.name.split(':')[0];
+      if (category) fields.add(category);
+    });
     return Array.from(fields);
-  }, [assetTags]);
+  }, [tags]);
 
   useEffect(() => {
     setSelectedOptions(initialFilters);
@@ -176,6 +173,111 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
     onClose();
   };
 
+  const listData = useMemo((): ListItem[] => {
+    if (activeTab === 'filter') {
+      return filterData.map((section) => ({
+        type: 'filter_section',
+        section
+      }));
+    } else {
+      return [0, 1, 2].map((index) => ({
+        type: 'sorting_row',
+        index
+      }));
+    }
+  }, [activeTab, filterData]);
+
+  const renderListItem = ({ item }: { item: ListItem }) => {
+    if (item.type === 'filter_section') {
+      const { section } = item;
+      return (
+        <View>
+          <TouchableOpacity
+            style={styles.heading}
+            onPress={() => toggleSection(section.id)}
+          >
+            <Text style={styles.headingText}>{section.heading}</Text>
+            <Ionicons
+              name={
+                expandedSections.includes(section.id)
+                  ? 'chevron-up'
+                  : 'chevron-down'
+              }
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+
+          {expandedSections.includes(section.id) &&
+            section.options.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={styles.option}
+                onPress={() => toggleOption(section.id, option.id)}
+              >
+                <Text style={styles.optionText}>{option.label}</Text>
+                <View style={sharedStyles.checkboxContainer}>
+                  {selectedOptions[section.id]?.includes(option.id) ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  ) : (
+                    <View style={styles.emptyCheckbox} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+      );
+    } else {
+      const { index } = item;
+      return (
+        <View style={styles.sortingRow}>
+          <CustomDropdown
+            label={`Sort ${index + 1}`}
+            value={sortingOptions[index]?.field ?? ''}
+            options={sortingFields}
+            onSelect={(field) =>
+              handleSortingChange(index, field, sortingOptions[index]?.order)
+            }
+            fullWidth={false}
+            search={false}
+          />
+          <TouchableOpacity
+            style={styles.orderToggle}
+            onPress={() =>
+              handleSortingChange(
+                index,
+                sortingOptions[index]?.field ?? null,
+                sortingOptions[index]?.order === 'asc' ? 'desc' : 'asc'
+              )
+            }
+          >
+            <Ionicons
+              name={
+                sortingOptions[index]?.order === 'asc'
+                  ? 'arrow-up'
+                  : 'arrow-down'
+              }
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+          {sortingOptions[index]?.field && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => handleSortingChange(index, null)}
+            >
+              <Ionicons name="trash-outline" size={24} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={onClose}>
       <View style={sharedStyles.modalOverlay}>
@@ -224,109 +326,18 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                 </View>
               </TouchableOpacity>
             </View>
-            <ScrollView style={sharedStyles.modalContent}>
-              {activeTab === 'filter'
-                ? filterData.map((section) => (
-                    <View key={section.id}>
-                      <TouchableOpacity
-                        style={styles.heading}
-                        onPress={() => toggleSection(section.id)}
-                      >
-                        <Text style={styles.headingText}>
-                          {section.heading}
-                        </Text>
-                        <Ionicons
-                          name={
-                            expandedSections.includes(section.id)
-                              ? 'chevron-up'
-                              : 'chevron-down'
-                          }
-                          size={24}
-                          color={colors.text}
-                        />
-                      </TouchableOpacity>
-
-                      {expandedSections.includes(section.id) &&
-                        section.options.map((option) => (
-                          <TouchableOpacity
-                            key={option.id}
-                            style={styles.option}
-                            onPress={() => toggleOption(section.id, option.id)}
-                          >
-                            <Text style={styles.optionText}>
-                              {option.label}
-                            </Text>
-                            <View style={sharedStyles.checkboxContainer}>
-                              {selectedOptions[section.id]?.includes(
-                                option.id
-                              ) ? (
-                                <Ionicons
-                                  name="checkmark-circle"
-                                  size={24}
-                                  color={colors.primary}
-                                />
-                              ) : (
-                                <View style={styles.emptyCheckbox} />
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                    </View>
-                  ))
-                : // Sorting content
-                  [0, 1, 2].map((index) => (
-                    <View key={index} style={styles.sortingRow}>
-                      <CustomDropdown
-                        label={`Sort ${index + 1}`}
-                        value={sortingOptions[index]?.field ?? ''}
-                        options={sortingFields}
-                        onSelect={(field) =>
-                          handleSortingChange(
-                            index,
-                            field,
-                            sortingOptions[index]?.order
-                          )
-                        }
-                        fullWidth={false}
-                        search={false}
-                      />
-                      <TouchableOpacity
-                        style={styles.orderToggle}
-                        onPress={() =>
-                          handleSortingChange(
-                            index,
-                            sortingOptions[index]?.field ?? null,
-                            sortingOptions[index]?.order === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          )
-                        }
-                      >
-                        <Ionicons
-                          name={
-                            sortingOptions[index]?.order === 'asc'
-                              ? 'arrow-up'
-                              : 'arrow-down'
-                          }
-                          size={24}
-                          color={colors.text}
-                        />
-                      </TouchableOpacity>
-                      {sortingOptions[index]?.field && (
-                        <TouchableOpacity
-                          style={styles.removeButton}
-                          onPress={() => handleSortingChange(index, null)}
-                        >
-                          <Ionicons
-                            name="trash-outline"
-                            size={24}
-                            color={colors.error}
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
-            </ScrollView>
+            <FlashList
+              data={listData}
+              renderItem={renderListItem}
+              keyExtractor={(item, _index) =>
+                item.type === 'filter_section'
+                  ? item.section.id
+                  : `sorting_${item.index}`
+              }
+              // style={sharedStyles.modalContent}
+              showsVerticalScrollIndicator={false}
+              estimatedItemSize={200}
+            />
             <TouchableOpacity
               style={sharedStyles.modalButton}
               onPress={handleApply}

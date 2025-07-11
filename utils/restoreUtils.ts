@@ -6,7 +6,7 @@ import { translation } from '@/db/drizzleSchema'; // Removed unused project, que
 import type { System } from '@/db/powersync/system'; // actual System instance type
 import type { ProgressCallback } from '@/utils/backupUtils';
 import { requestBackupDirectory } from '@/utils/backupUtils';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
 import type { LocalizationKey } from '@/services/localizations';
@@ -261,8 +261,10 @@ async function restoreFromBackup(
         const existingTranslation = await system.db.query.translation.findFirst(
           {
             where: (tr) =>
-              eq(tr.asset_id, assetIdFromFile) &&
-              eq(tr.audio, originalAudioFullId)
+              and(
+                eq(tr.asset_id, assetIdFromFile),
+                eq(tr.audio, originalAudioFullId)
+              )
           }
         );
 

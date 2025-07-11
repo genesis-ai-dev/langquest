@@ -1,79 +1,103 @@
-import type { BlockedUserInsert } from '@/database_services/blockService';
 import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
-import type { blocked_content, reports } from '@/db/drizzleSchema';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { reasonOptions } from '@/db/constants';
+import { reports } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { and, eq } from 'drizzle-orm';
 
-export const useReports = (
+/**
+ * Hook for checking if a user has reported a specific record
+ */
+export const useHasUserReported = (
   recordId: string,
   recordTable: string,
-  reporterId?: string
+  reporterId: string
+) => {
+  const { data: reportArray, isLoading } = useHybridQuery({
+    queryKey: ['reports', 'hasReported', recordId, recordTable, reporterId],
+    onlineFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('reports')
+        .select('*')
+        .eq('record_id', recordId)
+        .eq('record_table', recordTable)
+        .eq('reporter_id', reporterId);
+      if (error) throw error;
+      return data as Record<string, unknown>[];
+    },
+    offlineQuery: toCompilableQuery(
+      system.db.query.reports.findMany({
+        where: and(
+          eq(reports.record_id, recordId),
+          eq(reports.record_table, recordTable),
+          eq(reports.reporter_id, reporterId)
+        )
+      })
+    ),
+    enabled: !!recordId && !!recordTable && !!reporterId
+  });
+
+  const hasReported = (reportArray?.length ?? 0) > 0;
+  return { hasReported, isLoading };
+};
+
+/**
+ * Main useReports hook used by ReportModal and other components
+ */
+export const useReports = (
+  _recordId: string,
+  _recordTable: string,
+  _reporterId?: string
 ) => {
   const queryClient = useQueryClient();
 
-  const { data: hasReported } = useQuery({
-    queryKey: ['reports', recordId, recordTable, reporterId],
-    queryFn: async () => {
-      console.log('recordId', recordId);
-      console.log('recordTable', recordTable);
-      console.log('reporterId', reporterId);
-      return reportService.hasUserReported(recordId, recordTable, reporterId!);
-    },
-    enabled: !!reporterId
-  });
-
   const createReportMutation = useMutation({
-    mutationFn: async (data: typeof reports.$inferInsert) => {
-      return reportService.createReport(data);
+    mutationFn: async (data: {
+      record_id: string;
+      record_table: string;
+      reporter_id: string;
+      reason: (typeof reasonOptions)[number];
+      details?: string;
+    }) => {
+      return await reportService.createReport(data);
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [
-          'reports',
-          data.record_id,
-          data.record_table,
-          data.reporter_id
-        ]
+        queryKey: ['reports']
       });
     }
   });
 
   const blockUserMutation = useMutation({
-    mutationFn: async (data: BlockedUserInsert) => {
-      try {
-        const result = await blockService.blockUser(data);
-        return result;
-      } catch (error) {
-        console.error('Error blocking user:', error);
-        throw error;
-      }
+    mutationFn: async (data: { blocker_id: string; blocked_id: string }) => {
+      return await blockService.blockUser(data);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['blocked_users', reporterId]
+        queryKey: ['blockedUsers']
       });
     }
   });
 
   const blockContentMutation = useMutation({
-    mutationFn: async (data: typeof blocked_content.$inferInsert) => {
-      try {
-        const result = await blockService.blockContent(data);
-        return result;
-      } catch (error) {
-        console.error('Error blocking content:', error);
-        throw error;
-      }
+    mutationFn: async (data: {
+      profile_id: string;
+      content_id: string;
+      content_table: string;
+    }) => {
+      return await blockService.blockContent(data);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['blocked_content', reporterId]
+        queryKey: ['blockedContent']
       });
     }
   });
 
   return {
-    hasReported,
     createReport: createReportMutation.mutateAsync,
     isCreatingReport: createReportMutation.isPending,
     blockUser: blockUserMutation.mutateAsync,

@@ -1,9 +1,10 @@
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { useSystem } from '@/contexts/SystemContext';
 import { translationService } from '@/database_services/translationService';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
+import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,9 +54,9 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
 
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { activeProject } = useProjectContext();
+  const { currentProjectId } = useCurrentNavigation();
+  const { project: activeProject } = useProjectById(currentProjectId || '');
   const { stopCurrentSound } = useAudio();
-  const system = useSystem();
   const [translationText, setTranslationText] = useState('');
   const [audioUri, setAudioUri] = useState<string | null>(null);
 
