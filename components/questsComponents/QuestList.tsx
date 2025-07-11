@@ -182,7 +182,7 @@ export const QuestList = React.memo(
               marginBottom: spacing.medium
             }}
           >
-            Error loading quests: {error.message}
+            Error loading quests: {error?.message}
           </Text>
           <TouchableOpacity
             onPress={() => void refetch()}
@@ -196,15 +196,6 @@ export const QuestList = React.memo(
 
     return (
       <>
-        <ScrollView style={{ flex: 1 }}>
-          <Text style={{ color: 'red' }}>
-            {JSON.stringify(
-              { selectedProject, projectId, filteredQuests },
-              null,
-              2
-            )}
-          </Text>
-        </ScrollView>
         <FlashList
           data={filteredQuests}
           renderItem={({ item }) => (

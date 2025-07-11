@@ -462,11 +462,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   }
 
   // Override trigger to use our progress-tracking methods
-  trigger() {
-    void this.uploadRecordsWithProgress();
-    void this.downloadRecordsWithProgress();
-    void this.expireCache();
-  }
+  // trigger() {
+  //   void this.uploadRecordsWithProgress();
+  //   void this.downloadRecordsWithProgress();
+  //   void this.expireCache();
+  // }
 
   // Override watchDownloads to use our progress-tracking method
   watchDownloads() {

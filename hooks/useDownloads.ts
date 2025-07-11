@@ -263,7 +263,7 @@ export function useDownload(
     if (!recordId) return;
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Starting download for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Starting download for ${recordTable}:${recordId}`
     );
 
     const isCurrentlyDownloaded = await getDownloadStatus(
@@ -272,23 +272,23 @@ export function useDownload(
     );
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+      `🎯 [DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
     );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
       console.log(
-        `🎯 [QUEST DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
+        `🎯 [DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
       );
       return;
     }
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
     );
     await mutation.mutateAsync(false); // always download
     console.log(
-      `🎯 [QUEST DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
     );
   };
 
