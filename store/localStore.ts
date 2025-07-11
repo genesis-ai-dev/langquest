@@ -23,6 +23,13 @@ export interface NavigationStackItem {
   assetId?: string;
   assetName?: string;
   timestamp: number;
+  // Asset navigation context
+  assetListContext?: {
+    assetIds: string[];
+    currentIndex: number;
+    searchQuery?: string;
+    activeFilters?: Record<string, string[]>;
+  };
 }
 
 export type Language = typeof language.$inferSelect;

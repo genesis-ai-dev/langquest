@@ -262,14 +262,31 @@ export default function AssetsView() {
 
   const handleAssetPress = useCallback(
     (asset: Asset) => {
+      // Find the index of the current asset in the filtered list
+      const currentIndex = filteredAssets.findIndex((a) => a.id === asset.id);
+      const assetIds = filteredAssets.map((a) => a.id);
+
       goToAsset({
         id: asset.id,
         name: asset.name,
         projectId: currentProjectId,
-        questId: currentQuestId
+        questId: currentQuestId,
+        assetListContext: {
+          assetIds,
+          currentIndex,
+          searchQuery,
+          activeFilters
+        }
       });
     },
-    [goToAsset, currentProjectId, currentQuestId]
+    [
+      goToAsset,
+      currentProjectId,
+      currentQuestId,
+      filteredAssets,
+      searchQuery,
+      activeFilters
+    ]
   );
 
   // Stable renderItem function to prevent re-renders
