@@ -361,10 +361,10 @@ export function useQuestDownloadStatus(questId: string) {
   // Calculate progress percentage
   const progressPercentage = closureData
     ? Math.round(
-      (closureData.approved_translations /
-        Math.max(closureData.total_assets, 1)) *
-      100
-    )
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {
@@ -430,23 +430,23 @@ export function useProjectDownloadStatus(projectId: string) {
 
   const closureData = projectClosure?.[0] as
     | {
-      project_id: string;
-      total_quests: number;
-      total_assets: number;
-      total_translations: number;
-      approved_translations: number;
-      last_updated: string;
-    }
+        project_id: string;
+        total_quests: number;
+        total_assets: number;
+        total_translations: number;
+        approved_translations: number;
+        last_updated: string;
+      }
     | undefined;
   const isDownloaded = !!projectDownloadStatus?.[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
     ? Math.round(
-      (closureData.approved_translations /
-        Math.max(closureData.total_assets, 1)) *
-      100
-    )
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {

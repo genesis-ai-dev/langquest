@@ -1,3 +1,4 @@
+import { system } from '@/db/powersync/system';
 import type { CompilableQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -43,8 +44,8 @@ type HybridQueryConfig<T> = (
 /**
  * useHybridQuery
  *
- * A hook that automatically chooses between an online query function and an offline Drizzle query,
- * depending on network connectivity. Compatible with PowerSync/Drizzle/React Query stack.
+ * A hook that always queries local data first, then cloud data when available,
+ * and merges them with local data taking priority. Compatible with PowerSync/Drizzle/React Query stack.
  *
  * @example
  * const { data, isLoading, error } = useHybridQuery({
@@ -74,111 +75,135 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     ...restOptions
   } = options;
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
 
-  // FIXED: Stabilize query keys with useMemo to prevent infinite loops
-  const stableQueryKeys = React.useMemo(() => {
-    // Filter out undefined/null values from the query key
-    const cleanQueryKey = queryKey.filter(
-      (key) => key !== undefined && key !== null
-    );
-
-    // Use dual cache system for better offline/online separation
-    const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
-    const oppositeQueryKey = [
-      ...cleanQueryKey,
-      isOnline ? 'offline' : 'online'
-    ];
-
-    return { hybridQueryKey, oppositeQueryKey };
-  }, [queryKey, isOnline]);
-
-  const cachedOppositeData = queryClient.getQueryData<T[]>(
-    stableQueryKeys.oppositeQueryKey
-  );
-  const oppositeCachedQueryState = queryClient.getQueryState<T[]>(
-    stableQueryKeys.oppositeQueryKey
+  // Filter out undefined/null values from the query key
+  const cleanQueryKey = queryKey.filter(
+    (key) => key !== undefined && key !== null
   );
 
-  // Memoize the merged data to prevent infinite re-renders
-  const stableMergedData = React.useMemo(() => {
-    if (!cachedOppositeData) return undefined;
+  // Always query local data
+  const localQueryKey = [...cleanQueryKey, 'local'];
+  const cloudQueryKey = [...cleanQueryKey, 'cloud'];
 
-    // Return the same reference if no changes
-    return cachedOppositeData;
-  }, [cachedOppositeData]);
-
-  // Create a stable select function that only changes when user's select function changes
-  const stableSelect = React.useCallback(
-    (data: T[]) => {
-      if (!cachedOppositeData && !data.length) {
-        return select ? select([]) : [];
-      }
-
-      // Only merge if we have both datasets
-      if (cachedOppositeData && data.length > 0) {
-        const combinedMap = new Map<string | number, T>();
-
-        // Add cached data first
-        cachedOppositeData.forEach((item) => {
-          combinedMap.set(getId(item), item);
-        });
-
-        // Override with fresh data
-        data.forEach((item) => {
-          combinedMap.set(getId(item), item);
-        });
-
-        const mergedArray = Array.from(combinedMap.values());
-        return select ? select(mergedArray) : mergedArray;
-      }
-
-      // If no cached data, just use current data
-      return select ? select(data) : data;
-    },
-    [cachedOppositeData, select, getId]
-  );
-
-  const sharedQueryOptions = {
-    queryKey: stableQueryKeys.hybridQueryKey,
-    initialData: stableMergedData,
-    initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
-    select: stableSelect,
-    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    refetchOnWindowFocus: false, // Prevent excessive refetching
-    refetchOnMount: false, // Don't refetch if we have data
-    ...restOptions
-  };
-
-  const useOfflineQuery = () => {
+  // Determine local query function
+  const getLocalQueryFn = () => {
     if ('offlineFn' in options && options.offlineFn) {
-      return useQuery({
-        queryFn: options.offlineFn,
-        ...sharedQueryOptions
-      });
+      return options.offlineFn;
     } else if ('offlineQuery' in options && options.offlineQuery) {
-      return useQuery({
-        query: options.offlineQuery,
-        ...sharedQueryOptions
-      });
+      return async () => {
+        const offlineQuery = options.offlineQuery;
+        if (typeof offlineQuery === 'string') {
+          // For string queries, execute directly with system.powersync
+          const result = await system.powersync.execute(offlineQuery);
+          const rows: T[] = [];
+          if (result.rows) {
+            for (let i = 0; i < result.rows.length; i++) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const item = result.rows.item(i);
+              if (item) {
+                rows.push(item as T);
+              }
+            }
+          }
+          return rows;
+        }
+        return await offlineQuery.execute();
+      };
     } else {
       throw new Error('Either offlineFn or offlineQuery must be provided');
     }
   };
 
-  if (isOnline) {
-    return useQuery({
-      ...sharedQueryOptions,
-      queryFn: onlineFn,
-      refetchOnReconnect: true,
-      refetchOnWindowFocus: false, // FIXED: Prevent excessive refetching on focus
-      refetchOnMount: false, // FIXED: Prevent refetch on every mount
-      networkMode: 'always'
-    });
-  }
+  // Query local data (always enabled)
+  const localQuery = useQuery({
+    queryKey: localQueryKey,
+    queryFn: getLocalQueryFn(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    ...restOptions
+  });
 
-  return useOfflineQuery();
+  // Query cloud data (only when online)
+  const cloudQuery = useQuery({
+    queryKey: cloudQueryKey,
+    queryFn: onlineFn,
+    enabled: isOnline,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    networkMode: 'always',
+    ...restOptions
+  });
+
+  // Merge data with local priority
+  const mergedData = React.useMemo(() => {
+    // Ensure we have arrays to work with, handling undefined/null cases
+    const localData = Array.isArray(localQuery.data) ? localQuery.data : [];
+    const cloudData = Array.isArray(cloudQuery.data) ? cloudQuery.data : [];
+
+    // If no data available yet, return empty array
+    if (localData.length === 0 && cloudData.length === 0) {
+      return [];
+    }
+
+    // Create a map of local data by ID for quick lookup
+    const localDataMap = new Map(localData.map((item) => [getId(item), item]));
+
+    // Filter out cloud data that already exists in local data
+    const uniqueCloudData = cloudData.filter(
+      (item) => !localDataMap.has(getId(item))
+    );
+
+    // Return local data first, then unique cloud data
+    return [...localData, ...uniqueCloudData];
+  }, [localQuery.data, cloudQuery.data, getId]);
+
+  // Apply user's select function if provided
+  const finalData = React.useMemo(() => {
+    return select ? select(mergedData) : mergedData;
+  }, [mergedData, select]);
+
+  return {
+    data: finalData,
+    isLoading: localQuery.isLoading || (isOnline && cloudQuery.isLoading),
+    error: localQuery.error || cloudQuery.error,
+    isError: localQuery.isError || cloudQuery.isError,
+    isFetching: localQuery.isFetching || cloudQuery.isFetching,
+    isSuccess: localQuery.isSuccess,
+    refetch: () => {
+      void localQuery.refetch();
+      if (isOnline) void cloudQuery.refetch();
+    },
+    // Include other query result properties
+    dataUpdatedAt: Math.max(
+      localQuery.dataUpdatedAt,
+      cloudQuery.dataUpdatedAt || 0
+    ),
+    errorUpdatedAt: Math.max(
+      localQuery.errorUpdatedAt,
+      cloudQuery.errorUpdatedAt || 0
+    ),
+    failureCount: localQuery.failureCount + cloudQuery.failureCount,
+    failureReason: localQuery.failureReason || cloudQuery.failureReason,
+    fetchStatus: localQuery.fetchStatus,
+    isInitialLoading:
+      localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
+    isLoadingError: localQuery.isLoadingError || cloudQuery.isLoadingError,
+    isPaused: localQuery.isPaused || cloudQuery.isPaused,
+    isPlaceholderData:
+      localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
+    isRefetchError: localQuery.isRefetchError || cloudQuery.isRefetchError,
+    isRefetching: localQuery.isRefetching || cloudQuery.isRefetching,
+    isStale: localQuery.isStale || cloudQuery.isStale,
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
+  };
 }
 
 /**
@@ -202,9 +227,8 @@ type HybridRealtimeQueryOptions<T extends Record<string, unknown>> =
 /**
  * useHybridRealtimeQuery
  *
- * Like useHybridQuery, but also sets up a realtime subscription (e.g. Supabase) when online.
- * The hook automatically handles cache updates via setQueryData based on realtime events.
- * Note: This hook only supports the offlineQuery variant, not offlineFn.
+ * Always queries local data first, then cloud data when available, merges with local priority,
+ * and sets up realtime subscriptions to keep cloud data updated.
  *
  * @example
  * const { data, isLoading, error } = useHybridRealtimeQuery({
@@ -240,7 +264,7 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
   // Extract the specific properties to avoid duplicates
   const { offlineFn, offlineQuery, onlineFn, ...otherOptions } = restOptions;
 
-  // Type-narrow the options to call the correct overload
+  // Use the base hybrid query with offline-first pattern
   const result = offlineFn
     ? useHybridQuery<T>({
         queryKey,
@@ -264,12 +288,12 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
       realtimeChannelRef.current = null;
     }
 
-    // Subscribe with automatic cache management
+    // Subscribe with automatic cache management for cloud data
     const subscription = subscribeRealtime((payload) => {
       const { eventType, new: newRow, old: oldRow } = payload;
-      const cacheKey = [...queryKey, true];
+      const cloudCacheKey = [...queryKey, 'cloud'];
 
-      queryClient.setQueryData<T[]>(cacheKey, (prev = []) => {
+      queryClient.setQueryData<T[]>(cloudCacheKey, (prev = []) => {
         switch (eventType) {
           case 'INSERT': {
             const recordId = getId(newRow);
@@ -342,8 +366,8 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
 /**
  * hybridFetch
  *
- * A standalone function that automatically chooses between an online fetch function and an offline query,
- * depending on network connectivity. Can be used outside of React components.
+ * A standalone function that always fetches local data first, then cloud data when available,
+ * and merges with local priority. Can be used outside of React components.
  *
  * @example
  * const projects = await hybridFetch({
@@ -362,31 +386,78 @@ type HybridFetchConfig<T extends Record<string, unknown>> = (
  * });
  */
 export async function hybridFetch<T extends Record<string, unknown>>(
-  config: HybridFetchConfig<T>
+  config: HybridFetchConfig<T> & {
+    getId?: (record: T | Partial<T>) => string | number;
+  }
 ) {
-  const { onlineFn, ...restConfig } = config;
+  const {
+    onlineFn,
+    getId = (record: T | Partial<T>) =>
+      (record as unknown as { id: string | number }).id,
+    ...restConfig
+  } = config;
 
-  const runOfflineQuery = async () => {
+  const runLocalQuery = async () => {
     if ('offlineFn' in restConfig && restConfig.offlineFn) {
       return await restConfig.offlineFn();
     } else if ('offlineQuery' in restConfig) {
-      // For standalone usage, offlineQuery should be a CompilableQuery, not string
-      if (typeof restConfig.offlineQuery === 'string') {
-        throw new Error(
-          'String queries not supported in standalone hybridFetch. Use offlineFn instead.'
-        );
+      const offlineQuery = restConfig.offlineQuery;
+      if (typeof offlineQuery === 'string') {
+        // For string queries, execute directly with system.powersync
+        const result = await system.powersync.execute(offlineQuery);
+        const rows: T[] = [];
+        if (result.rows) {
+          for (let i = 0; i < result.rows.length; i++) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const item = result.rows.item(i);
+            if (item) {
+              rows.push(item as T);
+            }
+          }
+        }
+        return rows;
       } else {
-        return await restConfig.offlineQuery.execute();
+        return await offlineQuery.execute();
       }
     } else {
       throw new Error('Either offlineFn or offlineQuery must be provided');
     }
   };
 
-  const isOnline = getNetworkStatus();
-  if (isOnline) return await onlineFn();
+  // Always fetch local data first
+  const localData = await runLocalQuery();
 
-  return runOfflineQuery();
+  // Try to fetch cloud data if online
+  const isOnline = getNetworkStatus();
+  let cloudData: T[] = [];
+
+  if (isOnline) {
+    try {
+      cloudData = await onlineFn();
+    } catch (error) {
+      console.warn(
+        'hybridFetch: Cloud query failed, using local data only',
+        error
+      );
+    }
+  }
+
+  // Merge with local priority
+  const localDataArray = Array.isArray(localData) ? localData : [];
+  const cloudDataArray = Array.isArray(cloudData) ? cloudData : [];
+
+  // Create a map of local data by ID for quick lookup
+  const localDataMap = new Map(
+    localDataArray.map((item) => [getId(item), item])
+  );
+
+  // Filter out cloud data that already exists in local data
+  const uniqueCloudData = cloudDataArray.filter(
+    (item) => !localDataMap.has(getId(item))
+  );
+
+  // Return local data first, then unique cloud data
+  return [...localDataArray, ...uniqueCloudData];
 }
 
 export function createHybridQueryConfig<T extends Record<string, unknown>>(
@@ -500,7 +571,6 @@ export function useHybridInfiniteQuery<
   T extends Record<string, unknown>,
   TPageParam = unknown
 >(options: HybridInfiniteQueryOptions<T, TPageParam>) {
-  const timestamp = performance.now();
   const {
     queryKey,
     onlineFn,

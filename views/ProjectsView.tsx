@@ -3,8 +3,6 @@
  * Now works with state-driven navigation instead of routes
  */
 
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectSkeleton } from '@/components/ProjectSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -101,7 +99,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 <Ionicons name="person" size={16} color={colors.primary} />
               )}
             </View>
-            <PrivateAccessGate
+            {/* <PrivateAccessGate
               projectId={project.id}
               projectName={project.name}
               isPrivate={project.private}
@@ -125,7 +123,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                   }}
                 />
               )}
-            />
+            /> */}
           </View>
           <Text style={sharedStyles.cardLanguageText}>
             {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
