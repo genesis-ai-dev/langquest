@@ -2,9 +2,11 @@ import type { BibleBook, BibleReference } from '@/constants/bibleStructure';
 import { BIBLE_BOOKS, formatBibleReference } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessionLanguages } from '@/contexts/SessionCacheContext';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import React, { useCallback, useState } from 'react';
 import {
@@ -18,6 +20,60 @@ import {
   View
 } from 'react-native';
 
+// Local storage key for tracking unpublished projects
+const UNPUBLISHED_PROJECTS_KEY = 'unpublished_projects';
+
+// Helper functions for managing unpublished projects
+const getUnpublishedProjects = async (): Promise<Set<string>> => {
+  try {
+    const stored = await AsyncStorage.getItem(UNPUBLISHED_PROJECTS_KEY);
+    return new Set(stored ? (JSON.parse(stored) as string[]) : []);
+  } catch (error) {
+    console.error('Error getting unpublished projects:', error);
+    return new Set();
+  }
+};
+
+const addUnpublishedProject = async (projectId: string): Promise<void> => {
+  try {
+    const unpublished = await getUnpublishedProjects();
+    unpublished.add(projectId);
+    await AsyncStorage.setItem(
+      UNPUBLISHED_PROJECTS_KEY,
+      JSON.stringify([...unpublished])
+    );
+  } catch (error) {
+    console.error('Error adding unpublished project:', error);
+  }
+};
+
+export const removeUnpublishedProject = async (
+  projectId: string
+): Promise<void> => {
+  try {
+    const unpublished = await getUnpublishedProjects();
+    unpublished.delete(projectId);
+    await AsyncStorage.setItem(
+      UNPUBLISHED_PROJECTS_KEY,
+      JSON.stringify([...unpublished])
+    );
+  } catch (error) {
+    console.error('Error removing unpublished project:', error);
+  }
+};
+
+export const isProjectUnpublished = async (
+  projectId: string
+): Promise<boolean> => {
+  try {
+    const unpublished = await getUnpublishedProjects();
+    return unpublished.has(projectId);
+  } catch (error) {
+    console.error('Error checking if project is unpublished:', error);
+    return false;
+  }
+};
+
 interface NewBibleProjectModalProps {
   isVisible: boolean;
   onClose: () => void;
@@ -27,6 +83,7 @@ interface NewBibleProjectModalProps {
     sourceLanguageId: string;
     targetLanguageId: string;
     initialReference: BibleReference;
+    isPublished: boolean;
   }) => void;
 }
 
@@ -125,16 +182,79 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
   // Handle project creation
   const handleCreateProject = useCallback(async () => {
     if (!isFormValid() || !currentUser || !selectedBook) {
-      Alert.alert(t('error'), t('pleaseCompleteAllFields'));
+      Alert.alert(t('error'), 'Please complete all fields');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Create the project object
+      const projectId = randomUUID();
+      const timestamp = new Date().toISOString();
+
+      // Create the project in the local database
+      await system.powersync.execute(
+        `INSERT INTO project (
+          id, 
+          name, 
+          description, 
+          source_language_id, 
+          target_language_id, 
+          creator_id,
+          private,
+          created_at,
+          last_updated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          projectId,
+          projectName.trim(),
+          `Bible translation project starting at ${formatBibleReference({
+            book: selectedBook.id,
+            chapter: selectedChapter,
+            verse: selectedVerse
+          })}`,
+          sourceLanguageId,
+          targetLanguageId,
+          currentUser.id,
+          1, // private by default
+          timestamp,
+          timestamp
+        ]
+      );
+
+      // Create initial quest for the starting reference
+      const questId = randomUUID();
+      await system.powersync.execute(
+        `INSERT INTO quest (
+          id,
+          project_id,
+          name,
+          description,
+          creator_id,
+          created_at,
+          last_updated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          questId,
+          projectId,
+          `${selectedBook.name} ${selectedChapter}:${selectedVerse}`,
+          `Recording quest for ${formatBibleReference({
+            book: selectedBook.id,
+            chapter: selectedChapter,
+            verse: selectedVerse
+          })}`,
+          currentUser.id,
+          timestamp,
+          timestamp
+        ]
+      );
+
+      // Mark project as unpublished in local storage
+      await addUnpublishedProject(projectId);
+
+      // Create the project object for the callback
       const newProject = {
-        id: randomUUID(),
+        id: projectId,
         name: projectName.trim(),
         sourceLanguageId,
         targetLanguageId,
@@ -142,10 +262,11 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
           book: selectedBook.id,
           chapter: selectedChapter,
           verse: selectedVerse
-        } as BibleReference
+        } as BibleReference,
+        isPublished: false
       };
 
-      // Call the callback to handle project creation
+      // Call the callback to open recording modal
       onProjectCreated(newProject);
 
       // Reset form
@@ -159,7 +280,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error creating Bible project:', error);
-      Alert.alert(t('error'), t('failedToCreateProject'));
+      Alert.alert(t('error'), 'Failed to create project');
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +318,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>{t('newBibleProject')}</Text>
+          <Text style={styles.title}>New Bible Project</Text>
 
           <TouchableOpacity
             onPress={handleCreateProject}
@@ -214,7 +335,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
                   styles.createButtonTextDisabled
               ]}
             >
-              {isSubmitting ? t('creating') : t('create')}
+              {isSubmitting ? 'Creating...' : 'Create'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -222,10 +343,10 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
         <ScrollView style={styles.content}>
           {/* Project Name */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('projectName')}</Text>
+            <Text style={styles.sectionTitle}>Project Name</Text>
             <TextInput
               style={styles.textInput}
-              placeholder={t('enterProjectName')}
+              placeholder="Enter project name"
               placeholderTextColor={colors.textSecondary}
               value={projectName}
               onChangeText={setProjectName}
@@ -235,7 +356,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
 
           {/* Source Language */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('sourceLanguage')}</Text>
+            <Text style={styles.sectionTitle}>Source Language</Text>
             <TouchableOpacity
               style={styles.selector}
               onPress={() => setShowSourceLanguageSelector(true)}
@@ -249,7 +370,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
               >
                 {selectedSourceLanguage?.native_name ||
                   selectedSourceLanguage?.english_name ||
-                  t('selectSourceLanguage')}
+                  'Select source language'}
               </Text>
               <Ionicons
                 name="chevron-down"
@@ -261,7 +382,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
 
           {/* Target Language */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('targetLanguage')}</Text>
+            <Text style={styles.sectionTitle}>Target Language</Text>
             <TouchableOpacity
               style={styles.selector}
               onPress={() => setShowTargetLanguageSelector(true)}
@@ -275,7 +396,7 @@ export const NewBibleProjectModal: React.FC<NewBibleProjectModalProps> = ({
               >
                 {selectedTargetLanguage?.native_name ||
                   selectedTargetLanguage?.english_name ||
-                  t('selectTargetLanguage')}
+                  'Select target language'}
               </Text>
               <Ionicons
                 name="chevron-down"

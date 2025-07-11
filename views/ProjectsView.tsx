@@ -20,13 +20,17 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import type { BibleReference } from '@/constants/bibleStructure';
 import { BibleRecordingModal } from '@/features/bible-recording/BibleRecordingModal';
-import { NewBibleProjectModal } from '@/features/bible-recording/NewBibleProjectModal';
+import {
+  NewBibleProjectModal,
+  isProjectUnpublished,
+  removeUnpublishedProject
+} from '@/features/bible-recording/NewBibleProjectModal';
 import { useInfiniteProjects } from '@/hooks/db/useProjects';
 import { useLocalStore } from '@/store/localStore';
 import { useRenderCounter } from '@/utils/performanceUtils';
@@ -99,8 +103,18 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   const { getLanguageById } = useSessionLanguages();
   const { getUserMembership } = useSessionMemberships();
   const { goToProject } = useAppNavigation();
+  const [isUnpublished, setIsUnpublished] = useState(false);
 
-  // Use the new download hook
+  // Check if project is unpublished on mount
+  useEffect(() => {
+    const checkPublishStatus = async () => {
+      const unpublished = await isProjectUnpublished(project.id);
+      setIsUnpublished(unpublished);
+    };
+    void checkPublishStatus();
+  }, [project.id]);
+
+  // Use the new download hook (keeping existing functionality)
   const {
     isFlaggedForDownload: _isFlaggedForDownload,
     isLoading: _isDownloadLoading,
@@ -124,13 +138,30 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
     await _toggleDownload();
   };
 
+  // Handle publish action
+  const handlePublish = async () => {
+    try {
+      // Mark as published in local storage
+      await removeUnpublishedProject(project.id);
+      setIsUnpublished(false);
+
+      // TODO: Here you would trigger the actual sync to cloud
+      Alert.alert('Success', 'Project published! It will sync to the cloud.');
+    } catch (error) {
+      console.error('Error publishing project:', error);
+      Alert.alert('Error', 'Failed to publish project');
+    }
+  };
+
   const handleProjectPress = () => {
     goToProject({ id: project.id, name: project.name });
   };
 
   return (
     <TouchableOpacity onPress={handleProjectPress}>
-      <View style={sharedStyles.card}>
+      <View
+        style={[sharedStyles.card, isUnpublished && styles.unpublishedCard]}
+      >
         <View>
           <View
             style={{
@@ -147,7 +178,22 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 gap: spacing.xsmall
               }}
             >
-              <Text style={sharedStyles.cardTitle}>{project.name}</Text>
+              <Text
+                style={[
+                  sharedStyles.cardTitle,
+                  isUnpublished && styles.unpublishedTitle
+                ]}
+              >
+                {project.name}
+              </Text>
+
+              {/* Unpublished badge */}
+              {isUnpublished && (
+                <View style={styles.unpublishedBadge}>
+                  <Text style={styles.unpublishedBadgeText}>LOCAL</Text>
+                </View>
+              )}
+
               {project.private && (
                 <Ionicons
                   name="lock-closed"
@@ -162,40 +208,50 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 <Ionicons name="person" size={16} color={colors.primary} />
               )}
             </View>
-            {/* <PrivateAccessGate
-              projectId={project.id}
-              projectName={project.name}
-              isPrivate={project.private}
-              action="download"
-              allowBypass={true}
-              onBypass={handleDownloadToggle}
-              renderTrigger={({ onPress, hasAccess }) => (
-                <DownloadIndicator
-                  isFlaggedForDownload={isFlaggedForDownload}
-                  isLoading={isDownloadLoading}
-                  onPress={
-                    hasAccess || isFlaggedForDownload
-                      ? handleDownloadToggle
-                      : onPress
-                  }
-                  downloadType="project"
-                  stats={{
-                    totalAssets: projectClosure?.total_assets || 0,
-                    totalTranslations: projectClosure?.total_translations || 0,
-                    totalQuests: projectClosure?.total_quests || 0
-                  }}
+
+            {/* Publish button for unpublished projects */}
+            {isUnpublished && (
+              <TouchableOpacity
+                style={styles.publishButton}
+                onPress={(e) => {
+                  e.stopPropagation(); // Prevent project navigation
+                  void handlePublish();
+                }}
+              >
+                <Ionicons
+                  name="cloud-upload"
+                  size={20}
+                  color={colors.buttonText}
                 />
-              )}
-            /> */}
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={sharedStyles.cardLanguageText}>
+
+          <Text
+            style={[
+              sharedStyles.cardLanguageText,
+              isUnpublished && styles.unpublishedLanguageText
+            ]}
+          >
             {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
             {targetLanguage?.native_name ?? targetLanguage?.english_name}
           </Text>
+
+          {/* Status indicator for unpublished projects */}
+          {isUnpublished && (
+            <Text style={styles.unpublishedStatus}>
+              ⚠️ This project is stored locally and won't sync until published
+            </Text>
+          )}
         </View>
 
         {project.description && (
-          <Text style={sharedStyles.cardDescription}>
+          <Text
+            style={[
+              sharedStyles.cardDescription,
+              isUnpublished && styles.unpublishedDescription
+            ]}
+          >
             {project.description}
           </Text>
         )}
@@ -281,6 +337,9 @@ export default function ProjectsView() {
     targetLanguageId: string;
     initialReference: BibleReference;
   }) => {
+    // Refresh projects list to show the new unpublished project immediately
+    void refetch();
+
     setNewProjectData({
       projectName: project.name,
       sourceLanguageId: project.sourceLanguageId,
@@ -294,7 +353,7 @@ export default function ProjectsView() {
   const handleBibleRecordingComplete = () => {
     setShowBibleRecordingModal(false);
     setNewProjectData(null);
-    // Refresh projects list
+    // Refresh projects list to show the new project
     void refetch();
   };
 
@@ -621,5 +680,50 @@ const styles = StyleSheet.create({
   loadingFooter: {
     paddingVertical: spacing.medium,
     alignItems: 'center'
+  },
+
+  // New styles for unpublished projects
+  unpublishedCard: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: colors.backgroundSecondary,
+    opacity: 0.9
+  },
+  unpublishedTitle: {
+    color: colors.text,
+    fontStyle: 'italic'
+  },
+  unpublishedBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2
+  },
+  unpublishedBadgeText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.xsmall,
+    fontWeight: 'bold'
+  },
+  unpublishedLanguageText: {
+    color: colors.textSecondary,
+    fontStyle: 'italic'
+  },
+  unpublishedDescription: {
+    color: colors.textSecondary,
+    fontStyle: 'italic'
+  },
+  unpublishedStatus: {
+    fontSize: fontSizes.small,
+    color: colors.primary,
+    marginTop: spacing.xsmall,
+    fontStyle: 'italic'
+  },
+  publishButton: {
+    backgroundColor: colors.primary,
+    padding: spacing.small,
+    borderRadius: borderRadius.small,
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 });

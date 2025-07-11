@@ -74,7 +74,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
   const { stopCurrentSound } = useAudio();
 
   // Recording state
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [_recording, setRecording] = useState<Audio.Recording | null>(null);
   const [currentSegment, setCurrentSegment] = useState<RecordingSegment | null>(
     null
   );
@@ -83,12 +83,14 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
     useState<BibleReference>(initialReference);
   const [isRecording, setIsRecording] = useState(false);
   const [showVADIndicator, setShowVADIndicator] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [_audioLevel, _setAudioLevel] = useState(0);
 
   // Session state
   const [sessionStartTime] = useState(Date.now());
   const [isSessionActive, setIsSessionActive] = useState(false);
-  const [draggedSegmentId, setDraggedSegmentId] = useState<string | null>(null);
+  const [_draggedSegmentId, _setDraggedSegmentId] = useState<string | null>(
+    null
+  );
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Refs for audio recording
@@ -123,11 +125,11 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
 
   useEffect(() => {
     Animated.timing(audioLevelAnim, {
-      toValue: audioLevel,
+      toValue: _audioLevel,
       duration: 100,
       useNativeDriver: false
     }).start();
-  }, [audioLevel, audioLevelAnim]);
+  }, [_audioLevel, audioLevelAnim]);
 
   // Start recording segment
   const startRecordingSegment = useCallback(async () => {
@@ -135,9 +137,9 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
 
     try {
       // Request permissions
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert(t('error'), t('microphonePermissionRequired'));
+      const permissionResponse = await Audio.requestPermissionsAsync();
+      if (permissionResponse.status !== Audio.PermissionStatus.GRANTED) {
+        Alert.alert(t('error'), 'Microphone permission required');
         return;
       }
 
@@ -148,9 +150,9 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
         staysActiveInBackground: true
       });
 
-      // Create new recording
+      // Create new recording using the same pattern as AudioRecorder
       const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptions.HIGH_QUALITY
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
 
       recordingRef.current = newRecording;
@@ -172,7 +174,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
       setShowVADIndicator(true);
     } catch (error) {
       console.error('Error starting recording:', error);
-      Alert.alert(t('error'), t('failedToStartRecording'));
+      Alert.alert(t('error'), 'Failed to start recording');
     }
   }, [isRecording, currentUser, currentReference, t]);
 
@@ -216,7 +218,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
       recordingRef.current = null;
     } catch (error) {
       console.error('Error stopping recording:', error);
-      Alert.alert(t('error'), t('failedToStopRecording'));
+      Alert.alert(t('error'), 'Failed to stop recording');
     }
   }, [isRecording, currentSegment, currentReference, t]);
 
@@ -248,7 +250,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
         });
       } catch (error) {
         console.error('Error playing segment:', error);
-        Alert.alert(t('error'), t('failedToPlayRecording'));
+        Alert.alert(t('error'), 'Failed to play recording');
       }
     },
     [stopCurrentSound, t]
@@ -260,27 +262,33 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
       const segment = segments.find((s) => s.id === segmentId);
       if (!segment) return;
 
-      Alert.alert(t('deleteSegment'), t('confirmDeleteSegment'), [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Delete audio file
-              const fileInfo = await FileSystem.getInfoAsync(segment.audioUri);
-              if (fileInfo.exists) {
-                await FileSystem.deleteAsync(segment.audioUri);
-              }
+      Alert.alert(
+        'Delete Segment',
+        'Are you sure you want to delete this recording segment?',
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Delete audio file
+                const fileInfo = await FileSystem.getInfoAsync(
+                  segment.audioUri
+                );
+                if (fileInfo.exists) {
+                  await FileSystem.deleteAsync(segment.audioUri);
+                }
 
-              // Remove from segments
-              setSegments((prev) => prev.filter((s) => s.id !== segmentId));
-            } catch (error) {
-              console.error('Error deleting segment:', error);
+                // Remove from segments
+                setSegments((prev) => prev.filter((s) => s.id !== segmentId));
+              } catch (error) {
+                console.error('Error deleting segment:', error);
+              }
             }
           }
-        }
-      ]);
+        ]
+      );
     },
     [segments, t]
   );
@@ -303,7 +311,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
   // Save session
   const saveSession = useCallback(async () => {
     if (segments.length === 0) {
-      Alert.alert(t('noSegments'), t('pleaseRecordSomeSegments'));
+      Alert.alert('No Segments', 'Please record some segments before saving');
       return;
     }
 
@@ -323,7 +331,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error saving session:', error);
-      Alert.alert(t('error'), t('failedToSaveSession'));
+      Alert.alert(t('error'), 'Failed to save session');
     }
   }, [
     segments,
@@ -388,7 +396,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
 
   // Render segment item
   const renderSegment = useCallback(
-    (segment: RecordingSegment, index: number) => {
+    (segment: RecordingSegment, _index: number) => {
       const duration = segment.endTime - segment.startTime;
       const durationText = `${Math.round(duration / 1000)}s`;
 
@@ -474,7 +482,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
               ]}
             />
             <Text style={styles.vadText}>
-              {isRecording ? t('recording') : t('listening')}
+              {isRecording ? 'Recording' : 'Listening'}
             </Text>
           </View>
         )}
@@ -491,7 +499,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
               color={colors.buttonText}
             />
             <Text style={styles.sessionButtonText}>
-              {isSessionActive ? t('stopSession') : t('startSession')}
+              {isSessionActive ? 'Stop Session' : 'Start Session'}
             </Text>
           </TouchableOpacity>
 
@@ -513,7 +521,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
         {/* Segments List */}
         <View style={styles.segmentsContainer}>
           <Text style={styles.segmentsTitle}>
-            {t('recordedSegments')} ({segments.length})
+            Recorded Segments ({segments.length})
           </Text>
 
           <ScrollView style={styles.segmentsList}>
@@ -525,11 +533,9 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
         {showConfirmation && (
           <View style={styles.confirmationOverlay}>
             <View style={styles.confirmationDialog}>
-              <Text style={styles.confirmationTitle}>
-                {t('unsavedChanges')}
-              </Text>
+              <Text style={styles.confirmationTitle}>Unsaved Changes</Text>
               <Text style={styles.confirmationMessage}>
-                {t('confirmCloseSession')}
+                You have unsaved recording segments. What would you like to do?
               </Text>
 
               <View style={styles.confirmationButtons}>
@@ -547,7 +553,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
                     void saveSession();
                   }}
                 >
-                  <Text style={styles.saveButtonText}>{t('save')}</Text>
+                  <Text style={styles.saveButtonText}>Save</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -558,7 +564,7 @@ export const BibleRecordingModal: React.FC<BibleRecordingModalProps> = ({
                     onClose();
                   }}
                 >
-                  <Text style={styles.discardButtonText}>{t('discard')}</Text>
+                  <Text style={styles.discardButtonText}>Discard</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -580,7 +586,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.medium,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border
+    borderBottomColor: colors.inputBorder
   },
   title: {
     fontSize: fontSizes.large,
@@ -641,7 +647,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: colors.shadow,
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4
