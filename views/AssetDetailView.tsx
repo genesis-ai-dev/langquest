@@ -552,22 +552,23 @@ export default function AssetDetailView() {
           </View>
 
           <GestureHandlerRootView style={{ flex: 1 }}>
-            <FlashList
-              data={translationsWithVotesAndLanguage?.sort((a, b) => {
-                if (sortOption === 'voteCount') {
+            <View style={styles.translationsList}>
+              <FlashList
+                data={translationsWithVotesAndLanguage?.sort((a, b) => {
+                  if (sortOption === 'voteCount') {
+                    return (
+                      calculateVoteCount(b.votes) - calculateVoteCount(a.votes)
+                    );
+                  }
                   return (
-                    calculateVoteCount(b.votes) - calculateVoteCount(a.votes)
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
                   );
-                }
-                return (
-                  new Date(b.created_at).getTime() -
-                  new Date(a.created_at).getTime()
-                );
-              })}
-              renderItem={renderTranslationCard}
-              keyExtractor={(item) => item.id}
-              style={styles.translationsList}
-            />
+                })}
+                renderItem={renderTranslationCard}
+                keyExtractor={(item) => item.id}
+              />
+            </View>
           </GestureHandlerRootView>
         </ScrollView>
       </View>
@@ -752,7 +753,8 @@ const styles = StyleSheet.create({
     marginVertical: spacing.medium
   },
   translationHeader: {
-    paddingHorizontal: spacing.large
+    paddingHorizontal: spacing.large,
+    paddingBottom: spacing.medium
   },
   alignmentContainer: {
     flexDirection: 'row',
