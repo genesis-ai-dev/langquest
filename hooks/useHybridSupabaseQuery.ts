@@ -60,40 +60,40 @@ type GetQueryParam<T> = Parameters<typeof useTanStackQuery<T[], Error, T[]>>[0];
  */
 type HybridSupabaseQueryConfig<T extends Record<string, unknown>> = (
   | {
-    /**
-     * Unified query that will be executed differently based on network status
-     * - Online: Converted to SQL and sent via SQLTR
-     * - Offline: Compiled to PowerSync query
-     */
-    query: Parameters<typeof toCompilableQuery<T>>[0];
-    onlineFn?: never;
-    offlineQuery?: never;
-    offlineFn?: never;
-  }
+      /**
+       * Unified query that will be executed differently based on network status
+       * - Online: Converted to SQL and sent via SQLTR
+       * - Offline: Compiled to PowerSync query
+       */
+      query: Parameters<typeof toCompilableQuery<T>>[0];
+      onlineFn?: never;
+      offlineQuery?: never;
+      offlineFn?: never;
+    }
   | {
-    /**
-     * Separate online function for custom online behavior
-     */
-    onlineFn: GetQueryParam<T>['queryFn'];
-    /**
-     * Offline query using Drizzle query builder
-     */
-    offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
-    query?: never;
-    offlineFn?: never;
-  }
+      /**
+       * Separate online function for custom online behavior
+       */
+      onlineFn: GetQueryParam<T>['queryFn'];
+      /**
+       * Offline query using Drizzle query builder
+       */
+      offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      query?: never;
+      offlineFn?: never;
+    }
   | {
-    /**
-     * Separate online function for custom online behavior
-     */
-    onlineFn: GetQueryParam<T>['queryFn'];
-    /**
-     * Offline function for custom offline behavior
-     */
-    offlineFn: GetQueryParam<T>['queryFn'];
-    query?: never;
-    offlineQuery?: never;
-  }
+      /**
+       * Separate online function for custom online behavior
+       */
+      onlineFn: GetQueryParam<T>['queryFn'];
+      /**
+       * Offline function for custom offline behavior
+       */
+      offlineFn: GetQueryParam<T>['queryFn'];
+      query?: never;
+      offlineQuery?: never;
+    }
 ) & {
   /**
    * Function to get the ID of a record. Defaults to (record) => record.id
@@ -197,7 +197,9 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
         return await toCompilableQuery<T>(query).execute();
       };
     }
-    throw new Error('Either query, offlineQuery, or offlineFn must be provided');
+    throw new Error(
+      'Either query, offlineQuery, or offlineFn must be provided'
+    );
   };
 
   // Determine cloud query function
@@ -276,9 +278,7 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
     }
 
     // Create a map of local data by ID for quick lookup
-    const localDataMap = new Map(
-      localData.map((item) => [getId(item), item])
-    );
+    const localDataMap = new Map(localData.map((item) => [getId(item), item]));
 
     // Filter out cloud data that already exists in local data
     const uniqueCloudData = cloudData.filter(
@@ -306,19 +306,31 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
       if (isOnline) void cloudQuery.refetch();
     },
     // Include other query result properties
-    dataUpdatedAt: Math.max(localQuery.dataUpdatedAt, cloudQuery.dataUpdatedAt || 0),
-    errorUpdatedAt: Math.max(localQuery.errorUpdatedAt, cloudQuery.errorUpdatedAt || 0),
+    dataUpdatedAt: Math.max(
+      localQuery.dataUpdatedAt,
+      cloudQuery.dataUpdatedAt || 0
+    ),
+    errorUpdatedAt: Math.max(
+      localQuery.errorUpdatedAt,
+      cloudQuery.errorUpdatedAt || 0
+    ),
     failureCount: localQuery.failureCount + cloudQuery.failureCount,
     failureReason: localQuery.failureReason || cloudQuery.failureReason,
     fetchStatus: localQuery.fetchStatus,
-    isInitialLoading: localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
+    isInitialLoading:
+      localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
     isLoadingError: localQuery.isLoadingError || cloudQuery.isLoadingError,
     isPaused: localQuery.isPaused || cloudQuery.isPaused,
-    isPlaceholderData: localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
+    isPlaceholderData:
+      localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
     isRefetchError: localQuery.isRefetchError || cloudQuery.isRefetchError,
     isRefetching: localQuery.isRefetching || cloudQuery.isRefetching,
     isStale: localQuery.isStale || cloudQuery.isStale,
-    status: localQuery.isError ? 'error' : localQuery.isLoading ? 'pending' : 'success'
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
   };
 }
 /**
@@ -450,23 +462,23 @@ export function useHybridSupabaseRealtimeQuery<
  */
 type HybridSupabaseFetchConfig<T> = (
   | {
-    query: Parameters<typeof toCompilableQuery<T>>[0] | string;
-    onlineFn?: never;
-    offlineQuery?: never;
-    offlineFn?: never;
-  }
+      query: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      onlineFn?: never;
+      offlineQuery?: never;
+      offlineFn?: never;
+    }
   | {
-    onlineFn: () => Promise<T[]>;
-    offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
-    query?: never;
-    offlineFn?: never;
-  }
+      onlineFn: () => Promise<T[]>;
+      offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      query?: never;
+      offlineFn?: never;
+    }
   | {
-    onlineFn: () => Promise<T[]>;
-    offlineFn: () => Promise<T[]>;
-    query?: never;
-    offlineQuery?: never;
-  }
+      onlineFn: () => Promise<T[]>;
+      offlineFn: () => Promise<T[]>;
+      query?: never;
+      offlineQuery?: never;
+    }
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
 };
@@ -571,7 +583,10 @@ export async function hybridSupabaseFetch<
     try {
       cloudData = await runCloudQuery();
     } catch (error) {
-      console.warn('hybridSupabaseFetch: Cloud query failed, using local data only', error);
+      console.warn(
+        'hybridSupabaseFetch: Cloud query failed, using local data only',
+        error
+      );
     }
   }
 
@@ -627,27 +642,27 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
 > &
   (
     | {
-      onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
-      offlineQuery: (
-        context: InfiniteQueryContext<T>
-      ) => Parameters<typeof toCompilableQuery<T>>[0];
-      query?: never;
-      offlineFn?: never;
-    }
+        onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
+        offlineQuery: (
+          context: InfiniteQueryContext<T>
+        ) => Parameters<typeof toCompilableQuery<T>>[0];
+        query?: never;
+        offlineFn?: never;
+      }
     | {
-      onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
-      offlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
-      query?: never;
-      offlineQuery?: never;
-    }
+        onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
+        offlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
+        query?: never;
+        offlineQuery?: never;
+      }
     | {
-      query: (
-        context: InfiniteQueryContext<T>
-      ) => Parameters<typeof toCompilableQuery<T>>[0] | string;
-      onlineFn?: never;
-      offlineQuery?: never;
-      offlineFn?: never;
-    }
+        query: (
+          context: InfiniteQueryContext<T>
+        ) => Parameters<typeof toCompilableQuery<T>>[0] | string;
+        onlineFn?: never;
+        offlineQuery?: never;
+        offlineFn?: never;
+      }
   ) & {
     pageSize: number;
     getId?: (record: T | Partial<T>) => string | number;
@@ -684,7 +699,13 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
 export function useHybridSupabaseInfiniteQuery<T>(
   options: HybridSupabaseInfiniteQueryOptions<T>
 ) {
-  const { queryKey, pageSize = 10, getId = (record: T | Partial<T>) => (record as unknown as { id: string | number }).id, ...restOptions } = options;
+  const {
+    queryKey,
+    pageSize = 10,
+    getId = (record: T | Partial<T>) =>
+      (record as unknown as { id: string | number }).id,
+    ...restOptions
+  } = options;
   const isOnline = useNetworkStatus();
 
   // Filter out undefined/null values from the query key
@@ -745,12 +766,17 @@ export function useHybridSupabaseInfiniteQuery<T>(
           results = await compiledQuery.execute();
         }
       } else {
-        throw new Error('Either query, offlineQuery, or offlineFn must be provided');
+        throw new Error(
+          'Either query, offlineQuery, or offlineFn must be provided'
+        );
       }
 
       return {
         data: results,
-        nextCursor: results.length === pageSize ? completeContext.pageParam + 1 : undefined,
+        nextCursor:
+          results.length === pageSize
+            ? completeContext.pageParam + 1
+            : undefined,
         hasMore: results.length === pageSize
       } satisfies HybridPageData<T>;
     }
@@ -784,7 +810,10 @@ export function useHybridSupabaseInfiniteQuery<T>(
       } else if ('query' in options) {
         const sqlQuery = options.query(completeContext);
         const data = typeof sqlQuery === 'string' ? sqlQuery : sqlQuery.toSQL();
-        const finalSql = typeof data === 'string' ? data : substituteParams(data.sql, data.params);
+        const finalSql =
+          typeof data === 'string'
+            ? data
+            : substituteParams(data.sql, data.params);
         const response = await fetch(
           `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sqltr`,
           {
@@ -808,7 +837,10 @@ export function useHybridSupabaseInfiniteQuery<T>(
 
       return {
         data: results,
-        nextCursor: results.length === pageSize ? completeContext.pageParam + 1 : undefined,
+        nextCursor:
+          results.length === pageSize
+            ? completeContext.pageParam + 1
+            : undefined,
         hasMore: results.length === pageSize
       } satisfies HybridPageData<T>;
     }
@@ -855,7 +887,8 @@ export function useHybridSupabaseInfiniteQuery<T>(
 
     return {
       pages: mergedPages,
-      pageParams: localQuery.data?.pageParams || cloudQuery.data?.pageParams || []
+      pageParams:
+        localQuery.data?.pageParams || cloudQuery.data?.pageParams || []
     };
   }, [localQuery.data, cloudQuery.data, getId]);
 
@@ -871,8 +904,10 @@ export function useHybridSupabaseInfiniteQuery<T>(
     },
     hasNextPage: localQuery.hasNextPage || cloudQuery.hasNextPage,
     hasPreviousPage: localQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
-    isFetchingNextPage: localQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
-    isFetchingPreviousPage: localQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
+    isFetchingNextPage:
+      localQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
+    isFetchingPreviousPage:
+      localQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
     isLoading: localQuery.isLoading || (isOnline && cloudQuery.isLoading),
     isError: localQuery.isError || cloudQuery.isError,
     error: localQuery.error || cloudQuery.error,
@@ -882,7 +917,11 @@ export function useHybridSupabaseInfiniteQuery<T>(
       void localQuery.refetch();
       if (isOnline) void cloudQuery.refetch();
     },
-    status: localQuery.isError ? 'error' : localQuery.isLoading ? 'pending' : 'success'
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
   };
 }
 
@@ -1011,7 +1050,9 @@ export function useHybridSupabaseInfiniteRealtimeQuery<
         (key: unknown) => key !== undefined && key !== null
       );
       const hasInfinite = cleanQueryKey.includes('infinite');
-      const baseKey = hasInfinite ? cleanQueryKey : [...cleanQueryKey, 'infinite'];
+      const baseKey = hasInfinite
+        ? cleanQueryKey
+        : [...cleanQueryKey, 'infinite'];
       const cloudCacheKey = [...baseKey, 'cloud'];
 
       queryClient.setQueryData<{

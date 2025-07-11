@@ -182,7 +182,7 @@ export const QuestList = React.memo(
               marginBottom: spacing.medium
             }}
           >
-            Error loading quests: {error.message}
+            Error loading quests: {error?.message}
           </Text>
           <TouchableOpacity
             onPress={() => void refetch()}

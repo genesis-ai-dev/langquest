@@ -25,13 +25,13 @@ type HybridQueryOptions<T> = Omit<GetQueryParam<T>, 'queryFn' | 'query'> &
 
 type HybridQueryConfig<T> = (
   | {
-    offlineFn: GetQueryParam<T>['queryFn'];
-    offlineQuery?: never;
-  }
+      offlineFn: GetQueryParam<T>['queryFn'];
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   onlineFn: GetQueryParam<T>['queryFn'];
   alwaysOnline?: boolean;
@@ -107,7 +107,7 @@ export function useHybridQuery<T extends Record<string, unknown>>(
           }
           return rows;
         }
-        return await (offlineQuery).execute();
+        return await offlineQuery.execute();
       };
     } else {
       throw new Error('Either offlineFn or offlineQuery must be provided');
@@ -150,9 +150,7 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     }
 
     // Create a map of local data by ID for quick lookup
-    const localDataMap = new Map(
-      localData.map((item) => [getId(item), item])
-    );
+    const localDataMap = new Map(localData.map((item) => [getId(item), item]));
 
     // Filter out cloud data that already exists in local data
     const uniqueCloudData = cloudData.filter(
@@ -180,19 +178,31 @@ export function useHybridQuery<T extends Record<string, unknown>>(
       if (isOnline) void cloudQuery.refetch();
     },
     // Include other query result properties
-    dataUpdatedAt: Math.max(localQuery.dataUpdatedAt, cloudQuery.dataUpdatedAt || 0),
-    errorUpdatedAt: Math.max(localQuery.errorUpdatedAt, cloudQuery.errorUpdatedAt || 0),
+    dataUpdatedAt: Math.max(
+      localQuery.dataUpdatedAt,
+      cloudQuery.dataUpdatedAt || 0
+    ),
+    errorUpdatedAt: Math.max(
+      localQuery.errorUpdatedAt,
+      cloudQuery.errorUpdatedAt || 0
+    ),
     failureCount: localQuery.failureCount + cloudQuery.failureCount,
     failureReason: localQuery.failureReason || cloudQuery.failureReason,
     fetchStatus: localQuery.fetchStatus,
-    isInitialLoading: localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
+    isInitialLoading:
+      localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
     isLoadingError: localQuery.isLoadingError || cloudQuery.isLoadingError,
     isPaused: localQuery.isPaused || cloudQuery.isPaused,
-    isPlaceholderData: localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
+    isPlaceholderData:
+      localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
     isRefetchError: localQuery.isRefetchError || cloudQuery.isRefetchError,
     isRefetching: localQuery.isRefetching || cloudQuery.isRefetching,
     isStale: localQuery.isStale || cloudQuery.isStale,
-    status: localQuery.isError ? 'error' : localQuery.isLoading ? 'pending' : 'success'
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
   };
 }
 
@@ -257,17 +267,17 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
   // Use the base hybrid query with offline-first pattern
   const result = offlineFn
     ? useHybridQuery<T>({
-      queryKey,
-      offlineFn,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>)
+        queryKey,
+        offlineFn,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>)
     : useHybridQuery<T>({
-      queryKey,
-      offlineQuery,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>);
+        queryKey,
+        offlineQuery,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -338,13 +348,13 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
  */
 type HybridFetchConfig<T extends Record<string, unknown>> = (
   | {
-    offlineFn: () => Promise<T[] | undefined>;
-    offlineQuery?: never;
-  }
+      offlineFn: () => Promise<T[] | undefined>;
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
@@ -380,7 +390,12 @@ export async function hybridFetch<T extends Record<string, unknown>>(
     getId?: (record: T | Partial<T>) => string | number;
   }
 ) {
-  const { onlineFn, getId = (record: T | Partial<T>) => (record as unknown as { id: string | number }).id, ...restConfig } = config;
+  const {
+    onlineFn,
+    getId = (record: T | Partial<T>) =>
+      (record as unknown as { id: string | number }).id,
+    ...restConfig
+  } = config;
 
   const runLocalQuery = async () => {
     if ('offlineFn' in restConfig && restConfig.offlineFn) {
@@ -402,7 +417,7 @@ export async function hybridFetch<T extends Record<string, unknown>>(
         }
         return rows;
       } else {
-        return await (offlineQuery).execute();
+        return await offlineQuery.execute();
       }
     } else {
       throw new Error('Either offlineFn or offlineQuery must be provided');
@@ -420,7 +435,10 @@ export async function hybridFetch<T extends Record<string, unknown>>(
     try {
       cloudData = await onlineFn();
     } catch (error) {
-      console.warn('hybridFetch: Cloud query failed, using local data only', error);
+      console.warn(
+        'hybridFetch: Cloud query failed, using local data only',
+        error
+      );
     }
   }
 
@@ -496,17 +514,17 @@ type HybridInfiniteQueryOptions<
   refetchOnReconnect?: boolean;
   getId?: (record: T | Partial<T>) => string | number;
 } & (
-    | {
+  | {
       offlineFn: (
         context: QueryFunctionContext<readonly unknown[], TPageParam>
       ) => Promise<HybridPageData<T, TPageParam>>;
       offlineQuery?: never;
     }
-    | {
+  | {
       offlineQuery: string | CompilableQuery<T>;
       offlineFn?: never;
     }
-  );
+);
 
 /**
  * useHybridInfiniteQuery
