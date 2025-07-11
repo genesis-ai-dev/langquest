@@ -33,8 +33,12 @@ import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
@@ -80,6 +84,7 @@ enum TranslationModalType {
 
 export default function AssetDetailView() {
   const { currentUser } = useAuth();
+  const { t } = useLocalization();
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
   // Get current navigation state
@@ -92,6 +97,9 @@ export default function AssetDetailView() {
     goToNextAsset,
     goToPreviousAsset
   } = useCurrentNavigation();
+
+  // Get navigation function for going back to quest
+  const { goToQuest, currentQuestId } = useAppNavigation();
 
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
@@ -622,23 +630,29 @@ export default function AssetDetailView() {
                 styles.assetNavigationButton,
                 !canGoToPreviousAsset && styles.disabledButton
               ]}
-              onPress={goToPreviousAsset}
-              disabled={!canGoToPreviousAsset}
+              onPress={
+                canGoToPreviousAsset
+                  ? goToPreviousAsset
+                  : () => {
+                      // Go back to quest when at first asset
+                      if (currentQuestId) {
+                        goToQuest({
+                          id: currentQuestId,
+                          project_id: currentProjectId,
+                          name: 'Quest'
+                        });
+                      }
+                    }
+              }
+              disabled={false}
             >
               <Ionicons
-                name="chevron-back"
+                name={canGoToPreviousAsset ? 'chevron-back' : 'arrow-back'}
                 size={24}
-                color={
-                  canGoToPreviousAsset ? colors.primary : colors.textSecondary
-                }
+                color={colors.primary}
               />
-              <Text
-                style={[
-                  styles.assetNavigationText,
-                  !canGoToPreviousAsset && styles.disabledText
-                ]}
-              >
-                Previous
+              <Text style={styles.assetNavigationText}>
+                {canGoToPreviousAsset ? t('previous') : t('backToQuest')}
               </Text>
             </TouchableOpacity>
 
@@ -647,6 +661,12 @@ export default function AssetDetailView() {
                 {currentAssetListContext.currentIndex + 1} of{' '}
                 {currentAssetListContext.assetIds.length}
               </Text>
+              {!canGoToPreviousAsset && (
+                <Text style={styles.boundaryText}>{t('firstAsset')}</Text>
+              )}
+              {!canGoToNextAsset && (
+                <Text style={styles.boundaryText}>{t('lastAsset')}</Text>
+              )}
             </View>
 
             <TouchableOpacity
@@ -654,21 +674,29 @@ export default function AssetDetailView() {
                 styles.assetNavigationButton,
                 !canGoToNextAsset && styles.disabledButton
               ]}
-              onPress={goToNextAsset}
-              disabled={!canGoToNextAsset}
+              onPress={
+                canGoToNextAsset
+                  ? goToNextAsset
+                  : () => {
+                      // Go back to quest when at last asset
+                      if (currentQuestId) {
+                        goToQuest({
+                          id: currentQuestId,
+                          project_id: currentProjectId,
+                          name: 'Quest'
+                        });
+                      }
+                    }
+              }
+              disabled={false}
             >
-              <Text
-                style={[
-                  styles.assetNavigationText,
-                  !canGoToNextAsset && styles.disabledText
-                ]}
-              >
-                Next
+              <Text style={styles.assetNavigationText}>
+                {canGoToNextAsset ? t('next') : t('backToQuest')}
               </Text>
               <Ionicons
-                name="chevron-forward"
+                name={canGoToNextAsset ? 'chevron-forward' : 'arrow-forward'}
                 size={24}
-                color={canGoToNextAsset ? colors.primary : colors.textSecondary}
+                color={colors.primary}
               />
             </TouchableOpacity>
           </View>
@@ -948,5 +976,10 @@ const styles = StyleSheet.create({
   assetCountText: {
     color: colors.text,
     fontSize: fontSizes.medium
+  },
+  boundaryText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
+    textAlign: 'center'
   }
 });

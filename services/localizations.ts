@@ -429,6 +429,36 @@ export const localizations = {
     spanish: 'Recursos',
     brazilian_portuguese: 'Recursos'
   },
+  backToQuest: {
+    english: 'Back to Quest',
+    spanish: 'Volver a la Misión',
+    brazilian_portuguese: 'Voltar à Missão'
+  },
+  firstAsset: {
+    english: 'This is the first asset',
+    spanish: 'Este es el primer recurso',
+    brazilian_portuguese: 'Este é o primeiro recurso'
+  },
+  lastAsset: {
+    english: 'This is the last asset',
+    spanish: 'Este es el último recurso',
+    brazilian_portuguese: 'Este é o último recurso'
+  },
+  noMoreAssets: {
+    english: 'No more assets in this direction',
+    spanish: 'No hay más recursos en esta dirección',
+    brazilian_portuguese: 'Não há mais recursos nesta direção'
+  },
+  previous: {
+    english: 'Previous',
+    spanish: 'Anterior',
+    brazilian_portuguese: 'Anterior'
+  },
+  next: {
+    english: 'Next',
+    spanish: 'Siguiente',
+    brazilian_portuguese: 'Próximo'
+  },
   remaining: {
     english: 'remaining',
     spanish: 'restante',
