@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -40,6 +41,7 @@ export default function LoginView() {
   const [mode, setMode] = useState<LoginMode>('sign-in');
   const currentLanguage = useLocalStore((state) => state.language);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const {
     control,
@@ -102,7 +104,19 @@ export default function LoginView() {
   };
 
   const onSubmitRegister = async (data: LoginFormData) => {
+    setIsRegistering(true);
     try {
+      const {
+        data: { session },
+        error: sessionError
+      } = await supabaseConnector.client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) {
+        const { error: anonError } =
+          await supabaseConnector.client.auth.signInAnonymously();
+        if (anonError) throw anonError;
+      }
+
       if (!data.termsAccepted) {
         Alert.alert(t('error'), t('termsRequired'));
         return;
@@ -145,6 +159,8 @@ export default function LoginView() {
         t('error'),
         error instanceof Error ? error.message : t('registrationFail')
       );
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -511,10 +527,15 @@ export default function LoginView() {
                       }
                     ]}
                     onPress={handleSubmit(onSubmit)}
+                    disabled={mode === 'register' && isRegistering}
                   >
-                    <Text style={sharedStyles.buttonText}>
-                      {getSubmitButtonText()}
-                    </Text>
+                    {mode === 'register' && isRegistering ? (
+                      <ActivityIndicator color={colors.background} />
+                    ) : (
+                      <Text style={sharedStyles.buttonText}>
+                        {getSubmitButtonText()}
+                      </Text>
+                    )}
                   </TouchableOpacity>
 
                   {/* Mode switching links */}
