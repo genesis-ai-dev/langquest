@@ -16,6 +16,13 @@ export interface NavigationState {
   questName?: string;
   assetId?: string;
   assetName?: string;
+  // Asset navigation context
+  assetListContext?: {
+    assetIds: string[];
+    currentIndex: number;
+    searchQuery?: string;
+    activeFilters?: Record<string, string[]>;
+  };
 }
 
 export function useAppNavigation() {
@@ -117,6 +124,12 @@ export function useAppNavigation() {
       name?: string;
       projectId?: string;
       questId?: string;
+      assetListContext?: {
+        assetIds: string[];
+        currentIndex: number;
+        searchQuery?: string;
+        activeFilters?: Record<string, string[]>;
+      };
     }) => {
       // Use provided IDs or fall back to current state
       const targetProjectId = assetData.projectId || currentState.projectId;
@@ -141,7 +154,8 @@ export function useAppNavigation() {
         assetId: assetData.id,
         assetName: assetData.name,
         projectId: targetProjectId,
-        questId: targetQuestId
+        questId: targetQuestId,
+        assetListContext: assetData.assetListContext
       });
     },
     [navigate, currentState, addRecentAsset]
@@ -208,6 +222,51 @@ export function useAppNavigation() {
     return crumbs;
   }, [currentState, goToProjects, goToProject, goToQuest]);
 
+  // Asset navigation functions
+  const goToNextAsset = useCallback(() => {
+    const assetListContext = currentState.assetListContext;
+    if (!assetListContext || !currentState.projectId || !currentState.questId) return;
+
+    const { assetIds, currentIndex } = assetListContext;
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex < assetIds.length) {
+      const nextAssetId = assetIds[nextIndex];
+      goToAsset({
+        id: nextAssetId,
+        name: `Asset ${nextIndex + 1}`,
+        projectId: currentState.projectId,
+        questId: currentState.questId,
+        assetListContext: {
+          ...assetListContext,
+          currentIndex: nextIndex
+        }
+      });
+    }
+  }, [currentState, goToAsset]);
+
+  const goToPreviousAsset = useCallback(() => {
+    const assetListContext = currentState.assetListContext;
+    if (!assetListContext || !currentState.projectId || !currentState.questId) return;
+
+    const { assetIds, currentIndex } = assetListContext;
+    const prevIndex = currentIndex - 1;
+
+    if (prevIndex >= 0) {
+      const prevAssetId = assetIds[prevIndex];
+      goToAsset({
+        id: prevAssetId,
+        name: `Asset ${prevIndex + 1}`,
+        projectId: currentState.projectId,
+        questId: currentState.questId,
+        assetListContext: {
+          ...assetListContext,
+          currentIndex: prevIndex
+        }
+      });
+    }
+  }, [currentState, goToAsset]);
+
   return {
     // Current state
     currentView: currentState.view,
@@ -230,6 +289,10 @@ export function useAppNavigation() {
     goToNotifications,
     goToSettings,
 
+    // Asset navigation
+    goToNextAsset,
+    goToPreviousAsset,
+
     // Utilities
     breadcrumbs,
     canGoBack: navigationStack.length > 1,
@@ -245,37 +308,57 @@ export function useCurrentNavigation() {
     currentAssetId,
     currentProjectName,
     currentQuestName,
-    currentAssetName
+    currentAssetName,
+    goToNextAsset,
+    goToPreviousAsset,
+    navigationStack
   } = useAppNavigation();
+
+  // Get current asset list context
+  const currentAssetListContext = useMemo(() => {
+    const currentState = navigationStack[navigationStack.length - 1];
+    return currentState?.assetListContext || null;
+  }, [navigationStack]);
+
+  // Check if we can navigate to next/previous assets
+  const canGoToNextAsset = useMemo(() => {
+    if (!currentAssetListContext) return false;
+    return currentAssetListContext.currentIndex < currentAssetListContext.assetIds.length - 1;
+  }, [currentAssetListContext]);
+
+  const canGoToPreviousAsset = useMemo(() => {
+    if (!currentAssetListContext) return false;
+    return currentAssetListContext.currentIndex > 0;
+  }, [currentAssetListContext]);
 
   // Memoize objects to prevent infinite re-renders
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-          id: currentProjectId,
-          name: currentProjectName || 'Project'
-        }
+        id: currentProjectId,
+        name: currentProjectName || 'Project'
+      }
       : null;
   }, [currentProjectId, currentProjectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-          id: currentQuestId,
-          name: currentQuestName || 'Quest',
-          project_id: currentProjectId || ''
-        }
+        id: currentQuestId,
+        name: currentQuestName || 'Quest',
+        project_id: currentProjectId || ''
+      }
       : null;
   }, [currentQuestId, currentQuestName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-          id: currentAssetId,
-          name: currentAssetName || 'Asset',
-          projectId: currentProjectId,
-          questId: currentQuestId
-        }
+        id: currentAssetId,
+        name: currentAssetName || 'Asset',
+        projectId: currentProjectId,
+        questId: currentQuestId
+      }
       : null;
   }, [currentAssetId, currentAssetName, currentProjectId, currentQuestId]);
 
@@ -286,6 +369,12 @@ export function useCurrentNavigation() {
     currentAssetId,
     currentProject,
     currentQuest,
-    currentAsset
+    currentAsset,
+    // Asset navigation context
+    currentAssetListContext,
+    canGoToNextAsset,
+    canGoToPreviousAsset,
+    goToNextAsset,
+    goToPreviousAsset
   };
 }

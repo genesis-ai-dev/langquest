@@ -49,7 +49,11 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  State
+} from 'react-native-gesture-handler';
 
 const ASSET_VIEWER_PROPORTION = 0.4;
 
@@ -79,7 +83,15 @@ export default function AssetDetailView() {
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
   // Get current navigation state
-  const { currentAssetId, currentProjectId } = useCurrentNavigation();
+  const {
+    currentAssetId,
+    currentProjectId,
+    currentAssetListContext,
+    canGoToNextAsset,
+    canGoToPreviousAsset,
+    goToNextAsset,
+    goToPreviousAsset
+  } = useCurrentNavigation();
 
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
@@ -335,98 +347,111 @@ export default function AssetDetailView() {
     );
   }
 
+  // Handle swipe gestures for asset navigation
+  const handleSwipeGesture = (event: any) => {
+    const { translationX, state } = event.nativeEvent;
+
+    if (state === State.END) {
+      // Swipe threshold
+      const swipeThreshold = 50;
+
+      if (translationX > swipeThreshold && canGoToPreviousAsset) {
+        // Swipe right - go to previous asset
+        goToPreviousAsset();
+      } else if (translationX < -swipeThreshold && canGoToNextAsset) {
+        // Swipe left - go to next asset
+        goToNextAsset();
+      }
+    }
+  };
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'text' && styles.activeTab,
-              !assetContent?.length && styles.disabledTab
-            ]}
-            onPress={() => setActiveTab('text')}
-            disabled={!assetContent?.length}
-          >
-            <Ionicons
-              name="text"
-              size={24}
-              color={assetContent?.length ? colors.text : colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'image' && styles.activeTab,
-              !(asset?.images?.length ?? 0) && styles.disabledTab
-            ]}
-            onPress={() =>
-              (asset?.images?.length ?? 0) > 0 && setActiveTab('image')
-            }
-            disabled={!(asset?.images?.length ?? 0)}
-          >
-            <Ionicons
-              name="image"
-              size={24}
-              color={
-                (asset?.images?.length ?? 0) > 0
-                  ? colors.text
-                  : colors.textSecondary
-              }
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
-          {activeTab === 'text' && assetContent && assetContent.length > 0 && (
-            <View style={styles.carouselWrapper}>
-              <Carousel
-                items={assetContent}
-                renderItem={(content) => {
-                  return (
-                    <SourceContent
-                      content={content}
-                      sourceLanguage={sourceLanguage ?? null}
-                      audioUri={
-                        content.audio_id
-                          ? (() => {
-                              const localUri = attachmentStates.get(
-                                content.audio_id
-                              )?.local_uri;
-                              return localUri
-                                ? system.permAttachmentQueue?.getLocalUri(
-                                    localUri
-                                  )
-                                : null;
-                            })()
-                          : null
-                      }
-                      isLoading={isLoading}
-                    />
-                  );
-                }}
+      <PanGestureHandler onGestureEvent={handleSwipeGesture}>
+        <View style={styles.content}>
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'text' && styles.activeTab,
+                !assetContent?.length && styles.disabledTab
+              ]}
+              onPress={() => setActiveTab('text')}
+              disabled={!assetContent?.length}
+            >
+              <Ionicons
+                name="text"
+                size={24}
+                color={
+                  assetContent?.length ? colors.text : colors.textSecondary
+                }
               />
-            </View>
-          )}
-          {activeTab === 'image' &&
-          (asset as unknown as { images: string | string[] }).images ? (
-            <ImageCarousel
-              uris={
-                typeof asset?.images === 'string'
-                  ? (asset.images as unknown as string)
-                      .split(',')
-                      .map((id) => id.trim())
-                      .filter(Boolean)
-                      .map((imageId) => {
-                        const localUri =
-                          attachmentStates.get(imageId)?.local_uri;
-                        return localUri
-                          ? system.permAttachmentQueue?.getLocalUri(localUri)
-                          : null;
-                      })
-                      .filter(Boolean)
-                  : Array.isArray(asset?.images)
-                    ? asset.images
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'image' && styles.activeTab,
+                !(asset?.images?.length ?? 0) && styles.disabledTab
+              ]}
+              onPress={() =>
+                (asset?.images?.length ?? 0) > 0 && setActiveTab('image')
+              }
+              disabled={!(asset?.images?.length ?? 0)}
+            >
+              <Ionicons
+                name="image"
+                size={24}
+                color={
+                  (asset?.images?.length ?? 0) > 0
+                    ? colors.text
+                    : colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+            {activeTab === 'text' &&
+              assetContent &&
+              assetContent.length > 0 && (
+                <View style={styles.carouselWrapper}>
+                  <Carousel
+                    items={assetContent}
+                    renderItem={(content) => {
+                      return (
+                        <SourceContent
+                          content={content}
+                          sourceLanguage={sourceLanguage ?? null}
+                          audioUri={
+                            content.audio_id
+                              ? (() => {
+                                  const localUri = attachmentStates.get(
+                                    content.audio_id
+                                  )?.local_uri;
+                                  return localUri
+                                    ? system.permAttachmentQueue?.getLocalUri(
+                                        localUri
+                                      )
+                                    : null;
+                                })()
+                              : null
+                          }
+                          isLoading={isLoading}
+                        />
+                      );
+                    }}
+                  />
+                </View>
+              )}
+            {activeTab === 'image' &&
+            (asset as unknown as { images: string | string[] }).images ? (
+              <ImageCarousel
+                uris={
+                  typeof asset?.images === 'string'
+                    ? (asset.images as unknown as string)
+                        .split(',')
+                        .map((id) => id.trim())
+                        .filter(Boolean)
                         .map((imageId) => {
                           const localUri =
                             attachmentStates.get(imageId)?.local_uri;
@@ -435,143 +460,220 @@ export default function AssetDetailView() {
                             : null;
                         })
                         .filter(Boolean)
-                    : []
-              }
-            />
-          ) : (
-            <Text>No images</Text>
-          )}
-        </View>
-
-        <View style={styles.horizontalLine} />
-
-        <ScrollView style={[{ height: translationsContainerHeight }]}>
-          <View style={styles.translationHeader}>
-            <View
-              style={[
-                styles.alignmentContainer,
-                { gap: 12, flexDirection: 'row', alignItems: 'center' }
-              ]}
-            >
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <SuccessCount
-                  count={
-                    (
-                      translationsWithVotesAndLanguage?.filter(
-                        (translation) => {
-                          const gemColor = getGemColor(
-                            translation,
-                            translation.votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.success;
-                        }
-                      ) ?? []
-                    ).length
-                  }
-                />
-                <PendingCount
-                  count={
-                    (
-                      translationsWithVotesAndLanguage?.filter(
-                        (translation) => {
-                          const gemColor = getGemColor(
-                            translation,
-                            translation.votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.textSecondary;
-                        }
-                      ) ?? []
-                    ).length
-                  }
-                />
-
-                <PickaxeCount
-                  count={
-                    (
-                      translationsWithVotesAndLanguage?.filter(
-                        (translation) => {
-                          const gemColor = getGemColor(
-                            translation,
-                            translation.votes,
-                            currentUser?.id ?? null
-                          );
-                          return gemColor === colors.alert;
-                        }
-                      ) ?? []
-                    ).length
-                  }
-                />
-              </View>
-              <View style={[{ flexDirection: 'row', gap: 8 }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.sortButton,
-                    styles.sortButtonBorder,
-                    sortOption === 'voteCount' && styles.sortButtonSelected
-                  ]}
-                  onPress={() => {
-                    setSortOption('voteCount');
-                  }}
-                >
-                  <ThumbsUpIcon
-                    stroke={
-                      sortOption === 'voteCount'
-                        ? colors.background
-                        : colors.buttonText
-                    }
-                    fill={colors.buttonText}
-                    width={16}
-                    height={16}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.sortButton,
-                    styles.sortButtonBorder,
-                    sortOption === 'dateSubmitted' && styles.sortButtonSelected
-                  ]}
-                  onPress={() => {
-                    setSortOption('dateSubmitted');
-                  }}
-                >
-                  <CalendarIcon
-                    stroke={
-                      sortOption === 'dateSubmitted'
-                        ? colors.background
-                        : colors.buttonText
-                    }
-                    fill={colors.buttonText}
-                    width={16}
-                    height={16}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+                    : Array.isArray(asset?.images)
+                      ? asset.images
+                          .map((imageId) => {
+                            const localUri =
+                              attachmentStates.get(imageId)?.local_uri;
+                            return localUri
+                              ? system.permAttachmentQueue?.getLocalUri(
+                                  localUri
+                                )
+                              : null;
+                          })
+                          .filter(Boolean)
+                      : []
+                }
+              />
+            ) : (
+              <Text>No images</Text>
+            )}
           </View>
 
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <View style={styles.translationsList}>
-              <FlashList
-                data={translationsWithVotesAndLanguage?.sort((a, b) => {
-                  if (sortOption === 'voteCount') {
-                    return (
-                      calculateVoteCount(b.votes) - calculateVoteCount(a.votes)
-                    );
-                  }
-                  return (
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                  );
-                })}
-                renderItem={renderTranslationCard}
-                keyExtractor={(item) => item.id}
-              />
+          <View style={styles.horizontalLine} />
+
+          <ScrollView style={[{ height: translationsContainerHeight }]}>
+            <View style={styles.translationHeader}>
+              <View
+                style={[
+                  styles.alignmentContainer,
+                  { gap: 12, flexDirection: 'row', alignItems: 'center' }
+                ]}
+              >
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <SuccessCount
+                    count={
+                      (
+                        translationsWithVotesAndLanguage?.filter(
+                          (translation) => {
+                            const gemColor = getGemColor(
+                              translation,
+                              translation.votes,
+                              currentUser?.id ?? null
+                            );
+                            return gemColor === colors.success;
+                          }
+                        ) ?? []
+                      ).length
+                    }
+                  />
+                  <PendingCount
+                    count={
+                      (
+                        translationsWithVotesAndLanguage?.filter(
+                          (translation) => {
+                            const gemColor = getGemColor(
+                              translation,
+                              translation.votes,
+                              currentUser?.id ?? null
+                            );
+                            return gemColor === colors.textSecondary;
+                          }
+                        ) ?? []
+                      ).length
+                    }
+                  />
+
+                  <PickaxeCount
+                    count={
+                      (
+                        translationsWithVotesAndLanguage?.filter(
+                          (translation) => {
+                            const gemColor = getGemColor(
+                              translation,
+                              translation.votes,
+                              currentUser?.id ?? null
+                            );
+                            return gemColor === colors.alert;
+                          }
+                        ) ?? []
+                      ).length
+                    }
+                  />
+                </View>
+                <View style={[{ flexDirection: 'row', gap: 8 }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.sortButton,
+                      styles.sortButtonBorder,
+                      sortOption === 'voteCount' && styles.sortButtonSelected
+                    ]}
+                    onPress={() => {
+                      setSortOption('voteCount');
+                    }}
+                  >
+                    <ThumbsUpIcon
+                      stroke={
+                        sortOption === 'voteCount'
+                          ? colors.background
+                          : colors.buttonText
+                      }
+                      fill={colors.buttonText}
+                      width={16}
+                      height={16}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.sortButton,
+                      styles.sortButtonBorder,
+                      sortOption === 'dateSubmitted' &&
+                        styles.sortButtonSelected
+                    ]}
+                    onPress={() => {
+                      setSortOption('dateSubmitted');
+                    }}
+                  >
+                    <CalendarIcon
+                      stroke={
+                        sortOption === 'dateSubmitted'
+                          ? colors.background
+                          : colors.buttonText
+                      }
+                      fill={colors.buttonText}
+                      width={16}
+                      height={16}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </GestureHandlerRootView>
-        </ScrollView>
-      </View>
+
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <View style={styles.translationsList}>
+                <FlashList
+                  data={translationsWithVotesAndLanguage?.sort((a, b) => {
+                    if (sortOption === 'voteCount') {
+                      return (
+                        calculateVoteCount(b.votes) -
+                        calculateVoteCount(a.votes)
+                      );
+                    }
+                    return (
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime()
+                    );
+                  })}
+                  renderItem={renderTranslationCard}
+                  keyExtractor={(item) => item.id}
+                />
+              </View>
+            </GestureHandlerRootView>
+          </ScrollView>
+        </View>
+      </PanGestureHandler>
+
+      {/* Asset Navigation Controls */}
+      {currentAssetListContext &&
+        (canGoToPreviousAsset || canGoToNextAsset) && (
+          <View style={styles.assetNavigationContainer}>
+            <TouchableOpacity
+              style={[
+                styles.assetNavigationButton,
+                !canGoToPreviousAsset && styles.disabledButton
+              ]}
+              onPress={goToPreviousAsset}
+              disabled={!canGoToPreviousAsset}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={
+                  canGoToPreviousAsset ? colors.primary : colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.assetNavigationText,
+                  !canGoToPreviousAsset && styles.disabledText
+                ]}
+              >
+                Previous
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.assetCountContainer}>
+              <Text style={styles.assetCountText}>
+                {currentAssetListContext.currentIndex + 1} of{' '}
+                {currentAssetListContext.assetIds.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.assetNavigationButton,
+                !canGoToNextAsset && styles.disabledButton
+              ]}
+              onPress={goToNextAsset}
+              disabled={!canGoToNextAsset}
+            >
+              <Text
+                style={[
+                  styles.assetNavigationText,
+                  !canGoToNextAsset && styles.disabledText
+                ]}
+              >
+                Next
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={24}
+                color={canGoToNextAsset ? colors.primary : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
       <View style={{ flexDirection: 'row' }}>
         <TouchableOpacity
           style={[
@@ -815,5 +917,36 @@ const styles = StyleSheet.create({
   },
   sortButtonSelected: {
     backgroundColor: colors.buttonText
+  },
+  assetNavigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: spacing.small,
+    backgroundColor: colors.inputBackground,
+    borderTopWidth: 1,
+    borderTopColor: colors.inputBorder
+  },
+  assetNavigationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small
+  },
+  assetNavigationText: {
+    color: colors.text,
+    fontSize: fontSizes.medium
+  },
+  disabledButton: {
+    opacity: 0.5
+  },
+  disabledText: {
+    color: colors.textSecondary
+  },
+  assetCountContainer: {
+    paddingHorizontal: spacing.small
+  },
+  assetCountText: {
+    color: colors.text,
+    fontSize: fontSizes.medium
   }
 });
