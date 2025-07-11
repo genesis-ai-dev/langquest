@@ -263,7 +263,7 @@ export function useDownload(
     if (!recordId) return;
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Starting download for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Starting download for ${recordTable}:${recordId}`
     );
 
     const isCurrentlyDownloaded = await getDownloadStatus(
@@ -272,23 +272,23 @@ export function useDownload(
     );
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+      `🎯 [DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
     );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
       console.log(
-        `🎯 [QUEST DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
+        `🎯 [DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
       );
       return;
     }
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
     );
     await mutation.mutateAsync(false); // always download
     console.log(
-      `🎯 [QUEST DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
     );
   };
 
@@ -361,10 +361,10 @@ export function useQuestDownloadStatus(questId: string) {
   // Calculate progress percentage
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {
@@ -430,23 +430,23 @@ export function useProjectDownloadStatus(projectId: string) {
 
   const closureData = projectClosure?.[0] as
     | {
-        project_id: string;
-        total_quests: number;
-        total_assets: number;
-        total_translations: number;
-        approved_translations: number;
-        last_updated: string;
-      }
+      project_id: string;
+      total_quests: number;
+      total_assets: number;
+      total_translations: number;
+      approved_translations: number;
+      last_updated: string;
+    }
     | undefined;
   const isDownloaded = !!projectDownloadStatus?.[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {

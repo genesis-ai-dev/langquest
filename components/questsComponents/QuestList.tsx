@@ -196,15 +196,6 @@ export const QuestList = React.memo(
 
     return (
       <>
-        <ScrollView style={{ flex: 1 }}>
-          <Text style={{ color: 'red' }}>
-            {JSON.stringify(
-              { selectedProject, projectId, filteredQuests },
-              null,
-              2
-            )}
-          </Text>
-        </ScrollView>
         <FlashList
           data={filteredQuests}
           renderItem={({ item }) => (
