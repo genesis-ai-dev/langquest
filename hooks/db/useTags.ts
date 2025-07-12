@@ -184,7 +184,7 @@ export function useTagsByProjectId(project_id: string) {
  * This is more efficient for getting just the categories without individual tag details
  */
 export function useTagCategoriesByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = system;
+  const { db } = system;
 
   const {
     data: tagCategories,
@@ -192,21 +192,7 @@ export function useTagCategoriesByQuestId(quest_id: string) {
     ...rest
   } = useHybridSupabaseQuery({
     queryKey: ['tag-categories', 'by-quest', quest_id],
-    onlineFn: async ({ signal }) => {
-      // Use the optimized view for getting categories
-      const { data, error } = await supabaseConnector.client
-        .from('asset_tag_categories')
-        .select('tag_categories')
-        .eq('quest_id', quest_id)
-        .abortSignal(signal)
-        .single()
-        .overrideTypes<{ tag_categories: string[] | null }>();
-
-      if (error) throw error;
-
-      return [data];
-    },
-    offlineQuery: db
+    query: db
       .select({
         tag_categories: asset_tag_categories.tag_categories
       })

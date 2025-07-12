@@ -57,16 +57,16 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for asset_tag_categories (refresh when asset_tag_link changes)
-CREATE TRIGGER trigger_refresh_asset_tag_categories_on_asset_tag_link
-  AFTER INSERT OR UPDATE OR DELETE ON asset_tag_link
-  FOR EACH STATEMENT
-  EXECUTE FUNCTION refresh_asset_tag_categories();
+-- CREATE TRIGGER trigger_refresh_asset_tag_categories_on_asset_tag_link
+--   AFTER INSERT OR UPDATE OR DELETE ON asset_tag_link
+--   FOR EACH STATEMENT
+--   EXECUTE FUNCTION refresh_asset_tag_categories();
 
--- Triggers for asset_tag_categories (refresh when quest_asset_link changes)
-CREATE TRIGGER trigger_refresh_asset_tag_categories_on_quest_tag_link
-  AFTER INSERT OR UPDATE OR DELETE ON quest_tag_link
-  FOR EACH STATEMENT
-  EXECUTE FUNCTION refresh_asset_tag_categories();
+-- -- Triggers for asset_tag_categories (refresh when quest_asset_link changes)
+-- CREATE TRIGGER trigger_refresh_asset_tag_categories_on_quest_tag_link
+--   AFTER INSERT OR UPDATE OR DELETE ON quest_tag_link
+--   FOR EACH STATEMENT
+--   EXECUTE FUNCTION refresh_asset_tag_categories();
 
 -- Note: Row Level Security (RLS) is not supported on materialized views in PostgreSQL
 -- Security will need to be handled at the application level or through wrapper views 

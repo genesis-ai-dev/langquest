@@ -7,7 +7,7 @@ import {
   useQueryClient,
   useQuery as useTanStackQuery
 } from '@tanstack/react-query';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
 /**
@@ -346,6 +346,7 @@ interface RealtimeSubscriptionOptions<T extends Record<string, unknown>> {
   /**
    * Function to get the ID of a record. Defaults to (record) => record.id
    */
+  getId?: (record: T | Partial<T>) => string | number;
 }
 
 /**
@@ -1004,12 +1005,10 @@ type HybridSupabaseInfiniteRealtimeQueryOptions<
  *   queryKey: ['assets', 'paginated', questId],
  *   query: (pageParam) => db.select().from(assetTable).limit(20).offset(pageParam * 20),
  *   pageSize: 20,
- *   subscribeRealtime: (onChange) => {
- *     const channel = system.supabaseConnector.client
- *       .channel('public:asset')
- *       .on('postgres_changes', { event: '*', schema: 'public', table: 'asset' }, onChange);
- *     channel.subscribe();
- *     return () => system.supabaseConnector.client.removeChannel(channel)
+ *   channelName: 'public:asset',
+ *   subscriptionConfig: {
+ *     table: 'asset',
+ *     schema: 'public'
  *   },
  *   getId: (asset) => asset.id,
  * });
@@ -1018,152 +1017,151 @@ export function useHybridSupabaseInfiniteRealtimeQuery<
   T extends Record<string, unknown>
 >({
   queryKey,
-  subscribeRealtime,
+  channelName,
+  subscriptionConfig,
   getId = (record: T | Partial<T>) =>
     (record as unknown as { id: string | number }).id,
   ...restOptions
 }: HybridSupabaseInfiniteRealtimeQueryOptions<T>) {
   const queryClient = useQueryClient();
-  const realtimeChannelRef = useRef<ReturnType<
-    typeof subscribeRealtime
-  > | null>(null);
-
   const isOnline = useNetworkStatus();
 
   // Use the base hybrid infinite query with offline-first pattern
   const result = useHybridSupabaseInfiniteQuery<T>({
     queryKey,
+    getId,
     ...restOptions
   });
 
   useEffect(() => {
     if (!isOnline) return;
 
-    // Unsubscribe previous
-    if (realtimeChannelRef.current) {
-      void realtimeChannelRef.current();
-      realtimeChannelRef.current = null;
-    }
+    const channel = system.supabaseConnector.client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { ...subscriptionConfig, event: '*' },
+        (payload: RealtimePostgresChangesPayload<T>) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
 
-    // Subscribe with automatic cache management for cloud infinite data
-    const subscription = subscribeRealtime((payload) => {
-      const { eventType, new: newRow, old: oldRow } = payload;
+          // Build the cache key for cloud infinite queries
+          const cleanQueryKey = queryKey.filter(
+            (key: unknown) => key !== undefined && key !== null
+          );
+          const hasInfinite = cleanQueryKey.includes('infinite');
+          const baseKey = hasInfinite
+            ? cleanQueryKey
+            : [...cleanQueryKey, 'infinite'];
+          const cloudCacheKey = [...baseKey, 'cloud'];
 
-      // Build the cache key for cloud infinite queries
-      const cleanQueryKey = queryKey.filter(
-        (key: unknown) => key !== undefined && key !== null
-      );
-      const hasInfinite = cleanQueryKey.includes('infinite');
-      const baseKey = hasInfinite
-        ? cleanQueryKey
-        : [...cleanQueryKey, 'infinite'];
-      const cloudCacheKey = [...baseKey, 'cloud'];
+          queryClient.setQueryData<{
+            pages: HybridPageData<T>[];
+            pageParams: number[];
+          }>(cloudCacheKey, (prev) => {
+            if (!prev) return prev;
 
-      queryClient.setQueryData<{
-        pages: HybridPageData<T>[];
-        pageParams: number[];
-      }>(cloudCacheKey, (prev) => {
-        if (!prev) return prev;
+            const newPages = [...prev.pages];
 
-        const newPages = [...prev.pages];
+            switch (eventType) {
+              case 'INSERT': {
+                const recordId = getId(newRow);
 
-        switch (eventType) {
-          case 'INSERT': {
-            const recordId = getId(newRow);
-
-            // Check if record already exists in any page to avoid duplicates
-            const existsInPages = newPages.some((page) =>
-              page.data.some((record) => getId(record) === recordId)
-            );
-
-            if (!existsInPages && newPages.length > 0) {
-              // Add to the first page (most recent data)
-              newPages[0] = {
-                ...newPages[0]!,
-                data: [newRow, ...newPages[0]!.data]
-              };
-            }
-            break;
-          }
-
-          case 'UPDATE': {
-            const recordId = getId(newRow);
-
-            // Find and update the record in whichever page it exists
-            for (let i = 0; i < newPages.length; i++) {
-              const page = newPages[i];
-              if (page) {
-                const recordIndex = page.data.findIndex(
-                  (record) => getId(record) === recordId
+                // Check if record already exists in any page to avoid duplicates
+                const existsInPages = newPages.some((page) =>
+                  page.data.some((record) => getId(record) === recordId)
                 );
 
-                if (recordIndex !== -1) {
-                  const newPageData = [...page.data];
-                  newPageData[recordIndex] = newRow;
-                  newPages[i] = {
-                    ...page,
-                    data: newPageData
+                if (!existsInPages && newPages.length > 0) {
+                  // Add to the first page (most recent data)
+                  newPages[0] = {
+                    ...newPages[0]!,
+                    data: [newRow, ...newPages[0]!.data]
                   };
-                  break;
                 }
+                break;
               }
-            }
-            break;
-          }
 
-          case 'DELETE': {
-            const recordId = getId(oldRow);
+              case 'UPDATE': {
+                const recordId = getId(newRow);
 
-            // Find and remove the record from whichever page it exists
-            for (let i = 0; i < newPages.length; i++) {
-              const page = newPages[i];
-              if (page) {
-                const recordIndex = page.data.findIndex(
-                  (record) => getId(record) === recordId
+                // Find and update the record in whichever page it exists
+                for (let i = 0; i < newPages.length; i++) {
+                  const page = newPages[i];
+                  if (page) {
+                    const recordIndex = page.data.findIndex(
+                      (record) => getId(record) === recordId
+                    );
+
+                    if (recordIndex !== -1) {
+                      const newPageData = [...page.data];
+                      newPageData[recordIndex] = newRow;
+                      newPages[i] = {
+                        ...page,
+                        data: newPageData
+                      };
+                      break;
+                    }
+                  }
+                }
+                break;
+              }
+
+              case 'DELETE': {
+                const recordId = getId(oldRow);
+
+                // Find and remove the record from whichever page it exists
+                for (let i = 0; i < newPages.length; i++) {
+                  const page = newPages[i];
+                  if (page) {
+                    const recordIndex = page.data.findIndex(
+                      (record) => getId(record) === recordId
+                    );
+
+                    if (recordIndex !== -1) {
+                      const newPageData = page.data.filter(
+                        (record) => getId(record) !== recordId
+                      );
+                      newPages[i] = {
+                        ...page,
+                        data: newPageData
+                      };
+                      break;
+                    }
+                  }
+                }
+                break;
+              }
+
+              default: {
+                console.warn(
+                  'useHybridSupabaseInfiniteRealtimeQuery: Unhandled event type',
+                  eventType
                 );
-
-                if (recordIndex !== -1) {
-                  const newPageData = page.data.filter(
-                    (record) => getId(record) !== recordId
-                  );
-                  newPages[i] = {
-                    ...page,
-                    data: newPageData
-                  };
-                  break;
-                }
+                break;
               }
             }
-            break;
-          }
 
-          default: {
-            console.warn(
-              'useHybridSupabaseInfiniteRealtimeQuery: Unhandled event type',
-              eventType
-            );
-            break;
-          }
+            return {
+              ...prev,
+              pages: newPages
+            };
+          });
         }
-
-        return {
-          ...prev,
-          pages: newPages
-        };
-      });
-    });
-
-    realtimeChannelRef.current = subscription;
+      );
+    channel.subscribe();
 
     return () => {
-      if (realtimeChannelRef.current) {
-        void realtimeChannelRef.current();
-        realtimeChannelRef.current = null;
-      }
+      void channel.unsubscribe().then((value) => {
+        if (value === 'error' || value === 'timed out')
+          throw new Error(
+            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+          );
+      });
     };
   }, [
     isOnline,
-    subscribeRealtime,
+    channelName,
+    subscriptionConfig,
     queryClient,
     getId,
     JSON.stringify(queryKey)

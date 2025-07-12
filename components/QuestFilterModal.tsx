@@ -52,8 +52,10 @@ const CategorySection: React.FC<{
   selectedOptions,
   onToggleOption
 }) => {
-  const { tags, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteTagsByProjectIdAndCategory(projectId, category);
+
+  const tags = data.pages.flatMap((page) => page.data);
 
   // Process tags to extract options
   const options = useMemo(() => {
