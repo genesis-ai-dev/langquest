@@ -8,7 +8,10 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useSessionProjects } from '@/contexts/SessionCacheContext';
+import {
+  useSessionMemberships,
+  useSessionProjects
+} from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import type { asset_content_link } from '@/db/drizzleSchema';
@@ -45,6 +48,7 @@ import {
 } from 'react-native';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
@@ -163,6 +167,9 @@ export default function AssetsView() {
   // Get current navigation state
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
 
+  const { isUserOwner } = useSessionMemberships();
+  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -170,6 +177,7 @@ export default function AssetsView() {
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Early return if no quest is selected
   if (!currentQuestId || !currentProjectId) {
@@ -446,9 +454,22 @@ export default function AssetsView() {
           // Performance optimizations
           removeClippedSubviews={true}
         />
-        <TouchableOpacity onPress={toggleQuestStats} style={styles.statsButton}>
-          <Ionicons name="stats-chart" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.floatingButtonsContainer}>
+          {isOwner && (
+            <TouchableOpacity
+              onPress={() => setShowSettingsModal(true)}
+              style={styles.statsButton}
+            >
+              <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={toggleQuestStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
       <Modal
         visible={isFilterModalVisible}
@@ -473,6 +494,12 @@ export default function AssetsView() {
       {showQuestStats && quest && (
         <QuestDetails quest={quest} onClose={handleCloseDetails} />
       )}
+      <QuestSettingsModal
+        isVisible={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        questId={currentQuestId}
+        projectId={currentProjectId}
+      />
     </View>
   );
 }
@@ -565,5 +592,10 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold'
+  },
+  floatingButtonsContainer: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    gap: spacing.small
   }
 });
