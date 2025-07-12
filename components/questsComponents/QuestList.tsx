@@ -6,14 +6,12 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import type { SortingOption } from '@/views/QuestsView';
-import { filterQuests } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
+import { and, eq, like, or } from 'drizzle-orm';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   Text,
   TouchableOpacity,
   View
@@ -105,22 +103,56 @@ export const QuestList = React.memo(
       fetchNextPage,
       hasNextPage
     } = useHybridSupabaseInfiniteQuery<QuestWithTags>({
-      queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
+      queryKey: [
+        'quests',
+        'by-project',
+        projectId,
+        sortField,
+        sortOrder,
+        searchQuery,
+        activeFilters
+      ],
       onlineFn: async ({ pageParam, pageSize }) => {
-        const { data, error } = await system.supabaseConnector.client
+        let query = system.supabaseConnector.client
           .from('quest')
           .select('*, tags:quest_tag_link(tag(*))')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false })
+          .eq('project_id', projectId);
+
+        // Add search filtering
+        if (searchQuery) {
+          query = query.or(
+            `name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+          );
+        }
+
+        // Add ordering
+        query = query.order('created_at', { ascending: false });
+
+        // Add pagination
+        query = query
           .limit(pageSize)
-          .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1)
-          .overrideTypes<QuestWithTags[]>();
+          .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1);
+
+        const { data, error } = await query.overrideTypes<QuestWithTags[]>();
         if (error) throw error;
         return data;
       },
-      offlineFn: async ({ pageParam, pageSize }) =>
-        await system.db.query.quest.findMany({
-          where: eq(quest.project_id, projectId),
+      offlineFn: async ({ pageParam, pageSize }) => {
+        const baseCondition = eq(quest.project_id, projectId);
+
+        // Add search filtering for offline
+        const whereConditions = searchQuery
+          ? and(
+              baseCondition,
+              or(
+                like(quest.name, `%${searchQuery}%`),
+                like(quest.description, `%${searchQuery}%`)
+              )
+            )
+          : baseCondition;
+
+        return await system.db.query.quest.findMany({
+          where: whereConditions,
           limit: pageSize,
           offset: pageParam * pageSize,
           with: {
@@ -130,34 +162,15 @@ export const QuestList = React.memo(
               }
             }
           }
-        }),
+        });
+      },
       pageSize: 10
     });
 
     // Extract and memoize quests with tags
-    const { filteredQuests } = useMemo(() => {
-      const questsWithTags = infiniteData?.pages.length
-        ? infiniteData.pages.flatMap((page) => page.data)
-        : [];
-
-      const tags = questsWithTags.reduce(
-        (acc, quest) => {
-          acc[quest.id] = quest.tags.map((tag) => tag.tag);
-          return acc;
-        },
-        {} as Record<string, Tag[]>
-      );
-
-      const filtered =
-        questsWithTags.length &&
-        (searchQuery || Object.keys(activeFilters).length > 0)
-          ? filterQuests(questsWithTags, tags, searchQuery, activeFilters)
-          : questsWithTags;
-
-      return {
-        filteredQuests: filtered
-      };
-    }, [infiniteData?.pages, searchQuery, activeFilters]);
+    const questsWithTags = useMemo(() => {
+      return infiniteData.pages.flatMap((page) => page.data);
+    }, [infiniteData.pages]);
 
     // Show skeleton during initial load
     if (isLoading) {
@@ -197,7 +210,7 @@ export const QuestList = React.memo(
     return (
       <>
         <FlashList
-          data={filteredQuests}
+          data={questsWithTags}
           renderItem={({ item }) => (
             <QuestItem
               quest={item}
