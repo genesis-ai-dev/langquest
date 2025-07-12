@@ -11,7 +11,7 @@ import { QuestDetails } from '@/components/QuestDetails';
 import { useSessionProjects } from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
-import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
+import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import {
@@ -158,7 +158,7 @@ export default function AssetsView() {
     isError,
     error,
     refetch
-  } = useInfiniteAssetsWithTagsAndContentByQuestId(
+  } = useInfiniteAssetsWithTagsByQuestId(
     currentQuestId,
     10, // pageSize
     activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,

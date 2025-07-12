@@ -668,7 +668,7 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
  * Automatically switches between online and offline with proper caching
  * Follows TKDodo's best practices for infinite queries
  */
-export function useInfiniteAssetsWithTagsAndContentByQuestId(
+export function useInfiniteAssetsWithTagsByQuestId(
   quest_id: string,
   pageSize = 10,
   sortField?: string,
@@ -692,7 +692,7 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
     if (activeFilters) queryKeyParts.push(JSON.stringify(activeFilters));
 
     return queryKeyParts;
-  }, [quest_id, pageSize, sortField, sortOrder]);
+  }, [quest_id, pageSize, sortField, sortOrder, searchQuery]);
 
   return useHybridInfiniteQuery({
     queryKey: queryKey,
@@ -727,9 +727,6 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
             `
             asset:asset_id (
               *,
-              content:asset_content_link (
-                *
-              ),
               tags:asset_tag_link!inner (
                 tag:tag_id!inner (
                   *
@@ -748,9 +745,6 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
             `
             asset:asset_id (
               *,
-              content:asset_content_link (
-                *
-              ),
               tags:asset_tag_link (
                 tag:tag_id (
                   *
@@ -765,8 +759,10 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       // Add search functionality
       if (searchQuery) {
         const searchTerm = searchQuery.trim();
+
+        console.log('searchTerm', searchTerm);
         // Search in asset names using Supabase's nested field filtering
-        query = query.filter('asset_id.name', 'ilike', `%${searchTerm}%`);
+        query = query.filter('asset.name', 'ilike', `%${searchTerm}%`);
       }
 
       // Add sorting if specified
@@ -774,10 +770,10 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
         // Note: Supabase doesn't support ordering by nested fields in this format
         // So we'll apply sorting on the client side after fetching
         // Default ordering to ensure consistent pagination
-        query = query.order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: true });
       } else {
         // Default sort - also use created_at for consistency
-        query = query.order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: true });
       }
 
       // Add pagination
@@ -786,9 +782,7 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       // Add abort signal for proper cleanup
       const { data, error, count } = await query
         .abortSignal(signal)
-        .overrideTypes<
-          { asset: Asset & { tags: { tag: Tag }[]; content: AssetContent[] } }[]
-        >();
+        .overrideTypes<{ asset: Asset & { tags: { tag: Tag }[] } }[]>();
 
       if (error) throw error;
 
@@ -926,7 +920,6 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
         const allAssets = await system.db.query.asset.findMany({
           where: inArray(asset.id, assetIdsSubquery),
           with: {
-            content: true,
             tags: {
               with: {
                 tag: true
