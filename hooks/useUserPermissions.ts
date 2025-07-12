@@ -1,9 +1,9 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { profile_project_link, project } from '@/db/drizzleSchema';
+import { useSessionMemberships } from '@/contexts/SessionCacheContext';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 /**
  * # Access Control Constraints
@@ -118,8 +118,14 @@ export function useUserPermissions(
   hasAccess: boolean;
   membership: MembershipRole;
   isMembershipLoading: boolean;
+  membershipData?: {
+    project_id: string;
+    membership: 'owner' | 'member';
+    active: boolean;
+  };
 } {
-  const { currentUser } = useAuth();
+  const { getUserMembership, isUserMembershipsLoading } =
+    useSessionMemberships();
   const { db } = system;
 
   // Don't run queries if project_id is empty or invalid
@@ -149,35 +155,8 @@ export function useUserPermissions(
     enabled: shouldQueryPrivacy
   });
 
-  // Query for membership status
-  const { data: membershipLinks = [] } = useHybridQuery({
-    queryKey: ['membership-status', project_id, currentUser?.id],
-    onlineFn: async () => {
-      const { data } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*')
-        .eq('profile_id', currentUser?.id || '')
-        .eq('project_id', project_id)
-        .eq('active', true);
-      return data as (typeof profile_project_link.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.project_id, project_id),
-          eq(profile_project_link.profile_id, currentUser?.id || ''),
-          eq(profile_project_link.active, true)
-        ),
-        limit: 1
-      })
-    ),
-    enabled: isValidProjectId && !!currentUser?.id
-  });
-
-  // Get the first (and should be only) membership record
-  const membershipData = membershipLinks[0] as
-    | typeof profile_project_link.$inferSelect
-    | undefined;
+  // Get membership from session cache (more efficient and consistent)
+  const membershipData = getUserMembership(project_id);
   const isPrivate =
     knownIsPrivate ??
     (projectData[0] as { private: boolean } | undefined)?.private ??
@@ -189,7 +168,8 @@ export function useUserPermissions(
     return {
       hasAccess: false,
       membership: undefined,
-      isMembershipLoading: false
+      isMembershipLoading: isUserMembershipsLoading,
+      membershipData: undefined
     };
   }
 
@@ -209,7 +189,8 @@ export function useUserPermissions(
     return {
       hasAccess: isLockVisible,
       membership,
-      isMembershipLoading: false
+      isMembershipLoading: isUserMembershipsLoading,
+      membershipData
     };
   }
 
@@ -228,7 +209,7 @@ export function useUserPermissions(
     return {
       hasAccess: true,
       membership,
-      isMembershipLoading: false
+      isMembershipLoading: isUserMembershipsLoading
     };
   }
 
@@ -240,6 +221,7 @@ export function useUserPermissions(
   return {
     hasAccess: hasRolePermission,
     membership,
-    isMembershipLoading: false
+    isMembershipLoading: isUserMembershipsLoading,
+    membershipData
   };
 }

@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { UseQueryOptions } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   convertToFetchConfig,
@@ -17,32 +17,6 @@ interface TreeNode {
   childField?: string;
   keyFields?: string[];
   children?: TreeNode[];
-}
-
-// Type guard and interface for attachment state manager
-interface AttachmentStateManager {
-  markDownloadOperationStart(): void;
-  markDownloadOperationComplete(): void;
-  processPendingUpdates(onUpdate: (ids: string[]) => void): void;
-}
-
-interface AttachmentQueueWithStateManager {
-  attachmentStateManager?: AttachmentStateManager;
-  getDebugInfo?(): { stateManager?: AttachmentStateManager };
-}
-
-function getAttachmentStateManager(): AttachmentStateManager | null {
-  const permQueue = system.permAttachmentQueue as
-    | AttachmentQueueWithStateManager
-    | undefined;
-  if (!permQueue) return null;
-
-  // Try to get state manager directly
-  if (permQueue.attachmentStateManager) {
-    return permQueue.attachmentStateManager;
-  }
-
-  return null;
 }
 
 async function getDownloadTreeStructure() {
@@ -130,12 +104,15 @@ function getDownloadStatusConfig(
 export function useDownloadStatus(
   recordTable: keyof typeof system.db.query,
   recordId: string
-) {
+): {
+  isFlaggedForDownload: boolean;
+  isLoading: boolean;
+} {
   const { data, isLoading, ...rest } = useHybridQuery(
     getDownloadStatusConfig(recordTable, recordId)
   );
 
-  return { isDownloaded: !!data?.[0]?.id, isLoading, ...rest };
+  return { isFlaggedForDownload: !!data?.[0]?.id, isLoading, ...rest };
 }
 
 /**
@@ -152,15 +129,6 @@ export async function downloadRecord(
   console.log(
     `📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`
   );
-
-  // 🚫 PREVENT ATTACHMENT COLLECTION DURING DOWNLOAD
-  const stateManager = getAttachmentStateManager();
-  if (stateManager) {
-    console.log(
-      '🚫 [DOWNLOAD RPC] Marking download operation start to prevent attachment collection'
-    );
-    stateManager.markDownloadOperationStart();
-  }
 
   try {
     const currentUser = getCurrentUser();
@@ -257,19 +225,8 @@ export async function downloadRecord(
         `📡 [DOWNLOAD RPC] ✅ Successfully completed download_record RPC for ${recordTable}:${recordId}`
       );
     }
-  } finally {
-    // ✅ RESUME ATTACHMENT COLLECTION AFTER DOWNLOAD
-    if (stateManager) {
-      console.log(
-        '✅ [DOWNLOAD RPC] Marking download operation complete - resuming attachment collection'
-      );
-      stateManager.markDownloadOperationComplete();
-
-      // Process any pending updates
-      console.log(
-        '🔄 [DOWNLOAD RPC] Attachment updates will be processed when next triggered'
-      );
-    }
+  } catch (error) {
+    console.error('Error during downloadRecord:', error);
   }
 }
 
@@ -279,9 +236,17 @@ export async function downloadRecord(
 export function useDownload(
   recordTable: keyof typeof system.db.query,
   recordId: string
-) {
+): {
+  isFlaggedForDownload: boolean;
+  isLoading: boolean;
+  toggleDownload: () => Promise<void>;
+  mutation: UseMutationResult<void, Error, boolean | undefined>;
+} {
   const queryClient = useQueryClient();
-  const { isDownloaded, isLoading } = useDownloadStatus(recordTable, recordId);
+  const { isFlaggedForDownload, isLoading } = useDownloadStatus(
+    recordTable,
+    recordId
+  );
 
   const mutation = useMutation({
     mutationFn: async (downloaded?: boolean) =>
@@ -298,7 +263,7 @@ export function useDownload(
     if (!recordId) return;
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Starting download for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Starting download for ${recordTable}:${recordId}`
     );
 
     const isCurrentlyDownloaded = await getDownloadStatus(
@@ -307,28 +272,28 @@ export function useDownload(
     );
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+      `🎯 [DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
     );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
       console.log(
-        `🎯 [QUEST DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
+        `🎯 [DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
       );
       return;
     }
 
     console.log(
-      `🎯 [QUEST DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
     );
     await mutation.mutateAsync(false); // always download
     console.log(
-      `🎯 [QUEST DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
+      `🎯 [DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
     );
   };
 
   return {
-    isDownloaded: !!isDownloaded,
+    isFlaggedForDownload,
     isLoading: isLoading || mutation.isPending,
     toggleDownload,
     mutation

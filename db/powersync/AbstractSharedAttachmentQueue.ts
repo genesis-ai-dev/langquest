@@ -1,3 +1,5 @@
+import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
+import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalStore } from '@/store/localStore';
 import type {
   AttachmentQueueOptions,
@@ -66,7 +68,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
-        // console.debug(`Queuing for sync, attachment IDs: [${_ids}]`);
 
         if (this.initialSync) {
           this.initialSync = false;
@@ -97,18 +98,12 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               id: id,
               state: AttachmentState.QUEUED_SYNC
             });
-            console.debug(
-              `Attachment (${id}) not found in database, creating new record`
-            );
             await this.saveToQueue(newRecord);
           } else if (
             // 2. Attachment exists but needs to be converted to permanent
             storageType === 'permanent' &&
             record.storage_type === 'temporary'
           ) {
-            console.debug(
-              `Converting temporary attachment (${id}) to permanent`
-            );
             await this.update({
               ...record,
               state: AttachmentState.QUEUED_SYNC,
@@ -119,9 +114,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
           ) {
             // 3. Attachment in database but no local file, mark as queued download
-            console.debug(
-              `Attachment (${id}) found in database but no local file, marking as queued download`
-            );
             await this.update({
               ...record,
               state: AttachmentState.QUEUED_DOWNLOAD
@@ -259,50 +251,61 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Common method to identify all attachments related to an asset
   async getAllAssetAttachments(assetId: string): Promise<string[]> {
+    // const queueType =
+    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
+    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
     const attachmentIds: string[] = [];
 
     try {
-      // 1. Get the asset itself for images - using direct database query
-      const asset = await this.db.query.asset.findFirst({
-        where: (asset, { eq }) => eq(asset.id, assetId),
-        columns: { images: true }
-      });
+      // 1. Get the asset itself for images
+      const asset = await getAssetById(assetId);
 
       if (asset?.images) {
+        // console.log(
+        //   `${queueType} Found ${asset.images.length} images in asset`
+        // );
         attachmentIds.push(...asset.images);
       }
 
-      // 2. Get asset_content_link entries for audio - using direct database query
-      const assetContents = await this.db.query.asset_content_link.findMany({
-        where: (asset_content_link, { eq }) =>
-          eq(asset_content_link.asset_id, assetId),
-        columns: { audio_id: true }
-      });
+      // 2. Get asset_content_link entries for audio
+      const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
+        ?.filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
 
-      if (contentAudioIds.length) {
+      if (contentAudioIds?.length) {
+        // console.log(
+        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
+        // );
         attachmentIds.push(...contentAudioIds);
       }
 
-      // 3. Get translations for the asset and their audio - using direct database query
-      const translations = await this.db.query.translation.findMany({
-        where: (translation, { eq }) => eq(translation.asset_id, assetId),
-        columns: { audio: true }
-      });
+      // 3. Get translations for the asset and their audio
+      const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio)
+        ?.filter((translation) => translation.audio)
         .map((translation) => translation.audio!);
 
-      if (translationAudioIds.length) {
+      if (translationAudioIds?.length) {
+        // console.log(
+        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
+        // );
         attachmentIds.push(...translationAudioIds);
       }
 
+      // Log all found attachments
+      // console.log(
+      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
+      // );
+
       return attachmentIds;
     } catch {
+      // console.error(
+      //   `${queueType} Error getting attachments for asset ${assetId}:`,
+      //   error
+      // );
       return [];
     }
   }
@@ -335,22 +338,58 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
     try {
       console.log(`Downloading ${this.downloadQueue.size} attachments...`);
-      while (this.downloadQueue.size > 0) {
-        const id = this.downloadQueue.values().next().value as string;
-        this.downloadQueue.delete(id);
-        const record = await this.record(id);
-        if (!record) {
-          continue;
-        }
-        await this.downloadRecord(record);
-        downloaded++;
 
-        // Update progress
+      // Convert downloadQueue to array for concurrent processing
+      const idsArray = Array.from(this.downloadQueue);
+      this.downloadQueue.clear();
+
+      // Create a progress update function that's thread-safe
+      const updateProgress = () => {
+        downloaded++;
         useLocalStore.getState().setAttachmentSyncProgress({
           downloadCurrent: downloaded,
           downloadTotal: totalToDownload
         });
+      };
+
+      // Download with higher concurrency limit (8 simultaneous downloads)
+      const CONCURRENCY_LIMIT = 8;
+
+      // Create a queue-based concurrent download system
+      const downloadQueue = [...idsArray];
+      const downloadPromises: Promise<void>[] = [];
+
+      const processDownload = async (id: string): Promise<void> => {
+        try {
+          const record = await this.record(id);
+          if (!record) {
+            updateProgress(); // Count as completed even if no record
+            return;
+          }
+          await this.downloadRecord(record);
+          updateProgress(); // Update progress after successful download
+        } catch (error) {
+          console.error(`Failed to download attachment ${id}:`, error);
+          updateProgress(); // Count as completed even if failed
+        } finally {
+          // Start next download if queue not empty
+          if (downloadQueue.length > 0) {
+            const nextId = downloadQueue.shift()!;
+            downloadPromises.push(processDownload(nextId));
+          }
+        }
+      };
+
+      // Start initial batch of downloads
+      const initialBatch = downloadQueue.splice(0, CONCURRENCY_LIMIT);
+
+      for (const id of initialBatch) {
+        downloadPromises.push(processDownload(id));
       }
+
+      // Wait for all downloads to complete
+      await Promise.allSettled(downloadPromises);
+
       console.log('Finished downloading attachments');
     } catch (e) {
       console.log('Downloads failed:', e);
@@ -423,11 +462,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   }
 
   // Override trigger to use our progress-tracking methods
-  trigger() {
-    void this.uploadRecordsWithProgress();
-    void this.downloadRecordsWithProgress();
-    void this.expireCache();
-  }
+  // trigger() {
+  //   void this.uploadRecordsWithProgress();
+  //   void this.downloadRecordsWithProgress();
+  //   void this.expireCache();
+  // }
 
   // Override watchDownloads to use our progress-tracking method
   watchDownloads() {

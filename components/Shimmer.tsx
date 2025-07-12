@@ -1,60 +1,76 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming
-} from 'react-native-reanimated';
+import { colors } from '@/styles/theme';
+import React, { useEffect, useRef, useState } from 'react';
+import type { DimensionValue, ViewStyle } from 'react-native';
+import { Animated, View } from 'react-native';
 
 interface ShimmerProps {
-  width: number;
-  height: number;
-  backgroundColor: string;
-  highlightColor: string;
+  width?: DimensionValue;
+  height?: DimensionValue;
+  borderRadius?: number;
+  style?: ViewStyle;
+  shimmerColors?: [string, string, string];
 }
 
-const Shimmer: React.FC<ShimmerProps> = ({
-  width,
-  height,
-  backgroundColor,
-  highlightColor
+export const Shimmer: React.FC<ShimmerProps> = ({
+  width = '100%',
+  height = 20,
+  borderRadius = 4,
+  style,
+  shimmerColors = [
+    colors.inputBackground,
+    colors.backgroundSecondary,
+    colors.inputBackground
+  ]
 }) => {
-  const translateX = useSharedValue(-width);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }]
-  }));
+  const shimmerValue = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(100); // Default width
 
   useEffect(() => {
-    translateX.value = withRepeat(
-      withTiming(width, { duration: 1500 }),
-      -1,
-      false
+    const shimmerAnimation = Animated.loop(
+      Animated.timing(shimmerValue, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: false
+      })
     );
-  }, []);
+
+    shimmerAnimation.start();
+
+    return () => {
+      shimmerAnimation.stop();
+    };
+  }, [shimmerValue]);
+
+  const translateX = shimmerValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-containerWidth, containerWidth]
+  });
+
+  const shimmerStyle: ViewStyle = {
+    width,
+    height,
+    borderRadius,
+    backgroundColor: shimmerColors[0],
+    overflow: 'hidden',
+    ...style
+  };
 
   return (
-    <View style={[styles.container, { width, height, backgroundColor }]}>
+    <View
+      style={shimmerStyle}
+      onLayout={(event) => {
+        setContainerWidth(event.nativeEvent.layout.width);
+      }}
+    >
       <Animated.View
-        style={[
-          styles.shimmer,
-          { width, height, backgroundColor: highlightColor },
-          animatedStyle
-        ]}
+        style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: shimmerColors[1],
+          opacity: 0.7,
+          transform: [{ translateX }]
+        }}
       />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: 'hidden'
-  },
-  shimmer: {
-    position: 'absolute',
-    start: 0
-  }
-});
-
-export default Shimmer;

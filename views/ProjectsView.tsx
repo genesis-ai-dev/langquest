@@ -3,8 +3,6 @@
  * Now works with state-driven navigation instead of routes
  */
 
-import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectSkeleton } from '@/components/ProjectSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -13,7 +11,7 @@ import {
 } from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { useDownload } from '@/hooks/useDownloads';
+import { useDownload, useProjectDownloadStatus } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -43,10 +41,13 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   // Use the new download hook
   const {
-    isDownloaded,
+    isFlaggedForDownload,
     isLoading: isDownloadLoading,
     toggleDownload
   } = useDownload('project', project.id);
+
+  // Get project download stats for confirmation modal
+  const { projectClosure } = useProjectDownloadStatus(project.id);
 
   // Get languages from session cache instead of individual queries
   const sourceLanguage = getLanguageById(project.source_language_id);
@@ -98,7 +99,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
                 <Ionicons name="person" size={16} color={colors.primary} />
               )}
             </View>
-            <PrivateAccessGate
+            {/* <PrivateAccessGate
               projectId={project.id}
               projectName={project.name}
               isPrivate={project.private}
@@ -107,14 +108,22 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
               onBypass={handleDownloadToggle}
               renderTrigger={({ onPress, hasAccess }) => (
                 <DownloadIndicator
-                  isDownloaded={isDownloaded}
+                  isFlaggedForDownload={isFlaggedForDownload}
                   isLoading={isDownloadLoading}
                   onPress={
-                    hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                    hasAccess || isFlaggedForDownload
+                      ? handleDownloadToggle
+                      : onPress
                   }
+                  downloadType="project"
+                  stats={{
+                    totalAssets: projectClosure?.total_assets || 0,
+                    totalTranslations: projectClosure?.total_translations || 0,
+                    totalQuests: projectClosure?.total_quests || 0
+                  }}
                 />
               )}
-            />
+            /> */}
           </View>
           <Text style={sharedStyles.cardLanguageText}>
             {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
@@ -191,7 +200,8 @@ export default function ProjectsView() {
     }
   }, [hasNextPage, isFetching, fetchNextPage]);
 
-  if (isProjectsLoading && !filteredProjects.length) {
+  // Show skeleton loading for initial load or when no projects are available yet
+  if ((isProjectsLoading || isFetching) && !filteredProjects.length) {
     return (
       <View style={styles.container}>
         <ProjectListSkeleton />

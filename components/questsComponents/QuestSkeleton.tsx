@@ -1,10 +1,11 @@
-import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { sharedStyles, spacing } from '@/styles/theme';
 import React from 'react';
 import { View } from 'react-native';
+import { Shimmer } from '../Shimmer';
 
 // Skeleton loader component for better perceived performance
 export const QuestSkeleton = React.memo(() => (
-  <View style={[sharedStyles.card, { opacity: 0.6 }]}>
+  <View style={[sharedStyles.card, { opacity: 0.8 }]}>
     <View
       style={{
         flexDirection: 'row',
@@ -12,39 +13,20 @@ export const QuestSkeleton = React.memo(() => (
         gap: spacing.small
       }}
     >
-      <View
-        style={{
-          backgroundColor: colors.inputBackground,
-          height: 20,
-          flex: 1,
-          borderRadius: 4
-        }}
-      />
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          backgroundColor: colors.inputBackground,
-          borderRadius: 16
-        }}
-      />
+      <Shimmer width="100%" height={20} borderRadius={4} style={{ flex: 1 }} />
+      <Shimmer width={32} height={32} borderRadius={16} />
     </View>
-    <View
-      style={{
-        backgroundColor: colors.inputBackground,
-        height: 16,
-        marginTop: spacing.small,
-        borderRadius: 4
-      }}
+    <Shimmer
+      width="100%"
+      height={16}
+      borderRadius={4}
+      style={{ marginTop: spacing.small }}
     />
-    <View
-      style={{
-        backgroundColor: colors.inputBackground,
-        height: 16,
-        width: '60%',
-        marginTop: spacing.small,
-        borderRadius: 4
-      }}
+    <Shimmer
+      width="60%"
+      height={16}
+      borderRadius={4}
+      style={{ marginTop: spacing.small }}
     />
   </View>
 ));
