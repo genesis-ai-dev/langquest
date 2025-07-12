@@ -2,13 +2,25 @@ import type { translation, vote } from '@/db/drizzleSchema';
 import {
   asset,
   asset_content_link,
+  asset_tag_link,
   quest,
-  quest_asset_link
+  quest_asset_link,
+  tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { InferSelectModel } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import type { InferSelectModel, SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  like,
+  or,
+  sql
+} from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
   convertToFetchConfig,
@@ -58,7 +70,7 @@ function getAssetByIdConfig(asset_id: string | string[]) {
 export async function getAssetById(asset_id: string) {
   return (
     await hybridFetch(convertToFetchConfig(getAssetByIdConfig(asset_id)))
-  )?.[0];
+  )[0];
 }
 
 export function useAssetById(asset_id: string | undefined) {
@@ -90,7 +102,7 @@ export function useAssetById(asset_id: string | undefined) {
     )
   });
 
-  const asset = assetArray?.[0] || null;
+  const asset = assetArray[0] || null;
 
   return { asset, isAssetLoading, ...rest };
 }
@@ -660,11 +672,13 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
   quest_id: string,
   pageSize = 10,
   sortField?: string,
-  sortOrder?: 'asc' | 'desc'
+  sortOrder?: 'asc' | 'desc',
+  searchQuery?: string,
+  activeFilters?: Record<string, string[]>
 ) {
-  // FIXED: Create stable query key with useMemo to prevent infinite loops
   const queryKey = useMemo(() => {
-    const baseKey = [
+    // Filter out undefined values from query key to prevent null values
+    const queryKeyParts = [
       'assets',
       'infinite',
       'by-quest',
@@ -672,12 +686,12 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       quest_id,
       pageSize
     ];
+    if (sortField) queryKeyParts.push(sortField);
+    if (sortOrder) queryKeyParts.push(sortOrder);
+    if (searchQuery) queryKeyParts.push(searchQuery);
+    if (activeFilters) queryKeyParts.push(JSON.stringify(activeFilters));
 
-    // Only add optional parameters if they have values
-    if (sortField) baseKey.push(sortField);
-    if (sortOrder) baseKey.push(sortOrder);
-
-    return baseKey;
+    return queryKeyParts;
   }, [quest_id, pageSize, sortField, sortOrder]);
 
   return useHybridInfiniteQuery({
@@ -687,26 +701,73 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
 
-      // Online query with proper pagination using Supabase range
-      let query = system.supabaseConnector.client
-        .from('quest_asset_link')
-        .select(
-          `
-          asset:asset_id (
-            *,
-            content:asset_content_link (
-              *
-            ),
-            tags:asset_tag_link (
-              tag:tag_id (
+      // Build tag name filters first to determine query structure
+      const tagNameFilters: string[] = [];
+
+      if (activeFilters) {
+        Object.entries(activeFilters).forEach(([category, selectedValues]) => {
+          if (selectedValues.length > 0) {
+            selectedValues.forEach((fullValue) => {
+              // Extract just the value part after the colon (e.g., "Lucas" from "libro:lucas")
+              const valuePart = fullValue.split(':')[1] || fullValue;
+              const tagName = `${category}:${valuePart}`;
+              tagNameFilters.push(tagName);
+            });
+          }
+        });
+      }
+
+      // Build query based on whether we have tag filtering
+      let query;
+      if (tagNameFilters.length > 0) {
+        // Use inner join syntax when filtering by tags
+        query = system.supabaseConnector.client
+          .from('quest_asset_link')
+          .select(
+            `
+            asset:asset_id (
+              *,
+              content:asset_content_link (
                 *
+              ),
+              tags:asset_tag_link!inner (
+                tag:tag_id!inner (
+                  *
+                )
               )
             )
+          `
           )
-        `,
-          { count: 'exact' }
-        )
-        .eq('quest_id', quest_id);
+          .eq('quest_id', quest_id)
+          .in('asset_id.tags.tag.name', tagNameFilters);
+      } else {
+        // Use regular left join when no tag filtering
+        query = system.supabaseConnector.client
+          .from('quest_asset_link')
+          .select(
+            `
+            asset:asset_id (
+              *,
+              content:asset_content_link (
+                *
+              ),
+              tags:asset_tag_link (
+                tag:tag_id (
+                  *
+                )
+              )
+            )
+          `
+          )
+          .eq('quest_id', quest_id);
+      }
+
+      // Add search functionality
+      if (searchQuery) {
+        const searchTerm = searchQuery.trim();
+        // Search in asset names using Supabase's nested field filtering
+        query = query.filter('asset_id.name', 'ilike', `%${searchTerm}%`);
+      }
 
       // Add sorting if specified
       if (sortField && sortOrder) {
@@ -768,14 +829,102 @@ export function useInfiniteAssetsWithTagsAndContentByQuestId(
           `[OfflineAssets] Loading page ${pageParam} for quest ${quest_id}, offset: ${offsetValue}`
         );
 
-        const allAssets = await system.db.query.asset.findMany({
-          where: inArray(
-            asset.id,
-            system.db
+        // Build the base subquery for assets in this quest
+        let assetIdsSubquery = system.db
+          .select({ asset_id: quest_asset_link.asset_id })
+          .from(quest_asset_link)
+          .where(eq(quest_asset_link.quest_id, quest_id));
+
+        // Add search functionality for offline queries
+        if (searchQuery) {
+          const searchTerm = `%${searchQuery.trim()}%`;
+
+          // Get asset IDs that match search criteria within this quest (asset names only)
+          const searchMatchingAssets = system.db
+            .select({ id: asset.id })
+            .from(asset)
+            .where(like(asset.name, searchTerm));
+
+          // Filter the quest assets to only include those that match search
+          assetIdsSubquery = system.db
+            .select({ asset_id: quest_asset_link.asset_id })
+            .from(quest_asset_link)
+            .where(
+              and(
+                eq(quest_asset_link.quest_id, quest_id),
+                inArray(quest_asset_link.asset_id, searchMatchingAssets)
+              )
+            );
+        }
+
+        // Build tag filtering conditions for offline query using Drizzle SQL operators
+        const tagFilterConditions: SQL<unknown>[] = [];
+
+        if (activeFilters) {
+          Object.entries(activeFilters).forEach(
+            ([category, selectedValues]) => {
+              if (selectedValues.length > 0) {
+                // Create OR conditions for each value in this category
+                const categoryConditions = selectedValues.map((fullValue) => {
+                  const valuePart = fullValue.split(':')[1] || fullValue;
+                  // Use SQL template for case-insensitive matching
+                  return sql`${tag.name} LIKE ${`${category}:${valuePart}`}`;
+                });
+
+                if (categoryConditions.length > 0) {
+                  // Combine multiple values in the same category with OR
+                  const condition =
+                    categoryConditions.length === 1
+                      ? categoryConditions[0]!
+                      : or(...categoryConditions);
+
+                  if (condition) {
+                    tagFilterConditions.push(condition);
+                  }
+                }
+              }
+            }
+          );
+        }
+
+        // Apply tag filtering to the asset subquery if needed
+        if (tagFilterConditions.length > 0) {
+          // Combine tag filter conditions
+          const combinedTagConditions =
+            tagFilterConditions.length === 1
+              ? tagFilterConditions[0]
+              : and(...tagFilterConditions);
+
+          // Only proceed if we have valid conditions
+          if (combinedTagConditions) {
+            // Create EXISTS subquery for tag filtering on assets
+            const tagFilterSubquery = system.db
+              .select({ assetId: asset_tag_link.asset_id })
+              .from(asset_tag_link)
+              .innerJoin(tag, eq(tag.id, asset_tag_link.tag_id))
+              .where(
+                and(
+                  eq(asset_tag_link.active, true),
+                  eq(tag.active, true),
+                  combinedTagConditions
+                )
+              );
+
+            // Filter the base subquery to only include assets that match tag criteria
+            assetIdsSubquery = system.db
               .select({ asset_id: quest_asset_link.asset_id })
               .from(quest_asset_link)
-              .where(eq(quest_asset_link.quest_id, quest_id))
-          ),
+              .where(
+                and(
+                  eq(quest_asset_link.quest_id, quest_id),
+                  inArray(quest_asset_link.asset_id, tagFilterSubquery)
+                )
+              );
+          }
+        }
+
+        const allAssets = await system.db.query.asset.findMany({
+          where: inArray(asset.id, assetIdsSubquery),
           with: {
             content: true,
             tags: {

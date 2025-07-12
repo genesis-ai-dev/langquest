@@ -337,9 +337,12 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
  * Options for the realtime subscription
  */
 interface RealtimeSubscriptionOptions<T extends Record<string, unknown>> {
-  subscribeRealtime: (
-    onChange: (payload: RealtimePostgresChangesPayload<T>) => void
-  ) => () => Promise<'ok' | 'timed out' | 'error'> | (() => void);
+  channelName: string;
+  subscriptionConfig: {
+    table: string;
+    schema: string;
+    filter?: string;
+  };
   /**
    * Function to get the ID of a record. Defaults to (record) => record.id
    */
@@ -375,15 +378,13 @@ export function useHybridSupabaseRealtimeQuery<
   T extends Record<string, unknown>
 >({
   queryKey,
-  subscribeRealtime,
+  channelName,
+  subscriptionConfig,
   getId = (record: T | Partial<T>) =>
     (record as unknown as { id: string | number }).id,
   ...restOptions
 }: HybridSupabaseRealtimeQueryOptions<T>) {
   const queryClient = useQueryClient();
-  const realtimeChannelRef = useRef<ReturnType<
-    typeof subscribeRealtime
-  > | null>(null);
 
   const isOnline = useNetworkStatus();
 
@@ -396,59 +397,62 @@ export function useHybridSupabaseRealtimeQuery<
   useEffect(() => {
     if (!isOnline) return;
 
-    // Unsubscribe previous
-    if (realtimeChannelRef.current) {
-      void realtimeChannelRef.current();
-      realtimeChannelRef.current = null;
-    }
+    const channel = system.supabaseConnector.client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { ...subscriptionConfig, event: '*' },
+        (payload: RealtimePostgresChangesPayload<T>) => {
+          {
+            const { eventType, new: newRow, old: oldRow } = payload;
+            const cloudCacheKey = [...queryKey, 'cloud'];
 
-    // Subscribe with automatic cache management for cloud data
-    const subscription = subscribeRealtime((payload) => {
-      const { eventType, new: newRow, old: oldRow } = payload;
-      const cloudCacheKey = [...queryKey, 'cloud'];
-
-      queryClient.setQueryData<T[]>(cloudCacheKey, (prev = []) => {
-        switch (eventType) {
-          case 'INSERT': {
-            const recordId = getId(newRow);
-            // Avoid duplicates
-            if (prev.some((record) => getId(record) === recordId)) {
-              return prev;
-            }
-            return [...prev, newRow];
-          }
-          case 'UPDATE': {
-            const recordId = getId(newRow);
-            return prev.map((record) =>
-              getId(record) === recordId ? newRow : record
-            );
-          }
-          case 'DELETE': {
-            const recordId = getId(oldRow);
-            return prev.filter((record) => getId(record) !== recordId);
-          }
-          default: {
-            console.warn(
-              'useHybridSupabaseRealtimeQuery: Unhandled event type',
-              eventType
-            );
-            return prev;
+            queryClient.setQueryData<T[]>(cloudCacheKey, (prev = []) => {
+              switch (eventType) {
+                case 'INSERT': {
+                  const recordId = getId(newRow);
+                  // Avoid duplicates
+                  if (prev.some((record) => getId(record) === recordId)) {
+                    return prev;
+                  }
+                  return [...prev, newRow];
+                }
+                case 'UPDATE': {
+                  const recordId = getId(newRow);
+                  return prev.map((record) =>
+                    getId(record) === recordId ? newRow : record
+                  );
+                }
+                case 'DELETE': {
+                  const recordId = getId(oldRow);
+                  return prev.filter((record) => getId(record) !== recordId);
+                }
+                default: {
+                  console.warn(
+                    'useHybridSupabaseRealtimeQuery: Unhandled event type',
+                    eventType
+                  );
+                  return prev;
+                }
+              }
+            });
           }
         }
-      });
-    });
-
-    realtimeChannelRef.current = subscription;
+      );
+    channel.subscribe();
 
     return () => {
-      if (realtimeChannelRef.current) {
-        void realtimeChannelRef.current();
-        realtimeChannelRef.current = null;
-      }
+      void channel.unsubscribe().then((value) => {
+        if (value === 'error' || value === 'timed out')
+          throw new Error(
+            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+          );
+      });
     };
   }, [
     isOnline,
-    subscribeRealtime,
+    channelName,
+    subscriptionConfig,
     queryClient,
     getId,
     JSON.stringify(queryKey)

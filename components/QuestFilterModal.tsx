@@ -1,5 +1,8 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
-import type { Tag } from '@/database_services/tagService';
+import {
+  useInfiniteTagsByProjectIdAndCategory,
+  useTagCategoriesByProjectId
+} from '@/hooks/db/useTags';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -21,7 +24,7 @@ import {
 
 interface QuestFilterModalProps {
   onClose: () => void;
-  questTags: Record<string, Tag[]>;
+  projectId: string;
   onApplyFilters: (filters: Record<string, string[]>) => void;
   onApplySorting: (sorting: SortingOption[]) => void;
   initialFilters: Record<string, string[]>;
@@ -33,9 +36,109 @@ interface SortingOption {
   order: 'asc' | 'desc';
 }
 
+// Component for each category section with its own infinite loading
+const CategorySection: React.FC<{
+  category: string;
+  projectId: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  selectedOptions: string[];
+  onToggleOption: (optionId: string) => void;
+}> = ({
+  category,
+  projectId,
+  isExpanded,
+  onToggle,
+  selectedOptions,
+  onToggleOption
+}) => {
+  const { tags, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteTagsByProjectIdAndCategory(projectId, category);
+
+  // Process tags to extract options
+  const options = useMemo(() => {
+    return tags
+      .map((tag) => {
+        const [, option] = tag.name.split(':');
+        return {
+          id: `${category.toLowerCase()}:${option?.toLowerCase() || ''}`,
+          label: option || ''
+        };
+      })
+      .filter((option) => option.label)
+      .sort((a, b) => {
+        // Check if both values can be parsed as numbers
+        const numA = parseInt(a.label, 10);
+        const numB = parseInt(b.label, 10);
+
+        if (!isNaN(numA) && !isNaN(numB)) {
+          // Numeric sort
+          return numA - numB;
+        } else {
+          // Alphabetical sort
+          return a.label.localeCompare(b.label);
+        }
+      });
+  }, [tags, category]);
+
+  return (
+    <View>
+      <TouchableOpacity style={styles.heading} onPress={onToggle}>
+        <Text style={styles.headingText}>{category}</Text>
+        <Ionicons
+          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          size={24}
+          color={colors.text}
+        />
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={styles.option}
+              onPress={() => onToggleOption(option.id)}
+            >
+              <Text style={styles.optionText}>{option.label}</Text>
+              <View style={sharedStyles.checkboxContainer}>
+                {selectedOptions.includes(option.id) ? (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={colors.primary}
+                  />
+                ) : (
+                  <View style={styles.emptyCheckbox} />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading options...</Text>
+            </View>
+          )}
+          {hasNextPage && (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              <Text style={styles.loadMoreText}>
+                {isFetchingNextPage ? 'Loading...' : 'Load More'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
+
 export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   onClose,
-  questTags,
+  projectId,
   onApplyFilters,
   onApplySorting,
   initialFilters,
@@ -49,55 +152,23 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
   const [sortingOptions, setSortingOptions] =
     useState<SortingOption[]>(initialSorting);
 
-  const filterData = useMemo(() => {
-    const sections: Record<string, Set<string>> = {};
+  // Fetch tag categories for headers
+  const { tagCategories, isTagCategoriesLoading } =
+    useTagCategoriesByProjectId(projectId);
 
-    Object.values(questTags)
-      .flat()
-      .forEach((tag) => {
-        const [heading, option] = tag.name.split(':');
-        if (!heading) return;
-        sections[heading] ??= new Set();
-        if (option) sections[heading]!.add(option);
-      });
+  // Create filter sections from tag categories
+  const categories = useMemo(() => {
+    return tagCategories?.tag_categories || [];
+  }, [tagCategories?.tag_categories]);
 
-    return Object.entries(sections).map(([heading, options]) => {
-      // Convert options to array and sort them properly
-      const sortedOptions = Array.from(options).sort((a, b) => {
-        // Check if both values can be parsed as numbers
-        const numA = parseInt(a, 10);
-        const numB = parseInt(b, 10);
-
-        if (!isNaN(numA) && !isNaN(numB)) {
-          // Numeric sort
-          return numA - numB;
-        } else {
-          // Alphabetical sort
-          return a.localeCompare(b);
-        }
-      });
-
-      return {
-        id: heading.toLowerCase(),
-        heading,
-        options: sortedOptions.map((option) => ({
-          id: `${heading.toLowerCase()}:${option.toLowerCase()}`,
-          label: option
-        }))
-      };
-    });
-  }, [questTags]);
-
+  // Create sorting fields from categories
   const sortingFields = useMemo(() => {
     const fields = new Set(['name']);
-    Object.values(questTags)
-      .flat()
-      .forEach((tag) => {
-        const category = tag.name.split(':')[0];
-        if (category) fields.add(category);
-      });
+    categories.forEach((category) => {
+      fields.add(category);
+    });
     return Array.from(fields);
-  }, [questTags]);
+  }, [categories]);
 
   useEffect(() => {
     setSelectedOptions(initialFilters);
@@ -205,107 +276,85 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
               </TouchableOpacity>
             </View>
             <ScrollView style={sharedStyles.modalContent}>
-              {activeTab === 'filter'
-                ? filterData.map((section) => (
-                    <View key={section.id}>
-                      <TouchableOpacity
-                        style={styles.heading}
-                        onPress={() => toggleSection(section.id)}
-                      >
-                        <Text style={styles.headingText}>
-                          {section.heading}
-                        </Text>
-                        <Ionicons
-                          name={
-                            expandedSections.includes(section.id)
-                              ? 'chevron-up'
-                              : 'chevron-down'
-                          }
-                          size={24}
-                          color={colors.text}
-                        />
-                      </TouchableOpacity>
-
-                      {expandedSections.includes(section.id) &&
-                        section.options.map((option) => (
-                          <TouchableOpacity
-                            key={option.id}
-                            style={styles.option}
-                            onPress={() => toggleOption(section.id, option.id)}
-                          >
-                            <Text style={styles.optionText}>
-                              {option.label}
-                            </Text>
-                            <View style={sharedStyles.checkboxContainer}>
-                              {selectedOptions[section.id]?.includes(
-                                option.id
-                              ) ? (
-                                <Ionicons
-                                  name="checkmark-circle"
-                                  size={24}
-                                  color={colors.primary}
-                                />
-                              ) : (
-                                <View style={styles.emptyCheckbox} />
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                    </View>
-                  ))
-                : // Sorting content
-                  [0, 1, 2].map((index) => (
-                    <View key={index} style={styles.sortingRow}>
-                      <CustomDropdown
-                        label={`Sort ${index + 1}`}
-                        value={sortingOptions[index]?.field ?? ''}
-                        options={sortingFields}
-                        onSelect={(field) =>
-                          handleSortingChange(
-                            index,
-                            field,
-                            sortingOptions[index]?.order
-                          )
+              {isTagCategoriesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>
+                    Loading tag categories...
+                  </Text>
+                </View>
+              ) : activeTab === 'filter' ? (
+                categories.map((category) => (
+                  <CategorySection
+                    key={category}
+                    category={category}
+                    projectId={projectId}
+                    isExpanded={expandedSections.includes(
+                      category.toLowerCase()
+                    )}
+                    onToggle={() => toggleSection(category.toLowerCase())}
+                    selectedOptions={
+                      selectedOptions[category.toLowerCase()] || []
+                    }
+                    onToggleOption={(optionId) =>
+                      toggleOption(category.toLowerCase(), optionId)
+                    }
+                  />
+                ))
+              ) : (
+                // Sorting content
+                [0, 1, 2].map((index) => (
+                  <View key={index} style={styles.sortingRow}>
+                    <CustomDropdown
+                      label={`Sort ${index + 1}`}
+                      value={sortingOptions[index]?.field ?? ''}
+                      options={sortingFields}
+                      onSelect={(field) =>
+                        handleSortingChange(
+                          index,
+                          field,
+                          sortingOptions[index]?.order
+                        )
+                      }
+                      fullWidth={false}
+                      search={false}
+                    />
+                    <TouchableOpacity
+                      style={styles.orderToggle}
+                      onPress={() =>
+                        handleSortingChange(
+                          index,
+                          sortingOptions[index]?.field ?? null,
+                          sortingOptions[index]?.order === 'asc'
+                            ? 'desc'
+                            : 'asc'
+                        )
+                      }
+                    >
+                      <Ionicons
+                        name={
+                          sortingOptions[index]?.order === 'asc'
+                            ? 'arrow-up'
+                            : 'arrow-down'
                         }
-                        fullWidth={false}
-                        search={false}
+                        size={24}
+                        color={colors.text}
                       />
+                    </TouchableOpacity>
+                    {sortingOptions[index]?.field && (
                       <TouchableOpacity
-                        style={styles.orderToggle}
-                        onPress={() =>
-                          handleSortingChange(
-                            index,
-                            sortingOptions[index]?.field ?? null,
-                            sortingOptions[index]?.order === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          )
-                        }
+                        style={styles.removeButton}
+                        onPress={() => handleSortingChange(index, null)}
                       >
                         <Ionicons
-                          name={
-                            sortingOptions[index]?.order === 'asc'
-                              ? 'arrow-up'
-                              : 'arrow-down'
-                          }
+                          name="trash-outline"
                           size={24}
-                          color={colors.text}
+                          color={colors.error}
                         />
                       </TouchableOpacity>
-                      {sortingOptions[index]?.field && (
-                        <TouchableOpacity
-                          style={styles.removeButton}
-                          onPress={() => handleSortingChange(index, null)}
-                        >
-                          <Ionicons
-                            name="trash-outline"
-                            size={24}
-                            color={colors.error}
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
+                    )}
+                  </View>
+                ))
+              )}
             </ScrollView>
             <TouchableOpacity
               style={sharedStyles.modalButton}
@@ -390,5 +439,25 @@ const styles = StyleSheet.create({
   },
   tabIconContainer: {
     position: 'relative'
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.large
+  },
+  loadingText: {
+    fontSize: fontSizes.medium,
+    color: colors.text
+  },
+  loadMoreButton: {
+    padding: spacing.medium,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.inputBorder
+  },
+  loadMoreText: {
+    fontSize: fontSizes.small,
+    color: colors.primary
   }
 });

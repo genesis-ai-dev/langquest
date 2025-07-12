@@ -139,7 +139,7 @@ export function useQuestById(quest_id: string | undefined) {
     )
   });
 
-  const quest = questArray?.[0] || null;
+  const quest = questArray[0] || null;
 
   return { quest, isQuestLoading, ...rest };
 }
