@@ -7,7 +7,7 @@ import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import type { SortingOption } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
-import { and, eq, like, or } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or } from 'drizzle-orm';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -125,8 +125,13 @@ export const QuestList = React.memo(
           );
         }
 
-        // Add ordering
-        query = query.order('created_at', { ascending: false });
+        // Add ordering based on sortField and sortOrder
+        if (sortField && sortOrder) {
+          query = query.order(sortField, { ascending: sortOrder === 'asc' });
+        } else {
+          // Default ordering
+          query = query.order('name', { ascending: true });
+        }
 
         // Add pagination
         query = query
@@ -151,10 +156,19 @@ export const QuestList = React.memo(
             )
           : baseCondition;
 
+        // Prepare ordering
+        const orderByOptions =
+          sortField === 'name' && sortOrder
+            ? sortOrder === 'asc'
+              ? asc(quest.name)
+              : desc(quest.name)
+            : desc(quest.created_at);
+
         return await system.db.query.quest.findMany({
           where: whereConditions,
           limit: pageSize,
           offset: pageParam * pageSize,
+          orderBy: orderByOptions,
           with: {
             tags: {
               with: {
