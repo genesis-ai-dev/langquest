@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
 
               // Only reinitialize attachment queues if system is already initialized
-              if (system.isInitialized()) {
+              if (system.isInitialized() && system.isConnected()) {
                 console.log(
                   'Reinitializing attachment queues after auth state change...'
                 );

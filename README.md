@@ -184,3 +184,53 @@ To resolve this:
 3. Run `npm i`
 4. Run `npx expo prebuild --clean` to regenerate the android folder with correct configuration
 5. Try building the app again
+
+## Offline Testing on Physical Device (Android)
+
+This setup allows you to test the app on a physical Android device while it's completely offline (no WiFi or mobile data), while still getting real-time logs over USB and supporting hot reloading.
+
+### Prerequisites
+- Android device with USB debugging enabled.
+- ADB installed and device connected via USB (run `adb devices` to verify).
+- Run `npm run android` once while online to install the dev client.
+
+### Steps
+1. Build and install the app on the phone (while phone is online):
+   ```bash
+   npm run android
+   ```
+
+2. Once installation is complete, end the process (Ctrl+C).
+
+3. Start the Expo dev server locally:
+   ```bash
+   npm run start -- --localhost --android
+   ```
+   - Do **not** press `a` to run on Android yet.
+   - If port 8081 is in use, add `--port 8082` (and adjust the reverse command below).
+
+4. In a new terminal, set up ADB reverse proxy for USB tunneling:
+   ```bash
+   adb reverse tcp:8081 tcp:8081
+   ```
+   - This enables the phone to access the dev server via localhost over USB.
+
+5. Set your device to offline (disable data and WiFi).
+
+6. Open the freshly installed app on your phone.
+
+7. On the "development servers" page, manually enter:
+   ```
+   http://localhost:8081
+   ```
+   - Tap to connect. The app should load via the USB tunnel.
+
+### Viewing Logs
+The logs should be visible in the terminal used to run the npm run start command. If not follow the instructions below.
+In another terminal:
+```bash
+adb logcat | grep "ReactNative"
+```
+- Or use `adb logcat` for all logs.
+
+This setup supports hot reloading over USB without any network on the phone.
