@@ -304,11 +304,11 @@ export class System {
   private lastConnectedUserId?: string;
 
   isInitialized() {
-    return (
-      this.initialized &&
-      this.powersync.connected &&
-      this.attachmentQueuesInitialized
-    );
+    return this.initialized && this.attachmentQueuesInitialized;
+  }
+
+  isConnected() {
+    return this.powersync.connected;
   }
 
   // Add method to check attachment queue readiness specifically

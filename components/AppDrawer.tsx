@@ -309,6 +309,7 @@ export default function AppDrawer({
 
       // 5. Construct Success Message (Audio Only)
       finalAlertTitle = t('backupCompleteTitle');
+      console.log('audioResult', audioResult);
       finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
     } catch (error: unknown) {
       // Handle errors from any awaited step above

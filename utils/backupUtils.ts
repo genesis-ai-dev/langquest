@@ -1,9 +1,9 @@
+import type { System } from '@/db/powersync/system'; // Import System type
+import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
+import { eq } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
-import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
 import { Platform } from 'react-native';
-import type { System } from '@/db/powersync/system'; // Import System type
-import { eq } from 'drizzle-orm';
 
 // --- Permission Helper ---
 export async function requestBackupDirectory(): Promise<string | null> {
@@ -75,6 +75,20 @@ export async function backupUnsyncedAudio(
     // Report initial progress
     onProgress?.(0, totalFiles);
 
+    // Get existing files in the backup directory to avoid duplicates
+    const existingFiles =
+      await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
+    const existingFileNames = new Set(
+      existingFiles.map((uri) => {
+        const encoded = uri.split('/').pop()!;
+        const decodedSegment = decodeURIComponent(encoded);
+        // Extract the actual filename after the last '/' if present
+        return decodedSegment.includes('/')
+          ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
+          : decodedSegment;
+      })
+    );
+
     // Iterate directly over unsynced IDs found in the attachments table
     for (const [index, audioId] of unsyncedIds.entries()) {
       if (!audioId) continue; // Skip null/empty IDs just in case
@@ -93,7 +107,7 @@ export async function backupUnsyncedAudio(
           continue;
         }
 
-        // Embed assetId and timestamp in backup filename
+        // Embed assetId in backup filename
         let assetId: string | undefined;
         // First, check asset_content_link (for source audio)
         const contentLink = await system.db.query.asset_content_link.findFirst({
@@ -126,12 +140,26 @@ export async function backupUnsyncedAudio(
         const extension = audioId.includes('.')
           ? audioId.split('.').pop()!
           : 'm4a';
-        const timestamp = Date.now();
-        const backupFileName = `${assetId}_${baseAudioId}_${timestamp}.${extension}`;
+
+        // Remove timestamp, just use assetId_baseAudioId.extension
+        const backupFileName = `${assetId}_${baseAudioId}.${extension}`;
+
+        // Check if file already exists in backup directory
+        if (existingFileNames.has(backupFileName)) {
+          console.log(
+            `[backupUnsyncedAudio] File ${backupFileName} already exists in backup. Skipping.`
+          );
+          onProgress?.(index + 1, totalFiles);
+          continue;
+        }
+
+        // Use proper mime type for m4a files
+        const mimeType = extension === 'm4a' ? 'audio/mp4' : 'audio/aac';
+
         const backupFileUri = await StorageAccessFramework.createFileAsync(
           baseDirectoryUri,
           backupFileName,
-          'audio/aac'
+          mimeType
         );
         // Read source file content as Base64 and write it under the new name
         const fileContentBase64 = await FileSystem.readAsStringAsync(

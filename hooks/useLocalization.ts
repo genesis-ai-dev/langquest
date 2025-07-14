@@ -50,7 +50,7 @@ export function useLocalization(languageOverride?: string | null) {
       );
     } else if (options) {
       Object.keys(options).forEach((placeholder) => {
-        const regex = new RegExp(`{{ *${placeholder} *}}`, 'g');
+        const regex = new RegExp(`\\{ *${placeholder} *\\}`, 'g');
         translatedString = translatedString.replace(
           regex,
           String(options[placeholder])
