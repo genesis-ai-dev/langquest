@@ -13,7 +13,6 @@ import {
   useSessionProjects
 } from '@/contexts/SessionCacheContext';
 import type { Quest } from '@/database_services/questService';
-import type { Tag } from '@/database_services/tagService';
 import { useProjectById } from '@/hooks/db/useProjects';
 import {
   useAppNavigation,
@@ -43,51 +42,6 @@ export interface SortingOption {
   field: string;
   order: 'asc' | 'desc';
 }
-
-// Helper functions outside component to prevent recreation
-export const filterQuests = <T extends Quest>(
-  quests: T[],
-  questTags: Record<string, Tag[]>,
-  searchQuery: string,
-  activeFilters: Record<string, string[]>
-) => {
-  if (!quests.length) return [];
-
-  return quests.filter((quest) => {
-    // Early return if no filters
-    if (!searchQuery && Object.keys(activeFilters).length === 0) return true;
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch =
-        quest.name.toLowerCase().includes(query) ||
-        (quest.description?.toLowerCase().includes(query) ?? false);
-      if (!matchesSearch) return false;
-    }
-
-    // Tag filters - only check if there are active filters
-    if (Object.keys(activeFilters).length > 0) {
-      const matchesFilters = Object.entries(activeFilters).every(
-        ([category, selectedOptions]) => {
-          if (selectedOptions.length === 0) return true;
-          return questTags[quest.id]?.some((tag) => {
-            const [tagCategory, tagValue] = tag.name.split(':');
-            return (
-              tagCategory?.toLowerCase() === category.toLowerCase() &&
-              selectedOptions.includes(
-                `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
-              )
-            );
-          });
-        }
-      );
-      if (!matchesFilters) return false;
-    }
-
-    return true;
-  });
-};
 
 export default function QuestsView() {
   const { t: _t } = useLocalization();
@@ -132,6 +86,10 @@ export default function QuestsView() {
   const cachedProject = getCachedProject(currentProjectId);
   const { project: freshProject } = useProjectById(currentProjectId);
 
+  // ✅ OPTIMIZATION: QuestFilterModal now handles its own tag categories fetching
+  // - Uses project_tag_categories view internally for efficient loading
+  // - Self-contained data management within the modal component
+
   // Use cached project if available, otherwise use fresh data
   const selectedProject = cachedProject || freshProject;
 
@@ -145,11 +103,11 @@ export default function QuestsView() {
   // Check if current user is an owner using session cache
   const isOwner = isUserOwner(currentProjectId);
 
-  const getActiveOptionsCount = () => {
-    const filterCount = Object.values(activeFilters).flat().length;
-    const sortCount = activeSorting.length;
-    return filterCount + sortCount;
-  };
+  // const getActiveOptionsCount = () => {
+  //   const filterCount = Object.values(activeFilters).flat().length;
+  //   const sortCount = activeSorting.length;
+  //   return filterCount + sortCount;
+  // };
 
   const handleQuestPress = (quest: Quest) => {
     goToQuest({
@@ -206,7 +164,7 @@ export default function QuestsView() {
             onChangeText={setSearchQuery}
             placeholderTextColor={colors.textSecondary}
           />
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => setIsFilterModalVisible(true)}
             style={QuestsScreenStyles.filterButton}
           >
@@ -218,10 +176,10 @@ export default function QuestsView() {
                 </Text>
               </View>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
-        {/* Quest list with Suspense boundary */}
+        {/* Quest list with Suspense boundary - SQL-based search now handled in QuestList */}
         <Suspense fallback={<QuestListSkeleton />}>
           <QuestList
             projectId={currentProjectId}
@@ -271,7 +229,7 @@ export default function QuestsView() {
         <View style={{ flex: 1 }}>
           <QuestFilterModal
             onClose={() => setIsFilterModalVisible(false)}
-            questTags={{}} // Empty for now - could be improved later
+            projectId={currentProjectId} // Pass projectId to QuestFilterModal
             onApplyFilters={handleApplyFilters}
             onApplySorting={handleApplySorting}
             initialFilters={activeFilters}
