@@ -11,8 +11,7 @@ import { QuestDetails } from '@/components/QuestDetails';
 import { useSessionProjects } from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
-import type { asset_content_link } from '@/db/drizzleSchema';
-import { useInfiniteAssetsWithTagsAndContentByQuestId } from '@/hooks/db/useAssets';
+import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import {
@@ -45,7 +44,6 @@ import {
 } from 'react-native';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
-import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
   field: string;
@@ -53,42 +51,7 @@ interface SortingOption {
 }
 
 // Helper functions outside component to prevent recreation
-const filterAssets = (
-  assets: Asset[],
-  assetTags: Record<string, Tag[]>,
-  assetContents: Record<string, (typeof asset_content_link.$inferSelect)[]>,
-  searchQuery: string,
-  activeFilters: Record<string, string[]>
-) => {
-  return assets.filter((asset) => {
-    // Search filter
-    const assetContent = assetContents[asset.id] ?? [];
-    const matchesSearch =
-      asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      assetContent.some((content) =>
-        content.text.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-    // Tag filters
-    const assetTagList = assetTags[asset.id] ?? [];
-    const matchesFilters = Object.entries(activeFilters).every(
-      ([category, selectedOptions]) => {
-        if (selectedOptions.length === 0) return true;
-        return assetTagList.some((tag) => {
-          const [tagCategory, tagValue] = tag.name.split(':');
-          return (
-            tagCategory?.toLowerCase() === category.toLowerCase() &&
-            selectedOptions.includes(
-              `${category.toLowerCase()}:${tagValue?.toLowerCase()}`
-            )
-          );
-        });
-      }
-    );
-
-    return matchesSearch && matchesFilters;
-  });
-};
+// filterAssets function removed - filtering is now handled server-side in the hook
 
 // Memoized AssetCard component to prevent unnecessary re-renders
 const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
@@ -195,11 +158,13 @@ export default function AssetsView() {
     isError,
     error,
     refetch
-  } = useInfiniteAssetsWithTagsAndContentByQuestId(
+  } = useInfiniteAssetsWithTagsByQuestId(
     currentQuestId,
     10, // pageSize
     activeSorting[0]?.field === 'name' ? activeSorting[0].field : undefined,
-    activeSorting[0]?.order
+    activeSorting[0]?.order,
+    searchQuery, // Add search query parameter
+    activeFilters // Add active filters for server-side filtering
   );
 
   // Extract all assets from pages
@@ -211,7 +176,7 @@ export default function AssetsView() {
     return infiniteData.pages.flatMap((page) => page.data);
   }, [infiniteData]);
 
-  // Apply client-side filtering and sorting
+  // Apply client-side sorting only - filtering is now handled server-side
   const filteredAssets = useMemo(() => {
     if (!allAssets.length) {
       return [];
@@ -223,42 +188,33 @@ export default function AssetsView() {
     const startTime = performance.now();
 
     const assetTagsRecord: Record<string, Tag[]> = {};
-    const assetContentsRecord: Record<string, AssetContent[]> = {};
 
-    // Build the records with proper typing
+    // Build the records with proper typing for sorting
     allAssets.forEach((asset) => {
       assetTagsRecord[asset.id] = asset.tags.map((tag) => tag.tag);
-      assetContentsRecord[asset.id] = asset.content;
     });
 
-    const filtered = filterAssets(
-      allAssets,
-      assetTagsRecord,
-      assetContentsRecord,
-      searchQuery,
-      activeFilters
-    );
-
     // Apply additional sorting if needed (beyond what's handled by the query)
+    // Filtering is now handled server-side in the hook
     const result = sortItems(
-      filtered,
+      allAssets,
       activeSorting,
       (assetId: string) => assetTagsRecord[assetId] ?? []
     );
 
     const duration = performance.now() - startTime;
     console.log(
-      `🔍 [PERFORMANCE] filteredAssets calculation took ${duration.toFixed(2)}ms, filtered from ${allAssets.length} to ${result.length}`
+      `🔍 [PERFORMANCE] filteredAssets calculation took ${duration.toFixed(2)}ms, ${result.length} assets (filtering and search handled server-side)`
     );
 
     return result;
-  }, [allAssets, searchQuery, activeFilters, activeSorting]);
+  }, [allAssets, activeSorting]); // Remove activeFilters dependency since it's handled server-side
 
-  const getActiveOptionsCount = () => {
-    const filterCount = Object.values(activeFilters).flat().length;
-    const sortCount = activeSorting.length;
-    return filterCount + sortCount;
-  };
+  // const getActiveOptionsCount = () => {
+  //   const filterCount = Object.values(activeFilters).flat().length;
+  //   const sortCount = activeSorting.length;
+  //   return filterCount + sortCount;
+  // };
 
   const handleAssetPress = useCallback(
     (asset: Asset) => {
@@ -412,7 +368,7 @@ export default function AssetsView() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => setIsFilterModalVisible(true)}
               style={styles.filterIcon}
             >
@@ -424,7 +380,7 @@ export default function AssetsView() {
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
 
@@ -464,17 +420,14 @@ export default function AssetsView() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={{ flex: 1 }}>
-          {allAssets.length > 0 && (
-            <AssetFilterModal
-              visible={isFilterModalVisible}
-              onClose={() => setIsFilterModalVisible(false)}
-              assets={allAssets}
-              onApplyFilters={handleApplyFilters}
-              onApplySorting={handleApplySorting}
-              initialFilters={activeFilters}
-              initialSorting={activeSorting}
-            />
-          )}
+          <AssetFilterModal
+            onClose={() => setIsFilterModalVisible(false)}
+            questId={currentQuestId}
+            onApplyFilters={handleApplyFilters}
+            onApplySorting={handleApplySorting}
+            initialFilters={activeFilters}
+            initialSorting={activeSorting}
+          />
         </View>
       </Modal>
       {showQuestStats && quest && (

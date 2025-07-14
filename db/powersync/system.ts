@@ -56,10 +56,16 @@ export class System {
       debugMode: false
     });
 
+    const {
+      quest_tag_categories: _,
+      asset_tag_categories: _2,
+      ...tablesOnly
+    } = drizzleSchema;
+
     // When we first make our powersync instance, define the attachment table as an offline-only table
     this.powersync = new PowerSyncDatabase({
       schema: new Schema([
-        ...new DrizzleAppSchema(drizzleSchema).tables,
+        ...new DrizzleAppSchema(tablesOnly).tables,
         new AttachmentTable({
           additionalColumns: [
             new Column({ name: 'storage_type', type: ColumnType.TEXT })
@@ -298,11 +304,11 @@ export class System {
   private lastConnectedUserId?: string;
 
   isInitialized() {
-    return (
-      this.initialized &&
-      this.powersync.connected &&
-      this.attachmentQueuesInitialized
-    );
+    return this.initialized && this.attachmentQueuesInitialized;
+  }
+
+  isConnected() {
+    return this.powersync.connected;
   }
 
   // Add method to check attachment queue readiness specifically
