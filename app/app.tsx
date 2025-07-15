@@ -20,6 +20,18 @@ export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
   console.log('isLoading', isLoading);
   console.log('currentUser', currentUser);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const isPasswordResetMode = useLocalStore(
+    (state) => state.isPasswordResetMode
+  );
+
+  console.log('[App] isPasswordResetMode from store:', isPasswordResetMode);
+  console.log('[App] dateTermsAccepted:', !!dateTermsAccepted);
+  console.log('[App] currentUser:', !!currentUser);
+
+  useEffect(() => {
+    // Log whenever password reset mode changes
+    console.log('[App] Password reset mode changed to:', isPasswordResetMode);
+  }, [isPasswordResetMode]);
 
   useEffect(() => {
     if (dateTermsAccepted) {
@@ -49,10 +61,16 @@ export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
     return <TermsView />;
   }
 
+  // Check if this is a password reset flow (even if authenticated)
+  if (isPasswordResetMode) {
+    console.log('Password reset mode detected, showing reset form');
+    return <LoginView initialMode="reset-password-form" />;
+  }
+
   // Check if user is authenticated
   if (!currentUser) {
     console.log('redirecting to login');
-    return <LoginView />;
+    return <LoginView initialMode="sign-in" />;
   }
 
   // User is authenticated and terms are accepted, render main app

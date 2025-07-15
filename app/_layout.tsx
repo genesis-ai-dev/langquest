@@ -111,28 +111,64 @@ function InitializingApp({
 // Main app component with all the routing logic
 function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
   const router = useRouter();
+  const setPasswordResetMode = useLocalStore(
+    (state) => state.setPasswordResetMode
+  );
 
   const handleAuthDeepLink = useCallback(
     (url: string) => {
       console.log('[handleAuthDeepLink] URL:', url);
       const { params, path } = getQueryParams(url);
 
+      console.log('path', path);
+      console.log('params', params);
+
+      // Debug logging for reset-password detection
+      console.log('[handleAuthDeepLink] Checking for reset-password...');
+      console.log('[handleAuthDeepLink] url:', url);
+      console.log(
+        '[handleAuthDeepLink] url.includes("reset-password"):',
+        url.includes('reset-password')
+      );
+      console.log('[handleAuthDeepLink] path:', path);
+      console.log(
+        '[handleAuthDeepLink] path === "reset-password":',
+        path === 'reset-password'
+      );
+
       if (params.access_token && params.refresh_token) {
+        // Check for reset-password BEFORE async operations
+        const isResetPassword =
+          url.includes('reset-password') || path === 'reset-password';
+
+        if (isResetPassword) {
+          console.log(
+            '[handleAuthDeepLink] Detected password reset flow - setting mode IMMEDIATELY'
+          );
+          // Set the password reset mode SYNCHRONOUSLY
+          setPasswordResetMode(true);
+          console.log('[handleAuthDeepLink] Password reset mode set to true');
+        }
+
         const handleRedirect = async () => {
+          // Set the session
           await system.supabaseConnector.client.auth.setSession({
             access_token: params.access_token!,
             refresh_token: params.refresh_token!
           });
-          // Navigate to main app route - state-driven navigation will handle the rest
-          console.log(
-            `[handleAuthDeepLink] Auth completed for path: ${path}, redirecting to main app`
-          );
+
+          console.log('[handleAuthDeepLink] Session set, navigating to /app');
+          // Always navigate to app - the mode is already set
           router.replace('/app');
         };
         void handleRedirect();
+      } else {
+        console.log(
+          '[handleAuthDeepLink] No access_token or refresh_token found'
+        );
       }
     },
-    [router]
+    [router, setPasswordResetMode]
   );
 
   useEffect(() => {

@@ -628,6 +628,16 @@ export const localizations = {
     spanish: 'Otro',
     brazilian_portuguese: 'Outro'
   },
+  updatePassword: {
+    english: 'Update Password',
+    spanish: 'Actualizar Contraseña',
+    brazilian_portuguese: 'Atualizar Senha'
+  },
+  createNewPassword: {
+    english: 'Create New Password',
+    spanish: 'Crear nueva contraseña',
+    brazilian_portuguese: 'Criar nova senha'
+  },
   downloadLimitExceeded: {
     english: 'Download Limit Exceeded',
     spanish: 'Límite de descarga excedido',

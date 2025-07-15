@@ -60,6 +60,10 @@ interface LocalState {
   projectSourceFilter: string;
   projectTargetFilter: string;
 
+  // Password reset mode
+  isPasswordResetMode: boolean;
+  setPasswordResetMode: (isReset: boolean) => void;
+
   // Navigation context - just IDs, not full data
   currentProjectId: string | null;
   currentQuestId: string | null;
@@ -122,6 +126,10 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+
+      // Password reset mode
+      isPasswordResetMode: false,
+      setPasswordResetMode: (isReset) => set({ isPasswordResetMode: isReset }),
 
       // Navigation context
       currentProjectId: null,
@@ -229,7 +237,9 @@ export const useLocalStore = create<LocalState>()(
                 'currentProjectId',
                 'currentQuestId',
                 'currentAssetId',
-                'navigationStack'
+                'navigationStack',
+                'isPasswordResetMode',
+                'setPasswordResetMode'
               ].includes(key)
           )
         )
