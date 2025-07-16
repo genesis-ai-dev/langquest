@@ -8,7 +8,10 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useSessionProjects } from '@/contexts/SessionCacheContext';
+import {
+  useSessionMemberships,
+  useSessionProjects
+} from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
@@ -44,6 +47,9 @@ import {
 } from 'react-native';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { AssetSettingsModal } from '@/components/AssetSettingsModal';
+import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
   field: string;
@@ -56,15 +62,20 @@ interface SortingOption {
 // Memoized AssetCard component to prevent unnecessary re-renders
 const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   // Use current navigation to get project
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId, currentQuestId } = useCurrentNavigation();
 
   // Use session cache for project data instead of fresh query
   const { getCachedProject } = useSessionProjects();
   const cachedProject = getCachedProject(currentProjectId || '');
 
+  const { isUserOwner } = useSessionMemberships();
+  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+
   // Fallback to fresh query only if not in cache
   const { project: freshProject } = useProjectById(currentProjectId || '');
   const activeProject = cachedProject || freshProject;
+
+  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
   const {
     isFlaggedForDownload,
@@ -86,6 +97,14 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
+        {isOwner && (
+          <TouchableOpacity
+            onPress={() => setShowAssetSettingsModal(true)}
+            style={styles.statsButtonMini}
+          >
+            <Ionicons name="settings" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
         <PrivateAccessGate
           projectId={activeProject?.id || ''}
           projectName={activeProject?.name || ''}
@@ -106,9 +125,18 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
           )}
         />
       </View>
+
       <View style={styles.translationCount}>
         {/* Translation gems could be added here later */}
       </View>
+      {currentQuestId && (
+        <AssetSettingsModal
+          isVisible={showAssetSettingsModal}
+          onClose={() => setShowAssetSettingsModal(false)}
+          questId={currentQuestId}
+          assetId={asset.id}
+        />
+      )}
     </View>
   );
 });
@@ -128,6 +156,9 @@ export default function AssetsView() {
   // Get current navigation state
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
 
+  const { isUserOwner } = useSessionMemberships();
+  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
     {}
@@ -135,6 +166,7 @@ export default function AssetsView() {
   const [activeSorting, setActiveSorting] = useState<SortingOption[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showQuestStats, setShowQuestStats] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Early return if no quest is selected
   if (!currentQuestId || !currentProjectId) {
@@ -409,9 +441,22 @@ export default function AssetsView() {
           // Performance optimizations
           removeClippedSubviews={true}
         />
-        <TouchableOpacity onPress={toggleQuestStats} style={styles.statsButton}>
-          <Ionicons name="stats-chart" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.floatingButtonsContainer}>
+          {isOwner && (
+            <TouchableOpacity
+              onPress={() => setShowSettingsModal(true)}
+              style={styles.statsButton}
+            >
+              <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={toggleQuestStats}
+            style={styles.statsButton}
+          >
+            <Ionicons name="stats-chart" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
       <Modal
         visible={isFilterModalVisible}
@@ -433,6 +478,12 @@ export default function AssetsView() {
       {showQuestStats && quest && (
         <QuestDetails quest={quest} onClose={handleCloseDetails} />
       )}
+      <QuestSettingsModal
+        isVisible={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        questId={currentQuestId}
+        projectId={currentProjectId}
+      />
     </View>
   );
 }
@@ -457,6 +508,9 @@ const styles = StyleSheet.create({
   statsButton: {
     padding: spacing.small,
     alignSelf: 'flex-end'
+  },
+  statsButtonMini: {
+    alignSelf: 'center'
   },
   searchContainer: {
     flexDirection: 'row',
@@ -525,5 +579,10 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold'
+  },
+  floatingButtonsContainer: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    gap: spacing.small
   }
 });
