@@ -7,7 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import AppView from '@/views/AppView';
-import LoginView from '@/views/LoginView';
+import ForgotPasswordView from '@/views/ForgotPasswordView';
+import RegisterView from '@/views/RegisterView';
+import ResetPasswordView from '@/views/ResetPasswordView';
+import SignInView from '@/views/SignInView';
 import TermsView from '@/views/TermsView';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SplashScreen } from 'expo-router';
@@ -15,29 +18,35 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator } from 'react-native';
 
 export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
-  const { currentUser, isLoading } = useAuth();
-  console.log('hasRehydrated', hasRehydrated);
-  console.log('isLoading', isLoading);
-  console.log('currentUser', currentUser);
+  const { currentUser, isLoading, sessionType, isAuthenticated } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const isPasswordResetMode = useLocalStore(
-    (state) => state.isPasswordResetMode
-  );
+  const authView = useLocalStore((state) => state.authView);
+  const setAuthView = useLocalStore((state) => state.setAuthView);
 
-  console.log('[App] isPasswordResetMode from store:', isPasswordResetMode);
-  console.log('[App] dateTermsAccepted:', !!dateTermsAccepted);
-  console.log('[App] currentUser:', !!currentUser);
-
-  useEffect(() => {
-    // Log whenever password reset mode changes
-    console.log('[App] Password reset mode changed to:', isPasswordResetMode);
-  }, [isPasswordResetMode]);
+  console.log('[App] State:', {
+    hasRehydrated,
+    isLoading,
+    currentUser: !!currentUser,
+    isAuthenticated,
+    sessionType,
+    authView,
+    dateTermsAccepted: !!dateTermsAccepted
+  });
 
   useEffect(() => {
     if (dateTermsAccepted) {
       void SplashScreen.hideAsync();
     }
   }, [dateTermsAccepted]);
+
+  // Reset authView when user signs in/out
+  useEffect(() => {
+    if (isAuthenticated && authView !== null) {
+      setAuthView(null);
+    } else if (!isAuthenticated && authView === null) {
+      setAuthView('sign-in');
+    }
+  }, [isAuthenticated, authView, setAuthView]);
 
   if (!hasRehydrated || isLoading) {
     console.log(
@@ -61,22 +70,47 @@ export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
     return <TermsView />;
   }
 
-  // Check if this is a password reset flow (even if authenticated)
-  if (isPasswordResetMode) {
-    console.log('Password reset mode detected, showing reset form');
-    return <LoginView initialMode="reset-password-form" />;
+  // Temporary diagnostic view
+  if ((authView as string) === 'diagnostic') {
+    return <SupabaseDiagnosticView />;
   }
 
   // Check if user is authenticated
-  if (!currentUser) {
-    console.log('redirecting to login');
-    return <LoginView initialMode="sign-in" />;
+  if (isAuthenticated) {
+    // Check if this is a password reset session
+    console.log('sessionType:', sessionType);
+    if (sessionType === 'password-reset') {
+      console.log('Password reset session detected');
+      return <ResetPasswordView />;
+    }
+
+    // Check if we have a current user profile
+    if (!currentUser) {
+      console.log('Authenticated but no user profile, showing loading');
+      return (
+        <LinearGradient
+          colors={[colors.gradientStart, colors.gradientEnd]}
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <ActivityIndicator size="large" color={colors.text} />
+        </LinearGradient>
+      );
+    }
+
+    // Normal authenticated user
+    return <AppView />;
   }
 
-  // User is authenticated and terms are accepted, render main app
-  return (
-    // <PostHogSurveyProvider>
-    <AppView />
-    // </PostHogSurveyProvider>
-  );
+  // Not authenticated - show appropriate auth view
+  console.log('Not authenticated, showing auth view:', authView);
+
+  switch (authView) {
+    case 'register':
+      return <RegisterView />;
+    case 'forgot-password':
+      return <ForgotPasswordView />;
+    case 'sign-in':
+    default:
+      return <SignInView />;
+  }
 }

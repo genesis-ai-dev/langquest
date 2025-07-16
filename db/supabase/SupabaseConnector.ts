@@ -138,14 +138,24 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     }
     if (!user) return null;
 
-    // Check local database for profile
-    const localProfile = (
-      await this.system.db.select().from(profile).where(eq(profile.id, user))
-    )[0] as Profile | null;
+    // Check if system is initialized before trying to access local DB
+    if (this.system.isPowerSyncInitialized()) {
+      // Check local database for profile
+      const localProfile = (
+        await this.system.db.select().from(profile).where(eq(profile.id, user))
+      )[0] as Profile | null;
 
-    if (localProfile) {
-      console.log('✅ [SupabaseConnector] Found local profile for user:', user);
-      return localProfile;
+      if (localProfile) {
+        console.log(
+          '✅ [SupabaseConnector] Found local profile for user:',
+          user
+        );
+        return localProfile;
+      }
+    } else {
+      console.log(
+        '⚠️ [SupabaseConnector] System not initialized, skipping local DB check'
+      );
     }
 
     // If no local profile, try to fetch from Supabase

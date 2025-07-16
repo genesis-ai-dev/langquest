@@ -60,9 +60,16 @@ interface LocalState {
   projectSourceFilter: string;
   projectTargetFilter: string;
 
-  // Password reset mode
-  isPasswordResetMode: boolean;
-  setPasswordResetMode: (isReset: boolean) => void;
+  // Authentication view state
+  authView:
+    | 'sign-in'
+    | 'register'
+    | 'forgot-password'
+    | 'reset-password'
+    | null;
+  setAuthView: (
+    view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
+  ) => void;
 
   // Navigation context - just IDs, not full data
   currentProjectId: string | null;
@@ -127,9 +134,9 @@ export const useLocalStore = create<LocalState>()(
       dateTermsAccepted: null,
       analyticsOptOut: false,
 
-      // Password reset mode
-      isPasswordResetMode: false,
-      setPasswordResetMode: (isReset) => set({ isPasswordResetMode: isReset }),
+      // Authentication view state
+      authView: null,
+      setAuthView: (view) => set({ authView: view }),
 
       // Navigation context
       currentProjectId: null,
@@ -237,9 +244,7 @@ export const useLocalStore = create<LocalState>()(
                 'currentProjectId',
                 'currentQuestId',
                 'currentAssetId',
-                'navigationStack',
-                'isPasswordResetMode',
-                'setPasswordResetMode'
+                'navigationStack'
               ].includes(key)
           )
         )

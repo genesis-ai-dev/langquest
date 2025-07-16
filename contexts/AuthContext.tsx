@@ -15,6 +15,8 @@ import React, {
 
 export type Profile = typeof profile.$inferSelect;
 
+export type SessionType = 'normal' | 'password-reset' | 'email-verification';
+
 const DEBUG_MODE = false;
 const debug = (...args: unknown[]) => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -28,6 +30,85 @@ interface AuthContextType {
   setCurrentUser: (profile: Profile | null) => void;
   signOut: () => Promise<void>;
   isLoading: boolean;
+  sessionType: SessionType | null;
+  isAuthenticated: boolean;
+}
+
+// Helper function to determine session type
+function getSessionType(session: Session | null): SessionType | null {
+  if (!session) return null;
+
+  // Check if this is a password reset session
+  const user = session.user;
+
+  // Log session details for debugging
+  console.log('[AuthContext] Checking session type, user metadata:', {
+    email: user.email,
+    email_confirmed_at: user.email_confirmed_at,
+    recovery_sent_at: user.recovery_sent_at,
+    last_sign_in_at: user.last_sign_in_at,
+    created_at: user.created_at,
+    app_metadata: user.app_metadata,
+    aud: user.aud
+  });
+
+  // Method 1: Check AMR (authentication method reference) for OTP/recovery
+  const sessionWithAmr = session as Session & {
+    amr?: { method: string; timestamp?: number }[];
+  };
+  if (Array.isArray(sessionWithAmr.amr)) {
+    console.log('[AuthContext] Session AMR:', sessionWithAmr.amr);
+    const hasOtpOrRecovery = sessionWithAmr.amr.some(
+      (method) =>
+        method.method === 'otp' ||
+        method.method === 'recovery' ||
+        method.method === 'magiclink'
+    );
+    if (hasOtpOrRecovery) {
+      console.log(
+        '[AuthContext] Detected password reset session via AMR:',
+        sessionWithAmr.amr
+      );
+      return 'password-reset';
+    }
+  }
+
+  // Method 2: Check if user has email but no confirmed_at (might be in recovery flow)
+  // This is less reliable but can be a fallback
+  if (user.email && user.recovery_sent_at) {
+    console.log(
+      '[AuthContext] Detected password reset session via recovery_sent_at'
+    );
+    return 'password-reset';
+  }
+
+  // Method 3: Check user action_link metadata (some Supabase versions include this)
+  const userMetadata = user.user_metadata as { action_link?: string };
+  if (userMetadata.action_link?.includes('recovery')) {
+    console.log(
+      '[AuthContext] Detected password reset session via action_link'
+    );
+    return 'password-reset';
+  }
+
+  // Method 4: Check if the session was just created (within last 60 seconds) and user already exists
+  // This might indicate a password reset session
+  const sessionAge =
+    Date.now() - new Date(user.last_sign_in_at || user.created_at).getTime();
+  const userAge = Date.now() - new Date(user.created_at).getTime();
+  if (sessionAge < 60000 && userAge > 60000 && user.email_confirmed_at) {
+    console.log(
+      '[AuthContext] Detected possible password reset session via session age'
+    );
+    // Don't return password-reset here, as this is less reliable
+  }
+
+  // Check if this is an email verification session
+  if (!user.email_confirmed_at && user.email) {
+    return 'email-verification';
+  }
+
+  return 'normal';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentUser = useLocalStore((state) => state.currentUser);
   const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionType, setSessionType] = useState<SessionType | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     debug('useEffect - AuthContext initialization');
@@ -58,6 +141,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('🔄 [AuthProvider] Session user ID:', session?.user.id);
 
             if (session?.user.id) {
+              // Set session type and authentication state
+              const type = getSessionType(session);
+              setSessionType(type);
+              setIsAuthenticated(true);
+              console.log('🔄 [AuthProvider] Session type:', type);
+
+              // Check for password reset flag (fallback detection)
+              const passwordResetFlag = await AsyncStorage.getItem(
+                'langquest_password_reset_session'
+              );
+              if (passwordResetFlag === 'true' && type === 'normal') {
+                console.log(
+                  '🔄 [AuthProvider] Password reset flag detected, overriding session type'
+                );
+                setSessionType('password-reset');
+                // Clear the flag
+                await AsyncStorage.removeItem(
+                  'langquest_password_reset_session'
+                );
+              }
+
               console.log(
                 '🔄 [AuthProvider] Getting profile (offline-first)...'
               );
@@ -74,6 +178,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
                   );
                   setCurrentUser(null);
+                  setSessionType(null);
+                  setIsAuthenticated(false);
                   return;
                 }
 
@@ -99,13 +205,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             console.log('🔄 [AuthProvider] No session string found');
+            setSessionType(null);
+            setIsAuthenticated(false);
           }
         } else {
           console.log('🔄 [AuthProvider] No auth key found');
+          setSessionType(null);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('❌ [AuthProvider] Error loading auth data:', error);
         // Don't clear currentUser on error - maintain session persistence
+        setSessionType(null);
+        setIsAuthenticated(false);
       } finally {
         console.log('✅ [AuthProvider] Setting isLoading to false');
         setIsLoading(false);
@@ -127,6 +239,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
       async (state: string, session: Session | null) => {
         debug('onAuthStateChange', state, session);
+
+        // Update session type and authentication state
+        const type = getSessionType(session);
+        setSessionType(type);
+        setIsAuthenticated(!!session);
+        console.log(
+          '🔄 [AuthProvider] Auth state changed:',
+          state,
+          'Session type:',
+          type
+        );
+
+        // Check for password reset flag (fallback detection)
+        if (session && type === 'normal') {
+          const passwordResetFlag = await AsyncStorage.getItem(
+            'langquest_password_reset_session'
+          );
+          if (passwordResetFlag === 'true') {
+            console.log(
+              '🔄 [AuthProvider] Password reset flag detected in auth state change, overriding session type'
+            );
+            setSessionType('password-reset');
+            // Clear the flag
+            await AsyncStorage.removeItem('langquest_password_reset_session');
+          }
+        }
 
         // If no session, just return without doing anything
         if (!session) {
@@ -218,6 +356,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // will bring you back to the sign-in screen
       setCurrentUser(null);
+      setSessionType(null);
+      setIsAuthenticated(false);
 
       await system.supabaseConnector.signOut();
       await system.powersync.disconnect();
@@ -231,9 +371,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       currentUser,
       setCurrentUser,
       signOut,
-      isLoading
+      isLoading,
+      sessionType,
+      isAuthenticated
     }),
-    [currentUser, setCurrentUser, signOut, isLoading]
+    [
+      currentUser,
+      setCurrentUser,
+      signOut,
+      isLoading,
+      sessionType,
+      isAuthenticated
+    ]
   );
 
   return (

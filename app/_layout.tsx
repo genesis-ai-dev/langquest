@@ -9,6 +9,7 @@ import { initializeNetwork } from '@/store/networkStore';
 import { getQueryParams } from '@/utils/supabaseUtils';
 import { TranslationUtils } from '@/utils/translationUtils';
 import { PowerSyncContext } from '@powersync/react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -111,74 +112,100 @@ function InitializingApp({
 // Main app component with all the routing logic
 function MainApp({ hasRehydrated }: { hasRehydrated: boolean }) {
   const router = useRouter();
-  const setPasswordResetMode = useLocalStore(
-    (state) => state.setPasswordResetMode
-  );
 
   const handleAuthDeepLink = useCallback(
-    (url: string) => {
+    async (url: string) => {
       console.log('[handleAuthDeepLink] URL:', url);
       const { params, path } = getQueryParams(url);
 
       console.log('path', path);
       console.log('params', params);
 
-      // Debug logging for reset-password detection
-      console.log('[handleAuthDeepLink] Checking for reset-password...');
-      console.log('[handleAuthDeepLink] url:', url);
-      console.log(
-        '[handleAuthDeepLink] url.includes("reset-password"):',
-        url.includes('reset-password')
-      );
-      console.log('[handleAuthDeepLink] path:', path);
-      console.log(
-        '[handleAuthDeepLink] path === "reset-password":',
-        path === 'reset-password'
-      );
-
       if (params.access_token && params.refresh_token) {
-        // Check for reset-password BEFORE async operations
-        const isResetPassword =
-          url.includes('reset-password') || path === 'reset-password';
+        // Check if this is a password reset flow
+        const isPasswordReset =
+          path === 'reset-password' || url.includes('reset-password');
 
-        if (isResetPassword) {
-          console.log(
-            '[handleAuthDeepLink] Detected password reset flow - setting mode IMMEDIATELY'
-          );
-          // Set the password reset mode SYNCHRONOUSLY
-          setPasswordResetMode(true);
-          console.log('[handleAuthDeepLink] Password reset mode set to true');
-        }
+        console.log('[handleAuthDeepLink] Is password reset:', isPasswordReset);
 
-        const handleRedirect = async () => {
-          // Set the session
-          await system.supabaseConnector.client.auth.setSession({
-            access_token: params.access_token!,
-            refresh_token: params.refresh_token!
+        try {
+          // For password reset, we might not need to call setSession explicitly
+          // The auth state change listener might handle it automatically
+          // Let's check if we already have a session from the URL
+          console.log('[handleAuthDeepLink] Checking current session...');
+          const { data: currentSessionData, error: currentSessionError } =
+            await system.supabaseConnector.client.auth.getSession();
+
+          console.log('[handleAuthDeepLink] Current session check:', {
+            hasSession: !!currentSessionData.session,
+            error: currentSessionError?.message
           });
 
-          console.log('[handleAuthDeepLink] Session set, navigating to /app');
-          // Always navigate to app - the mode is already set
+          // If we don't have a session, try to set it
+          if (!currentSessionData.session) {
+            console.log(
+              '[handleAuthDeepLink] No current session, setting session with tokens...'
+            );
+            const { data, error } =
+              await system.supabaseConnector.client.auth.setSession({
+                access_token: params.access_token,
+                refresh_token: params.refresh_token
+              });
+
+            if (error) {
+              console.error(
+                '[handleAuthDeepLink] Error setting session:',
+                error
+              );
+              return;
+            }
+
+            console.log('[handleAuthDeepLink] Session set successfully:', {
+              user: data.session?.user.email,
+              hasSession: !!data.session
+            });
+          } else {
+            console.log(
+              '[handleAuthDeepLink] Session already exists, skipping setSession'
+            );
+          }
+
+          // If this is a password reset, store a flag
+          if (isPasswordReset) {
+            await AsyncStorage.setItem(
+              'langquest_password_reset_session',
+              'true'
+            );
+            console.log(
+              '[handleAuthDeepLink] Marked session as password reset'
+            );
+          }
+
+          console.log('[handleAuthDeepLink] Navigating to /app');
           router.replace('/app');
-        };
-        void handleRedirect();
+        } catch (error) {
+          console.error(
+            '[handleAuthDeepLink] Error in handleAuthDeepLink:',
+            error
+          );
+        }
       } else {
         console.log(
           '[handleAuthDeepLink] No access_token or refresh_token found'
         );
       }
     },
-    [router, setPasswordResetMode]
+    [router]
   );
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
-      handleAuthDeepLink(event.url);
+      void handleAuthDeepLink(event.url);
     });
 
     // Check for initial URL (app opened via link)
     void Linking.getInitialURL().then((url) => {
-      if (url) handleAuthDeepLink(url);
+      if (url) void handleAuthDeepLink(url);
     });
 
     return () => {

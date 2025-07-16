@@ -307,6 +307,10 @@ export class System {
     return this.initialized && this.attachmentQueuesInitialized;
   }
 
+  isPowerSyncInitialized() {
+    return this.initialized;
+  }
+
   isConnected() {
     return this.powersync.connected;
   }

@@ -586,6 +586,11 @@ export const localizations = {
     spanish: 'Reporte enviado exitosamente',
     brazilian_portuguese: 'Relatório enviado com sucesso'
   },
+  enterEmailForPasswordReset: {
+    english: 'Enter your email to reset your password',
+    spanish: 'Ingrese su correo electrónico para restablecer su contraseña',
+    brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha'
+  },
   failedToSubmitReport: {
     english: 'Failed to submit report',
     spanish: 'Error al enviar el reporte',
@@ -612,6 +617,11 @@ export const localizations = {
       'Cuando está habilitado, no recopilaremos datos de uso para mejorar la aplicación.',
     brazilian_portuguese:
       'Quando ativado, não coletaremos dados de uso para melhorar o aplicativo.'
+  },
+  sessionExpired: {
+    english: 'Session expired',
+    spanish: 'Sesión expirada',
+    brazilian_portuguese: 'Sessão expirada'
   },
   'reportReason.inappropriate_content': {
     english: 'Inappropriate Content',
