@@ -48,6 +48,7 @@ import {
 } from 'react-native';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import type { AssetContent } from '@/hooks/db/useAssets';
 
@@ -97,15 +98,20 @@ const filterAssets = (
 // Memoized AssetCard component to prevent unnecessary re-renders
 const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   // Use current navigation to get project
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId, currentQuestId } = useCurrentNavigation();
 
   // Use session cache for project data instead of fresh query
   const { getCachedProject } = useSessionProjects();
   const cachedProject = getCachedProject(currentProjectId || '');
 
+  const { isUserOwner } = useSessionMemberships();
+  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+
   // Fallback to fresh query only if not in cache
   const { project: freshProject } = useProjectById(currentProjectId || '');
   const activeProject = cachedProject || freshProject;
+
+  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
   const {
     isDownloaded,
@@ -127,6 +133,14 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
+        {isOwner && (
+          <TouchableOpacity
+            onPress={() => setShowAssetSettingsModal(true)}
+            style={styles.statsButtonMini}
+          >
+            <Ionicons name="settings" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
         <PrivateAccessGate
           projectId={activeProject?.id || ''}
           projectName={activeProject?.name || ''}
@@ -145,9 +159,18 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
           )}
         />
       </View>
+
       <View style={styles.translationCount}>
         {/* Translation gems could be added here later */}
       </View>
+      {currentQuestId && (
+        <AssetSettingsModal
+          isVisible={showAssetSettingsModal}
+          onClose={() => setShowAssetSettingsModal(false)}
+          questId={currentQuestId}
+          assetId={asset.id}
+        />
+      )}
     </View>
   );
 });
@@ -524,6 +547,9 @@ const styles = StyleSheet.create({
   statsButton: {
     padding: spacing.small,
     alignSelf: 'flex-end'
+  },
+  statsButtonMini: {
+    alignSelf: 'center'
   },
   searchContainer: {
     flexDirection: 'row',

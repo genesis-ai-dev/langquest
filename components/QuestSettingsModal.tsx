@@ -19,12 +19,12 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import { SwitchBox } from './SwitchBox';
 
 interface QuestSettingsModalProps {
   isVisible: boolean;
@@ -168,55 +168,28 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.content}>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Visibility'}</Text>
-                    <Text style={styles.settingDescription}>
-                      {questData?.visible
-                        ? 'This quest is visible to other users.'
-                        : 'This quest is hidden and will not be shown to other users. An invisible quest is also inactive.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={questData?.visible ?? false}
-                    onValueChange={handleToggleVisible}
-                    disabled={isSubmitting || !isQuestLoaded || !isOwner}
-                    trackColor={{
-                      false: colors.disabled,
-                      true: colors.primary
-                    }}
-                    thumbColor={
-                      questData?.visible ? colors.primary : colors.disabled
-                    }
-                  />
-                </View>
-              </View>
-
-              <View style={styles.content}>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Active'}</Text>
-                    <Text style={styles.settingDescription}>
-                      {questData?.active
-                        ? 'This quest is currently active. An active quest is also visible.'
-                        : 'This quest is inactive. No actions can be performed unless it is reactivated.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={questData?.active ?? false}
-                    onValueChange={handleToggleActive}
-                    disabled={isSubmitting || !isQuestLoaded || !isOwner}
-                    trackColor={{
-                      false: colors.disabled,
-                      true: colors.primary
-                    }}
-                    thumbColor={
-                      questData?.active ? colors.primary : colors.disabled
-                    }
-                  />
-                </View>
-              </View>
+              <SwitchBox
+                title={'Visibility'}
+                description={
+                  questData?.visible
+                    ? 'This quest is visible to other users.'
+                    : 'This quest is hidden and will not be shown to other users. An invisible quest is also inactive.'
+                }
+                value={questData?.visible ?? false}
+                onChange={() => handleToggleVisible()}
+                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+              />
+              <SwitchBox
+                title={'Active'}
+                description={
+                  questData?.active
+                    ? 'This quest is currently active. An active quest is also visible.'
+                    : 'This quest is inactive. No actions can be performed unless it is reactivated.'
+                }
+                value={questData?.active ?? false}
+                onChange={() => handleToggleActive()}
+                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+              />
             </View>
           </TouchableWithoutFeedback>
         </Pressable>
