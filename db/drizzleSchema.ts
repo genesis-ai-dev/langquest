@@ -237,7 +237,8 @@ export const quest_asset_link = sqliteTable(
     ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
+    download_profiles: text({ mode: 'json' }).$type<string[]>(),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
   },
   (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
 );
