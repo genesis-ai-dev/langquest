@@ -408,19 +408,38 @@ export default function AssetDetailView() {
               />
             </View>
           )}
-          {activeTab === 'image' && (
+          {activeTab === 'image' &&
+          (asset as unknown as { images: string | string[] }).images ? (
             <ImageCarousel
               uris={
-                asset?.images
-                  ?.map((imageId) => {
-                    const localUri = attachmentStates.get(imageId)?.local_uri;
-                    return localUri
-                      ? system.permAttachmentQueue?.getLocalUri(localUri)
-                      : null;
-                  })
-                  .filter(Boolean) ?? []
+                typeof asset?.images === 'string'
+                  ? (asset.images as unknown as string)
+                      .split(',')
+                      .map((id) => id.trim())
+                      .filter(Boolean)
+                      .map((imageId) => {
+                        const localUri =
+                          attachmentStates.get(imageId)?.local_uri;
+                        return localUri
+                          ? system.permAttachmentQueue?.getLocalUri(localUri)
+                          : null;
+                      })
+                      .filter(Boolean)
+                  : Array.isArray(asset?.images)
+                    ? asset.images
+                        .map((imageId) => {
+                          const localUri =
+                            attachmentStates.get(imageId)?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })
+                        .filter(Boolean)
+                    : []
               }
             />
+          ) : (
+            <Text>No images</Text>
           )}
         </View>
 
@@ -533,22 +552,23 @@ export default function AssetDetailView() {
           </View>
 
           <GestureHandlerRootView style={{ flex: 1 }}>
-            <FlashList
-              data={translationsWithVotesAndLanguage?.sort((a, b) => {
-                if (sortOption === 'voteCount') {
+            <View style={styles.translationsList}>
+              <FlashList
+                data={translationsWithVotesAndLanguage?.sort((a, b) => {
+                  if (sortOption === 'voteCount') {
+                    return (
+                      calculateVoteCount(b.votes) - calculateVoteCount(a.votes)
+                    );
+                  }
                   return (
-                    calculateVoteCount(b.votes) - calculateVoteCount(a.votes)
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
                   );
-                }
-                return (
-                  new Date(b.created_at).getTime() -
-                  new Date(a.created_at).getTime()
-                );
-              })}
-              renderItem={renderTranslationCard}
-              keyExtractor={(item) => item.id}
-              style={styles.translationsList}
-            />
+                })}
+                renderItem={renderTranslationCard}
+                keyExtractor={(item) => item.id}
+              />
+            </View>
           </GestureHandlerRootView>
         </ScrollView>
       </View>
@@ -733,7 +753,8 @@ const styles = StyleSheet.create({
     marginVertical: spacing.medium
   },
   translationHeader: {
-    paddingHorizontal: spacing.large
+    paddingHorizontal: spacing.large,
+    paddingBottom: spacing.medium
   },
   alignmentContainer: {
     flexDirection: 'row',

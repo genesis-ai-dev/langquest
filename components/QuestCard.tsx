@@ -12,21 +12,21 @@ export const QuestCard: React.FC<{
   project: Project;
   quest: Quest & { tags: { tag: Tag }[] };
 }> = React.memo(({ quest, project }) => {
-  // Use the enhanced quest download status hook for better performance and progress info
   const {
-    isDownloaded,
-    isLoading: isDownloadStatusLoading,
-    progressPercentage,
-    totalAssets
-  } = useQuestDownloadStatus(quest.id);
+    isFlaggedForDownload,
+    isLoading: isDownloadLoading,
+    toggleDownload
+  } = useDownload('quest', quest.id);
+
+  // Get quest download stats for confirmation modal
+  const { questClosure } = useQuestDownloadStatus(quest.id);
 
   // Keep the original download hook for the mutation functionality
-  const { isLoading: isDownloadMutationLoading, toggleDownload } = useDownload(
+  const { isLoading: isDownloadMutationLoading } = useDownload(
     'quest',
     quest.id
   );
-
-  const isLoading = isDownloadStatusLoading || isDownloadMutationLoading;
+  const isLoading = isDownloadLoading || isDownloadMutationLoading;
 
   const handleDownloadToggle = useCallback(async () => {
     console.log(
@@ -65,13 +65,21 @@ export const QuestCard: React.FC<{
           onBypass={handleDownloadToggle}
           renderTrigger={({ onPress, hasAccess }) => (
             <DownloadIndicator
-              isDownloaded={isDownloaded}
-              isLoading={isLoading}
+              isFlaggedForDownload={isFlaggedForDownload}
+              isLoading={isLoading} // FIXME: for now, we are not showing download progress
               onPress={
-                hasAccess || isDownloaded ? handleDownloadToggle : onPress
+                hasAccess || isFlaggedForDownload
+                  ? handleDownloadToggle
+                  : onPress
               }
-              progressPercentage={progressPercentage}
-              showProgress={totalAssets > 0 && !isDownloaded}
+              downloadType="quest"
+              stats={{
+                totalAssets: questClosure?.total_assets || 0,
+                totalTranslations: questClosure?.total_translations || 0
+              }}
+              // FIXME: for now, we are not showing download progress
+              // progressPercentage={progressPercentage}
+              // showProgress={totalAssets > 0 && !isDownloaded}
             />
           )}
         />

@@ -29,7 +29,7 @@ import {
 import AudioPlayer from './AudioPlayer';
 import { PrivateAccessGate } from './PrivateAccessGate';
 import { ReportModal } from './ReportModal';
-import Shimmer from './Shimmer';
+import { Shimmer } from './Shimmer';
 
 interface TranslationModalProps {
   translationId: string;
@@ -353,8 +353,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                           <Shimmer
                             width={200}
                             height={50}
-                            backgroundColor="transparent"
-                            highlightColor="rgba(255, 255, 255, 0.3)"
+                            shimmerColors={[
+                              'transparent',
+                              'rgba(255, 255, 255, 0.3)',
+                              'transparent'
+                            ]}
                           />
                         </View>
                       )}
@@ -389,8 +392,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                           <Shimmer
                             width={200}
                             height={50}
-                            backgroundColor="transparent"
-                            highlightColor="rgba(255, 255, 255, 0.3)"
+                            shimmerColors={[
+                              'transparent',
+                              'rgba(255, 255, 255, 0.3)',
+                              'transparent'
+                            ]}
                           />
                         </View>
                       )}

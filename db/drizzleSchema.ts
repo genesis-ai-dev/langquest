@@ -4,6 +4,7 @@ import {
   int,
   primaryKey,
   sqliteTable,
+  sqliteView,
   text
 } from 'drizzle-orm/sqlite-core';
 import { reasonOptions } from './constants';
@@ -236,7 +237,8 @@ export const quest_asset_link = sqliteTable(
     ...linkColumns,
     quest_id: text().notNull(),
     asset_id: text().notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
+    download_profiles: text({ mode: 'json' }).$type<string[]>(),
+    visible: int({ mode: 'boolean' }).notNull().default(true)
   },
   (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
 );
@@ -560,6 +562,57 @@ export const subscriptionRelations = relations(subscription, ({ one }) => ({
     references: [profile.id]
   })
 }));
+
+// ====================================
+// VIEWS
+// ====================================
+
+// Asset tag categories view - extracts distinct tag categories (part before ':') for each quest via asset tags
+export const asset_tag_categories = sqliteView('asset_tag_categories', {
+  quest_id: text('quest_id').notNull(),
+  tag_categories: text('tag_categories', { mode: 'json' }).$type<string[]>() // SQLite stores as comma-separated string
+}).as(sql`
+  SELECT
+    q.id AS quest_id,
+    GROUP_CONCAT(DISTINCT
+      CASE
+        WHEN INSTR(t.name, ':') > 0
+        THEN SUBSTR(t.name, 1, INSTR(t.name, ':') - 1)
+        ELSE t.name
+      END
+    ) AS tag_categories
+  FROM quest q
+  JOIN quest_asset_link qal ON q.id = qal.quest_id
+  JOIN asset a ON qal.asset_id = a.id
+  JOIN asset_tag_link atl ON a.id = atl.asset_id
+  JOIN tag t ON atl.tag_id = t.id
+  GROUP BY q.id
+  ORDER BY q.id
+`);
+
+// Quest tag categories view - extracts distinct tag categories for all quests in each project
+export const quest_tag_categories = sqliteView('quest_tag_categories', {
+  project_id: text('project_id').notNull(),
+  tag_categories: text('tag_categories', { mode: 'json' }).$type<string[]>() // SQLite stores as comma-separated string
+}).as(sql`
+  SELECT
+    p.id AS project_id,
+    GROUP_CONCAT(DISTINCT
+      CASE
+        WHEN INSTR(t.name, ':') > 0
+        THEN SUBSTR(t.name, 1, INSTR(t.name, ':') - 1)
+        ELSE t.name
+      END
+    ) AS tag_categories
+  FROM project p
+  JOIN quest q ON q.project_id = p.id
+  JOIN quest_asset_link qal ON q.id = qal.quest_id
+  JOIN asset a ON qal.asset_id = a.id
+  JOIN asset_tag_link atl ON a.id = atl.asset_id
+  JOIN tag t ON atl.tag_id = t.id
+  GROUP BY p.id
+  ORDER BY p.id
+`);
 
 // ====================================
 // CLOSURE AND AGGREGATE TABLES

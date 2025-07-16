@@ -189,8 +189,8 @@ async function restoreFromBackup(
           : decodedSegment;
 
         // 1. Extract Asset ID (first 36 chars, should be a UUID)
-        if (fileName.length < 36 + 1 + 1 + 1 + 1) {
-          // assetId(36) + _ + baseId(1) + _ + timestamp(1) + . + ext(1)
+        if (fileName.length < 36 + 1 + 1 + 1) {
+          // assetId(36) + _ + baseId(1) + . + ext(1)
           console.warn(
             `[restoreFromBackup] Filename too short to be a valid backup: ${fileName}`
           );
@@ -209,51 +209,34 @@ async function restoreFromBackup(
           continue;
         }
 
-        // 2. Isolate the part after "assetId_" and before the original extension
+        // 2. Isolate the part after "assetId_"
         const remainingAfterAssetId = fileName.substring(37);
 
-        let coreNamePart = remainingAfterAssetId;
-        const firstDotInRemaining = remainingAfterAssetId.indexOf('.');
-        if (firstDotInRemaining !== -1) {
-          coreNamePart = remainingAfterAssetId.substring(
+        // Find the last dot to separate baseAudioId from extension
+        const lastDotIndex = remainingAfterAssetId.lastIndexOf('.');
+
+        let originalBaseAudioId: string;
+        let originalExtension = 'm4a'; // Default
+
+        if (lastDotIndex === -1) {
+          // No extension found, use entire remaining part as baseAudioId
+          originalBaseAudioId = remainingAfterAssetId;
+        } else {
+          // Split baseAudioId and extension
+          originalBaseAudioId = remainingAfterAssetId.substring(
             0,
-            firstDotInRemaining
+            lastDotIndex
           );
+          originalExtension = remainingAfterAssetId.substring(lastDotIndex + 1);
         }
 
-        const lastUnderscoreInCore = coreNamePart.lastIndexOf('_');
-        if (
-          lastUnderscoreInCore === -1 ||
-          lastUnderscoreInCore === 0 ||
-          lastUnderscoreInCore === coreNamePart.length - 1
-        ) {
+        if (!originalBaseAudioId) {
           console.warn(
-            `[restoreFromBackup] Could not parse originalBaseAudioId and timestamp from: ${coreNamePart} in ${fileName}`
+            `[restoreFromBackup] Could not parse originalBaseAudioId from: ${fileName}`
           );
           audioSkippedDueToError++;
           callbacks?.onProgress?.(index + 1, totalFiles);
           continue;
-        }
-
-        const originalBaseAudioId = coreNamePart.substring(
-          0,
-          lastUnderscoreInCore
-        );
-        // const timestampFromFile = coreNamePart.substring(lastUnderscoreInCore + 1); // Not strictly needed for local check
-
-        // 3. Extract Original Extension (ensure it defaults correctly if parsing fails)
-        let originalExtension = 'm4a'; // Default
-        const firstDotIndexInRemainingAfterAssetId =
-          remainingAfterAssetId.indexOf('.');
-        if (firstDotIndexInRemainingAfterAssetId !== -1) {
-          const extensionsString = remainingAfterAssetId.substring(
-            firstDotIndexInRemainingAfterAssetId + 1
-          );
-          const firstExtPart = extensionsString.split('.')[0];
-          if (firstExtPart && firstExtPart.length > 0) {
-            // Ensure it's a valid extension part
-            originalExtension = firstExtPart;
-          }
         }
 
         // Check if this audio is already logically linked as a translation for this asset

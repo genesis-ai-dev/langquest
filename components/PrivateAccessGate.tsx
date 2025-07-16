@@ -131,7 +131,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const isMember = membershipLinks.length > 0;
   const existingRequest = existingRequests[0];
-  const { isDownloaded: isProjectDownloaded, mutation } = useDownload(
+  const { isFlaggedForDownload: isProjectDownloaded, mutation } = useDownload(
     'project',
     projectId
   );

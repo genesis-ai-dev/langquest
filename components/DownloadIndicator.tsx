@@ -9,58 +9,83 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 
 interface DownloadIndicatorProps {
-  isDownloaded: boolean;
+  isFlaggedForDownload: boolean;
   isLoading: boolean;
   onPress: () => void;
   size?: number;
   // Enhanced props for quest download progress
   progressPercentage?: number;
   showProgress?: boolean;
+  // New props for download confirmation
+  downloadType?: 'project' | 'quest';
+  stats?: {
+    totalAssets: number;
+    totalTranslations?: number;
+    totalQuests?: number;
+  };
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
-  isDownloaded,
+  isFlaggedForDownload,
   isLoading,
   onPress,
   size = 24,
   progressPercentage = 0,
-  showProgress = false
+  showProgress = false,
+  downloadType,
+  stats
 }) => {
   const isConnected = useNetworkStatus();
-  const isDisabled = !isConnected && !isDownloaded;
+  const isDisabled = !isConnected && !isFlaggedForDownload;
   const [showWarning, setShowWarning] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handlePress = async () => {
-    console.log('isConnected', isConnected);
-    console.log('isDownloaded', isDownloaded);
-    if (!isConnected && isDownloaded) {
+    if (!isConnected && isFlaggedForDownload) {
       const showWarning = await storage.getOfflineUndownloadWarningEnabled();
-      console.log('showWarning', showWarning);
       if (showWarning) {
         setShowWarning(true);
         return;
       }
     }
+
+    // Show confirmation modal for project/quest downloads (not already downloaded)
+    if (downloadType && stats && !isFlaggedForDownload) {
+      setShowConfirmation(true);
+      return;
+    }
+
+    // Direct download for assets or already downloaded items
     onPress();
   };
 
-  const handleConfirm = () => {
+  const handleConfirmDownload = () => {
+    setShowConfirmation(false);
+    onPress();
+  };
+
+  const handleCancelDownload = () => {
+    setShowConfirmation(false);
+  };
+
+  const handleConfirmUndownload = () => {
     setShowWarning(false);
     onPress();
   };
 
-  const handleCancel = () => {
+  const handleCancelUndownload = () => {
     setShowWarning(false);
   };
 
   // Determine icon and color based on state
   const getIconAndColor = () => {
-    if (isDownloaded) {
+    if (isFlaggedForDownload) {
       return {
-        name: 'arrow-down-circle' as const,
+        name: 'checkmark-circle' as const,
         color: colors.primary
       };
     }
@@ -90,7 +115,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={colors.primary} />
-        ) : showProgress && progressPercentage > 0 && !isDownloaded ? (
+        ) : showProgress && progressPercentage > 0 && !isFlaggedForDownload ? (
           // Custom progress indicator for quests
           <View
             style={[styles.progressContainer, { width: size, height: size }]}
@@ -126,10 +151,23 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
           <Ionicons name={iconName} size={size} color={color} />
         )}
       </TouchableOpacity>
+
+      {/* Download confirmation modal */}
+      {downloadType && stats && (
+        <DownloadConfirmationModal
+          visible={showConfirmation}
+          onConfirm={handleConfirmDownload}
+          onCancel={handleCancelDownload}
+          downloadType={downloadType}
+          stats={stats}
+        />
+      )}
+
+      {/* Offline undownload warning */}
       <OfflineUndownloadWarning
         visible={showWarning}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
+        onConfirm={handleConfirmUndownload}
+        onCancel={handleCancelUndownload}
       />
     </>
   );

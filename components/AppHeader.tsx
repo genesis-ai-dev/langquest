@@ -1,6 +1,7 @@
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useIsSyncing } from '@/hooks/useSyncState';
+import { useSyncState } from '@/hooks/useSyncState';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -26,7 +27,11 @@ export default function AppHeader({
 
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { totalCount: notificationCount } = useNotifications();
-  const isSyncing = useIsSyncing();
+  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
+    useSyncState();
+  const isSyncing =
+    isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
+  const isConnected = useNetworkStatus();
 
   // Animation for sync indicator
   const spinValue = useRef(new Animated.Value(0)).current;
@@ -143,8 +148,16 @@ export default function AppHeader({
           >
             <Ionicons name="menu" size={24} color={colors.text} />
 
-            {/* Sync Indicator - Bottom Right Corner */}
-            {isSyncing && (
+            {/* Network Status Indicator - Bottom Right Corner */}
+            {!isConnected ? (
+              <View style={styles.offlineIndicator}>
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={10}
+                  color="white"
+                />
+              </View>
+            ) : isSyncing ? (
               <Animated.View
                 style={[
                   styles.syncIndicator,
@@ -153,7 +166,7 @@ export default function AppHeader({
               >
                 <Ionicons name="sync-outline" size={10} color="white" />
               </Animated.View>
-            )}
+            ) : null}
 
             {/* Notification Badge - Top Right Corner */}
             {notificationCount > 0 && (
@@ -234,6 +247,22 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2
+  },
+  offlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FF6B6B', // Orange-red for offline
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 2, // Android shadow

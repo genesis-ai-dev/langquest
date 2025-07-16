@@ -1,15 +1,13 @@
 import { system } from '@/db/powersync/system';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import {
-  keepPreviousData,
   useInfiniteQuery,
   useQueryClient,
   useQuery as useTanStackQuery
 } from '@tanstack/react-query';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
 /**
@@ -115,8 +113,8 @@ type HybridSupabaseQueryOptions<T extends Record<string, unknown>> = Omit<
 /**
  * useHybridSupabaseQuery
  *
- * A hook that automatically chooses between an online Supabase SQLTR query and an offline Drizzle query,
- * depending on network connectivity. Includes dual cache system for seamless online/offline transitions.
+ * A hook that always queries local/offline data first, then cloud data when available,
+ * and merges them with local data taking priority. Follows the offline-first pattern.
  *
  * @example
  * // Using unified query
@@ -146,81 +144,93 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
     ...restOptions
   } = options;
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
 
   // Filter out undefined/null values from the query key
   const cleanQueryKey = queryKey.filter(
     (key) => key !== undefined && key !== null
   );
 
-  // Use dual cache system for better offline/online separation
-  const hybridQueryKey = [...cleanQueryKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...cleanQueryKey, isOnline ? 'offline' : 'online'];
-  const cachedOppositeData = queryClient.getQueryData<T[]>(oppositeQueryKey);
-  const oppositeCachedQueryState =
-    queryClient.getQueryState<T[]>(oppositeQueryKey);
+  // Always query local data
+  const localQueryKey = [...cleanQueryKey, 'local'];
+  const cloudQueryKey = [...cleanQueryKey, 'cloud'];
 
-  // Memoize the merged data to prevent infinite re-renders
-  const stableMergedData = React.useMemo(() => {
-    if (!cachedOppositeData) return undefined;
-    return cachedOppositeData;
-  }, [cachedOppositeData]);
-
-  // Create a stable select function that only changes when user's select function changes
-  const stableSelect = React.useCallback(
-    (data: T[]) => {
-      if (!cachedOppositeData && !data.length) {
-        return select ? select([]) : [];
-      }
-
-      // Only merge if we have both datasets
-      if (cachedOppositeData && data.length > 0) {
-        const combinedMap = new Map<string | number, T>();
-
-        // Add cached data first
-        cachedOppositeData.forEach((item) => {
-          combinedMap.set(getId(item), item);
-        });
-
-        // Override with fresh data
-        data.forEach((item) => {
-          combinedMap.set(getId(item), item);
-        });
-
-        const mergedArray = Array.from(combinedMap.values());
-        return select ? select(mergedArray) : mergedArray;
-      }
-
-      // If no cached data, just use current data
-      return select ? select(data) : data;
-    },
-    [cachedOppositeData, select, getId]
-  );
-
-  const sharedQueryOptions = {
-    queryKey: hybridQueryKey,
-    initialData: stableMergedData,
-    initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
-    select: stableSelect,
-    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    refetchOnWindowFocus: false, // Prevent excessive refetching
-    refetchOnMount: false // Don't refetch if we have data
+  // Determine local query function
+  const getLocalQueryFn = () => {
+    if ('offlineFn' in options && options.offlineFn) {
+      return options.offlineFn;
+    } else if (options.offlineQuery) {
+      return async () => {
+        const offlineQuery = options.offlineQuery;
+        if (typeof offlineQuery === 'string') {
+          const result = await system.powersync.execute(offlineQuery);
+          const rows: T[] = [];
+          if (result.rows) {
+            for (let i = 0; i < result.rows.length; i++) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const item = result.rows.item(i);
+              if (item) {
+                rows.push(item as T);
+              }
+            }
+          }
+          return rows;
+        }
+        return await toCompilableQuery<T>(offlineQuery).execute();
+      };
+    } else if ('query' in options && options.query) {
+      return async () => {
+        const query = options.query;
+        if (typeof query === 'string') {
+          const result = await system.powersync.execute(query);
+          const rows: T[] = [];
+          if (result.rows) {
+            for (let i = 0; i < result.rows.length; i++) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const item = result.rows.item(i);
+              if (item) {
+                rows.push(item as T);
+              }
+            }
+          }
+          return rows;
+        }
+        return await toCompilableQuery<T>(query).execute();
+      };
+    }
+    throw new Error(
+      'Either query, offlineQuery, or offlineFn must be provided'
+    );
   };
 
-  // Determine online query function
-  const getOnlineQueryFn = () => {
+  // Determine cloud query function
+  const getCloudQueryFn = () => {
     if ('onlineFn' in options && options.onlineFn) {
       return options.onlineFn;
     } else if ('query' in options && options.query) {
       return async () => {
-        const data = options.query.toSQL();
+        const query = options.query;
+        if (typeof query === 'string') {
+          const result = await system.powersync.execute(query);
+          const rows: T[] = [];
+          if (result.rows) {
+            for (let i = 0; i < result.rows.length; i++) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const item = result.rows.item(i);
+              if (item) {
+                rows.push(item as T);
+              }
+            }
+          }
+          return rows;
+        }
+        const data = query.toSQL();
         const finalSql = substituteParams(data.sql, data.params);
         const response = await fetch(
           `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sqltr`,
           {
             headers: {
-              Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`
+              Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json'
             },
             method: 'POST',
             body: JSON.stringify({ sql: finalSql })
@@ -232,51 +242,111 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
     throw new Error('Either query or onlineFn must be provided');
   };
 
-  if (isOnline) {
-    return useTanStackQuery({
-      ...sharedQueryOptions,
-      ...restOptions,
-      queryFn: getOnlineQueryFn(),
-      refetchOnReconnect: true,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      networkMode: 'always'
-    });
-  } else {
-    // Handle offline query
-    if ('offlineFn' in options && options.offlineFn) {
-      return useTanStackQuery({
-        ...sharedQueryOptions,
-        ...restOptions,
-        queryFn: options.offlineFn
-      });
-    } else if (options.offlineQuery || options.query) {
-      const offlineQuery = options.offlineQuery ?? options.query;
-      return usePowerSyncQuery({
-        ...sharedQueryOptions,
-        ...restOptions,
-        query:
-          typeof offlineQuery === 'string'
-            ? offlineQuery
-            : toCompilableQuery<T>(offlineQuery)
-      });
-    } else {
-      throw new Error(
-        'Either query, offlineQuery, or offlineFn must be provided'
-      );
+  // Query local data (always enabled)
+  const localQuery = useTanStackQuery({
+    queryKey: localQueryKey,
+    queryFn: getLocalQueryFn(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    ...restOptions
+  });
+
+  // Query cloud data (only when online)
+  const cloudQuery = useTanStackQuery({
+    queryKey: cloudQueryKey,
+    queryFn: getCloudQueryFn(),
+    enabled: isOnline,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    networkMode: 'always',
+    ...restOptions
+  });
+
+  // Merge data with local priority
+  const mergedData = React.useMemo(() => {
+    // Ensure we have arrays to work with, handling undefined/null cases
+    const localData = Array.isArray(localQuery.data) ? localQuery.data : [];
+    const cloudData = Array.isArray(cloudQuery.data) ? cloudQuery.data : [];
+
+    // If no data available yet, return empty array
+    if (localData.length === 0 && cloudData.length === 0) {
+      return [];
     }
-  }
+
+    // Create a map of local data by ID for quick lookup
+    const localDataMap = new Map(localData.map((item) => [getId(item), item]));
+
+    // Filter out cloud data that already exists in local data
+    const uniqueCloudData = cloudData.filter(
+      (item) => !localDataMap.has(getId(item))
+    );
+
+    // Return local data first, then unique cloud data
+    return [...localData, ...uniqueCloudData];
+  }, [localQuery.data, cloudQuery.data, getId]);
+
+  // Apply user's select function if provided
+  const finalData = React.useMemo(() => {
+    return select ? select(mergedData) : mergedData;
+  }, [mergedData, select]);
+
+  return {
+    data: finalData,
+    isLoading: localQuery.isLoading || (isOnline && cloudQuery.isLoading),
+    error: localQuery.error || cloudQuery.error,
+    isError: localQuery.isError || cloudQuery.isError,
+    isFetching: localQuery.isFetching || cloudQuery.isFetching,
+    isSuccess: localQuery.isSuccess,
+    refetch: () => {
+      void localQuery.refetch();
+      if (isOnline) void cloudQuery.refetch();
+    },
+    // Include other query result properties
+    dataUpdatedAt: Math.max(
+      localQuery.dataUpdatedAt,
+      cloudQuery.dataUpdatedAt || 0
+    ),
+    errorUpdatedAt: Math.max(
+      localQuery.errorUpdatedAt,
+      cloudQuery.errorUpdatedAt || 0
+    ),
+    failureCount: localQuery.failureCount + cloudQuery.failureCount,
+    failureReason: localQuery.failureReason || cloudQuery.failureReason,
+    fetchStatus: localQuery.fetchStatus,
+    isInitialLoading:
+      localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
+    isLoadingError: localQuery.isLoadingError || cloudQuery.isLoadingError,
+    isPaused: localQuery.isPaused || cloudQuery.isPaused,
+    isPlaceholderData:
+      localQuery.isPlaceholderData || cloudQuery.isPlaceholderData,
+    isRefetchError: localQuery.isRefetchError || cloudQuery.isRefetchError,
+    isRefetching: localQuery.isRefetching || cloudQuery.isRefetching,
+    isStale: localQuery.isStale || cloudQuery.isStale,
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
+  };
 }
 /**
  * Options for the realtime subscription
  */
 interface RealtimeSubscriptionOptions<T extends Record<string, unknown>> {
-  subscribeRealtime: (
-    onChange: (payload: RealtimePostgresChangesPayload<T>) => void
-  ) => () => Promise<'ok' | 'timed out' | 'error'> | (() => void);
+  channelName: string;
+  subscriptionConfig: {
+    table: string;
+    schema: string;
+    filter?: string;
+  };
   /**
    * Function to get the ID of a record. Defaults to (record) => record.id
    */
+  getId?: (record: T | Partial<T>) => string | number;
 }
 
 /**
@@ -288,8 +358,8 @@ type HybridSupabaseRealtimeQueryOptions<T extends Record<string, unknown>> =
 /**
  * useHybridSupabaseRealtimeQuery
  *
- * Like useHybridSupabaseQuery, but also sets up a realtime subscription when online.
- * The hook automatically handles cache updates via setQueryData based on realtime events.
+ * Always queries local data first, then cloud data when available, merges with local priority,
+ * and sets up realtime subscriptions to keep cloud data updated.
  *
  * @example
  * const { data, isLoading, error } = useHybridSupabaseRealtimeQuery({
@@ -309,19 +379,17 @@ export function useHybridSupabaseRealtimeQuery<
   T extends Record<string, unknown>
 >({
   queryKey,
-  subscribeRealtime,
+  channelName,
+  subscriptionConfig,
   getId = (record: T | Partial<T>) =>
     (record as unknown as { id: string | number }).id,
   ...restOptions
 }: HybridSupabaseRealtimeQueryOptions<T>) {
   const queryClient = useQueryClient();
-  const realtimeChannelRef = useRef<ReturnType<
-    typeof subscribeRealtime
-  > | null>(null);
 
   const isOnline = useNetworkStatus();
 
-  // Use the base hybrid query
+  // Use the base hybrid query with offline-first pattern
   const result = useHybridSupabaseQuery<T>({
     queryKey,
     ...restOptions
@@ -330,59 +398,62 @@ export function useHybridSupabaseRealtimeQuery<
   useEffect(() => {
     if (!isOnline) return;
 
-    // Unsubscribe previous
-    if (realtimeChannelRef.current) {
-      void realtimeChannelRef.current();
-      realtimeChannelRef.current = null;
-    }
+    const channel = system.supabaseConnector.client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { ...subscriptionConfig, event: '*' },
+        (payload: RealtimePostgresChangesPayload<T>) => {
+          {
+            const { eventType, new: newRow, old: oldRow } = payload;
+            const cloudCacheKey = [...queryKey, 'cloud'];
 
-    // Subscribe with automatic cache management
-    const subscription = subscribeRealtime((payload) => {
-      const { eventType, new: newRow, old: oldRow } = payload;
-      const cacheKey = [...queryKey, 'online'];
-
-      queryClient.setQueryData<T[]>(cacheKey, (prev = []) => {
-        switch (eventType) {
-          case 'INSERT': {
-            const recordId = getId(newRow);
-            // Avoid duplicates
-            if (prev.some((record) => getId(record) === recordId)) {
-              return prev;
-            }
-            return [...prev, newRow];
-          }
-          case 'UPDATE': {
-            const recordId = getId(newRow);
-            return prev.map((record) =>
-              getId(record) === recordId ? newRow : record
-            );
-          }
-          case 'DELETE': {
-            const recordId = getId(oldRow);
-            return prev.filter((record) => getId(record) !== recordId);
-          }
-          default: {
-            console.warn(
-              'useHybridSupabaseRealtimeQuery: Unhandled event type',
-              eventType
-            );
-            return prev;
+            queryClient.setQueryData<T[]>(cloudCacheKey, (prev = []) => {
+              switch (eventType) {
+                case 'INSERT': {
+                  const recordId = getId(newRow);
+                  // Avoid duplicates
+                  if (prev.some((record) => getId(record) === recordId)) {
+                    return prev;
+                  }
+                  return [...prev, newRow];
+                }
+                case 'UPDATE': {
+                  const recordId = getId(newRow);
+                  return prev.map((record) =>
+                    getId(record) === recordId ? newRow : record
+                  );
+                }
+                case 'DELETE': {
+                  const recordId = getId(oldRow);
+                  return prev.filter((record) => getId(record) !== recordId);
+                }
+                default: {
+                  console.warn(
+                    'useHybridSupabaseRealtimeQuery: Unhandled event type',
+                    eventType
+                  );
+                  return prev;
+                }
+              }
+            });
           }
         }
-      });
-    });
-
-    realtimeChannelRef.current = subscription;
+      );
+    channel.subscribe();
 
     return () => {
-      if (realtimeChannelRef.current) {
-        void realtimeChannelRef.current();
-        realtimeChannelRef.current = null;
-      }
+      void channel.unsubscribe().then((value) => {
+        if (value === 'error' || value === 'timed out')
+          throw new Error(
+            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+          );
+      });
     };
   }, [
     isOnline,
-    subscribeRealtime,
+    channelName,
+    subscriptionConfig,
     queryClient,
     getId,
     JSON.stringify(queryKey)
@@ -420,8 +491,8 @@ type HybridSupabaseFetchConfig<T> = (
 /**
  * hybridSupabaseFetch
  *
- * A standalone function that automatically chooses between online and offline queries,
- * depending on network connectivity. Can be used outside of React components.
+ * A standalone function that always fetches local data first, then cloud data when available,
+ * and merges with local priority. Can be used outside of React components.
  *
  * @example
  * // Using unified query
@@ -445,14 +516,23 @@ export async function hybridSupabaseFetch<
 >(config: HybridSupabaseFetchConfig<T>) {
   const { queryKey: _queryKey, ...restConfig } = config;
 
-  const runOfflineQuery = async () => {
+  const runLocalQuery = async () => {
     if (restConfig.offlineFn) {
       return await restConfig.offlineFn();
     } else if (restConfig.offlineQuery) {
       if (typeof restConfig.offlineQuery === 'string') {
-        return (await system.powersync.execute(
-          restConfig.offlineQuery
-        )) as unknown as T[];
+        const result = await system.powersync.execute(restConfig.offlineQuery);
+        const rows: T[] = [];
+        if (result.rows) {
+          for (let i = 0; i < result.rows.length; i++) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const item = result.rows.item(i);
+            if (item) {
+              rows.push(item as T);
+            }
+          }
+        }
+        return rows;
       }
       return await toCompilableQuery<T>(restConfig.offlineQuery).execute();
     } else if ('query' in restConfig && restConfig.query) {
@@ -469,7 +549,7 @@ export async function hybridSupabaseFetch<
     }
   };
 
-  const runOnlineQuery = async () => {
+  const runCloudQuery = async () => {
     if (restConfig.onlineFn) {
       return await restConfig.onlineFn();
     } else if ('query' in restConfig) {
@@ -497,16 +577,43 @@ export async function hybridSupabaseFetch<
     }
   };
 
+  // Always fetch local data first
+  const localData = await runLocalQuery();
+
+  // Try to fetch cloud data if online
   const isOnline = getNetworkStatus();
+  let cloudData: T[] = [];
+
   if (isOnline) {
     try {
-      return await runOnlineQuery();
-    } catch {
-      return await runOfflineQuery();
+      cloudData = await runCloudQuery();
+    } catch (error) {
+      console.warn(
+        'hybridSupabaseFetch: Cloud query failed, using local data only',
+        error
+      );
     }
-  } else {
-    return await runOfflineQuery();
   }
+
+  // Merge with local priority
+  const localDataArray = Array.isArray(localData) ? localData : [];
+  const cloudDataArray = Array.isArray(cloudData) ? cloudData : [];
+
+  // Create a map of local data by ID for quick lookup
+  const localDataMap = new Map(
+    localDataArray.map((item) => [
+      (item as unknown as { id: string | number }).id,
+      item
+    ])
+  );
+
+  // Filter out cloud data that already exists in local data
+  const uniqueCloudData = cloudDataArray.filter(
+    (item) => !localDataMap.has((item as unknown as { id: string | number }).id)
+  );
+
+  // Return local data first, then unique cloud data
+  return [...localDataArray, ...uniqueCloudData];
 }
 
 /**
@@ -569,7 +676,8 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
 /**
  * useHybridSupabaseInfiniteQuery
  *
- * A hook that provides infinite scrolling with automatic online/offline switching for Supabase.
+ * A hook that provides infinite scrolling with offline-first pattern.
+ * Always queries local data first, then cloud data when available, and merges with local priority.
  *
  * @example
  * // Using unified query
@@ -596,114 +704,78 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
 export function useHybridSupabaseInfiniteQuery<T>(
   options: HybridSupabaseInfiniteQueryOptions<T>
 ) {
-  // const timestamp = performance.now();
-
-  const { queryKey, pageSize = 10, ...restOptions } = options;
-
+  const {
+    queryKey,
+    pageSize = 10,
+    getId = (record: T | Partial<T>) =>
+      (record as unknown as { id: string | number }).id,
+    ...restOptions
+  } = options;
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
 
-  // Use dual cache system for better offline/online separation
-  const hasInfinite = queryKey.includes('infinite');
-  const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
-  const cleanBaseKey = baseKey.filter(
+  // Filter out undefined/null values from the query key
+  const cleanQueryKey = queryKey.filter(
     (key: unknown) => key !== undefined && key !== null
   );
-  const hybridQueryKey = [...cleanBaseKey, isOnline ? 'online' : 'offline'];
-  const oppositeQueryKey = [...cleanBaseKey, isOnline ? 'offline' : 'online'];
 
-  // Get cached data from opposite network state for initial data
-  const oppositeCachedQueryState = queryClient.getQueryState(oppositeQueryKey);
+  // Create separate query keys for local and cloud data
+  const hasInfinite = cleanQueryKey.includes('infinite');
+  const baseKey = hasInfinite ? cleanQueryKey : [...cleanQueryKey, 'infinite'];
+  const localQueryKey = [...baseKey, 'local'];
+  const cloudQueryKey = [...baseKey, 'cloud'];
 
-  const sharedOptions = {
-    queryKey: hybridQueryKey,
+  // Local infinite query (always enabled)
+  const localQuery = useInfiniteQuery({
+    queryKey: localQueryKey,
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     getPreviousPageParam: (firstPage) => firstPage.nextCursor,
-    initialDataUpdatedAt: oppositeCachedQueryState?.dataUpdatedAt,
-    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
-    networkMode: 'always',
-    refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    ...restOptions
-  } satisfies GetInfiniteQueryParam<T>;
-
-  // console.log('sharedOptions', sharedOptions);
-  return useInfiniteQuery({
-    ...sharedOptions,
+    ...restOptions,
     queryFn: async (context) => {
-      let results: T[] = [];
-
       const completeContext = {
         ...context,
         pageSize,
         pageParam: context.pageParam as number
       } satisfies InfiniteQueryContext<T>;
 
-      if (isOnline) {
-        // Handle online query
-        if (options.onlineFn) {
-          results = await options.onlineFn(completeContext);
-        } else if ('query' in options) {
-          const sqlQuery = options.query(completeContext);
-          const data =
-            typeof sqlQuery === 'string' ? sqlQuery : sqlQuery.toSQL();
-          const finalSql =
-            typeof data === 'string'
-              ? data
-              : substituteParams(data.sql, data.params);
-          const response = await fetch(
-            `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sqltr`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ sql: finalSql })
+      let results: T[] = [];
+
+      // Handle local query
+      if (options.offlineFn) {
+        results = await options.offlineFn(completeContext);
+      } else if (options.offlineQuery) {
+        const sqlQuery = options.offlineQuery(completeContext);
+        const compiledQuery = toCompilableQuery(sqlQuery);
+        results = await compiledQuery.execute();
+      } else if ('query' in options) {
+        const sqlQuery = options.query(completeContext);
+        if (typeof sqlQuery === 'string') {
+          const result = await system.powersync.execute(sqlQuery);
+          const rows: T[] = [];
+          if (result.rows) {
+            for (let i = 0; i < result.rows.length; i++) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const item = result.rows.item(i);
+              if (item) {
+                rows.push(item as T);
+              }
             }
-          );
-          if (!response.ok) {
-            const err = `${JSON.stringify(hybridQueryKey)} ${await response.text()} ${finalSql}`;
-            console.error(err);
-            throw new Error(err);
           }
-          results = (await response.json()) as T[];
+          results = rows;
         } else {
-          throw new Error('Either query or onlineFn must be provided');
-        }
-      } else {
-        // Handle offline query
-        if (options.offlineFn) {
-          results = await options.offlineFn(completeContext);
-        } else if (options.offlineQuery) {
-          const sqlQuery = options.offlineQuery(completeContext);
           const compiledQuery = toCompilableQuery(sqlQuery);
           results = await compiledQuery.execute();
-        } else if ('query' in options) {
-          const sqlQuery = options.query(completeContext);
-          if (typeof sqlQuery === 'string') {
-            results = (await system.powersync.execute(
-              sqlQuery
-            )) as unknown as T[];
-          } else {
-            const compiledQuery = toCompilableQuery(sqlQuery);
-            results = await compiledQuery.execute();
-          }
-        } else {
-          throw new Error(
-            'Either query, offlineQuery, or offlineFn must be provided'
-          );
         }
+      } else {
+        throw new Error(
+          'Either query, offlineQuery, or offlineFn must be provided'
+        );
       }
 
-      // console.log(`data ${JSON.stringify(results)}`);
-      // console.log(
-      //   `[${performance.now() - timestamp}ms] useHybridSupabaseInfiniteQuery (${isOnline ? 'online' : 'offline'}) ${JSON.stringify(hybridQueryKey)}`
-      // );
       return {
         data: results,
         nextCursor:
@@ -714,10 +786,153 @@ export function useHybridSupabaseInfiniteQuery<T>(
       } satisfies HybridPageData<T>;
     }
   });
+
+  // Cloud infinite query (only when online)
+  const cloudQuery = useInfiniteQuery({
+    queryKey: cloudQueryKey,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getPreviousPageParam: (firstPage) => firstPage.nextCursor,
+    enabled: isOnline,
+    staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    networkMode: 'always',
+    ...restOptions,
+    queryFn: async (context) => {
+      const completeContext = {
+        ...context,
+        pageSize,
+        pageParam: context.pageParam as number
+      } satisfies InfiniteQueryContext<T>;
+
+      let results: T[] = [];
+
+      // Handle cloud query
+      if (options.onlineFn) {
+        results = await options.onlineFn(completeContext);
+      } else if ('query' in options) {
+        const sqlQuery = options.query(completeContext);
+        const data = typeof sqlQuery === 'string' ? sqlQuery : sqlQuery.toSQL();
+        const finalSql =
+          typeof data === 'string'
+            ? data
+            : substituteParams(data.sql, data.params);
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sqltr`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ sql: finalSql })
+          }
+        );
+        if (!response.ok) {
+          const err = `${JSON.stringify(cloudQueryKey)} ${await response.text()} ${finalSql}`;
+          console.error(err);
+          throw new Error(err);
+        }
+        results = (await response.json()) as T[];
+      } else {
+        throw new Error('Either query or onlineFn must be provided');
+      }
+
+      return {
+        data: results,
+        nextCursor:
+          results.length === pageSize
+            ? completeContext.pageParam + 1
+            : undefined,
+        hasMore: results.length === pageSize
+      } satisfies HybridPageData<T>;
+    }
+  });
+
+  // Merge pages with local priority
+  const mergedData = React.useMemo(() => {
+    const localPages = localQuery.data?.pages || [];
+    const cloudPages = cloudQuery.data?.pages || [];
+
+    // Merge pages at the same level
+    const maxPages = Math.max(localPages.length, cloudPages.length);
+    const mergedPages: HybridPageData<T>[] = [];
+
+    for (let i = 0; i < maxPages; i++) {
+      const localPage = localPages[i];
+      const cloudPage = cloudPages[i];
+
+      if (localPage && cloudPage) {
+        // Merge page data with local priority
+        const localData = Array.isArray(localPage.data) ? localPage.data : [];
+        const cloudData = Array.isArray(cloudPage.data) ? cloudPage.data : [];
+
+        // Create a map of local data by ID for quick lookup
+        const localDataMap = new Map(
+          localData.map((item) => [getId(item), item])
+        );
+
+        // Filter out cloud data that already exists in local data
+        const uniqueCloudData = cloudData.filter(
+          (item) => !localDataMap.has(getId(item))
+        );
+
+        mergedPages.push({
+          ...localPage,
+          data: [...localData, ...uniqueCloudData]
+        });
+      } else if (localPage) {
+        mergedPages.push(localPage);
+      } else if (cloudPage) {
+        mergedPages.push(cloudPage);
+      }
+    }
+
+    return {
+      pages: mergedPages,
+      pageParams:
+        localQuery.data?.pageParams || cloudQuery.data?.pageParams || []
+    };
+  }, [localQuery.data, cloudQuery.data, getId]);
+
+  return {
+    data: mergedData,
+    fetchNextPage: () => {
+      void localQuery.fetchNextPage();
+      if (isOnline) void cloudQuery.fetchNextPage();
+    },
+    fetchPreviousPage: () => {
+      void localQuery.fetchPreviousPage();
+      if (isOnline) void cloudQuery.fetchPreviousPage();
+    },
+    hasNextPage: localQuery.hasNextPage || cloudQuery.hasNextPage,
+    hasPreviousPage: localQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
+    isFetchingNextPage:
+      localQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
+    isFetchingPreviousPage:
+      localQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
+    isLoading: localQuery.isLoading || (isOnline && cloudQuery.isLoading),
+    isError: localQuery.isError || cloudQuery.isError,
+    error: localQuery.error || cloudQuery.error,
+    isFetching: localQuery.isFetching || cloudQuery.isFetching,
+    isSuccess: localQuery.isSuccess,
+    refetch: () => {
+      void localQuery.refetch();
+      if (isOnline) void cloudQuery.refetch();
+    },
+    status: localQuery.isError
+      ? 'error'
+      : localQuery.isLoading
+        ? 'pending'
+        : 'success'
+  };
 }
 
 /**
- * Traditional paginated hybrid query with keepPreviousData for smooth page transitions
+ * Traditional paginated hybrid query with offline-first priority
+ * Always queries local data first, then cloud data when available, and merges with local priority.
  * Use this when you need discrete page navigation (Previous/Next buttons)
  */
 export function useHybridSupabasePaginatedQuery<
@@ -732,8 +947,7 @@ export function useHybridSupabasePaginatedQuery<
 
   return useHybridSupabaseQuery({
     ...hybridOptions,
-    queryKey: [...hybridOptions.queryKey, 'paginated', page, pageSize],
-    placeholderData: keepPreviousData // Smooth page transitions
+    queryKey: [...hybridOptions.queryKey, 'paginated', page, pageSize]
   });
 }
 
@@ -778,8 +992,9 @@ type HybridSupabaseInfiniteRealtimeQueryOptions<
 /**
  * useHybridSupabaseInfiniteRealtimeQuery
  *
- * Combines infinite scrolling with realtime subscriptions for Supabase.
- * Automatically handles cache updates for paginated data when realtime events occur.
+ * Combines infinite scrolling with realtime subscriptions using offline-first pattern.
+ * Always queries local data first, then cloud data when available, merges with local priority,
+ * and automatically handles cache updates for cloud data when realtime events occur.
  *
  * @example
  * const {
@@ -790,12 +1005,10 @@ type HybridSupabaseInfiniteRealtimeQueryOptions<
  *   queryKey: ['assets', 'paginated', questId],
  *   query: (pageParam) => db.select().from(assetTable).limit(20).offset(pageParam * 20),
  *   pageSize: 20,
- *   subscribeRealtime: (onChange) => {
- *     const channel = system.supabaseConnector.client
- *       .channel('public:asset')
- *       .on('postgres_changes', { event: '*', schema: 'public', table: 'asset' }, onChange);
- *     channel.subscribe();
- *     return () => system.supabaseConnector.client.removeChannel(channel)
+ *   channelName: 'public:asset',
+ *   subscriptionConfig: {
+ *     table: 'asset',
+ *     schema: 'public'
  *   },
  *   getId: (asset) => asset.id,
  * });
@@ -804,150 +1017,151 @@ export function useHybridSupabaseInfiniteRealtimeQuery<
   T extends Record<string, unknown>
 >({
   queryKey,
-  subscribeRealtime,
+  channelName,
+  subscriptionConfig,
   getId = (record: T | Partial<T>) =>
     (record as unknown as { id: string | number }).id,
   ...restOptions
 }: HybridSupabaseInfiniteRealtimeQueryOptions<T>) {
   const queryClient = useQueryClient();
-  const realtimeChannelRef = useRef<ReturnType<
-    typeof subscribeRealtime
-  > | null>(null);
-
   const isOnline = useNetworkStatus();
 
-  // Use the base hybrid infinite query
+  // Use the base hybrid infinite query with offline-first pattern
   const result = useHybridSupabaseInfiniteQuery<T>({
     queryKey,
+    getId,
     ...restOptions
   });
 
   useEffect(() => {
     if (!isOnline) return;
 
-    // Unsubscribe previous
-    if (realtimeChannelRef.current) {
-      void realtimeChannelRef.current();
-      realtimeChannelRef.current = null;
-    }
+    const channel = system.supabaseConnector.client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { ...subscriptionConfig, event: '*' },
+        (payload: RealtimePostgresChangesPayload<T>) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
 
-    // Subscribe with automatic cache management for infinite queries
-    const subscription = subscribeRealtime((payload) => {
-      const { eventType, new: newRow, old: oldRow } = payload;
+          // Build the cache key for cloud infinite queries
+          const cleanQueryKey = queryKey.filter(
+            (key: unknown) => key !== undefined && key !== null
+          );
+          const hasInfinite = cleanQueryKey.includes('infinite');
+          const baseKey = hasInfinite
+            ? cleanQueryKey
+            : [...cleanQueryKey, 'infinite'];
+          const cloudCacheKey = [...baseKey, 'cloud'];
 
-      // Build the cache key for infinite queries
-      const hasInfinite = queryKey.includes('infinite');
-      const baseKey = hasInfinite ? queryKey : [...queryKey, 'infinite'];
-      const cleanBaseKey = baseKey.filter(
-        (key: unknown) => key !== undefined && key !== null
-      );
-      const cacheKey = [...cleanBaseKey, 'online'];
+          queryClient.setQueryData<{
+            pages: HybridPageData<T>[];
+            pageParams: number[];
+          }>(cloudCacheKey, (prev) => {
+            if (!prev) return prev;
 
-      queryClient.setQueryData<{
-        pages: HybridPageData<T>[];
-        pageParams: number[];
-      }>(cacheKey, (prev) => {
-        if (!prev) return prev;
+            const newPages = [...prev.pages];
 
-        const newPages = [...prev.pages];
+            switch (eventType) {
+              case 'INSERT': {
+                const recordId = getId(newRow);
 
-        switch (eventType) {
-          case 'INSERT': {
-            const recordId = getId(newRow);
-
-            // Check if record already exists in any page to avoid duplicates
-            const existsInPages = newPages.some((page) =>
-              page.data.some((record) => getId(record) === recordId)
-            );
-
-            if (!existsInPages && newPages.length > 0) {
-              // Add to the first page (most recent data)
-              newPages[0] = {
-                ...newPages[0],
-                data: [newRow, ...newPages[0]!.data]
-              };
-            }
-            break;
-          }
-
-          case 'UPDATE': {
-            const recordId = getId(newRow);
-
-            // Find and update the record in whichever page it exists
-            for (let i = 0; i < newPages.length; i++) {
-              const page = newPages[i];
-              if (page) {
-                const recordIndex = page.data.findIndex(
-                  (record) => getId(record) === recordId
+                // Check if record already exists in any page to avoid duplicates
+                const existsInPages = newPages.some((page) =>
+                  page.data.some((record) => getId(record) === recordId)
                 );
 
-                if (recordIndex !== -1) {
-                  const newPageData = [...page.data];
-                  newPageData[recordIndex] = newRow;
-                  newPages[i] = {
-                    ...page,
-                    data: newPageData
+                if (!existsInPages && newPages.length > 0) {
+                  // Add to the first page (most recent data)
+                  newPages[0] = {
+                    ...newPages[0]!,
+                    data: [newRow, ...newPages[0]!.data]
                   };
-                  break;
                 }
+                break;
               }
-            }
-            break;
-          }
 
-          case 'DELETE': {
-            const recordId = getId(oldRow);
+              case 'UPDATE': {
+                const recordId = getId(newRow);
 
-            // Find and remove the record from whichever page it exists
-            for (let i = 0; i < newPages.length; i++) {
-              const page = newPages[i];
-              if (page) {
-                const recordIndex = page.data.findIndex(
-                  (record) => getId(record) === recordId
+                // Find and update the record in whichever page it exists
+                for (let i = 0; i < newPages.length; i++) {
+                  const page = newPages[i];
+                  if (page) {
+                    const recordIndex = page.data.findIndex(
+                      (record) => getId(record) === recordId
+                    );
+
+                    if (recordIndex !== -1) {
+                      const newPageData = [...page.data];
+                      newPageData[recordIndex] = newRow;
+                      newPages[i] = {
+                        ...page,
+                        data: newPageData
+                      };
+                      break;
+                    }
+                  }
+                }
+                break;
+              }
+
+              case 'DELETE': {
+                const recordId = getId(oldRow);
+
+                // Find and remove the record from whichever page it exists
+                for (let i = 0; i < newPages.length; i++) {
+                  const page = newPages[i];
+                  if (page) {
+                    const recordIndex = page.data.findIndex(
+                      (record) => getId(record) === recordId
+                    );
+
+                    if (recordIndex !== -1) {
+                      const newPageData = page.data.filter(
+                        (record) => getId(record) !== recordId
+                      );
+                      newPages[i] = {
+                        ...page,
+                        data: newPageData
+                      };
+                      break;
+                    }
+                  }
+                }
+                break;
+              }
+
+              default: {
+                console.warn(
+                  'useHybridSupabaseInfiniteRealtimeQuery: Unhandled event type',
+                  eventType
                 );
-
-                if (recordIndex !== -1) {
-                  const newPageData = page.data.filter(
-                    (record) => getId(record) !== recordId
-                  );
-                  newPages[i] = {
-                    ...page,
-                    data: newPageData
-                  };
-                  break;
-                }
+                break;
               }
             }
-            break;
-          }
 
-          default: {
-            console.warn(
-              'useHybridSupabaseInfiniteRealtimeQuery: Unhandled event type',
-              eventType
-            );
-            break;
-          }
+            return {
+              ...prev,
+              pages: newPages
+            };
+          });
         }
-
-        return {
-          ...prev,
-          pages: newPages
-        };
-      });
-    });
-
-    realtimeChannelRef.current = subscription;
+      );
+    channel.subscribe();
 
     return () => {
-      if (realtimeChannelRef.current) {
-        void realtimeChannelRef.current();
-        realtimeChannelRef.current = null;
-      }
+      void channel.unsubscribe().then((value) => {
+        if (value === 'error' || value === 'timed out')
+          throw new Error(
+            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+          );
+      });
     };
   }, [
     isOnline,
-    subscribeRealtime,
+    channelName,
+    subscriptionConfig,
     queryClient,
     getId,
     JSON.stringify(queryKey)

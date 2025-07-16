@@ -6,9 +6,8 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import type { SortingOption } from '@/views/QuestsView';
-import { filterQuests } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or } from 'drizzle-orm';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -100,26 +99,76 @@ export const QuestList = React.memo(
       isLoading,
       isError,
       error,
-      refetch
+      refetch,
+      fetchNextPage,
+      hasNextPage
     } = useHybridSupabaseInfiniteQuery<QuestWithTags>({
-      queryKey: ['quests', 'by-project', projectId, sortField, sortOrder],
+      queryKey: [
+        'quests',
+        'by-project',
+        projectId,
+        sortField,
+        sortOrder,
+        searchQuery,
+        activeFilters
+      ],
       onlineFn: async ({ pageParam, pageSize }) => {
-        const { data, error } = await system.supabaseConnector.client
+        let query = system.supabaseConnector.client
           .from('quest')
           .select('*, tags:quest_tag_link(tag(*))')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false })
+          .eq('project_id', projectId);
+
+        // Add search filtering
+        if (searchQuery) {
+          query = query.or(
+            `name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+          );
+        }
+
+        // Add ordering based on sortField and sortOrder
+        if (sortField && sortOrder) {
+          query = query.order(sortField, { ascending: sortOrder === 'asc' });
+        } else {
+          // Default ordering
+          query = query.order('name', { ascending: true });
+        }
+
+        // Add pagination
+        query = query
           .limit(pageSize)
-          .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1)
-          .overrideTypes<QuestWithTags[]>();
+          .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1);
+
+        const { data, error } = await query.overrideTypes<QuestWithTags[]>();
         if (error) throw error;
         return data;
       },
-      offlineFn: async ({ pageParam, pageSize }) =>
-        await system.db.query.quest.findMany({
-          where: eq(quest.project_id, projectId),
+      offlineFn: async ({ pageParam, pageSize }) => {
+        const baseCondition = eq(quest.project_id, projectId);
+
+        // Add search filtering for offline
+        const whereConditions = searchQuery
+          ? and(
+              baseCondition,
+              or(
+                like(quest.name, `%${searchQuery}%`),
+                like(quest.description, `%${searchQuery}%`)
+              )
+            )
+          : baseCondition;
+
+        // Prepare ordering
+        const orderByOptions =
+          sortField === 'name' && sortOrder
+            ? sortOrder === 'asc'
+              ? asc(quest.name)
+              : desc(quest.name)
+            : desc(quest.created_at);
+
+        return await system.db.query.quest.findMany({
+          where: whereConditions,
           limit: pageSize,
           offset: pageParam * pageSize,
+          orderBy: orderByOptions,
           with: {
             tags: {
               with: {
@@ -127,34 +176,15 @@ export const QuestList = React.memo(
               }
             }
           }
-        }),
+        });
+      },
       pageSize: 10
     });
 
     // Extract and memoize quests with tags
-    const { filteredQuests } = useMemo(() => {
-      const questsWithTags = infiniteData?.pages.length
-        ? infiniteData.pages.flatMap((page) => page.data)
-        : [];
-
-      const tags = questsWithTags.reduce(
-        (acc, quest) => {
-          acc[quest.id] = quest.tags.map((tag) => tag.tag);
-          return acc;
-        },
-        {} as Record<string, Tag[]>
-      );
-
-      const filtered =
-        questsWithTags.length &&
-        (searchQuery || Object.keys(activeFilters).length > 0)
-          ? filterQuests(questsWithTags, tags, searchQuery, activeFilters)
-          : questsWithTags;
-
-      return {
-        filteredQuests: filtered
-      };
-    }, [infiniteData?.pages, searchQuery, activeFilters]);
+    const questsWithTags = useMemo(() => {
+      return infiniteData.pages.flatMap((page) => page.data);
+    }, [infiniteData.pages]);
 
     // Show skeleton during initial load
     if (isLoading) {
@@ -179,7 +209,7 @@ export const QuestList = React.memo(
               marginBottom: spacing.medium
             }}
           >
-            Error loading quests: {error.message}
+            Error loading quests: {error?.message}
           </Text>
           <TouchableOpacity
             onPress={() => void refetch()}
@@ -192,36 +222,43 @@ export const QuestList = React.memo(
     }
 
     return (
-      <FlashList
-        data={filteredQuests}
-        renderItem={({ item }) => (
-          <QuestItem
-            quest={item}
-            project={selectedProject}
-            onPress={onQuestPress}
-          />
-        )}
-        keyExtractor={(item: QuestWithTags) => item.id}
-        style={sharedStyles.list}
-        // Performance optimizations
-        removeClippedSubviews={true}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={QuestsScreenStyles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isFetching && !isFetchingNextPage}
-            onRefresh={() => void refetch()}
-            tintColor={colors.text}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      <>
+        <FlashList
+          data={questsWithTags}
+          renderItem={({ item }) => (
+            <QuestItem
+              quest={item}
+              project={selectedProject}
+              onPress={onQuestPress}
+            />
+          )}
+          keyExtractor={(item: QuestWithTags) => item.id}
+          style={sharedStyles.list}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          onEndReachedThreshold={0.3}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              void fetchNextPage();
+            }
+          }}
+          ListFooterComponent={
+            isFetchingNextPage && hasNextPage ? (
+              <View style={QuestsScreenStyles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isFetchingNextPage}
+              onRefresh={() => void refetch()}
+              tintColor={colors.text}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </>
     );
   }
 );

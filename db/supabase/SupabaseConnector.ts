@@ -143,20 +143,81 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       await this.system.db.select().from(profile).where(eq(profile.id, user))
     )[0] as Profile | null;
 
-    if (localProfile) return localProfile;
-
-    const { data: userData, error: userError } = await this.client
-      .from('profile')
-      .select('*')
-      .eq('id', user)
-      .single<Profile>();
-
-    if (userError) {
-      console.error('Error fetching user profile:', userError);
-      return null;
+    if (localProfile) {
+      console.log('✅ [SupabaseConnector] Found local profile for user:', user);
+      return localProfile;
     }
 
-    return userData;
+    // If no local profile, try to fetch from Supabase
+    console.log(
+      '🔄 [SupabaseConnector] No local profile, attempting online fetch for user:',
+      user
+    );
+
+    try {
+      const { data: userData, error: userError } = await this.client
+        .from('profile')
+        .select('*')
+        .eq('id', user)
+        .single<Profile>();
+
+      if (userError) {
+        console.error(
+          '❌ [SupabaseConnector] Error fetching user profile from Supabase:',
+          userError
+        );
+
+        // For offline scenarios, create a minimal profile object to prevent logout
+        // This ensures the user stays logged in even when profile fetch fails
+        console.log(
+          '🔄 [SupabaseConnector] Creating minimal profile for offline user:',
+          user
+        );
+        return {
+          id: user,
+          email: null,
+          username: null,
+          password: null,
+          avatar: null,
+          ui_language_id: null,
+          terms_accepted: false,
+          terms_accepted_at: null,
+          active: true,
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        } as Profile;
+      }
+
+      console.log(
+        '✅ [SupabaseConnector] Successfully fetched profile from Supabase for user:',
+        user
+      );
+      return userData;
+    } catch (error) {
+      console.error(
+        '❌ [SupabaseConnector] Network error while fetching profile:',
+        error
+      );
+
+      // For network errors (offline), create a minimal profile to prevent logout
+      console.log(
+        '🔄 [SupabaseConnector] Creating minimal profile due to network error for user:',
+        user
+      );
+      return {
+        id: user,
+        email: null,
+        username: null,
+        password: null,
+        avatar: null,
+        ui_language_id: null,
+        terms_accepted: false,
+        terms_accepted_at: null,
+        active: true,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      } as Profile;
+    }
   }
 
   async login(username: string, password: string) {
