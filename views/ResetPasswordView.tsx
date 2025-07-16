@@ -5,7 +5,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -44,98 +44,98 @@ export default function ResetPasswordView() {
   });
 
   // Listen for PASSWORD_RECOVERY auth event
-  useEffect(() => {
-    console.log('[ResetPasswordView] Setting up auth state listener');
+  // useEffect(() => {
+  //   console.log('[ResetPasswordView] Setting up auth state listener');
 
-    // First, let's test if the Supabase client is working
-    console.log('[ResetPasswordView] Testing Supabase client...');
-    console.log(
-      '[ResetPasswordView] Has auth client:',
-      !!supabaseConnector.client.auth
-    );
-    console.log(
-      '[ResetPasswordView] Supabase client exists:',
-      !!supabaseConnector.client
-    );
+  //   // First, let's test if the Supabase client is working
+  //   console.log('[ResetPasswordView] Testing Supabase client...');
+  //   console.log(
+  //     '[ResetPasswordView] Has auth client:',
+  //     !!supabaseConnector.client.auth
+  //   );
+  //   console.log(
+  //     '[ResetPasswordView] Supabase client exists:',
+  //     !!supabaseConnector.client
+  //   );
 
-    let mounted = true;
+  //   let mounted = true;
 
-    const { data: authListener } =
-      supabaseConnector.client.auth.onAuthStateChange((event, _session) => {
-        if (!mounted) return;
-        console.log('[ResetPasswordView] Auth event:', event);
-        if (event === 'PASSWORD_RECOVERY') {
-          console.log('[ResetPasswordView] PASSWORD_RECOVERY event detected');
-          // setIsRecoverySession(true); // This line is removed
-        }
-      });
+  //   const { data: authListener } =
+  //     supabaseConnector.client.auth.onAuthStateChange((event, _session) => {
+  //       if (!mounted) return;
+  //       console.log('[ResetPasswordView] Auth event:', event);
+  //       if (event === 'PASSWORD_RECOVERY') {
+  //         console.log('[ResetPasswordView] PASSWORD_RECOVERY event detected');
+  //         // setIsRecoverySession(true); // This line is removed
+  //       }
+  //     });
 
-    // Check if we already have a recovery session with timeout
-    const checkSession = async () => {
-      try {
-        console.log('[ResetPasswordView] Checking session...');
+  //   // Check if we already have a recovery session with timeout
+  //   const checkSession = async () => {
+  //     try {
+  //       console.log('[ResetPasswordView] Checking session...');
 
-        // Create a timeout promise
-        let timeoutId: NodeJS.Timeout;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(
-            () => reject(new Error('getSession timed out')),
-            5000
-          );
-        });
+  //       // Create a timeout promise
+  //       let timeoutId: NodeJS.Timeout;
+  //       const timeoutPromise = new Promise<never>((_, reject) => {
+  //         timeoutId = setTimeout(
+  //           () => reject(new Error('getSession timed out')),
+  //           5000
+  //         );
+  //       });
 
-        try {
-          const result = await Promise.race([
-            supabaseConnector.client.auth.getSession(),
-            timeoutPromise
-          ]);
+  //       try {
+  //         const result = await Promise.race([
+  //           supabaseConnector.client.auth.getSession(),
+  //           timeoutPromise
+  //         ]);
 
-          clearTimeout(timeoutId!);
+  //         clearTimeout(timeoutId!);
 
-          if (!mounted) return;
+  //         if (!mounted) return;
 
-          const {
-            data: { session }
-          } = result;
+  //         const {
+  //           data: { session }
+  //         } = result;
 
-          if (session) {
-            console.log('[ResetPasswordView] Current session check:', {
-              hasSession: true,
-              userEmail: session.user.email,
-              recoveryAt: session.user.recovery_sent_at,
-              lastSignIn: session.user.last_sign_in_at,
-              emailConfirmed: session.user.email_confirmed_at
-            });
+  //         if (session) {
+  //           console.log('[ResetPasswordView] Current session check:', {
+  //             hasSession: true,
+  //             userEmail: session.user.email,
+  //             recoveryAt: session.user.recovery_sent_at,
+  //             lastSignIn: session.user.last_sign_in_at,
+  //             emailConfirmed: session.user.email_confirmed_at
+  //           });
 
-            // If we have a session with recovery_sent_at, treat it as a recovery session
-            if (session.user.recovery_sent_at) {
-              console.log(
-                '[ResetPasswordView] Session has recovery_sent_at, marking as recovery session'
-              );
-              // setIsRecoverySession(true); // This line is removed
-            }
-          } else {
-            console.log('[ResetPasswordView] No session found');
-          }
-        } catch (error) {
-          clearTimeout(timeoutId!);
-          throw error;
-        }
-      } catch (error) {
-        console.error('[ResetPasswordView] Error checking session:', error);
-        if (error instanceof Error && error.message.includes('timed out')) {
-          console.error('[ResetPasswordView] getSession call timed out!');
-        }
-      }
-    };
+  //           // If we have a session with recovery_sent_at, treat it as a recovery session
+  //           if (session.user.recovery_sent_at) {
+  //             console.log(
+  //               '[ResetPasswordView] Session has recovery_sent_at, marking as recovery session'
+  //             );
+  //             // setIsRecoverySession(true); // This line is removed
+  //           }
+  //         } else {
+  //           console.log('[ResetPasswordView] No session found');
+  //         }
+  //       } catch (error) {
+  //         clearTimeout(timeoutId!);
+  //         throw error;
+  //       }
+  //     } catch (error) {
+  //       console.error('[ResetPasswordView] Error checking session:', error);
+  //       if (error instanceof Error && error.message.includes('timed out')) {
+  //         console.error('[ResetPasswordView] getSession call timed out!');
+  //       }
+  //     }
+  //   };
 
-    void checkSession();
+  //   void checkSession();
 
-    return () => {
-      mounted = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, [supabaseConnector.client.auth]);
+  //   return () => {
+  //     mounted = false;
+  //     authListener.subscription.unsubscribe();
+  //   };
+  // }, [supabaseConnector.client.auth]);
 
   const onSubmit = async (data: ResetPasswordFormData) => {
     console.log('[ResetPasswordView] onSubmit called');

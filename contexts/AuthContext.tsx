@@ -52,27 +52,6 @@ function getSessionType(session: Session | null): SessionType | null {
     aud: user.aud
   });
 
-  // Method 1: Check AMR (authentication method reference) for OTP/recovery
-  const sessionWithAmr = session as Session & {
-    amr?: { method: string; timestamp?: number }[];
-  };
-  if (Array.isArray(sessionWithAmr.amr)) {
-    console.log('[AuthContext] Session AMR:', sessionWithAmr.amr);
-    const hasOtpOrRecovery = sessionWithAmr.amr.some(
-      (method) =>
-        method.method === 'otp' ||
-        method.method === 'recovery' ||
-        method.method === 'magiclink'
-    );
-    if (hasOtpOrRecovery) {
-      console.log(
-        '[AuthContext] Detected password reset session via AMR:',
-        sessionWithAmr.amr
-      );
-      return 'password-reset';
-    }
-  }
-
   // Method 2: Check if user has email but no confirmed_at (might be in recovery flow)
   // This is less reliable but can be a fallback
   if (user.email && user.recovery_sent_at) {
@@ -80,27 +59,6 @@ function getSessionType(session: Session | null): SessionType | null {
       '[AuthContext] Detected password reset session via recovery_sent_at'
     );
     return 'password-reset';
-  }
-
-  // Method 3: Check user action_link metadata (some Supabase versions include this)
-  const userMetadata = user.user_metadata as { action_link?: string };
-  if (userMetadata.action_link?.includes('recovery')) {
-    console.log(
-      '[AuthContext] Detected password reset session via action_link'
-    );
-    return 'password-reset';
-  }
-
-  // Method 4: Check if the session was just created (within last 60 seconds) and user already exists
-  // This might indicate a password reset session
-  const sessionAge =
-    Date.now() - new Date(user.last_sign_in_at || user.created_at).getTime();
-  const userAge = Date.now() - new Date(user.created_at).getTime();
-  if (sessionAge < 60000 && userAge > 60000 && user.email_confirmed_at) {
-    console.log(
-      '[AuthContext] Detected possible password reset session via session age'
-    );
-    // Don't return password-reset here, as this is less reliable
   }
 
   // Check if this is an email verification session

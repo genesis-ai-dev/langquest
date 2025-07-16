@@ -70,11 +70,6 @@ export default function App({ hasRehydrated }: { hasRehydrated: boolean }) {
     return <TermsView />;
   }
 
-  // Temporary diagnostic view
-  if ((authView as string) === 'diagnostic') {
-    return <SupabaseDiagnosticView />;
-  }
-
   // Check if user is authenticated
   if (isAuthenticated) {
     // Check if this is a password reset session
