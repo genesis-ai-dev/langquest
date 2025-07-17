@@ -31,6 +31,7 @@ export function useAppNavigation() {
   const currentState = useMemo(
     () =>
       navigationStack[navigationStack.length - 1] || {
+        // ** length of undefined error
         view: 'projects' as AppView,
         timestamp: Date.now()
       },

@@ -1,361 +1,231 @@
-import type { profile } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useLocalStore } from '@/store/localStore';
-import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Session } from '@supabase/supabase-js';
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState
-} from 'react';
+import type { AuthError, AuthResponse, Session } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Profile = typeof profile.$inferSelect;
-
-export type SessionType = 'normal' | 'password-reset' | 'email-verification';
-
-const DEBUG_MODE = false;
-const debug = (...args: unknown[]) => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (DEBUG_MODE) {
-    console.log('AuthContext:', ...args);
-  }
-};
+type SessionType = 'normal' | 'password-reset' | null;
 
 interface AuthContextType {
-  currentUser: Profile | null;
-  setCurrentUser: (profile: Profile | null) => void;
-  signOut: () => Promise<void>;
+  // Auth state
   isLoading: boolean;
-  sessionType: SessionType | null;
   isAuthenticated: boolean;
-}
+  sessionType: SessionType;
+  session: Session | null;
 
-// Helper function to determine session type
-function getSessionType(session: Session | null): SessionType | null {
-  if (!session) return null;
+  // System state
+  isSystemReady: boolean;
 
-  // Check if this is a password reset session
-  const user = session.user;
-
-  // Log session details for debugging
-  console.log('[AuthContext] Checking session type, user metadata:', {
-    email: user.email,
-    email_confirmed_at: user.email_confirmed_at,
-    recovery_sent_at: user.recovery_sent_at,
-    last_sign_in_at: user.last_sign_in_at,
-    created_at: user.created_at,
-    app_metadata: user.app_metadata,
-    aud: user.aud
-  });
-
-  // Method 2: Check if user has email but no confirmed_at (might be in recovery flow)
-  // This is less reliable but can be a fallback
-  if (user.email && user.recovery_sent_at) {
-    console.log(
-      '[AuthContext] Detected password reset session via recovery_sent_at'
-    );
-    return 'password-reset';
-  }
-
-  // Check if this is an email verification session
-  if (!user.email_confirmed_at && user.email) {
-    return 'email-verification';
-  }
-
-  return 'normal';
+  // Auth methods
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
+  signUp: (
+    email: string,
+    password: string,
+    data?: Record<string, unknown>
+  ) => Promise<AuthResponse>;
+  signOut: () => Promise<void>;
+  resetPassword: (
+    email: string
+  ) => Promise<{ data: object | null; error: AuthError | null }>;
+  updatePassword: (
+    newPassword: string
+  ) => Promise<{ data: unknown; error: AuthError | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const currentUser = useLocalStore((state) => state.currentUser);
-  const setCurrentUser = useLocalStore((state) => state.setCurrentUser);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sessionType, setSessionType] = useState<SessionType | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    debug('useEffect - AuthContext initialization');
-
-    const loadAuthData = async () => {
-      console.log('🔄 [AuthProvider] Starting loadAuthData...');
-      try {
-        console.log('🔄 [AuthProvider] Getting supabase auth key...');
-        const supabaseAuthKey = await getSupabaseAuthKey();
-        console.log('🔄 [AuthProvider] Got auth key:', !!supabaseAuthKey);
-
-        if (supabaseAuthKey) {
-          console.log('🔄 [AuthProvider] Getting session from AsyncStorage...');
-          const sessionString = await AsyncStorage.getItem(supabaseAuthKey);
-          console.log('🔄 [AuthProvider] Got session string:', !!sessionString);
-
-          if (sessionString) {
-            console.log('🔄 [AuthProvider] Parsing session...');
-            const session = JSON.parse(sessionString) as Session | null;
-            console.log('🔄 [AuthProvider] Session user ID:', session?.user.id);
-
-            if (session?.user.id) {
-              // Set session type and authentication state
-              const type = getSessionType(session);
-              setSessionType(type);
-              setIsAuthenticated(true);
-              console.log('🔄 [AuthProvider] Session type:', type);
-
-              // Check for password reset flag (fallback detection)
-              const passwordResetFlag = await AsyncStorage.getItem(
-                'langquest_password_reset_session'
-              );
-              if (passwordResetFlag === 'true' && type === 'normal') {
-                console.log(
-                  '🔄 [AuthProvider] Password reset flag detected, overriding session type'
-                );
-                setSessionType('password-reset');
-                // Clear the flag
-                await AsyncStorage.removeItem(
-                  'langquest_password_reset_session'
-                );
-              }
-
-              console.log(
-                '🔄 [AuthProvider] Getting profile (offline-first)...'
-              );
-              // Use getUserProfile which checks local DB first, then falls back to online
-              const profile = await system.supabaseConnector.getUserProfile(
-                session.user.id
-              );
-              console.log('🔄 [AuthProvider] Got profile:', !!profile);
-
-              if (profile) {
-                // Validate that this is a real user profile with username or email
-                if (!profile.username && !profile.email) {
-                  console.log(
-                    '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
-                  );
-                  setCurrentUser(null);
-                  setSessionType(null);
-                  setIsAuthenticated(false);
-                  return;
-                }
-
-                setCurrentUser(profile);
-
-                // Sync terms acceptance from profile to local store
-                if (profile.terms_accepted && profile.terms_accepted_at) {
-                  const localStore = useLocalStore.getState();
-                  if (!localStore.dateTermsAccepted) {
-                    console.log(
-                      '🔄 [AuthProvider] Syncing terms acceptance from profile to local store'
-                    );
-                    localStore.acceptTerms();
-                  }
-                }
-              } else {
-                console.log(
-                  '⚠️ [AuthProvider] No profile found - keeping session but no user profile'
-                );
-                // Don't set currentUser to null - keep the session alive
-                // The user can still access the app with cached data
-              }
-            }
-          } else {
-            console.log('🔄 [AuthProvider] No session string found');
-            setSessionType(null);
-            setIsAuthenticated(false);
-          }
-        } else {
-          console.log('🔄 [AuthProvider] No auth key found');
-          setSessionType(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('❌ [AuthProvider] Error loading auth data:', error);
-        // Don't clear currentUser on error - maintain session persistence
-        setSessionType(null);
-        setIsAuthenticated(false);
-      } finally {
-        console.log('✅ [AuthProvider] Setting isLoading to false');
-        setIsLoading(false);
-      }
-    };
-
-    // Add timeout fallback to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      console.log(
-        '⚠️ [AuthProvider] Timeout fallback - forcing isLoading to false'
-      );
-      setIsLoading(false);
-    }, 10000); // 10 second timeout
-
-    void loadAuthData().finally(() => {
-      clearTimeout(timeoutId);
-    });
-
-    const subscription = system.supabaseConnector.client.auth.onAuthStateChange(
-      async (state: string, session: Session | null) => {
-        debug('onAuthStateChange', state, session);
-
-        // Update session type and authentication state
-        const type = getSessionType(session);
-        setSessionType(type);
-        setIsAuthenticated(!!session);
-        console.log(
-          '🔄 [AuthProvider] Auth state changed:',
-          state,
-          'Session type:',
-          type
-        );
-
-        // Check for password reset flag (fallback detection)
-        if (session && type === 'normal') {
-          const passwordResetFlag = await AsyncStorage.getItem(
-            'langquest_password_reset_session'
-          );
-          if (passwordResetFlag === 'true') {
-            console.log(
-              '🔄 [AuthProvider] Password reset flag detected in auth state change, overriding session type'
-            );
-            setSessionType('password-reset');
-            // Clear the flag
-            await AsyncStorage.removeItem('langquest_password_reset_session');
-          }
-        }
-
-        // If no session, just return without doing anything
-        if (!session) {
-          console.log(
-            '⚠️ [AuthProvider] No session detected, staying logged out'
-          );
-          return;
-        }
-
-        if (!session.user.is_anonymous && state !== 'TOKEN_REFRESHED') {
-          try {
-            const profile = await system.supabaseConnector.getUserProfile(
-              session.user.id
-            );
-
-            if (profile) {
-              // Validate that this is a real user profile with username or email
-              if (!profile.username && !profile.email) {
-                console.log(
-                  '⚠️ [AuthProvider] Profile has no username or email - treating as invalid session'
-                );
-                setCurrentUser(null);
-                return;
-              }
-
-              setCurrentUser(profile);
-
-              // Sync terms acceptance from profile to local store
-              if (profile.terms_accepted && profile.terms_accepted_at) {
-                const localStore = useLocalStore.getState();
-                if (!localStore.dateTermsAccepted) {
-                  console.log(
-                    '🔄 [AuthProvider] Syncing terms acceptance from profile to local store (auth state change)'
-                  );
-                  localStore.acceptTerms();
-                }
-              }
-
-              // Only reinitialize attachment queues if system is already initialized
-              if (system.isInitialized() && system.isConnected()) {
-                console.log(
-                  'Reinitializing attachment queues after auth state change...'
-                );
-                await Promise.all([
-                  system.tempAttachmentQueue?.init(),
-                  system.permAttachmentQueue?.init()
-                ]);
-                console.log('Attachment queue reinitialization complete');
-              }
-            } else {
-              console.log(
-                '⚠️ [AuthProvider] No profile found during auth state change - keeping current user'
-              );
-              // Don't clear currentUser if profile fetch fails - user stays logged in
-            }
-          } catch (error) {
-            console.error(
-              '❌ [AuthProvider] Error during auth state change:',
-              error
-            );
-            // Don't clear currentUser on error - maintain session persistence
-
-            // Still try to sync terms if we have a current user
-            if (
-              currentUser &&
-              currentUser.terms_accepted &&
-              currentUser.terms_accepted_at
-            ) {
-              const localStore = useLocalStore.getState();
-              if (!localStore.dateTermsAccepted) {
-                console.log(
-                  '🔄 [AuthProvider] Syncing terms acceptance from current user (auth state change - fallback)'
-                );
-                localStore.acceptTerms();
-              }
-            }
-          }
-        }
-      }
-    );
-
-    return () => {
-      subscription.data.subscription.unsubscribe();
-    };
-  }, []); // 🔥 FIXED: Empty dependency array - this should only run ONCE!
-
-  const signOut = useCallback(async () => {
-    debug('signOut');
-    try {
-      // will bring you back to the sign-in screen
-      setCurrentUser(null);
-      setSessionType(null);
-      setIsAuthenticated(false);
-
-      await system.supabaseConnector.signOut();
-      await system.powersync.disconnect();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  }, [setCurrentUser]);
-
-  const contextValue = useMemo(
-    () => ({
-      currentUser,
-      setCurrentUser,
-      signOut,
-      isLoading,
-      sessionType,
-      isAuthenticated
-    }),
-    [
-      currentUser,
-      setCurrentUser,
-      signOut,
-      isLoading,
-      sessionType,
-      isAuthenticated
-    ]
-  );
-
-  return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-  );
-}
-
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
 
-export function getCurrentUser() {
-  return useLocalStore.getState().currentUser;
+function getSessionType(session: Session | null): SessionType {
+  if (!session) return null;
+
+  console.log('[AuthContext] Analyzing session type:', {
+    hasSession: !!session,
+    userId: session.user.id,
+    email: session.user.email,
+    recovery_sent_at: session.user.recovery_sent_at,
+    role: session.user.role,
+    user_metadata: session.user.user_metadata,
+    app_metadata: session.user.app_metadata
+  });
+
+  // Check if this is a password recovery session
+  // This is typically indicated by the presence of recovery metadata
+  if (session.user.recovery_sent_at) {
+    return 'password-reset';
+  }
+
+  return 'normal';
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionType, setSessionType] = useState<SessionType>(null);
+  const [isSystemReady, setIsSystemReady] = useState(false);
+
+  // Initialize system when we have an authenticated session
+  const initializeSystem = async () => {
+    try {
+      console.log('[AuthContext] Initializing system...');
+      setIsSystemReady(false);
+      await system.init();
+      setIsSystemReady(true);
+      console.log('[AuthContext] System initialized successfully');
+    } catch (error) {
+      console.error('[AuthContext] System init failed:', error);
+      setIsSystemReady(false);
+      // You might want to show an error to the user here
+    }
+  };
+
+  // Cleanup system when signing out
+  const cleanupSystem = async () => {
+    try {
+      console.log('[AuthContext] Cleaning up system...');
+      await system.cleanup();
+      setIsSystemReady(false);
+      console.log('[AuthContext] System cleanup complete');
+    } catch (error) {
+      console.error('[AuthContext] System cleanup failed:', error);
+    }
+  };
+
+  useEffect(() => {
+    console.log('[AuthContext] Setting up auth listener...');
+
+    // Check for existing session
+    void system.supabaseConnector.client.auth
+      .getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+        } else if (session) {
+          console.log('[AuthContext] Found existing session');
+          const detectedSessionType = getSessionType(session);
+          setSession(session);
+          setSessionType(detectedSessionType);
+
+          // Always initialize system for existing sessions
+          void initializeSystem();
+        }
+        setIsLoading(false);
+      });
+
+    // Listen for auth state changes
+    const {
+      data: { subscription }
+    } = system.supabaseConnector.client.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[AuthContext] Auth event:', event);
+        console.log('[AuthContext] Session in event:', {
+          hasSession: !!session,
+          sessionType: session ? getSessionType(session) : null
+        });
+
+        setSession(session);
+
+        switch (event) {
+          case 'SIGNED_IN': {
+            console.log('[AuthContext] User signed in');
+            const detectedSessionType = getSessionType(session);
+            setSessionType(detectedSessionType);
+
+            // Always initialize system when signed in
+            await initializeSystem();
+            break;
+          }
+
+          case 'PASSWORD_RECOVERY':
+            console.log('[AuthContext] Password recovery session');
+            setSessionType('password-reset');
+            // Don't initialize system for password reset
+            break;
+
+          case 'SIGNED_OUT':
+            console.log('[AuthContext] User signed out');
+            setSessionType(null);
+            await cleanupSystem();
+            break;
+
+          case 'TOKEN_REFRESHED':
+            console.log('[AuthContext] Token refreshed');
+            // Just update the session, no need to reinitialize
+            break;
+
+          case 'USER_UPDATED':
+            console.log('[AuthContext] User updated');
+            // Handle user updates if needed
+            break;
+
+          default:
+            console.log('[AuthContext] Unknown auth event:', event);
+        }
+      }
+    );
+
+    return () => {
+      console.log('[AuthContext] Cleaning up auth listener');
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Auth methods - thin wrappers around Supabase
+  const signIn = async (email: string, password: string) => {
+    return system.supabaseConnector.client.auth.signInWithPassword({
+      email,
+      password
+    });
+  };
+
+  const signUp = async (
+    email: string,
+    password: string,
+    data?: Record<string, unknown>
+  ) => {
+    return system.supabaseConnector.client.auth.signUp({
+      email,
+      password,
+      options: data ? { data } : undefined
+    });
+  };
+
+  const signOut = async () => {
+    await system.supabaseConnector.client.auth.signOut();
+  };
+
+  const resetPassword = async (email: string) => {
+    return system.supabaseConnector.client.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
+        process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
+          ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
+          : ''
+      }`
+    });
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    return system.supabaseConnector.client.auth.updateUser({
+      password: newPassword
+    });
+  };
+
+  const value: AuthContextType = {
+    isLoading,
+    isAuthenticated: !!session,
+    sessionType,
+    session,
+    isSystemReady,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    updatePassword
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
