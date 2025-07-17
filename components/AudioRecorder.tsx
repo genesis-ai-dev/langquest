@@ -72,13 +72,24 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   useEffect(() => {
     return () => {
       const cleanup = async () => {
-        if (sound) {
-          await sound.stopAsync();
-          await sound.unloadAsync();
-          setSound(null);
-          setIsPlaying(false);
+        try {
+          if (sound) {
+            await sound.stopAsync();
+            await sound.unloadAsync();
+            setSound(null);
+            setIsPlaying(false);
+          }
+        } catch (error) {
+          console.error('Error cleaning up sound:', error);
         }
-        if (!recording?._isDoneRecording) await stopRecording();
+
+        try {
+          if (recording && !recording._isDoneRecording) {
+            await stopRecording();
+          }
+        } catch (error) {
+          console.error('Error cleaning up recording:', error);
+        }
       };
       void cleanup();
     };
@@ -157,10 +168,18 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       });
 
       const uri = recording.getURI();
+
+      // Clean up previous recording file if it exists
       if (recordingUri) {
-        await FileSystem.deleteAsync(recordingUri);
-        console.log('Deleting previous recording attempt', recordingUri);
+        try {
+          await FileSystem.deleteAsync(recordingUri, { idempotent: true });
+          console.log('Deleting previous recording attempt', recordingUri);
+        } catch (deleteError) {
+          console.error('Error deleting previous recording:', deleteError);
+          // Don't throw - this is not critical
+        }
       }
+
       console.log('Recording stopped and stored at', uri);
       setRecordingUri(uri ?? null);
       setRecording(null);
@@ -169,6 +188,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       if (uri) onRecordingComplete(uri);
     } catch (error) {
       console.error('Failed to stop recording:', error);
+      // Reset state even if stopping failed
+      setRecording(null);
+      setIsRecording(false);
+      setIsRecordingPaused(false);
     }
   };
 

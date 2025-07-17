@@ -25,6 +25,7 @@ import SettingsView from '@/views/SettingsView';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
+import RapidRecordingView from './RapidRecordingView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -50,6 +51,7 @@ export default function AppView() {
     switch (currentView) {
       case 'projects':
         return <ProjectsView />;
+        // return <RapidRecordingView />;
       case 'quests':
         return <QuestsView />;
       case 'assets':

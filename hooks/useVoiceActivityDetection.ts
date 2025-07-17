@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { Audio } from 'expo-av';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 // Type definitions for voice activity detection
 export interface VoiceActivityConfig {
-    // Threshold for detecting speech (dB)
+    // Threshold for detecting speech (normalized 0-1)
     speechThreshold: number;
     // Minimum duration of speech to trigger start (ms)
     minimumSpeechDuration: number;
     // Maximum silence duration before stopping (ms)
     maximumSilenceDuration: number;
-    // Sampling rate for audio level checking (per second)
-    sampleRate: number;
-    // Noise gate threshold (dB)
+    // How often to check audio levels (ms)
+    sampleInterval: number;
+    // Noise gate threshold (normalized 0-1)
     noiseGate: number;
 }
 
@@ -31,13 +32,13 @@ export interface VoiceActivityCallbacks {
     onStateChange: (state: VoiceActivityState) => void;
 }
 
-// Default configuration based on platform
+// Default configuration optimized for React Native
 const DEFAULT_CONFIG: VoiceActivityConfig = {
-    speechThreshold: Platform.OS === 'ios' ? -30 : -40,
+    speechThreshold: Platform.OS === 'ios' ? 0.15 : 0.2,
     minimumSpeechDuration: 300, // 300ms
     maximumSilenceDuration: 1500, // 1.5 seconds
-    sampleRate: 10, // 10 samples per second
-    noiseGate: Platform.OS === 'ios' ? -50 : -60
+    sampleInterval: 100, // Check every 100ms
+    noiseGate: Platform.OS === 'ios' ? 0.05 : 0.08
 };
 
 export const useVoiceActivityDetection = (
@@ -50,17 +51,18 @@ export const useVoiceActivityDetection = (
     const stateRef = useRef<VoiceActivityState>({
         isListening: false,
         isSpeaking: false,
-        currentLevel: -100,
-        averageLevel: -100,
+        currentLevel: 0,
+        averageLevel: 0,
         speechDuration: 0,
         silenceDuration: 0
     });
 
-    // Audio level history for smoothing
+    // Audio monitoring
+    const recordingRef = useRef<Audio.Recording | null>(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const levelHistoryRef = useRef<number[]>([]);
     const speechStartTimeRef = useRef<number | null>(null);
     const lastSpeechTimeRef = useRef<number | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Smoothing function for audio levels
     const smoothAudioLevel = useCallback((newLevel: number): number => {
@@ -87,105 +89,176 @@ export const useVoiceActivityDetection = (
     }, []);
 
     // Process audio level and determine speech state
-    const processAudioLevel = useCallback((rawLevel: number) => {
-        const currentTime = Date.now();
-        const smoothedLevel = smoothAudioLevel(rawLevel);
+    const processAudioLevel = useCallback(async () => {
+        if (!recordingRef.current) return;
 
-        const previousState = { ...stateRef.current };
-        stateRef.current.currentLevel = rawLevel;
-        stateRef.current.averageLevel = smoothedLevel;
+        try {
+            const status = await recordingRef.current.getStatusAsync();
 
-        // Check if audio level indicates speech
-        const isSpeechLevel = smoothedLevel > finalConfig.speechThreshold &&
-            smoothedLevel > finalConfig.noiseGate;
+            if (!status.isRecording || !status.metering) return;
 
-        if (isSpeechLevel) {
-            // Potential speech detected
-            if (!speechStartTimeRef.current) {
-                speechStartTimeRef.current = currentTime;
+            // Get audio level from metering (expo-av provides this in dB, convert to 0-1)
+            // metering is typically between -120 (silence) and 0 (loudest)
+            const dbLevel = status.metering;
+            const normalizedLevel = Math.max(0, Math.min(1, (dbLevel + 60) / 60));
+
+            const currentTime = Date.now();
+            const smoothedLevel = smoothAudioLevel(normalizedLevel);
+
+            const previousState = { ...stateRef.current };
+            stateRef.current.currentLevel = normalizedLevel;
+            stateRef.current.averageLevel = smoothedLevel;
+
+            // Check if audio level indicates speech
+            const isSpeechLevel = smoothedLevel > finalConfig.speechThreshold &&
+                smoothedLevel > finalConfig.noiseGate;
+
+            if (isSpeechLevel) {
+                // Potential speech detected
+                if (!speechStartTimeRef.current) {
+                    speechStartTimeRef.current = currentTime;
+                }
+
+                lastSpeechTimeRef.current = currentTime;
+                stateRef.current.speechDuration = currentTime - speechStartTimeRef.current;
+                stateRef.current.silenceDuration = 0;
+
+                // Check if we've had speech long enough to trigger start
+                if (!stateRef.current.isSpeaking &&
+                    stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
+                    stateRef.current.isSpeaking = true;
+                    callbacks.onSpeechStart();
+                }
+            } else {
+                // No speech detected
+                if (lastSpeechTimeRef.current) {
+                    stateRef.current.silenceDuration = currentTime - lastSpeechTimeRef.current;
+                }
+
+                // Check if we should stop speech detection
+                if (stateRef.current.isSpeaking &&
+                    stateRef.current.silenceDuration >= finalConfig.maximumSilenceDuration) {
+                    stateRef.current.isSpeaking = false;
+                    speechStartTimeRef.current = null;
+                    stateRef.current.speechDuration = 0;
+                    callbacks.onSpeechEnd();
+                }
             }
 
-            lastSpeechTimeRef.current = currentTime;
-            stateRef.current.speechDuration = currentTime - speechStartTimeRef.current;
-            stateRef.current.silenceDuration = 0;
+            // Notify level change
+            callbacks.onLevelChange(smoothedLevel);
 
-            // Check if we've had speech long enough to trigger start
-            if (!stateRef.current.isSpeaking &&
-                stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
-                stateRef.current.isSpeaking = true;
-                callbacks.onSpeechStart();
+            // Notify state change if state changed
+            if (JSON.stringify(previousState) !== JSON.stringify(stateRef.current)) {
+                callbacks.onStateChange({ ...stateRef.current });
             }
-        } else {
-            // No speech detected
-            if (lastSpeechTimeRef.current) {
-                stateRef.current.silenceDuration = currentTime - lastSpeechTimeRef.current;
-            }
-
-            // Check if we should stop speech detection
-            if (stateRef.current.isSpeaking &&
-                stateRef.current.silenceDuration >= finalConfig.maximumSilenceDuration) {
-                stateRef.current.isSpeaking = false;
-                speechStartTimeRef.current = null;
-                stateRef.current.speechDuration = 0;
-                callbacks.onSpeechEnd();
-            }
-        }
-
-        // Notify level change
-        callbacks.onLevelChange(smoothedLevel);
-
-        // Notify state change if state changed
-        if (JSON.stringify(previousState) !== JSON.stringify(stateRef.current)) {
-            callbacks.onStateChange({ ...stateRef.current });
+        } catch (error) {
+            console.error('Error processing audio level:', error);
         }
     }, [finalConfig, callbacks, smoothAudioLevel]);
 
     // Start listening for voice activity
-    const startListening = useCallback(() => {
+    const startListening = useCallback(async () => {
         if (stateRef.current.isListening) return;
 
-        stateRef.current.isListening = true;
-        levelHistoryRef.current = [];
-        speechStartTimeRef.current = null;
-        lastSpeechTimeRef.current = null;
+        try {
+            // Request permissions
+            const { status } = await Audio.requestPermissionsAsync();
+            if (status !== Audio.PermissionStatus.GRANTED) {
+                throw new Error('Microphone permission not granted');
+            }
 
-        // For now, this is a placeholder for the actual audio monitoring
-        // In a real implementation, you would:
-        // 1. Initialize audio recording/monitoring
-        // 2. Set up audio level callbacks
-        // 3. Start the monitoring loop
+            // Set audio mode for recording
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+            });
 
-        // Simulated audio monitoring (replace with actual implementation)
-        intervalRef.current = setInterval(() => {
-            // This would be replaced with actual audio level from device
-            // For now, just simulate some audio levels
-            const simulatedLevel = -100 + Math.random() * 40;
-            processAudioLevel(simulatedLevel);
-        }, 1000 / finalConfig.sampleRate);
+            // Create recording for metering only (we don't save this audio)
+            const recording = new Audio.Recording();
+            await recording.prepareToRecordAsync({
+                isMeteringEnabled: true,
+                android: {
+                    extension: '.m4a',
+                    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+                    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+                    sampleRate: 44100,
+                    numberOfChannels: 2,
+                    bitRate: 128000,
+                },
+                ios: {
+                    extension: '.m4a',
+                    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+                    audioQuality: Audio.IOSAudioQuality.MEDIUM,
+                    sampleRate: 44100,
+                    numberOfChannels: 2,
+                    bitRate: 128000,
+                    linearPCMBitDepth: 16,
+                    linearPCMIsBigEndian: false,
+                    linearPCMIsFloat: false,
+                },
+                web: {
+                    mimeType: 'audio/webm',
+                    bitsPerSecond: 128000,
+                },
+            });
 
-        callbacks.onStateChange({ ...stateRef.current });
-    }, [processAudioLevel, finalConfig.sampleRate, callbacks]);
+            await recording.startAsync();
+            recordingRef.current = recording;
+
+            stateRef.current.isListening = true;
+            levelHistoryRef.current = [];
+            speechStartTimeRef.current = null;
+            lastSpeechTimeRef.current = null;
+
+            // Start monitoring audio levels
+            intervalRef.current = setInterval(() => {
+                void processAudioLevel();
+            }, finalConfig.sampleInterval);
+
+            callbacks.onStateChange({ ...stateRef.current });
+        } catch (error) {
+            console.error('Failed to start VAD:', error);
+            throw error;
+        }
+    }, [processAudioLevel, finalConfig.sampleInterval, callbacks]);
 
     // Stop listening for voice activity
-    const stopListening = useCallback(() => {
+    const stopListening = useCallback(async () => {
         if (!stateRef.current.isListening) return;
 
-        stateRef.current.isListening = false;
-        stateRef.current.isSpeaking = false;
-        stateRef.current.speechDuration = 0;
-        stateRef.current.silenceDuration = 0;
+        try {
+            // Stop monitoring
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
 
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+            // Stop and cleanup recording
+            if (recordingRef.current) {
+                await recordingRef.current.stopAndUnloadAsync();
+                recordingRef.current = null;
+            }
+
+            // Reset state
+            stateRef.current.isListening = false;
+            stateRef.current.isSpeaking = false;
+            stateRef.current.speechDuration = 0;
+            stateRef.current.silenceDuration = 0;
+            stateRef.current.currentLevel = 0;
+            stateRef.current.averageLevel = 0;
+
+            speechStartTimeRef.current = null;
+            lastSpeechTimeRef.current = null;
+            levelHistoryRef.current = [];
+
+            callbacks.onStateChange({ ...stateRef.current });
+        } catch (error) {
+            console.error('Error stopping VAD:', error);
         }
-
-        // Clean up audio monitoring
-        speechStartTimeRef.current = null;
-        lastSpeechTimeRef.current = null;
-        levelHistoryRef.current = [];
-
-        callbacks.onStateChange({ ...stateRef.current });
     }, [callbacks]);
 
     // Reset the VAD state
@@ -205,6 +278,9 @@ export const useVoiceActivityDetection = (
         return () => {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
+            }
+            if (recordingRef.current) {
+                recordingRef.current.stopAndUnloadAsync().catch(console.error);
             }
         };
     }, []);
@@ -251,26 +327,40 @@ export const useSimpleVAD = (
         fastResponse?: boolean;
     } = {}
 ) => {
+    const [isListening, setIsListening] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [currentLevel, setCurrentLevel] = useState(0);
+
     const callbacks: VoiceActivityCallbacks = {
-        onSpeechStart,
-        onSpeechEnd,
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        onLevelChange: () => { }, // No-op for simple version
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        onStateChange: () => { }  // No-op for simple version
+        onSpeechStart: () => {
+            setIsSpeaking(true);
+            onSpeechStart();
+        },
+        onSpeechEnd: () => {
+            setIsSpeaking(false);
+            onSpeechEnd();
+        },
+        onLevelChange: (level) => {
+            setCurrentLevel(level);
+        },
+        onStateChange: (state) => {
+            setIsListening(state.isListening);
+            setIsSpeaking(state.isSpeaking);
+            setCurrentLevel(state.currentLevel);
+        }
     };
 
     const config: Partial<VoiceActivityConfig> = {};
 
     if (options.sensitive) {
-        config.speechThreshold = Platform.OS === 'ios' ? -35 : -45;
-        config.noiseGate = Platform.OS === 'ios' ? -55 : -65;
+        config.speechThreshold = Platform.OS === 'ios' ? 0.12 : 0.15;
+        config.noiseGate = Platform.OS === 'ios' ? 0.03 : 0.05;
     }
 
     if (options.fastResponse) {
         config.minimumSpeechDuration = 200;
         config.maximumSilenceDuration = 1000;
-        config.sampleRate = 15;
+        config.sampleInterval = 80;
     }
 
     const vad = useVoiceActivityDetection(callbacks, config);
@@ -278,8 +368,8 @@ export const useSimpleVAD = (
     return {
         startListening: vad.startListening,
         stopListening: vad.stopListening,
-        isListening: vad.isListening,
-        isSpeaking: vad.isSpeaking,
-        currentLevel: vad.currentLevel
+        isListening,
+        isSpeaking,
+        currentLevel
     };
 }; 

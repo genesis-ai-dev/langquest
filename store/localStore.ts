@@ -1,3 +1,4 @@
+import type { BibleReference } from '@/constants/bibleStructure';
 import type { language } from '@/db/drizzleSchema';
 import type { Profile } from '@/hooks/db/useProfiles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -49,6 +50,41 @@ export interface RecentAsset {
   visitedAt: Date;
 }
 
+// Bible recording types
+export interface AudioSegment {
+  id: string;
+  questId: string;
+  audioUri: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  verse: BibleReference;
+  createdAt: number;
+  order: number; // For drag and drop ordering
+}
+
+export interface AssetMarker {
+  id: string;
+  questId: string;
+  title: string;
+  position: number; // Position in the segments array
+  createdAt: number;
+  order: number; // For drag and drop ordering
+}
+
+export interface BibleRecordingSession {
+  id: string;
+  questId: string;
+  questName: string;
+  projectId: string;
+  startedAt: number;
+  lastModified: number;
+  currentVerse: BibleReference;
+  segments: AudioSegment[];
+  markers: AssetMarker[];
+  isRecording: boolean;
+}
+
 interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
@@ -84,6 +120,9 @@ interface LocalState {
     uploadTotal: number;
   };
 
+  // Bible recording sessions
+  bibleRecordingSessions: Record<string, BibleRecordingSession>;
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
@@ -109,12 +148,35 @@ interface LocalState {
   ) => void;
   resetAttachmentSyncProgress: () => void;
 
+  // Bible recording methods
+  createRecordingSession: (
+    questId: string,
+    questName: string,
+    projectId: string,
+    initialVerse: BibleReference
+  ) => BibleRecordingSession;
+  getRecordingSession: (questId: string) => BibleRecordingSession | null;
+  updateRecordingSession: (questId: string, updates: Partial<BibleRecordingSession>) => void;
+  deleteRecordingSession: (questId: string) => void;
+
+  // Segment management
+  addAudioSegment: (questId: string, segment: Omit<AudioSegment, 'id' | 'questId' | 'createdAt' | 'order'>) => void;
+  updateAudioSegment: (questId: string, segmentId: string, updates: Partial<AudioSegment>) => void;
+  deleteAudioSegment: (questId: string, segmentId: string) => void;
+  reorderAudioSegments: (questId: string, fromIndex: number, toIndex: number) => void;
+
+  // Marker management
+  addAssetMarker: (questId: string, marker: Omit<AssetMarker, 'id' | 'questId' | 'createdAt' | 'order'>) => void;
+  updateAssetMarker: (questId: string, markerId: string, updates: Partial<AssetMarker>) => void;
+  deleteAssetMarker: (questId: string, markerId: string) => void;
+  reorderAssetMarkers: (questId: string, fromIndex: number, toIndex: number) => void;
+
   initialize: () => Promise<void>;
 }
 
 export const useLocalStore = create<LocalState>()(
   persist(
-    (set, _get) => ({
+    (set, get) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       languageId: null,
@@ -146,6 +208,9 @@ export const useLocalStore = create<LocalState>()(
         uploadCurrent: 0,
         uploadTotal: 0
       },
+
+      // Bible recording sessions
+      bibleRecordingSessions: {},
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
@@ -207,6 +272,259 @@ export const useLocalStore = create<LocalState>()(
             uploadTotal: 0
           }
         }),
+
+      // Bible recording methods
+      createRecordingSession: (questId, questName, projectId, initialVerse) => {
+        const session: BibleRecordingSession = {
+          id: `session-${questId}-${Date.now()}`,
+          questId,
+          questName,
+          projectId,
+          startedAt: Date.now(),
+          lastModified: Date.now(),
+          currentVerse: initialVerse,
+          segments: [],
+          markers: [],
+          isRecording: false
+        };
+
+        set((state) => ({
+          bibleRecordingSessions: {
+            ...state.bibleRecordingSessions,
+            [questId]: session
+          }
+        }));
+
+        return session;
+      },
+
+      getRecordingSession: (questId) => {
+        const state = get();
+        return state.bibleRecordingSessions[questId] || null;
+      },
+
+      updateRecordingSession: (questId, updates) => {
+        set((state) => {
+          const existingSession = state.bibleRecordingSessions[questId];
+          if (!existingSession) return state;
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...existingSession,
+                ...updates,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      deleteRecordingSession: (questId) => {
+        set((state) => {
+          const { [questId]: _deleted, ...remaining } = state.bibleRecordingSessions;
+          return { bibleRecordingSessions: remaining };
+        });
+      },
+
+      // Segment management
+      addAudioSegment: (questId, segmentData) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const newSegment: AudioSegment = {
+            ...segmentData,
+            id: `segment-${Date.now()}-${Math.random()}`,
+            questId,
+            createdAt: Date.now(),
+            order: session.segments.length
+          };
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                segments: [...session.segments, newSegment],
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      updateAudioSegment: (questId, segmentId, updates) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const updatedSegments = session.segments.map((segment) =>
+            segment.id === segmentId ? { ...segment, ...updates } : segment
+          );
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                segments: updatedSegments,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      deleteAudioSegment: (questId, segmentId) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const filteredSegments = session.segments.filter(
+            (segment) => segment.id !== segmentId
+          );
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                segments: filteredSegments,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      reorderAudioSegments: (questId, fromIndex, toIndex) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const reorderedSegments = [...session.segments];
+          const [movedSegment] = reorderedSegments.splice(fromIndex, 1);
+          if (!movedSegment) return state;
+          reorderedSegments.splice(toIndex, 0, movedSegment);
+
+          // Update order property
+          reorderedSegments.forEach((segment, index) => {
+            segment.order = index;
+          });
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                segments: reorderedSegments,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      // Marker management
+      addAssetMarker: (questId, markerData) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const newMarker: AssetMarker = {
+            ...markerData,
+            id: `marker-${Date.now()}-${Math.random()}`,
+            questId,
+            createdAt: Date.now(),
+            order: session.markers.length
+          };
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                markers: [...session.markers, newMarker],
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      updateAssetMarker: (questId, markerId, updates) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const updatedMarkers = session.markers.map((marker) =>
+            marker.id === markerId ? { ...marker, ...updates } : marker
+          );
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                markers: updatedMarkers,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      deleteAssetMarker: (questId, markerId) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const filteredMarkers = session.markers.filter(
+            (marker) => marker.id !== markerId
+          );
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                markers: filteredMarkers,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
+
+      reorderAssetMarkers: (questId, fromIndex, toIndex) => {
+        set((state) => {
+          const session = state.bibleRecordingSessions[questId];
+          if (!session) return state;
+
+          const reorderedMarkers = [...session.markers];
+          const [movedMarker] = reorderedMarkers.splice(fromIndex, 1);
+          if (!movedMarker) return state;
+          reorderedMarkers.splice(toIndex, 0, movedMarker);
+
+          // Update order property
+          reorderedMarkers.forEach((marker, index) => {
+            marker.order = index;
+          });
+
+          return {
+            bibleRecordingSessions: {
+              ...state.bibleRecordingSessions,
+              [questId]: {
+                ...session,
+                markers: reorderedMarkers,
+                lastModified: Date.now()
+              }
+            }
+          };
+        });
+      },
 
       initialize: () => {
         console.log('initializing local store');
