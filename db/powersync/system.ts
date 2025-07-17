@@ -184,20 +184,27 @@ export class System {
       this.connecting = true;
 
       // First initialize the database if not already done
+      console.log('PowerSync initialized:', this.initialized);
       if (!this.initialized) {
+        console.log('Initializing PowerSync...');
         await this.powersync.init();
         // Freeze the object to prevent further modifications
         // Object.freeze(this);
       }
 
       // If we're already connected, check if we need to reconnect
+      console.log('PowerSync connected:', this.powersync.connected);
       if (this.powersync.connected) {
         // Check if the current user has changed
+        console.log('Getting current session...');
         const currentSession =
           await this.supabaseConnector.client.auth.getSession();
+        console.log('Current session:', currentSession);
         const currentUserId = currentSession.data.session?.user.id;
+        console.log('Current user ID:', currentUserId);
 
         // Only disconnect and reconnect if there's a meaningful change
+        console.log('Last connected user ID:', this.lastConnectedUserId);
         if (currentUserId && this.lastConnectedUserId !== currentUserId) {
           console.log('User changed, reconnecting PowerSync...');
           await this.powersync.disconnect();
@@ -206,9 +213,11 @@ export class System {
           this.attachmentQueueInitPromise = null;
         } else {
           // Already connected with the same user
+          console.log('Already connected with the same user');
           this.initialized = true;
           // Still need to ensure attachment queues are initialized
           if (!this.attachmentQueuesInitialized) {
+            console.log('Initializing attachment queues...');
             await this.initializeAttachmentQueues();
           }
           return;
@@ -218,18 +227,24 @@ export class System {
       // Connect with the current user credentials
       console.log('Connecting PowerSync...');
       await this.powersync.connect(this.supabaseConnector);
+      console.log('PowerSync connected successfully');
 
       // Store the current user ID
+      console.log('Getting current session...');
       const session = await this.supabaseConnector.client.auth.getSession();
       this.lastConnectedUserId = session.data.session?.user.id;
+      console.log('Current user ID:', this.lastConnectedUserId);
 
       // Wait for the initial sync to complete
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
+      console.log('PowerSync marked as initialized');
 
       // Initialize attachment queues and wait for completion
+      console.log('Starting attachment queues initialization...');
       await this.initializeAttachmentQueues();
+      console.log('Attachment queues initialization completed');
 
       console.log('PowerSync initialization complete');
     } catch (error) {

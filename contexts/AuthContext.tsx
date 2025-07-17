@@ -1,6 +1,7 @@
 import { system } from '@/db/powersync/system';
 import type { AuthError, AuthResponse, Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
@@ -79,7 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('[AuthContext] System init failed:', error);
       setIsSystemReady(false);
-      // You might want to show an error to the user here
+      // Show error to user
+      Alert.alert(
+        'Initialization Error',
+        'Failed to initialize the app. Please try logging out and back in.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -107,10 +113,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (session) {
           console.log('[AuthContext] Found existing session');
           const detectedSessionType = getSessionType(session);
+          console.log(
+            '[AuthContext] Detected session type for existing session:',
+            detectedSessionType
+          );
           setSession(session);
           setSessionType(detectedSessionType);
 
           // Always initialize system for existing sessions
+          console.log(
+            '[AuthContext] Starting system initialization from existing session'
+          );
           void initializeSystem();
         }
         setIsLoading(false);
@@ -133,10 +146,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           case 'SIGNED_IN': {
             console.log('[AuthContext] User signed in');
             const detectedSessionType = getSessionType(session);
+            console.log(
+              '[AuthContext] Detected session type:',
+              detectedSessionType
+            );
             setSessionType(detectedSessionType);
 
             // Always initialize system when signed in
+            console.log(
+              '[AuthContext] Starting system initialization from SIGNED_IN event'
+            );
             await initializeSystem();
+            console.log(
+              '[AuthContext] System initialization complete from SIGNED_IN event'
+            );
             break;
           }
 
@@ -190,7 +213,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return system.supabaseConnector.client.auth.signUp({
       email,
       password,
-      options: data ? { data } : undefined
+      options: {
+        data: data || {},
+        emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
+          process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
+            ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
+            : ''
+        }`
+      }
     });
   };
 

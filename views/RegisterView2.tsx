@@ -1,4 +1,4 @@
-import { system } from '@/db/powersync/system';
+import { useAuth } from '@/contexts/AuthContext';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,6 +20,7 @@ export default function RegisterView2({
   const [username, setUsername] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { signUp } = useAuth();
 
   const handleRegister = async () => {
     // Basic validation
@@ -40,15 +41,17 @@ export default function RegisterView2({
 
     setIsLoading(true);
     try {
-      const { error } = await system.supabaseConnector.client.auth.signUp({
-        email: email.toLowerCase().trim(),
-        password: password.trim(),
-        options: {
-          data: {
-            username: username.trim()
-          }
+      const { error } = await signUp(
+        email.toLowerCase().trim(),
+        password.trim(),
+        {
+          username: username.trim(),
+          terms_accepted: termsAccepted,
+          terms_accepted_at: new Date().toISOString(),
+          ui_language: 'english', // Default to English for now
+          email_verified: false
         }
-      });
+      );
 
       if (error) throw error;
 
