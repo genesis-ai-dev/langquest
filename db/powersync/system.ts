@@ -194,35 +194,36 @@ export class System {
 
       // If we're already connected, check if we need to reconnect
       console.log('PowerSync connected:', this.powersync.connected);
-      if (this.powersync.connected) {
-        // Check if the current user has changed
-        console.log('Getting current session...');
-        const currentSession =
-          await this.supabaseConnector.client.auth.getSession();
-        console.log('Current session:', currentSession);
-        const currentUserId = currentSession.data.session?.user.id;
-        console.log('Current user ID:', currentUserId);
+      // if (this.powersync.connected) {
+      //   // Check if the current user has changed
+      //   console.log('Getting current session...');
+      // const currentSession =
+      //   await this.supabaseConnector.client.auth.getSession();
+      // console.log('Current session:', currentSession);
+      // const currentUserId = currentSession.data.session?.user.id;
+      // console.log('Current user ID:', currentUserId);
+      //   const currentUserId = this.supabaseConnector.getUserProfile()?.id;
 
-        // Only disconnect and reconnect if there's a meaningful change
-        console.log('Last connected user ID:', this.lastConnectedUserId);
-        if (currentUserId && this.lastConnectedUserId !== currentUserId) {
-          console.log('User changed, reconnecting PowerSync...');
-          await this.powersync.disconnect();
-          // Reset attachment queue initialization state
-          this.attachmentQueuesInitialized = false;
-          this.attachmentQueueInitPromise = null;
-        } else {
-          // Already connected with the same user
-          console.log('Already connected with the same user');
-          this.initialized = true;
-          // Still need to ensure attachment queues are initialized
-          if (!this.attachmentQueuesInitialized) {
-            console.log('Initializing attachment queues...');
-            await this.initializeAttachmentQueues();
-          }
-          return;
-        }
-      }
+      //   // Only disconnect and reconnect if there's a meaningful change
+      //   console.log('Last connected user ID:', this.lastConnectedUserId);
+      //   if (currentUserId && this.lastConnectedUserId !== currentUserId) {
+      //     console.log('User changed, reconnecting PowerSync...');
+      //     await this.powersync.disconnect();
+      //     // Reset attachment queue initialization state
+      //     this.attachmentQueuesInitialized = false;
+      //     this.attachmentQueueInitPromise = null;
+      //   } else {
+      //     // Already connected with the same user
+      //     console.log('Already connected with the same user');
+      //     this.initialized = true;
+      //     // Still need to ensure attachment queues are initialized
+      //     if (!this.attachmentQueuesInitialized) {
+      //       console.log('Initializing attachment queues...');
+      //       await this.initializeAttachmentQueues();
+      //     }
+      //     return;
+      //   }
+      // }
 
       // Connect with the current user credentials
       console.log('Connecting PowerSync...');
@@ -230,10 +231,10 @@ export class System {
       console.log('PowerSync connected successfully');
 
       // Store the current user ID
-      console.log('Getting current session...');
-      const session = await this.supabaseConnector.client.auth.getSession();
-      this.lastConnectedUserId = session.data.session?.user.id;
-      console.log('Current user ID:', this.lastConnectedUserId);
+      // console.log('Getting current session...');
+      // const session = await this.supabaseConnector.client.auth.getSession();
+      // this.lastConnectedUserId = session.data.session?.user.id;
+      // console.log('Current user ID:', this.lastConnectedUserId);
 
       // Wait for the initial sync to complete
       // await this.powersync.waitForFirstSync();
@@ -316,7 +317,7 @@ export class System {
     }
   }
 
-  private lastConnectedUserId?: string;
+  // private lastConnectedUserId?: string;
 
   isInitialized() {
     return this.initialized && this.attachmentQueuesInitialized;
@@ -401,7 +402,7 @@ export class System {
       this.initialized = false;
       this.attachmentQueuesInitialized = false;
       this.attachmentQueueInitPromise = null;
-      this.lastConnectedUserId = undefined;
+      // this.lastConnectedUserId = undefined;
     } catch (error) {
       console.error('Error during system cleanup:', error);
     }

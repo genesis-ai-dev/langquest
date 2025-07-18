@@ -120,6 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           setSessionType(detectedSessionType);
 
+          // Update the session in SupabaseConnector
+          system.supabaseConnector.updateSession(session);
+
           // Always initialize system for existing sessions
           console.log(
             '[AuthContext] Starting system initialization from existing session'
@@ -141,6 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         setSession(session);
+
+        // Update the session in SupabaseConnector
+        system.supabaseConnector.updateSession(session);
 
         switch (event) {
           case 'SIGNED_IN': {
