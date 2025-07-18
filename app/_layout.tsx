@@ -1,3 +1,4 @@
+import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
@@ -42,9 +43,11 @@ export default function RootLayout() {
       <PostHogProvider>
         <AuthProvider>
           <QueryProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="app" />
-            </Stack>
+            <AudioProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="app" />
+              </Stack>
+            </AudioProvider>
           </QueryProvider>
         </AuthProvider>
       </PostHogProvider>

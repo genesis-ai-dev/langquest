@@ -155,17 +155,13 @@ export function useUserPermissions(
     enabled: shouldQueryPrivacy
   });
 
-  // Get membership from session cache (more efficient and consistent)
-  const membershipData = getUserMembership(project_id) as {
-    project_id: string;
-    membership: 'owner' | 'member';
-    active: boolean;
-  };
+  // Get membership from user memberships hook
+  const membershipData = getUserMembership(project_id);
   const isPrivate =
     knownIsPrivate ??
     (projectData[0] as { private: boolean } | undefined)?.private ??
     false;
-  const membership = membershipData.membership as MembershipRole;
+  const membership = membershipData?.membership as MembershipRole;
 
   // If project_id is invalid, return no access
   if (!isValidProjectId) {

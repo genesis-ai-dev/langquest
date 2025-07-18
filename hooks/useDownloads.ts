@@ -108,8 +108,9 @@ export function useDownloadStatus(
   isFlaggedForDownload: boolean;
   isLoading: boolean;
 } {
+  const { currentUser } = useAuth();
   const { data, isLoading, ...rest } = useHybridQuery(
-    getDownloadStatusConfig(recordTable, recordId)
+    getDownloadStatusConfig(recordTable, recordId, currentUser?.id)
   );
 
   return { isFlaggedForDownload: !!data[0]?.id, isLoading, ...rest };

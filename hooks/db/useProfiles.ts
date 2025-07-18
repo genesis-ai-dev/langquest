@@ -13,6 +13,7 @@ import {
 } from '../useHybridQuery';
 
 export type Profile = InferSelectModel<typeof profile>;
+export type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
 function getProfileByUserIdConfig(user_id: string) {
   return createHybridQueryConfig({
@@ -77,7 +78,7 @@ export function useUserMemberships(userId?: string) {
         .eq('active', true);
 
       if (error) throw error;
-      return data;
+      return data as ProfileProjectLink[];
     },
     offlineQuery: toCompilableQuery(
       system.db.query.profile_project_link.findMany({
@@ -90,7 +91,7 @@ export function useUserMemberships(userId?: string) {
     enabled: !!user_id
   });
 
-  const getUserMembership = useCallback((projectId: string) => {
+  const getUserMembership = useCallback((projectId: string): ProfileProjectLink | undefined => {
     return memberships.find((m) => m.project_id === projectId);
   }, [memberships]);
 

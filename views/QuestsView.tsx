@@ -54,7 +54,8 @@ export default function QuestsView() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Use user memberships and projects from local DB instead of session cache
-  const { userMemberships, getUserMembership } = useUserMemberships();
+  const { userMemberships: _userMemberships, getUserMembership } =
+    useUserMemberships();
   const { userProjects } = useUserProjects();
 
   // Create helper functions similar to the old session cache
@@ -67,7 +68,7 @@ export default function QuestsView() {
     return userProjects.find((p) => p.id === projectId);
   };
 
-  const setCachedProject = (projectId: string, project: any) => {
+  const setCachedProject = (_projectId: string, _project: any) => {
     // Note: With direct DB queries, we don't need to manually cache
     // The TanStack Query will handle caching automatically
     console.log('setCachedProject called but not needed with new architecture');
