@@ -4,6 +4,7 @@ import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
@@ -66,24 +67,12 @@ export function useDownloadTreeStructure(
  */
 export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
-  recordId: string
-) {
-  const data = await hybridFetch(
-    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
-  );
-  return !!data[0]?.id;
-}
-
-function getDownloadStatusConfig(
-  recordTable: keyof typeof system.db.query,
   recordId: string,
   currentUserId?: string
 ) {
-  return createHybridQueryConfig({
+  const config = createHybridQueryConfig({
     queryKey: ['download-status', recordTable, recordId, currentUserId],
     onlineFn: async () => {
-      console.log('recordId', recordId);
-      console.log('recordTable', recordTable);
       const { data, error } = await system.supabaseConnector.client
         .from(recordTable)
         .select('id')
@@ -94,10 +83,14 @@ function getDownloadStatusConfig(
       if (error) throw error;
       return data;
     },
-    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1`,
+    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUserId}') LIMIT 1`,
     enabled: !!recordId && !!currentUserId
   });
+
+  const data = await hybridFetch(convertToFetchConfig(config));
+  return !!data[0]?.id;
 }
+
 /**
  * Hook to get project download status
  */
@@ -109,9 +102,28 @@ export function useDownloadStatus(
   isLoading: boolean;
 } {
   const { currentUser } = useAuth();
-  const { data, isLoading, ...rest } = useHybridQuery(
-    getDownloadStatusConfig(recordTable, recordId, currentUser?.id)
-  );
+
+  // Memoize the configuration to prevent re-creation on every render
+  const queryConfig = useMemo(() => {
+    return createHybridQueryConfig({
+      queryKey: ['download-status', recordTable, recordId, currentUser?.id],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from(recordTable)
+          .select('id')
+          .eq('id', recordId)
+          .contains('download_profiles', [currentUser!.id])
+          .limit(1)
+          .overrideTypes<{ id: string }[]>();
+        if (error) throw error;
+        return data;
+      },
+      offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUser?.id}') LIMIT 1`,
+      enabled: !!recordId && !!currentUser?.id
+    });
+  }, [recordTable, recordId, currentUser?.id]);
+
+  const { data, isLoading, ...rest } = useHybridQuery(queryConfig);
 
   return { isFlaggedForDownload: !!data[0]?.id, isLoading, ...rest };
 }
@@ -197,8 +209,9 @@ export async function downloadRecord(
 
       if (!downloadTree) throw new Error('No download tree found.');
 
+      console.log("RYDER5", { downloaded });
       const isCurrentlyDownloaded =
-        downloaded ?? (await getDownloadStatus(recordTable, recordId));
+        downloaded ?? (await getDownloadStatus(recordTable, recordId, currentUser.id));
 
       const operation = isCurrentlyDownloaded ? 'remove' : 'add';
       console.log(
@@ -262,36 +275,20 @@ export function useDownload(
   });
 
   const toggleDownload = async () => {
-    if (!recordId) return;
-
-    console.log(
-      `🎯 [DOWNLOAD] Starting download for ${recordTable}:${recordId}`
-    );
+    if (!recordId || !currentUser?.id) return;
 
     const isCurrentlyDownloaded = await getDownloadStatus(
       recordTable,
-      recordId
-    );
-
-    console.log(
-      `🎯 [DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+      recordId,
+      currentUser.id
     );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
-      console.log(
-        `🎯 [DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
-      );
       return;
     }
 
-    console.log(
-      `🎯 [DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
-    );
     await mutation.mutateAsync(false); // always download
-    console.log(
-      `🎯 [DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
-    );
   };
 
   return {

@@ -41,7 +41,7 @@ export class VoteService {
           .set({
             polarity: data.polarity,
             comment: data.comment,
-            active: data.active ?? true
+            active: data.active ?? true,
           })
           .where(eq(vote.id, existingVoteId));
         const endTime = Date.now();
@@ -49,14 +49,22 @@ export class VoteService {
           `Time taken to find existing vote: ${endTime - startTime}ms`
         );
       } else {
-        console.log('creating new vote');
-        // Create new vote
+        console.log('creating new vote', {
+          translation_id: data.translation_id,
+          creator_id: data.creator_id,
+          polarity: data.polarity,
+          comment: data.comment ?? '',
+          active: data.active ?? true,
+          download_profiles: [data.creator_id]
+        });
+        // Create new vote - let PowerSync handle array serialization
         await db.insert(vote).values({
           translation_id: data.translation_id,
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment ?? '',
-          active: data.active ?? true
+          active: data.active ?? true,
+          download_profiles: [data.creator_id]
         });
       }
     } catch (error) {

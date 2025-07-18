@@ -51,6 +51,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   ): Promise<AttachmentRecord> {
     // When downloading existing attachments, use the provided ID directly
     if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
+      // Validate that the ID is not empty
+      if (!record.id.trim()) {
+        throw new Error('Attachment ID cannot be empty');
+      }
       const localUri = this.getLocalFilePathSuffix(record.id);
       return {
         ...record,
@@ -82,6 +86,16 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       void (async () => {
         try {
           console.log(`[WATCH IDS] Processing ${ids.length} attachment IDs`);
+
+          // Filter out empty or invalid IDs
+          const validIds = ids.filter(id => id && id.trim() !== '');
+          if (validIds.length !== ids.length) {
+            console.warn(`[WATCH IDS] Filtered out ${ids.length - validIds.length} empty/invalid IDs`);
+          }
+
+          console.log('[WATCH IDS] skipping the following empty/invalid IDs:', ids.filter(id => id && id.trim() === ''));
+          // Use validIds from here on
+          ids = validIds;
 
           // Process in smaller batches to avoid SQL query size limits
           const BATCH_SIZE = 100;
@@ -337,7 +351,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio)
+        .filter((translation) => translation.audio && translation.audio.trim() !== '')
         .map((translation) => translation.audio!);
 
       if (translationAudioIds.length) {
