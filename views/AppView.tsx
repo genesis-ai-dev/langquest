@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /**
  * Main App View - Single route with state-driven navigation
  * Replaces the entire file-based routing structure
@@ -13,18 +14,24 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
 
 // View Components (to be created/migrated)
-import AssetDetailView from '@/views/AssetDetailView';
-import AssetsView from '@/views/AssetsView';
 import NotificationsView from '@/views/NotificationsView';
 import ProfileView from '@/views/ProfileView';
-import ProjectsView from '@/views/ProjectsView';
-import QuestsView from '@/views/QuestsView';
+// import ProjectsView from '@/views/ProjectsView';
+// import QuestsView from '@/views/QuestsView';
 import SettingsView from '@/views/SettingsView';
+import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
+import NextGenAssetsView from '@/views/new/NextGenAssetsView';
+import NextGenProjectsView from '@/views/new/NextGenProjectsView';
+import NextGenQuestsView from '@/views/new/NextGenQuestsView';
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
+import AssetDetailView from './AssetDetailView';
+import AssetsView from './AssetsView';
+import ProjectsView from './ProjectsView';
+import QuestsView from './QuestsView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -46,16 +53,33 @@ export default function AppView() {
     return () => backHandler.remove();
   }, [canGoBack, goBack]);
 
+  const SHOULD_USE_NEXT_GEN_VIEWS = true;
   const renderCurrentView = () => {
     switch (currentView) {
       case 'projects':
-        return <ProjectsView />;
+        return SHOULD_USE_NEXT_GEN_VIEWS ? (
+          <NextGenProjectsView />
+        ) : (
+          <ProjectsView />
+        );
       case 'quests':
-        return <QuestsView />;
+        return SHOULD_USE_NEXT_GEN_VIEWS ? (
+          <NextGenQuestsView />
+        ) : (
+          <QuestsView />
+        );
       case 'assets':
-        return <AssetsView />;
+        return SHOULD_USE_NEXT_GEN_VIEWS ? (
+          <NextGenAssetsView />
+        ) : (
+          <AssetsView />
+        );
       case 'asset-detail':
-        return <AssetDetailView />;
+        return SHOULD_USE_NEXT_GEN_VIEWS ? (
+          <NextGenAssetDetailView />
+        ) : (
+          <AssetDetailView />
+        );
       case 'profile':
         return <ProfileView />;
       case 'notifications':
@@ -63,7 +87,7 @@ export default function AppView() {
       case 'settings':
         return <SettingsView />;
       default:
-        return <ProjectsView />;
+        return <NextGenProjectsView />;
     }
   };
 
