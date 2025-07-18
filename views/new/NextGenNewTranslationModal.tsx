@@ -1,11 +1,14 @@
+import AudioRecorder from '@/components/AudioRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { translationService } from '@/database_services/translationService';
 import type { language } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import type { AssetContent } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +35,8 @@ interface NextGenNewTranslationModalProps {
   targetLanguageId: string;
 }
 
+type TranslationType = 'text' | 'audio';
+
 export default function NextGenNewTranslationModal({
   visible,
   onClose,
@@ -47,6 +52,9 @@ export default function NextGenNewTranslationModal({
   const isOnline = useNetworkStatus();
   const [translationText, setTranslationText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [translationType, setTranslationType] =
+    useState<TranslationType>('text');
+  const [audioUri, setAudioUri] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!currentUser) {
@@ -54,7 +62,12 @@ export default function NextGenNewTranslationModal({
       return;
     }
 
-    if (!translationText.trim()) {
+    if (translationType === 'text' && !translationText.trim()) {
+      Alert.alert('Error', t('fillFields'));
+      return;
+    }
+
+    if (translationType === 'audio' && !audioUri) {
       Alert.alert('Error', t('fillFields'));
       return;
     }
@@ -62,16 +75,23 @@ export default function NextGenNewTranslationModal({
     try {
       setIsSubmitting(true);
 
+      let audioAttachment: string | null = null;
+      if (audioUri && system.permAttachmentQueue) {
+        const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
+        audioAttachment = attachment.filename;
+      }
+
       // Use translationService to create the translation
       await translationService.createTranslation({
-        text: translationText.trim(),
+        text: translationType === 'text' ? translationText.trim() : '',
         target_language_id: targetLanguageId,
         asset_id: assetId,
         creator_id: currentUser.id,
-        audio: null
+        audio: audioAttachment
       });
 
       setTranslationText('');
+      setAudioUri(null);
       Alert.alert('Success', 'Translation submitted successfully!');
       onSuccess?.();
       onClose();
@@ -83,6 +103,27 @@ export default function NextGenNewTranslationModal({
     }
   };
 
+  const handleRecordingComplete = (uri: string) => {
+    setAudioUri(uri);
+  };
+
+  const handleClose = async () => {
+    // Clean up audio file if exists
+    if (audioUri) {
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(audioUri);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(audioUri);
+        }
+      } catch (error) {
+        console.error('Error cleaning up audio file:', error);
+      }
+    }
+    setAudioUri(null);
+    setTranslationText('');
+    onClose();
+  };
+
   // Get first content text as preview
   const contentPreview = assetContent?.[0]?.text || '';
 
@@ -91,13 +132,13 @@ export default function NextGenNewTranslationModal({
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
+        <TouchableWithoutFeedback onPress={handleClose}>
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
 
@@ -105,8 +146,58 @@ export default function NextGenNewTranslationModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>{t('newTranslation')}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Translation Type Toggle */}
+          <View style={styles.typeToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.typeToggleButton,
+                translationType === 'text' && styles.typeToggleButtonActive
+              ]}
+              onPress={() => setTranslationType('text')}
+            >
+              <Ionicons
+                name="text"
+                size={20}
+                color={
+                  translationType === 'text' ? colors.buttonText : colors.text
+                }
+              />
+              <Text
+                style={[
+                  styles.typeToggleText,
+                  translationType === 'text' && styles.typeToggleTextActive
+                ]}
+              >
+                Text
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.typeToggleButton,
+                translationType === 'audio' && styles.typeToggleButtonActive
+              ]}
+              onPress={() => setTranslationType('audio')}
+            >
+              <Ionicons
+                name="mic"
+                size={20}
+                color={
+                  translationType === 'audio' ? colors.buttonText : colors.text
+                }
+              />
+              <Text
+                style={[
+                  styles.typeToggleText,
+                  translationType === 'audio' && styles.typeToggleTextActive
+                ]}
+              >
+                Audio
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -133,16 +224,26 @@ export default function NextGenNewTranslationModal({
 
           {/* Translation Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Your Translation:</Text>
-            <TextInput
-              style={styles.textInput}
-              multiline
-              placeholder={t('enterTranslation')}
-              placeholderTextColor={colors.textSecondary}
-              value={translationText}
-              onChangeText={setTranslationText}
-              autoFocus
-            />
+            <Text style={styles.inputLabel}>
+              Your {translationType === 'text' ? 'Translation' : 'Audio'}:
+            </Text>
+
+            {translationType === 'text' ? (
+              <TextInput
+                style={styles.textInput}
+                multiline
+                placeholder={t('enterTranslation')}
+                placeholderTextColor={colors.textSecondary}
+                value={translationText}
+                onChangeText={setTranslationText}
+                autoFocus
+              />
+            ) : (
+              <AudioRecorder
+                onRecordingComplete={handleRecordingComplete}
+                resetRecording={() => setAudioUri(null)}
+              />
+            )}
           </View>
 
           {/* Network Status */}
@@ -156,11 +257,17 @@ export default function NextGenNewTranslationModal({
           <TouchableOpacity
             style={[
               styles.submitButton,
-              (!translationText.trim() || isSubmitting) &&
+              ((translationType === 'text' && !translationText.trim()) ||
+                (translationType === 'audio' && !audioUri) ||
+                isSubmitting) &&
                 styles.submitButtonDisabled
             ]}
             onPress={handleSubmit}
-            disabled={!translationText.trim() || isSubmitting}
+            disabled={
+              (translationType === 'text' && !translationText.trim()) ||
+              (translationType === 'audio' && !audioUri) ||
+              isSubmitting
+            }
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color={colors.buttonText} />
@@ -189,7 +296,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: spacing.large,
     paddingBottom: spacing.xlarge,
-    maxHeight: '80%'
+    maxHeight: '85%'
   },
   header: {
     flexDirection: 'row',
@@ -204,6 +311,34 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: spacing.small
+  },
+  typeToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    padding: spacing.xsmall,
+    marginBottom: spacing.medium
+  },
+  typeToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+    borderRadius: borderRadius.small,
+    gap: spacing.small
+  },
+  typeToggleButtonActive: {
+    backgroundColor: colors.primary
+  },
+  typeToggleText: {
+    fontSize: fontSizes.medium,
+    color: colors.text
+  },
+  typeToggleTextActive: {
+    color: colors.buttonText,
+    fontWeight: 'bold'
   },
   assetInfo: {
     marginBottom: spacing.medium

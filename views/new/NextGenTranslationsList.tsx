@@ -1,5 +1,7 @@
+import AudioPlayer from '@/components/AudioPlayer';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +17,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import NextGenTranslationModal from './NextGenTranslationModal';
 
 interface NextGenTranslationsListProps {
   assetId: string;
@@ -28,6 +31,7 @@ interface TranslationWithVotes {
   target_language_id: string;
   creator_id: string;
   created_at: string;
+  audio: string | null;
   upVotes: number;
   downVotes: number;
   netVotes: number;
@@ -131,9 +135,27 @@ export default function NextGenTranslationsList({
   const [isCloudLoading, setIsCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState<Error | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
+  const [selectedTranslationId, setSelectedTranslationId] = useState<
+    string | null
+  >(null);
 
   const { data: offlineTranslations, isLoading: isOfflineLoading } =
     useNextGenOfflineTranslations(assetId);
+
+  // Collect audio IDs for attachment states
+  const audioIds = React.useMemo(() => {
+    const activeTranslations = useOfflineData
+      ? offlineTranslations
+      : cloudTranslations;
+    if (!activeTranslations) return [];
+
+    return activeTranslations
+      .filter((trans) => trans.audio)
+      .map((trans) => trans.audio!)
+      .filter(Boolean);
+  }, [offlineTranslations, cloudTranslations, useOfflineData]);
+
+  const { attachmentStates } = useAttachmentStates(audioIds);
 
   // Fetch cloud translations when online
   useEffect(() => {
@@ -188,6 +210,14 @@ export default function NextGenTranslationsList({
     if (!fullText) return '(Empty translation)';
     if (fullText.length <= maxLength) return fullText;
     return fullText.substring(0, maxLength).trim() + '...';
+  };
+
+  const getAudioUri = (translation: TranslationWithVotes) => {
+    if (!translation.audio) return undefined;
+    const localUri = attachmentStates.get(translation.audio)?.local_uri;
+    return localUri
+      ? system.permAttachmentQueue?.getLocalUri(localUri)
+      : undefined;
   };
 
   return (
@@ -279,12 +309,38 @@ export default function NextGenTranslationsList({
           />
         ) : sortedTranslations.length > 0 ? (
           sortedTranslations.map((trans) => (
-            <View key={trans.id} style={styles.translationCard}>
+            <TouchableOpacity
+              key={trans.id}
+              style={styles.translationCard}
+              onPress={() => setSelectedTranslationId(trans.id)}
+            >
               <View style={styles.translationCardContent}>
                 <View style={styles.translationCardLeft}>
-                  <Text style={styles.translationPreview} numberOfLines={2}>
-                    {getPreviewText(trans.text || '')}
-                  </Text>
+                  <View style={styles.translationHeader}>
+                    <Text style={styles.translationPreview} numberOfLines={2}>
+                      {getPreviewText(trans.text || '')}
+                    </Text>
+                    {trans.audio && (
+                      <Ionicons
+                        name="volume-high"
+                        size={16}
+                        color={colors.primary}
+                        style={styles.audioIcon}
+                      />
+                    )}
+                  </View>
+
+                  {/* Audio Player */}
+                  {trans.audio && getAudioUri(trans) && (
+                    <View style={styles.audioPlayerContainer}>
+                      <AudioPlayer
+                        audioUri={getAudioUri(trans)}
+                        useCarousel={false}
+                        mini={true}
+                      />
+                    </View>
+                  )}
+
                   <Text style={styles.sourceTag}>
                     {trans.source === 'cloudSupabase'
                       ? '🌐 Cloud'
@@ -312,7 +368,7 @@ export default function NextGenTranslationsList({
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyContainer}>
@@ -333,6 +389,15 @@ export default function NextGenTranslationsList({
           {isOnline ? cloudTranslations.length : 'N/A'}
         </Text>
       </View>
+
+      {/* Translation Detail Modal */}
+      {selectedTranslationId && (
+        <NextGenTranslationModal
+          visible={!!selectedTranslationId}
+          onClose={() => setSelectedTranslationId(null)}
+          translationId={selectedTranslationId}
+        />
+      )}
     </View>
   );
 }
@@ -458,5 +523,20 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xsmall,
     color: colors.textSecondary,
     marginTop: spacing.xsmall
+  },
+  translationHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.xsmall
+  },
+  audioIcon: {
+    marginLeft: spacing.small,
+    marginTop: 2
+  },
+  audioPlayerContainer: {
+    marginVertical: spacing.small,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.small,
+    padding: spacing.small
   }
 });

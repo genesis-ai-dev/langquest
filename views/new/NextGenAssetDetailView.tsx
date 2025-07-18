@@ -5,6 +5,7 @@ import { system } from '@/db/powersync/system';
 import type { Asset, AssetContent } from '@/hooks/db/useAssets';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -163,6 +164,23 @@ export default function NextGenAssetDetailView() {
   const activeAsset = useOfflineData ? offlineAsset : cloudAsset;
   const isLoading = useOfflineData ? isOfflineLoading : isCloudLoading;
 
+  // Collect attachment IDs for audio support
+  const allAttachmentIds = React.useMemo(() => {
+    if (!activeAsset?.content) return [];
+
+    const contentAudioIds = activeAsset.content
+      .filter((content) => content.audio_id)
+      .map((content) => content.audio_id!)
+      .filter(Boolean);
+
+    const imageIds = activeAsset.images ?? [];
+
+    return [...contentAudioIds, ...imageIds];
+  }, [activeAsset]);
+
+  const { attachmentStates, isLoading: isLoadingAttachments } =
+    useAttachmentStates(allAttachmentIds);
+
   const {
     language: sourceLanguage,
     isLanguageLoading: isSourceLanguageLoading
@@ -281,8 +299,19 @@ export default function NextGenAssetDetailView() {
                 <SourceContent
                   content={content}
                   sourceLanguage={sourceLanguage ?? null}
-                  audioUri={null} // Simplified - no audio handling for now
-                  isLoading={false}
+                  audioUri={
+                    content.audio_id
+                      ? (() => {
+                          const localUri = attachmentStates.get(
+                            content.audio_id
+                          )?.local_uri;
+                          return localUri
+                            ? system.permAttachmentQueue?.getLocalUri(localUri)
+                            : null;
+                        })()
+                      : null
+                  }
+                  isLoading={isLoadingAttachments}
                 />
               </View>
             ))
