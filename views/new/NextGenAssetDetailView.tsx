@@ -1,21 +1,34 @@
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { SourceContent } from '@/components/SourceContent';
-import { asset, asset_content_link } from '@/db/drizzleSchema';
+import { asset, asset_content_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { Asset, AssetContent } from '@/hooks/db/useAssets';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import NextGenNewTranslationModal from './NextGenNewTranslationModal';
+import NextGenTranslationsList from './NextGenTranslationsList';
 
 interface AssetWithContent extends Asset {
   content?: AssetContent[];
   source?: string;
 }
+
+const ASSET_VIEWER_PROPORTION = 0.4;
 
 function useNextGenOfflineAsset(assetId: string) {
   return useQuery({
@@ -79,16 +92,40 @@ async function useNextGenCloudAsset(
 }
 
 export default function NextGenAssetDetailView() {
-  const { currentAssetId } = useCurrentNavigation();
+  const { currentAssetId, currentProjectId } = useCurrentNavigation();
   const isOnline = useNetworkStatus();
 
   const [useOfflineData, setUseOfflineData] = useState(true);
   const [cloudAsset, setCloudAsset] = useState<AssetWithContent | null>(null);
   const [isCloudLoading, setIsCloudLoading] = useState(true);
   const [cloudError, setCloudError] = useState<Error | null>(null);
+  const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
+  const [targetLanguageId, setTargetLanguageId] = useState<string>('');
+  const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
 
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
+
+  // Get project info for target language
+  const { data: projectData } = useQuery({
+    queryKey: ['project', 'offline', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const result = await system.db
+        .select()
+        .from(project)
+        .where(eq(project.id, currentProjectId))
+        .limit(1);
+      return result[0] || null;
+    },
+    enabled: !!currentProjectId
+  });
+
+  useEffect(() => {
+    if (projectData?.target_language_id) {
+      setTargetLanguageId(projectData.target_language_id);
+    }
+  }, [projectData]);
 
   // Fetch cloud asset directly - only when online
   useEffect(() => {
@@ -163,20 +200,16 @@ export default function NextGenAssetDetailView() {
     );
   }
 
-  const renderSourceTag = (source: string | undefined) => {
-    if (source === 'cloudSupabase') {
-      return <Text style={styles.sourceTag}>🌐 Cloud</Text>;
-    }
-    return <Text style={styles.sourceTag}>💾 Offline</Text>;
-  };
+  const screenHeight = Dimensions.get('window').height;
+  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  const renderErrorMessage = () => {
-    if (isLoading || isSourceLanguageLoading) {
-      return <AssetSkeleton />;
-    }
+  if (isLoading || isSourceLanguageLoading) {
+    return <AssetSkeleton />;
+  }
 
-    if (!activeAsset) {
-      return (
+  if (!activeAsset) {
+    return (
+      <View style={sharedStyles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
             {useOfflineData
@@ -193,16 +226,21 @@ export default function NextGenAssetDetailView() {
                 : 'This asset may not be synchronized or may not exist'}
           </Text>
         </View>
-      );
-    }
-    return null;
+      </View>
+    );
+  }
+
+  const handleTranslationSuccess = () => {
+    // Refresh the translations list by forcing a re-render
+    setShowNewTranslationModal(false);
+    setTranslationsRefreshKey((prev) => prev + 1);
   };
 
   return (
-    <ScrollView style={sharedStyles.container}>
-      {/* Data Source Toggle - Always visible */}
-      <View style={styles.toggleContainer}>
-        <Text style={styles.toggleLabel}>Data Source:</Text>
+    <View style={styles.container}>
+      {/* Data Source Toggle - Header */}
+      <View style={styles.headerBar}>
+        <Text style={styles.assetName}>{activeAsset.name}</Text>
         <View style={styles.toggleRow}>
           <Text
             style={[
@@ -210,13 +248,14 @@ export default function NextGenAssetDetailView() {
               !useOfflineData && styles.inactiveToggleText
             ]}
           >
-            💾 Offline {offlineAsset ? '✅' : '❌'}
+            💾
           </Text>
           <Switch
             value={!useOfflineData}
             onValueChange={(value) => setUseOfflineData(!value)}
             trackColor={{ false: colors.inputBackground, true: colors.primary }}
             thumbColor={colors.buttonText}
+            style={styles.switch}
           />
           <Text
             style={[
@@ -224,145 +263,141 @@ export default function NextGenAssetDetailView() {
               useOfflineData && styles.inactiveToggleText
             ]}
           >
-            🌐 Cloud{' '}
-            {isOnline ? (cloudAsset ? '✅' : cloudError ? '❌' : '⏳') : '🔴'}
+            🌐
           </Text>
         </View>
       </View>
 
-      {/* Error Message or Asset Content */}
-      {renderErrorMessage() || (
-        <>
-          {/* Asset Header */}
-          <View style={styles.header}>
-            {renderSourceTag(activeAsset!.source)}
-            <Text style={styles.assetName}>{activeAsset!.name}</Text>
-            <Text style={styles.assetInfo}>
+      {/* Asset Content Viewer */}
+      <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+        <ScrollView
+          style={styles.contentScrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentScrollViewContent}
+        >
+          {activeAsset.content && activeAsset.content.length > 0 ? (
+            activeAsset.content.map((content, index) => (
+              <View key={index} style={styles.contentItem}>
+                <SourceContent
+                  content={content}
+                  sourceLanguage={sourceLanguage ?? null}
+                  audioUri={null} // Simplified - no audio handling for now
+                  isLoading={false}
+                />
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noContentText}>No content available</Text>
+          )}
+
+          {/* Images info */}
+          {activeAsset.images && activeAsset.images.length > 0 && (
+            <View style={styles.imageInfo}>
+              <Text style={styles.imageInfoText}>
+                📷 {activeAsset.images.length} image(s) available
+              </Text>
+            </View>
+          )}
+
+          {/* Asset Info */}
+          <View style={styles.assetInfo}>
+            <Text style={styles.assetInfoText}>
               Language:{' '}
               {sourceLanguage?.native_name ??
                 sourceLanguage?.english_name ??
                 'Unknown'}
             </Text>
-            <Text style={styles.assetInfo}>
-              ID: {activeAsset!.id.substring(0, 8)}...
+            <Text style={styles.assetInfoText}>
+              Source:{' '}
+              {activeAsset.source === 'cloudSupabase'
+                ? '🌐 Cloud'
+                : '💾 Offline'}
             </Text>
           </View>
-
-          {/* Content Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Content</Text>
-            {activeAsset!.content && activeAsset!.content.length > 0 ? (
-              activeAsset!.content.map((content, index) => (
-                <View key={index} style={styles.contentItem}>
-                  <SourceContent
-                    content={content}
-                    sourceLanguage={sourceLanguage ?? null}
-                    audioUri={null} // Simplified - no audio handling for now
-                    isLoading={false}
-                  />
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noContentText}>No content available</Text>
-            )}
-          </View>
-
-          {/* Images Section */}
-          {activeAsset!.images && activeAsset!.images.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Images</Text>
-              <Text style={styles.imageCount}>
-                {activeAsset!.images.length} image(s) available
-              </Text>
-              {/* Simplified - just show count for now */}
-            </View>
-          )}
-        </>
-      )}
-
-      {/* Debug Info */}
-      <View style={styles.debugSection}>
-        <Text style={styles.debugTitle}>Debug Info</Text>
-        <Text style={styles.debugText}>
-          Network Status: {isOnline ? '🟢 Online' : '🔴 Offline'}
-        </Text>
-        <Text style={styles.debugText}>
-          Offline Available: {offlineAsset ? '✅' : '❌'}
-        </Text>
-        <Text style={styles.debugText}>
-          Cloud Available:{' '}
-          {isOnline ? (cloudAsset ? '✅' : cloudError ? '❌' : '⏳') : '🔴 N/A'}
-        </Text>
-        {cloudError && (
-          <Text style={styles.debugError}>
-            Cloud Error: {cloudError.message}
-          </Text>
-        )}
+        </ScrollView>
       </View>
-    </ScrollView>
+
+      {/* Translations List */}
+      <View style={{ flex: 1 }}>
+        <NextGenTranslationsList
+          assetId={currentAssetId}
+          assetName={activeAsset.name}
+          refreshKey={translationsRefreshKey}
+        />
+      </View>
+
+      {/* New Translation Button */}
+      <TouchableOpacity
+        style={styles.newTranslationButton}
+        onPress={() => setShowNewTranslationModal(true)}
+      >
+        <Ionicons name="add" size={24} color={colors.buttonText} />
+        <Text style={styles.newTranslationButtonText}>New Translation</Text>
+      </TouchableOpacity>
+
+      {/* New Translation Modal */}
+      <NextGenNewTranslationModal
+        visible={showNewTranslationModal}
+        onClose={() => setShowNewTranslationModal(false)}
+        onSuccess={handleTranslationSuccess}
+        assetId={currentAssetId}
+        assetName={activeAsset.name}
+        assetContent={activeAsset.content}
+        sourceLanguage={sourceLanguage}
+        targetLanguageId={targetLanguageId}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  toggleContainer: {
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    margin: spacing.medium
+  container: {
+    flex: 1,
+    backgroundColor: colors.background
   },
-  toggleLabel: {
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.medium,
+    paddingVertical: spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder
+  },
+  assetName: {
     color: colors.text,
-    fontSize: fontSizes.medium,
+    fontSize: fontSizes.large,
     fontWeight: 'bold',
-    marginBottom: spacing.small
+    flex: 1,
+    marginRight: spacing.medium
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.medium
+    gap: spacing.small
   },
   toggleText: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
+    fontSize: fontSizes.medium
   },
   inactiveToggleText: {
-    opacity: 0.5
+    opacity: 0.3
   },
-  header: {
-    padding: spacing.medium,
-    alignItems: 'center'
+  switch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
   },
-  sourceTag: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary,
-    marginBottom: spacing.small
+  assetViewer: {
+    backgroundColor: colors.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder
   },
-  assetName: {
-    color: colors.text,
-    fontSize: fontSizes.xlarge,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: spacing.small
+  contentScrollView: {
+    flex: 1
   },
-  assetInfo: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small,
-    marginBottom: spacing.xsmall
-  },
-  section: {
-    padding: spacing.medium,
-    marginBottom: spacing.medium
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    marginBottom: spacing.medium
+  contentScrollViewContent: {
+    padding: spacing.medium
   },
   contentItem: {
-    backgroundColor: colors.inputBackground,
+    backgroundColor: colors.background,
     borderRadius: 8,
     padding: spacing.medium,
     marginBottom: spacing.small
@@ -371,39 +406,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.medium,
     textAlign: 'center',
-    fontStyle: 'italic'
+    fontStyle: 'italic',
+    padding: spacing.large
   },
-  imageCount: {
-    color: colors.textSecondary,
+  imageInfo: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    padding: spacing.medium,
+    marginTop: spacing.small
+  },
+  imageInfoText: {
+    color: colors.text,
     fontSize: fontSizes.medium
   },
-  debugSection: {
-    padding: spacing.medium,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 8,
-    margin: spacing.medium
+  assetInfo: {
+    marginTop: spacing.medium,
+    gap: spacing.xsmall
   },
-  debugTitle: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
-  },
-  debugText: {
+  assetInfoText: {
     color: colors.textSecondary,
-    fontSize: fontSizes.small,
-    marginBottom: spacing.xsmall
-  },
-  debugError: {
-    color: colors.error,
-    fontSize: fontSizes.small,
-    marginBottom: spacing.xsmall
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    marginTop: spacing.medium
+    fontSize: fontSizes.small
   },
   errorContainer: {
     padding: spacing.medium,
@@ -411,11 +433,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.large
   },
+  errorText: {
+    color: colors.error,
+    fontSize: fontSizes.medium,
+    textAlign: 'center'
+  },
   errorHint: {
     color: colors.textSecondary,
     fontSize: fontSizes.small,
     textAlign: 'center',
     marginTop: spacing.small,
     fontStyle: 'italic'
+  },
+  newTranslationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.medium,
+    paddingHorizontal: spacing.large,
+    gap: spacing.small
+  },
+  newTranslationButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
   }
 });
