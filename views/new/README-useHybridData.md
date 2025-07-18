@@ -1,0 +1,221 @@
+# useHybridData Hook
+
+A single layer of abstraction for the hybrid data fetching pattern used across all next-gen views in LangQuest.
+
+## Overview
+
+The `useHybridData` hook abstracts the common pattern of:
+1. **Querying offline data** from the local SQLite database
+2. **Querying cloud data** from Supabase when online
+3. **Merging both datasets** with offline taking precedence for duplicates
+4. **Adding source tracking** to each item
+
+## Features
+
+- **Automatic network detection** - Only queries cloud data when online
+- **Source tracking** - Each item includes a `source` field (`'localSqlite'` or `'cloudSupabase'`)
+- **Deduplication** - Offline data takes precedence for items with the same ID
+- **Loading state management** - Separate and combined loading states
+- **Error handling** - Separate error states for offline and cloud queries
+- **TypeScript support** - Full type safety with generics
+- **Query options** - Pass through React Query options for both queries
+
+## Basic Usage
+
+### Using useSimpleHybridData
+
+For simple cases where offline and cloud data have the same shape:
+
+```typescript
+const {
+  data: quests,        // Combined data with source tracking
+  isLoading,           // Combined loading state
+  isOnline,            // Network status
+  offlineData,         // Raw offline data
+  cloudData           // Raw cloud data
+} = useSimpleHybridData<Quest>(
+  'quests',                    // Data type (for query key)
+  [projectId],                 // Query key params
+  async () => {                // Offline query function
+    return await system.db.query.quest.findMany({
+      where: (fields, { eq }) => eq(fields.project_id, projectId)
+    });
+  },
+  async () => {                // Cloud query function
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('*')
+      .eq('project_id', projectId);
+    if (error) throw error;
+    return data;
+  }
+);
+```
+
+### Using useHybridData (Advanced)
+
+For more complex cases with different data shapes or custom requirements:
+
+```typescript
+const result = useHybridData({
+  dataType: 'assets',
+  queryKeyParams: [questId],
+  
+  // Custom offline query
+  offlineQueryFn: async () => {
+    return await system.db
+      .select()
+      .from(asset)
+      .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+      .where(eq(quest_asset_link.quest_id, questId));
+  },
+  
+  // Custom cloud query
+  cloudQueryFn: async () => {
+    const { data } = await system.supabaseConnector.client
+      .from('quest_asset_link')
+      .select('asset:asset_id (*)')
+      .eq('quest_id', questId);
+    return data.map(item => item.asset);
+  },
+  
+  // Custom ID getter (defaults to item.id)
+  getItemId: (item) => item.assetId,
+  
+  // Transform cloud data to match offline format
+  transformCloudData: (cloudItem) => ({
+    ...cloudItem,
+    // Add any transformations needed
+  }),
+  
+  // React Query options
+  offlineQueryOptions: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  },
+  cloudQueryOptions: {
+    retry: 2,
+  },
+  
+  // Override network check
+  enableCloudQuery: isOnline && hasPermission
+});
+```
+
+## API Reference
+
+### useHybridData Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `dataType` | `string` | Yes | Unique key for this data type (e.g., 'assets', 'quests') |
+| `queryKeyParams` | `QueryKeyParam[]` | Yes | Additional query key elements |
+| `offlineQueryFn` | `() => Promise<T[]>` | Yes | Function to fetch offline data |
+| `cloudQueryFn` | `() => Promise<T[]>` | Yes | Function to fetch cloud data |
+| `getItemId` | `(item) => string` | No | Function to get unique ID (defaults to `item.id`) |
+| `transformCloudData` | `(cloud) => offline` | No | Transform cloud data to offline format |
+| `offlineQueryOptions` | `UseQueryOptions` | No | React Query options for offline query |
+| `cloudQueryOptions` | `UseQueryOptions` | No | React Query options for cloud query |
+| `enableCloudQuery` | `boolean` | No | Override network check (defaults to `isOnline`) |
+
+### Return Value
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `data` | `T[]` | Combined data with source tracking |
+| `isOfflineLoading` | `boolean` | Offline query loading state |
+| `isCloudLoading` | `boolean` | Cloud query loading state |
+| `isLoading` | `boolean` | Combined loading state |
+| `offlineError` | `Error \| null` | Offline query error |
+| `cloudError` | `Error \| null` | Cloud query error |
+| `offlineData` | `T[] \| undefined` | Raw offline data with source |
+| `cloudData` | `T[] \| undefined` | Raw cloud data with source |
+| `isOnline` | `boolean` | Current network status |
+
+## Migration Guide
+
+### Before (Original Pattern)
+
+```typescript
+function useNextGenOfflineQuests(projectId: string) {
+  return useQuery({
+    queryKey: ['quests', 'offline', projectId],
+    queryFn: async () => {
+      const quests = await system.db.query.quest.findMany({
+        where: (fields, { eq }) => eq(fields.project_id, projectId)
+      });
+      return quests.map((quest) => ({
+        ...quest,
+        source: 'localSqlite'
+      }));
+    },
+    enabled: !!projectId
+  });
+}
+
+function useNextGenCloudQuests(projectId: string, isOnline: boolean) {
+  return useQuery({
+    queryKey: ['quests', 'cloud', projectId],
+    queryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data.map((quest) => ({
+        ...quest,
+        source: 'cloudSupabase'
+      }));
+    },
+    enabled: !!projectId && isOnline
+  });
+}
+
+// In component
+const isOnline = useNetworkStatus();
+const { data: offlineQuests, isLoading: isOfflineLoading } = 
+  useNextGenOfflineQuests(projectId || '');
+const { data: cloudQuests, isLoading: isCloudLoading } = 
+  useNextGenCloudQuests(projectId || '', isOnline);
+
+const quests = React.useMemo(() => {
+  const offlineQuestsArray = offlineQuests || [];
+  const cloudQuestsArray = cloudQuests || [];
+  const offlineQuestMap = new Map(
+    offlineQuestsArray.map((quest) => [quest.id, quest])
+  );
+  const uniqueCloudQuests = cloudQuestsArray.filter(
+    (quest) => !offlineQuestMap.has(quest.id)
+  );
+  return [...offlineQuestsArray, ...uniqueCloudQuests];
+}, [offlineQuests, cloudQuests]);
+```
+
+### After (Using useHybridData)
+
+```typescript
+// In component - much simpler!
+const { data: quests, isLoading } = useSimpleHybridData<Quest>(
+  'quests',
+  [projectId || ''],
+  async () => system.db.query.quest.findMany({
+    where: (fields, { eq }) => eq(fields.project_id, projectId!)
+  }),
+  async () => {
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('*')
+      .eq('project_id', projectId!);
+    if (error) throw error;
+    return data;
+  }
+);
+```
+
+## Benefits
+
+1. **Reduced boilerplate** - No need to manually manage two queries, combine data, or add source tracking
+2. **Consistent behavior** - All views follow the same data fetching pattern
+3. **Type safety** - Full TypeScript support with generics
+4. **Flexible** - Can handle simple cases with `useSimpleHybridData` or complex cases with full options
+5. **Performance** - Built on React Query with all its caching and optimization benefits
+6. **Maintainability** - Changes to the hybrid pattern only need to be made in one place 

@@ -258,40 +258,41 @@ export default function NextGenTranslationsList({
               🌐
             </Text>
           </View>
-        </View>
-
-        {/* Sort options */}
-        <View style={styles.sortContainer}>
-          <TouchableOpacity
-            style={[
-              styles.sortButton,
-              sortOption === 'voteCount' && styles.sortButtonSelected
-            ]}
-            onPress={() => setSortOption('voteCount')}
-          >
-            <Ionicons
-              name="thumbs-up"
-              size={16}
-              color={
-                sortOption === 'voteCount' ? colors.background : colors.text
-              }
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sortButton,
-              sortOption === 'dateSubmitted' && styles.sortButtonSelected
-            ]}
-            onPress={() => setSortOption('dateSubmitted')}
-          >
-            <Ionicons
-              name="calendar"
-              size={16}
-              color={
-                sortOption === 'dateSubmitted' ? colors.background : colors.text
-              }
-            />
-          </TouchableOpacity>
+          {/* Sort options */}
+          <View style={styles.sortContainer}>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                sortOption === 'voteCount' && styles.sortButtonSelected
+              ]}
+              onPress={() => setSortOption('voteCount')}
+            >
+              <Ionicons
+                name="thumbs-up"
+                size={16}
+                color={
+                  sortOption === 'voteCount' ? colors.background : colors.text
+                }
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                sortOption === 'dateSubmitted' && styles.sortButtonSelected
+              ]}
+              onPress={() => setSortOption('dateSubmitted')}
+            >
+              <Ionicons
+                name="calendar"
+                size={16}
+                color={
+                  sortOption === 'dateSubmitted'
+                    ? colors.background
+                    : colors.text
+                }
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
