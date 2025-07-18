@@ -19,6 +19,7 @@ The `useHybridData` hook abstracts the common pattern of:
 - **Error handling** - Separate error states for offline and cloud queries
 - **TypeScript support** - Full type safety with generics
 - **Query options** - Pass through React Query options for both queries
+- **Infinite pagination support** - Built-in support for infinite scrolling
 
 ## Basic Usage
 
@@ -101,6 +102,78 @@ const result = useHybridData({
 });
 ```
 
+## Infinite Pagination
+
+### Using useSimpleHybridInfiniteData
+
+For implementing infinite scrolling with automatic pagination:
+
+```typescript
+const {
+  data,                // { pages: HybridPageData[], pageParams: number[] }
+  fetchNextPage,       // Function to load more data
+  hasNextPage,         // Whether more data is available
+  isFetchingNextPage,  // Loading state for next page
+  isLoading,           // Initial loading state
+  isOnline            // Network status
+} = useSimpleHybridInfiniteData<Quest>(
+  'quests',
+  [projectId],
+  // Offline query with pagination
+  async ({ pageParam, pageSize }) => {
+    const offset = pageParam * pageSize;
+    return await system.db.query.quest.findMany({
+      where: (fields, { eq }) => eq(fields.project_id, projectId),
+      limit: pageSize,
+      offset
+    });
+  },
+  // Cloud query with pagination
+  async ({ pageParam, pageSize }) => {
+    const from = pageParam * pageSize;
+    const to = from + pageSize - 1;
+    
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('*')
+      .eq('project_id', projectId)
+      .range(from, to);
+      
+    if (error) throw error;
+    return data;
+  },
+  20 // pageSize (optional, defaults to 10)
+);
+
+// Flatten pages for rendering
+const items = React.useMemo(() => {
+  return data.pages.flatMap(page => page.data);
+}, [data.pages]);
+```
+
+### Using with FlashList
+
+Example implementation with FlashList for optimal performance:
+
+```typescript
+<FlashList
+  data={items}
+  renderItem={renderItem}
+  keyExtractor={keyExtractor}
+  estimatedItemSize={80}
+  onEndReached={() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }}
+  onEndReachedThreshold={0.5}
+  ListFooterComponent={() => {
+    if (!isFetchingNextPage) return null;
+    return <ActivityIndicator />;
+  }}
+/>
+```
+
 ## API Reference
 
 ### useHybridData Options
@@ -117,6 +190,23 @@ const result = useHybridData({
 | `cloudQueryOptions` | `UseQueryOptions` | No | React Query options for cloud query |
 | `enableCloudQuery` | `boolean` | No | Override network check (defaults to `isOnline`) |
 
+### useHybridInfiniteData Options
+
+All options from `useHybridData` plus:
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `offlineQueryFn` | `(context) => Promise<T[]>` | Yes | Offline query with pagination context |
+| `cloudQueryFn` | `(context) => Promise<T[]>` | Yes | Cloud query with pagination context |
+| `pageSize` | `number` | No | Items per page (defaults to 10) |
+
+### InfiniteQueryContext
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pageParam` | `number` | Current page number (0-based) |
+| `pageSize` | `number` | Number of items per page |
+
 ### Return Value
 
 | Property | Type | Description |
@@ -130,6 +220,22 @@ const result = useHybridData({
 | `offlineData` | `T[] \| undefined` | Raw offline data with source |
 | `cloudData` | `T[] \| undefined` | Raw cloud data with source |
 | `isOnline` | `boolean` | Current network status |
+
+### HybridInfiniteDataResult
+
+All properties from `HybridDataResult` plus:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `data` | `{ pages, pageParams }` | Paginated data structure |
+| `fetchNextPage` | `() => void` | Load next page |
+| `fetchPreviousPage` | `() => void` | Load previous page |
+| `hasNextPage` | `boolean` | More pages available |
+| `hasPreviousPage` | `boolean` | Previous pages available |
+| `isFetchingNextPage` | `boolean` | Loading next page |
+| `isFetchingPreviousPage` | `boolean` | Loading previous page |
+| `refetch` | `() => void` | Refetch all pages |
+| `status` | `'error' \| 'pending' \| 'success'` | Query status |
 
 ## Migration Guide
 
@@ -211,6 +317,47 @@ const { data: quests, isLoading } = useSimpleHybridData<Quest>(
 );
 ```
 
+### After (With Infinite Pagination)
+
+```typescript
+// With infinite scrolling support
+const {
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+  isLoading
+} = useSimpleHybridInfiniteData<Quest>(
+  'quests',
+  [projectId || ''],
+  async ({ pageParam, pageSize }) => {
+    const offset = pageParam * pageSize;
+    return system.db.query.quest.findMany({
+      where: (fields, { eq }) => eq(fields.project_id, projectId!),
+      limit: pageSize,
+      offset
+    });
+  },
+  async ({ pageParam, pageSize }) => {
+    const from = pageParam * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('*')
+      .eq('project_id', projectId!)
+      .range(from, to);
+    if (error) throw error;
+    return data;
+  },
+  20 // pageSize
+);
+
+// Flatten pages for rendering
+const quests = React.useMemo(() => {
+  return data.pages.flatMap(page => page.data);
+}, [data.pages]);
+```
+
 ## Benefits
 
 1. **Reduced boilerplate** - No need to manually manage two queries, combine data, or add source tracking
@@ -218,4 +365,5 @@ const { data: quests, isLoading } = useSimpleHybridData<Quest>(
 3. **Type safety** - Full TypeScript support with generics
 4. **Flexible** - Can handle simple cases with `useSimpleHybridData` or complex cases with full options
 5. **Performance** - Built on React Query with all its caching and optimization benefits
-6. **Maintainability** - Changes to the hybrid pattern only need to be made in one place 
+6. **Maintainability** - Changes to the hybrid pattern only need to be made in one place
+7. **Infinite scrolling** - Built-in support for pagination with minimal setup 
