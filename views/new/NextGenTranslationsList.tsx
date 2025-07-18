@@ -128,7 +128,7 @@ export default function NextGenTranslationsList({
   refreshKey
 }: NextGenTranslationsListProps) {
   const isOnline = useNetworkStatus();
-  const [useOfflineData, setUseOfflineData] = useState(true);
+  const [useOfflineData, setUseOfflineData] = useState(false);
   const [cloudTranslations, setCloudTranslations] = useState<
     TranslationWithVotes[]
   >([]);

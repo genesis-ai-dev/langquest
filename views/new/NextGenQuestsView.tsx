@@ -2,79 +2,62 @@ import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { system } from '@/db/powersync/system';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
-import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { QuestListItem } from './QuestListItem';
-
-function useNextGenOfflineQuests(projectId: string) {
-  return useQuery({
-    queryKey: ['quests', 'offline', projectId],
-    queryFn: async () => {
-      const quests = await system.db.query.quest.findMany({
-        where: (fields, { eq }) => eq(fields.project_id, projectId)
-      });
-      return quests.map((quest) => ({
-        ...quest,
-        source: 'localSqlite'
-      }));
-    },
-    enabled: !!projectId
-  });
-}
-
-function useNextGenCloudQuests(projectId: string, isOnline: boolean) {
-  return useQuery({
-    queryKey: ['quests', 'cloud', projectId],
-    queryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('project_id', projectId)
-        .overrideTypes<Quest[]>();
-      if (error) throw error;
-      return data.map((quest) => ({
-        ...quest,
-        source: 'cloudSupabase'
-      }));
-    },
-    enabled: !!projectId && isOnline // Only run when online and have projectId
-  });
-}
+import { useSimpleHybridInfiniteData } from './useHybridData';
 
 export default function NextGenQuestsView() {
   const { currentProjectId } = useCurrentNavigation();
-  const isOnline = useNetworkStatus();
 
-  const { data: offlineQuests, isLoading: isOfflineLoading } =
-    useNextGenOfflineQuests(currentProjectId || '');
   const {
-    data: cloudQuests,
-    isLoading: isCloudLoading,
-    error: cloudError
-  } = useNextGenCloudQuests(currentProjectId || '', isOnline);
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline
+  } = useSimpleHybridInfiniteData<Quest>(
+    'quests',
+    [currentProjectId || ''],
+    // Offline query function
+    async ({ pageParam, pageSize }) => {
+      if (!currentProjectId) return [];
 
-  // Combine quests with offline taking precedence for duplicates
+      const offset = pageParam * pageSize;
+      const quests = await system.db.query.quest.findMany({
+        where: (fields, { eq }) => eq(fields.project_id, currentProjectId),
+        limit: pageSize,
+        offset
+      });
+      return quests;
+    },
+    // Cloud query function
+    async ({ pageParam, pageSize }) => {
+      if (!currentProjectId) return [];
+
+      const from = pageParam * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('project_id', currentProjectId)
+        .range(from, to)
+        .overrideTypes<Quest[]>();
+
+      if (error) throw error;
+      return data;
+    },
+    20 // pageSize
+  );
+
+  // Flatten all pages into a single array
   const quests = React.useMemo(() => {
-    const offlineQuestsArray = offlineQuests || [];
-    const cloudQuestsArray = cloudQuests || [];
-
-    // Create a map of offline quests by ID for quick lookup
-    const offlineQuestMap = new Map(
-      offlineQuestsArray.map((quest) => [quest.id, quest])
-    );
-
-    // Add cloud quests that don't exist in offline
-    const uniqueCloudQuests = cloudQuestsArray.filter(
-      (quest) => !offlineQuestMap.has(quest.id)
-    );
-
-    // Return offline quests first, then unique cloud quests
-    return [...offlineQuestsArray, ...uniqueCloudQuests];
-  }, [offlineQuests, cloudQuests]);
+    return data.pages.flatMap((page) => page.data);
+  }, [data.pages]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: Quest & { source?: string } }) => (
@@ -88,13 +71,33 @@ export default function NextGenQuestsView() {
     []
   );
 
-  const statusText = React.useMemo(
-    () =>
-      `${isOnline ? '🟢' : '🔴'} Offline: ${offlineQuests?.length ?? 0} | Cloud: ${isOnline ? (cloudQuests?.length ?? 0) : 'N/A'} | Total: ${quests.length}`,
-    [isOnline, offlineQuests?.length, cloudQuests?.length, quests.length]
-  );
+  const onEndReached = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (isOfflineLoading || isCloudLoading) {
+  const renderFooter = React.useCallback(() => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [isFetchingNextPage]);
+
+  const statusText = React.useMemo(() => {
+    const offlineCount = quests.filter(
+      (q) => q.source === 'localSqlite'
+    ).length;
+    const cloudCount = quests.filter(
+      (q) => q.source === 'cloudSupabase'
+    ).length;
+    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${quests.length}`;
+  }, [isOnline, quests]);
+
+  if (isLoading) {
     return <ProjectListSkeleton />;
   }
 
@@ -117,12 +120,6 @@ export default function NextGenQuestsView() {
         }}
       >
         {statusText}
-        {cloudError && (
-          <Text style={{ color: colors.error }}>
-            {' '}
-            | Cloud Error: {cloudError.message}
-          </Text>
-        )}
       </Text>
       <FlashList
         data={quests}
@@ -131,6 +128,9 @@ export default function NextGenQuestsView() {
         estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -156,5 +156,9 @@ export const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
     opacity: 0.8
+  },
+  loadingFooter: {
+    paddingVertical: spacing.medium,
+    alignItems: 'center'
   }
 });

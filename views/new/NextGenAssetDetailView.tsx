@@ -96,7 +96,7 @@ export default function NextGenAssetDetailView() {
   const { currentAssetId, currentProjectId } = useCurrentNavigation();
   const isOnline = useNetworkStatus();
 
-  const [useOfflineData, setUseOfflineData] = useState(true);
+  const [useOfflineData, setUseOfflineData] = useState(false);
   const [cloudAsset, setCloudAsset] = useState<AssetWithContent | null>(null);
   const [isCloudLoading, setIsCloudLoading] = useState(true);
   const [cloudError, setCloudError] = useState<Error | null>(null);

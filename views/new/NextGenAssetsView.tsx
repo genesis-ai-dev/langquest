@@ -4,19 +4,35 @@ import { system } from '@/db/powersync/system';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
-import { useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AssetListItem } from './AssetListItem';
+import { useHybridInfiniteData } from './useHybridData';
 
-function useNextGenOfflineAssets(questId: string) {
-  return useQuery({
-    queryKey: ['assets', 'offline', questId],
-    queryFn: async () => {
+export default function NextGenAssetsView() {
+  const { currentQuestId } = useCurrentNavigation();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline
+  } = useHybridInfiniteData<Asset>({
+    dataType: 'assets',
+    queryKeyParams: [currentQuestId || ''],
+    pageSize: 20,
+
+    // Offline query function
+    offlineQueryFn: async ({ pageParam, pageSize }) => {
+      if (!currentQuestId) return [];
+
+      const offset = pageParam * pageSize;
+
       // Get assets through quest_asset_link junction table
       const assets = await system.db
         .select({
@@ -33,21 +49,20 @@ function useNextGenOfflineAssets(questId: string) {
         })
         .from(asset)
         .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-        .where(eq(quest_asset_link.quest_id, questId));
+        .where(eq(quest_asset_link.quest_id, currentQuestId))
+        .limit(pageSize)
+        .offset(offset);
 
-      return assets.map((asset) => ({
-        ...asset,
-        source: 'localSqlite'
-      }));
+      return assets as Asset[];
     },
-    enabled: !!questId
-  });
-}
 
-function useNextGenCloudAssets(questId: string, isOnline: boolean) {
-  return useQuery({
-    queryKey: ['assets', 'cloud', questId],
-    queryFn: async () => {
+    // Cloud query function
+    cloudQueryFn: async ({ pageParam, pageSize }) => {
+      if (!currentQuestId) return [];
+
+      const from = pageParam * pageSize;
+      const to = from + pageSize - 1;
+
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select(
@@ -57,49 +72,19 @@ function useNextGenCloudAssets(questId: string, isOnline: boolean) {
           )
         `
         )
-        .eq('quest_id', questId)
+        .eq('quest_id', currentQuestId)
+        .range(from, to)
         .overrideTypes<{ asset: Asset }[]>();
 
       if (error) throw error;
-      return data.map((item) => ({
-        ...item.asset,
-        source: 'cloudSupabase'
-      }));
-    },
-    enabled: !!questId && isOnline // Only run when online and have questId
+      return data.map((item) => item.asset);
+    }
   });
-}
 
-export default function NextGenAssetsView() {
-  const { currentQuestId } = useCurrentNavigation();
-  const isOnline = useNetworkStatus();
-
-  const { data: offlineAssets, isLoading: isOfflineLoading } =
-    useNextGenOfflineAssets(currentQuestId || '');
-  const {
-    data: cloudAssets,
-    isLoading: isCloudLoading,
-    error: cloudError
-  } = useNextGenCloudAssets(currentQuestId || '', isOnline);
-
-  // Combine assets with offline taking precedence for duplicates
+  // Flatten all pages into a single array
   const assets = React.useMemo(() => {
-    const offlineAssetsArray = offlineAssets || [];
-    const cloudAssetsArray = cloudAssets || [];
-
-    // Create a map of offline assets by ID for quick lookup
-    const offlineAssetMap = new Map(
-      offlineAssetsArray.map((asset) => [asset.id, asset])
-    );
-
-    // Add cloud assets that don't exist in offline
-    const uniqueCloudAssets = cloudAssetsArray.filter(
-      (asset) => !offlineAssetMap.has(asset.id)
-    );
-
-    // Return offline assets first, then unique cloud assets
-    return [...offlineAssetsArray, ...uniqueCloudAssets];
-  }, [offlineAssets, cloudAssets]);
+    return data.pages.flatMap((page) => page.data);
+  }, [data.pages]);
 
   // Watch attachment states for all assets
   const assetIds = React.useMemo(() => {
@@ -141,39 +126,31 @@ export default function NextGenAssetsView() {
     []
   );
 
-  // Debug logging
-  const logData = React.useMemo(
-    () => ({
-      questId: currentQuestId,
-      isOnline,
-      offlineAssetsCount: offlineAssets?.length ?? 0,
-      cloudAssetsCount: cloudAssets?.length ?? 0,
-      totalAssetsCount: assets.length,
-      attachmentStatesCount: attachmentStates.size,
-      sampleOfflineAsset: offlineAssets?.[0] ?? null,
-      sampleCloudAsset: cloudAssets?.[0] ?? null,
-      cloudError: cloudError?.message ?? null
-    }),
-    [
-      currentQuestId,
-      isOnline,
-      offlineAssets?.length,
-      cloudAssets?.length,
-      assets.length,
-      attachmentStates.size,
-      cloudError?.message
-    ]
-  );
+  const onEndReached = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  React.useEffect(() => {
-    console.log('[ASSETS VIEW]', logData);
-  }, [logData]);
+  const renderFooter = React.useCallback(() => {
+    if (!isFetchingNextPage) return null;
 
-  const statusText = React.useMemo(
-    () =>
-      `${isOnline ? '🟢' : '🔴'} Offline: ${offlineAssets?.length ?? 0} | Cloud: ${isOnline ? (cloudAssets?.length ?? 0) : 'N/A'} | Total: ${assets.length}`,
-    [isOnline, offlineAssets?.length, cloudAssets?.length, assets.length]
-  );
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [isFetchingNextPage]);
+
+  const statusText = React.useMemo(() => {
+    const offlineCount = assets.filter(
+      (a) => a.source === 'localSqlite'
+    ).length;
+    const cloudCount = assets.filter(
+      (a) => a.source === 'cloudSupabase'
+    ).length;
+    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
+  }, [isOnline, assets]);
 
   const attachmentSummaryText = React.useMemo(() => {
     return Object.entries(attachmentStateSummary)
@@ -190,7 +167,31 @@ export default function NextGenAssetsView() {
       .join(' | ');
   }, [attachmentStateSummary]);
 
-  if (isOfflineLoading || isCloudLoading) {
+  // Debug logging
+  const logData = React.useMemo(
+    () => ({
+      questId: currentQuestId,
+      isOnline,
+      totalAssetsCount: assets.length,
+      attachmentStatesCount: attachmentStates.size,
+      pagesLoaded: data.pages.length,
+      hasMorePages: hasNextPage
+    }),
+    [
+      currentQuestId,
+      isOnline,
+      assets.length,
+      attachmentStates.size,
+      data.pages.length,
+      hasNextPage
+    ]
+  );
+
+  React.useEffect(() => {
+    console.log('[ASSETS VIEW]', logData);
+  }, [logData]);
+
+  if (isLoading) {
     return <ProjectListSkeleton />;
   }
 
@@ -213,12 +214,6 @@ export default function NextGenAssetsView() {
         }}
       >
         {statusText}
-        {cloudError && (
-          <Text style={{ color: colors.error }}>
-            {' '}
-            | Cloud Error: {cloudError.message}
-          </Text>
-        )}
       </Text>
 
       {!isAttachmentStatesLoading && attachmentStates.size > 0 && (
@@ -239,6 +234,9 @@ export default function NextGenAssetsView() {
         estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -279,5 +277,9 @@ export const styles = StyleSheet.create({
   attachmentSummaryText: {
     fontSize: fontSizes.small,
     color: colors.textSecondary
+  },
+  loadingFooter: {
+    paddingVertical: spacing.medium,
+    alignItems: 'center'
   }
 });

@@ -1,76 +1,56 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
-import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
+import { useSimpleHybridInfiniteData } from './useHybridData';
 
-function useNextGenLocalProjects() {
-  return useQuery({
-    queryKey: ['projects', 'offline'],
-    queryFn: async () => {
+export default function NextGenProjectsView() {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline
+  } = useSimpleHybridInfiniteData<Project>(
+    'projects',
+    [], // No additional query params needed for projects
+    // Offline query function
+    async ({ pageParam, pageSize }) => {
+      const offset = pageParam * pageSize;
       const projects = await system.db.query.project.findMany({
-        where: (fields, { eq, and }) => and(eq(fields.active, true))
+        where: (fields, { eq, and }) => and(eq(fields.active, true)),
+        limit: pageSize,
+        offset
       });
-      return projects.map((project) => ({
-        ...project,
-        source: 'localSqlite'
-      }));
-    }
-  });
-}
+      return projects;
+    },
+    // Cloud query function
+    async ({ pageParam, pageSize }) => {
+      const from = pageParam * pageSize;
+      const to = from + pageSize - 1;
 
-function useNextGenCloudProjects(isOnline: boolean) {
-  return useQuery({
-    queryKey: ['projects', 'cloud'],
-    queryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('project')
         .select('*')
         .eq('active', true)
+        .range(from, to)
         .overrideTypes<Project[]>();
+
       if (error) throw error;
-      return data.map((project) => ({
-        ...project,
-        source: 'cloudSupabase'
-      }));
+      return data;
     },
-    enabled: isOnline // Only run when online
-  });
-}
+    20 // pageSize
+  );
 
-export default function NextGenProjectsView() {
-  const isOnline = useNetworkStatus();
-  const { data: offlineProjects, isLoading: isOfflineLoading } =
-    useNextGenLocalProjects();
-  const {
-    data: cloudProjects,
-    isLoading: isCloudLoading,
-    error: cloudError
-  } = useNextGenCloudProjects(isOnline);
-
-  // Combine projects with cloud taking precedence for duplicates
+  // Flatten all pages into a single array
   const projects = React.useMemo(() => {
-    const offlineProjectsArray = offlineProjects || [];
-    const cloudProjectsArray = cloudProjects || [];
-
-    // Create a map of offline projects by ID for quick lookup
-    const offlineProjectMap = new Map(
-      offlineProjectsArray.map((project) => [project.id, project])
-    );
-
-    // Add cloud projects that don't exist in offline
-    const uniqueCloudProjects = cloudProjectsArray.filter(
-      (project) => !offlineProjectMap.has(project.id)
-    );
-
-    // Return cloud projects first, then unique offline projects
-    return [...offlineProjectsArray, ...uniqueCloudProjects];
-  }, [offlineProjects, cloudProjects]);
+    return data.pages.flatMap((page) => page.data);
+  }, [data.pages]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: Project & { source?: string } }) => (
@@ -84,7 +64,33 @@ export default function NextGenProjectsView() {
     []
   );
 
-  if (isOfflineLoading || isCloudLoading) {
+  const onEndReached = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const renderFooter = React.useCallback(() => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [isFetchingNextPage]);
+
+  const statusText = React.useMemo(() => {
+    const offlineCount = projects.filter(
+      (p) => p.source === 'localSqlite'
+    ).length;
+    const cloudCount = projects.filter(
+      (p) => p.source === 'cloudSupabase'
+    ).length;
+    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${projects.length}`;
+  }, [isOnline, projects]);
+
+  if (isLoading) {
     return <ProjectListSkeleton />;
   }
 
@@ -98,11 +104,7 @@ export default function NextGenProjectsView() {
           marginBottom: spacing.small
         }}
       >
-        {cloudError && (
-          <Text style={{ color: colors.error }}>
-            Cloud Error: {cloudError.message}
-          </Text>
-        )}
+        {statusText}
       </Text>
       <FlashList
         data={projects}
@@ -111,6 +113,9 @@ export default function NextGenProjectsView() {
         estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -140,5 +145,9 @@ export const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
     opacity: 0.8
+  },
+  loadingFooter: {
+    paddingVertical: spacing.medium,
+    alignItems: 'center'
   }
 });
