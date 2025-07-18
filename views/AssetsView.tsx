@@ -8,10 +8,10 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import { useSessionProjects } from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
+import { useUserProjects } from '@/hooks/db/useProfiles';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import {
@@ -58,9 +58,9 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   // Use current navigation to get project
   const { currentProjectId } = useCurrentNavigation();
 
-  // Use session cache for project data instead of fresh query
-  const { getCachedProject } = useSessionProjects();
-  const cachedProject = getCachedProject(currentProjectId || '');
+  // Use user projects from local DB instead of session cache
+  const { userProjects } = useUserProjects();
+  const cachedProject = userProjects.find((p) => p.id === currentProjectId);
 
   // Fallback to fresh query only if not in cache
   const { project: freshProject } = useProjectById(currentProjectId || '');

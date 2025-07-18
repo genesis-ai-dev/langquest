@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -71,16 +71,16 @@ export async function getDownloadStatus(
   const data = await hybridFetch(
     convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
   );
-  return !!data?.[0]?.id;
+  return !!data[0]?.id;
 }
 
 function getDownloadStatusConfig(
   recordTable: keyof typeof system.db.query,
-  recordId: string
+  recordId: string,
+  currentUserId?: string
 ) {
-  const currentUser = getCurrentUser();
   return createHybridQueryConfig({
-    queryKey: ['download-status', recordTable, recordId],
+    queryKey: ['download-status', recordTable, recordId, currentUserId],
     onlineFn: async () => {
       console.log('recordId', recordId);
       console.log('recordTable', recordTable);
@@ -88,14 +88,14 @@ function getDownloadStatusConfig(
         .from(recordTable)
         .select('id')
         .eq('id', recordId)
-        .contains('download_profiles', [currentUser!.id])
+        .contains('download_profiles', [currentUserId!])
         .limit(1)
         .overrideTypes<{ id: string }[]>();
       if (error) throw error;
       return data;
     },
     offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1`,
-    enabled: !!recordId && !!currentUser?.id
+    enabled: !!recordId && !!currentUserId
   });
 }
 /**
@@ -112,11 +112,11 @@ export function useDownloadStatus(
     getDownloadStatusConfig(recordTable, recordId)
   );
 
-  return { isFlaggedForDownload: !!data?.[0]?.id, isLoading, ...rest };
+  return { isFlaggedForDownload: !!data[0]?.id, isLoading, ...rest };
 }
 
 /**
- * Downloads a record and all its related data
+ * Downloads a record and its related data.
  * - For quests: uses the efficient quest_closure system that marks all related records in one operation
  * - For other records: uses the legacy tree-based download system
  */
@@ -124,14 +124,14 @@ export async function downloadRecord(
   recordTable: keyof typeof system.db.query,
   recordId: string,
   downloaded?: boolean,
-  downloadTreeStructure?: TreeNode | null
+  downloadTreeStructure?: TreeNode | null,
+  currentUser?: { id: string } | null
 ) {
   console.log(
     `📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`
   );
 
   try {
-    const currentUser = getCurrentUser();
     if (!currentUser?.id) {
       throw new Error('User not authenticated');
     }
@@ -242,6 +242,7 @@ export function useDownload(
   toggleDownload: () => Promise<void>;
   mutation: UseMutationResult<void, Error, boolean | undefined>;
 } {
+  const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { isFlaggedForDownload, isLoading } = useDownloadStatus(
     recordTable,
@@ -250,7 +251,7 @@ export function useDownload(
 
   const mutation = useMutation({
     mutationFn: async (downloaded?: boolean) =>
-      await downloadRecord(recordTable, recordId, downloaded),
+      await downloadRecord(recordTable, recordId, downloaded, null, currentUser),
     onSuccess: async () => {
       // Invalidate related queries
       await queryClient.invalidateQueries({
@@ -305,7 +306,7 @@ export function useDownload(
  * Provides progress information and efficient status checking
  */
 export function useQuestDownloadStatus(questId: string) {
-  const currentUser = getCurrentUser();
+  const { currentUser } = useAuth();
 
   const { data: questClosure, isLoading } = useHybridQuery({
     queryKey: ['quest-closure', questId],
@@ -355,16 +356,16 @@ export function useQuestDownloadStatus(questId: string) {
     offlineQuery: `SELECT id, download_profiles FROM quest WHERE id = '${questId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
   });
 
-  const closureData = questClosure?.[0];
-  const isDownloaded = !!questDownloadStatus?.[0]?.id;
+  const closureData = questClosure[0];
+  const isDownloaded = !!questDownloadStatus[0]?.id;
 
   // Calculate progress percentage
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {
@@ -383,7 +384,7 @@ export function useQuestDownloadStatus(questId: string) {
  * Provides progress information and efficient status checking for entire projects
  */
 export function useProjectDownloadStatus(projectId: string) {
-  const currentUser = getCurrentUser();
+  const { currentUser } = useAuth();
 
   const { data: projectClosure, isLoading } = useHybridQuery({
     queryKey: ['project-closure', projectId],
@@ -428,25 +429,25 @@ export function useProjectDownloadStatus(projectId: string) {
     offlineQuery: `SELECT id, download_profiles FROM project WHERE id = '${projectId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
   });
 
-  const closureData = projectClosure?.[0] as
+  const closureData = projectClosure[0] as
     | {
-        project_id: string;
-        total_quests: number;
-        total_assets: number;
-        total_translations: number;
-        approved_translations: number;
-        last_updated: string;
-      }
+      project_id: string;
+      total_quests: number;
+      total_assets: number;
+      total_translations: number;
+      approved_translations: number;
+      last_updated: string;
+    }
     | undefined;
-  const isDownloaded = !!projectDownloadStatus?.[0]?.id;
+  const isDownloaded = !!projectDownloadStatus[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
     ? Math.round(
-        (closureData.approved_translations /
-          Math.max(closureData.total_assets, 1)) *
-          100
-      )
+      (closureData.approved_translations /
+        Math.max(closureData.total_assets, 1)) *
+      100
+    )
     : 0;
 
   return {

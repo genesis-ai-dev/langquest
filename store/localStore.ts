@@ -1,150 +1,256 @@
 import type { language } from '@/db/drizzleSchema';
+import type { Profile } from '@/hooks/db/useProfiles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
-type Language = typeof language.$inferSelect;
+// Navigation types (forward declaration to avoid circular import)
+export type AppView =
+  | 'projects'
+  | 'quests'
+  | 'assets'
+  | 'asset-detail'
+  | 'profile'
+  | 'notifications'
+  | 'settings';
 
-interface RecentProject {
-  id: string;
-  name: string;
-  lastAccessed: Date;
+export interface NavigationStackItem {
+  view: AppView;
+  projectId?: string;
+  projectName?: string;
+  questId?: string;
+  questName?: string;
+  assetId?: string;
+  assetName?: string;
+  timestamp: number;
 }
 
-interface RecentQuest {
+export type Language = typeof language.$inferSelect;
+
+// Recently visited item types
+export interface RecentProject {
+  id: string;
+  name: string;
+  visitedAt: Date;
+}
+
+export interface RecentQuest {
   id: string;
   name: string;
   projectId: string;
-  lastAccessed: Date;
+  visitedAt: Date;
 }
 
-interface RecentAsset {
+export interface RecentAsset {
   id: string;
   name: string;
+  projectId: string;
   questId: string;
-  projectId: string;
-  lastAccessed: Date;
+  visitedAt: Date;
 }
 
 interface LocalState {
-  // UI Preferences
+  currentUser: Profile | null;
+  setCurrentUser: (user: Profile | null) => void;
   languageId: string | null;
   language: Language | null;
+  isLanguageLoading: boolean;
   dateTermsAccepted: Date | null;
   analyticsOptOut: boolean;
+  projectSourceFilter: string;
+  projectTargetFilter: string;
 
-  // Navigation History
+  // Authentication view state
+  authView:
+  | 'sign-in'
+  | 'register'
+  | 'forgot-password'
+  | 'reset-password'
+  | null;
+  setAuthView: (
+    view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
+  ) => void;
+
+  // Navigation context - just IDs, not full data
+  currentProjectId: string | null;
+  currentQuestId: string | null;
+  currentAssetId: string | null;
+
+  // State-driven navigation stack
+  navigationStack: NavigationStackItem[];
+  setNavigationStack: (stack: NavigationStackItem[]) => void;
+
+  // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
   recentQuests: RecentQuest[];
   recentAssets: RecentAsset[];
 
-  // Filter preferences
-  projectSourceFilter: string;
-  projectTargetFilter: string;
+  // Attachment sync progress
+  attachmentSyncProgress: {
+    downloading: boolean;
+    uploading: boolean;
+    downloadCurrent: number;
+    downloadTotal: number;
+    uploadCurrent: number;
+    uploadTotal: number;
+  };
 
-  // Methods
-  acceptTerms: () => void;
-  setLanguage: (lang: Language | null) => void;
-  setAnalyticsOptOut: (optOut: boolean) => void;
-  addRecentProject: (project: Omit<RecentProject, 'lastAccessed'>) => void;
-  addRecentQuest: (quest: Omit<RecentQuest, 'lastAccessed'>) => void;
-  addRecentAsset: (asset: Omit<RecentAsset, 'lastAccessed'>) => void;
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
-  clearNavigationHistory: () => void;
-}
+  setAnalyticsOptOut: (optOut: boolean) => void;
+  acceptTerms: () => void;
+  setLanguage: (lang: Language) => void;
 
-const MAX_RECENT_ITEMS = 10;
+  // Navigation context setters
+  setCurrentContext: (
+    projectId?: string,
+    questId?: string,
+    assetId?: string
+  ) => void;
+  clearCurrentContext: () => void;
+
+  // Recently visited functions
+  addRecentProject: (project: RecentProject) => void;
+  addRecentQuest: (quest: RecentQuest) => void;
+  addRecentAsset: (asset: RecentAsset) => void;
+
+  // Attachment sync methods
+  setAttachmentSyncProgress: (
+    progress: Partial<LocalState['attachmentSyncProgress']>
+  ) => void;
+  resetAttachmentSyncProgress: () => void;
+
+  initialize: () => Promise<void>;
+}
 
 export const useLocalStore = create<LocalState>()(
   persist(
-    (set) => ({
-      // Initial state
+    (set, _get) => ({
+      currentUser: null,
+      setCurrentUser: (user) => set({ currentUser: user }),
       languageId: null,
       language: null,
+      isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+
+      // Authentication view state
+      authView: null,
+      setAuthView: (view) => set({ authView: view }),
+
+      // Navigation context
+      currentProjectId: null,
+      currentQuestId: null,
+      currentAssetId: null,
+
+      // State-driven navigation stack
+      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
+      setNavigationStack: (stack) => set({ navigationStack: stack }),
+
+      // Recently visited items (max 5 each)
       recentProjects: [],
       recentQuests: [],
       recentAssets: [],
-      projectSourceFilter: '',
-      projectTargetFilter: '',
 
-      // Methods
-      acceptTerms: () => set({ dateTermsAccepted: new Date() }),
-
-      setLanguage: (lang) =>
-        set({
-          language: lang,
-          languageId: lang?.id || null
-        }),
+      // Attachment sync progress
+      attachmentSyncProgress: {
+        downloading: false,
+        uploading: false,
+        downloadCurrent: 0,
+        downloadTotal: 0,
+        uploadCurrent: 0,
+        uploadTotal: 0
+      },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
+      setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
+      acceptTerms: () => set({ dateTermsAccepted: new Date() }),
+      projectSourceFilter: 'All',
+      projectTargetFilter: 'All',
+      setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
+      setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
 
+      // Navigation context setters
+      setCurrentContext: (projectId, questId, assetId) =>
+        set({
+          currentProjectId: projectId || null,
+          currentQuestId: questId || null,
+          currentAssetId: assetId || null
+        }),
+      clearCurrentContext: () =>
+        set({
+          currentProjectId: null,
+          currentQuestId: null,
+          currentAssetId: null
+        }),
+
+      // Recently visited functions
       addRecentProject: (project) =>
         set((state) => {
-          const newProject = { ...project, lastAccessed: new Date() };
           const filtered = state.recentProjects.filter(
             (p) => p.id !== project.id
           );
-          return {
-            recentProjects: [newProject, ...filtered].slice(0, MAX_RECENT_ITEMS)
-          };
+          return { recentProjects: [project, ...filtered].slice(0, 5) };
         }),
-
       addRecentQuest: (quest) =>
         set((state) => {
-          const newQuest = { ...quest, lastAccessed: new Date() };
           const filtered = state.recentQuests.filter((q) => q.id !== quest.id);
-          return {
-            recentQuests: [newQuest, ...filtered].slice(0, MAX_RECENT_ITEMS)
-          };
+          return { recentQuests: [quest, ...filtered].slice(0, 5) };
         }),
-
       addRecentAsset: (asset) =>
         set((state) => {
-          const newAsset = { ...asset, lastAccessed: new Date() };
           const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
-          return {
-            recentAssets: [newAsset, ...filtered].slice(0, MAX_RECENT_ITEMS)
-          };
+          return { recentAssets: [asset, ...filtered].slice(0, 5) };
         }),
 
-      setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
-
-      setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
-
-      clearNavigationHistory: () =>
+      // Attachment sync methods
+      setAttachmentSyncProgress: (progress) =>
+        set((state) => ({
+          attachmentSyncProgress: {
+            ...state.attachmentSyncProgress,
+            ...progress
+          }
+        })),
+      resetAttachmentSyncProgress: () =>
         set({
-          recentProjects: [],
-          recentQuests: [],
-          recentAssets: []
-        })
+          attachmentSyncProgress: {
+            downloading: false,
+            uploading: false,
+            downloadCurrent: 0,
+            downloadTotal: 0,
+            uploadCurrent: 0,
+            uploadTotal: 0
+          }
+        }),
+
+      initialize: () => {
+        console.log('initializing local store');
+        // Language loading moved to app initialization to avoid circular dependency
+        set({ isLanguageLoading: false });
+        return Promise.resolve();
+      }
     }),
     {
-      name: 'langquest-local-storage',
-      storage: {
-        getItem: async (name) => {
-          const value = await AsyncStorage.getItem(name);
-          return value ? JSON.parse(value) : null;
-        },
-        setItem: async (name, value) => {
-          await AsyncStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: async (name) => {
-          await AsyncStorage.removeItem(name);
-        }
-      } as any,
-      partialize: (state) => ({
-        // Only persist these fields
-        languageId: state.languageId,
-        language: state.language,
-        dateTermsAccepted: state.dateTermsAccepted,
-        analyticsOptOut: state.analyticsOptOut,
-        projectSourceFilter: state.projectSourceFilter,
-        projectTargetFilter: state.projectTargetFilter
-        // Don't persist navigation history - it should be fresh each session
-      })
+      name: 'local-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      skipHydration: true,
+      partialize: (state) =>
+        Object.fromEntries(
+          Object.entries(state).filter(
+            ([key]) =>
+              ![
+                'language',
+                'currentUser', // I don't think we're getting this from the local store any more
+                'currentProjectId',
+                'currentQuestId',
+                'currentAssetId',
+                'navigationStack'
+              ].includes(key)
+          )
+        )
     }
   )
 );
+
+// Initialize the language store at app startup
+export const initializeLanguage = useLocalStore.getState().initialize;

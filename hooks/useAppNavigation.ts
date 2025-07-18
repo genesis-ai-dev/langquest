@@ -22,7 +22,6 @@ export function useAppNavigation() {
   const {
     navigationStack,
     setNavigationStack,
-    addRecentProject,
     addRecentQuest,
     addRecentAsset
   } = useLocalStore();
@@ -77,11 +76,11 @@ export function useAppNavigation() {
   const goToProject = useCallback(
     (projectData: { id: string; name?: string }) => {
       // Track recently visited
-      addRecentProject({
-        id: projectData.id,
-        name: projectData.name || 'Project',
-        visitedAt: new Date()
-      });
+      // addRecentProject({
+      //   id: projectData.id,
+      //   name: projectData.name || 'Project',
+      //   visitedAt: new Date()
+      // });
 
       navigate({
         view: 'quests',
@@ -89,7 +88,7 @@ export function useAppNavigation() {
         projectName: projectData.name
       });
     },
-    [navigate, addRecentProject]
+    [navigate]
   );
 
   const goToQuest = useCallback(
@@ -253,30 +252,30 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-          id: currentProjectId,
-          name: currentProjectName || 'Project'
-        }
+        id: currentProjectId,
+        name: currentProjectName || 'Project'
+      }
       : null;
   }, [currentProjectId, currentProjectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-          id: currentQuestId,
-          name: currentQuestName || 'Quest',
-          project_id: currentProjectId || ''
-        }
+        id: currentQuestId,
+        name: currentQuestName || 'Quest',
+        project_id: currentProjectId || ''
+      }
       : null;
   }, [currentQuestId, currentQuestName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-          id: currentAssetId,
-          name: currentAssetName || 'Asset',
-          projectId: currentProjectId,
-          questId: currentQuestId
-        }
+        id: currentAssetId,
+        name: currentAssetName || 'Asset',
+        projectId: currentProjectId,
+        questId: currentQuestId
+      }
       : null;
   }, [currentAssetId, currentAssetName, currentProjectId, currentQuestId]);
 

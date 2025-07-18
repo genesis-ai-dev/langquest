@@ -1,15 +1,14 @@
+import { useAuth } from '@/contexts/AuthContext';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import { isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
-// import { system } from '../powersync/system';
-import { getCurrentUser } from '@/contexts/AuthContext';
-import { isNotNull } from 'drizzle-orm';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -28,6 +27,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   ) {
     super(options);
     // this.db = options.db;
+  }
+
+  getCurrentUserId(): string | null {
+    // Get user from Supabase auth session
+    const { currentUser } = useAuth();
+    return currentUser?.id || null;
   }
 
   getStorageType(): 'permanent' | 'temporary' {
@@ -51,9 +56,10 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
     console.log('onAttachmentIdsChange in PERM ATTACHMENT QUEUE');
 
-    const currentUser = getCurrentUser();
+    // Get current user ID synchronously
+    const currentUserId = this.getCurrentUserId();
 
-    if (!currentUser) {
+    if (!currentUserId) {
       return;
     }
 

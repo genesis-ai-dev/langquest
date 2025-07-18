@@ -1,6 +1,6 @@
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
@@ -125,7 +125,7 @@ export function useUserPermissions(
   };
 } {
   const { getUserMembership, isUserMembershipsLoading } =
-    useSessionMemberships();
+    useUserMemberships();
   const { db } = system;
 
   // Don't run queries if project_id is empty or invalid
@@ -156,12 +156,16 @@ export function useUserPermissions(
   });
 
   // Get membership from session cache (more efficient and consistent)
-  const membershipData = getUserMembership(project_id);
+  const membershipData = getUserMembership(project_id) as {
+    project_id: string;
+    membership: 'owner' | 'member';
+    active: boolean;
+  };
   const isPrivate =
     knownIsPrivate ??
     (projectData[0] as { private: boolean } | undefined)?.private ??
     false;
-  const membership = membershipData?.membership as MembershipRole;
+  const membership = membershipData.membership as MembershipRole;
 
   // If project_id is invalid, return no access
   if (!isValidProjectId) {
@@ -190,7 +194,11 @@ export function useUserPermissions(
       hasAccess: isLockVisible,
       membership,
       isMembershipLoading: isUserMembershipsLoading,
-      membershipData
+      membershipData: membershipData as {
+        project_id: string;
+        membership: 'owner' | 'member';
+        active: boolean;
+      }
     };
   }
 
@@ -222,6 +230,10 @@ export function useUserPermissions(
     hasAccess: hasRolePermission,
     membership,
     isMembershipLoading: isUserMembershipsLoading,
-    membershipData
+    membershipData: membershipData as {
+      project_id: string;
+      membership: 'owner' | 'member';
+      active: boolean;
+    }
   };
 }

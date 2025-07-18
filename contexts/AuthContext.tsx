@@ -1,5 +1,11 @@
 import { system } from '@/db/powersync/system';
-import type { AuthError, AuthResponse, Session } from '@supabase/supabase-js';
+import { useLocalStore } from '@/store/localStore';
+import type {
+  AuthError,
+  AuthResponse,
+  Session,
+  User
+} from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -11,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   sessionType: SessionType;
   session: Session | null;
-
+  currentUser: User | null;
   // System state
   isSystemReady: boolean;
 
@@ -75,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Initializing system...');
       setIsSystemReady(false);
       await system.init();
+      await useLocalStore.persist.rehydrate(); // once system is ready (with auth session), rehydrate local store
       setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {
@@ -249,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!session,
     sessionType,
     session,
+    currentUser: session?.user || null,
     isSystemReady,
     signIn,
     signUp,
