@@ -1,6 +1,7 @@
+import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { UseInfiniteQueryOptions, UseQueryOptions } from '@tanstack/react-query';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
 type QueryKeyParam = string | number | boolean | null | undefined;
@@ -117,6 +118,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     }, [rawCloudData, transformCloudData]);
 
     // Combine data with offline taking precedence
+    // TODO: we should leverage the lastUpdated field to allow fresh cloud data to override offline data
     const combinedData = React.useMemo(() => {
         const offlineArray = offlineData || [];
         const cloudArray = cloudData || [];
@@ -434,5 +436,70 @@ export function useSimpleHybridInfiniteData<T extends { id: string }>(
         offlineQueryFn,
         cloudQueryFn,
         pageSize
+    });
+}
+
+/**
+ * Lightweight hook to check if an item is downloaded for the current user
+ * by checking if user ID is in the download_profiles array
+ */
+export function useItemDownloadStatus(
+    item: { download_profiles?: string[] | null } | undefined,
+    userId: string | undefined
+): boolean {
+    return React.useMemo(() => {
+        if (!item || !userId || !item.download_profiles) return false;
+        return item.download_profiles.includes(userId);
+    }, [item?.download_profiles, userId]);
+}
+
+/**
+ * Hook for downloading items using the appropriate RPC based on type
+ */
+export function useItemDownload(
+    itemType: 'project' | 'quest' | 'asset',
+    itemId: string
+) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ userId, download }: { userId: string; download: boolean }) => {
+            if (itemType === 'quest') {
+                // Use efficient quest_closure system for quests
+                if (download) {
+                    const result = await system.supabaseConnector.client.rpc(
+                        'download_quest_closure',
+                        {
+                            quest_id_param: itemId,
+                            profile_id_param: userId
+                        }
+                    );
+                    if (result.error) throw result.error;
+                    return result.data;
+                } else {
+                    // TODO: Implement undownload when available
+                    console.warn('Undownload not yet implemented for quest_closure');
+                    return null;
+                }
+            } else {
+                // Use legacy download_record RPC for other types
+                const operation = download ? 'add' : 'remove';
+                const { error } = await system.supabaseConnector.client.rpc(
+                    'download_record',
+                    {
+                        p_table_name: itemType,
+                        p_record_id: itemId,
+                        p_operation: operation
+                    }
+                );
+                if (error) throw error;
+                return true;
+            }
+        },
+        onSuccess: () => {
+            // Invalidate relevant queries to refresh download status
+            queryClient.invalidateQueries({ queryKey: [itemType + 's'] });
+            queryClient.invalidateQueries({ queryKey: ['download-status'] });
+        }
     });
 } 

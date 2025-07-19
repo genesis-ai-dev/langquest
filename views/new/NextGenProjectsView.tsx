@@ -132,6 +132,11 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.small,
     gap: spacing.xsmall
   },
+  listItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
   projectName: {
     color: colors.text,
     fontSize: fontSizes.large,

@@ -1,4 +1,5 @@
 import { AssetSkeleton } from '@/components/AssetSkeleton';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { asset, asset_content_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -7,6 +8,7 @@ import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -115,7 +117,7 @@ export default function NextGenAssetDetailView() {
     void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
   }, [currentAssetId]);
 
-  // Get project info for target language
+  // Get project info for target language and privacy
   const { data: projectData } = useQuery({
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
@@ -129,6 +131,14 @@ export default function NextGenAssetDetailView() {
     },
     enabled: !!currentProjectId
   });
+
+  // Check permissions for contributing (translating/voting)
+  const { hasAccess: canTranslate, membership: translateMembership } =
+    useUserPermissions(
+      currentProjectId || '',
+      'translate',
+      projectData?.private
+    );
 
   useEffect(() => {
     if (projectData?.target_language_id) {
@@ -298,35 +308,64 @@ export default function NextGenAssetDetailView() {
     setTranslationsRefreshKey((prev) => prev + 1);
   };
 
+  const handleNewTranslationPress = () => {
+    if (canTranslate) {
+      setShowNewTranslationModal(true);
+    }
+    // If no access, PrivateAccessGate will handle showing the modal
+  };
+
   return (
     <View style={styles.container}>
       {/* Data Source Toggle - Header */}
       <View style={styles.headerBar}>
-        <Text style={styles.assetName}>{activeAsset.name}</Text>
-        <View style={styles.toggleRow}>
-          <Text
-            style={[
-              styles.toggleText,
-              !useOfflineData && styles.inactiveToggleText
-            ]}
-          >
-            💾
-          </Text>
-          <Switch
-            value={!useOfflineData}
-            onValueChange={(value) => setUseOfflineData(!value)}
-            trackColor={{ false: colors.inputBackground, true: colors.primary }}
-            thumbColor={colors.buttonText}
-            style={styles.switch}
-          />
-          <Text
-            style={[
-              styles.toggleText,
-              useOfflineData && styles.inactiveToggleText
-            ]}
-          >
-            🌐
-          </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.assetName}>{activeAsset.name}</Text>
+          {projectData?.private && (
+            <View style={styles.projectIndicators}>
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color={colors.textSecondary}
+              />
+              {translateMembership === 'owner' && (
+                <Ionicons name="ribbon" size={16} color={colors.primary} />
+              )}
+              {translateMembership === 'member' && (
+                <Ionicons name="person" size={16} color={colors.primary} />
+              )}
+            </View>
+          )}
+        </View>
+        <View style={styles.headerRight}>
+          <View style={styles.toggleRow}>
+            <Text
+              style={[
+                styles.toggleText,
+                !useOfflineData && styles.inactiveToggleText
+              ]}
+            >
+              💾
+            </Text>
+            <Switch
+              value={!useOfflineData}
+              onValueChange={(value) => setUseOfflineData(!value)}
+              trackColor={{
+                false: colors.inputBackground,
+                true: colors.primary
+              }}
+              thumbColor={colors.buttonText}
+              style={styles.switch}
+            />
+            <Text
+              style={[
+                styles.toggleText,
+                useOfflineData && styles.inactiveToggleText
+              ]}
+            >
+              🌐
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -429,35 +468,64 @@ export default function NextGenAssetDetailView() {
         </ScrollView>
       </View>
 
-      {/* Translations List */}
+      {/* Translations List - Pass project data to avoid re-querying */}
       <View style={{ flex: 1 }}>
         <NextGenTranslationsList
           assetId={currentAssetId}
           assetName={activeAsset.name}
           refreshKey={translationsRefreshKey}
+          projectData={projectData}
+          canVote={canTranslate}
+          membership={translateMembership}
         />
       </View>
 
-      {/* New Translation Button */}
-      <TouchableOpacity
-        style={styles.newTranslationButton}
-        onPress={() => setShowNewTranslationModal(true)}
-      >
-        <Ionicons name="add" size={24} color={colors.buttonText} />
-        <Text style={styles.newTranslationButtonText}>New Translation</Text>
-      </TouchableOpacity>
+      {/* New Translation Button with PrivateAccessGate */}
+      {projectData?.private && !canTranslate ? (
+        <PrivateAccessGate
+          projectId={currentProjectId || ''}
+          projectName={projectData.name || ''}
+          isPrivate={true}
+          action="translate"
+          renderTrigger={({ onPress }) => (
+            <TouchableOpacity
+              style={styles.newTranslationButton}
+              onPress={onPress}
+            >
+              <Ionicons
+                name="lock-closed"
+                size={20}
+                color={colors.buttonText}
+              />
+              <Ionicons name="add" size={24} color={colors.buttonText} />
+              <Text style={styles.newTranslationButtonText}>Members Only</Text>
+            </TouchableOpacity>
+          )}
+          onAccessGranted={() => setShowNewTranslationModal(true)}
+        />
+      ) : (
+        <TouchableOpacity
+          style={styles.newTranslationButton}
+          onPress={handleNewTranslationPress}
+        >
+          <Ionicons name="add" size={24} color={colors.buttonText} />
+          <Text style={styles.newTranslationButtonText}>New Translation</Text>
+        </TouchableOpacity>
+      )}
 
       {/* New Translation Modal */}
-      <NextGenNewTranslationModal
-        visible={showNewTranslationModal}
-        onClose={() => setShowNewTranslationModal(false)}
-        onSuccess={handleTranslationSuccess}
-        assetId={currentAssetId}
-        assetName={activeAsset.name}
-        assetContent={activeAsset.content}
-        sourceLanguage={sourceLanguage}
-        targetLanguageId={targetLanguageId}
-      />
+      {canTranslate && (
+        <NextGenNewTranslationModal
+          visible={showNewTranslationModal}
+          onClose={() => setShowNewTranslationModal(false)}
+          onSuccess={handleTranslationSuccess}
+          assetId={currentAssetId}
+          assetName={activeAsset.name}
+          assetContent={activeAsset.content}
+          sourceLanguage={sourceLanguage}
+          targetLanguageId={targetLanguageId}
+        />
+      )}
     </View>
   );
 }
@@ -476,12 +544,28 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.inputBorder
   },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small,
+    marginRight: spacing.medium
+  },
   assetName: {
     color: colors.text,
     fontSize: fontSizes.large,
     fontWeight: 'bold',
-    flex: 1,
-    marginRight: spacing.medium
+    flex: 1
+  },
+  projectIndicators: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.medium
   },
   toggleRow: {
     flexDirection: 'row',
@@ -548,7 +632,8 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     fontSize: fontSizes.medium,
-    textAlign: 'center'
+    textAlign: 'center',
+    marginTop: spacing.medium
   },
   errorHint: {
     color: colors.textSecondary,
@@ -565,6 +650,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.medium,
     paddingHorizontal: spacing.large,
     gap: spacing.small
+  },
+  disabledButton: {
+    backgroundColor: colors.inputBorder,
+    opacity: 0.7
   },
   newTranslationButtonText: {
     color: colors.buttonText,

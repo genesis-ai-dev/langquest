@@ -25,6 +25,7 @@ interface NextGenTranslationModalProps {
   visible: boolean;
   onClose: () => void;
   translationId: string;
+  onVoteSuccess?: () => void;
 }
 
 interface TranslationWithVotes {
@@ -76,7 +77,8 @@ function useNextGenTranslation(translationId: string) {
 export default function NextGenTranslationModal({
   visible,
   onClose,
-  translationId
+  translationId,
+  onVoteSuccess
 }: NextGenTranslationModalProps) {
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -133,6 +135,10 @@ export default function NextGenTranslationModal({
       await queryClient.invalidateQueries({
         queryKey: ['translation', 'nextgen', translationId]
       });
+    },
+    onSuccess: () => {
+      // Call the parent callback to refresh data
+      onVoteSuccess?.();
     },
     onSettled: () => {
       setPendingVoteType(null);

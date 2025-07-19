@@ -3,6 +3,7 @@ import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +24,14 @@ interface NextGenTranslationsListProps {
   assetId: string;
   assetName?: string;
   refreshKey?: number;
+  // Props passed from parent to avoid re-querying
+  projectData?: {
+    private: boolean;
+    name?: string;
+    id?: string;
+  } | null;
+  canVote?: boolean;
+  membership?: MembershipRole;
 }
 
 interface TranslationWithVotes {
@@ -40,9 +49,9 @@ interface TranslationWithVotes {
 
 type SortOption = 'voteCount' | 'dateSubmitted';
 
-function useNextGenOfflineTranslations(assetId: string) {
+function useNextGenOfflineTranslations(assetId: string, refreshKey?: number) {
   return useQuery({
-    queryKey: ['translations', 'offline', assetId],
+    queryKey: ['translations', 'offline', assetId, refreshKey],
     queryFn: async () => {
       // Get translations for this asset
       const translations = await system.db
@@ -92,11 +101,11 @@ async function fetchCloudTranslations(
       .eq('asset_id', assetId);
 
   if (translationsError) throw translationsError;
-  if (!translationsData) return [];
+  // Supabase always returns an array, even if empty
 
   // Get votes for each translation
   const translationsWithVotes = await Promise.all(
-    translationsData.map(async (trans) => {
+    translationsData.map(async (trans: typeof translation.$inferSelect) => {
       const { data: votesData, error: votesError } =
         await system.supabaseConnector.client
           .from('vote')
@@ -104,9 +113,20 @@ async function fetchCloudTranslations(
           .eq('translation_id', trans.id)
           .eq('active', true);
 
-      if (votesError) throw votesError;
+      if (votesError) {
+        console.warn('Error fetching votes:', votesError);
+        // Continue with empty votes instead of throwing
+        return {
+          ...trans,
+          upVotes: 0,
+          downVotes: 0,
+          netVotes: 0,
+          source: 'cloudSupabase'
+        } as TranslationWithVotes;
+      }
 
-      const votes = votesData || [];
+      // Supabase returns empty array, not null
+      const votes = votesData as { polarity: string; active?: boolean }[];
       const upVotes = votes.filter((v) => v.polarity === 'up').length;
       const downVotes = votes.filter((v) => v.polarity === 'down').length;
 
@@ -125,7 +145,10 @@ async function fetchCloudTranslations(
 
 export default function NextGenTranslationsList({
   assetId,
-  refreshKey
+  refreshKey,
+  projectData,
+  canVote: canVoteProp,
+  membership: membershipProp
 }: NextGenTranslationsListProps) {
   const isOnline = useNetworkStatus();
   const [useOfflineData, setUseOfflineData] = useState(false);
@@ -138,9 +161,15 @@ export default function NextGenTranslationsList({
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
   >(null);
+  const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
   const { data: offlineTranslations, isLoading: isOfflineLoading } =
-    useNextGenOfflineTranslations(assetId);
+    useNextGenOfflineTranslations(assetId, refreshKey || voteRefreshKey);
+
+  // Use props from parent if available, otherwise default behavior
+  const isPrivateProject = projectData?.private || false;
+  const canVote = canVoteProp !== undefined ? canVoteProp : !isPrivateProject;
+  const membership = membershipProp || null;
 
   // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
@@ -153,26 +182,24 @@ export default function NextGenTranslationsList({
       .filter((trans) => trans.audio)
       .map((trans) => trans.audio!)
       .filter(Boolean);
-  }, [offlineTranslations, cloudTranslations, useOfflineData]);
+  }, [useOfflineData, offlineTranslations, cloudTranslations]);
 
-  const { attachmentStates } = useAttachmentStates(audioIds);
+  const { attachmentStates, isLoading: _isLoadingAttachments } =
+    useAttachmentStates(audioIds);
 
-  // Fetch cloud translations when online
+  // Load cloud translations when online and not using offline data
   useEffect(() => {
-    if (!assetId) return;
+    if (!assetId || useOfflineData || !isOnline) {
+      setCloudTranslations([]);
+      setIsCloudLoading(false);
+      setCloudError(null);
+      return;
+    }
 
-    const fetchCloud = async () => {
-      if (!isOnline) {
-        console.log('📱 [TRANSLATIONS LIST] Skipping cloud query - offline');
-        setCloudTranslations([]);
-        setIsCloudLoading(false);
-        return;
-      }
-
+    const loadCloudTranslations = async () => {
       try {
         setIsCloudLoading(true);
         setCloudError(null);
-        console.log('🌐 [TRANSLATIONS LIST] Fetching cloud translations');
         const translations = await fetchCloudTranslations(assetId);
         setCloudTranslations(translations);
       } catch (error) {
@@ -184,18 +211,16 @@ export default function NextGenTranslationsList({
       }
     };
 
-    void fetchCloud();
-  }, [assetId, isOnline, refreshKey]);
+    void loadCloudTranslations();
+  }, [assetId, useOfflineData, isOnline, refreshKey, voteRefreshKey]);
 
   const activeTranslations = useOfflineData
     ? offlineTranslations
     : cloudTranslations;
   const isLoading = useOfflineData ? isOfflineLoading : isCloudLoading;
 
-  // Sort translations
   const sortedTranslations = React.useMemo(() => {
     if (!activeTranslations) return [];
-
     return [...activeTranslations].sort((a, b) => {
       if (sortOption === 'voteCount') {
         return b.netVotes - a.netVotes;
@@ -220,6 +245,18 @@ export default function NextGenTranslationsList({
       : undefined;
   };
 
+  const handleTranslationPress = (translationId: string) => {
+    // Only allow opening modal if user can vote or if it's a public project
+    if (canVote || !isPrivateProject) {
+      setSelectedTranslationId(translationId);
+    }
+  };
+
+  const handleVoteSuccess = () => {
+    // Increment vote refresh key to trigger re-queries
+    setVoteRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.horizontalLine} />
@@ -227,7 +264,12 @@ export default function NextGenTranslationsList({
       {/* Header with toggle and sort options */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.sectionTitle}>Translations</Text>
+          <Text style={styles.sectionTitle}>
+            Translations
+            {isPrivateProject && !canVote && (
+              <Text style={styles.lockIndicator}> 🔒</Text>
+            )}
+          </Text>
 
           {/* Data Source Toggle */}
           <View style={styles.toggleContainer}>
@@ -294,6 +336,17 @@ export default function NextGenTranslationsList({
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Membership status for private projects */}
+        {isPrivateProject && (
+          <View style={styles.membershipStatus}>
+            <Text style={styles.membershipText}>
+              {membership === 'owner' && '👑 Owner'}
+              {membership === 'member' && '👤 Member'}
+              {!membership && '🚫 Non-member (View Only)'}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Translations List */}
@@ -312,8 +365,12 @@ export default function NextGenTranslationsList({
           sortedTranslations.map((trans) => (
             <TouchableOpacity
               key={trans.id}
-              style={styles.translationCard}
-              onPress={() => setSelectedTranslationId(trans.id)}
+              style={[
+                styles.translationCard,
+                isPrivateProject && !canVote && styles.disabledCard
+              ]}
+              onPress={() => handleTranslationPress(trans.id)}
+              disabled={isPrivateProject && !canVote}
             >
               <View style={styles.translationCardContent}>
                 <View style={styles.translationCardLeft}>
@@ -348,55 +405,65 @@ export default function NextGenTranslationsList({
                       : '💾 Offline'}
                   </Text>
                 </View>
+
                 <View style={styles.translationCardRight}>
                   <View style={styles.voteContainer}>
                     <Ionicons
-                      name="thumbs-up-outline"
+                      name="thumbs-up"
                       size={16}
                       color={colors.text}
+                      style={{ opacity: trans.upVotes > 0 ? 1 : 0.3 }}
                     />
-                    <Text style={styles.voteCount}>{trans.upVotes}</Text>
+                    <Text style={styles.voteCount}>{trans.netVotes}</Text>
                     <Ionicons
-                      name="thumbs-down-outline"
+                      name="thumbs-down"
                       size={16}
                       color={colors.text}
+                      style={{ opacity: trans.downVotes > 0 ? 1 : 0.3 }}
                     />
-                    <Text style={styles.voteCount}>{trans.downVotes}</Text>
                   </View>
                   <Text style={styles.netVoteText}>
-                    Net: {trans.netVotes > 0 ? '+' : ''}
-                    {trans.netVotes}
+                    {trans.upVotes} ↑ {trans.downVotes} ↓
                   </Text>
                 </View>
               </View>
+
+              {/* Lock overlay for private projects without access */}
+              {isPrivateProject && !canVote && (
+                <View style={styles.lockOverlay}>
+                  <Ionicons
+                    name="lock-closed"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              )}
             </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {cloudError && !useOfflineData
-                ? `Error: ${cloudError.message}`
-                : 'No translations available'}
+              No translations yet. Be the first to translate!
             </Text>
           </View>
         )}
+
+        {/* Offline/Cloud stats */}
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsText}>
+            {useOfflineData ? '💾 Offline' : '🌐 Cloud'} Data
+            {cloudError && !useOfflineData && ' (Error loading cloud data)'}
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* Stats Summary */}
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsText}>
-          Total: {sortedTranslations.length} | Offline:{' '}
-          {offlineTranslations?.length ?? 0} | Cloud:{' '}
-          {isOnline ? cloudTranslations.length : 'N/A'}
-        </Text>
-      </View>
-
-      {/* Translation Detail Modal */}
-      {selectedTranslationId && (
+      {/* Translation Modal */}
+      {selectedTranslationId && (canVote || !isPrivateProject) && (
         <NextGenTranslationModal
           visible={!!selectedTranslationId}
           onClose={() => setSelectedTranslationId(null)}
           translationId={selectedTranslationId}
+          onVoteSuccess={handleVoteSuccess}
         />
       )}
     </View>
@@ -426,6 +493,16 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.large,
     fontWeight: 'bold',
     color: colors.text
+  },
+  lockIndicator: {
+    fontSize: fontSizes.medium
+  },
+  membershipStatus: {
+    marginTop: spacing.xsmall
+  },
+  membershipText: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -469,7 +546,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    marginBottom: spacing.medium
+    marginBottom: spacing.medium,
+    position: 'relative'
+  },
+  disabledCard: {
+    opacity: 0.7
+  },
+  lockOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.medium
   },
   translationCardContent: {
     flexDirection: 'row',
