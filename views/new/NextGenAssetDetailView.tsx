@@ -107,6 +107,14 @@ export default function NextGenAssetDetailView() {
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
 
+  // Load asset attachments when asset ID changes
+  useEffect(() => {
+    if (!currentAssetId) return;
+
+    // Load attachments for audio support
+    void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
+  }, [currentAssetId]);
+
   // Get project info for target language
   const { data: projectData } = useQuery({
     queryKey: ['project', 'offline', currentProjectId],
@@ -186,29 +194,65 @@ export default function NextGenAssetDetailView() {
     isLanguageLoading: isSourceLanguageLoading
   } = useLanguageById(activeAsset?.source_language_id || '');
 
-  console.log({
-    assetId: currentAssetId,
-    isOnline,
-    useOfflineData,
-    offlineAsset: offlineAsset
-      ? {
-          id: offlineAsset.id,
-          name: offlineAsset.name,
-          source: offlineAsset.source
-        }
-      : null,
-    cloudAsset: cloudAsset
-      ? { id: cloudAsset.id, name: cloudAsset.name, source: cloudAsset.source }
-      : null,
-    activeAsset: activeAsset
-      ? {
-          id: activeAsset.id,
-          name: activeAsset.name,
-          source: activeAsset.source
-        }
-      : null,
-    cloudError: cloudError?.message ?? null
-  });
+  // Debug logging
+  const debugInfo = React.useMemo(
+    () => ({
+      assetId: currentAssetId,
+      isOnline,
+      useOfflineData,
+      offlineAsset: offlineAsset
+        ? {
+            id: offlineAsset.id,
+            name: offlineAsset.name,
+            source: offlineAsset.source,
+            contentCount: offlineAsset.content?.length ?? 0,
+            hasAudio: offlineAsset.content?.some((c) => c.audio_id) ?? false
+          }
+        : null,
+      cloudAsset: cloudAsset
+        ? {
+            id: cloudAsset.id,
+            name: cloudAsset.name,
+            source: cloudAsset.source,
+            contentCount: cloudAsset.content?.length ?? 0,
+            hasAudio: cloudAsset.content?.some((c) => c.audio_id) ?? false
+          }
+        : null,
+      activeAsset: activeAsset
+        ? {
+            id: activeAsset.id,
+            name: activeAsset.name,
+            source: activeAsset.source,
+            contentCount: activeAsset.content?.length ?? 0,
+            hasAudio: activeAsset.content?.some((c) => c.audio_id) ?? false
+          }
+        : null,
+      attachmentStatesCount: attachmentStates.size,
+      audioAttachments: Array.from(attachmentStates.entries())
+        .filter(([id]) => allAttachmentIds.includes(id))
+        .map(([id, state]) => ({
+          id,
+          state: state.state,
+          hasLocalUri: !!state.local_uri
+        })),
+      cloudError: cloudError?.message ?? null
+    }),
+    [
+      currentAssetId,
+      isOnline,
+      useOfflineData,
+      offlineAsset,
+      cloudAsset,
+      activeAsset,
+      attachmentStates,
+      allAttachmentIds,
+      cloudError
+    ]
+  );
+
+  React.useEffect(() => {
+    console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
+  }, [debugInfo]);
 
   if (!currentAssetId) {
     return (
@@ -302,17 +346,50 @@ export default function NextGenAssetDetailView() {
                   audioUri={
                     content.audio_id
                       ? (() => {
-                          const localUri = attachmentStates.get(
+                          const attachment = attachmentStates.get(
                             content.audio_id
-                          )?.local_uri;
-                          return localUri
-                            ? system.permAttachmentQueue?.getLocalUri(localUri)
-                            : null;
+                          );
+                          const localUri = attachment?.local_uri;
+
+                          if (!localUri) {
+                            console.log(
+                              `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                              attachment?.state
+                            );
+                            return null;
+                          }
+
+                          const fullUri =
+                            system.permAttachmentQueue?.getLocalUri(localUri);
+                          console.log(
+                            `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                          );
+                          return fullUri;
                         })()
                       : null
                   }
                   isLoading={isLoadingAttachments}
                 />
+
+                {/* Audio status indicator */}
+                {content.audio_id && (
+                  <View style={styles.audioStatusContainer}>
+                    <Ionicons
+                      name={
+                        attachmentStates.get(content.audio_id)?.local_uri
+                          ? 'volume-high'
+                          : 'volume-mute'
+                      }
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.audioStatusText}>
+                      {attachmentStates.get(content.audio_id)?.local_uri
+                        ? 'Audio ready'
+                        : 'Audio not available'}
+                    </Text>
+                  </View>
+                )}
               </View>
             ))
           ) : (
@@ -342,6 +419,12 @@ export default function NextGenAssetDetailView() {
                 ? '🌐 Cloud'
                 : '💾 Offline'}
             </Text>
+            {activeAsset.content?.some((c) => c.audio_id) && (
+              <Text style={styles.assetInfoText}>
+                🔊 Audio: {activeAsset.content.filter((c) => c.audio_id).length}{' '}
+                track(s)
+              </Text>
+            )}
           </View>
         </ScrollView>
       </View>
@@ -487,5 +570,15 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: fontSizes.medium,
     fontWeight: 'bold'
+  },
+  audioStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall,
+    marginTop: spacing.small
+  },
+  audioStatusText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   }
 });
