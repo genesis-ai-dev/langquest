@@ -5,11 +5,9 @@
 
 import { ProjectSkeleton } from '@/components/ProjectSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  useSessionLanguages,
-  useSessionMemberships
-} from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
+import { useLanguages } from '@/hooks/db/useLanguages';
+import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useDownload, useProjectDownloadStatus } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -35,9 +33,14 @@ import { FlashList } from '@shopify/flash-list';
 const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   project
 }) => {
-  const { getLanguageById } = useSessionLanguages();
-  const { getUserMembership } = useSessionMemberships();
+  const { languages } = useLanguages();
+  const { getUserMembership } = useUserMemberships();
   const { goToProject } = useAppNavigation();
+
+  // Create helper function for getting language by ID
+  const getLanguageById = (languageId: string) => {
+    return languages.find((lang) => lang.id === languageId);
+  };
 
   // Use the new download hook
   const {
@@ -148,10 +151,14 @@ export default function ProjectsView() {
   // Add performance tracking
   useRenderCounter('ProjectsView');
 
-  // Use session cache for languages instead of individual queries
-  const { languages: _allLanguages, isLanguagesLoading: _isLanguagesLoading } =
-    useSessionLanguages();
-  const { isUserMember: _isUserMember } = useSessionMemberships();
+  // Use local DB for languages instead of session cache
+  const { languages } = useLanguages();
+  const { getUserMembership } = useUserMemberships();
+
+  // Create helper functions similar to the old session cache
+  const getLanguageById = (languageId: string) => {
+    return languages.find((lang) => lang.id === languageId);
+  };
 
   const _sourceFilter = useLocalStore((state) => state.projectSourceFilter);
   const _targetFilter = useLocalStore((state) => state.projectTargetFilter);

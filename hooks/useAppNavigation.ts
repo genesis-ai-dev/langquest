@@ -22,7 +22,6 @@ export function useAppNavigation() {
   const {
     navigationStack,
     setNavigationStack,
-    addRecentProject,
     addRecentQuest,
     addRecentAsset
   } = useLocalStore();
@@ -31,6 +30,7 @@ export function useAppNavigation() {
   const currentState = useMemo(
     () =>
       navigationStack[navigationStack.length - 1] || {
+        // ** length of undefined error
         view: 'projects' as AppView,
         timestamp: Date.now()
       },
@@ -76,11 +76,11 @@ export function useAppNavigation() {
   const goToProject = useCallback(
     (projectData: { id: string; name?: string }) => {
       // Track recently visited
-      addRecentProject({
-        id: projectData.id,
-        name: projectData.name || 'Project',
-        visitedAt: new Date()
-      });
+      // addRecentProject({
+      //   id: projectData.id,
+      //   name: projectData.name || 'Project',
+      //   visitedAt: new Date()
+      // });
 
       navigate({
         view: 'quests',
@@ -88,7 +88,7 @@ export function useAppNavigation() {
         projectName: projectData.name
       });
     },
-    [navigate, addRecentProject]
+    [navigate]
   );
 
   const goToQuest = useCallback(

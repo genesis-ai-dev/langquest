@@ -35,7 +35,8 @@ interface ProfileFormData {
 }
 
 export default function ProfileView() {
-  const { currentUser, setCurrentUser } = useAuth();
+  // const { currentUser, setCurrentUser } = useAuth();
+  const { currentUser } = useAuth();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
@@ -67,8 +68,8 @@ export default function ProfileView() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: currentUser?.ui_language_id ?? '',
-      termsAccepted: !!currentUser?.terms_accepted
+      selectedLanguageId: currentUser?.user_metadata.ui_language_id ?? '',
+      termsAccepted: !!currentUser?.user_metadata.terms_accepted
     }
   });
 
@@ -76,11 +77,11 @@ export default function ProfileView() {
   useEffect(() => {
     if (currentUser) {
       reset({
-        selectedLanguageId: currentUser.ui_language_id ?? '',
+        selectedLanguageId: currentUser.user_metadata.ui_language_id ?? '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
-        termsAccepted: !!currentUser.terms_accepted
+        termsAccepted: !!currentUser.user_metadata.terms_accepted
       });
     }
   }, [currentUser, reset, analyticsOptOut]);
@@ -113,7 +114,7 @@ export default function ProfileView() {
       });
 
       if (updatedUser) {
-        setCurrentUser(updatedUser);
+        // setCurrentUser(updatedUser);
         Alert.alert('Success', t('profileUpdateSuccess'));
 
         // Clear password fields

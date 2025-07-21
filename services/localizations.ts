@@ -586,6 +586,11 @@ export const localizations = {
     spanish: 'Reporte enviado exitosamente',
     brazilian_portuguese: 'Relatório enviado com sucesso'
   },
+  enterEmailForPasswordReset: {
+    english: 'Enter your email to reset your password',
+    spanish: 'Ingrese su correo electrónico para restablecer su contraseña',
+    brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha'
+  },
   failedToSubmitReport: {
     english: 'Failed to submit report',
     spanish: 'Error al enviar el reporte',
@@ -613,6 +618,11 @@ export const localizations = {
     brazilian_portuguese:
       'Quando ativado, não coletaremos dados de uso para melhorar o aplicativo.'
   },
+  sessionExpired: {
+    english: 'Session expired',
+    spanish: 'Sesión expirada',
+    brazilian_portuguese: 'Sessão expirada'
+  },
   'reportReason.inappropriate_content': {
     english: 'Inappropriate Content',
     spanish: 'Contenido Inapropiado',
@@ -627,6 +637,16 @@ export const localizations = {
     english: 'Other',
     spanish: 'Otro',
     brazilian_portuguese: 'Outro'
+  },
+  updatePassword: {
+    english: 'Update Password',
+    spanish: 'Actualizar Contraseña',
+    brazilian_portuguese: 'Atualizar Senha'
+  },
+  createNewPassword: {
+    english: 'Create New Password',
+    spanish: 'Crear nueva contraseña',
+    brazilian_portuguese: 'Criar nova senha'
   },
   downloadLimitExceeded: {
     english: 'Download Limit Exceeded',

@@ -8,10 +8,6 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import {
-  useSessionMemberships,
-  useSessionProjects
-} from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
@@ -49,7 +45,8 @@ import {
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import type { AssetContent } from '@/hooks/db/useAssets';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import type { Project } from '@/hooks/db/useProjects';
 
 interface SortingOption {
   field: string;
@@ -60,86 +57,86 @@ interface SortingOption {
 // filterAssets function removed - filtering is now handled server-side in the hook
 
 // Memoized AssetCard component to prevent unnecessary re-renders
-const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
-  // Use current navigation to get project
-  const { currentProjectId, currentQuestId } = useCurrentNavigation();
+const AssetCard = React.memo(
+  ({
+    asset,
+    isOwner,
+    activeProject,
+    currentQuestId
+  }: {
+    asset: Asset;
+    isOwner: boolean;
+    activeProject: Project | null;
+    currentQuestId: string;
+  }) => {
+    const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
-  // Use session cache for project data instead of fresh query
-  const { getCachedProject } = useSessionProjects();
-  const cachedProject = getCachedProject(currentProjectId || '');
+    const {
+      isFlaggedForDownload,
+      isLoading: isDownloadLoading,
+      toggleDownload
+    } = useDownload('asset', asset.id);
 
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+    const handleDownloadToggle = useCallback(async () => {
+      await toggleDownload();
+    }, [toggleDownload]);
 
-  // Fallback to fresh query only if not in cache
-  const { project: freshProject } = useProjectById(currentProjectId || '');
-  const activeProject = cachedProject || freshProject;
-
-  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
-
-  const {
-    isFlaggedForDownload,
-    isLoading: isDownloadLoading,
-    toggleDownload
-  } = useDownload('asset', asset.id);
-
-  const handleDownloadToggle = useCallback(async () => {
-    await toggleDownload();
-  }, [toggleDownload]);
-
-  return (
-    <View style={sharedStyles.card}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          gap: spacing.small
-        }}
-      >
-        <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        {isOwner && (
-          <TouchableOpacity
-            onPress={() => setShowAssetSettingsModal(true)}
-            style={styles.statsButtonMini}
-          >
-            <Ionicons name="settings" size={22} color={colors.text} />
-          </TouchableOpacity>
-        )}
-        <PrivateAccessGate
-          projectId={activeProject?.id || ''}
-          projectName={activeProject?.name || ''}
-          isPrivate={activeProject?.private || false}
-          action="download"
-          allowBypass={true}
-          onBypass={handleDownloadToggle}
-          renderTrigger={({ onPress, hasAccess }) => (
-            <DownloadIndicator
-              isFlaggedForDownload={isFlaggedForDownload}
-              isLoading={isDownloadLoading}
-              onPress={
-                hasAccess || isFlaggedForDownload
-                  ? handleDownloadToggle
-                  : onPress
-              }
-            />
+    return (
+      <View style={sharedStyles.card}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: spacing.small
+          }}
+        >
+          <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
+            {asset.name}
+          </Text>
+          {isOwner && (
+            <TouchableOpacity
+              onPress={() => setShowAssetSettingsModal(true)}
+              style={styles.statsButtonMini}
+            >
+              <Ionicons name="settings" size={22} color={colors.text} />
+            </TouchableOpacity>
           )}
-        />
-      </View>
+          <PrivateAccessGate
+            projectId={activeProject?.id ?? ''}
+            projectName={activeProject?.name ?? ''}
+            isPrivate={activeProject?.private ?? false}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isFlaggedForDownload={isFlaggedForDownload}
+                isLoading={isDownloadLoading}
+                onPress={
+                  hasAccess || isFlaggedForDownload
+                    ? handleDownloadToggle
+                    : onPress
+                }
+              />
+            )}
+          />
+        </View>
 
-      <View style={styles.translationCount}>
-        {/* Translation gems could be added here later */}
+        <View style={styles.translationCount}>
+          {/* Translation gems could be added here later */}
+        </View>
+        {currentQuestId && (
+          <AssetSettingsModal
+            isVisible={showAssetSettingsModal}
+            onClose={() => setShowAssetSettingsModal(false)}
+            questId={currentQuestId}
+            assetId={asset.id}
+          />
+        )}
       </View>
-      {currentQuestId && (
-        <AssetSettingsModal
-          isVisible={showAssetSettingsModal}
-          onClose={() => setShowAssetSettingsModal(false)}
-          questId={currentQuestId}
-          assetId={asset.id}
-        />
-      )}
-    </View>
-  );
-});
+    );
+  }
+);
 
 AssetCard.displayName = 'AssetCard';
 
@@ -155,9 +152,6 @@ export default function AssetsView() {
 
   // Get current navigation state
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
-
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -176,6 +170,12 @@ export default function AssetsView() {
       </View>
     );
   }
+
+  const { membership } = useUserPermissions(currentProjectId || '', 'manage');
+  const isOwner = membership === 'owner';
+
+  // Fallback to fresh query only if not in cache
+  const { project } = useProjectById(currentProjectId || '');
 
   const { quest } = useQuestById(currentQuestId);
 
@@ -264,7 +264,12 @@ export default function AssetsView() {
   const renderAssetItem = useCallback(
     ({ item }: { item: Asset }) => (
       <TouchableOpacity onPress={() => handleAssetPress(item)}>
-        <AssetCard asset={item} />
+        <AssetCard
+          asset={item}
+          isOwner={isOwner}
+          activeProject={project}
+          currentQuestId={currentQuestId}
+        />
       </TouchableOpacity>
     ),
     [handleAssetPress]

@@ -10,6 +10,7 @@ import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   PostgrestSingleResponse,
+  Session,
   SupabaseClient
 } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
@@ -41,6 +42,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
   storage: SupabaseStorageAdapter;
+  private currentSession: Session | null = null;
 
   constructor(protected system: System) {
     console.log('Creating Supabase client (supabaseConnector constructor');
@@ -138,14 +140,24 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     }
     if (!user) return null;
 
-    // Check local database for profile
-    const localProfile = (
-      await this.system.db.select().from(profile).where(eq(profile.id, user))
-    )[0] as Profile | null;
+    // Check if system is initialized before trying to access local DB
+    if (this.system.isPowerSyncInitialized()) {
+      // Check local database for profile
+      const localProfile = (
+        await this.system.db.select().from(profile).where(eq(profile.id, user))
+      )[0] as Profile | null;
 
-    if (localProfile) {
-      console.log('✅ [SupabaseConnector] Found local profile for user:', user);
-      return localProfile;
+      if (localProfile) {
+        console.log(
+          '✅ [SupabaseConnector] Found local profile for user:',
+          user
+        );
+        return localProfile;
+      }
+    } else {
+      console.log(
+        '⚠️ [SupabaseConnector] System not initialized, skipping local DB check'
+      );
     }
 
     // If no local profile, try to fetch from Supabase
@@ -241,17 +253,27 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   async fetchCredentials() {
-    const {
-      data: { session },
-      error
-    } = await this.client.auth.getSession();
+    // Use stored session if available, otherwise fetch fresh
+    let session = this.currentSession;
 
-    if (!session || error) {
-      throw new Error(
-        `Could not fetch Supabase credentials: ${JSON.stringify(error)}`
-      );
+    if (!session) {
+      console.log('[SupabaseConnector] No stored session, fetching fresh...');
+      const {
+        data: { session: freshSession },
+        error
+      } = await this.client.auth.getSession();
+
+      if (!freshSession || error) {
+        throw new Error(
+          `Could not fetch Supabase credentials: ${JSON.stringify(error)}`
+        );
+      }
+
+      session = freshSession;
+      this.currentSession = session;
     }
 
+    console.log('[SupabaseConnector] Using session for user:', session.user.id);
     console.debug('session expires at', session.expires_at);
 
     return {
@@ -305,21 +327,91 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
               )
             : op.opData;
 
+        // Handle array fields for all operations
+        const processArrayFields = (
+          data: Record<string, unknown> | null | undefined
+        ): Record<string, unknown> | null | undefined => {
+          if (!data) return data;
+
+          const processed = { ...data };
+
+          // List of known array fields in the schema
+          const arrayFields = [
+            'download_profiles',
+            'images', // in asset table
+            'asset_ids',
+            'translation_ids',
+            'vote_ids',
+            'tag_ids',
+            'language_ids', // closure tables
+            'quest_ids',
+            'quest_asset_link_ids',
+            'asset_content_link_ids',
+            'quest_tag_link_ids',
+            'asset_tag_link_ids'
+          ];
+
+          // Process each array field
+          for (const field of arrayFields) {
+            if (field in processed && typeof processed[field] === 'string') {
+              try {
+                let parsed: unknown = processed[field];
+
+                // Handle double-encoded strings (string containing escaped JSON)
+                if (
+                  typeof parsed === 'string' &&
+                  parsed.startsWith('"') &&
+                  parsed.endsWith('"')
+                ) {
+                  parsed = JSON.parse(parsed);
+                }
+
+                // Now parse the actual array
+                processed[field] =
+                  typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+                console.log(`Parsed ${field}:`, processed[field]);
+              } catch (e) {
+                console.warn(`Failed to parse ${field} as JSON:`, e);
+                console.warn('Raw value:', processed[field]);
+              }
+            }
+          }
+
+          return processed;
+        };
+
         switch (op.op) {
-          case UpdateType.PUT:
+          case UpdateType.PUT: {
             record = isCompositeTable
               ? { ...compositeKeys, ...opData }
               : { ...opData, id: op.id };
+
+            // Process array fields
+            record = processArrayFields(record);
+
+            // Log the record for debugging
+            if (op.table === 'vote') {
+              console.log(
+                'Vote record after processing:',
+                JSON.stringify(record, null, 2)
+              );
+            }
+
             result = await table.upsert(record);
             break;
+          }
 
-          case UpdateType.PATCH:
-            if (isCompositeTable && op.opData) {
-              result = await table.update(opData).match(compositeKeys);
+          case UpdateType.PATCH: {
+            // Process array fields for PATCH operations
+            const patchData = processArrayFields(opData);
+
+            if (isCompositeTable && patchData) {
+              result = await table.update(patchData).match(compositeKeys);
             } else {
-              result = await table.update(opData).eq('id', op.id);
+              result = await table.update(patchData).eq('id', op.id);
             }
             break;
+          }
 
           case UpdateType.DELETE:
             if (isCompositeTable) {
@@ -367,5 +459,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         throw ex;
       }
     }
+  }
+
+  updateSession(session: Session | null) {
+    console.log(
+      '[SupabaseConnector] Updating session:',
+      session ? 'Session present' : 'Session cleared'
+    );
+    this.currentSession = session;
   }
 }
