@@ -165,7 +165,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         }),
         {
           onResult: () => {
-            console.log('Asset content links changed - triggering debounced refresh');
+            console.log(
+              'Asset content links changed - triggering debounced refresh'
+            );
             debouncedRefresh();
           }
         }

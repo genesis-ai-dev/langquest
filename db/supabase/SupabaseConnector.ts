@@ -323,12 +323,14 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         const opData =
           isCompositeTable && op.opData
             ? Object.fromEntries(
-              Object.entries(op.opData).filter(([key]) => key !== 'id')
-            )
+                Object.entries(op.opData).filter(([key]) => key !== 'id')
+              )
             : op.opData;
 
         // Handle array fields for all operations
-        const processArrayFields = (data: Record<string, unknown> | null | undefined): Record<string, unknown> | null | undefined => {
+        const processArrayFields = (
+          data: Record<string, unknown> | null | undefined
+        ): Record<string, unknown> | null | undefined => {
           if (!data) return data;
 
           const processed = { ...data };
@@ -336,10 +338,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           // List of known array fields in the schema
           const arrayFields = [
             'download_profiles',
-            'images',  // in asset table
-            'asset_ids', 'translation_ids', 'vote_ids', 'tag_ids', 'language_ids', // closure tables
-            'quest_ids', 'quest_asset_link_ids', 'asset_content_link_ids',
-            'quest_tag_link_ids', 'asset_tag_link_ids'
+            'images', // in asset table
+            'asset_ids',
+            'translation_ids',
+            'vote_ids',
+            'tag_ids',
+            'language_ids', // closure tables
+            'quest_ids',
+            'quest_asset_link_ids',
+            'asset_content_link_ids',
+            'quest_tag_link_ids',
+            'asset_tag_link_ids'
           ];
 
           // Process each array field
@@ -349,12 +358,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
                 let parsed: unknown = processed[field];
 
                 // Handle double-encoded strings (string containing escaped JSON)
-                if (typeof parsed === 'string' && parsed.startsWith('"') && parsed.endsWith('"')) {
+                if (
+                  typeof parsed === 'string' &&
+                  parsed.startsWith('"') &&
+                  parsed.endsWith('"')
+                ) {
                   parsed = JSON.parse(parsed);
                 }
 
                 // Now parse the actual array
-                processed[field] = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+                processed[field] =
+                  typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
                 console.log(`Parsed ${field}:`, processed[field]);
               } catch (e) {
                 console.warn(`Failed to parse ${field} as JSON:`, e);
@@ -377,7 +391,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
             // Log the record for debugging
             if (op.table === 'vote') {
-              console.log('Vote record after processing:', JSON.stringify(record, null, 2));
+              console.log(
+                'Vote record after processing:',
+                JSON.stringify(record, null, 2)
+              );
             }
 
             result = await table.upsert(record);

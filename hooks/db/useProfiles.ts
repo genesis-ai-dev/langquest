@@ -91,9 +91,12 @@ export function useUserMemberships(userId?: string) {
     enabled: !!user_id
   });
 
-  const getUserMembership = useCallback((projectId: string): ProfileProjectLink | undefined => {
-    return memberships.find((m) => m.project_id === projectId);
-  }, [memberships]);
+  const getUserMembership = useCallback(
+    (projectId: string): ProfileProjectLink | undefined => {
+      return memberships.find((m) => m.project_id === projectId);
+    },
+    [memberships]
+  );
 
   return {
     userMemberships: memberships,
@@ -117,14 +120,16 @@ export function useUserProjects(userId?: string) {
 
       const { data, error } = await system.supabaseConnector.client
         .from('project')
-        .select(`
+        .select(
+          `
           *,
           profile_project_link!inner(
             profile_id,
             membership,
             active
           )
-        `)
+        `
+        )
         .eq('profile_project_link.profile_id', user_id)
         .eq('profile_project_link.active', true);
 
@@ -147,8 +152,9 @@ export function useUserProjects(userId?: string) {
   });
 
   // Filter projects to only include those where user has active membership
-  const userProjects = projects.filter(project =>
-    project.profile_project_link && project.profile_project_link.length > 0
+  const userProjects = projects.filter(
+    (project) =>
+      project.profile_project_link && project.profile_project_link.length > 0
   );
 
   return {

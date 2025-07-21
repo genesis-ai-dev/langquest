@@ -88,12 +88,17 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           console.log(`[WATCH IDS] Processing ${ids.length} attachment IDs`);
 
           // Filter out empty or invalid IDs
-          const validIds = ids.filter(id => id && id.trim() !== '');
+          const validIds = ids.filter((id) => id && id.trim() !== '');
           if (validIds.length !== ids.length) {
-            console.warn(`[WATCH IDS] Filtered out ${ids.length - validIds.length} empty/invalid IDs`);
+            console.warn(
+              `[WATCH IDS] Filtered out ${ids.length - validIds.length} empty/invalid IDs`
+            );
           }
 
-          console.log('[WATCH IDS] skipping the following empty/invalid IDs:', ids.filter(id => id && id.trim() === ''));
+          console.log(
+            '[WATCH IDS] skipping the following empty/invalid IDs:',
+            ids.filter((id) => id && id.trim() === '')
+          );
           // Use validIds from here on
           ids = validIds;
 
@@ -102,7 +107,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
           if (this.initialSync) {
             this.initialSync = false;
-            console.log('[WATCH IDS] Initial sync: Updating existing records to QUEUED_SYNC');
+            console.log(
+              '[WATCH IDS] Initial sync: Updating existing records to QUEUED_SYNC'
+            );
 
             // Update in batches
             for (let i = 0; i < ids.length; i += BATCH_SIZE) {
@@ -118,7 +125,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                   AND
                    id IN (${_batchIds})`
               );
-              console.log(`[WATCH IDS] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Updated ${updateResult.rowsAffected} records`);
+              console.log(
+                `[WATCH IDS] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Updated ${updateResult.rowsAffected} records`
+              );
             }
           }
 
@@ -127,7 +136,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             await this.powersync.getAll<ExtendedAttachmentRecord>(
               `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
             );
-          console.log('[WATCH IDS] Current attachments in DB:', attachmentsInDatabase.length);
+          console.log(
+            '[WATCH IDS] Current attachments in DB:',
+            attachmentsInDatabase.length
+          );
 
           const storageType = this.getStorageType();
 
@@ -150,7 +162,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
                 // Validate the record before saving
                 if (!newRecord.id || !newRecord.filename) {
-                  console.error(`[WATCH IDS] Invalid record created for ${id}:`, newRecord);
+                  console.error(
+                    `[WATCH IDS] Invalid record created for ${id}:`,
+                    newRecord
+                  );
                   errors++;
                   continue;
                 }
@@ -169,7 +184,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                 convertedToPermanent++;
               } else if (
                 record.local_uri == null ||
-                !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
+                !(await this.storage.fileExists(
+                  this.getLocalUri(record.local_uri)
+                ))
               ) {
                 await this.update({
                   ...record,
@@ -180,7 +197,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                 skipped++;
               }
             } catch (error) {
-              console.error(`[WATCH IDS] Error processing attachment ${id}:`, error);
+              console.error(
+                `[WATCH IDS] Error processing attachment ${id}:`,
+                error
+              );
               console.error(`[WATCH IDS] Error stack:`, (error as Error).stack);
               errors++;
               // Continue processing other attachments
@@ -196,7 +216,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             totalProcessed: ids.length
           });
         } catch (error) {
-          console.error('[WATCH IDS] Fatal error in watchAttachmentIds:', error);
+          console.error(
+            '[WATCH IDS] Fatal error in watchAttachmentIds:',
+            error
+          );
         }
       })();
     });
@@ -233,7 +256,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
     // Validate critical fields
     if (!updatedRecord.id || !updatedRecord.filename) {
-      throw new Error(`Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`);
+      throw new Error(
+        `Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`
+      );
     }
 
     try {
@@ -351,7 +376,9 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        .filter((translation) => translation.audio && translation.audio.trim() !== '')
+        .filter(
+          (translation) => translation.audio && translation.audio.trim() !== ''
+        )
         .map((translation) => translation.audio!);
 
       if (translationAudioIds.length) {
