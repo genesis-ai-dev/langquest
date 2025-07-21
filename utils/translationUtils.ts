@@ -11,7 +11,7 @@ export class TranslationUtils {
       if (!currentUser) return;
 
       // Get UI language from user metadata or profile
-      const uiLanguageId = currentUser.user_metadata?.ui_language_id;
+      const uiLanguageId = currentUser.user_metadata.ui_language_id;
       if (!uiLanguageId) return;
 
       const language = await getLanguageById(uiLanguageId);
@@ -25,7 +25,13 @@ export class TranslationUtils {
   }
 
   static t(key: string, substitutions?: Record<string, string>): string {
-    const translation = localizations[this.currentLanguage]?.[key] || key;
+    // Access the translation by key first, then by language
+    const translationEntry =
+      key in localizations
+        ? localizations[key as keyof typeof localizations]
+        : undefined;
+
+    const translation = translationEntry?.[this.currentLanguage] ?? key;
 
     if (!substitutions) return translation;
 

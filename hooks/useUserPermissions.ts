@@ -124,8 +124,7 @@ export function useUserPermissions(
     active: boolean;
   };
 } {
-  const { getUserMembership, isUserMembershipsLoading } =
-    useUserMemberships();
+  const { getUserMembership, isUserMembershipsLoading } = useUserMemberships();
   const { db } = system;
 
   // Don't run queries if project_id is empty or invalid

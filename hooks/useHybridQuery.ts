@@ -25,13 +25,13 @@ type HybridQueryOptions<T> = Omit<GetQueryParam<T>, 'queryFn' | 'query'> &
 
 type HybridQueryConfig<T> = (
   | {
-    offlineFn: GetQueryParam<T>['queryFn'];
-    offlineQuery?: never;
-  }
+      offlineFn: GetQueryParam<T>['queryFn'];
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   onlineFn: GetQueryParam<T>['queryFn'];
   alwaysOnline?: boolean;
@@ -156,12 +156,12 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     const mergedMap = new Map<string | number, T>();
 
     // Add all local data first
-    localData.forEach(item => {
+    localData.forEach((item) => {
       mergedMap.set(getId(item), item);
     });
 
     // Process cloud data
-    cloudData.forEach(cloudItem => {
+    cloudData.forEach((cloudItem) => {
       const id = getId(cloudItem);
       const localItem = localDataMap.get(id);
 
@@ -170,12 +170,18 @@ export function useHybridQuery<T extends Record<string, unknown>>(
         mergedMap.set(id, cloudItem);
       } else {
         // Item exists in both - compare last_updated timestamps
-        const localLastUpdated = (localItem as T & { last_updated?: string }).last_updated;
-        const cloudLastUpdated = (cloudItem as T & { last_updated?: string }).last_updated;
+        const localLastUpdated = (localItem as T & { last_updated?: string })
+          .last_updated;
+        const cloudLastUpdated = (cloudItem as T & { last_updated?: string })
+          .last_updated;
 
         // If cloud version is newer, use it
-        if (cloudLastUpdated && localLastUpdated &&
-          new Date(cloudLastUpdated).getTime() > new Date(localLastUpdated).getTime()) {
+        if (
+          cloudLastUpdated &&
+          localLastUpdated &&
+          new Date(cloudLastUpdated).getTime() >
+            new Date(localLastUpdated).getTime()
+        ) {
           mergedMap.set(id, cloudItem);
         }
         // Otherwise keep the local version (already in mergedMap)
@@ -292,17 +298,17 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
   // Use the base hybrid query with offline-first pattern
   const result = offlineFn
     ? useHybridQuery<T>({
-      queryKey,
-      offlineFn,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>)
+        queryKey,
+        offlineFn,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>)
     : useHybridQuery<T>({
-      queryKey,
-      offlineQuery,
-      onlineFn,
-      ...otherOptions
-    } as HybridQueryOptions<T>);
+        queryKey,
+        offlineQuery,
+        onlineFn,
+        ...otherOptions
+      } as HybridQueryOptions<T>);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -373,13 +379,13 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
  */
 type HybridFetchConfig<T extends Record<string, unknown>> = (
   | {
-    offlineFn: () => Promise<T[] | undefined>;
-    offlineQuery?: never;
-  }
+      offlineFn: () => Promise<T[] | undefined>;
+      offlineQuery?: never;
+    }
   | {
-    offlineQuery: string | CompilableQuery<T>;
-    offlineFn?: never;
-  }
+      offlineQuery: string | CompilableQuery<T>;
+      offlineFn?: never;
+    }
 ) & {
   queryKey: GetQueryParam<T>['queryKey'];
   onlineFn: () => Promise<T[]>;
@@ -480,12 +486,12 @@ export async function hybridFetch<T extends Record<string, unknown>>(
   const mergedMap = new Map<string | number, T>();
 
   // Add all local data first
-  localDataArray.forEach(item => {
+  localDataArray.forEach((item) => {
     mergedMap.set(getId(item), item);
   });
 
   // Process cloud data
-  cloudDataArray.forEach(cloudItem => {
+  cloudDataArray.forEach((cloudItem) => {
     const id = getId(cloudItem);
     const localItem = localDataMap.get(id);
 
@@ -494,12 +500,18 @@ export async function hybridFetch<T extends Record<string, unknown>>(
       mergedMap.set(id, cloudItem);
     } else {
       // Item exists in both - compare last_updated timestamps
-      const localLastUpdated = (localItem as T & { last_updated?: string }).last_updated;
-      const cloudLastUpdated = (cloudItem as T & { last_updated?: string }).last_updated;
+      const localLastUpdated = (localItem as T & { last_updated?: string })
+        .last_updated;
+      const cloudLastUpdated = (cloudItem as T & { last_updated?: string })
+        .last_updated;
 
       // If cloud version is newer, use it
-      if (cloudLastUpdated && localLastUpdated &&
-        new Date(cloudLastUpdated).getTime() > new Date(localLastUpdated).getTime()) {
+      if (
+        cloudLastUpdated &&
+        localLastUpdated &&
+        new Date(cloudLastUpdated).getTime() >
+          new Date(localLastUpdated).getTime()
+      ) {
         mergedMap.set(id, cloudItem);
       }
       // Otherwise keep the local version (already in mergedMap)
@@ -564,17 +576,17 @@ type HybridInfiniteQueryOptions<
   refetchOnReconnect?: boolean;
   getId?: (record: T | Partial<T>) => string | number;
 } & (
-    | {
+  | {
       offlineFn: (
         context: QueryFunctionContext<readonly unknown[], TPageParam>
       ) => Promise<HybridPageData<T, TPageParam>>;
       offlineQuery?: never;
     }
-    | {
+  | {
       offlineQuery: string | CompilableQuery<T>;
       offlineFn?: never;
     }
-  );
+);
 
 /**
  * useHybridInfiniteQuery

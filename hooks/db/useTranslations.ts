@@ -35,7 +35,10 @@ export type Project = InferSelectModel<typeof project>;
  * Filters out blocked users and content if current_user_id is provided
  */
 
-function getTranslationsByAssetIdConfig(asset_id: string | string[], currentUserId?: string) {
+function getTranslationsByAssetIdConfig(
+  asset_id: string | string[],
+  currentUserId?: string
+) {
   const assetIds = Array.isArray(asset_id) ? asset_id : [asset_id];
   return createHybridSupabaseQueryConfig({
     queryKey: [

@@ -41,7 +41,7 @@ export class VoteService {
           .set({
             polarity: data.polarity,
             comment: data.comment,
-            active: data.active ?? true,
+            active: data.active ?? true
           })
           .where(eq(vote.id, existingVoteId));
         const endTime = Date.now();
