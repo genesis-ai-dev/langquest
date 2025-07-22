@@ -209,9 +209,10 @@ export async function downloadRecord(
 
       if (!downloadTree) throw new Error('No download tree found.');
 
-      console.log("RYDER5", { downloaded });
+      console.log('RYDER5', { downloaded });
       const isCurrentlyDownloaded =
-        downloaded ?? (await getDownloadStatus(recordTable, recordId, currentUser.id));
+        downloaded ??
+        (await getDownloadStatus(recordTable, recordId, currentUser.id));
 
       const operation = isCurrentlyDownloaded ? 'remove' : 'add';
       console.log(
@@ -265,7 +266,13 @@ export function useDownload(
 
   const mutation = useMutation({
     mutationFn: async (downloaded?: boolean) =>
-      await downloadRecord(recordTable, recordId, downloaded, null, currentUser),
+      await downloadRecord(
+        recordTable,
+        recordId,
+        downloaded,
+        null,
+        currentUser
+      ),
     onSuccess: async () => {
       // Invalidate related queries
       await queryClient.invalidateQueries({
@@ -360,10 +367,10 @@ export function useQuestDownloadStatus(questId: string) {
   // Calculate progress percentage
   const progressPercentage = closureData
     ? Math.round(
-      (closureData.approved_translations /
-        Math.max(closureData.total_assets, 1)) *
-      100
-    )
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {
@@ -429,23 +436,23 @@ export function useProjectDownloadStatus(projectId: string) {
 
   const closureData = projectClosure[0] as
     | {
-      project_id: string;
-      total_quests: number;
-      total_assets: number;
-      total_translations: number;
-      approved_translations: number;
-      last_updated: string;
-    }
+        project_id: string;
+        total_quests: number;
+        total_assets: number;
+        total_translations: number;
+        approved_translations: number;
+        last_updated: string;
+      }
     | undefined;
   const isDownloaded = !!projectDownloadStatus[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData
     ? Math.round(
-      (closureData.approved_translations /
-        Math.max(closureData.total_assets, 1)) *
-      100
-    )
+        (closureData.approved_translations /
+          Math.max(closureData.total_assets, 1)) *
+          100
+      )
     : 0;
 
   return {

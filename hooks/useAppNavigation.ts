@@ -252,30 +252,30 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-        id: currentProjectId,
-        name: currentProjectName || 'Project'
-      }
+          id: currentProjectId,
+          name: currentProjectName || 'Project'
+        }
       : null;
   }, [currentProjectId, currentProjectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-        id: currentQuestId,
-        name: currentQuestName || 'Quest',
-        project_id: currentProjectId || ''
-      }
+          id: currentQuestId,
+          name: currentQuestName || 'Quest',
+          project_id: currentProjectId || ''
+        }
       : null;
   }, [currentQuestId, currentQuestName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-        id: currentAssetId,
-        name: currentAssetName || 'Asset',
-        projectId: currentProjectId,
-        questId: currentQuestId
-      }
+          id: currentAssetId,
+          name: currentAssetName || 'Asset',
+          projectId: currentProjectId,
+          questId: currentQuestId
+        }
       : null;
   }, [currentAssetId, currentAssetName, currentProjectId, currentQuestId]);
 
