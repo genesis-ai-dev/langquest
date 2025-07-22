@@ -2,6 +2,7 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { colors } from '@/styles/theme';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenQuestsView';
@@ -32,12 +33,19 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
     quest.id
   );
 
+  // Determine if this is a cloud quest that needs downloading
+  const isCloudQuest = quest.source === 'cloudSupabase';
+  const needsDownload = isCloudQuest && !isDownloaded;
+
   const handlePress = () => {
-    goToQuest({
-      id: quest.id,
-      project_id: quest.project_id,
-      name: quest.name
-    });
+    // Only allow navigation if quest is downloaded or not from cloud
+    if (!needsDownload) {
+      goToQuest({
+        id: quest.id,
+        project_id: quest.project_id,
+        name: quest.name
+      });
+    }
   };
 
   const handleDownloadToggle = () => {
@@ -56,8 +64,20 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
-      <View style={styles.listItem}>
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={needsDownload ? 1 : 0.8}
+      disabled={needsDownload}
+    >
+      <View
+        style={[
+          styles.listItem,
+          needsDownload && {
+            opacity: 0.5,
+            backgroundColor: colors.inputBackground + '80' // More muted background
+          }
+        ]}
+      >
         <View
           style={{
             flexDirection: 'row',
@@ -66,10 +86,32 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            {renderSourceTag(quest.source)}
-            <Text style={[styles.questName, { marginLeft: 8, flexShrink: 1 }]}>
+            {/* Only show source tag for offline quests */}
+            {!isCloudQuest && renderSourceTag(quest.source)}
+            <Text
+              style={[
+                styles.questName,
+                {
+                  marginLeft: isCloudQuest ? 0 : 8,
+                  flexShrink: 1,
+                  color: needsDownload ? colors.textSecondary : colors.text
+                }
+              ]}
+            >
               {quest.name}
             </Text>
+            {needsDownload && (
+              <Text
+                style={{
+                  marginLeft: 8,
+                  fontSize: 12,
+                  color: colors.textSecondary,
+                  fontStyle: 'italic'
+                }}
+              >
+                (Download required)
+              </Text>
+            )}
           </View>
 
           <DownloadIndicator
@@ -78,11 +120,18 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
             onPress={handleDownloadToggle}
             downloadType="quest"
             stats={downloadStats}
+            size={needsDownload ? 28 : 24} // Slightly larger for emphasis when download needed
           />
         </View>
 
         {quest.description && (
-          <Text style={styles.description} numberOfLines={2}>
+          <Text
+            style={[
+              styles.description,
+              needsDownload && { color: colors.textSecondary }
+            ]}
+            numberOfLines={2}
+          >
             {quest.description}
           </Text>
         )}
