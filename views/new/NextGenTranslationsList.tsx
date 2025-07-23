@@ -2,13 +2,13 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -19,6 +19,7 @@ import {
   View
 } from 'react-native';
 import NextGenTranslationModal from './NextGenTranslationModal';
+import { useHybridData } from './useHybridData';
 
 interface NextGenTranslationsListProps {
   assetId: string;
@@ -34,114 +35,19 @@ interface NextGenTranslationsListProps {
   membership?: MembershipRole;
 }
 
-interface TranslationWithVotes {
-  id: string;
-  text: string | null;
-  target_language_id: string;
-  creator_id: string;
-  created_at: string;
-  audio: string | null;
+// Base types from the database
+type Translation = InferSelectModel<typeof translation>;
+type Vote = InferSelectModel<typeof vote>;
+
+// Extended type with vote information
+interface TranslationWithVotes extends Translation {
   upVotes: number;
   downVotes: number;
   netVotes: number;
-  source?: string;
+  source?: 'localSqlite' | 'cloudSupabase';
 }
 
 type SortOption = 'voteCount' | 'dateSubmitted';
-
-function useNextGenOfflineTranslations(assetId: string, refreshKey?: number) {
-  return useQuery({
-    queryKey: ['translations', 'offline', assetId, refreshKey],
-    queryFn: async () => {
-      // Get translations for this asset
-      const translations = await system.db
-        .select()
-        .from(translation)
-        .where(eq(translation.asset_id, assetId));
-
-      // Get votes for each translation
-      const translationsWithVotes = await Promise.all(
-        translations.map(async (trans) => {
-          const votes = await system.db
-            .select()
-            .from(vote)
-            .where(eq(vote.translation_id, trans.id));
-
-          const upVotes = votes.filter(
-            (v) => v.active && v.polarity === 'up'
-          ).length;
-          const downVotes = votes.filter(
-            (v) => v.active && v.polarity === 'down'
-          ).length;
-
-          return {
-            ...trans,
-            upVotes,
-            downVotes,
-            netVotes: upVotes - downVotes,
-            source: 'localSqlite'
-          } as TranslationWithVotes;
-        })
-      );
-
-      return translationsWithVotes;
-    },
-    enabled: !!assetId
-  });
-}
-
-async function fetchCloudTranslations(
-  assetId: string
-): Promise<TranslationWithVotes[]> {
-  // Get translations
-  const { data: translationsData, error: translationsError } =
-    await system.supabaseConnector.client
-      .from('translation')
-      .select('*')
-      .eq('asset_id', assetId);
-
-  if (translationsError) throw translationsError;
-  // Supabase always returns an array, even if empty
-
-  // Get votes for each translation
-  const translationsWithVotes = await Promise.all(
-    translationsData.map(async (trans: typeof translation.$inferSelect) => {
-      const { data: votesData, error: votesError } =
-        await system.supabaseConnector.client
-          .from('vote')
-          .select('*')
-          .eq('translation_id', trans.id)
-          .eq('active', true);
-
-      if (votesError) {
-        console.warn('Error fetching votes:', votesError);
-        // Continue with empty votes instead of throwing
-        return {
-          ...trans,
-          upVotes: 0,
-          downVotes: 0,
-          netVotes: 0,
-          source: 'cloudSupabase'
-        } as TranslationWithVotes;
-      }
-
-      // Supabase returns empty array, not null
-      const votes = votesData as { polarity: string; active?: boolean }[];
-      const upVotes = votes.filter((v) => v.polarity === 'up').length;
-      const downVotes = votes.filter((v) => v.polarity === 'down').length;
-
-      return {
-        ...trans,
-        upVotes,
-        downVotes,
-        netVotes: upVotes - downVotes,
-        source: 'cloudSupabase'
-      } as TranslationWithVotes;
-    })
-  );
-
-  return translationsWithVotes;
-}
 
 export default function NextGenTranslationsList({
   assetId,
@@ -150,21 +56,117 @@ export default function NextGenTranslationsList({
   canVote: canVoteProp,
   membership: membershipProp
 }: NextGenTranslationsListProps) {
-  const isOnline = useNetworkStatus();
   const [useOfflineData, setUseOfflineData] = useState(false);
-  const [cloudTranslations, setCloudTranslations] = useState<
-    TranslationWithVotes[]
-  >([]);
-  const [isCloudLoading, setIsCloudLoading] = useState(false);
-  const [cloudError, setCloudError] = useState<Error | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
   >(null);
   const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
-  const { data: offlineTranslations, isLoading: isOfflineLoading } =
-    useNextGenOfflineTranslations(assetId, refreshKey || voteRefreshKey);
+  // First query: Get translations
+  const {
+    data: translations,
+    isLoading: isTranslationsLoading,
+    offlineError: translationsOfflineError,
+    cloudError: translationsCloudError
+  } = useHybridData<Translation>({
+    dataType: 'translations',
+    queryKeyParams: [assetId, refreshKey || 0, voteRefreshKey],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select()
+        .from(translation)
+        .where(eq(translation.asset_id, assetId))
+    ),
+
+    // Cloud query function
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('translation')
+        .select('*')
+        .eq('asset_id', assetId);
+
+      if (error) throw error;
+      return data as Translation[];
+    },
+
+    // Disable cloud query when user explicitly wants offline data
+    enableCloudQuery: !useOfflineData
+  });
+
+  // Get translation IDs for vote query
+  const translationIds = React.useMemo(() => {
+    return translations.map((t) => t.id);
+  }, [translations]);
+
+  // Second query: Get votes for all translations
+  const { data: votes, isLoading: isVotesLoading } = useHybridData<Vote>({
+    dataType: 'votes',
+    queryKeyParams: [...translationIds, voteRefreshKey],
+
+    // PowerSync query for votes
+    offlineQuery:
+      translationIds.length > 0
+        ? toCompilableQuery(
+            system.db
+              .select()
+              .from(vote)
+              .where(
+                and(
+                  inArray(vote.translation_id, translationIds),
+                  eq(vote.active, true)
+                )
+              )
+          )
+        : 'SELECT * FROM vote WHERE 1=0', // Empty query when no translations
+
+    // Cloud query for votes
+    cloudQueryFn: async () => {
+      if (translationIds.length === 0) return [];
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('vote')
+        .select('*')
+        .in('translation_id', translationIds)
+        .eq('active', true);
+
+      if (error) throw error;
+      return data as Vote[];
+    },
+
+    // Disable cloud query when user explicitly wants offline data
+    enableCloudQuery: !useOfflineData
+  });
+
+  // Combine translations with vote counts
+  const translationsWithVotes = React.useMemo(() => {
+    // Group votes by translation ID
+    const votesByTranslation = new Map<string, Vote[]>();
+    votes.forEach((v) => {
+      const existing = votesByTranslation.get(v.translation_id) || [];
+      votesByTranslation.set(v.translation_id, [...existing, v]);
+    });
+
+    // Calculate vote counts for each translation
+    return translations.map((trans) => {
+      const translationVotes = votesByTranslation.get(trans.id) || [];
+      const upVotes = translationVotes.filter(
+        (v) => v.polarity === 'up'
+      ).length;
+      const downVotes = translationVotes.filter(
+        (v) => v.polarity === 'down'
+      ).length;
+
+      return {
+        ...trans,
+        upVotes,
+        downVotes,
+        netVotes: upVotes - downVotes
+      } as TranslationWithVotes;
+    });
+  }, [translations, votes]);
 
   // Use props from parent if available, otherwise default behavior
   const isPrivateProject = projectData?.private || false;
@@ -173,55 +175,17 @@ export default function NextGenTranslationsList({
 
   // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
-    const activeTranslations = useOfflineData
-      ? offlineTranslations
-      : cloudTranslations;
-    if (!activeTranslations) return [];
-
-    return activeTranslations
+    return translationsWithVotes
       .filter((trans) => trans.audio)
       .map((trans) => trans.audio!)
       .filter(Boolean);
-  }, [useOfflineData, offlineTranslations, cloudTranslations]);
+  }, [translationsWithVotes]);
 
   const { attachmentStates, isLoading: _isLoadingAttachments } =
     useAttachmentStates(audioIds);
 
-  // Load cloud translations when online and not using offline data
-  useEffect(() => {
-    if (!assetId || useOfflineData || !isOnline) {
-      setCloudTranslations([]);
-      setIsCloudLoading(false);
-      setCloudError(null);
-      return;
-    }
-
-    const loadCloudTranslations = async () => {
-      try {
-        setIsCloudLoading(true);
-        setCloudError(null);
-        const translations = await fetchCloudTranslations(assetId);
-        setCloudTranslations(translations);
-      } catch (error) {
-        console.error('Error fetching cloud translations:', error);
-        setCloudError(error as Error);
-        setCloudTranslations([]);
-      } finally {
-        setIsCloudLoading(false);
-      }
-    };
-
-    void loadCloudTranslations();
-  }, [assetId, useOfflineData, isOnline, refreshKey, voteRefreshKey]);
-
-  const activeTranslations = useOfflineData
-    ? offlineTranslations
-    : cloudTranslations;
-  const isLoading = useOfflineData ? isOfflineLoading : isCloudLoading;
-
   const sortedTranslations = React.useMemo(() => {
-    if (!activeTranslations) return [];
-    return [...activeTranslations].sort((a, b) => {
+    return [...translationsWithVotes].sort((a, b) => {
       if (sortOption === 'voteCount') {
         return b.netVotes - a.netVotes;
       }
@@ -229,7 +193,7 @@ export default function NextGenTranslationsList({
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     });
-  }, [activeTranslations, sortOption]);
+  }, [translationsWithVotes, sortOption]);
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
     if (!fullText) return '(Empty translation)';
@@ -256,6 +220,11 @@ export default function NextGenTranslationsList({
     // Increment vote refresh key to trigger re-queries
     setVoteRefreshKey((prev) => prev + 1);
   };
+
+  const isLoading = isTranslationsLoading || isVotesLoading;
+  const hasError = useOfflineData
+    ? translationsOfflineError
+    : translationsCloudError;
 
   return (
     <View style={styles.container}>
@@ -448,11 +417,12 @@ export default function NextGenTranslationsList({
           </View>
         )}
 
-        {/* Offline/Cloud stats */}
+        {/* Offline/Cloud stats with error handling */}
         <View style={styles.statsContainer}>
           <Text style={styles.statsText}>
             {useOfflineData ? '💾 Offline' : '🌐 Cloud'} Data
-            {cloudError && !useOfflineData && ' (Error loading cloud data)'}
+            {hasError &&
+              ` (Error loading ${useOfflineData ? 'offline' : 'cloud'} data)`}
           </Text>
         </View>
       </ScrollView>
