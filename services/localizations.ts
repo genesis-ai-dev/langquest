@@ -103,10 +103,10 @@ export const localizations = {
     brazilian_portuguese: 'E-mail'
   },
   emailAlreadyMemberMessage: {
-    english: 'This email address is already a {{role}} of this project.',
+    english: 'This email address is already a {role} of this project.',
     spanish:
-      'Esta dirección de correo electrónico ya es {{role}} de este proyecto.',
-    brazilian_portuguese: 'Este endereço de e-mail já é {{role}} deste projeto.'
+      'Esta dirección de correo electrónico ya es {role} de este proyecto.',
+    brazilian_portuguese: 'Este endereço de e-mail já é {role} deste projeto.'
   },
   emailRequired: {
     english: 'Email is required',
@@ -921,10 +921,10 @@ export const localizations = {
       'Proprietários podem criar conteúdo, convidar e promover outros membros, e não podem ser rebaixados de volta à associação ou removidos de um projeto por outros membros.'
   },
   confirmRemoveMessage: {
-    english: 'Are you sure you want to remove {{name}} from this project?',
-    spanish: '¿Está seguro de que desea eliminar a {{name}} de este proyecto?',
+    english: 'Are you sure you want to remove {name} from this project?',
+    spanish: '¿Está seguro de que desea eliminar a {name} de este proyecto?',
     brazilian_portuguese:
-      'Tem certeza de que deseja remover {{name}} deste projeto?'
+      'Tem certeza de que deseja remover {name} deste projeto?'
   },
   confirmPromote: {
     english: 'Confirm Promote',
@@ -933,11 +933,11 @@ export const localizations = {
   },
   confirmPromoteMessage: {
     english:
-      'Are you sure you want to make {{name}} an owner? This action cannot be undone.',
+      'Are you sure you want to make {name} an owner? This action cannot be undone.',
     spanish:
-      '¿Está seguro de que desea hacer a {{name}} propietario? Esta acción no se puede deshacer.',
+      '¿Está seguro de que desea hacer a {name} propietario? Esta acción no se puede deshacer.',
     brazilian_portuguese:
-      'Tem certeza de que deseja tornar {{name}} um proprietário? Esta ação não pode ser desfeita.'
+      'Tem certeza de que deseja tornar {name} um proprietário? Esta ação não pode ser desfeita.'
   },
   confirmLeave: {
     english: 'Leave Project',
@@ -1123,11 +1123,11 @@ export const localizations = {
   },
   requestDeclinedCanRetry: {
     english:
-      'Your membership request was declined. You have {{attempts}} more attempts to request membership.',
+      'Your membership request was declined. You have {attempts} more attempts to request membership.',
     spanish:
-      'Su solicitud de membresía fue rechazada. Tiene {{attempts}} intentos más para solicitar membresía.',
+      'Su solicitud de membresía fue rechazada. Tiene {attempts} intentos más para solicitar membresía.',
     brazilian_portuguese:
-      'Sua solicitação de associação foi recusada. Você tem {{attempts}} tentativas restantes para solicitar associação.'
+      'Sua solicitação de associação foi recusada. Você tem {attempts} tentativas restantes para solicitar associação.'
   },
   requestDeclinedNoRetry: {
     english:
@@ -1300,20 +1300,18 @@ export const localizations = {
     brazilian_portuguese: 'Convite para o Projeto'
   },
   projectInvitationFrom: {
-    english:
-      '{{sender}} has invited you to join project "{{project}}" as {{role}}',
+    english: '{sender} has invited you to join project "{project}" as {role}',
     spanish:
-      '{{sender}} te ha invitado a unirte al proyecto "{{project}}" como {{role}}',
+      '{sender} te ha invitado a unirte al proyecto "{project}" como {role}',
     brazilian_portuguese:
-      '{{sender}} convidou você para participar do projeto "{{project}}" como {{role}}'
+      '{sender} convidou você para participar do projeto "{project}" como {role}'
   },
   projectJoinRequestFrom: {
-    english:
-      '{{sender}} has requested to join project "{{project}}" as {{role}}',
+    english: '{sender} has requested to join project "{project}" as {role}',
     spanish:
-      '{{sender}} ha solicitado unirse al proyecto "{{project}}" como {{role}}',
+      '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
-      '{{sender}} solicitou participar do projeto "{{project}}" como {{role}}'
+      '{sender} solicitou participar do projeto "{project}" como {role}'
   },
   projectWillRemainDownloaded: {
     english: 'Project will remain downloaded',
@@ -1322,19 +1320,19 @@ export const localizations = {
   },
   requestExpiredAttemptsRemaining: {
     english:
-      'Your request expired after 7 days. You have {{attempts}} attempt{{plural}} remaining.',
+      'Your request expired after 7 days. You have {attempts} attempt{plural} remaining.',
     spanish:
-      'Su solicitud expiró después de 7 días. Te quedan {{attempts}} intento{{plural}}.',
+      'Su solicitud expiró después de 7 días. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
-      'Sua solicitação expirou após 7 dias. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+      'Sua solicitação expirou após 7 dias. Você tem {attempts} tentativa{plural} restante{plural}.'
   },
   requestExpiredInline: {
     english:
-      'Your previous request expired after 7 days. You have {{attempts}} attempt{{plural}} remaining.',
+      'Your previous request expired after 7 days. You have {attempts} attempt{plural} remaining.',
     spanish:
-      'Su solicitud anterior expiró después de 7 días. Te quedan {{attempts}} intento{{plural}}.',
+      'Su solicitud anterior expiró después de 7 días. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
-      'Sua solicitação anterior expirou após 7 dias. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+      'Sua solicitação anterior expirou após 7 dias. Você tem {attempts} tentativa{plural} restante{plural}.'
   },
   requestExpiredNoAttempts: {
     english: 'Your request expired and you have no more attempts remaining.',
@@ -1360,11 +1358,11 @@ export const localizations = {
   },
   requestDeclinedInline: {
     english:
-      'Your request was declined. You have {{attempts}} attempt{{plural}} remaining.',
+      'Your request was declined. You have {attempts} attempt{plural} remaining.',
     spanish:
-      'Su solicitud fue rechazada. Te quedan {{attempts}} intento{{plural}}.',
+      'Su solicitud fue rechazada. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
-      'Sua solicitação foi recusada. Você tem {{attempts}} tentativa{{plural}} restante{{plural}}.'
+      'Sua solicitação foi recusada. Você tem {attempts} tentativa{plural} restante{plural}.'
   },
   requestDeclinedNoRetryInline: {
     english:
@@ -1432,22 +1430,22 @@ export const localizations = {
     brazilian_portuguese: 'Restaurar Áudio'
   },
   failedRestore: {
-    english: 'Failed to restore: {{error}}',
-    spanish: 'Error al restaurar: {{error}}',
-    brazilian_portuguese: 'Falha ao restaurar: {{error}}'
+    english: 'Failed to restore: {error}',
+    spanish: 'Error al restaurar: {error}',
+    brazilian_portuguese: 'Falha ao restaurar: {error}'
   },
   restoreCompleteBase: {
     english:
-      'Restore completed: {{audioCopied}} audio files copied, {{audioSkippedDueToError}} skipped due to errors',
+      'Restore completed: {audioCopied} audio files copied, {audioSkippedDueToError} skipped due to errors',
     spanish:
-      'Restauración completada: {{audioCopied}} archivos de audio copiados, {{audioSkippedDueToError}} omitidos por errores',
+      'Restauración completada: {audioCopied} archivos de audio copiados, {audioSkippedDueToError} omitidos por errores',
     brazilian_portuguese:
-      'Restauração concluída: {{audioCopied}} arquivos de áudio copiados, {{audioSkippedDueToError}} ignorados por erros'
+      'Restauração concluída: {audioCopied} arquivos de áudio copiados, {audioSkippedDueToError} ignorados por erros'
   },
   restoreSkippedLocallyPart: {
-    english: ', {{audioSkippedLocally}} skipped (already exists)',
-    spanish: ', {{audioSkippedLocally}} omitidos (ya existen)',
-    brazilian_portuguese: ', {{audioSkippedLocally}} ignorados (já existem)'
+    english: ', {audioSkippedLocally} skipped (already exists)',
+    spanish: ', {audioSkippedLocally} omitidos (ya existen)',
+    brazilian_portuguese: ', {audioSkippedLocally} ignorados (já existem)'
   },
   restoreCompleteTitle: {
     english: 'Restore Complete',
@@ -1455,9 +1453,9 @@ export const localizations = {
     brazilian_portuguese: 'Restauração Concluída'
   },
   restoreFailedTitle: {
-    english: 'Restore Failed: {{error}}',
-    spanish: 'Restauración Fallida: {{error}}',
-    brazilian_portuguese: 'Restauração Falhou: {{error}}'
+    english: 'Restore Failed: {error}',
+    spanish: 'Restauración Fallida: {error}',
+    brazilian_portuguese: 'Restauração Falhou: {error}'
   },
   projectInvitationTitle: {
     english: 'Project Invitation',
@@ -1470,16 +1468,16 @@ export const localizations = {
     brazilian_portuguese: 'Solicitação de Adesão'
   },
   invitedYouToJoin: {
-    english: '{{sender}} invited you to join "{{project}}" as {{role}}',
-    spanish: '{{sender}} te invitó a unirte a "{{project}}" como {{role}}',
+    english: '{sender} invited you to join "{project}" as {role}',
+    spanish: '{sender} te invitó a unirte a "{project}" como {role}',
     brazilian_portuguese:
-      '{{sender}} convidou você para participar de "{{project}}" como {{role}}'
+      '{sender} convidou você para participar de "{project}" como {role}'
   },
   requestedToJoin: {
-    english: '{{sender}} requested to join "{{project}}" as {{role}}',
-    spanish: '{{sender}} solicitó unirse a "{{project}}" como {{role}}',
+    english: '{sender} requested to join "{project}" as {role}',
+    spanish: '{sender} solicitó unirse a "{project}" como {role}',
     brazilian_portuguese:
-      '{{sender}} solicitou participar de "{{project}}" como {{role}}'
+      '{sender} solicitou participar de "{project}" como {role}'
   },
   downloadProjectLabel: {
     english: 'Download Project',

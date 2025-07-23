@@ -1,16 +1,25 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { system } from '@/db/powersync/system';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { QuestListItem } from './QuestListItem';
 import { useSimpleHybridInfiniteData } from './useHybridData';
 
 export default function NextGenQuestsView() {
   const { currentProjectId } = useCurrentNavigation();
+  const [showMembershipModal, setShowMembershipModal] = React.useState(false);
 
   const {
     data,
@@ -133,6 +142,21 @@ export default function NextGenQuestsView() {
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
       />
+
+      {/* Floating action button for membership */}
+      <TouchableOpacity
+        onPress={() => setShowMembershipModal(true)}
+        style={styles.floatingButton}
+      >
+        <Ionicons name="people" size={24} color={colors.text} />
+      </TouchableOpacity>
+
+      {/* Membership Modal */}
+      <ProjectMembershipModal
+        isVisible={showMembershipModal}
+        onClose={() => setShowMembershipModal(false)}
+        projectId={currentProjectId || ''}
+      />
     </View>
   );
 }
@@ -161,5 +185,21 @@ export const styles = StyleSheet.create({
   loadingFooter: {
     paddingVertical: spacing.medium,
     alignItems: 'center'
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: spacing.large,
+    right: spacing.large,
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5
   }
 });

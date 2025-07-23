@@ -2,7 +2,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDownload } from '@/hooks/useDownloads';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -14,8 +13,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
@@ -29,6 +30,10 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+
+// Type definitions
+type Request = InferSelectModel<typeof request>;
+type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
 interface PrivateAccessGateProps {
   projectId: string;
@@ -78,20 +83,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
-  // Query for existing membership request
-  const { data: existingRequests = [], refetch } = useHybridQuery({
-    queryKey: ['membership-request', projectId, currentUser?.id],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select('*')
-        .eq('sender_profile_id', currentUser?.id || '')
-        .eq('project_id', projectId);
-      if (error) throw error;
-      return data;
-    },
+  // Query for existing membership request using useHybridData
+  const { data: existingRequests } = useHybridData<Request>({
+    dataType: 'membership-request',
+    queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.request.findMany({
         where: and(
@@ -100,22 +100,25 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         )
       })
     ),
-    enabled: !!currentUser?.id && !!projectId
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('sender_profile_id', currentUser?.id || '')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data as Request[];
+    }
   });
 
-  // Query for membership status (for modal mode)
-  const { data: membershipLinks = [] } = useHybridQuery({
-    queryKey: ['membership-status', projectId, currentUser?.id],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*')
-        .eq('profile_id', currentUser?.id || '')
-        .eq('project_id', projectId)
-        .eq('active', true);
-      if (error) throw error;
-      return data;
-    },
+  // Query for membership status (for modal mode) using useHybridData
+  const { data: membershipLinks } = useHybridData<ProfileProjectLink>({
+    dataType: 'membership-status',
+    queryKeyParams: [projectId, currentUser?.id || ''],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
@@ -125,8 +128,21 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         )
       })
     ),
-    enabled: !!currentUser?.id && !!projectId && modal,
-    refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data as ProfileProjectLink[];
+    },
+
+    // Only run cloud query when in modal mode
+    enableCloudQuery: modal
   });
 
   const isMember = membershipLinks.length > 0;
@@ -185,7 +201,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         });
       }
 
-      await refetch();
+      // Trigger refresh by updating the refresh key
+      setRefreshKey((prev) => prev + 1);
 
       // Handle project download if toggle is enabled and not already downloaded
       if (autoDownload && !isProjectDownloaded) {
@@ -232,7 +249,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 })
                 .where(eq(request.id, existingRequest.id));
 
-              await refetch();
+              // Trigger refresh
+              setRefreshKey((prev) => prev + 1);
               Alert.alert(t('success'), t('requestWithdrawn'));
             } catch (error) {
               console.error('Error withdrawing request:', error);

@@ -28,8 +28,8 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // e.g., `SELECT * FROM users WHERE id = '${userId}'`
   offlineQuery: string | CompilableQuery<TOfflineData>;
 
-  // Function to fetch cloud data from Supabase
-  cloudQueryFn: () => Promise<TCloudData[]>;
+  // Function to fetch cloud data from Supabase (optional)
+  cloudQueryFn?: () => Promise<TCloudData[]>;
 
   // Function to get unique ID from an item (defaults to 'id' property)
   getItemId?: (item: TOfflineData | TCloudData) => string;
@@ -110,15 +110,17 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     error: cloudError
   } = useTanstackQuery({
     queryKey: [dataType, 'cloud', ...queryKeyParams],
-    queryFn: cloudQueryFn,
-    enabled: shouldFetchCloud,
+    queryFn: cloudQueryFn || (() => Promise.resolve([])),
+    enabled: shouldFetchCloud && !!cloudQueryFn,
     ...cloudQueryOptions
   });
 
   // Add source tracking to data
   const offlineData = React.useMemo(() => {
     if (!rawOfflineData) return undefined;
-    return rawOfflineData.map((item) => ({
+    // Ensure we always have an array
+    const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
+    return dataArray.map((item) => ({
       ...item,
       source: 'localSqlite' as const
     }));
@@ -126,7 +128,9 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
 
   const cloudData = React.useMemo(() => {
     if (!rawCloudData) return undefined;
-    return rawCloudData.map((item) => {
+    // Ensure we always have an array
+    const dataArray = Array.isArray(rawCloudData) ? rawCloudData : [];
+    return dataArray.map((item) => {
       const transformedItem = transformCloudData
         ? transformCloudData(item)
         : (item as unknown as TOfflineData);
@@ -175,7 +179,7 @@ export function useSimpleHybridData<T extends { id: string }>(
   dataType: string,
   queryKeyParams: QueryKeyParam[],
   offlineQuery: string | CompilableQuery<T>,
-  cloudQueryFn: () => Promise<T[]>
+  cloudQueryFn?: () => Promise<T[]>
 ): HybridDataResult<T> {
   return useHybridData({
     dataType,
