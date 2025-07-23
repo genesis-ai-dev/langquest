@@ -88,13 +88,14 @@ export default function NextGenQuestsView() {
   }, [isFetchingNextPage]);
 
   const statusText = React.useMemo(() => {
-    const offlineCount = quests.filter(
+    const downloadedCount = quests.filter(
       (q) => q.source === 'localSqlite'
     ).length;
     const cloudCount = quests.filter(
       (q) => q.source === 'cloudSupabase'
     ).length;
-    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${quests.length}`;
+
+    return `${isOnline ? '🟢' : '🔴'} Available: ${downloadedCount} | Needs Download: ${cloudCount} | Total: ${quests.length}`;
   }, [isOnline, quests]);
 
   if (isLoading) {
