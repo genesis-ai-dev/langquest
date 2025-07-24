@@ -1,5 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { CompilableQuery } from '@powersync/react-native';
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import type {
@@ -512,6 +512,131 @@ export function useItemDownloadStatus(
     if (!item || !userId || !item.download_profiles) return false;
     return item.download_profiles.includes(userId);
   }, [item?.download_profiles, userId]);
+}
+
+/**
+ * Configuration for hybridFetch function
+ */
+export interface HybridFetchOptions<TOfflineData, TCloudData = TOfflineData> {
+  // PowerSync query definition - either SQL string or Drizzle query
+  offlineQuery: string | CompilableQuery<TOfflineData>;
+
+  // Function to fetch cloud data from Supabase
+  cloudQueryFn: () => Promise<TCloudData[]>;
+
+  // Function to get unique ID from an item (defaults to 'id' property)
+  getItemId?: (item: TOfflineData | TCloudData) => string;
+
+  // Transform function to convert cloud data to offline format (if different types)
+  transformCloudData?: (cloudData: TCloudData) => TOfflineData;
+}
+
+/**
+ * Standalone function to fetch data with offline-first approach
+ * Merges local and cloud data with local taking priority (unless cloud is newer)
+ * Can be used outside of React components
+ */
+export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
+  options: HybridFetchOptions<TOfflineData, TCloudData>
+): Promise<TOfflineData[]> {
+  const {
+    offlineQuery,
+    cloudQueryFn,
+    getItemId = (item) => (item as { id: string }).id,
+    transformCloudData
+  } = options;
+
+  // Fetch offline data
+  let offlineData: TOfflineData[] = [];
+
+  try {
+    if (typeof offlineQuery === 'string') {
+      // For SQL strings, execute directly with system.powersync
+      const result = await system.powersync.execute(offlineQuery);
+      const rows: TOfflineData[] = [];
+      if (result.rows) {
+        for (let i = 0; i < result.rows.length; i++) {
+          const item = result.rows.item(i);
+          if (item) {
+            rows.push(item as TOfflineData);
+          }
+        }
+      }
+      offlineData = rows;
+    } else {
+      // For CompilableQuery, execute directly
+      offlineData = await offlineQuery.execute();
+    }
+  } catch (error) {
+    console.error('hybridFetch: Error fetching offline data:', error);
+    // Continue with empty offline data
+  }
+
+  // Try to fetch cloud data if online
+  const isOnline = getNetworkStatus();
+  let cloudData: TCloudData[] = [];
+
+  if (isOnline && cloudQueryFn) {
+    try {
+      cloudData = await cloudQueryFn();
+    } catch (error) {
+      console.warn(
+        'hybridFetch: Cloud query failed, using local data only',
+        error
+      );
+    }
+  }
+
+  // Transform cloud data if needed
+  const transformedCloudData: TOfflineData[] = cloudData.map((item) => {
+    return transformCloudData
+      ? transformCloudData(item)
+      : (item as unknown as TOfflineData);
+  });
+
+  // Merge data with local priority
+  const offlineMap = new Map(
+    offlineData.map((item) => [getItemId(item), item])
+  );
+  const mergedMap = new Map<string, TOfflineData>();
+
+  // Add all offline data first
+  offlineData.forEach((item) => {
+    mergedMap.set(getItemId(item), item);
+  });
+
+  // Process cloud data
+  transformedCloudData.forEach((cloudItem) => {
+    const id = getItemId(cloudItem);
+    const localItem = offlineMap.get(id);
+
+    if (!localItem) {
+      // Cloud item doesn't exist locally, add it
+      mergedMap.set(id, cloudItem);
+    } else {
+      // Item exists in both - compare last_updated timestamps if available
+      const localLastUpdated = (
+        localItem as TOfflineData & { last_updated?: string }
+      ).last_updated;
+      const cloudLastUpdated = (
+        cloudItem as TOfflineData & { last_updated?: string }
+      ).last_updated;
+
+      // If cloud version is newer, use it
+      if (
+        cloudLastUpdated &&
+        localLastUpdated &&
+        new Date(cloudLastUpdated).getTime() >
+          new Date(localLastUpdated).getTime()
+      ) {
+        mergedMap.set(id, cloudItem);
+      }
+      // Otherwise keep the local version (already in mergedMap)
+    }
+  });
+
+  // Convert map back to array
+  return Array.from(mergedMap.values());
 }
 
 /**
