@@ -3,7 +3,6 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { asset, asset_content_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { Asset, AssetContent } from '@/hooks/db/useAssets';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -30,6 +29,9 @@ interface AssetWithContent extends Asset {
   content?: AssetContent[];
   source?: string;
 }
+
+type Asset = typeof asset.$inferSelect;
+type AssetContent = typeof asset_content_link.$inferSelect;
 
 const ASSET_VIEWER_PROPORTION = 0.4;
 

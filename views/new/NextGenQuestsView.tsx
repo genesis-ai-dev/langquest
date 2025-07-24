@@ -1,7 +1,7 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { Quest } from '@/hooks/db/useQuests';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { QuestListItem } from './QuestListItem';
 import { useSimpleHybridInfiniteData } from './useHybridData';
+
+type Quest = typeof quest.$inferSelect;
 
 export default function NextGenQuestsView() {
   const { currentProjectId } = useCurrentNavigation();

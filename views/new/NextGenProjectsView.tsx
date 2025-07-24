@@ -1,12 +1,14 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { Project } from '@/hooks/db/useProjects';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { FlashList } from '@shopify/flash-list';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 import { useSimpleHybridInfiniteData } from './useHybridData';
+
+type Project = typeof project.$inferSelect;
 
 export default function NextGenProjectsView() {
   const {

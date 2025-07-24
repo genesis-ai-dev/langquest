@@ -1,7 +1,6 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { Asset } from '@/hooks/db/useAssets';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
@@ -11,6 +10,8 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AssetListItem } from './AssetListItem';
 import { useHybridInfiniteData } from './useHybridData';
+
+type Asset = typeof asset.$inferSelect;
 
 export default function NextGenAssetsView() {
   const { currentQuestId } = useCurrentNavigation();

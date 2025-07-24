@@ -1,74 +1,76 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Asset } from '@/hooks/db/useAssets';
+import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
 import type { AttachmentRecord } from '@powersync/attachments';
-import { AttachmentState } from '@powersync/attachments';
+// import { AttachmentState } from '@powersync/attachments';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenAssetsView';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
+
+type Asset = typeof asset_type.$inferSelect;
 export interface AssetListItemProps {
-  asset: Asset & { source?: string };
+  asset: Asset;
   attachmentState?: AttachmentRecord;
 }
 
-function renderSourceTag(source: string | undefined) {
-  if (source === 'cloudSupabase') {
-    return <Text style={{ color: 'red' }}>Cloud</Text>;
-  }
-  return <Text style={{ color: 'blue' }}>Offline</Text>;
-}
+// function renderSourceTag(source: string | undefined) {
+//   if (source === 'cloudSupabase') {
+//     return <Text style={{ color: 'red' }}>Cloud</Text>;
+//   }
+//   return <Text style={{ color: 'blue' }}>Offline</Text>;
+// }
 
-function renderAttachmentState(attachmentState: AttachmentRecord | undefined) {
-  if (!attachmentState) {
-    return (
-      <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-        📎 No attachment data
-      </Text>
-    );
-  }
+// function renderAttachmentState(attachmentState: AttachmentRecord | undefined) {
+//   if (!attachmentState) {
+//     return (
+//       <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+//         📎 No attachment data
+//       </Text>
+//     );
+//   }
 
-  const stateEmoji = {
-    [AttachmentState.QUEUED_SYNC]: '⏳',
-    [AttachmentState.QUEUED_DOWNLOAD]: '📥',
-    [AttachmentState.SYNCED]: '✅'
-  };
+//   const stateEmoji = {
+//     [AttachmentState.QUEUED_SYNC]: '⏳',
+//     [AttachmentState.QUEUED_DOWNLOAD]: '📥',
+//     [AttachmentState.SYNCED]: '✅'
+//   };
 
-  const stateName = {
-    [AttachmentState.QUEUED_SYNC]: 'Queued',
-    [AttachmentState.QUEUED_DOWNLOAD]: 'Downloading',
-    [AttachmentState.SYNCED]: 'Synced'
-  };
+//   const stateName = {
+//     [AttachmentState.QUEUED_SYNC]: 'Queued',
+//     [AttachmentState.QUEUED_DOWNLOAD]: 'Downloading',
+//     [AttachmentState.SYNCED]: 'Synced'
+//   };
 
-  const stateColor = {
-    [AttachmentState.QUEUED_SYNC]: colors.textSecondary,
-    [AttachmentState.QUEUED_DOWNLOAD]: colors.primary,
-    [AttachmentState.SYNCED]: colors.success
-  };
+//   const stateColor = {
+//     [AttachmentState.QUEUED_SYNC]: colors.textSecondary,
+//     [AttachmentState.QUEUED_DOWNLOAD]: colors.primary,
+//     [AttachmentState.SYNCED]: colors.success
+//   };
 
-  return (
-    <Text
-      style={{
-        color:
-          stateColor[attachmentState.state as keyof typeof stateColor] ||
-          colors.textSecondary,
-        fontSize: 12,
-        fontWeight:
-          attachmentState.state === AttachmentState.QUEUED_DOWNLOAD
-            ? 'bold'
-            : 'normal'
-      }}
-    >
-      📎 {stateEmoji[attachmentState.state as keyof typeof stateEmoji] || '❓'}{' '}
-      {stateName[attachmentState.state as keyof typeof stateName] ||
-        `State ${attachmentState.state}`}
-    </Text>
-  );
-}
+//   return (
+//     <Text
+//       style={{
+//         color:
+//           stateColor[attachmentState.state as keyof typeof stateColor] ||
+//           colors.textSecondary,
+//         fontSize: 12,
+//         fontWeight:
+//           attachmentState.state === AttachmentState.QUEUED_DOWNLOAD
+//             ? 'bold'
+//             : 'normal'
+//       }}
+//     >
+//       📎 {stateEmoji[attachmentState.state as keyof typeof stateEmoji] || '❓'}{' '}
+//       {stateName[attachmentState.state as keyof typeof stateName] ||
+//         `State ${attachmentState.state}`}
+//     </Text>
+//   );
+// }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
@@ -110,10 +112,10 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             justifyContent: 'space-between'
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {renderSourceTag(asset.source)}
             {renderAttachmentState(attachmentState)}
-          </View>
+          </View> */}
 
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}

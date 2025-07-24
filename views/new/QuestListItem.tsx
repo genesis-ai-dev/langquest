@@ -1,12 +1,14 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Quest } from '@/hooks/db/useQuests';
+import type { quest } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenQuestsView';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+
+type Quest = typeof quest.$inferSelect;
 
 // Define props locally to avoid require cycle
 export interface QuestListItemProps {

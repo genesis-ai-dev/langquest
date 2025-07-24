@@ -1,9 +1,8 @@
 import AudioRecorder from '@/components/AudioRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { translationService } from '@/database_services/translationService';
-import type { language } from '@/db/drizzleSchema';
+import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { AssetContent } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -23,6 +22,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+
+type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
   visible: boolean;

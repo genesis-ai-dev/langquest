@@ -1,6 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Project } from '@/hooks/db/useProjects';
+import type { project } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenProjectsView';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+
+type Project = typeof project.$inferSelect;
 
 // Define props locally to avoid require cycle
 export interface ProjectListItemProps {
