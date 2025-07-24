@@ -27,13 +27,11 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View
 } from 'react-native';
 
@@ -186,7 +184,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           id: profile.id,
           email: profile.email || '',
           name: profile.username || profile.email || '',
-          role: (link.membership as 'owner' | 'member') || 'member',
+          role: link.membership as 'owner' | 'member',
           active: true
         };
       })
@@ -255,7 +253,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   );
 
   // Create a map of profile ID to profile for receivers
-  const receiverProfileMap = React.useMemo(() => {
+  const _receiverProfileMap = React.useMemo(() => {
     const map: Record<string, typeof profile.$inferSelect> = {};
     receiverProfiles.forEach((p) => {
       map[p.id] = p;
@@ -294,7 +292,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   });
 
   // Check if current user is an owner (keep for compatibility with leave project logic)
-  const currentUserMembership = members.find((m) => m.id === currentUser?.id);
+  const _currentUserMembership = members.find((m) => m.id === currentUser.id);
 
   // Count active owners
   const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
@@ -586,7 +584,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const renderMember = (member: Member) => {
-    const isCurrentUser = member.id === currentUser?.id;
+    const isCurrentUser = member.id === currentUser.id;
 
     return (
       <View key={member.id} style={styles.memberItem}>
@@ -762,189 +760,193 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
-          <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={[sharedStyles.modal, styles.modalContainer]}>
-                <View style={styles.header}>
-                  <Text style={sharedStyles.modalTitle}>
-                    {t('projectMembers')}
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={sharedStyles.modalTitle}>{t('projectMembers')}</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              {projectLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>
+                    {t('loadingProjectDetails')}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
                 </View>
-
-                {projectLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <Text style={styles.loadingText}>
-                      {t('loadingProjectDetails')}
-                    </Text>
+              ) : (
+                <PrivateAccessGate
+                  projectId={projectId}
+                  projectName={project?.name || ''}
+                  isPrivate={project?.private || false}
+                  action="view_membership"
+                  inline={true}
+                >
+                  <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.tab,
+                        activeTab === 'members' && styles.activeTab
+                      ]}
+                      onPress={() => setActiveTab('members')}
+                    >
+                      <Text
+                        style={[
+                          styles.tabText,
+                          activeTab === 'members' && styles.activeTabText
+                        ]}
+                      >
+                        {t('members')} ({sortedMembers.length})
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.tab,
+                        activeTab === 'invited' && styles.activeTab
+                      ]}
+                      onPress={() => setActiveTab('invited')}
+                    >
+                      <Text
+                        style={[
+                          styles.tabText,
+                          activeTab === 'invited' && styles.activeTabText
+                        ]}
+                      >
+                        {t('invited')} ({visibleInvitations.length})
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  <PrivateAccessGate
-                    projectId={projectId}
-                    projectName={project?.name || ''}
-                    isPrivate={project?.private || false}
-                    action="view_membership"
-                    inline={true}
+
+                  <ScrollView
+                    style={styles.membersList}
+                    contentContainerStyle={styles.membersListContent}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <View style={styles.tabContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.tab,
-                          activeTab === 'members' && styles.activeTab
-                        ]}
-                        onPress={() => setActiveTab('members')}
-                      >
-                        <Text
-                          style={[
-                            styles.tabText,
-                            activeTab === 'members' && styles.activeTabText
-                          ]}
-                        >
-                          {t('members')} ({sortedMembers.length})
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.tab,
-                          activeTab === 'invited' && styles.activeTab
-                        ]}
-                        onPress={() => setActiveTab('invited')}
-                      >
-                        <Text
-                          style={[
-                            styles.tabText,
-                            activeTab === 'invited' && styles.activeTabText
-                          ]}
-                        >
-                          {t('invited')} ({visibleInvitations.length})
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.membersList}>
-                      {activeTab === 'members' ? (
-                        sortedMembers.length > 0 ? (
-                          sortedMembers.map(renderMember)
-                        ) : (
-                          <Text style={styles.emptyText}>{t('noMembers')}</Text>
-                        )
-                      ) : visibleInvitations.length > 0 ? (
-                        visibleInvitations.map(renderInvitation)
+                    {activeTab === 'members' ? (
+                      sortedMembers.length > 0 ? (
+                        sortedMembers.map(renderMember)
                       ) : (
-                        <Text style={styles.emptyText}>
-                          {t('noInvitations')}
-                        </Text>
-                      )}
-                    </ScrollView>
+                        <Text style={styles.emptyText}>{t('noMembers')}</Text>
+                      )
+                    ) : visibleInvitations.length > 0 ? (
+                      visibleInvitations.map(renderInvitation)
+                    ) : (
+                      <Text style={styles.emptyText}>{t('noInvitations')}</Text>
+                    )}
+                  </ScrollView>
 
-                    <View style={styles.inviteSection}>
-                      {sendInvitePermissions.hasAccess ? (
-                        <>
-                          <Text style={styles.inviteTitle}>
-                            {t('inviteMembers')}
-                          </Text>
-                          <TextInput
-                            style={styles.input}
-                            placeholder={t('email')}
-                            placeholderTextColor={colors.textSecondary}
-                            value={inviteEmail}
-                            onChangeText={setInviteEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                          />
-                          <View style={styles.checkboxContainer}>
-                            <TouchableOpacity
-                              style={styles.checkboxRow}
-                              onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                            >
-                              <View
-                                style={[
-                                  styles.checkbox,
-                                  inviteAsOwner && styles.checkboxChecked
-                                ]}
-                              >
-                                {inviteAsOwner && (
-                                  <Ionicons
-                                    name="checkmark"
-                                    size={16}
-                                    color={colors.buttonText}
-                                  />
-                                )}
-                              </View>
-                              <Text style={styles.checkboxLabel}>
-                                {t('inviteAsOwner')}
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.tooltipButton}
-                              onPress={() => setShowTooltip(!showTooltip)}
-                            >
-                              <Ionicons
-                                name="help-circle-outline"
-                                size={20}
-                                color={colors.primary}
-                              />
-                            </TouchableOpacity>
-                          </View>
-                          {showTooltip && (
-                            <View style={styles.tooltip}>
-                              <Text style={styles.tooltipText}>
-                                {t('ownerTooltip')}
-                              </Text>
-                            </View>
-                          )}
+                  <View style={styles.inviteSection}>
+                    {sendInvitePermissions.hasAccess ? (
+                      <>
+                        <Text style={styles.inviteTitle}>
+                          {t('inviteMembers')}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder={t('email')}
+                          placeholderTextColor={colors.textSecondary}
+                          value={inviteEmail}
+                          onChangeText={setInviteEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                        />
+                        <View style={styles.checkboxContainer}>
                           <TouchableOpacity
-                            style={[
-                              sharedStyles.button,
-                              !isInviteButtonEnabled &&
-                                styles.inviteButtonDisabled
-                            ]}
-                            onPress={handleSendInvitation}
-                            disabled={!isInviteButtonEnabled || isSubmitting}
+                            style={styles.checkboxRow}
+                            onPress={() => setInviteAsOwner(!inviteAsOwner)}
                           >
-                            <Text style={sharedStyles.buttonText}>
-                              {isSubmitting
-                                ? t('sending')
-                                : t('sendInvitation')}
+                            <View
+                              style={[
+                                styles.checkbox,
+                                inviteAsOwner && styles.checkboxChecked
+                              ]}
+                            >
+                              {inviteAsOwner && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={16}
+                                  color={colors.buttonText}
+                                />
+                              )}
+                            </View>
+                            <Text style={styles.checkboxLabel}>
+                              {t('inviteAsOwner')}
                             </Text>
                           </TouchableOpacity>
-                        </>
-                      ) : (
-                        <View style={styles.ownerOnlyMessage}>
-                          <Ionicons
-                            name="ribbon"
-                            size={24}
-                            color={colors.textSecondary}
-                          />
-                          <Text style={styles.ownerOnlyText}>
-                            {t('onlyOwnersCanInvite')}
-                          </Text>
+                          <TouchableOpacity
+                            style={styles.tooltipButton}
+                            onPress={() => setShowTooltip(!showTooltip)}
+                          >
+                            <Ionicons
+                              name="help-circle-outline"
+                              size={20}
+                              color={colors.primary}
+                            />
+                          </TouchableOpacity>
                         </View>
-                      )}
-                    </View>
-                  </PrivateAccessGate>
-                )}
-              </View>
-            </TouchableWithoutFeedback>
-          </Pressable>
-        </TouchableWithoutFeedback>
+                        {showTooltip && (
+                          <View style={styles.tooltip}>
+                            <Text style={styles.tooltipText}>
+                              {t('ownerTooltip')}
+                            </Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={[
+                            sharedStyles.button,
+                            !isInviteButtonEnabled &&
+                              styles.inviteButtonDisabled
+                          ]}
+                          onPress={handleSendInvitation}
+                          disabled={!isInviteButtonEnabled || isSubmitting}
+                        >
+                          <Text style={sharedStyles.buttonText}>
+                            {isSubmitting ? t('sending') : t('sendInvitation')}
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <View style={styles.ownerOnlyMessage}>
+                        <Ionicons
+                          name="ribbon"
+                          size={24}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.ownerOnlyText}>
+                          {t('onlyOwnersCanInvite')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </PrivateAccessGate>
+              )}
+            </View>
+          </View>
+        </View>
       </Modal>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxHeight: '85%'
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)'
   },
-  header: {
+  modalContainer: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.large,
+    padding: spacing.large,
+    width: '90%',
+    height: '70%',
+    maxHeight: 600
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -952,6 +954,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: spacing.xsmall
+  },
+  modalBody: {
+    flex: 1,
+    overflow: 'hidden'
   },
   tabContainer: {
     flexDirection: 'row',
@@ -979,7 +985,10 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   membersList: {
-    maxHeight: 300,
+    flex: 1
+  },
+  membersListContent: {
+    paddingBottom: spacing.medium,
     paddingHorizontal: spacing.medium
   },
   memberItem: {
