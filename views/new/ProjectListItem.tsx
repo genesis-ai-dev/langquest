@@ -1,13 +1,16 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
 import type { project } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenProjectsView';
-import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+import { useItemDownloadStatus } from './useHybridData';
 
 type Project = typeof project.$inferSelect;
 
@@ -28,30 +31,44 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
 }) => {
   const { goToProject } = useAppNavigation();
   const { currentUser } = useAuth();
+  const [showPrivateModal, setShowPrivateModal] = useState(false);
 
   // Check if project is downloaded
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
-  // Download mutation
-  const { mutate: downloadProject, isPending: isDownloading } = useItemDownload(
-    'project',
-    project.id
+  // Check user permissions for the project
+  const { hasAccess } = useUserPermissions(
+    project.id,
+    'open_project',
+    project.private
   );
 
   const handlePress = () => {
+    // If project is private and user doesn't have access, show the modal
+    if (project.private && !hasAccess) {
+      setShowPrivateModal(true);
+    } else {
+      goToProject({
+        id: project.id,
+        name: project.name
+      });
+    }
+  };
+
+  const handleMembershipGranted = () => {
+    // Navigate to project after membership is granted
     goToProject({
       id: project.id,
       name: project.name
     });
   };
 
-  const handleDownloadToggle = () => {
-    if (!currentUser?.id) return;
-
-    // Always download for now (undownload not fully implemented)
-    if (!isDownloaded) {
-      downloadProject({ userId: currentUser.id, download: true });
-    }
+  const handleBypass = () => {
+    // Allow viewing the project even without membership
+    goToProject({
+      id: project.id,
+      name: project.name
+    });
   };
 
   // TODO: Get actual stats for download confirmation
@@ -61,46 +78,78 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
   };
 
   return (
-    <TouchableOpacity onPress={handlePress}>
-      <View style={styles.listItem}>
-        <View style={styles.listItemHeader}>
+    <>
+      <TouchableOpacity onPress={handlePress}>
+        <View style={styles.listItem}>
+          <View style={styles.listItemHeader}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                flex: 1
+              }}
+            >
+              {project.private && (
+                <Ionicons
+                  name="lock-closed"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              )}
+              <Text style={styles.projectName}>{project.name}</Text>
+            </View>
+
+            {/* Only show download indicator when project is downloaded */}
+            {isDownloaded && (
+              <DownloadIndicator
+                isFlaggedForDownload={true}
+                isLoading={false}
+                onPress={() => undefined} // Non-interactive
+                downloadType="project"
+                stats={downloadStats}
+              />
+            )}
+          </View>
+
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               gap: 8,
-              flex: 1
+              marginTop: 4
             }}
           >
-            {renderSourceTag(project.source)}
-            {project.private && (
-              <Ionicons
-                name="lock-closed"
-                size={16}
-                color={colors.textSecondary}
-              />
-            )}
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && renderSourceTag(project.source)}
           </View>
 
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
-            onPress={handleDownloadToggle}
-            downloadType="project"
-            stats={downloadStats}
-          />
-        </View>
-        <Text style={styles.projectName}>{project.name}</Text>
-        <Text style={styles.languagePair}>
-          Languages: {project.source_language_id.substring(0, 8)}... →{' '}
-          {project.target_language_id.substring(0, 8)}...
-        </Text>
-        {project.description && (
-          <Text style={styles.description} numberOfLines={2}>
-            {project.description}
+          <Text style={styles.languagePair}>
+            Languages: {project.source_language_id.substring(0, 8)}... →{' '}
+            {project.target_language_id.substring(0, 8)}...
           </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+          {project.description && (
+            <Text style={styles.description} numberOfLines={2}>
+              {project.description}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      {/* Private Access Gate Modal */}
+      <PrivateAccessGate
+        projectId={project.id}
+        projectName={project.name}
+        isPrivate={project.private || false}
+        action="contribute"
+        modal={true}
+        isVisible={showPrivateModal}
+        onClose={() => setShowPrivateModal(false)}
+        onMembershipGranted={handleMembershipGranted}
+        onBypass={handleBypass}
+        showViewProjectButton={true}
+        viewProjectButtonText="View Project (Limited Access)"
+      />
+    </>
   );
 };

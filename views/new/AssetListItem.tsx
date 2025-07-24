@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
 // import { AttachmentState } from '@powersync/attachments';
 import React from 'react';
@@ -112,10 +113,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             justifyContent: 'space-between'
           }}
         >
-          {/* <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {renderSourceTag(asset.source)}
-            {renderAttachmentState(attachmentState)}
-          </View> */}
+          <Text style={styles.assetName}>{asset.name}</Text>
 
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
@@ -124,8 +122,14 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             size={20}
           />
         </View>
-        <Text style={styles.assetName}>{asset.name}</Text>
-        <Text style={styles.assetInfo}>ID: {asset.id.substring(0, 8)}...</Text>
+
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+        {SHOW_DEV_ELEMENTS && (
+          <Text style={styles.assetInfo}>
+            ID: {asset.id.substring(0, 8)}...
+          </Text>
+        )}
+
         {attachmentState && (
           <View
             style={{

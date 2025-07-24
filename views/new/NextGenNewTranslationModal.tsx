@@ -6,6 +6,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
@@ -248,11 +249,14 @@ export default function NextGenNewTranslationModal({
           </View>
 
           {/* Network Status */}
-          <View style={styles.statusContainer}>
-            <Text style={styles.statusText}>
-              {isOnline ? '🟢 Online' : '🔴 Offline'} - Ready to submit
-            </Text>
-          </View>
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+          {SHOW_DEV_ELEMENTS && (
+            <View style={styles.statusContainer}>
+              <Text style={styles.statusText}>
+                {isOnline ? '🟢 Online' : '🔴 Offline'} - Ready to submit
+              </Text>
+            </View>
+          )}
 
           {/* Submit Button */}
           <TouchableOpacity

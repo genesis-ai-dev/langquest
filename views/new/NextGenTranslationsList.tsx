@@ -4,6 +4,7 @@ import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -241,34 +242,37 @@ export default function NextGenTranslationsList({
           </Text>
 
           {/* Data Source Toggle */}
-          <View style={styles.toggleContainer}>
-            <Text
-              style={[
-                styles.toggleText,
-                !useOfflineData && styles.inactiveToggleText
-              ]}
-            >
-              💾
-            </Text>
-            <Switch
-              value={!useOfflineData}
-              onValueChange={(value) => setUseOfflineData(!value)}
-              trackColor={{
-                false: colors.inputBackground,
-                true: colors.primary
-              }}
-              thumbColor={colors.buttonText}
-              style={styles.switch}
-            />
-            <Text
-              style={[
-                styles.toggleText,
-                useOfflineData && styles.inactiveToggleText
-              ]}
-            >
-              🌐
-            </Text>
-          </View>
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+          {SHOW_DEV_ELEMENTS && (
+            <View style={styles.toggleContainer}>
+              <Text
+                style={[
+                  styles.toggleText,
+                  !useOfflineData && styles.inactiveToggleText
+                ]}
+              >
+                💾
+              </Text>
+              <Switch
+                value={!useOfflineData}
+                onValueChange={(value) => setUseOfflineData(!value)}
+                trackColor={{
+                  false: colors.inputBackground,
+                  true: colors.primary
+                }}
+                thumbColor={colors.buttonText}
+                style={styles.switch}
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  useOfflineData && styles.inactiveToggleText
+                ]}
+              >
+                🌐
+              </Text>
+            </View>
+          )}
           {/* Sort options */}
           <View style={styles.sortContainer}>
             <TouchableOpacity
@@ -307,7 +311,8 @@ export default function NextGenTranslationsList({
         </View>
 
         {/* Membership status for private projects */}
-        {isPrivateProject && (
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+        {SHOW_DEV_ELEMENTS && isPrivateProject && (
           <View style={styles.membershipStatus}>
             <Text style={styles.membershipText}>
               {membership === 'owner' && '👑 Owner'}
@@ -368,11 +373,14 @@ export default function NextGenTranslationsList({
                     </View>
                   )}
 
-                  <Text style={styles.sourceTag}>
-                    {trans.source === 'cloudSupabase'
-                      ? '🌐 Cloud'
-                      : '💾 Offline'}
-                  </Text>
+                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                  {SHOW_DEV_ELEMENTS && (
+                    <Text style={styles.sourceTag}>
+                      {trans.source === 'cloudSupabase'
+                        ? '🌐 Cloud'
+                        : '💾 Offline'}
+                    </Text>
+                  )}
                 </View>
 
                 <View style={styles.translationCardRight}>
@@ -391,9 +399,12 @@ export default function NextGenTranslationsList({
                       style={{ opacity: trans.downVotes > 0 ? 1 : 0.3 }}
                     />
                   </View>
-                  <Text style={styles.netVoteText}>
-                    {trans.upVotes} ↑ {trans.downVotes} ↓
-                  </Text>
+                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                  {SHOW_DEV_ELEMENTS && (
+                    <Text style={styles.netVoteText}>
+                      {trans.upVotes} ↑ {trans.downVotes} ↓
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -418,13 +429,16 @@ export default function NextGenTranslationsList({
         )}
 
         {/* Offline/Cloud stats with error handling */}
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            {useOfflineData ? '💾 Offline' : '🌐 Cloud'} Data
-            {hasError &&
-              ` (Error loading ${useOfflineData ? 'offline' : 'cloud'} data)`}
-          </Text>
-        </View>
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+        {SHOW_DEV_ELEMENTS && (
+          <View style={styles.statsContainer}>
+            <Text style={styles.statsText}>
+              {useOfflineData ? '💾 Offline' : '🌐 Cloud'} Data
+              {hasError &&
+                ` (Error loading ${useOfflineData ? 'offline' : 'cloud'} data)`}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Translation Modal */}

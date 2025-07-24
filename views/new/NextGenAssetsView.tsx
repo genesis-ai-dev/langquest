@@ -4,6 +4,7 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import React from 'react';
@@ -207,26 +208,32 @@ export default function NextGenAssetsView() {
   return (
     <View style={sharedStyles.container}>
       <Text style={sharedStyles.title}>Assets</Text>
-      <Text
-        style={{
-          color: colors.textSecondary,
-          fontSize: fontSizes.small,
-          marginBottom: spacing.small
-        }}
-      >
-        {statusText}
-      </Text>
-
-      {!isAttachmentStatesLoading && attachmentStates.size > 0 && (
-        <View style={styles.attachmentSummary}>
-          <Text style={styles.attachmentSummaryTitle}>
-            📎 Live Attachment States:
-          </Text>
-          <Text style={styles.attachmentSummaryText}>
-            {attachmentSummaryText}
-          </Text>
-        </View>
+      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+      {SHOW_DEV_ELEMENTS && (
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: fontSizes.small,
+            marginBottom: spacing.small
+          }}
+        >
+          {statusText}
+        </Text>
       )}
+
+      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+      {SHOW_DEV_ELEMENTS &&
+        !isAttachmentStatesLoading &&
+        attachmentStates.size > 0 && (
+          <View style={styles.attachmentSummary}>
+            <Text style={styles.attachmentSummaryTitle}>
+              📎 Live Attachment States:
+            </Text>
+            <Text style={styles.attachmentSummaryText}>
+              {attachmentSummaryText}
+            </Text>
+          </View>
+        )}
 
       <FlashList
         data={assets}

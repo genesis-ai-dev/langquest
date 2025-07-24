@@ -1,11 +1,14 @@
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import type { quest } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
@@ -28,6 +31,13 @@ export default function NextGenQuestsView() {
   const { currentProjectId } = useCurrentNavigation();
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
   const [showProjectDetails, setShowProjectDetails] = React.useState(false);
+  const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
+  // Check user permissions for settings cog visibility
+  const { hasAccess: canManageProject } = useUserPermissions(
+    currentProjectId || '',
+    'project_settings_cog'
+  );
 
   // Fetch current project data
   const { data: projectData } = useHybridData<Project>({
@@ -155,15 +165,18 @@ export default function NextGenQuestsView() {
   return (
     <View style={sharedStyles.container}>
       <Text style={sharedStyles.title}>Quests</Text>
-      <Text
-        style={{
-          color: colors.textSecondary,
-          fontSize: fontSizes.small,
-          marginBottom: spacing.small
-        }}
-      >
-        {statusText}
-      </Text>
+      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+      {SHOW_DEV_ELEMENTS && (
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: fontSizes.small,
+            marginBottom: spacing.small
+          }}
+        >
+          {statusText}
+        </Text>
+      )}
       <FlashList
         data={quests}
         renderItem={renderItem}
@@ -178,21 +191,33 @@ export default function NextGenQuestsView() {
 
       {/* Floating action buttons */}
       <View style={styles.floatingButtonContainer}>
-        {/* Project Details Button */}
-        <TouchableOpacity
-          onPress={() => setShowProjectDetails(true)}
-          style={[styles.floatingButton, styles.secondaryFloatingButton]}
-        >
-          <Ionicons name="information-circle" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.floatingButtonRow}>
+          {/* Settings Button - Only visible to owners */}
+          {canManageProject && (
+            <TouchableOpacity
+              onPress={() => setShowSettingsModal(true)}
+              style={[styles.floatingButton, styles.settingsFloatingButton]}
+            >
+              <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
 
-        {/* Membership Button */}
-        <TouchableOpacity
-          onPress={() => setShowMembershipModal(true)}
-          style={styles.floatingButton}
-        >
-          <Ionicons name="people" size={24} color={colors.text} />
-        </TouchableOpacity>
+          {/* Project Details Button */}
+          <TouchableOpacity
+            onPress={() => setShowProjectDetails(true)}
+            style={[styles.floatingButton, styles.secondaryFloatingButton]}
+          >
+            <Ionicons name="information-circle" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          {/* Membership Button */}
+          <TouchableOpacity
+            onPress={() => setShowMembershipModal(true)}
+            style={styles.floatingButton}
+          >
+            <Ionicons name="people" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Membership Modal */}
@@ -207,6 +232,15 @@ export default function NextGenQuestsView() {
         <ProjectDetails
           project={currentProject}
           onClose={() => setShowProjectDetails(false)}
+        />
+      )}
+
+      {/* Settings Modal - Only for owners */}
+      {canManageProject && (
+        <ProjectSettingsModal
+          isVisible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          projectId={currentProjectId || ''}
         />
       )}
     </View>
@@ -257,7 +291,16 @@ export const styles = StyleSheet.create({
     right: spacing.large,
     gap: spacing.small
   },
+  floatingButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.small
+  },
   secondaryFloatingButton: {
     backgroundColor: colors.inputBackground
+  },
+  settingsFloatingButton: {
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
   }
 });

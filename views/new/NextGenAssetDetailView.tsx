@@ -14,6 +14,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -374,36 +375,39 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
-        <View style={styles.headerRight}>
-          <View style={styles.toggleRow}>
-            <Text
-              style={[
-                styles.toggleText,
-                !useOfflineData && styles.inactiveToggleText
-              ]}
-            >
-              💾
-            </Text>
-            <Switch
-              value={!useOfflineData}
-              onValueChange={(value) => setUseOfflineData(!value)}
-              trackColor={{
-                false: colors.inputBackground,
-                true: colors.primary
-              }}
-              thumbColor={colors.buttonText}
-              style={styles.switch}
-            />
-            <Text
-              style={[
-                styles.toggleText,
-                useOfflineData && styles.inactiveToggleText
-              ]}
-            >
-              🌐
-            </Text>
+        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+        {SHOW_DEV_ELEMENTS && (
+          <View style={styles.headerRight}>
+            <View style={styles.toggleRow}>
+              <Text
+                style={[
+                  styles.toggleText,
+                  !useOfflineData && styles.inactiveToggleText
+                ]}
+              >
+                💾
+              </Text>
+              <Switch
+                value={!useOfflineData}
+                onValueChange={(value) => setUseOfflineData(!value)}
+                trackColor={{
+                  false: colors.inputBackground,
+                  true: colors.primary
+                }}
+                thumbColor={colors.buttonText}
+                style={styles.switch}
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  useOfflineData && styles.inactiveToggleText
+                ]}
+              >
+                🌐
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* Asset Content Viewer */}
@@ -448,7 +452,8 @@ export default function NextGenAssetDetailView() {
                 />
 
                 {/* Audio status indicator */}
-                {content.audio_id && (
+                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                {SHOW_DEV_ELEMENTS && content.audio_id && (
                   <View style={styles.audioStatusContainer}>
                     <Ionicons
                       name={
@@ -489,12 +494,15 @@ export default function NextGenAssetDetailView() {
                 sourceLanguage?.english_name ??
                 'Unknown'}
             </Text>
-            <Text style={styles.assetInfoText}>
-              Source:{' '}
-              {activeAsset.source === 'cloudSupabase'
-                ? '🌐 Cloud'
-                : '💾 Offline'}
-            </Text>
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && (
+              <Text style={styles.assetInfoText}>
+                Source:{' '}
+                {activeAsset.source === 'cloudSupabase'
+                  ? '🌐 Cloud'
+                  : '💾 Offline'}
+              </Text>
+            )}
             {activeAsset.content?.some((c) => c.audio_id) && (
               <Text style={styles.assetInfoText}>
                 🔊 Audio: {activeAsset.content.filter((c) => c.audio_id).length}{' '}

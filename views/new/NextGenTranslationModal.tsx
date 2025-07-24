@@ -6,6 +6,7 @@ import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -295,12 +296,15 @@ export default function NextGenTranslationModal({
                 )}
 
                 {/* Debug Info */}
-                <View style={styles.debugContainer}>
-                  <Text style={styles.debugText}>
-                    {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
-                    {translationData.id.substring(0, 8)}...
-                  </Text>
-                </View>
+                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                {SHOW_DEV_ELEMENTS && (
+                  <View style={styles.debugContainer}>
+                    <Text style={styles.debugText}>
+                      {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
+                      {translationData.id.substring(0, 8)}...
+                    </Text>
+                  </View>
+                )}
               </>
             ) : (
               <Text style={styles.errorText}>Translation not found</Text>

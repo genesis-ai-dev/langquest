@@ -2,6 +2,7 @@ import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { FlashList } from '@shopify/flash-list';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -99,15 +100,18 @@ export default function NextGenProjectsView() {
   return (
     <View style={sharedStyles.container}>
       <Text style={sharedStyles.title}>All Projects</Text>
-      <Text
-        style={{
-          color: colors.textSecondary,
-          fontSize: fontSizes.small,
-          marginBottom: spacing.small
-        }}
-      >
-        {statusText}
-      </Text>
+      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+      {SHOW_DEV_ELEMENTS && (
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: fontSizes.small,
+            marginBottom: spacing.small
+          }}
+        >
+          {statusText}
+        </Text>
+      )}
       <FlashList
         data={projects}
         renderItem={renderItem}

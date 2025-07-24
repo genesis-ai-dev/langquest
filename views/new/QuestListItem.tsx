@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { quest } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenQuestsView';
@@ -88,13 +89,16 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            {/* Only show source tag for offline quests */}
-            {!isCloudQuest && renderSourceTag(quest.source)}
+            {/* Only show source tag for offline quests when dev elements enabled */}
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS &&
+              !isCloudQuest &&
+              renderSourceTag(quest.source)}
             <Text
               style={[
                 styles.questName,
                 {
-                  marginLeft: isCloudQuest ? 0 : 8,
+                  marginLeft: SHOW_DEV_ELEMENTS && !isCloudQuest ? 8 : 0,
                   flexShrink: 1,
                   color: needsDownload ? colors.textSecondary : colors.text
                 }
