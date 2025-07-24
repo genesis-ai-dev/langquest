@@ -1,11 +1,18 @@
 import { useAuth } from '@/contexts/AuthContext';
+import type { language } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import type {
   LocalizationKey,
   SupportedLanguage
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
-import { useLanguageById } from './db/useLanguages';
+import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { eq } from 'drizzle-orm';
+
+type Language = typeof language.$inferSelect;
 
 // Define a type for interpolation values
 // Use a Record as preferred by linter
@@ -15,9 +22,37 @@ export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
   const currentLanguage = useLocalStore((state) => state.language);
 
-  const { language: profileLanguage } = useLanguageById(
-    currentUser?.user_metadata.ui_language_id ?? undefined
-  );
+  const uiLanguageId = currentUser?.user_metadata.ui_language_id;
+
+  // Use useHybridData directly to fetch the user's language preference
+  const { data: languages } = useHybridData<Language>({
+    dataType: 'language',
+    queryKeyParams: [uiLanguageId || ''],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: eq(languageTable.id, uiLanguageId || ''),
+        limit: 1
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (!uiLanguageId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('language')
+        .select('*')
+        .eq('id', uiLanguageId)
+        .overrideTypes<Language[]>();
+      if (error) throw error;
+      return data;
+    },
+
+    enableCloudQuery: !!uiLanguageId
+  });
+
+  const profileLanguage = languages[0];
 
   // Get language with priority:
   // 1. Manual override (provided as prop)

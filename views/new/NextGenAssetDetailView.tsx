@@ -1,15 +1,21 @@
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
-import { asset, asset_content_link, project } from '@/db/drizzleSchema';
+import type { language } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  language as languageTable,
+  project
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
@@ -24,6 +30,7 @@ import {
 } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
+import { useHybridData } from './useHybridData';
 
 interface AssetWithContent extends Asset {
   content?: AssetContent[];
@@ -201,10 +208,38 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  const {
-    language: sourceLanguage,
-    isLanguageLoading: isSourceLanguageLoading
-  } = useLanguageById(activeAsset?.source_language_id || '');
+  type Language = typeof language.$inferSelect;
+
+  // Use useHybridData directly to fetch source language
+  const { data: languages, isLoading: isSourceLanguageLoading } =
+    useHybridData<Language>({
+      dataType: 'language',
+      queryKeyParams: [activeAsset?.source_language_id || ''],
+
+      // PowerSync query using Drizzle
+      offlineQuery: toCompilableQuery(
+        system.db.query.language.findMany({
+          where: eq(languageTable.id, activeAsset?.source_language_id || ''),
+          limit: 1
+        })
+      ),
+
+      // Cloud query
+      cloudQueryFn: async () => {
+        if (!activeAsset?.source_language_id) return [];
+        const { data, error } = await system.supabaseConnector.client
+          .from('language')
+          .select('*')
+          .eq('id', activeAsset.source_language_id)
+          .overrideTypes<Language[]>();
+        if (error) throw error;
+        return data;
+      },
+
+      enableCloudQuery: !!activeAsset?.source_language_id
+    });
+
+  const sourceLanguage = languages[0];
 
   // Debug logging
   const debugInfo = React.useMemo(

@@ -1,11 +1,15 @@
+import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import type { quest } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
+import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -15,13 +19,40 @@ import {
   View
 } from 'react-native';
 import { QuestListItem } from './QuestListItem';
-import { useSimpleHybridInfiniteData } from './useHybridData';
+import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
+type Project = typeof project.$inferSelect;
 
 export default function NextGenQuestsView() {
   const { currentProjectId } = useCurrentNavigation();
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
+  const [showProjectDetails, setShowProjectDetails] = React.useState(false);
+
+  // Fetch current project data
+  const { data: projectData } = useHybridData<Project>({
+    dataType: 'project',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findMany({
+        where: eq(project.id, currentProjectId || ''),
+        limit: 1
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .overrideTypes<Project[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId
+  });
+
+  const currentProject = projectData[0];
 
   const {
     data,
@@ -145,13 +176,24 @@ export default function NextGenQuestsView() {
         ListFooterComponent={renderFooter}
       />
 
-      {/* Floating action button for membership */}
-      <TouchableOpacity
-        onPress={() => setShowMembershipModal(true)}
-        style={styles.floatingButton}
-      >
-        <Ionicons name="people" size={24} color={colors.text} />
-      </TouchableOpacity>
+      {/* Floating action buttons */}
+      <View style={styles.floatingButtonContainer}>
+        {/* Project Details Button */}
+        <TouchableOpacity
+          onPress={() => setShowProjectDetails(true)}
+          style={[styles.floatingButton, styles.secondaryFloatingButton]}
+        >
+          <Ionicons name="information-circle" size={24} color={colors.text} />
+        </TouchableOpacity>
+
+        {/* Membership Button */}
+        <TouchableOpacity
+          onPress={() => setShowMembershipModal(true)}
+          style={styles.floatingButton}
+        >
+          <Ionicons name="people" size={24} color={colors.text} />
+        </TouchableOpacity>
+      </View>
 
       {/* Membership Modal */}
       <ProjectMembershipModal
@@ -159,6 +201,14 @@ export default function NextGenQuestsView() {
         onClose={() => setShowMembershipModal(false)}
         projectId={currentProjectId || ''}
       />
+
+      {/* Project Details Modal */}
+      {showProjectDetails && currentProject && (
+        <ProjectDetails
+          project={currentProject}
+          onClose={() => setShowProjectDetails(false)}
+        />
+      )}
     </View>
   );
 }
@@ -189,9 +239,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center'
   },
   floatingButton: {
-    position: 'absolute',
-    bottom: spacing.large,
-    right: spacing.large,
     backgroundColor: colors.primary,
     borderRadius: 28,
     width: 56,
@@ -203,5 +250,14 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: spacing.large,
+    right: spacing.large,
+    gap: spacing.small
+  },
+  secondaryFloatingButton: {
+    backgroundColor: colors.inputBackground
   }
 });
