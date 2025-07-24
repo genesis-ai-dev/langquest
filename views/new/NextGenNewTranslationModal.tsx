@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -139,6 +140,7 @@ export default function NextGenNewTranslationModal({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableWithoutFeedback onPress={handleClose}>
           <View style={styles.overlay} />
@@ -153,112 +155,121 @@ export default function NextGenNewTranslationModal({
             </TouchableOpacity>
           </View>
 
-          {/* Translation Type Toggle */}
-          <View style={styles.typeToggleContainer}>
-            <TouchableOpacity
-              style={[
-                styles.typeToggleButton,
-                translationType === 'text' && styles.typeToggleButtonActive
-              ]}
-              onPress={() => setTranslationType('text')}
-            >
-              <Ionicons
-                name="text"
-                size={20}
-                color={
-                  translationType === 'text' ? colors.buttonText : colors.text
-                }
-              />
-              <Text
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Translation Type Toggle */}
+            <View style={styles.typeToggleContainer}>
+              <TouchableOpacity
                 style={[
-                  styles.typeToggleText,
-                  translationType === 'text' && styles.typeToggleTextActive
+                  styles.typeToggleButton,
+                  translationType === 'text' && styles.typeToggleButtonActive
                 ]}
+                onPress={() => setTranslationType('text')}
               >
-                Text
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeToggleButton,
-                translationType === 'audio' && styles.typeToggleButtonActive
-              ]}
-              onPress={() => setTranslationType('audio')}
-            >
-              <Ionicons
-                name="mic"
-                size={20}
-                color={
-                  translationType === 'audio' ? colors.buttonText : colors.text
-                }
-              />
-              <Text
+                <Ionicons
+                  name="text"
+                  size={20}
+                  color={
+                    translationType === 'text' ? colors.buttonText : colors.text
+                  }
+                />
+                <Text
+                  style={[
+                    styles.typeToggleText,
+                    translationType === 'text' && styles.typeToggleTextActive
+                  ]}
+                >
+                  Text
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[
-                  styles.typeToggleText,
-                  translationType === 'audio' && styles.typeToggleTextActive
+                  styles.typeToggleButton,
+                  translationType === 'audio' && styles.typeToggleButtonActive
                 ]}
+                onPress={() => setTranslationType('audio')}
               >
-                Audio
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <Ionicons
+                  name="mic"
+                  size={20}
+                  color={
+                    translationType === 'audio'
+                      ? colors.buttonText
+                      : colors.text
+                  }
+                />
+                <Text
+                  style={[
+                    styles.typeToggleText,
+                    translationType === 'audio' && styles.typeToggleTextActive
+                  ]}
+                >
+                  Audio
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Asset Info */}
-          <View style={styles.assetInfo}>
-            <Text style={styles.assetName}>{assetName}</Text>
-            <Text style={styles.languageText}>
-              {sourceLanguage?.native_name ||
-                sourceLanguage?.english_name ||
-                'Unknown'}{' '}
-              → Target Language
-            </Text>
-          </View>
-
-          {/* Source Content Preview */}
-          {contentPreview && (
-            <View style={styles.sourceContentBox}>
-              <Text style={styles.sourceLabel}>Source:</Text>
-              <Text style={styles.sourceText} numberOfLines={3}>
-                {contentPreview}
+            {/* Asset Info */}
+            <View style={styles.assetInfo}>
+              <Text style={styles.assetName}>{assetName}</Text>
+              <Text style={styles.languageText}>
+                {sourceLanguage?.native_name ||
+                  sourceLanguage?.english_name ||
+                  'Unknown'}{' '}
+                → Target Language
               </Text>
             </View>
-          )}
 
-          {/* Translation Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>
-              Your {translationType === 'text' ? 'Translation' : 'Audio'}:
-            </Text>
+            {/* Source Content Preview */}
+            {contentPreview ? (
+              <View style={styles.sourceContentBox}>
+                <Text style={styles.sourceLabel}>Source:</Text>
+                <Text style={styles.sourceText} numberOfLines={3}>
+                  {contentPreview}
+                </Text>
+              </View>
+            ) : null}
 
-            {translationType === 'text' ? (
-              <TextInput
-                style={styles.textInput}
-                multiline
-                placeholder={t('enterTranslation')}
-                placeholderTextColor={colors.textSecondary}
-                value={translationText}
-                onChangeText={setTranslationText}
-                autoFocus
-              />
-            ) : (
-              <AudioRecorder
-                onRecordingComplete={handleRecordingComplete}
-                resetRecording={() => setAudioUri(null)}
-              />
+            {/* Translation Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>
+                Your {translationType === 'text' ? 'Translation' : 'Audio'}:
+              </Text>
+
+              {translationType === 'text' ? (
+                <TextInput
+                  style={styles.textInput}
+                  multiline
+                  placeholder={t('enterTranslation')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={translationText}
+                  onChangeText={setTranslationText}
+                  autoFocus
+                />
+              ) : (
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  resetRecording={() => setAudioUri(null)}
+                />
+              )}
+            </View>
+
+            {/* Network Status */}
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.statusText}>
+                  {isOnline ? '🟢 Online' : '🔴 Offline'} - Ready to submit
+                </Text>
+              </View>
             )}
-          </View>
+          </ScrollView>
 
-          {/* Network Status */}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {SHOW_DEV_ELEMENTS && (
-            <View style={styles.statusContainer}>
-              <Text style={styles.statusText}>
-                {isOnline ? '🟢 Online' : '🔴 Offline'} - Ready to submit
-              </Text>
-            </View>
-          )}
-
-          {/* Submit Button */}
+          {/* Submit Button - Fixed at bottom */}
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -288,20 +299,34 @@ export default function NextGenNewTranslationModal({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'flex-end'
+    flex: 1
   },
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
   modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: spacing.large,
     paddingBottom: spacing.xlarge,
     maxHeight: '85%'
+  },
+  scrollView: {
+    flex: 1,
+    marginBottom: spacing.medium
+  },
+  scrollViewContent: {
+    flexGrow: 1
   },
   header: {
     flexDirection: 'row',
@@ -390,6 +415,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSizes.medium,
     minHeight: 120,
+    maxHeight: 200,
     textAlignVertical: 'top'
   },
   statusContainer: {
@@ -404,7 +430,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    alignItems: 'center'
+    alignItems: 'center',
+    marginTop: spacing.medium
   },
   submitButtonDisabled: {
     backgroundColor: colors.disabled,

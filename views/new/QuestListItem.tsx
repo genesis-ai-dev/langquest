@@ -1,15 +1,21 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { quest } from '@/db/drizzleSchema';
+import type { quest, quest_closure } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenQuestsView';
-import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+import {
+  useHybridData,
+  useItemDownload,
+  useItemDownloadStatus
+} from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
+type QuestClosure = typeof quest_closure.$inferSelect;
 
 // Define props locally to avoid require cycle
 export interface QuestListItemProps {
@@ -29,6 +35,32 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
 
   // Check if quest is downloaded
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
+
+  // Fetch quest closure data for download stats
+  const { data: questClosureData } = useHybridData<QuestClosure>({
+    dataType: 'quest_closure',
+    queryKeyParams: [quest.id],
+    offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${quest.id}' LIMIT 1`,
+    cloudQueryFn: async () => {
+      // Cloud query for quest closure
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_closure')
+        .select('*')
+        .eq('quest_id', quest.id)
+        .single();
+
+      if (error) {
+        console.warn('Error fetching quest closure from cloud:', error);
+        return [];
+      }
+
+      return data ? [data] : [];
+    },
+    getItemId: (item) => item.quest_id
+  });
+
+  // Get the first (and only) quest closure record
+  const questClosure = questClosureData[0];
 
   // Download mutation
   const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
@@ -60,10 +92,10 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
     }
   };
 
-  // TODO: Get actual stats for download confirmation
+  // Use actual stats from quest_closure if available, otherwise fallback to 0
   const downloadStats = {
-    totalAssets: 0,
-    totalTranslations: 0
+    totalAssets: questClosure?.total_assets || 0,
+    totalTranslations: questClosure?.total_translations || 0
   };
 
   return (
@@ -98,6 +130,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
               style={[
                 styles.questName,
                 {
+                  /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */
                   marginLeft: SHOW_DEV_ELEMENTS && !isCloudQuest ? 8 : 0,
                   flexShrink: 1,
                   color: needsDownload ? colors.textSecondary : colors.text

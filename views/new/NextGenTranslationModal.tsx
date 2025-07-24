@@ -1,5 +1,7 @@
 import AudioPlayer from '@/components/AudioPlayer';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
+import { translationService } from '@/database_services/translationService';
 import { voteService } from '@/database_services/voteService';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -18,6 +20,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -27,6 +30,10 @@ interface NextGenTranslationModalProps {
   onClose: () => void;
   translationId: string;
   onVoteSuccess?: () => void;
+  canVote?: boolean;
+  isPrivateProject?: boolean;
+  projectId?: string;
+  projectName?: string;
 }
 
 interface TranslationWithVotes {
@@ -79,7 +86,11 @@ export default function NextGenTranslationModal({
   visible,
   onClose,
   translationId,
-  onVoteSuccess
+  onVoteSuccess,
+  canVote: _canVote = true,
+  isPrivateProject = false,
+  projectId,
+  projectName
 }: NextGenTranslationModalProps) {
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -87,6 +98,8 @@ export default function NextGenTranslationModal({
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState('');
 
   const { data: translationData, isLoading } =
     useNextGenTranslation(translationId);
@@ -156,6 +169,60 @@ export default function NextGenTranslationModal({
 
   const isOwnTranslation = currentUser?.id === translationData?.creator_id;
 
+  // Initialize edited text when translation data loads
+  React.useEffect(() => {
+    if (translationData?.text) {
+      setEditedText(translationData.text);
+    }
+  }, [translationData?.text]);
+
+  const { mutate: createTranscription, isPending: isTranscribing } =
+    useMutation({
+      mutationFn: async () => {
+        if (!currentUser || !translationData) {
+          throw new Error('Missing required data');
+        }
+
+        if (!editedText.trim()) {
+          throw new Error('Please enter a transcription');
+        }
+
+        // Create a new translation with the same audio but new text
+        return translationService.createTranslation({
+          text: editedText.trim(),
+          target_language_id: translationData.target_language_id,
+          asset_id: translationData.asset_id,
+          creator_id: currentUser.id,
+          audio: translationData.audio || ''
+        });
+      },
+      onSuccess: () => {
+        Alert.alert('Success', 'Your transcription has been submitted');
+        setIsEditing(false);
+        onVoteSuccess?.(); // Refresh the list
+        onClose();
+      },
+      onError: (error) => {
+        console.error('Error creating transcription:', error);
+        Alert.alert('Error', 'Failed to create transcription');
+      }
+    });
+
+  const toggleEdit = () => {
+    if (isEditing) {
+      // Cancel editing
+      setIsEditing(false);
+      setEditedText(translationData?.text || '');
+    } else {
+      // Start editing
+      setIsEditing(true);
+    }
+  };
+
+  const handleSubmitTranscription = () => {
+    createTranscription();
+  };
+
   if (!visible) return null;
 
   return (
@@ -171,9 +238,38 @@ export default function NextGenTranslationModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Translation</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              {/* Edit/Transcription button - only show if not own translation and has audio */}
+              {/* {!isOwnTranslation && translationData?.audio && ( */}
+              <PrivateAccessGate
+                projectId={projectId || ''}
+                projectName={projectName || ''}
+                isPrivate={isPrivateProject}
+                action="edit_transcription"
+                renderTrigger={({ onPress, hasAccess }) => (
+                  <TouchableOpacity
+                    onPress={hasAccess ? toggleEdit : onPress}
+                    style={styles.editButton}
+                  >
+                    <Ionicons
+                      name={
+                        hasAccess
+                          ? isEditing
+                            ? 'close'
+                            : 'pencil'
+                          : 'lock-closed'
+                      }
+                      size={20}
+                      color={hasAccess ? colors.primary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+              {/* )} */}
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -190,13 +286,25 @@ export default function NextGenTranslationModal({
               <>
                 {/* Translation Text */}
                 <View style={styles.translationContainer}>
-                  <Text style={styles.translationText}>
-                    {translationData.text || '(No text)'}
-                  </Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.textInput}
+                      multiline
+                      placeholder="Enter your transcription..."
+                      placeholderTextColor={colors.textSecondary}
+                      value={editedText}
+                      onChangeText={setEditedText}
+                      autoFocus
+                    />
+                  ) : (
+                    <Text style={styles.translationText}>
+                      {translationData.text || '(No text)'}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Audio Player */}
-                {translationData.audio && getAudioUri() && (
+                {translationData.audio && getAudioUri() && !isEditing && (
                   <View style={styles.audioContainer}>
                     <AudioPlayer
                       audioUri={getAudioUri()}
@@ -206,92 +314,143 @@ export default function NextGenTranslationModal({
                   </View>
                 )}
 
+                {/* Submit button for transcription */}
+                {isEditing && (
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      (!editedText.trim() || isTranscribing) &&
+                        styles.submitButtonDisabled
+                    ]}
+                    onPress={handleSubmitTranscription}
+                    disabled={!editedText.trim() || isTranscribing}
+                  >
+                    {isTranscribing ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.buttonText}
+                      />
+                    ) : (
+                      <Text style={styles.submitButtonText}>
+                        Submit Transcription
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+
                 {/* Vote Counts Display */}
-                <View style={styles.voteCountsContainer}>
-                  <View style={styles.voteCountItem}>
-                    <Ionicons
-                      name="thumbs-up"
-                      size={20}
-                      color={colors.success}
-                    />
-                    <Text style={styles.voteCountText}>{upVotes}</Text>
+                {!isEditing && (
+                  <View style={styles.voteCountsContainer}>
+                    <View style={styles.voteCountItem}>
+                      <Ionicons
+                        name="thumbs-up"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.voteCountText}>{upVotes}</Text>
+                    </View>
+                    <View style={styles.voteCountItem}>
+                      <Ionicons
+                        name="thumbs-down"
+                        size={20}
+                        color={colors.error}
+                      />
+                      <Text style={styles.voteCountText}>{downVotes}</Text>
+                    </View>
+                    <Text style={styles.netVoteText}>
+                      Net: {upVotes - downVotes > 0 ? '+' : ''}
+                      {upVotes - downVotes}
+                    </Text>
                   </View>
-                  <View style={styles.voteCountItem}>
-                    <Ionicons
-                      name="thumbs-down"
-                      size={20}
-                      color={colors.error}
-                    />
-                    <Text style={styles.voteCountText}>{downVotes}</Text>
-                  </View>
-                  <Text style={styles.netVoteText}>
-                    Net: {upVotes - downVotes > 0 ? '+' : ''}
-                    {upVotes - downVotes}
-                  </Text>
-                </View>
+                )}
 
-                {/* Voting Buttons */}
-                {!isOwnTranslation && currentUser && (
-                  <View style={styles.votingContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.voteButton,
-                        styles.upVoteButton,
-                        userVote?.polarity === 'up' && styles.voteButtonActive
-                      ]}
-                      onPress={() => handleVote({ voteType: 'up' })}
-                      disabled={isVotePending}
-                    >
-                      {pendingVoteType === 'up' ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.buttonText}
-                        />
-                      ) : (
-                        <>
-                          <Ionicons
-                            name={
-                              userVote?.polarity === 'up'
-                                ? 'thumbs-up'
-                                : 'thumbs-up-outline'
-                            }
-                            size={24}
+                {/* Voting Section with PrivateAccessGate */}
+                {!isOwnTranslation && currentUser && !isEditing && (
+                  <PrivateAccessGate
+                    projectId={projectId || ''}
+                    projectName={projectName || ''}
+                    isPrivate={isPrivateProject}
+                    action="vote"
+                    inline={true}
+                  >
+                    <View style={styles.votingContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.voteButton,
+                          styles.upVoteButton,
+                          userVote?.polarity === 'up' && styles.voteButtonActive
+                        ]}
+                        onPress={() => handleVote({ voteType: 'up' })}
+                        disabled={isVotePending}
+                      >
+                        {pendingVoteType === 'up' ? (
+                          <ActivityIndicator
+                            size="small"
                             color={colors.buttonText}
                           />
-                          <Text style={styles.voteButtonText}>Good</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
+                        ) : (
+                          <>
+                            <Ionicons
+                              name={
+                                userVote?.polarity === 'up'
+                                  ? 'thumbs-up'
+                                  : 'thumbs-up-outline'
+                              }
+                              size={24}
+                              color={colors.buttonText}
+                            />
+                            <Text style={styles.voteButtonText}>Good</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.voteButton,
-                        styles.downVoteButton,
-                        userVote?.polarity === 'down' && styles.voteButtonActive
-                      ]}
-                      onPress={() => handleVote({ voteType: 'down' })}
-                      disabled={isVotePending}
-                    >
-                      {pendingVoteType === 'down' ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.buttonText}
-                        />
-                      ) : (
-                        <>
-                          <Ionicons
-                            name={
-                              userVote?.polarity === 'down'
-                                ? 'thumbs-down'
-                                : 'thumbs-down-outline'
-                            }
-                            size={24}
+                      <TouchableOpacity
+                        style={[
+                          styles.voteButton,
+                          styles.downVoteButton,
+                          userVote?.polarity === 'down' &&
+                            styles.voteButtonActive
+                        ]}
+                        onPress={() => handleVote({ voteType: 'down' })}
+                        disabled={isVotePending}
+                      >
+                        {pendingVoteType === 'down' ? (
+                          <ActivityIndicator
+                            size="small"
                             color={colors.buttonText}
                           />
-                          <Text style={styles.voteButtonText}>Needs Work</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
+                        ) : (
+                          <>
+                            <Ionicons
+                              name={
+                                userVote?.polarity === 'down'
+                                  ? 'thumbs-down'
+                                  : 'thumbs-down-outline'
+                              }
+                              size={24}
+                              color={colors.buttonText}
+                            />
+                            <Text style={styles.voteButtonText}>
+                              Needs Work
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </PrivateAccessGate>
+                )}
+
+                {/* Show login prompt if not logged in */}
+                {!currentUser && !isEditing && (
+                  <View style={styles.restrictedVotingContainer}>
+                    <Ionicons
+                      name="person-circle-outline"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.restrictedVotingText}>
+                      Please log in to vote on translations
+                    </Text>
                   </View>
                 )}
 
@@ -351,6 +510,13 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.small
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: spacing.small
+  },
+  editButton: {
+    padding: spacing.small
+  },
   scrollView: {
     maxHeight: 400
   },
@@ -368,11 +534,39 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: fontSizes.large * 1.4
   },
+  textInput: {
+    fontSize: fontSizes.large,
+    color: colors.text,
+    lineHeight: fontSizes.large * 1.4,
+    padding: spacing.small,
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    minHeight: 100
+  },
   audioContainer: {
     marginBottom: spacing.medium,
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium
+  },
+  submitButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.medium,
+    paddingVertical: spacing.medium,
+    paddingHorizontal: spacing.large,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.medium
+  },
+  submitButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold'
+  },
+  submitButtonDisabled: {
+    opacity: 0.7
   },
   voteCountsContainer: {
     flexDirection: 'row',
@@ -443,5 +637,20 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     marginVertical: spacing.xlarge
+  },
+  restrictedVotingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.medium,
+    padding: spacing.medium,
+    marginBottom: spacing.medium,
+    gap: spacing.small
+  },
+  restrictedVotingText: {
+    fontSize: fontSizes.medium,
+    color: colors.textSecondary,
+    textAlign: 'center'
   }
 });

@@ -211,10 +211,8 @@ export default function NextGenTranslationsList({
   };
 
   const handleTranslationPress = (translationId: string) => {
-    // Only allow opening modal if user can vote or if it's a public project
-    if (canVote || !isPrivateProject) {
-      setSelectedTranslationId(translationId);
-    }
+    // Always allow opening modal - voting restrictions are handled inside the modal
+    setSelectedTranslationId(translationId);
   };
 
   const handleVoteSuccess = () => {
@@ -339,12 +337,8 @@ export default function NextGenTranslationsList({
           sortedTranslations.map((trans) => (
             <TouchableOpacity
               key={trans.id}
-              style={[
-                styles.translationCard,
-                isPrivateProject && !canVote && styles.disabledCard
-              ]}
+              style={styles.translationCard}
               onPress={() => handleTranslationPress(trans.id)}
-              disabled={isPrivateProject && !canVote}
             >
               <View style={styles.translationCardContent}>
                 <View style={styles.translationCardLeft}>
@@ -407,17 +401,6 @@ export default function NextGenTranslationsList({
                   )}
                 </View>
               </View>
-
-              {/* Lock overlay for private projects without access */}
-              {isPrivateProject && !canVote && (
-                <View style={styles.lockOverlay}>
-                  <Ionicons
-                    name="lock-closed"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </View>
-              )}
             </TouchableOpacity>
           ))
         ) : (
@@ -442,12 +425,16 @@ export default function NextGenTranslationsList({
       </ScrollView>
 
       {/* Translation Modal */}
-      {selectedTranslationId && (canVote || !isPrivateProject) && (
+      {selectedTranslationId && (
         <NextGenTranslationModal
           visible={!!selectedTranslationId}
           onClose={() => setSelectedTranslationId(null)}
           translationId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
+          canVote={canVote}
+          isPrivateProject={isPrivateProject}
+          projectId={projectData?.id}
+          projectName={projectData?.name}
         />
       )}
     </View>
@@ -532,20 +519,6 @@ const styles = StyleSheet.create({
     padding: spacing.medium,
     marginBottom: spacing.medium,
     position: 'relative'
-  },
-  disabledCard: {
-    opacity: 0.7
-  },
-  lockOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: borderRadius.medium
   },
   translationCardContent: {
     flexDirection: 'row',
