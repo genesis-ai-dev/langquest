@@ -13,7 +13,7 @@ import {
 export function UpdateBanner() {
   const { updateInfo, isDownloadingUpdate, downloadUpdate } = useExpoUpdates();
 
-  if (!updateInfo?.[0]?.isUpdateAvailable) {
+  if (!updateInfo?.isUpdateAvailable) {
     return null;
   }
 

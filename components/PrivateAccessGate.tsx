@@ -1,7 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { profile_project_link, request } from '@/db/drizzleSchema';
+import {
+  profile_project_link,
+  project as projectTable,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useDownload } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -24,7 +27,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -82,7 +84,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { db } = system;
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoDownload, setAutoDownload] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
@@ -147,10 +148,46 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const isMember = membershipLinks.length > 0;
   const existingRequest = existingRequests[0];
-  const { isFlaggedForDownload: isProjectDownloaded, mutation } = useDownload(
-    'project',
-    projectId
-  );
+
+  // Query for project download status using useHybridData
+  // This checks if the project has been downloaded (possibly through other actions)
+  const { data: downloadStatusData } = useHybridData<{
+    id: string;
+    download_profiles: string[] | null;
+  }>({
+    dataType: 'download-status',
+    queryKeyParams: ['project', projectId, currentUser?.id || ''],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      db.query.project.findMany({
+        where: eq(projectTable.id, projectId),
+        columns: {
+          id: true,
+          download_profiles: true
+        }
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, download_profiles')
+        .eq('id', projectId)
+        .overrideTypes<{ id: string; download_profiles: string[] | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+
+    // Transform to check if user is in download_profiles
+    getItemId: (item) => item.id
+  });
+
+  // Check if current user is in the download_profiles array
+  const projectData = downloadStatusData[0];
+  const isProjectDownloaded =
+    projectData?.download_profiles?.includes(currentUser?.id || '') ?? false;
 
   // Auto-close modal and trigger navigation when user becomes a member (modal mode only)
   useEffect(() => {
@@ -203,22 +240,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
       // Trigger refresh by updating the refresh key
       setRefreshKey((prev) => prev + 1);
-
-      // Handle project download if toggle is enabled and not already downloaded
-      if (autoDownload && !isProjectDownloaded) {
-        try {
-          await mutation.mutateAsync(true);
-          console.log(
-            '[handleRequestMembership] Project download set successfully'
-          );
-        } catch (downloadError) {
-          console.error(
-            '[handleRequestMembership] Error setting project download:',
-            downloadError
-          );
-          // Don't fail the entire operation if download fails
-        }
-      }
 
       Alert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {
@@ -602,40 +623,19 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
                 </View>
 
-                {/* Download toggle */}
-                <View style={styles.downloadSection}>
-                  <View style={styles.downloadToggleRow}>
-                    <Text style={styles.downloadLabel}>
-                      {isProjectDownloaded
-                        ? t('projectWillRemainDownloaded')
-                        : t('downloadProjectWhenRequestSent')}
-                    </Text>
-                    <Switch
-                      value={isProjectDownloaded ? true : autoDownload}
-                      onValueChange={
-                        isProjectDownloaded ? undefined : setAutoDownload
-                      }
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary
-                      }}
-                      thumbColor={
-                        isProjectDownloaded
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                      disabled={isSubmitting || isProjectDownloaded}
+                {/* Download status indicator */}
+                {isProjectDownloaded && (
+                  <View style={styles.downloadStatusBox}>
+                    <Ionicons
+                      name="cloud-download"
+                      size={20}
+                      color={colors.success}
                     />
+                    <Text style={styles.downloadStatusText}>
+                      This project has been downloaded
+                    </Text>
                   </View>
-                  {!isProjectDownloaded && !autoDownload && (
-                    <View style={styles.warningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
-                      <Text style={styles.warningText}>
-                        {t('downloadProjectOfflineWarning')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                )}
               </>
             ) : (
               <>
@@ -643,41 +643,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.inlineDescription}>
                   {getActionMessage()}
                 </Text>
-
-                {/* Download toggle for inline mode */}
-                <View style={styles.inlineDownloadSection}>
-                  <View style={styles.inlineDownloadToggleRow}>
-                    <Text style={styles.inlineDownloadLabel}>
-                      {isProjectDownloaded
-                        ? t('projectWillRemainDownloaded')
-                        : t('downloadProjectWhenRequestSent')}
-                    </Text>
-                    <Switch
-                      value={isProjectDownloaded ? true : autoDownload}
-                      onValueChange={
-                        isProjectDownloaded ? undefined : setAutoDownload
-                      }
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary
-                      }}
-                      thumbColor={
-                        isProjectDownloaded
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                      disabled={isSubmitting || isProjectDownloaded}
-                    />
-                  </View>
-                  {!isProjectDownloaded && !autoDownload && (
-                    <View style={styles.inlineWarningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
-                      <Text style={styles.inlineWarningText}>
-                        {t('downloadProjectOfflineWarning')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
               </>
             )}
             <TouchableOpacity
@@ -949,6 +914,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSizes.small,
     color: colors.text,
+    lineHeight: 20
+  },
+  downloadStatusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)', // success color with transparency
+    padding: spacing.medium,
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing.large,
+    gap: spacing.small
+  },
+  downloadStatusText: {
+    flex: 1,
+    fontSize: fontSizes.small,
+    color: colors.success,
     lineHeight: 20
   },
   withdrawButton: {
