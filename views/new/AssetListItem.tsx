@@ -92,7 +92,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   const handlePress = () => {
     goToAsset({
       id: asset.id,
-      name: asset.name
+      name: asset.name || 'Unnamed Asset'
     });
   };
 
@@ -113,7 +113,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             justifyContent: 'space-between'
           }}
         >
-          <Text style={styles.assetName}>{asset.name}</Text>
+          <Text style={styles.assetName}>{asset.name || 'Unnamed Asset'}</Text>
 
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}

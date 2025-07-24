@@ -3,15 +3,26 @@ import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Project = typeof project.$inferSelect;
 
 export default function NextGenProjectsView() {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
+
   const {
     data,
     fetchNextPage,
@@ -54,6 +65,29 @@ export default function NextGenProjectsView() {
   const projects = React.useMemo(() => {
     return data.pages.flatMap((page) => page.data);
   }, [data.pages]);
+
+  // Filter projects based on search query
+  const filteredProjects = React.useMemo(() => {
+    let filtered = projects;
+
+    // Filter by download status if enabled
+    if (showDownloadedOnly) {
+      filtered = filtered.filter((project) => project.source === 'localSqlite');
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((project) => {
+        const nameMatch = project.name.toLowerCase().includes(query);
+        const descriptionMatch =
+          project.description?.toLowerCase().includes(query) ?? false;
+        return nameMatch || descriptionMatch;
+      });
+    }
+
+    return filtered;
+  }, [projects, searchQuery, showDownloadedOnly]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: Project & { source?: string } }) => (
@@ -100,6 +134,28 @@ export default function NextGenProjectsView() {
   return (
     <View style={sharedStyles.container}>
       <Text style={sharedStyles.title}>All Projects</Text>
+
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search projects..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor={colors.textSecondary}
+        />
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
+        >
+          <Ionicons
+            name={showDownloadedOnly ? 'filter' : 'filter-outline'}
+            size={20}
+            color={showDownloadedOnly ? colors.primary : colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS && (
         <Text
@@ -113,7 +169,7 @@ export default function NextGenProjectsView() {
         </Text>
       )}
       <FlashList
-        data={projects}
+        data={filteredProjects}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         estimatedItemSize={80}
@@ -160,5 +216,22 @@ export const styles = StyleSheet.create({
   loadingFooter: {
     paddingVertical: spacing.medium,
     alignItems: 'center'
+  },
+  searchContainer: {
+    marginBottom: spacing.medium,
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  searchInput: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: spacing.small,
+    color: colors.text,
+    fontSize: fontSizes.medium,
+    flex: 1
+  },
+  filterButton: {
+    paddingHorizontal: spacing.small
   }
 });
