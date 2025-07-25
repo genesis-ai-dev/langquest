@@ -1,5 +1,6 @@
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { asc, desc } from 'drizzle-orm';
@@ -68,12 +69,24 @@ export function useInfiniteProjects(
   return useHybridInfiniteQuery({
     queryKey,
     onlineFn: async ({ pageParam }) => {
+      const showInvisible = await getOptionShowHiddenContent();
       // Online query with proper pagination using Supabase range
+      console.log(
+        `[OnlineProjects] >> Loading page ${pageParam} with pageSize ${pageSize}`
+      );
+
+      /* 
+        At this point, we should check if the user has enabled the option to show invisible projects 
+        needed to be verified if the inactive projects should be shown or not.
+      */
       let query = supabaseConnector.client
         .from('project')
-        .select('*', { count: 'exact' })
-        .eq('visible', true)
-        .eq('active', true);
+        .select('*', { count: 'exact' });
+      //      .eq('active', true);
+
+      if (!showInvisible) {
+        query = query.eq('visible', true);
+      }
 
       // Add sorting if specified
       if (sortField && sortOrder) {
@@ -190,20 +203,23 @@ export function useProjectById(projectId: string | undefined) {
         .from('project')
         .select('*')
         .eq('id', projectId)
-        .eq('visible', true)
-        .eq('active', true)
+        /* Removed visible/active filter */
+        // .eq('visible', true)
+        // .eq('active', true)
         .limit(1)
         .overrideTypes<Project[]>();
       if (error) throw error;
+      console.log(data);
       return data;
     },
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: (fields, { eq, and }) =>
           and(
-            eq(fields.id, projectId!),
-            eq(fields.visible, true),
-            eq(fields.active, true)
+            eq(fields.id, projectId!)
+            /* Removed visible/active filter */
+            // eq(fields.visible, true),
+            // eq(fields.active, true)
           ),
         limit: 1
       })

@@ -1,3 +1,4 @@
+import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
@@ -11,6 +12,7 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -18,18 +20,20 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import { SwitchBox } from './SwitchBox';
 
 interface ProjectSettingsModalProps {
   isVisible: boolean;
   onClose: () => void;
   projectId: string;
 }
+
+type TProjectStatusType = 'private' | 'visible' | 'active';
 
 export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   isVisible,
@@ -40,6 +44,11 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrjLoaded, setIsPrjLoaded] = useState(false);
+
+  const { isUserOwner } = useSessionMemberships();
+  const isOwner = projectId ? isUserOwner(projectId) : false;
+
+  const queryClient = useQueryClient();
 
   const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
@@ -64,107 +73,81 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     setIsPrjLoaded(true);
   }
 
-  const handleTogglePrivate = async () => {
+  /* To be awared -> The information here is coming from the cache */
+  const [prjPrivate, setPrjPrivate] = useState(projectData?.private ?? false);
+  const [prjVisible, setPrjVisible] = useState(projectData?.visible ?? false);
+  const [prjActive, setPrjActive] = useState(projectData?.active ?? false);
+
+  const handleToggleStatus = async (statusType: TProjectStatusType) => {
     if (!projectData) return;
-
     setIsSubmitting(true);
-    try {
-      await supabaseConnector.client
-        .from('project')
-        .update({
-          private: !projectData.private,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: projectId });
-      await refetch();
-      Alert.alert(
-        'Success',
-        projectData.private
-          ? 'The project has been made public'
-          : 'The project has been made private'
-      );
-    } catch (error) {
-      console.error('Error updating project privacy:', error);
-      Alert.alert('Error', 'Failed to update project settings');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
-  const handleToggleVisible = async () => {
-    if (!projectData) return;
+    let [privateProject, visible, active] = [prjPrivate, prjVisible, prjActive];
+    let message = '';
 
-    setIsSubmitting(true);
-    try {
-      let [visible, active] = [projectData.visible, projectData.active];
-
+    if (statusType === 'private') {
+      privateProject = !privateProject;
+      message = privateProject
+        ? 'The project has been made private'
+        : 'The project has been made public';
+    } else if (statusType === 'visible') {
       if (visible) {
         visible = false;
         active = false;
       } else {
         visible = true;
       }
-
-      await supabaseConnector.client
-        .from('project')
-        .update({
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: projectId });
-
-      await refetch();
-
-      Alert.alert(
-        'Success',
-        projectData.visible
-          ? 'The project has been made invisible'
-          : 'The project has been made visible'
-      );
-    } catch (error) {
-      console.error('Error updating project visibility:', error);
-      Alert.alert('Error', 'Failed to update project settings');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleActive = async () => {
-    if (!projectData) return;
-
-    setIsSubmitting(true);
-    try {
-      let [visible, active] = [projectData.visible, projectData.active];
-
+      message = visible
+        ? 'The project has been made visible'
+        : 'The project has been made invisible';
+    } else {
       if (!active) {
         visible = true;
         active = true;
       } else {
         active = false;
       }
+      message = active
+        ? 'The project has been made active'
+        : 'The project has been made inactive';
+    }
 
+    try {
       await supabaseConnector.client
         .from('project')
         .update({
+          private: privateProject,
           visible,
           active,
           last_updated: new Date().toISOString()
         })
         .match({ id: projectId });
+      refetch();
 
-      await refetch();
-      Alert.alert(
-        'Success',
-        projectData.active
-          ? 'The project has been made inactive'
-          : 'The project has been made active'
-      );
+      Alert.alert('Success', message);
     } catch (error) {
-      console.error('Error updating project active status:', error);
+      console.error('Error updating project status:', error);
       Alert.alert('Error', 'Failed to update project settings');
     } finally {
       setIsSubmitting(false);
+      setPrjPrivate(privateProject);
+      setPrjVisible(visible);
+      setPrjActive(active);
+
+      // /* To reload projects in the main page */
+      // await queryClient.invalidateQueries({
+      //   queryKey: ['projects', 'infinite', 10, 'name', 'asc', 'online']
+      // });
+
+      queryClient.removeQueries({
+        queryKey: ['projects'],
+        exact: false
+      });
+
+      queryClient.removeQueries({
+        queryKey: ['project', projectId],
+        exact: false
+      });
     }
   };
 
@@ -188,80 +171,44 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.content}>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Private Project'}</Text>
-                    <Text style={styles.settingDescription}>
-                      {projectData?.private
-                        ? 'This project is private. Anyone can see it, but only members can contribute to it.'
-                        : 'This project is public. Anyone can contribute to it.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={projectData?.private ?? false}
-                    onValueChange={handleTogglePrivate}
-                    disabled={isSubmitting || !isPrjLoaded}
-                    trackColor={{
-                      false: colors.disabled,
-                      true: colors.primary
-                    }}
-                    thumbColor={
-                      projectData?.private ? colors.primary : colors.disabled
-                    }
-                  />
-                </View>
-              </View>
+              <SwitchBox
+                title={'Private Project'}
+                description={
+                  projectData?.private
+                    ? 'This project is private. Anyone can see it, but only members can contribute to it.'
+                    : 'This project is public. Anyone can contribute to it.'
+                }
+                // value={projectData?.private ?? false}
+                value={prjPrivate}
+                onChange={() => handleToggleStatus('private')}
+                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+              />
 
-              <View style={styles.content}>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Visibility'}</Text>
-                    <Text style={styles.settingDescription}>
-                      {projectData?.visible
-                        ? 'This project is visible to other users.'
-                        : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={projectData?.visible ?? false}
-                    onValueChange={handleToggleVisible}
-                    disabled={isSubmitting || !isPrjLoaded}
-                    trackColor={{
-                      false: colors.disabled,
-                      true: colors.primary
-                    }}
-                    thumbColor={
-                      projectData?.visible ? colors.primary : colors.disabled
-                    }
-                  />
-                </View>
-              </View>
+              <SwitchBox
+                title={'Visibility'}
+                description={
+                  projectData?.visible
+                    ? 'This project is visible to other users.'
+                    : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'
+                }
+                // value={projectData?.visible ?? false}
+                value={prjVisible}
+                onChange={() => handleToggleStatus('visible')}
+                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+              />
 
-              <View style={styles.content}>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Active'}</Text>
-                    <Text style={styles.settingDescription}>
-                      {projectData?.active
-                        ? 'This project is currently active. An active project is also visible.'
-                        : 'This project is inactive. No actions can be performed unless it is reactivated.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={projectData?.active ?? false}
-                    onValueChange={handleToggleActive}
-                    disabled={isSubmitting || !isPrjLoaded}
-                    trackColor={{
-                      false: colors.disabled,
-                      true: colors.primary
-                    }}
-                    thumbColor={
-                      projectData?.active ? colors.primary : colors.disabled
-                    }
-                  />
-                </View>
-              </View>
+              <SwitchBox
+                title={'Active'}
+                description={
+                  projectData?.active
+                    ? 'This project is currently active. An active project is also visible.'
+                    : 'This project is inactive. No actions can be performed unless it is reactivated.'
+                }
+                // value={projectData?.active ?? false}
+                value={prjActive}
+                onChange={() => handleToggleStatus('active')}
+                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+              />
             </View>
           </TouchableWithoutFeedback>
         </Pressable>

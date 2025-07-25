@@ -11,7 +11,13 @@ import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useTranslationReports } from '@/hooks/useTranslationReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { getLocalUriFromAssetId } from '@/utils/attachmentUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +36,7 @@ import AudioPlayer from './AudioPlayer';
 import { PrivateAccessGate } from './PrivateAccessGate';
 import { ReportModal } from './ReportModal';
 import { Shimmer } from './Shimmer';
+import { TranslationSettingsModal } from './TranslationSettingsModal';
 
 interface TranslationModalProps {
   translationId: string;
@@ -37,6 +44,7 @@ interface TranslationModalProps {
   onClose: () => void;
   onVoteSubmitted?: () => void;
   onReportSubmitted?: () => void;
+  isParentsActive?: boolean;
 }
 
 export const TranslationModal: React.FC<TranslationModalProps> = ({
@@ -44,12 +52,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   assetId,
   onClose,
   onVoteSubmitted,
-  onReportSubmitted
+  onReportSubmitted,
+  isParentsActive
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { stopCurrentSound } = useAudio();
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -105,6 +115,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     project?.private
   );
 
+  const isAbleToEdit =
+    canEditTranslation && isParentsActive && translation?.active;
+
   useEffect(() => {
     setEditedText(translation?.text ?? '');
   }, [translation]);
@@ -152,6 +165,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
       Alert.alert('Error', t('logInToReport'));
       return;
     }
+    if (!translation?.active || !isParentsActive) {
+      Alert.alert('Error', t('cannotReportInactiveTranslation'));
+      return;
+    }
 
     if (isOwnTranslation) {
       Alert.alert('Error', t('cannotReportOwnTranslation'));
@@ -169,6 +186,20 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const handleReportSubmitted = () => {
     setShowReportModal(false);
     onReportSubmitted?.();
+  };
+
+  const handleSettingsPress = () => {
+    if (!currentUser) {
+      Alert.alert('Error', t('cannotIdentifyUser'));
+      return;
+    }
+
+    if (!isOwnTranslation) {
+      Alert.alert('Error', t('cannotChangeTranslationSettings'));
+      return;
+    }
+
+    setShowSettingsModal(true);
   };
 
   const { mutate: editTranslation, isPending: isEditPending } = useMutation({
@@ -232,24 +263,40 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             marginBottom: spacing.medium
           }}
         >
-          <TouchableOpacity
-            style={[
-              styles.reportButton,
-              (isOwnTranslation || hasReported) &&
-                styles.feedbackButtonDisabled,
-              {
-                alignSelf: 'flex-start'
-              }
-            ]}
-            onPress={handleReportPress}
-            disabled={isOwnTranslation || !!hasReported}
-          >
-            <Ionicons
-              name={hasReported ? 'flag' : 'flag-outline'}
-              size={20}
-              color={colors.text}
-            />
-          </TouchableOpacity>
+          {isOwnTranslation ? (
+            <TouchableOpacity
+              style={[
+                styles.settingsButton,
+                {
+                  alignSelf: 'flex-start'
+                }
+              ]}
+              onPress={handleSettingsPress}
+              disabled={!isParentsActive}
+            >
+              <Ionicons name={'settings'} size={20} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.reportButton,
+                (hasReported || !isParentsActive || !translation.active) &&
+                  styles.feedbackButtonDisabled,
+                {
+                  alignSelf: 'flex-start'
+                }
+              ]}
+              onPress={handleReportPress}
+              disabled={hasReported || !isParentsActive || !translation.active}
+            >
+              <Ionicons
+                name={hasReported ? 'flag' : 'flag-outline'}
+                size={20}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Ionicons name="close" size={20} color={colors.text} />
           </TouchableOpacity>
@@ -268,15 +315,13 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
             <View style={styles.textContainer}>
               <TouchableOpacity
                 style={styles.editButton}
-                onPress={canEditTranslation ? toggleEdit : undefined}
-                disabled={!canEditTranslation}
+                onPress={isAbleToEdit ? toggleEdit : undefined}
+                disabled={!isAbleToEdit}
               >
                 <Ionicons
-                  name={canEditTranslation ? 'pencil' : 'lock-closed'}
+                  name={isAbleToEdit ? 'pencil' : 'lock-closed'}
                   size={18}
-                  color={
-                    canEditTranslation ? colors.primary : colors.textSecondary
-                  }
+                  color={isAbleToEdit ? colors.primary : colors.textSecondary}
                 />
               </TouchableOpacity>
               <Text style={styles.text}>
@@ -308,7 +353,9 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
               }
             ]}
             onPress={() => editTranslation()}
-            disabled={isEditPending || !editedText.trim()}
+            disabled={
+              isEditPending || !editedText.trim() || !translation.active
+            }
           >
             {isEditPending ? (
               <ActivityIndicator size="small" color={colors.buttonText} />
@@ -336,17 +383,23 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                       style={[
                         styles.newTranslationButton,
                         {
-                          flex: 1,
-                          backgroundColor: '#6545B6',
-                          borderWidth: 2,
-                          borderColor:
-                            userVote?.polarity === 'up'
-                              ? colors.alert
-                              : '#6545B6'
-                        }
+                          flex: 1
+                        },
+                        !isParentsActive || !translation.active
+                          ? sharedStyles.disabled
+                          : {
+                              backgroundColor: '#6545B6',
+                              borderWidth: 2,
+                              borderColor:
+                                userVote?.polarity === 'up'
+                                  ? colors.alert
+                                  : '#6545B6'
+                            }
                       ]}
                       onPress={() => handleVote({ voteType: 'up' })}
-                      disabled={isVotePending}
+                      disabled={
+                        isVotePending || !isParentsActive || !translation.active
+                      }
                     >
                       {pendingVoteType === 'up' && (
                         <View style={styles.shimmerOverlay}>
@@ -375,17 +428,23 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
                       style={[
                         styles.newTranslationButton,
                         {
-                          flex: 1,
-                          borderWidth: 2,
-                          backgroundColor: colors.primary,
-                          borderColor:
-                            userVote?.polarity === 'down'
-                              ? colors.alert
-                              : colors.primary
-                        }
+                          flex: 1
+                        },
+                        !isParentsActive || !translation.active
+                          ? sharedStyles.disabled
+                          : {
+                              borderWidth: 2,
+                              backgroundColor: colors.primary,
+                              borderColor:
+                                userVote?.polarity === 'down'
+                                  ? colors.alert
+                                  : colors.primary
+                            }
                       ]}
                       onPress={() => handleVote({ voteType: 'down' })}
-                      disabled={isVotePending}
+                      disabled={
+                        isVotePending || !isParentsActive || !translation.active
+                      }
                     >
                       {pendingVoteType === 'down' && (
                         <View style={styles.shimmerOverlay}>
@@ -431,6 +490,14 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           recordTable="translations"
           creatorId={translation.creator_id}
           onReportSubmitted={handleReportSubmitted}
+        />
+      )}
+      {showSettingsModal && (
+        <TranslationSettingsModal
+          isVisible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          translationId={translationId}
+          assetId={assetId}
         />
       )}
     </View>
@@ -535,6 +602,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colors.inputBorder
+  },
+  settingsButton: {
+    padding: spacing.xsmall
+    // borderRadius: borderRadius.medium,
+    // borderWidth: 1,
+    // borderColor: colors.inputBorder
   },
   submitButton: {
     backgroundColor: colors.primary,

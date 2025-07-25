@@ -16,7 +16,6 @@ import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useQuestById } from '@/hooks/db/useQuests';
 import {
   useAppNavigation,
   useCurrentNavigation
@@ -49,7 +48,8 @@ import {
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import type { AssetContent } from '@/hooks/db/useAssets';
+import { useQuestById } from '@/hooks/db/useQuests';
+// import type { AssetContent } from '@/hooks/db/useAssets';
 
 interface SortingOption {
   field: string;
@@ -73,9 +73,14 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
 
   // Fallback to fresh query only if not in cache
   const { project: freshProject } = useProjectById(currentProjectId || '');
-  const activeProject = cachedProject || freshProject;
+
+  const activeProject = freshProject || cachedProject;
 
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
+
+  const { quest } = useQuestById(currentQuestId);
+
+  const assetActive = asset.active && quest?.active && activeProject?.active;
 
   const {
     isFlaggedForDownload,
@@ -88,7 +93,13 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
   }, [toggleDownload]);
 
   return (
-    <View style={sharedStyles.card}>
+    <View
+      style={[
+        sharedStyles.card,
+        !assetActive && sharedStyles.disabled,
+        !asset.visible && sharedStyles.invisible
+      ]}
+    >
       <View
         style={{
           flexDirection: 'row',
@@ -97,7 +108,7 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        {isOwner && (
+        {isOwner && quest?.active && activeProject?.active && (
           <TouchableOpacity
             onPress={() => setShowAssetSettingsModal(true)}
             style={styles.statsButtonMini}
@@ -105,25 +116,27 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
             <Ionicons name="settings" size={22} color={colors.text} />
           </TouchableOpacity>
         )}
-        <PrivateAccessGate
-          projectId={activeProject?.id || ''}
-          projectName={activeProject?.name || ''}
-          isPrivate={activeProject?.private || false}
-          action="download"
-          allowBypass={true}
-          onBypass={handleDownloadToggle}
-          renderTrigger={({ onPress, hasAccess }) => (
-            <DownloadIndicator
-              isFlaggedForDownload={isFlaggedForDownload}
-              isLoading={isDownloadLoading}
-              onPress={
-                hasAccess || isFlaggedForDownload
-                  ? handleDownloadToggle
-                  : onPress
-              }
-            />
-          )}
-        />
+        {assetActive && (
+          <PrivateAccessGate
+            projectId={activeProject?.id || ''}
+            projectName={activeProject?.name || ''}
+            isPrivate={activeProject?.private || false}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isFlaggedForDownload={isFlaggedForDownload}
+                isLoading={isDownloadLoading}
+                onPress={
+                  hasAccess || isFlaggedForDownload
+                    ? handleDownloadToggle
+                    : onPress
+                }
+              />
+            )}
+          />
+        )}
       </View>
 
       <View style={styles.translationCount}>
@@ -177,8 +190,6 @@ export default function AssetsView() {
     );
   }
 
-  const { quest } = useQuestById(currentQuestId);
-
   // Use the new hybrid infinite query hook for better performance and offline support
   const {
     data: infiniteData,
@@ -199,13 +210,14 @@ export default function AssetsView() {
     activeFilters // Add active filters for server-side filtering
   );
 
-  // Extract all assets from pages
   const allAssets = useMemo(() => {
     if (!infiniteData?.pages) {
       return [];
     }
 
-    return infiniteData.pages.flatMap((page) => page.data);
+    return infiniteData.pages.flatMap((page) => {
+      return page.data;
+    });
   }, [infiniteData]);
 
   // Apply client-side sorting only - filtering is now handled server-side
@@ -244,9 +256,11 @@ export default function AssetsView() {
 
   // const getActiveOptionsCount = () => {
   //   const filterCount = Object.values(activeFilters).flat().length;
-  //   const sortCount = activeSorting.length;
+  //   const sortCount = activeSortinglength;
   //   return filterCount + sortCount;
   // };
+
+  const { quest } = useQuestById(currentQuestId);
 
   const handleAssetPress = useCallback(
     (asset: Asset) => {
