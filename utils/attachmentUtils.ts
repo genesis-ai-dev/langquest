@@ -65,7 +65,9 @@ export async function calculateTotalAttachments(assetIds: string[]) {
       const translations = await getTranslationsWithAudioByAssetId(assetId);
 
       const translationAudioIds = translations
-        ?.filter((translation) => translation.audio)
+        ?.filter(
+          (translation) => translation.audio && translation.audio.trim() !== ''
+        )
         .map((translation) => translation.audio!);
 
       if (translationAudioIds) {
@@ -120,7 +122,9 @@ export async function getAssetAttachmentIds(
     // Process translation audio IDs if successful
     if (translationResult.status === 'fulfilled') {
       const translationAudioIds = translationResult.value
-        ?.filter((translation) => translation.audio)
+        ?.filter(
+          (translation) => translation.audio && translation.audio.trim() !== ''
+        )
         .map((translation) => translation.audio!);
       if (translationAudioIds) {
         attachmentIds.push(...translationAudioIds);

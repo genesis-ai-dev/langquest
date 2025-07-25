@@ -16,7 +16,7 @@ export function useLocalization(languageOverride?: string | null) {
   const currentLanguage = useLocalStore((state) => state.language);
 
   const { language: profileLanguage } = useLanguageById(
-    currentUser?.ui_language_id ?? undefined
+    currentUser?.user_metadata.ui_language_id ?? undefined
   );
 
   // Get language with priority:

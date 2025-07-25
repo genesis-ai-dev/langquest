@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessionCache } from '@/contexts/SessionCacheContext';
 import type { project } from '@/db/drizzleSchema';
 import {
   invite,
@@ -8,6 +7,7 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { downloadRecord } from '@/hooks/useDownloads';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -70,10 +70,10 @@ export default function NotificationsView() {
     Record<string, boolean>
   >({});
 
-  // Use session cache for user memberships instead of separate query
-  const { userMemberships } = useSessionCache();
+  // Use user memberships from local DB instead of session cache
+  const { userMemberships } = useUserMemberships();
 
-  // Get owner project IDs from session cache
+  // Get owner project IDs from user memberships
   const ownerProjectIds = React.useMemo(() => {
     return (
       userMemberships
@@ -369,7 +369,13 @@ export default function NotificationsView() {
         // Handle project download if requested
         if (shouldDownload && currentUser) {
           try {
-            await downloadRecord('project', projectId, false);
+            await downloadRecord(
+              'project',
+              projectId,
+              false,
+              null,
+              currentUser
+            );
           } catch (downloadError) {
             console.error(
               '[handleAccept] Error setting project download:',

@@ -277,16 +277,47 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
       return [];
     }
 
-    // Create a map of local data by ID for quick lookup
+    // Create map for local data for quick lookup
     const localDataMap = new Map(localData.map((item) => [getId(item), item]));
 
-    // Filter out cloud data that already exists in local data
-    const uniqueCloudData = cloudData.filter(
-      (item) => !localDataMap.has(getId(item))
-    );
+    // Start with a map to hold the merged results
+    const mergedMap = new Map<string | number, T>();
 
-    // Return local data first, then unique cloud data
-    return [...localData, ...uniqueCloudData];
+    // Add all local data first
+    localData.forEach((item) => {
+      mergedMap.set(getId(item), item);
+    });
+
+    // Process cloud data
+    cloudData.forEach((cloudItem) => {
+      const id = getId(cloudItem);
+      const localItem = localDataMap.get(id);
+
+      if (!localItem) {
+        // Cloud item doesn't exist locally, add it
+        mergedMap.set(id, cloudItem);
+      } else {
+        // Item exists in both - compare last_updated timestamps
+        const localLastUpdated = (localItem as T & { last_updated?: string })
+          .last_updated;
+        const cloudLastUpdated = (cloudItem as T & { last_updated?: string })
+          .last_updated;
+
+        // If cloud version is newer, use it
+        if (
+          cloudLastUpdated &&
+          localLastUpdated &&
+          new Date(cloudLastUpdated).getTime() >
+            new Date(localLastUpdated).getTime()
+        ) {
+          mergedMap.set(id, cloudItem);
+        }
+        // Otherwise keep the local version (already in mergedMap)
+      }
+    });
+
+    // Convert map back to array
+    return Array.from(mergedMap.values());
   }, [localQuery.data, cloudQuery.data, getId]);
 
   // Apply user's select function if provided
@@ -599,7 +630,7 @@ export async function hybridSupabaseFetch<
   const localDataArray = Array.isArray(localData) ? localData : [];
   const cloudDataArray = Array.isArray(cloudData) ? cloudData : [];
 
-  // Create a map of local data by ID for quick lookup
+  // Create map for local data for quick lookup
   const localDataMap = new Map(
     localDataArray.map((item) => [
       (item as unknown as { id: string | number }).id,
@@ -607,13 +638,44 @@ export async function hybridSupabaseFetch<
     ])
   );
 
-  // Filter out cloud data that already exists in local data
-  const uniqueCloudData = cloudDataArray.filter(
-    (item) => !localDataMap.has((item as unknown as { id: string | number }).id)
-  );
+  // Start with a map to hold the merged results
+  const mergedMap = new Map<string | number, T>();
 
-  // Return local data first, then unique cloud data
-  return [...localDataArray, ...uniqueCloudData];
+  // Add all local data first
+  localDataArray.forEach((item) => {
+    mergedMap.set((item as unknown as { id: string | number }).id, item);
+  });
+
+  // Process cloud data
+  cloudDataArray.forEach((cloudItem) => {
+    const id = (cloudItem as unknown as { id: string | number }).id;
+    const localItem = localDataMap.get(id);
+
+    if (!localItem) {
+      // Cloud item doesn't exist locally, add it
+      mergedMap.set(id, cloudItem);
+    } else {
+      // Item exists in both - compare last_updated timestamps
+      const localLastUpdated = (localItem as T & { last_updated?: string })
+        .last_updated;
+      const cloudLastUpdated = (cloudItem as T & { last_updated?: string })
+        .last_updated;
+
+      // If cloud version is newer, use it
+      if (
+        cloudLastUpdated &&
+        localLastUpdated &&
+        new Date(cloudLastUpdated).getTime() >
+          new Date(localLastUpdated).getTime()
+      ) {
+        mergedMap.set(id, cloudItem);
+      }
+      // Otherwise keep the local version (already in mergedMap)
+    }
+  });
+
+  // Convert map back to array
+  return Array.from(mergedMap.values());
 }
 
 /**
@@ -869,19 +931,52 @@ export function useHybridSupabaseInfiniteQuery<T>(
         const localData = Array.isArray(localPage.data) ? localPage.data : [];
         const cloudData = Array.isArray(cloudPage.data) ? cloudPage.data : [];
 
-        // Create a map of local data by ID for quick lookup
+        // Create map for local data for quick lookup
         const localDataMap = new Map(
           localData.map((item) => [getId(item), item])
         );
 
-        // Filter out cloud data that already exists in local data
-        const uniqueCloudData = cloudData.filter(
-          (item) => !localDataMap.has(getId(item))
-        );
+        // Start with a map to hold the merged results
+        const mergedMap = new Map<string | number, T>();
+
+        // Add all local data first
+        localData.forEach((item) => {
+          mergedMap.set(getId(item), item);
+        });
+
+        // Process cloud data
+        cloudData.forEach((cloudItem) => {
+          const id = getId(cloudItem);
+          const localItem = localDataMap.get(id);
+
+          if (!localItem) {
+            // Cloud item doesn't exist locally, add it
+            mergedMap.set(id, cloudItem);
+          } else {
+            // Item exists in both - compare last_updated timestamps
+            const localLastUpdated = (
+              localItem as T & { last_updated?: string }
+            ).last_updated;
+            const cloudLastUpdated = (
+              cloudItem as T & { last_updated?: string }
+            ).last_updated;
+
+            // If cloud version is newer, use it
+            if (
+              cloudLastUpdated &&
+              localLastUpdated &&
+              new Date(cloudLastUpdated).getTime() >
+                new Date(localLastUpdated).getTime()
+            ) {
+              mergedMap.set(id, cloudItem);
+            }
+            // Otherwise keep the local version (already in mergedMap)
+          }
+        });
 
         mergedPages.push({
           ...localPage,
-          data: [...localData, ...uniqueCloudData]
+          data: Array.from(mergedMap.values())
         });
       } else if (localPage) {
         mergedPages.push(localPage);

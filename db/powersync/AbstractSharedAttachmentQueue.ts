@@ -49,102 +49,176 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     record?: Partial<AttachmentRecord>,
     extension?: string
   ): Promise<AttachmentRecord> {
+    // When downloading existing attachments, use the provided ID directly
+    if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
+      // Validate that the ID is not empty
+      if (!record.id.trim()) {
+        throw new Error('Attachment ID cannot be empty');
+      }
+      const localUri = this.getLocalFilePathSuffix(record.id);
+      return {
+        ...record,
+        filename: record.id,
+        local_uri: localUri,
+        timestamp: new Date().getTime()
+      } as AttachmentRecord;
+    }
+
+    // For new uploads, generate a new ID
     const photoId = record?.id ?? randomUUID();
     const filename =
       record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
-    // const filenameWithoutPath = filename.split('/').pop() ?? filename;
     const localUri = this.getLocalFilePathSuffix(filename);
+
     return {
-      state: AttachmentState.QUEUED_UPLOAD,
+      ...record,
+      state: record?.state ?? AttachmentState.QUEUED_UPLOAD,
       id: filename,
       filename: filename,
       local_uri: localUri,
-      ...record
-    };
+      timestamp: new Date().getTime()
+    } as AttachmentRecord;
   }
 
   // eslint-disable-next-line
   async watchAttachmentIds() {
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
-        const _ids = `${ids.map((id) => `'${id}'`).join(',')}`;
+        try {
+          console.log(`[WATCH IDS] Processing ${ids.length} attachment IDs`);
 
-        if (this.initialSync) {
-          this.initialSync = false;
-          // Mark AttachmentIds for sync
-          await this.powersync.execute(
-            `UPDATE
-                ${this.table}
-              SET state = ${AttachmentState.QUEUED_SYNC}
-              WHERE
-                state < ${AttachmentState.SYNCED}
-              AND
-               id IN (${_ids})`
-          );
-        }
-
-        const attachmentsInDatabase =
-          await this.powersync.getAll<ExtendedAttachmentRecord>(
-            `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
-          );
-
-        const storageType = this.getStorageType();
-
-        for (const id of ids) {
-          const record = attachmentsInDatabase.find((r) => r.id == id);
-          // 1. ID is not in the database
-          if (!record) {
-            const newRecord = await this.newAttachmentRecord({
-              id: id,
-              state: AttachmentState.QUEUED_SYNC
-            });
-            await this.saveToQueue(newRecord);
-          } else if (
-            // 2. Attachment exists but needs to be converted to permanent
-            storageType === 'permanent' &&
-            record.storage_type === 'temporary'
-          ) {
-            await this.update({
-              ...record,
-              state: AttachmentState.QUEUED_SYNC,
-              storage_type: 'permanent'
-            });
-          } else if (
-            record.local_uri == null ||
-            !(await this.storage.fileExists(this.getLocalUri(record.local_uri)))
-          ) {
-            // 3. Attachment in database but no local file, mark as queued download
-            await this.update({
-              ...record,
-              state: AttachmentState.QUEUED_DOWNLOAD
-            });
+          // Filter out empty or invalid IDs
+          const validIds = ids.filter((id) => id && id.trim() !== '');
+          if (validIds.length !== ids.length) {
+            console.warn(
+              `[WATCH IDS] Filtered out ${ids.length - validIds.length} empty/invalid IDs`
+            );
           }
-        }
 
-        // 3. Handle archiving based on storage type
-        // const storageType = this.getStorageType();
-        // if (storageType === 'temporary') {
-        //   // For temporary attachments, only archive other temporary attachments that are SYNCED
-        //   await this.powersync.execute(
-        //     `UPDATE ${this.table}
-        //       SET state = ${AttachmentState.ARCHIVED}
-        //       WHERE
-        //         state = ${AttachmentState.SYNCED}
-        //         AND storage_type = 'temporary'
-        //         AND id NOT IN (${ids.map((id) => `'${id}'`).join(',')})`
-        //   );
-        // }
+          console.log(
+            '[WATCH IDS] skipping the following empty/invalid IDs:',
+            ids.filter((id) => id && id.trim() === '')
+          );
+          // Use validIds from here on
+          ids = validIds;
 
-        // Handle archiving of permanent attachments
-        if (storageType === 'permanent') {
-          // For permanent attachments, only archive other permanent attachments that are SYNCED
-          await this.powersync.execute(
-            `UPDATE ${this.table}
-            SET state = ${AttachmentState.ARCHIVED}
-            WHERE
-              state = ${AttachmentState.SYNCED}
-              AND storage_type = 'permanent'
-                AND id NOT IN (${ids.map((id) => `'${id}'`).join(',')})`
+          // Process in smaller batches to avoid SQL query size limits
+          const BATCH_SIZE = 100;
+
+          if (this.initialSync) {
+            this.initialSync = false;
+            console.log(
+              '[WATCH IDS] Initial sync: Updating existing records to QUEUED_SYNC'
+            );
+
+            // Update in batches
+            for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+              const batchIds = ids.slice(i, i + BATCH_SIZE);
+              const _batchIds = `${batchIds.map((id) => `'${id}'`).join(',')}`;
+
+              const updateResult = await this.powersync.execute(
+                `UPDATE
+                    ${this.table}
+                  SET state = ${AttachmentState.QUEUED_SYNC}
+                  WHERE
+                    state < ${AttachmentState.SYNCED}
+                  AND
+                   id IN (${_batchIds})`
+              );
+              console.log(
+                `[WATCH IDS] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Updated ${updateResult.rowsAffected} records`
+              );
+            }
+          }
+
+          console.log('[WATCH IDS] Fetching current attachments from database');
+          const attachmentsInDatabase =
+            await this.powersync.getAll<ExtendedAttachmentRecord>(
+              `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
+            );
+          console.log(
+            '[WATCH IDS] Current attachments in DB:',
+            attachmentsInDatabase.length
+          );
+
+          const storageType = this.getStorageType();
+
+          let added = 0;
+          let updatedToDownload = 0;
+          let convertedToPermanent = 0;
+          let skipped = 0;
+          let errors = 0;
+
+          // Process each attachment ID with error handling
+          for (const id of ids) {
+            try {
+              const record = attachmentsInDatabase.find((r) => r.id == id);
+
+              if (!record) {
+                const newRecord = await this.newAttachmentRecord({
+                  id: id,
+                  state: AttachmentState.QUEUED_SYNC
+                });
+
+                // Validate the record before saving
+                if (!newRecord.id || !newRecord.filename) {
+                  console.error(
+                    `[WATCH IDS] Invalid record created for ${id}:`,
+                    newRecord
+                  );
+                  errors++;
+                  continue;
+                }
+
+                await this.saveToQueue(newRecord);
+                added++;
+              } else if (
+                storageType === 'permanent' &&
+                record.storage_type === 'temporary'
+              ) {
+                await this.update({
+                  ...record,
+                  state: AttachmentState.QUEUED_SYNC,
+                  storage_type: 'permanent'
+                });
+                convertedToPermanent++;
+              } else if (
+                record.local_uri == null ||
+                !(await this.storage.fileExists(
+                  this.getLocalUri(record.local_uri)
+                ))
+              ) {
+                await this.update({
+                  ...record,
+                  state: AttachmentState.QUEUED_DOWNLOAD
+                });
+                updatedToDownload++;
+              } else {
+                skipped++;
+              }
+            } catch (error) {
+              console.error(
+                `[WATCH IDS] Error processing attachment ${id}:`,
+                error
+              );
+              console.error(`[WATCH IDS] Error stack:`, (error as Error).stack);
+              errors++;
+              // Continue processing other attachments
+            }
+          }
+
+          console.log('[WATCH IDS] Processing summary:', {
+            added,
+            updatedToDownload,
+            convertedToPermanent,
+            skipped,
+            errors,
+            totalProcessed: ids.length
+          });
+        } catch (error) {
+          console.error(
+            '[WATCH IDS] Fatal error in watchAttachmentIds:',
+            error
           );
         }
       })();
@@ -168,21 +242,38 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     // Add storage_type to the record
     const storageType = this.getStorageType();
 
-    await this.powersync.execute(
-      `INSERT OR REPLACE INTO ${this.table} 
-       (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        updatedRecord.id,
-        updatedRecord.timestamp,
-        updatedRecord.filename,
-        updatedRecord.local_uri ?? null,
-        updatedRecord.media_type ?? null,
-        updatedRecord.size ?? null,
-        updatedRecord.state,
-        storageType
-      ]
-    );
+    // Ensure all values are SQLite-compatible
+    const values = [
+      updatedRecord.id || null,
+      updatedRecord.timestamp || new Date().getTime(),
+      updatedRecord.filename || null,
+      updatedRecord.local_uri ?? null,
+      updatedRecord.media_type ?? null,
+      updatedRecord.size ?? null,
+      updatedRecord.state || AttachmentState.QUEUED_SYNC,
+      storageType
+    ];
+
+    // Validate critical fields
+    if (!updatedRecord.id || !updatedRecord.filename) {
+      throw new Error(
+        `Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`
+      );
+    }
+
+    try {
+      await this.powersync.execute(
+        `INSERT OR REPLACE INTO ${this.table} 
+         (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        values
+      );
+    } catch (error) {
+      console.error('[saveToQueue] SQL Error:', error);
+      console.error('[saveToQueue] Values:', values);
+      console.error('[saveToQueue] Record:', updatedRecord);
+      throw error;
+    }
 
     // Return the record with storage_type (using type assertion for compatibility)
     // The parent class expects AttachmentRecord, but we've actually added the storage_type
@@ -271,10 +362,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        ?.filter((content) => content.audio_id)
+        .filter((content) => content.audio_id)
         .map((content) => content.audio_id!);
 
-      if (contentAudioIds?.length) {
+      if (contentAudioIds.length) {
         // console.log(
         //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
         // );
@@ -285,10 +376,12 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const translations = await getTranslationsByAssetId(assetId);
 
       const translationAudioIds = translations
-        ?.filter((translation) => translation.audio)
+        .filter(
+          (translation) => translation.audio && translation.audio.trim() !== ''
+        )
         .map((translation) => translation.audio!);
 
-      if (translationAudioIds?.length) {
+      if (translationAudioIds.length) {
         // console.log(
         //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
         // );

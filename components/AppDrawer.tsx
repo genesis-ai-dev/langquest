@@ -160,7 +160,14 @@ export default function AppDrawer({
     let queued = 0;
     const total = attachmentStates.size;
 
+    // Debug: log the states we're seeing
+    const statesCounts = new Map<string, number>();
+
     for (const record of attachmentStates.values()) {
+      // Count states for debugging
+      const stateKey = `${record.state}`;
+      statesCounts.set(stateKey, (statesCounts.get(stateKey) || 0) + 1);
+
       if (record.state === AttachmentState.SYNCED) {
         synced++;
       } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
@@ -171,6 +178,18 @@ export default function AppDrawer({
     }
 
     const hasActivity = downloading > 0 || queued > 0;
+
+    // Debug logging when there's activity
+    if (hasActivity || total > 0) {
+      console.log(`📊 [AppDrawer] Attachment states:`, {
+        total,
+        synced,
+        downloading,
+        queued,
+        hasActivity,
+        statesCounts: Object.fromEntries(statesCounts)
+      });
+    }
 
     return {
       total,
@@ -584,37 +603,65 @@ export default function AppDrawer({
                 <Text style={styles.stalePercentageText}>
                   {!isConnected
                     ? `${attachmentProgress.synced} files downloaded`
-                    : powersyncStatus?.connected
-                      ? powersyncStatus.dataFlowStatus.downloading
-                        ? 'Syncing...'
-                        : powersyncStatus.hasSynced
-                          ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                          : 'Not synced'
-                      : powersyncStatus?.connecting
-                        ? 'Connecting...'
-                        : 'Disconnected'}
+                    : attachmentProgress.hasActivity
+                      ? `Downloading ${attachmentProgress.downloading + attachmentProgress.queued} files...`
+                      : powersyncStatus?.connected
+                        ? powersyncStatus.dataFlowStatus.downloading
+                          ? 'Syncing database...'
+                          : powersyncStatus.hasSynced
+                            ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
+                            : 'Not synced'
+                        : powersyncStatus?.connecting
+                          ? 'Connecting...'
+                          : 'Disconnected'}
                 </Text>
 
                 {/* Progress bar for download progress */}
-                {powersyncStatus?.downloadProgress && (
+                {(powersyncStatus?.downloadProgress ||
+                  attachmentProgress.hasActivity) && (
                   <ProgressBarAndroid
                     styleAttr="Horizontal"
-                    indeterminate={true}
+                    indeterminate={
+                      powersyncStatus?.downloadProgress ? true : false
+                    }
+                    progress={
+                      attachmentProgress.hasActivity
+                        ? attachmentProgress.total > 0
+                          ? attachmentProgress.synced / attachmentProgress.total
+                          : 0
+                        : undefined
+                    }
                     color={colors.primary}
                     style={styles.syncStatusProgressBar}
                   />
                 )}
               </TouchableOpacity>
 
-              {/* Attachment sync progress section with graceful transitions */}
-              {showAttachmentProgress && (
+              {/* Attachment sync progress section - always show when there are attachments */}
+              {(showAttachmentProgress ||
+                attachmentProgress.hasActivity ||
+                attachmentProgress.total > 0) && (
                 <Animated.View
                   style={[
                     styles.attachmentSyncContainer,
-                    { opacity: fadeAnim }
+                    {
+                      opacity: showAttachmentProgress ? fadeAnim : 1,
+                      backgroundColor: attachmentProgress.hasActivity
+                        ? colors.primaryLight + '20'
+                        : colors.backgroundSecondary
+                    }
                   ]}
                 >
-                  <Text style={styles.attachmentSyncText}>
+                  <Text
+                    style={[
+                      styles.attachmentSyncText,
+                      {
+                        fontWeight: attachmentProgress.hasActivity
+                          ? '600'
+                          : '500'
+                      }
+                    ]}
+                  >
                     {isInGracePeriod ? (
                       <>
                         <Text style={styles.completedText}>
@@ -653,7 +700,7 @@ export default function AppDrawer({
                           {attachmentProgress.total} complete)
                         </Text>
                       </>
-                    ) : (
+                    ) : attachmentProgress.queued > 0 ? (
                       <>
                         <Text style={styles.queuedText}>
                           Queued for download: {attachmentProgress.queued} files
@@ -664,6 +711,13 @@ export default function AppDrawer({
                           {attachmentProgress.total} complete)
                         </Text>
                       </>
+                    ) : (
+                      <>
+                        <Text style={styles.progressText}>
+                          {attachmentProgress.synced}/{attachmentProgress.total}{' '}
+                          files downloaded
+                        </Text>
+                      </>
                     )}
                   </Text>
                   {isInGracePeriod ? (
@@ -671,13 +725,20 @@ export default function AppDrawer({
                   ) : (
                     <ProgressBarAndroid
                       styleAttr="Horizontal"
-                      indeterminate={false}
+                      indeterminate={
+                        attachmentProgress.hasActivity &&
+                        attachmentProgress.total === 0
+                      }
                       progress={
                         attachmentProgress.total > 0
                           ? attachmentProgress.synced / attachmentProgress.total
                           : 0
                       }
-                      color={colors.primaryLight}
+                      color={
+                        attachmentProgress.hasActivity
+                          ? colors.primary
+                          : colors.primaryLight
+                      }
                       style={styles.attachmentProgressBar}
                     />
                   )}
