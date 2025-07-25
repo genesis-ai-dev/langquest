@@ -1,9 +1,9 @@
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { useLocalization } from '@/hooks/useLocalization';
+// import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -43,14 +43,16 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   assetId,
   questId
 }) => {
-  const { t } = useLocalization();
+  // const { t } = useLocalization();
+  // TODO: add localization
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAssetLoaded, setIsAssetLoaded] = useState(false);
 
-  const { isUserOwner } = useSessionMemberships();
   const { currentProjectId } = useCurrentNavigation();
-  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
+
+  const { membership } = useUserPermissions(currentProjectId || '', 'manage');
+  const isOwner = membership === 'owner';
 
   const queryClient = useQueryClient();
 

@@ -1,4 +1,4 @@
-import { getCurrentUser, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { project, quest } from '@/db/drizzleSchema';
 import {
   blocked_content,
@@ -36,18 +36,20 @@ export type Project = InferSelectModel<typeof project>;
  * Filters out blocked users and content if current_user_id is provided
  */
 
-function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
-  const currentUser = getCurrentUser();
+function getTranslationsByAssetIdConfig(
+  asset_id: string | string[],
+  currentUserId?: string
+) {
   const assetIds = Array.isArray(asset_id) ? asset_id : [asset_id];
   return createHybridSupabaseQueryConfig({
     queryKey: [
       'translations',
       'by-asset',
       asset_id,
-      currentUser?.id || 'anonymous'
+      currentUserId // Include user ID in query key
     ],
     onlineFn: async ({ signal }) => {
-      if (!currentUser) {
+      if (!currentUserId) {
         // No user logged in, return all translations
         const { data, error } = await system.supabaseConnector.client
           .from('translation')
@@ -64,12 +66,12 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
         system.supabaseConnector.client
           .from('blocked_users')
           .select('blocked_id')
-          .eq('blocker_id', currentUser.id)
+          .eq('blocker_id', currentUserId)
           .abortSignal(signal),
         system.supabaseConnector.client
           .from('blocked_content')
           .select('content_id')
-          .eq('profile_id', currentUser.id)
+          .eq('profile_id', currentUserId)
           .eq('content_table', 'translations')
           .abortSignal(signal)
       ]);
@@ -105,7 +107,7 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
       return data;
     },
     offlineFn: async () => {
-      if (!currentUser?.id) {
+      if (!currentUserId) {
         // No user logged in, return all translations
         return await system.db.query.translation.findMany({
           where: inArray(translation.asset_id, assetIds)
@@ -115,14 +117,14 @@ function getTranslationsByAssetIdConfig(asset_id: string | string[]) {
       // Get blocked users and content for filtering
       const [blockedUsers, blockedContent] = await Promise.all([
         system.db.query.blocked_users.findMany({
-          where: eq(blocked_users.blocker_id, currentUser.id),
+          where: eq(blocked_users.blocker_id, currentUserId),
           columns: {
             blocked_id: true
           }
         }),
         system.db.query.blocked_content.findMany({
           where: and(
-            eq(blocked_content.profile_id, currentUser.id),
+            eq(blocked_content.profile_id, currentUserId),
             eq(blocked_content.content_table, 'translations')
           ),
           columns: {
@@ -228,7 +230,7 @@ export function useTranslationsByAssetId(asset_id: string) {
     isLoading: isTranslationsLoading,
     ...rest
   } = useHybridSupabaseRealtimeQuery({
-    ...getTranslationsByAssetIdConfig(asset_id),
+    ...getTranslationsByAssetIdConfig(asset_id, currentUser?.id),
     channelName: 'public:translation',
     subscriptionConfig: {
       table: 'translation',

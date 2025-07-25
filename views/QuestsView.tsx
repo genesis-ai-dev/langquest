@@ -8,11 +8,8 @@ import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestFilterModal } from '@/components/QuestFilterModal';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  useSessionMemberships,
-  useSessionProjects
-} from '@/contexts/SessionCacheContext';
 import type { Quest } from '@/database_services/questService';
+import { useUserMemberships, useUserProjects } from '@/hooks/db/useProfiles';
 import { useProjectById } from '@/hooks/db/useProjects';
 import {
   useAppNavigation,
@@ -56,9 +53,26 @@ export default function QuestsView() {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Use session cache for user membership
-  const { isUserOwner } = useSessionMemberships();
-  const { getCachedProject, setCachedProject } = useSessionProjects();
+  // Use user memberships and projects from local DB instead of session cache
+  const { userMemberships: _userMemberships, getUserMembership } =
+    useUserMemberships();
+  const { userProjects } = useUserProjects();
+
+  // Create helper functions similar to the old session cache
+  const isUserOwner = (projectId: string) => {
+    const membership = getUserMembership(projectId);
+    return membership?.membership === 'owner';
+  };
+
+  const getCachedProject = (projectId: string) => {
+    return userProjects.find((p) => p.id === projectId);
+  };
+
+  const setCachedProject = (_projectId: string, _project: any) => {
+    // Note: With direct DB queries, we don't need to manually cache
+    // The TanStack Query will handle caching automatically
+    console.log('setCachedProject called but not needed with new architecture');
+  };
 
   // Feature flags to toggle button visibility
   const SHOW_SETTINGS_BUTTON = true;
@@ -96,7 +110,7 @@ export default function QuestsView() {
   // Cache the project data when fresh data arrives
   useEffect(() => {
     if (freshProject && !cachedProject) {
-      setCachedProject(freshProject);
+      setCachedProject(currentProjectId, freshProject);
     }
   }, [freshProject, cachedProject, setCachedProject]);
 

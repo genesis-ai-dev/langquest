@@ -8,10 +8,6 @@ import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestDetails } from '@/components/QuestDetails';
-import {
-  useSessionMemberships,
-  useSessionProjects
-} from '@/contexts/SessionCacheContext';
 import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
@@ -49,7 +45,8 @@ import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { useQuestById } from '@/hooks/db/useQuests';
-// import type { AssetContent } from '@/hooks/db/useAssets';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import type { Project } from '@/hooks/db/useProjects';
 
 interface SortingOption {
   field: string;
@@ -60,21 +57,18 @@ interface SortingOption {
 // filterAssets function removed - filtering is now handled server-side in the hook
 
 // Memoized AssetCard component to prevent unnecessary re-renders
-const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
-  // Use current navigation to get project
-  const { currentProjectId, currentQuestId } = useCurrentNavigation();
-
-  // Use session cache for project data instead of fresh query
-  const { getCachedProject } = useSessionProjects();
-  const cachedProject = getCachedProject(currentProjectId || '');
-
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
-
-  // Fallback to fresh query only if not in cache
-  const { project: freshProject } = useProjectById(currentProjectId || '');
-
-  const activeProject = freshProject || cachedProject;
+const AssetCard = React.memo(
+  ({
+    asset,
+    isOwner,
+    activeProject,
+    currentQuestId
+  }: {
+    asset: Asset;
+    isOwner: boolean;
+    activeProject: Project | null;
+    currentQuestId: string;
+  }) => {
 
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
@@ -139,20 +133,21 @@ const AssetCard = React.memo(({ asset }: { asset: Asset }) => {
         )}
       </View>
 
-      <View style={styles.translationCount}>
-        {/* Translation gems could be added here later */}
+        <View style={styles.translationCount}>
+          {/* Translation gems could be added here later */}
+        </View>
+        {currentQuestId && (
+          <AssetSettingsModal
+            isVisible={showAssetSettingsModal}
+            onClose={() => setShowAssetSettingsModal(false)}
+            questId={currentQuestId}
+            assetId={asset.id}
+          />
+        )}
       </View>
-      {currentQuestId && (
-        <AssetSettingsModal
-          isVisible={showAssetSettingsModal}
-          onClose={() => setShowAssetSettingsModal(false)}
-          questId={currentQuestId}
-          assetId={asset.id}
-        />
-      )}
-    </View>
-  );
-});
+    );
+  }
+);
 
 AssetCard.displayName = 'AssetCard';
 
@@ -168,9 +163,6 @@ export default function AssetsView() {
 
   // Get current navigation state
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
-
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = currentProjectId ? isUserOwner(currentProjectId) : false;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>(
@@ -189,6 +181,13 @@ export default function AssetsView() {
       </View>
     );
   }
+
+  const { membership } = useUserPermissions(currentProjectId || '', 'manage');
+  const isOwner = membership === 'owner';
+  // Fallback to fresh query only if not in cache
+  const { project } = useProjectById(currentProjectId || '');
+
+  const { quest } = useQuestById(currentQuestId);
 
   // Use the new hybrid infinite query hook for better performance and offline support
   const {
@@ -278,7 +277,12 @@ export default function AssetsView() {
   const renderAssetItem = useCallback(
     ({ item }: { item: Asset }) => (
       <TouchableOpacity onPress={() => handleAssetPress(item)}>
-        <AssetCard asset={item} />
+        <AssetCard
+          asset={item}
+          isOwner={isOwner}
+          activeProject={project}
+          currentQuestId={currentQuestId}
+        />
       </TouchableOpacity>
     ),
     [handleAssetPress]

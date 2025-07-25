@@ -1,9 +1,10 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
   convertToFetchConfig,
   createHybridQueryConfig,
@@ -66,38 +67,30 @@ export function useDownloadTreeStructure(
  */
 export async function getDownloadStatus(
   recordTable: keyof typeof system.db.query,
-  recordId: string
+  recordId: string,
+  currentUserId?: string
 ) {
-  const data = await hybridFetch(
-    convertToFetchConfig(getDownloadStatusConfig(recordTable, recordId))
-  );
-  return !!data?.[0]?.id;
-}
-
-function getDownloadStatusConfig(
-  recordTable: keyof typeof system.db.query,
-  recordId: string
-) {
-  const currentUser = getCurrentUser();
-  return createHybridQueryConfig({
-    queryKey: ['download-status', recordTable, recordId],
+  const config = createHybridQueryConfig({
+    queryKey: ['download-status', recordTable, recordId, currentUserId],
     onlineFn: async () => {
-      console.log('recordId', recordId);
-      console.log('recordTable', recordTable);
       const { data, error } = await system.supabaseConnector.client
         .from(recordTable)
         .select('id')
         .eq('id', recordId)
-        .contains('download_profiles', [currentUser!.id])
+        .contains('download_profiles', [currentUserId!])
         .limit(1)
         .overrideTypes<{ id: string }[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' LIMIT 1`,
-    enabled: !!recordId && !!currentUser?.id
+    offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUserId}') LIMIT 1`,
+    enabled: !!recordId && !!currentUserId
   });
+
+  const data = await hybridFetch(convertToFetchConfig(config));
+  return !!data[0]?.id;
 }
+
 /**
  * Hook to get project download status
  */
@@ -108,15 +101,35 @@ export function useDownloadStatus(
   isFlaggedForDownload: boolean;
   isLoading: boolean;
 } {
-  const { data, isLoading, ...rest } = useHybridQuery(
-    getDownloadStatusConfig(recordTable, recordId)
-  );
+  const { currentUser } = useAuth();
 
-  return { isFlaggedForDownload: !!data?.[0]?.id, isLoading, ...rest };
+  // Memoize the configuration to prevent re-creation on every render
+  const queryConfig = useMemo(() => {
+    return createHybridQueryConfig({
+      queryKey: ['download-status', recordTable, recordId, currentUser?.id],
+      onlineFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from(recordTable)
+          .select('id')
+          .eq('id', recordId)
+          .contains('download_profiles', [currentUser!.id])
+          .limit(1)
+          .overrideTypes<{ id: string }[]>();
+        if (error) throw error;
+        return data;
+      },
+      offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUser?.id}') LIMIT 1`,
+      enabled: !!recordId && !!currentUser?.id
+    });
+  }, [recordTable, recordId, currentUser?.id]);
+
+  const { data, isLoading, ...rest } = useHybridQuery(queryConfig);
+
+  return { isFlaggedForDownload: !!data[0]?.id, isLoading, ...rest };
 }
 
 /**
- * Downloads a record and all its related data
+ * Downloads a record and its related data.
  * - For quests: uses the efficient quest_closure system that marks all related records in one operation
  * - For other records: uses the legacy tree-based download system
  */
@@ -124,14 +137,14 @@ export async function downloadRecord(
   recordTable: keyof typeof system.db.query,
   recordId: string,
   downloaded?: boolean,
-  downloadTreeStructure?: TreeNode | null
+  downloadTreeStructure?: TreeNode | null,
+  currentUser?: { id: string } | null
 ) {
   console.log(
     `📡 [DOWNLOAD RPC] Starting downloadRecord for ${recordTable}:${recordId}`
   );
 
   try {
-    const currentUser = getCurrentUser();
     if (!currentUser?.id) {
       throw new Error('User not authenticated');
     }
@@ -196,8 +209,10 @@ export async function downloadRecord(
 
       if (!downloadTree) throw new Error('No download tree found.');
 
+      console.log('RYDER5', { downloaded });
       const isCurrentlyDownloaded =
-        downloaded ?? (await getDownloadStatus(recordTable, recordId));
+        downloaded ??
+        (await getDownloadStatus(recordTable, recordId, currentUser.id));
 
       const operation = isCurrentlyDownloaded ? 'remove' : 'add';
       console.log(
@@ -242,6 +257,7 @@ export function useDownload(
   toggleDownload: () => Promise<void>;
   mutation: UseMutationResult<void, Error, boolean | undefined>;
 } {
+  const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { isFlaggedForDownload, isLoading } = useDownloadStatus(
     recordTable,
@@ -250,7 +266,13 @@ export function useDownload(
 
   const mutation = useMutation({
     mutationFn: async (downloaded?: boolean) =>
-      await downloadRecord(recordTable, recordId, downloaded),
+      await downloadRecord(
+        recordTable,
+        recordId,
+        downloaded,
+        null,
+        currentUser
+      ),
     onSuccess: async () => {
       // Invalidate related queries
       await queryClient.invalidateQueries({
@@ -260,36 +282,20 @@ export function useDownload(
   });
 
   const toggleDownload = async () => {
-    if (!recordId) return;
-
-    console.log(
-      `🎯 [DOWNLOAD] Starting download for ${recordTable}:${recordId}`
-    );
+    if (!recordId || !currentUser?.id) return;
 
     const isCurrentlyDownloaded = await getDownloadStatus(
       recordTable,
-      recordId
-    );
-
-    console.log(
-      `🎯 [DOWNLOAD] Current download status: ${isCurrentlyDownloaded ? 'DOWNLOADED' : 'NOT_DOWNLOADED'}`
+      recordId,
+      currentUser.id
     );
 
     // TODO: re-enable undownloading when we have a way to remove the record from the download tree
     if (isCurrentlyDownloaded) {
-      console.log(
-        `🎯 [DOWNLOAD] Already downloaded, skipping: ${recordTable}:${recordId}`
-      );
       return;
     }
 
-    console.log(
-      `🎯 [DOWNLOAD] Calling downloadRecord mutation for ${recordTable}:${recordId}`
-    );
     await mutation.mutateAsync(false); // always download
-    console.log(
-      `🎯 [DOWNLOAD] ✅ Download mutation completed for ${recordTable}:${recordId}`
-    );
   };
 
   return {
@@ -305,7 +311,7 @@ export function useDownload(
  * Provides progress information and efficient status checking
  */
 export function useQuestDownloadStatus(questId: string) {
-  const currentUser = getCurrentUser();
+  const { currentUser } = useAuth();
 
   const { data: questClosure, isLoading } = useHybridQuery({
     queryKey: ['quest-closure', questId],
@@ -355,8 +361,8 @@ export function useQuestDownloadStatus(questId: string) {
     offlineQuery: `SELECT id, download_profiles FROM quest WHERE id = '${questId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
   });
 
-  const closureData = questClosure?.[0];
-  const isDownloaded = !!questDownloadStatus?.[0]?.id;
+  const closureData = questClosure[0];
+  const isDownloaded = !!questDownloadStatus[0]?.id;
 
   // Calculate progress percentage
   const progressPercentage = closureData
@@ -383,7 +389,7 @@ export function useQuestDownloadStatus(questId: string) {
  * Provides progress information and efficient status checking for entire projects
  */
 export function useProjectDownloadStatus(projectId: string) {
-  const currentUser = getCurrentUser();
+  const { currentUser } = useAuth();
 
   const { data: projectClosure, isLoading } = useHybridQuery({
     queryKey: ['project-closure', projectId],
@@ -428,7 +434,7 @@ export function useProjectDownloadStatus(projectId: string) {
     offlineQuery: `SELECT id, download_profiles FROM project WHERE id = '${projectId}' AND json_array_length(download_profiles) > 0 LIMIT 1`
   });
 
-  const closureData = projectClosure?.[0] as
+  const closureData = projectClosure[0] as
     | {
         project_id: string;
         total_quests: number;
@@ -438,7 +444,7 @@ export function useProjectDownloadStatus(projectId: string) {
         last_updated: string;
       }
     | undefined;
-  const isDownloaded = !!projectDownloadStatus?.[0]?.id;
+  const isDownloaded = !!projectDownloadStatus[0]?.id;
 
   // Calculate progress percentage based on approved translations vs total assets
   const progressPercentage = closureData

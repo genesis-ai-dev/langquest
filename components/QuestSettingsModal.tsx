@@ -1,8 +1,7 @@
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -42,13 +41,14 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   questId,
   projectId
 }) => {
-  const { t } = useLocalization();
+  // const { t } = useLocalization();
+  // TODO: add localization
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuestLoaded, setIsQuestLoaded] = useState(false);
 
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = projectId ? isUserOwner(projectId) : false;
+  const { membership } = useUserPermissions(projectId || '', 'manage');
+  const isOwner = membership === 'owner';
 
   const queryClient = useQueryClient();
 
