@@ -100,7 +100,7 @@ export default function AppView() {
         >
           <SafeAreaView
             style={styles.safeArea}
-            edges={['top', 'left', 'right']}
+            edges={['left', 'right']} // Remove 'top' to let gradient fill status bar
           >
             <View style={styles.appContainer}>
               {/* Drawer Navigation */}
@@ -146,7 +146,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row'
   },
   contentContainer: {
-    marginTop: 50,
     flex: 1
   }
 });

@@ -2393,6 +2393,21 @@ export const localizations = {
     english: 'Download required',
     spanish: 'Descarga requerida',
     brazilian_portuguese: 'Download requerido'
+  },
+  searchMyProjects: {
+    english: 'Search my projects',
+    spanish: 'Buscar mis proyectos',
+    brazilian_portuguese: 'Buscar meus projetos'
+  },
+  searchAllProjects: {
+    english: 'Search all projects',
+    spanish: 'Buscar todos los proyectos',
+    brazilian_portuguese: 'Buscar todos os projetos'
+  },
+  myProjects: {
+    english: 'My Projects',
+    spanish: 'Mis proyectos',
+    brazilian_portuguese: 'Meus projetos'
   }
 } as const;
 

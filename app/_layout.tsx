@@ -8,6 +8,7 @@ import { PowerSyncContext } from '@powersync/react-native';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -39,18 +40,25 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <PowerSyncContext.Provider value={system.powersync}>
-      <PostHogProvider>
-        <AuthProvider>
-          <QueryProvider>
-            <AudioProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="app" />
-              </Stack>
-            </AudioProvider>
-          </QueryProvider>
-        </AuthProvider>
-      </PostHogProvider>
-    </PowerSyncContext.Provider>
+    <>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <PowerSyncContext.Provider value={system.powersync}>
+        <PostHogProvider>
+          <AuthProvider>
+            <QueryProvider>
+              <AudioProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="app" />
+                </Stack>
+              </AudioProvider>
+            </QueryProvider>
+          </AuthProvider>
+        </PostHogProvider>
+      </PowerSyncContext.Provider>
+    </>
   );
 }

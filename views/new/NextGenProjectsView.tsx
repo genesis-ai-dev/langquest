@@ -1,4 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import { useAuth } from '@/contexts/AuthContext';
 import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -9,6 +10,7 @@ import { FlashList } from '@shopify/flash-list';
 import React from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -20,26 +22,38 @@ import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Project = typeof project.$inferSelect;
 
+type TabType = 'my' | 'all';
+
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<TabType>('my');
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isOnline
-  } = useSimpleHybridInfiniteData<Project>(
-    'projects',
-    [], // No additional query params needed for projects
+  const userId = currentUser?.id;
+
+  // Query for My Projects (user is owner or member)
+  const myProjectsQuery = useSimpleHybridInfiniteData<Project>(
+    'my-projects',
+    [userId || ''], // Include userId in query key
     // Offline query function
     async ({ pageParam, pageSize }) => {
+      if (!userId) return [];
+
       const offset = pageParam * pageSize;
+      // This is a simplified query - you may need to join with membership table
+      // depending on your database schema
       const projects = await system.db.query.project.findMany({
-        where: (fields, { eq, and }) => and(eq(fields.active, true)),
+        where: (fields, { eq, and, or }) =>
+          and(
+            eq(fields.active, true),
+            or(
+              eq(fields.creator_id, userId)
+              // Add membership check here if you have a membership table
+              // You might need to modify this based on your actual schema
+            )
+          ),
         limit: pageSize,
         offset
       });
@@ -47,13 +61,22 @@ export default function NextGenProjectsView() {
     },
     // Cloud query function
     async ({ pageParam, pageSize }) => {
+      if (!userId) return [];
+
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
 
+      // Query projects where user is creator or member
       const { data, error } = await system.supabaseConnector.client
         .from('project')
-        .select('*')
+        .select(
+          `
+          *,
+          profile_project_link!inner(profile_id)
+        `
+        )
         .eq('active', true)
+        .eq('profile_project_link.profile_id', userId)
         .range(from, to)
         .overrideTypes<Project[]>();
 
@@ -62,6 +85,77 @@ export default function NextGenProjectsView() {
     },
     20 // pageSize
   );
+
+  // Query for All Projects (excluding user's projects)
+  const allProjectsQuery = useSimpleHybridInfiniteData<Project>(
+    'all-projects',
+    [userId || ''], // Include userId in query key
+    // Offline query function
+    async ({ pageParam, pageSize }) => {
+      const offset = pageParam * pageSize;
+
+      if (userId) {
+        // If user is logged in, exclude their projects
+        const projects = await system.db.query.project.findMany({
+          where: (fields, { eq, and, not }) =>
+            and(eq(fields.active, true), not(eq(fields.creator_id, userId))),
+          limit: pageSize,
+          offset
+        });
+        return projects;
+      } else {
+        // If no user, show all active projects
+        const projects = await system.db.query.project.findMany({
+          where: (fields, { eq }) => eq(fields.active, true),
+          limit: pageSize,
+          offset
+        });
+        return projects;
+      }
+    },
+    // Cloud query function
+    async ({ pageParam, pageSize }) => {
+      const from = pageParam * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('active', true);
+
+      // Exclude projects where user is a member (if user is logged in)
+      if (userId) {
+        const { data: userProjects } = await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('project_id')
+          .eq('profile_id', userId);
+
+        if (userProjects && userProjects.length > 0) {
+          const userProjectIds = userProjects.map((p) => p.project_id);
+          query = query.not('id', 'in', `(${userProjectIds.join(',')})`);
+        }
+      }
+
+      const { data, error } = await query
+        .range(from, to)
+        .overrideTypes<Project[]>();
+
+      if (error) throw error;
+      return data;
+    },
+    20 // pageSize
+  );
+
+  // Use the appropriate query based on active tab
+  const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjectsQuery;
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline
+  } = currentQuery;
 
   // Flatten all pages into a single array
   const projects = React.useMemo(() => {
@@ -135,13 +229,42 @@ export default function NextGenProjectsView() {
 
   return (
     <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>{t('allProjects')}</Text>
+      <Text style={sharedStyles.title}>{t('projects')}</Text>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <Pressable
+          style={[styles.tab, activeTab === 'my' && styles.activeTab]}
+          onPress={() => setActiveTab('my')}
+        >
+          <Text
+            style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}
+          >
+            {t('myProjects')}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'all' && styles.activeTabText
+            ]}
+          >
+            {t('allProjects')}
+          </Text>
+        </Pressable>
+      </View>
 
       {/* Search bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder={t('searchProjects')}
+          placeholder={
+            activeTab === 'my' ? t('searchMyProjects') : t('searchAllProjects')
+          }
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}
@@ -170,6 +293,7 @@ export default function NextGenProjectsView() {
           {statusText}
         </Text>
       )}
+
       <FlashList
         data={filteredProjects}
         renderItem={renderItem}
@@ -180,6 +304,7 @@ export default function NextGenProjectsView() {
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
+        extraData={activeTab} // Re-render when tab changes
       />
     </View>
   );
@@ -235,5 +360,31 @@ export const styles = StyleSheet.create({
   },
   filterButton: {
     paddingHorizontal: spacing.small
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: spacing.medium
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+    borderRadius: 6,
+    alignItems: 'center'
+  },
+  activeTab: {
+    backgroundColor: colors.primary
+  },
+  tabText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.medium,
+    fontWeight: '500'
+  },
+  activeTabText: {
+    color: colors.buttonText,
+    fontWeight: '600'
   }
 });

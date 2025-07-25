@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
-import type { project } from '@/db/drizzleSchema';
 import {
   invite,
   profile,
   profile_project_link,
+  project,
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -28,15 +28,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Type definitions for query results
-type InviteWithRelations = typeof invite.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-};
-
-type RequestWithRelations = typeof request.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-};
 
 interface NotificationItem {
   id: string;
@@ -78,8 +69,8 @@ export default function NotificationsView() {
       .map((membership) => membership.project_id);
   }, [userMemberships]);
 
-  // Query for invite notifications (where user's email matches) - without sender relation
-  const { data: inviteData } = useHybridData<InviteWithRelations>({
+  // Query for invite notifications (where user's email matches) - without project relation
+  const { data: inviteData } = useHybridData<typeof invite.$inferSelect>({
     dataType: 'invite-notifications',
     queryKeyParams: [currentUser?.email || ''],
 
@@ -90,34 +81,99 @@ export default function NotificationsView() {
           eq(invite.email, currentUser?.email || ''),
           eq(invite.status, 'pending'),
           eq(invite.active, true)
-        ),
-        with: {
-          project: true
-        }
+        )
       })
     )
+
+    // Cloud query
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('invite')
+    //     .select('*')
+    //     .eq('email', currentUser?.email || '')
+    //     .eq('status', 'pending')
+    //     .eq('active', true)
+    //     .overrideTypes<(typeof invite.$inferSelect)[]>();
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
-  // Get pending requests for owner projects (using session cache for owner project IDs) - without sender relation
-  const { data: requestData } = useHybridData<RequestWithRelations>({
+  // Get pending requests for owner projects - without project relation
+  const { data: requestData } = useHybridData<typeof request.$inferSelect>({
     dataType: 'request-notifications',
     queryKeyParams: [...ownerProjectIds],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
-        where: and(eq(request.status, 'pending'), eq(request.active, true)),
-        with: {
-          project: true
-        }
+        where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
     )
+
+    // Cloud query
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('request')
+    //     .select('*')
+    //     .eq('status', 'pending')
+    //     .eq('active', true)
+    //     .overrideTypes<(typeof request.$inferSelect)[]>();
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
   // Filter to only include requests for projects where the user is an owner
-  const filteredRequestData = requestData.filter((item: RequestWithRelations) =>
+  const filteredRequestData = requestData.filter((item) =>
     ownerProjectIds.includes(item.project_id)
   );
+
+  // Get unique project IDs from both invites and requests
+  const projectIds = React.useMemo(() => {
+    const ids = [
+      ...inviteData.map((invite) => invite.project_id),
+      ...filteredRequestData.map((request) => request.project_id)
+    ];
+    return [...new Set(ids)]; // Remove duplicates
+  }, [inviteData, filteredRequestData]);
+
+  // Query for projects separately
+  const { data: projects } = useHybridData<typeof project.$inferSelect>({
+    dataType: 'notification-projects',
+    queryKeyParams: [...projectIds],
+
+    // PowerSync query using Drizzle
+    offlineQuery:
+      projectIds.length > 0
+        ? toCompilableQuery(
+            system.db.query.project.findMany({
+              where: inArray(project.id, projectIds)
+            })
+          )
+        : 'SELECT * FROM project WHERE 1=0', // Empty query when no project IDs
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (projectIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .in('id', projectIds)
+        .overrideTypes<(typeof project.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Create a map of project ID to project data for easy lookup
+  const projectMap = React.useMemo(() => {
+    const map: Record<string, typeof project.$inferSelect> = {};
+    projects.forEach((proj) => {
+      map[proj.id] = proj;
+    });
+    return map;
+  }, [projects]);
 
   // Get unique sender profile IDs from both invites and requests
   const senderProfileIds = React.useMemo(() => {
@@ -141,7 +197,19 @@ export default function NotificationsView() {
               where: inArray(profile.id, senderProfileIds)
             })
           )
-        : 'SELECT * FROM profile WHERE 1=0' // Empty query when no sender IDs
+        : 'SELECT * FROM profile WHERE 1=0', // Empty query when no sender IDs
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (senderProfileIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile')
+        .select('*')
+        .in('id', senderProfileIds)
+        .overrideTypes<SenderProfile[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Create a map of profile ID to profile data for easy lookup
@@ -153,36 +221,38 @@ export default function NotificationsView() {
     return map;
   }, [senderProfiles]);
 
-  const inviteNotifications: NotificationItem[] = inviteData.map(
-    (item: InviteWithRelations) => {
-      const senderProfile = senderProfileMap[item.sender_profile_id];
-      return {
-        id: item.id,
-        type: 'invite' as const,
-        status: item.status,
-        email: item.email,
-        project_id: item.project_id,
-        project_name: item.project?.name || t('unknownProject'),
-        sender_profile_id: item.sender_profile_id,
-        sender_name: senderProfile?.username || '',
-        sender_email: senderProfile?.email || '',
-        as_owner: item.as_owner || false,
-        created_at: item.created_at,
-        last_updated: item.last_updated
-      };
-    }
-  );
+  const inviteNotifications: NotificationItem[] = inviteData.map((item) => {
+    const senderProfile = senderProfileMap[item.sender_profile_id];
+    const projectData = projectMap[item.project_id];
+    return {
+      id: item.id,
+      type: 'invite' as const,
+      status: item.status,
+      email: item.email,
+      project_id: item.project_id,
+      project_name: projectData?.name || t('unknownProject'),
+      sender_profile_id: item.sender_profile_id,
+      sender_name: senderProfile?.username || '',
+      sender_email: senderProfile?.email || '',
+      as_owner: item.as_owner || false,
+      created_at: item.created_at,
+      last_updated: item.last_updated
+    };
+  });
+
+  console.log('inviteNotifications', inviteNotifications);
 
   const requestNotifications: NotificationItem[] = filteredRequestData.map(
-    (item: RequestWithRelations) => {
+    (item) => {
       const senderProfile = senderProfileMap[item.sender_profile_id];
+      const projectData = projectMap[item.project_id];
       return {
         id: item.id,
         type: 'request' as const,
         status: item.status,
         email: undefined,
         project_id: item.project_id,
-        project_name: item.project?.name || t('unknownProject'),
+        project_name: projectData?.name || t('unknownProject'),
         sender_profile_id: item.sender_profile_id,
         sender_name: senderProfile?.username || '',
         sender_email: senderProfile?.email || '',

@@ -79,11 +79,11 @@ export default function RegisterView2({
       if (error) throw error;
 
       // Success
-      Alert.alert(
-        t('success') || 'Success',
-        t('checkEmail') || 'Please check your email to confirm your account',
-        [{ text: t('ok') || 'OK', onPress: () => onNavigate('sign-in') }]
-      );
+      // Alert.alert(
+      //   t('success') || 'Success',
+      //   t('checkEmail') || 'Please check your email to confirm your account',
+      //   [{ text: t('ok') || 'OK', onPress: () => onNavigate('sign-in') }]
+      // );
 
       // Reset form
       reset();

@@ -23,19 +23,19 @@ export const useNotifications = () => {
           eq(invite.active, true)
         )
       })
-    ),
+    )
 
     // Cloud query
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('invite')
-        .select('*')
-        .eq('email', currentUser?.email || '')
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) throw error;
-      return data as (typeof invite.$inferSelect)[];
-    }
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('invite')
+    //     .select('*')
+    //     .eq('email', currentUser?.email || '')
+    //     .eq('status', 'pending')
+    //     .eq('active', true);
+    //   if (error) throw error;
+    //   return data as (typeof invite.$inferSelect)[];
+    // }
   });
 
   // Get all projects where the user is an owner
@@ -92,20 +92,20 @@ export const useNotifications = () => {
               )
             })
           )
-        : 'SELECT * FROM request WHERE 1=0', // Empty query when no owner projects
+        : 'SELECT * FROM request WHERE 1=0' // Empty query when no owner projects
 
     // Cloud query
-    cloudQueryFn: async () => {
-      if (ownerProjectIds.length === 0) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select('*')
-        .in('project_id', ownerProjectIds)
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) throw error;
-      return data as (typeof request.$inferSelect)[];
-    }
+    // cloudQueryFn: async () => {
+    //   if (ownerProjectIds.length === 0) return [];
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('request')
+    //     .select('*')
+    //     .in('project_id', ownerProjectIds)
+    //     .eq('status', 'pending')
+    //     .eq('active', true);
+    //   if (error) throw error;
+    //   return data as (typeof request.$inferSelect)[];
+    // }
   });
 
   // Filter to only include requests for projects where user is owner

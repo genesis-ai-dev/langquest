@@ -1,19 +1,24 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
-import type { project } from '@/db/drizzleSchema';
+import type { language, project } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { inArray } from 'drizzle-orm';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenProjectsView';
-import { useItemDownloadStatus } from './useHybridData';
+import { useHybridData, useItemDownloadStatus } from './useHybridData';
 
 type Project = typeof project.$inferSelect;
+type Language = typeof language.$inferSelect;
 
 // Define props locally to avoid require cycle
 export interface ProjectListItemProps {
@@ -34,15 +39,53 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
   const { currentUser } = useAuth();
   const [showPrivateModal, setShowPrivateModal] = useState(false);
   const { t } = useLocalization();
+
   // Check if project is downloaded
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
   // Check user permissions for the project
-  const { hasAccess } = useUserPermissions(
+  const { hasAccess, membership } = useUserPermissions(
     project.id,
     'open_project',
     project.private
   );
+
+  // Fetch language information for source and target languages
+  const { data: languages = [] } = useHybridData<Language>({
+    dataType: 'project-languages',
+    queryKeyParams: [project.source_language_id, project.target_language_id],
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: inArray(languageTable.id, [
+          project.source_language_id,
+          project.target_language_id
+        ])
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('language')
+        .select('*')
+        .in('id', [project.source_language_id, project.target_language_id])
+        .overrideTypes<Language[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Find the specific languages
+  const sourceLanguage = languages.find(
+    (lang) => lang.id === project.source_language_id
+  );
+  const targetLanguage = languages.find(
+    (lang) => lang.id === project.target_language_id
+  );
+
+  // Helper function to get display name for a language
+  const getLanguageDisplayName = (language: Language | undefined) => {
+    if (!language) return 'Unknown';
+    return language.native_name || language.english_name || 'Unknown';
+  };
 
   const handlePress = () => {
     // If project is private and user doesn't have access, show the modal
@@ -91,13 +134,23 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
                 flex: 1
               }}
             >
-              {project.private && (
-                <Ionicons
-                  name="lock-closed"
-                  size={16}
-                  color={colors.textSecondary}
-                />
-              )}
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                {project.private && (
+                  <Ionicons
+                    name="lock-closed"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                )}
+                {membership === 'owner' && (
+                  <Ionicons name="ribbon" size={16} color={colors.primary} />
+                )}
+                {membership === 'member' && (
+                  <Ionicons name="person" size={16} color={colors.primary} />
+                )}
+              </View>
               <Text style={styles.projectName}>{project.name}</Text>
             </View>
 
@@ -126,8 +179,8 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
           </View>
 
           <Text style={styles.languagePair}>
-            {t('languages')}: {project.source_language_id.substring(0, 8)}... →{' '}
-            {project.target_language_id.substring(0, 8)}...
+            {getLanguageDisplayName(sourceLanguage)} →{' '}
+            {getLanguageDisplayName(targetLanguage)}
           </Text>
           {project.description && (
             <Text style={styles.description} numberOfLines={2}>
