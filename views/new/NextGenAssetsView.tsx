@@ -3,6 +3,7 @@ import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +26,7 @@ export default function NextGenAssetsView() {
   const { currentQuestId } = useCurrentNavigation();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
-
+  const { t } = useLocalization();
   // Debounce the search query
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -199,16 +200,16 @@ export default function NextGenAssetsView() {
     return Object.entries(attachmentStateSummary)
       .map(([state, count]) => {
         const stateNames = {
-          '0': '⏳ Queued',
-          '1': '🔄 Syncing',
-          '2': '✅ Synced',
-          '3': '❌ Failed',
-          '4': '📥 Downloading'
+          '0': `⏳ ${t('queued')}`,
+          '1': `🔄 ${t('syncing')}`,
+          '2': `✅ ${t('synced')}`,
+          '3': `❌ ${t('failed')}`,
+          '4': `📥 ${t('downloading')}`
         };
-        return `${stateNames[state as keyof typeof stateNames] || `State ${state}`}: ${count}`;
+        return `${stateNames[state as keyof typeof stateNames] || `${t('state')} ${state}`}: ${count}`;
       })
       .join(' | ');
-  }, [attachmentStateSummary]);
+  }, [attachmentStateSummary, t]);
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -217,20 +218,20 @@ export default function NextGenAssetsView() {
   if (!currentQuestId) {
     return (
       <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>No Quest Selected</Text>
+        <Text style={sharedStyles.title}>{t('noQuestSelected')}</Text>
       </View>
     );
   }
 
   return (
     <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>Assets</Text>
+      <Text style={sharedStyles.title}>{t('assets')}</Text>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search assets..."
+          placeholder={t('searchAssets')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}
@@ -265,7 +266,7 @@ export default function NextGenAssetsView() {
         attachmentStates.size > 0 && (
           <View style={styles.attachmentSummary}>
             <Text style={styles.attachmentSummaryTitle}>
-              📎 Live Attachment States:
+              📎 {t('liveAttachmentStates')}:
             </Text>
             <Text style={styles.attachmentSummaryText}>
               {attachmentSummaryText}
@@ -277,7 +278,7 @@ export default function NextGenAssetsView() {
       {isLoading && searchQuery ? (
         <View style={styles.searchingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.searchingText}>Searching...</Text>
+          <Text style={styles.searchingText}>{t('searching')}</Text>
         </View>
       ) : (
         <View style={{ flex: 1 }}>

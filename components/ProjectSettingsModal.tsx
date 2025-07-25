@@ -1,6 +1,5 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
@@ -9,8 +8,10 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -38,12 +39,19 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const { db, supabaseConnector } = system;
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrjLoaded, setIsPrjLoaded] = useState(false);
 
-  const { data: projectDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['project-settings', projectId],
-    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
+  const { data: projectDataArray = [] } = useHybridData({
+    dataType: 'project-settings',
+    queryKeyParams: [projectId],
+    offlineQuery: toCompilableQuery(
+      db.query.project.findMany({
+        where: eq(project.id, projectId)
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('*')
@@ -51,12 +59,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         .limit(1);
       if (error) throw error;
       return data as (typeof project.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: eq(project.id, projectId)
-      })
-    )
+    }
   });
 
   const projectData = projectDataArray[0];
@@ -76,16 +79,21 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           last_updated: new Date().toISOString()
         })
         .match({ id: projectId });
-      await refetch();
+
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'offline', projectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'cloud', projectId]
+      });
+
       Alert.alert(
-        'Success',
-        projectData.private
-          ? 'The project has been made public'
-          : 'The project has been made private'
+        t('success'),
+        projectData.private ? t('projectMadePublic') : t('projectMadePrivate')
       );
     } catch (error) {
-      console.error('Error updating project privacy:', error);
-      Alert.alert('Error', 'Failed to update project settings');
+      Alert.alert(t('error'), t('failedToUpdateProjectSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -114,17 +122,22 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         })
         .match({ id: projectId });
 
-      await refetch();
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'offline', projectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'cloud', projectId]
+      });
 
       Alert.alert(
-        'Success',
+        t('success'),
         projectData.visible
-          ? 'The project has been made invisible'
-          : 'The project has been made visible'
+          ? t('projectMadeInvisible')
+          : t('projectMadeVisible')
       );
     } catch (error) {
-      console.error('Error updating project visibility:', error);
-      Alert.alert('Error', 'Failed to update project settings');
+      Alert.alert(t('error'), t('failedToUpdateProjectVisibility'));
     } finally {
       setIsSubmitting(false);
     }
@@ -153,16 +166,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         })
         .match({ id: projectId });
 
-      await refetch();
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'offline', projectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['project-settings', 'cloud', projectId]
+      });
+
       Alert.alert(
-        'Success',
-        projectData.active
-          ? 'The project has been made inactive'
-          : 'The project has been made active'
+        t('success'),
+        projectData.active ? t('projectMadeInactive') : t('projectMadeActive')
       );
     } catch (error) {
-      console.error('Error updating project active status:', error);
-      Alert.alert('Error', 'Failed to update project settings');
+      Alert.alert(t('error'), t('failedToUpdateProjectActiveStatus'));
     } finally {
       setIsSubmitting(false);
     }
@@ -181,7 +198,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
                 <Text style={sharedStyles.modalTitle}>
-                  {'Project Settings'}
+                  {t('projectSettings')}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
@@ -191,11 +208,13 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               <View style={styles.content}>
                 <View style={styles.settingRow}>
                   <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Private Project'}</Text>
+                    <Text style={styles.settingTitle}>
+                      {t('privateProject')}
+                    </Text>
                     <Text style={styles.settingDescription}>
                       {projectData?.private
-                        ? 'This project is private. Anyone can see it, but only members can contribute to it.'
-                        : 'This project is public. Anyone can contribute to it.'}
+                        ? t('privateProjectDescription')
+                        : t('publicProjectDescription')}
                     </Text>
                   </View>
                   <Switch
@@ -216,11 +235,11 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               <View style={styles.content}>
                 <View style={styles.settingRow}>
                   <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Visibility'}</Text>
+                    <Text style={styles.settingTitle}>{t('visibility')}</Text>
                     <Text style={styles.settingDescription}>
                       {projectData?.visible
-                        ? 'This project is visible to other users.'
-                        : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'}
+                        ? t('visibleProjectDescription')
+                        : t('invisibleProjectDescription')}
                     </Text>
                   </View>
                   <Switch
@@ -241,11 +260,11 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               <View style={styles.content}>
                 <View style={styles.settingRow}>
                   <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>{'Active'}</Text>
+                    <Text style={styles.settingTitle}>{t('active')}</Text>
                     <Text style={styles.settingDescription}>
                       {projectData?.active
-                        ? 'This project is currently active. An active project is also visible.'
-                        : 'This project is inactive. No actions can be performed unless it is reactivated.'}
+                        ? t('activeProjectDescription')
+                        : t('inactiveProjectDescription')}
                     </Text>
                   </View>
                   <Switch

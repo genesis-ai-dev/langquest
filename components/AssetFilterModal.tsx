@@ -56,6 +56,7 @@ const CategorySection: React.FC<{
     useInfiniteTagsByQuestIdAndCategory(questId, category);
 
   const tags = data.pages.flatMap((page) => page.data);
+  const { t } = useLocalization();
 
   // Process tags to extract options
   const options = useMemo(() => {
@@ -128,7 +129,7 @@ const CategorySection: React.FC<{
               disabled={isFetchingNextPage}
             >
               <Text style={styles.loadMoreText}>
-                {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                {isFetchingNextPage ? t('loading') : t('loadMore')}
               </Text>
             </TouchableOpacity>
           )}

@@ -1,4 +1,5 @@
 import type { asset_content_link, language } from '@/db/drizzleSchema';
+import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
   ActivityIndicator,
@@ -22,6 +23,8 @@ export const SourceContent: React.FC<SourceContentProps> = ({
   audioUri,
   isLoading = false
 }) => {
+  const { t } = useLocalization();
+
   return (
     <View style={styles.container}>
       <ScrollView>
@@ -40,7 +43,9 @@ export const SourceContent: React.FC<SourceContentProps> = ({
         />
       ) : content.audio_id && isLoading ? (
         <View style={styles.audioLoading}>
-          <Text style={{ color: colors.textSecondary }}>Loading audio...</Text>
+          <Text style={{ color: colors.textSecondary }}>
+            {t('loadingAudio')}
+          </Text>
           <ActivityIndicator size="small" />
         </View>
       ) : null}

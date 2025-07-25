@@ -632,7 +632,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                       color={colors.success}
                     />
                     <Text style={styles.downloadStatusText}>
-                      This project has been downloaded
+                      {t('projectDownloaded')}
                     </Text>
                   </View>
                 )}

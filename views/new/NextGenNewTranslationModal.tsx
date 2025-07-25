@@ -61,17 +61,17 @@ export default function NextGenNewTranslationModal({
 
   const handleSubmit = async () => {
     if (!currentUser) {
-      Alert.alert('Error', t('logInToTranslate'));
+      Alert.alert(t('error'), t('logInToTranslate'));
       return;
     }
 
     if (translationType === 'text' && !translationText.trim()) {
-      Alert.alert('Error', t('fillFields'));
+      Alert.alert(t('error'), t('fillFields'));
       return;
     }
 
     if (translationType === 'audio' && !audioUri) {
-      Alert.alert('Error', t('fillFields'));
+      Alert.alert(t('error'), t('fillFields'));
       return;
     }
 
@@ -95,12 +95,12 @@ export default function NextGenNewTranslationModal({
 
       setTranslationText('');
       setAudioUri(null);
-      Alert.alert('Success', 'Translation submitted successfully!');
+      Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
       onSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error creating translation:', error);
-      Alert.alert('Error', t('failedCreateTranslation'));
+      Alert.alert(t('error'), t('failedCreateTranslation'));
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +183,7 @@ export default function NextGenNewTranslationModal({
                     translationType === 'text' && styles.typeToggleTextActive
                   ]}
                 >
-                  Text
+                  {t('text')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -208,7 +208,7 @@ export default function NextGenNewTranslationModal({
                     translationType === 'audio' && styles.typeToggleTextActive
                   ]}
                 >
-                  Audio
+                  {t('audio')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -219,15 +219,15 @@ export default function NextGenNewTranslationModal({
               <Text style={styles.languageText}>
                 {sourceLanguage?.native_name ||
                   sourceLanguage?.english_name ||
-                  'Unknown'}{' '}
-                → Target Language
+                  t('unknown')}{' '}
+                → {t('targetLanguage')}
               </Text>
             </View>
 
             {/* Source Content Preview */}
             {contentPreview ? (
               <View style={styles.sourceContentBox}>
-                <Text style={styles.sourceLabel}>Source:</Text>
+                <Text style={styles.sourceLabel}>{t('source')}:</Text>
                 <Text style={styles.sourceText} numberOfLines={3}>
                   {contentPreview}
                 </Text>
@@ -237,7 +237,8 @@ export default function NextGenNewTranslationModal({
             {/* Translation Input */}
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>
-                Your {translationType === 'text' ? 'Translation' : 'Audio'}:
+                {t('your')}{' '}
+                {translationType === 'text' ? t('translation') : t('audio')}:
               </Text>
 
               {translationType === 'text' ? (
@@ -263,7 +264,8 @@ export default function NextGenNewTranslationModal({
             {SHOW_DEV_ELEMENTS && (
               <View style={styles.statusContainer}>
                 <Text style={styles.statusText}>
-                  {isOnline ? '🟢 Online' : '🔴 Offline'} - Ready to submit
+                  {isOnline ? `🟢 ${t('online')}` : `🔴 ${t('offline')}`} -{' '}
+                  {t('readyToSubmit')}
                 </Text>
               </View>
             )}

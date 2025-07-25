@@ -6,6 +6,7 @@ import { voteService } from '@/database_services/voteService';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -92,6 +93,7 @@ export default function NextGenTranslationModal({
   projectId,
   projectName
 }: NextGenTranslationModalProps) {
+  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
@@ -122,7 +124,7 @@ export default function NextGenTranslationModal({
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
       if (!currentUser || !translationData) {
-        Alert.alert('Error', 'Please log in to vote');
+        Alert.alert(t('error'), t('pleaseLogInToVote'));
         return;
       }
       setPendingVoteType(voteType);
@@ -197,14 +199,14 @@ export default function NextGenTranslationModal({
         });
       },
       onSuccess: () => {
-        Alert.alert('Success', 'Your transcription has been submitted');
+        Alert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onClose();
       },
       onError: (error) => {
         console.error('Error creating transcription:', error);
-        Alert.alert('Error', 'Failed to create transcription');
+        Alert.alert(t('error'), t('failedToCreateTranscription'));
       }
     });
 
@@ -237,10 +239,9 @@ export default function NextGenTranslationModal({
         <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Translation</Text>
+            <Text style={styles.title}>{t('translation')}</Text>
             <View style={styles.headerButtons}>
-              {/* Edit/Transcription button - only show if not own translation and has audio */}
-              {/* {!isOwnTranslation && translationData?.audio && ( */}
+              {/* Edit/Transcription button */}
               <PrivateAccessGate
                 projectId={projectId || ''}
                 projectName={projectName || ''}
@@ -265,7 +266,6 @@ export default function NextGenTranslationModal({
                   </TouchableOpacity>
                 )}
               />
-              {/* )} */}
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -290,7 +290,7 @@ export default function NextGenTranslationModal({
                     <TextInput
                       style={styles.textInput}
                       multiline
-                      placeholder="Enter your transcription..."
+                      placeholder={t('enterYourTranscription')}
                       placeholderTextColor={colors.textSecondary}
                       value={editedText}
                       onChangeText={setEditedText}
@@ -332,7 +332,7 @@ export default function NextGenTranslationModal({
                       />
                     ) : (
                       <Text style={styles.submitButtonText}>
-                        Submit Transcription
+                        {t('submitTranscription')}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -399,7 +399,9 @@ export default function NextGenTranslationModal({
                               size={24}
                               color={colors.buttonText}
                             />
-                            <Text style={styles.voteButtonText}>Good</Text>
+                            <Text style={styles.voteButtonText}>
+                              {t('good')}
+                            </Text>
                           </>
                         )}
                       </TouchableOpacity>
@@ -431,7 +433,7 @@ export default function NextGenTranslationModal({
                               color={colors.buttonText}
                             />
                             <Text style={styles.voteButtonText}>
-                              Needs Work
+                              {t('needsWork')}
                             </Text>
                           </>
                         )}
@@ -449,7 +451,7 @@ export default function NextGenTranslationModal({
                       color={colors.textSecondary}
                     />
                     <Text style={styles.restrictedVotingText}>
-                      Please log in to vote on translations
+                      {t('pleaseLogInToVoteOnTranslations')}
                     </Text>
                   </View>
                 )}
@@ -466,7 +468,7 @@ export default function NextGenTranslationModal({
                 )}
               </>
             ) : (
-              <Text style={styles.errorText}>Translation not found</Text>
+              <Text style={styles.errorText}>{t('translationNotFound')}</Text>
             )}
           </ScrollView>
         </View>

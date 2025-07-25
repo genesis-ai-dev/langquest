@@ -6,6 +6,7 @@ import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
 // import { AttachmentState } from '@powersync/attachments';
+import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenAssetsView';
@@ -79,7 +80,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
 }) => {
   const { goToAsset } = useAppNavigation();
   const { currentUser } = useAuth();
-
+  const { t } = useLocalization();
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
 
@@ -92,7 +93,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   const handlePress = () => {
     goToAsset({
       id: asset.id,
-      name: asset.name || 'Unnamed Asset'
+      name: asset.name || t('unnamedAsset')
     });
   };
 
@@ -113,7 +114,9 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             justifyContent: 'space-between'
           }}
         >
-          <Text style={styles.assetName}>{asset.name || 'Unnamed Asset'}</Text>
+          <Text style={styles.assetName}>
+            {asset.name || t('unnamedAsset')}
+          </Text>
 
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}

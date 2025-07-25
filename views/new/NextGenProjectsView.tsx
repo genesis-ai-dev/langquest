@@ -1,6 +1,7 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,7 @@ import { useSimpleHybridInfiniteData } from './useHybridData';
 type Project = typeof project.$inferSelect;
 
 export default function NextGenProjectsView() {
+  const { t } = useLocalization();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
 
@@ -133,13 +135,13 @@ export default function NextGenProjectsView() {
 
   return (
     <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>All Projects</Text>
+      <Text style={sharedStyles.title}>{t('allProjects')}</Text>
 
       {/* Search bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search projects..."
+          placeholder={t('searchProjects')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}

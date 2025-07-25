@@ -2,7 +2,7 @@ import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-// import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
@@ -42,7 +42,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   assetId,
   questId
 }) => {
-  // const { t } = useLocalization();
+  const { t } = useLocalization();
   // TODO: add localization
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,16 +136,16 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       const message =
         statusType === 'visible'
           ? assetData.visible
-            ? 'The asset has been made invisible for all quests'
-            : 'The asset has been made visible for all quests'
+            ? t('assetMadeInvisibleAllQuests')
+            : t('assetMadeVisibleAllQuests')
           : assetData.active
-            ? 'The asset has been made inactive for all quests'
-            : 'The asset has been made active for all quests';
+            ? t('assetMadeInactiveAllQuests')
+            : t('assetMadeActiveAllQuests');
 
-      Alert.alert('Success', message);
+      Alert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating asset visibility / active:', error);
-      Alert.alert('Error', 'Failed to update asset settings');
+      Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -190,16 +190,16 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       const message =
         statusType === 'visible'
           ? assetQuestData.visible
-            ? 'The asset has been made invisible for this quest'
-            : 'The asset has been made visible for this quest'
+            ? t('assetMadeInvisibleQuest')
+            : t('assetMadeVisibleQuest')
           : assetQuestData.active
-            ? 'The asset has been made inactive for this quest'
-            : 'The asset has been made active for this quest';
+            ? t('assetMadeInactiveQuest')
+            : t('assetMadeActiveQuest');
 
-      Alert.alert('Success', message);
+      Alert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating asset visibility / active:', error);
-      Alert.alert('Error', 'Failed to update asset settings');
+      Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -217,24 +217,24 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>{'Asset Settings'}</Text>
+                <Text style={sharedStyles.modalTitle}>
+                  {t('assetSettings')}
+                </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
               {/* Changing settings to the Asset itself. This will affect all quests */}
-              <Text style={styles.settingTitle}>{'General'}</Text>
+              <Text style={styles.settingTitle}>{t('general')}</Text>
               <Text style={styles.infoText}>
-                {
-                  "These settings apply to the asset across all quests it's linked to"
-                }
+                These settings affect how the asset behaves across all quests
               </Text>
               <SwitchBox
-                title={'Visibility'}
+                title={t('visibility')}
                 description={
                   assetData?.visible
-                    ? 'The asset is visible by default in all quests, unless hidden individually.'
-                    : 'The asset is hidden in all quests and cannot be made visible in any of them.'
+                    ? t('visibilityDescription')
+                    : t('assetHiddenAllQuests')
                 }
                 value={assetData?.visible ?? false}
                 onChange={() => handleToggleStatusGeneral('visible')}
@@ -242,11 +242,11 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               />
 
               <SwitchBox
-                title={'Active'}
+                title={t('active')}
                 description={
                   assetData?.visible
-                    ? 'The asset is active and can be used in all quests, unless deactivated individually.'
-                    : 'The asset is disabled across all quests and cannot be used anywhere.'
+                    ? t('activeDescription')
+                    : t('assetDisabledAllQuests')
                 }
                 value={assetData?.active ?? false}
                 onChange={() => handleToggleStatusGeneral('active')}
@@ -256,19 +256,19 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               <View style={{ height: 22 }} />
 
               {/* Changing settings to the Asset related to this quest only */}
-              <Text style={styles.settingTitle}>{'Current Quest'}</Text>
+              <Text style={styles.settingTitle}>{t('currentQuest')}</Text>
               <Text style={styles.infoText}>
                 {assetData?.active
-                  ? 'These settings affect how the asset behaves in this specific quest'
-                  : "⚠️ This asset is disabled across all quests. You can't change its settings for this quest."}
+                  ? t('questSpecificSettingsDescription')
+                  : t('assetDisabledWarning')}
               </Text>
 
               <SwitchBox
-                title={'Visibility'}
+                title={t('visibility')}
                 description={
                   assetQuestData?.visible
-                    ? 'The asset is shown in this quest. Unless hidden globally.'
-                    : 'The asset is hidden in this quest.'
+                    ? t('assetVisibleThisQuest')
+                    : t('assetHiddenThisQuest')
                 }
                 value={assetQuestData?.visible ?? false}
                 onChange={() => handleToggleStatusQuest('visible')}
@@ -281,11 +281,11 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               />
 
               <SwitchBox
-                title={'Active'}
+                title={t('active')}
                 description={
                   assetQuestData?.active
-                    ? 'The asset can be used in this quest. Unless deactivated globally.'
-                    : 'The asset is not available in this quest.'
+                    ? t('assetActiveThisQuest')
+                    : t('assetInactiveThisQuest')
                 }
                 value={assetQuestData?.active ?? false}
                 onChange={() => handleToggleStatusQuest('active')}

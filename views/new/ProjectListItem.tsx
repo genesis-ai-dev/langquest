@@ -3,6 +3,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
 import type { project } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -32,7 +33,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
   const { goToProject } = useAppNavigation();
   const { currentUser } = useAuth();
   const [showPrivateModal, setShowPrivateModal] = useState(false);
-
+  const { t } = useLocalization();
   // Check if project is downloaded
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
@@ -125,7 +126,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
           </View>
 
           <Text style={styles.languagePair}>
-            Languages: {project.source_language_id.substring(0, 8)}... →{' '}
+            {t('languages')}: {project.source_language_id.substring(0, 8)}... →{' '}
             {project.target_language_id.substring(0, 8)}...
           </Text>
           {project.description && (
@@ -148,7 +149,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
         onMembershipGranted={handleMembershipGranted}
         onBypass={handleBypass}
         showViewProjectButton={true}
-        viewProjectButtonText="View Project (Limited Access)"
+        viewProjectButtonText={t('viewProjectLimitedAccess')}
       />
     </>
   );

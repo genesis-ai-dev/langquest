@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { quest, quest_closure } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import React from 'react';
@@ -32,7 +33,7 @@ function renderSourceTag(source: string | undefined) {
 export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
   const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
-
+  const { t } = useLocalization();
   // Check if quest is downloaded
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
 
@@ -148,7 +149,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
                   fontStyle: 'italic'
                 }}
               >
-                (Download required)
+                {t('downloadRequired')}
               </Text>
             )}
           </View>

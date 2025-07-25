@@ -5,6 +5,7 @@ import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { project, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -28,6 +29,7 @@ type Quest = typeof quest.$inferSelect;
 type Project = typeof project.$inferSelect;
 
 export default function NextGenQuestsView() {
+  const { t } = useLocalization();
   const { currentProjectId } = useCurrentNavigation();
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
   const [showProjectDetails, setShowProjectDetails] = React.useState(false);
@@ -212,20 +214,20 @@ export default function NextGenQuestsView() {
   if (!currentProjectId) {
     return (
       <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>No Project Selected</Text>
+        <Text style={sharedStyles.title}>{t('noProjectSelected')}</Text>
       </View>
     );
   }
 
   return (
     <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>Quests</Text>
+      <Text style={sharedStyles.title}>{t('quests')}</Text>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search quests..."
+          placeholder={t('search')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}
@@ -268,7 +270,7 @@ export default function NextGenQuestsView() {
       {isLoading && searchQuery ? (
         <View style={styles.searchingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.searchingText}>Searching...</Text>
+          <Text style={styles.searchingText}>{t('searching')}</Text>
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -285,7 +287,7 @@ export default function NextGenQuestsView() {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {searchQuery ? 'No quests found' : 'No quests available'}
+                  {searchQuery ? t('noQuestsFound') : t('noQuestsAvailable')}
                 </Text>
               </View>
             }

@@ -1,6 +1,7 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
@@ -38,7 +39,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   questId,
   projectId
 }) => {
-  // const { t } = useLocalization();
+  const { t } = useLocalization();
   // TODO: add localization
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,15 +98,18 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
 
       refetch();
 
+      // Localization keys:
+      // success -> 'Success'
+      // questMadeInvisible -> 'The quest has been made invisible'
+      // questMadeVisible -> 'The quest has been made visible'
+      // error -> 'Error'
+      // failedToUpdateQuestSettings -> 'Failed to update quest settings'
       Alert.alert(
-        'Success',
-        questData.visible
-          ? 'The quest has been made invisible'
-          : 'The quest has been made visible'
+        t('success'),
+        questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
       );
     } catch (error) {
-      console.error('Error updating quest visibility:', error);
-      Alert.alert('Error', 'Failed to update quest settings');
+      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -136,15 +140,18 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
 
       refetch();
 
+      // Localization keys:
+      // success -> 'Success'
+      // questMadeInactive -> 'The quest has been made inactive'
+      // questMadeActive -> 'The quest has been made active'
+      // error -> 'Error'
+      // failedToUpdateQuestSettings -> 'Failed to update quest settings'
       Alert.alert(
-        'Success',
-        questData.active
-          ? 'The quest has been made inactive'
-          : 'The quest has been made active'
+        t('success'),
+        questData.active ? t('questMadeInactive') : t('questMadeActive')
       );
     } catch (error) {
-      console.error('Error updating quest active status:', error);
-      Alert.alert('Error', 'Failed to update quest settings');
+      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -162,29 +169,31 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>{'Quest Settings'}</Text>
+                <Text style={sharedStyles.modalTitle}>
+                  {t('questSettings')}
+                </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
               <SwitchBox
-                title={'Visibility'}
+                title={t('visibility')}
                 description={
                   questData?.visible
-                    ? 'This quest is visible to other users.'
-                    : 'This quest is hidden and will not be shown to other users. An invisible quest is also inactive.'
+                    ? t('visibleQuestDescription')
+                    : t('invisibleQuestDescription')
                 }
                 value={questData?.visible ?? false}
                 onChange={() => handleToggleVisible()}
                 disabled={isSubmitting || !isQuestLoaded || !isOwner}
               />
               <SwitchBox
-                title={'Active'}
+                title={t('active')}
                 description={
                   questData?.active
-                    ? 'This quest is currently active. An active quest is also visible.'
-                    : 'This quest is inactive. No actions can be performed unless it is reactivated.'
+                    ? t('activeQuestDescription')
+                    : t('inactiveQuestDescription')
                 }
                 value={questData?.active ?? false}
                 onChange={() => handleToggleActive()}

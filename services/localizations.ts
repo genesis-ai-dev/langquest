@@ -1547,6 +1547,852 @@ export const localizations = {
       'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
     brazilian_portuguese:
       'Você está offline. Quaisquer alterações que você fizer serão sincronizadas quando você voltar a ficar online.'
+  },
+  filesDownloaded: {
+    english: 'files downloaded',
+    spanish: 'archivos descargados',
+    brazilian_portuguese: 'arquivos baixados'
+  },
+  downloading: {
+    english: 'downloading',
+    spanish: 'descargando',
+    brazilian_portuguese: 'baixando'
+  },
+  files: {
+    english: 'files',
+    spanish: 'archivos',
+    brazilian_portuguese: 'arquivos'
+  },
+  syncingDatabase: {
+    english: 'syncing database',
+    spanish: 'sincronizando base de datos',
+    brazilian_portuguese: 'sincronizando banco de dados'
+  },
+  lastSync: {
+    english: 'last sync',
+    spanish: 'última sincronización',
+    brazilian_portuguese: 'última sincronização'
+  },
+  unknown: {
+    english: 'unknown',
+    spanish: 'desconocido',
+    brazilian_portuguese: 'desconhecido'
+  },
+  notSynced: {
+    english: 'not synced',
+    spanish: 'no sincronizado',
+    brazilian_portuguese: 'não sincronizado'
+  },
+  connecting: {
+    english: 'connecting',
+    spanish: 'conectando',
+    brazilian_portuguese: 'conectando'
+  },
+  disconnected: {
+    english: 'disconnected',
+    spanish: 'desconectado',
+    brazilian_portuguese: 'desconectado'
+  },
+  downloadComplete: {
+    english: 'download complete',
+    spanish: 'descarga completa',
+    brazilian_portuguese: 'download completo'
+  },
+  queued: {
+    english: 'queued',
+    spanish: 'en cola',
+    brazilian_portuguese: 'em fila'
+  },
+  queuedForDownload: {
+    english: 'queued for download',
+    spanish: 'en cola para descargar',
+    brazilian_portuguese: 'em fila para baixar'
+  },
+  complete: {
+    english: 'complete',
+    spanish: 'completo',
+    brazilian_portuguese: 'completo'
+  },
+  loadMore: {
+    english: 'load more',
+    spanish: 'cargar más',
+    brazilian_portuguese: 'carregar mais'
+  },
+  loading: {
+    english: 'loading',
+    spanish: 'cargando',
+    brazilian_portuguese: 'carregando'
+  },
+  assetMadeInvisibleAllQuests: {
+    english: 'The asset has been made invisible for all quests',
+    spanish: 'El asset ha sido hecho invisible para todas las quests',
+    brazilian_portuguese: 'O asset foi feito invisível para todas as quests'
+  },
+  assetMadeVisibleAllQuests: {
+    english: 'The asset has been made visible for all quests',
+    spanish: 'El asset ha sido hecho visible para todas las quests',
+    brazilian_portuguese: 'O asset foi feito visível para todas as quests'
+  },
+  assetMadeInactiveAllQuests: {
+    english: 'The asset has been made inactive for all quests',
+    spanish: 'El asset ha sido hecho inactivo para todas las quests',
+    brazilian_portuguese: 'O asset foi feito inativo para todas as quests'
+  },
+  assetMadeActiveAllQuests: {
+    english: 'The asset has been made active for all quests',
+    spanish: 'El asset ha sido hecho activo para todas las quests',
+    brazilian_portuguese: 'O asset foi feito ativo para todas as quests'
+  },
+  failedToUpdateAssetSettings: {
+    english: 'Failed to update asset settings',
+    spanish: 'Error al actualizar los ajustes del asset',
+    brazilian_portuguese: 'Falha ao atualizar os ajustes do asset'
+  },
+  assetMadeInvisibleQuest: {
+    english: 'The asset has been made invisible for this quest',
+    spanish: 'El asset ha sido hecho invisible para esta quest',
+    brazilian_portuguese: 'O asset foi feito invisível para esta quest'
+  },
+  assetMadeVisibleQuest: {
+    english: 'The asset has been made visible for this quest',
+    spanish: 'El asset ha sido hecho visible para esta quest',
+    brazilian_portuguese: 'O asset foi feito visível para esta quest'
+  },
+  assetMadeInactiveQuest: {
+    english: 'The asset has been made inactive for this quest',
+    spanish: 'El asset ha sido hecho inactivo para esta quest',
+    brazilian_portuguese: 'O asset foi feito inativo para esta quest'
+  },
+  assetMadeActiveQuest: {
+    english: 'The asset has been made active for this quest',
+    spanish: 'El asset ha sido hecho activo para esta quest',
+    brazilian_portuguese: 'O asset foi feito ativo para esta quest'
+  },
+  assetSettings: {
+    english: 'Asset Settings',
+    spanish: 'Ajustes del Asset',
+    brazilian_portuguese: 'Ajustes do Asset'
+  },
+  general: {
+    english: 'General',
+    spanish: 'General',
+    brazilian_portuguese: 'Geral'
+  },
+  currentQuest: {
+    english: 'Current Quest',
+    spanish: 'Quest Actual',
+    brazilian_portuguese: 'Quest Atual'
+  },
+  visibility: {
+    english: 'Visibility',
+    spanish: 'Visibilidad',
+    brazilian_portuguese: 'Visibilidade'
+  },
+  active: {
+    english: 'Active',
+    spanish: 'Activo',
+    brazilian_portuguese: 'Ativo'
+  },
+  visibilityDescription: {
+    english:
+      'The asset is visible by default in all quests, unless hidden individually.',
+    spanish:
+      'El asset es visible por defecto en todas las quests, a menos que se oculte individualmente.',
+    brazilian_portuguese:
+      'O asset é visível por padrão em todas as quests, a menos que seja ocultado individualmente.'
+  },
+  activeDescription: {
+    english:
+      'The asset is active and can be used in all quests, unless deactivated individually.',
+    spanish:
+      'El asset está activo y puede ser usado en todas las quests, a menos que se desactive individualmente.',
+    brazilian_portuguese:
+      'O asset está ativo e pode ser usado em todas as quests, a menos que se desative individualmente.'
+  },
+  visibilityDescriptionQuest: {
+    english:
+      'The asset is visible by default in this quest, unless hidden individually.',
+    spanish:
+      'El asset es visible por defecto en esta quest, a menos que se oculte individualmente.',
+    brazilian_portuguese:
+      'O asset é visível por padrão nesta quest, a menos que seja ocultado individualmente.'
+  },
+  assetHiddenAllQuests: {
+    english:
+      'The asset is hidden in all quests and cannot be made visible in any of them.',
+    spanish:
+      'El asset está oculto en todas las quests y no puede hacerse visible en ninguna de ellas.',
+    brazilian_portuguese:
+      'O asset está oculto em todas as quests e não pode ser tornado visível em nenhuma delas.'
+  },
+  assetDisabledAllQuests: {
+    english:
+      'The asset is disabled across all quests and cannot be used anywhere.',
+    spanish:
+      'El asset está deshabilitado en todas las quests y no puede usarse en ningún lugar.',
+    brazilian_portuguese:
+      'O asset está desabilitado em todas as quests e não pode ser usado em lugar algum.'
+  },
+  questSpecificSettingsDescription: {
+    english:
+      'These settings affect how the asset behaves in this specific quest',
+    spanish:
+      'Estos ajustes afectan cómo se comporta el asset en esta quest específica',
+    brazilian_portuguese:
+      'Essas configurações afetam como o asset se comporta nesta quest específica'
+  },
+  assetDisabledWarning: {
+    english:
+      "⚠️ This asset is disabled across all quests. You can't change its settings for this quest.",
+    spanish:
+      '⚠️ Este asset está deshabilitado en todas las quests. No puedes cambiar sus ajustes para esta quest.',
+    brazilian_portuguese:
+      '⚠️ Este asset está desabilitado em todas as quests. Você não pode alterar suas configurações para esta quest.'
+  },
+  assetVisibleThisQuest: {
+    english: 'The asset is shown in this quest. Unless hidden globally.',
+    spanish:
+      'El asset se muestra en esta quest. A menos que esté oculto globalmente.',
+    brazilian_portuguese:
+      'O asset é mostrado nesta quest. A menos que esteja oculto globalmente.'
+  },
+  assetHiddenThisQuest: {
+    english: 'The asset is hidden in this quest.',
+    spanish: 'El asset está oculto en esta quest.',
+    brazilian_portuguese: 'O asset está oculto nesta quest.'
+  },
+  assetActiveThisQuest: {
+    english:
+      'The asset can be used in this quest. Unless deactivated globally.',
+    spanish:
+      'El asset puede usarse en esta quest. A menos que esté desactivado globalmente.',
+    brazilian_portuguese:
+      'O asset pode ser usado nesta quest. A menos que esteja desativado globalmente.'
+  },
+  assetInactiveThisQuest: {
+    english: 'The asset is not available in this quest.',
+    spanish: 'El asset no está disponible en esta quest.',
+    brazilian_portuguese: 'O asset não está disponível nesta quest.'
+  },
+  downloadProjectConfirmation: {
+    english: 'Download this project for offline use?',
+    spanish: '¿Descargar este proyecto para uso sin conexión?',
+    brazilian_portuguese: 'Baixar este projeto para uso offline?'
+  },
+  downloadQuestConfirmation: {
+    english: 'Download this quest for offline use?',
+    spanish: '¿Descargar esta quest para uso sin conexión?',
+    brazilian_portuguese: 'Baixar esta quest para uso offline?'
+  },
+  thisWillDownload: {
+    english: 'This will download:',
+    spanish: 'Esto descargará:',
+    brazilian_portuguese: 'Isso baixará:'
+  },
+  translations: {
+    english: 'translations',
+    spanish: 'translations',
+    brazilian_portuguese: 'translations'
+  },
+  projectMadePublic: {
+    english: 'The project has been made public',
+    spanish: 'El proyecto se ha hecho público',
+    brazilian_portuguese: 'O projeto foi tornado público'
+  },
+  projectMadePrivate: {
+    english: 'The project has been made private',
+    spanish: 'El proyecto se ha hecho privado',
+    brazilian_portuguese: 'O projeto foi tornado privado'
+  },
+  projectMadeInvisible: {
+    english: 'The project has been made invisible',
+    spanish: 'El proyecto se ha hecho invisible',
+    brazilian_portuguese: 'O projeto foi tornado invisível'
+  },
+  projectMadeVisible: {
+    english: 'The project has been made visible',
+    spanish: 'El proyecto se ha hecho visible',
+    brazilian_portuguese: 'O projeto foi tornado visível'
+  },
+  projectMadeInactive: {
+    english: 'The project has been made inactive',
+    spanish: 'El proyecto se ha hecho inactivo',
+    brazilian_portuguese: 'O projeto foi tornado inativo'
+  },
+  projectMadeActive: {
+    english: 'The project has been made active',
+    spanish: 'El proyecto se ha hecho activo',
+    brazilian_portuguese: 'O projeto foi tornado ativo'
+  },
+  failedToUpdateProjectSettings: {
+    english: 'Failed to update project settings',
+    spanish: 'Error al actualizar la configuración del proyecto',
+    brazilian_portuguese: 'Falha ao atualizar as configurações do projeto'
+  },
+  failedToUpdateProjectVisibility: {
+    english: 'Failed to update project visibility',
+    spanish: 'Error al actualizar la visibilidad del proyecto',
+    brazilian_portuguese: 'Falha ao atualizar a visibilidade do projeto'
+  },
+  failedToUpdateProjectActiveStatus: {
+    english: 'Failed to update project active status',
+    spanish: 'Error al actualizar el estado activo del proyecto',
+    brazilian_portuguese: 'Falha ao atualizar o status ativo do projeto'
+  },
+  projectSettings: {
+    english: 'Project Settings',
+    spanish: 'Configuración del Proyecto',
+    brazilian_portuguese: 'Configurações do Projeto'
+  },
+  publicProjectDescription: {
+    english: 'Anyone can access this project',
+    spanish: 'Cualquiera puede acceder a este proyecto',
+    brazilian_portuguese: 'Qualquer pessoa pode acessar este projeto'
+  },
+  visibleProjectDescription: {
+    english: 'This project appears in public listings',
+    spanish: 'Este proyecto aparece en listados públicos',
+    brazilian_portuguese: 'Este projeto aparece em listagens públicas'
+  },
+  invisibleProjectDescription: {
+    english: 'This project is hidden from public listings',
+    spanish: 'Este proyecto está oculto de los listados públicos',
+    brazilian_portuguese: 'Este projeto está oculto das listagens públicas'
+  },
+  activeProjectDescription: {
+    english: 'This project is available for use',
+    spanish: 'Este proyecto está disponible para usar',
+    brazilian_portuguese: 'Este projeto está disponível para uso'
+  },
+  inactiveProjectDescription: {
+    english: 'This project is temporarily disabled',
+    spanish: 'Este proyecto está temporalmente deshabilitado',
+    brazilian_portuguese: 'Este projeto está temporariamente desabilitado'
+  },
+  loadingOptions: {
+    english: 'Loading options...',
+    spanish: 'Cargando opciones...',
+    brazilian_portuguese: 'Carregando opções...'
+  },
+  loadingTagCategories: {
+    english: 'Loading tag categories...',
+    spanish: 'Cargando categorías de etiquetas...',
+    brazilian_portuguese: 'Carregando categorias de etiquetas...'
+  },
+  questSettings: {
+    english: 'Quest Settings',
+    spanish: 'Configuración de la Misión',
+    brazilian_portuguese: 'Configurações da Missão'
+  },
+  visibleQuestDescription: {
+    english: 'This quest is visible to users',
+    spanish: 'Esta misión es visible para los usuarios',
+    brazilian_portuguese: 'Esta missão é visível para os usuários'
+  },
+  invisibleQuestDescription: {
+    english: 'This quest is hidden from users',
+    spanish: 'Esta misión está oculta para los usuarios',
+    brazilian_portuguese: 'Esta missão está oculta dos usuários'
+  },
+  activeQuestDescription: {
+    english: 'This quest is available for completion',
+    spanish: 'Esta misión está disponible para completar',
+    brazilian_portuguese: 'Esta missão está disponível para conclusão'
+  },
+  inactiveQuestDescription: {
+    english: 'This quest is temporarily disabled',
+    spanish: 'Esta misión está temporalmente deshabilitada',
+    brazilian_portuguese: 'Esta missão está temporariamente desabilitada'
+  },
+  questMadeInvisible: {
+    english: 'The quest has been made invisible',
+    spanish: 'La misión se ha hecho invisible',
+    brazilian_portuguese: 'A missão foi tornada invisível'
+  },
+  questMadeVisible: {
+    english: 'The quest has been made visible',
+    spanish: 'La misión se ha hecho visible',
+    brazilian_portuguese: 'A missão foi tornada visível'
+  },
+  questMadeInactive: {
+    english: 'The quest has been made inactive',
+    spanish: 'La misión se ha hecho inactiva',
+    brazilian_portuguese: 'A missão foi tornada inativa'
+  },
+  questMadeActive: {
+    english: 'The quest has been made active',
+    spanish: 'La misión se ha hecho activa',
+    brazilian_portuguese: 'A missão foi tornada ativa'
+  },
+  failedToUpdateQuestSettings: {
+    english: 'Failed to update quest settings',
+    spanish: 'Error al actualizar la configuración de la misión',
+    brazilian_portuguese: 'Falha ao atualizar as configurações da missão'
+  },
+  loadingAudio: {
+    english: 'Loading audio...',
+    spanish: 'Cargando audio...',
+    brazilian_portuguese: 'Carregando áudio...'
+  },
+  updateAvailable: {
+    english: 'A new update is available!',
+    spanish: '¡Una nueva actualización está disponible!',
+    brazilian_portuguese: 'Uma nova atualização está disponível!'
+  },
+  updateNow: {
+    english: 'Update Now',
+    spanish: 'Actualizar Ahora',
+    brazilian_portuguese: 'Atualizar Agora'
+  },
+  enterCommentOptional: {
+    english: 'Enter your comment (optional)',
+    spanish: 'Escribe tu comentario (opcional)',
+    brazilian_portuguese: 'Escreva seu comentário (opcional)'
+  },
+  auth_init_error_title: {
+    english: 'Initialization Error',
+    spanish: 'Error de Inicialización',
+    brazilian_portuguese: 'Erro de Inicialização'
+  },
+  auth_init_error_message: {
+    english:
+      'Failed to initialize the app. Please try logging out and back in.',
+    spanish:
+      'Error al inicializar la aplicación. Por favor, intenta cerrar sesión y volver a iniciar sesión.',
+    brazilian_portuguese:
+      'Erro ao inicializar o aplicativo. Por favor, tente sair e entrar novamente.'
+  },
+  auth_init_error_ok: {
+    english: 'OK',
+    spanish: 'OK',
+    brazilian_portuguese: 'OK'
+  },
+  projectDownloaded: {
+    english: 'Project downloaded',
+    spanish: 'Proyecto descargado',
+    brazilian_portuguese: 'Projeto baixado'
+  },
+  passwordMustBeAtLeast6Characters: {
+    english: 'Password must be at least 6 characters',
+    spanish: 'La contraseña debe tener al menos 6 caracteres',
+    brazilian_portuguese: 'A senha deve ter pelo menos 6 caracteres'
+  },
+  passwordUpdateFailed: {
+    english: 'Failed to update password',
+    spanish: 'Error al actualizar la contraseña',
+    brazilian_portuguese: 'Falha ao atualizar a senha'
+  },
+  clearCache: {
+    english: 'Clear Cache',
+    spanish: 'Limpiar caché',
+    brazilian_portuguese: 'Limpar cache'
+  },
+  clearCacheConfirmation: {
+    english: 'Are you sure you want to clear all cached data?',
+    spanish: '¿Estás seguro de querer limpiar todos los datos en caché?',
+    brazilian_portuguese:
+      'Tem certeza que deseja limpar todos os dados em cache?'
+  },
+  cacheClearedSuccess: {
+    english: 'Cache cleared successfully',
+    spanish: 'Caché limpiada correctamente',
+    brazilian_portuguese: 'Cache limpa com sucesso'
+  },
+  exportRequiresInternet: {
+    english: 'This feature requires an internet connection',
+    spanish: 'Esta característica requiere una conexión a internet',
+    brazilian_portuguese:
+      'Esta funcionalidade requer uma conexão com a internet'
+  },
+  exportDataComingSoon: {
+    english: 'Data export feature coming soon',
+    spanish: 'La exportación de datos está próxima',
+    brazilian_portuguese: 'A exportação de dados está próxima'
+  },
+  info: {
+    english: 'Info',
+    spanish: 'Información',
+    brazilian_portuguese: 'Informação'
+  },
+  enableNotifications: {
+    english: 'Enable Notifications',
+    spanish: 'Habilitar notificaciones',
+    brazilian_portuguese: 'Habilitar notificações'
+  },
+  notificationsDescription: {
+    english: 'Receive notifications for app updates and important information',
+    spanish:
+      'Recibir notificaciones para actualizaciones de la aplicación y información importante',
+    brazilian_portuguese:
+      'Receber notificações para atualizações do aplicativo e informações importantes'
+  },
+  contentPreferences: {
+    english: 'Content Preferences',
+    spanish: 'Preferencias de contenido',
+    brazilian_portuguese: 'Preferências de conteúdo'
+  },
+  showHiddenContent: {
+    english: 'Show Hidden Content',
+    spanish: 'Mostrar contenido oculto',
+    brazilian_portuguese: 'Mostrar conteúdo oculto'
+  },
+  showHiddenContentDescription: {
+    english: 'Allow displaying content that has been marked as invisible',
+    spanish: 'Permitir mostrar contenido que ha sido marcado como invisible',
+    brazilian_portuguese:
+      'Permitir mostrar conteúdo que foi marcado como invisível'
+  },
+  dataAndStorage: {
+    english: 'Data & Storage',
+    spanish: 'Datos y almacenamiento',
+    brazilian_portuguese: 'Dados e armazenamento'
+  },
+  downloadOnWifiOnly: {
+    english: 'Download on WiFi Only',
+    spanish: 'Descargar solo en WiFi',
+    brazilian_portuguese: 'Baixar apenas em WiFi'
+  },
+  downloadOnWifiOnlyDescription: {
+    english: 'Only download content when connected to WiFi',
+    spanish: 'Descargar contenido solo cuando esté conectado a WiFi',
+    brazilian_portuguese:
+      'Baixar conteúdo apenas quando estiver conectado à WiFi'
+  },
+  autoBackup: {
+    english: 'Auto Backup',
+    spanish: 'Copia de seguridad automática',
+    brazilian_portuguese: 'Backup automático'
+  },
+  autoBackupDescription: {
+    english: 'Automatically backup your data to the cloud',
+    spanish: 'Hacer una copia de seguridad automática de tus datos en la nube',
+    brazilian_portuguese: 'Fazer um backup automático dos seus dados na nuvem'
+  },
+  clearCacheDescription: {
+    english: 'Clear all cached data to free up storage space',
+    spanish:
+      'Limpiar todos los datos en caché para liberar espacio de almacenamiento',
+    brazilian_portuguese:
+      'Limpar todos os dados em cache para liberar espaço de armazenamento'
+  },
+  exportData: {
+    english: 'Export Data',
+    spanish: 'Exportar datos',
+    brazilian_portuguese: 'Exportar dados'
+  },
+  exportDataDescription: {
+    english: 'Export your data for backup or transfer',
+    spanish: 'Exportar tus datos para respaldo o transferencia',
+    brazilian_portuguese: 'Exportar seus dados para backup ou transferência'
+  },
+  support: {
+    english: 'Support',
+    spanish: 'Soporte',
+    brazilian_portuguese: 'Suporte'
+  },
+  helpCenter: {
+    english: 'Help Center',
+    spanish: 'Centro de ayuda',
+    brazilian_portuguese: 'Centro de ajuda'
+  },
+  helpCenterComingSoon: {
+    english: 'Help center feature coming soon',
+    spanish: 'El centro de ayuda está próximo',
+    brazilian_portuguese: 'O centro de ajuda está próximo'
+  },
+  contactSupport: {
+    english: 'Contact Support',
+    spanish: 'Contactar soporte',
+    brazilian_portuguese: 'Contatar suporte'
+  },
+  contactSupportComingSoon: {
+    english: 'Contact support feature coming soon',
+    spanish: 'La función de contacto con el soporte está próxima',
+    brazilian_portuguese:
+      'A funcionalidade de contato com o suporte está próxima'
+  },
+  termsAndConditions: {
+    english: 'Terms & Conditions',
+    spanish: 'Términos y condiciones',
+    brazilian_portuguese: 'Termos e condições'
+  },
+  termsAndConditionsComingSoon: {
+    english: 'Terms & Conditions feature coming soon',
+    spanish: 'La función de términos y condiciones está próxima',
+    brazilian_portuguese: 'A funcionalidade de termos e condições está próxima'
+  },
+  advanced: {
+    english: 'Advanced',
+    spanish: 'Avanzado',
+    brazilian_portuguese: 'Avançado'
+  },
+  debugMode: {
+    english: 'Debug Mode',
+    spanish: 'Modo de depuración',
+    brazilian_portuguese: 'Modo de depuração'
+  },
+  debugModeDescription: {
+    english: 'Enable debug mode for development features',
+    spanish: 'Habilitar modo de depuración para características de desarrollo',
+    brazilian_portuguese:
+      'Habilitar modo de depuração para funcionalidades de desenvolvimento'
+  },
+  settingsRequireInternet: {
+    english: 'Some settings require an internet connection',
+    spanish: 'Algunas configuraciones requieren una conexión a internet',
+    brazilian_portuguese:
+      'Algumas configurações requerem uma conexão com a internet'
+  },
+  clear: {
+    english: 'Clear',
+    spanish: 'Limpiar',
+    brazilian_portuguese: 'Limpar'
+  },
+  unnamedAsset: {
+    english: 'Unnamed Asset',
+    spanish: 'Actividad sin nombre',
+    brazilian_portuguese: 'Atividade sem nome'
+  },
+  noAssetSelected: {
+    english: 'No Asset Selected',
+    spanish: 'No hay actividades seleccionadas',
+    brazilian_portuguese: 'Nenhuma atividade selecionada'
+  },
+  assetNotAvailableOffline: {
+    english: 'Asset not available offline',
+    spanish: 'La actividad no está disponible sin conexión',
+    brazilian_portuguese: 'A atividade não está disponível offline'
+  },
+  cloudError: {
+    english: 'Cloud error: {error}',
+    spanish: 'Error en la nube: {error}',
+    brazilian_portuguese: 'Erro na nuvem: {error}'
+  },
+  assetNotFoundOnline: {
+    english: 'Asset not found online',
+    spanish: 'La actividad no se encontró en línea',
+    brazilian_portuguese: 'A atividade não foi encontrada online'
+  },
+  trySwitchingToCloudDataSource: {
+    english: 'Try switching to Cloud data source above',
+    spanish: 'Intenta cambiar a la fuente de datos en la nube',
+    brazilian_portuguese: 'Tente mudar para a fonte de dados na nuvem'
+  },
+  trySwitchingToOfflineDataSource: {
+    english: 'Try switching to Offline data source above',
+    spanish: 'Intenta cambiar a la fuente de datos sin conexión',
+    brazilian_portuguese: 'Tente mudar para a fonte de dados offline'
+  },
+  assetMayNotBeSynchronized: {
+    english: 'This asset may not be synchronized or may not exist',
+    spanish: 'Esta actividad puede no estar sincronizada o puede no existir',
+    brazilian_portuguese:
+      'Esta atividade pode não estar sincronizada ou pode não existir'
+  },
+  noContentAvailable: {
+    english: 'No content available',
+    spanish: 'No hay contenido disponible',
+    brazilian_portuguese: 'Nenhum conteúdo disponível'
+  },
+  audioReady: {
+    english: 'Audio ready',
+    spanish: 'Audio listo',
+    brazilian_portuguese: 'Áudio pronto'
+  },
+  audioNotAvailable: {
+    english: 'Audio not available',
+    spanish: 'Audio no disponible',
+    brazilian_portuguese: 'Áudio não disponível'
+  },
+  imagesAvailable: {
+    english: 'Images available',
+    spanish: 'Imágenes disponibles',
+    brazilian_portuguese: 'Imagens disponíveis'
+  },
+  language: {
+    english: 'Language',
+    spanish: 'Idioma',
+    brazilian_portuguese: 'Idioma'
+  },
+  audioTracks: {
+    english: 'Audio tracks',
+    spanish: 'Pistas de audio',
+    brazilian_portuguese: 'Pistas de áudio'
+  },
+  membersOnly: {
+    english: 'Members Only',
+    spanish: 'Solo para miembros',
+    brazilian_portuguese: 'Só para membros'
+  },
+  cloud: {
+    english: 'Cloud',
+    spanish: 'Nube',
+    brazilian_portuguese: 'Nuvem'
+  },
+  syncing: {
+    english: 'Syncing',
+    spanish: 'Sincronizando',
+    brazilian_portuguese: 'Sincronizando'
+  },
+  synced: {
+    english: 'Synced',
+    spanish: 'Sincronizado',
+    brazilian_portuguese: 'Sincronizado'
+  },
+  failed: {
+    english: 'Failed',
+    spanish: 'Fallado',
+    brazilian_portuguese: 'Falhado'
+  },
+  state: {
+    english: 'State',
+    spanish: 'Estado',
+    brazilian_portuguese: 'Estado'
+  },
+  noQuestSelected: {
+    english: 'No Quest Selected',
+    spanish: 'No hay proyecto seleccionado',
+    brazilian_portuguese: 'Nenhum projeto selecionado'
+  },
+  liveAttachmentStates: {
+    english: 'Live Attachment States',
+    spanish: 'Estados de adjuntos en vivo',
+    brazilian_portuguese: 'Estados de anexos em tempo real'
+  },
+  searching: {
+    english: 'Searching',
+    spanish: 'Buscando',
+    brazilian_portuguese: 'Buscando'
+  },
+  translationSubmittedSuccessfully: {
+    english: 'Translation submitted successfully',
+    spanish: 'Traducción enviada correctamente',
+    brazilian_portuguese: 'Tradução enviada com sucesso'
+  },
+  text: {
+    english: 'Text',
+    spanish: 'Texto',
+    brazilian_portuguese: 'Texto'
+  },
+  audio: {
+    english: 'Audio',
+    spanish: 'Audio',
+    brazilian_portuguese: 'Áudio'
+  },
+  targetLanguage: {
+    english: 'Target Language',
+    spanish: 'Idioma de destino',
+    brazilian_portuguese: 'Idioma de destino'
+  },
+  your: {
+    english: 'Your',
+    spanish: 'Tu',
+    brazilian_portuguese: 'Seu'
+  },
+  translation: {
+    english: 'Translation',
+    spanish: 'Traducción',
+    brazilian_portuguese: 'Tradução'
+  },
+  readyToSubmit: {
+    english: 'Ready to submit',
+    spanish: 'Listo para enviar',
+    brazilian_portuguese: 'Pronto para enviar'
+  },
+  online: {
+    english: 'Online',
+    spanish: 'En línea',
+    brazilian_portuguese: 'Online'
+  },
+  allProjects: {
+    english: 'All Projects',
+    spanish: 'Todos los proyectos',
+    brazilian_portuguese: 'Todos os projetos'
+  },
+  searchProjects: {
+    english: 'Search projects',
+    spanish: 'Buscar proyectos',
+    brazilian_portuguese: 'Buscar projetos'
+  },
+  noProjectSelected: {
+    english: 'No Project Selected',
+    spanish: 'No hay proyecto seleccionado',
+    brazilian_portuguese: 'Nenhum projeto selecionado'
+  },
+  noQuestsFound: {
+    english: 'No quests found',
+    spanish: 'No se encontraron misiones',
+    brazilian_portuguese: 'Nenhuma missão encontrada'
+  },
+  noQuestsAvailable: {
+    english: 'No quests available',
+    spanish: 'No hay misiones disponibles',
+    brazilian_portuguese: 'Nenhuma missão disponível'
+  },
+  pleaseLogInToVote: {
+    english: 'Please log in to vote',
+    spanish: 'Por favor, inicia sesión para votar',
+    brazilian_portuguese: 'Por favor, faça login para votar'
+  },
+  yourTranscriptionHasBeenSubmitted: {
+    english: 'Your transcription has been submitted',
+    spanish: 'Tu transcripción ha sido enviada',
+    brazilian_portuguese: 'Sua transcrição foi enviada'
+  },
+  failedToCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar a transcrição'
+  },
+  enterYourTranscription: {
+    english: 'Enter your transcription',
+    spanish: 'Escribe tu transcripción',
+    brazilian_portuguese: 'Digite sua transcrição'
+  },
+  submitTranscription: {
+    english: 'Submit Transcription',
+    spanish: 'Enviar transcripción',
+    brazilian_portuguese: 'Enviar transcrição'
+  },
+  good: {
+    english: 'Good',
+    spanish: 'Bueno',
+    brazilian_portuguese: 'Bom'
+  },
+  needsWork: {
+    english: 'Needs Work',
+    spanish: 'Necesita trabajo',
+    brazilian_portuguese: 'Precisa de trabalho'
+  },
+  pleaseLogInToVoteOnTranslations: {
+    english: 'Please log in to vote on translations',
+    spanish: 'Por favor, inicia sesión para votar en traducciones',
+    brazilian_portuguese: 'Por favor, faça login para votar em traduções'
+  },
+  translationNotFound: {
+    english: 'Translation not found',
+    spanish: 'Traducción no encontrada',
+    brazilian_portuguese: 'Tradução não encontrada'
+  },
+  noTranslationsYet: {
+    english: 'No translations yet. Be the first to translate!',
+    spanish: 'No hay traducciones aún. Sé el primero en traducir!',
+    brazilian_portuguese: 'Nenhuma tradução ainda. Seja o primeiro a traduzir!'
+  },
+  viewProjectLimitedAccess: {
+    english: 'View Project (Limited Access)',
+    spanish: 'Ver proyecto (Acceso limitado)',
+    brazilian_portuguese: 'Ver projeto (Acesso limitado)'
+  },
+  languages: {
+    english: 'Languages',
+    spanish: 'Idiomas',
+    brazilian_portuguese: 'Idiomas'
+  },
+  downloadRequired: {
+    english: 'Download required',
+    spanish: 'Descarga requerida',
+    brazilian_portuguese: 'Download requerido'
   }
 } as const;
 

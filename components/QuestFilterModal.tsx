@@ -52,6 +52,7 @@ const CategorySection: React.FC<{
   selectedOptions,
   onToggleOption
 }) => {
+  const { t } = useLocalization();
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteTagsByProjectIdAndCategory(projectId, category);
 
@@ -118,7 +119,7 @@ const CategorySection: React.FC<{
           ))}
           {isLoading && (
             <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading options...</Text>
+              <Text style={styles.loadingText}>{t('loadingOptions')}</Text>
             </View>
           )}
           {hasNextPage && (
@@ -281,7 +282,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
               {isTagCategoriesLoading ? (
                 <View style={styles.loadingContainer}>
                   <Text style={styles.loadingText}>
-                    Loading tag categories...
+                    {t('loadingTagCategories')}
                   </Text>
                 </View>
               ) : activeTab === 'filter' ? (

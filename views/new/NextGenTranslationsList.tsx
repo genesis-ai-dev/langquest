@@ -2,6 +2,7 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -57,6 +58,7 @@ export default function NextGenTranslationsList({
   canVote: canVoteProp,
   membership: membershipProp
 }: NextGenTranslationsListProps) {
+  const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [selectedTranslationId, setSelectedTranslationId] = useState<
@@ -233,7 +235,7 @@ export default function NextGenTranslationsList({
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.sectionTitle}>
-            Translations
+            {t('translations')}
             {isPrivateProject && !canVote && (
               <Text style={styles.lockIndicator}> 🔒</Text>
             )}
@@ -405,9 +407,7 @@ export default function NextGenTranslationsList({
           ))
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              No translations yet. Be the first to translate!
-            </Text>
+            <Text style={styles.emptyText}>{t('noTranslationsYet')}</Text>
           </View>
         )}
 

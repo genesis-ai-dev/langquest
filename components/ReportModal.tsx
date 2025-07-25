@@ -189,11 +189,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setBlockUserOption(false);
       setBlockContentOption(false);
       onClose();
-      Alert.alert('Success', t('reportSubmitted'));
+      Alert.alert(t('success'), t('reportSubmitted'));
       onReportSubmitted?.();
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert('Error', t('failedToSubmitReport'));
+      Alert.alert(t('error'), t('failedToSubmitReport'));
     }
   };
 

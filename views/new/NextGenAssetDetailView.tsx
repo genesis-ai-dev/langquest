@@ -11,6 +11,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
@@ -105,6 +106,7 @@ async function useNextGenCloudAsset(
 }
 
 export default function NextGenAssetDetailView() {
+  const { t } = useLocalization();
   const { currentAssetId, currentProjectId } = useCurrentNavigation();
   const isOnline = useNetworkStatus();
 
@@ -305,7 +307,7 @@ export default function NextGenAssetDetailView() {
   if (!currentAssetId) {
     return (
       <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>No Asset Selected</Text>
+        <Text style={sharedStyles.title}>{t('noAssetSelected')}</Text>
       </View>
     );
   }
@@ -323,17 +325,17 @@ export default function NextGenAssetDetailView() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
             {useOfflineData
-              ? 'Asset not available offline'
+              ? t('assetNotAvailableOffline')
               : cloudError
-                ? `Cloud error: ${cloudError.message}`
-                : 'Asset not found online'}
+                ? t('cloudError', { error: cloudError.message })
+                : t('assetNotFoundOnline')}
           </Text>
           <Text style={styles.errorHint}>
             {useOfflineData && cloudAsset
-              ? 'Try switching to Cloud data source above'
+              ? t('trySwitchingToCloudDataSource')
               : !useOfflineData && offlineAsset
-                ? 'Try switching to Offline data source above'
-                : 'This asset may not be synchronized or may not exist'}
+                ? t('trySwitchingToOfflineDataSource')
+                : t('assetMayNotBeSynchronized')}
           </Text>
         </View>
       </View>
@@ -466,22 +468,22 @@ export default function NextGenAssetDetailView() {
                     />
                     <Text style={styles.audioStatusText}>
                       {attachmentStates.get(content.audio_id)?.local_uri
-                        ? 'Audio ready'
-                        : 'Audio not available'}
+                        ? t('audioReady')
+                        : t('audioNotAvailable')}
                     </Text>
                   </View>
                 )}
               </View>
             ))
           ) : (
-            <Text style={styles.noContentText}>No content available</Text>
+            <Text style={styles.noContentText}>{t('noContentAvailable')}</Text>
           )}
 
           {/* Images info */}
           {activeAsset.images && activeAsset.images.length > 0 && (
             <View style={styles.imageInfo}>
               <Text style={styles.imageInfoText}>
-                📷 {activeAsset.images.length} image(s) available
+                📷 {t('imagesAvailable', { count: activeAsset.images.length })}
               </Text>
             </View>
           )}
@@ -489,24 +491,26 @@ export default function NextGenAssetDetailView() {
           {/* Asset Info */}
           <View style={styles.assetInfo}>
             <Text style={styles.assetInfoText}>
-              Language:{' '}
+              {t('language')}:{' '}
               {sourceLanguage?.native_name ??
                 sourceLanguage?.english_name ??
-                'Unknown'}
+                t('unknown')}
             </Text>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {SHOW_DEV_ELEMENTS && (
               <Text style={styles.assetInfoText}>
-                Source:{' '}
+                {t('source')}:{' '}
                 {activeAsset.source === 'cloudSupabase'
-                  ? '🌐 Cloud'
-                  : '💾 Offline'}
+                  ? t('cloud')
+                  : t('offline')}
               </Text>
             )}
             {activeAsset.content?.some((c) => c.audio_id) && (
               <Text style={styles.assetInfoText}>
-                🔊 Audio: {activeAsset.content.filter((c) => c.audio_id).length}{' '}
-                track(s)
+                🔊{' '}
+                {t('audioTracks', {
+                  count: activeAsset.content.filter((c) => c.audio_id).length
+                })}
               </Text>
             )}
           </View>
@@ -543,7 +547,9 @@ export default function NextGenAssetDetailView() {
                 color={colors.buttonText}
               />
               <Ionicons name="add" size={24} color={colors.buttonText} />
-              <Text style={styles.newTranslationButtonText}>Members Only</Text>
+              <Text style={styles.newTranslationButtonText}>
+                {t('membersOnly')}
+              </Text>
             </TouchableOpacity>
           )}
           onAccessGranted={() => setShowNewTranslationModal(true)}
@@ -554,7 +560,9 @@ export default function NextGenAssetDetailView() {
           onPress={handleNewTranslationPress}
         >
           <Ionicons name="add" size={24} color={colors.buttonText} />
-          <Text style={styles.newTranslationButtonText}>New Translation</Text>
+          <Text style={styles.newTranslationButtonText}>
+            {t('newTranslation')}
+          </Text>
         </TouchableOpacity>
       )}
 
