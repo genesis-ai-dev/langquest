@@ -97,6 +97,7 @@ export default function QuestsView() {
   }
 
   // Try to get project from cache first, fallback to fresh query
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const cachedProject = getCachedProject(currentProjectId);
   const { project: freshProject } = useProjectById(currentProjectId);
 
@@ -105,7 +106,8 @@ export default function QuestsView() {
   // - Self-contained data management within the modal component
 
   // Use cached project if available, otherwise use fresh data
-  const selectedProject = cachedProject || freshProject;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const selectedProject = freshProject || cachedProject;
 
   // Cache the project data when fresh data arrives
   useEffect(() => {
@@ -253,6 +255,7 @@ export default function QuestsView() {
       </Modal>
       {showProjectStats && selectedProject && (
         <ProjectDetails
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           project={selectedProject}
           onClose={handleCloseDetails}
         />
