@@ -83,7 +83,6 @@ export function useInfiniteProjects(
         .from('project')
         .select('*', { count: 'exact' });
       //      .eq('active', true);
-
       if (!showInvisible) {
         query = query.eq('visible', true);
       }

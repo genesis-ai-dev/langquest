@@ -1,8 +1,8 @@
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { useLocalization } from '@/hooks/useLocalization';
+// import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -40,13 +40,13 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onClose,
   projectId
 }) => {
-  const { t } = useLocalization();
+  // const { t } = useLocalization();
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrjLoaded, setIsPrjLoaded] = useState(false);
 
-  const { isUserOwner } = useSessionMemberships();
-  const isOwner = projectId ? isUserOwner(projectId) : false;
+  const { membership } = useUserPermissions(projectId || '', 'manage');
+  const isOwner = membership === 'owner';
 
   const queryClient = useQueryClient();
 

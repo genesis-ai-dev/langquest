@@ -1006,11 +1006,15 @@ export function useInfiniteAssetsWithTagsByQuestId(
   });
 }
 
-function getAssetQuestLinkById(quest_id: string, asset_id: string) {
+function getAssetQuestLinkById(
+  quest_id: string | undefined,
+  asset_id: string | undefined
+) {
   return createHybridQueryConfig({
     queryKey: ['quest-asset-link', quest_id, asset_id],
     onlineFn: async () => {
       // Get assets through junction table
+      if (!quest_id || !asset_id) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select(
@@ -1034,12 +1038,12 @@ function getAssetQuestLinkById(quest_id: string, asset_id: string) {
         .from(quest_asset_link)
         .where(
           and(
-            eq(quest_asset_link.quest_id, quest_id),
-            eq(quest_asset_link.asset_id, asset_id)
+            eq(quest_asset_link.quest_id, quest_id || ''),
+            eq(quest_asset_link.asset_id, asset_id || '')
           )
         )
     ),
-    enabled: !!quest_id
+    enabled: !!quest_id && !!asset_id
   });
 }
 
@@ -1051,7 +1055,10 @@ function getAssetQuestLinkById(quest_id: string, asset_id: string) {
  * Returns { assets, isLoading, error }
  * Fetches assets by quest ID from Supabase (online) or local Drizzle DB (offline)
  */
-export function useAssetsQuestLinkById(quest_id: string, asset_id: string) {
+export function useAssetsQuestLinkById(
+  quest_id: string | undefined,
+  asset_id: string | undefined
+) {
   const {
     data: quest_asset_link,
     isLoading: isDataLoading,

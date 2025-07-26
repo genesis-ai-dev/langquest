@@ -72,10 +72,11 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
   const { translation } = useTranslationById(translationId, assetId);
   const { votes } = useVotesByTranslationId(translationId);
 
-  const userVote = votes?.find((v) => v.creator_id === currentUser?.id);
+  const userVote = votes.find((v) => v.creator_id === currentUser?.id);
 
   const voteCount =
-    votes?.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    votes.reduce((acc, vote) => acc + (vote.polarity === 'up' ? 1 : -1), 0) ??
     0;
 
   const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
@@ -103,7 +104,7 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     enabled: !!translation?.audio
   });
 
-  const audioUri = audioUriData?.[0]?.uri || null;
+  const audioUri = audioUriData[0]?.uri || null;
 
   const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
   const project = projectInfo?.quest.project;
@@ -497,7 +498,6 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           translationId={translationId}
-          assetId={assetId}
         />
       )}
     </View>

@@ -44,9 +44,9 @@ import {
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import type { Project } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import type { Project } from '@/hooks/db/useProjects';
 
 interface SortingOption {
   field: string;
@@ -69,69 +69,70 @@ const AssetCard = React.memo(
     activeProject: Project | null;
     currentQuestId: string;
   }) => {
+    const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
-  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
+    const { quest } = useQuestById(currentQuestId);
 
-  const { quest } = useQuestById(currentQuestId);
+    const assetActive = asset.active && quest?.active && activeProject?.active;
 
-  const assetActive = asset.active && quest?.active && activeProject?.active;
+    const {
+      isFlaggedForDownload,
+      isLoading: isDownloadLoading,
+      toggleDownload
+    } = useDownload('asset', asset.id);
 
-  const {
-    isFlaggedForDownload,
-    isLoading: isDownloadLoading,
-    toggleDownload
-  } = useDownload('asset', asset.id);
+    const handleDownloadToggle = useCallback(async () => {
+      await toggleDownload();
+    }, [toggleDownload]);
 
-  const handleDownloadToggle = useCallback(async () => {
-    await toggleDownload();
-  }, [toggleDownload]);
-
-  return (
-    <View
-      style={[
-        sharedStyles.card,
-        !assetActive && sharedStyles.disabled,
-        !asset.visible && sharedStyles.invisible
-      ]}
-    >
+    return (
       <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          gap: spacing.small
-        }}
+        style={[
+          sharedStyles.card,
+          !assetActive && sharedStyles.disabled,
+          !asset.visible && sharedStyles.invisible
+        ]}
       >
-        <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{asset.name}</Text>
-        {isOwner && quest?.active && activeProject?.active && (
-          <TouchableOpacity
-            onPress={() => setShowAssetSettingsModal(true)}
-            style={styles.statsButtonMini}
-          >
-            <Ionicons name="settings" size={22} color={colors.text} />
-          </TouchableOpacity>
-        )}
-        {assetActive && (
-          <PrivateAccessGate
-            projectId={activeProject?.id || ''}
-            projectName={activeProject?.name || ''}
-            isPrivate={activeProject?.private || false}
-            action="download"
-            allowBypass={true}
-            onBypass={handleDownloadToggle}
-            renderTrigger={({ onPress, hasAccess }) => (
-              <DownloadIndicator
-                isFlaggedForDownload={isFlaggedForDownload}
-                isLoading={isDownloadLoading}
-                onPress={
-                  hasAccess || isFlaggedForDownload
-                    ? handleDownloadToggle
-                    : onPress
-                }
-              />
-            )}
-          />
-        )}
-      </View>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: spacing.small
+          }}
+        >
+          <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
+            {asset.name}
+          </Text>
+          {isOwner && quest?.active && activeProject?.active && (
+            <TouchableOpacity
+              onPress={() => setShowAssetSettingsModal(true)}
+              style={styles.statsButtonMini}
+            >
+              <Ionicons name="settings" size={22} color={colors.text} />
+            </TouchableOpacity>
+          )}
+          {assetActive && (
+            <PrivateAccessGate
+              projectId={activeProject.id || ''}
+              projectName={activeProject.name || ''}
+              isPrivate={activeProject.private || false}
+              action="download"
+              allowBypass={true}
+              onBypass={handleDownloadToggle}
+              renderTrigger={({ onPress, hasAccess }) => (
+                <DownloadIndicator
+                  isFlaggedForDownload={isFlaggedForDownload}
+                  isLoading={isDownloadLoading}
+                  onPress={
+                    hasAccess || isFlaggedForDownload
+                      ? handleDownloadToggle
+                      : onPress
+                  }
+                />
+              )}
+            />
+          )}
+        </View>
 
         <View style={styles.translationCount}>
           {/* Translation gems could be added here later */}
@@ -259,7 +260,7 @@ export default function AssetsView() {
   //   return filterCount + sortCount;
   // };
 
-  const { quest } = useQuestById(currentQuestId);
+  // const { quest } = useQuestById(currentQuestId);
 
   const handleAssetPress = useCallback(
     (asset: Asset) => {

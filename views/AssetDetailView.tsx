@@ -93,11 +93,15 @@ export default function AssetDetailView() {
   const { currentAssetId, currentProjectId, currentQuestId } =
     useCurrentNavigation();
 
-  const { quest_asset_link, isDataLoading } = useAssetsQuestLinkById(
+  const { quest_asset_link = [] } = useAssetsQuestLinkById(
     currentQuestId,
     currentAssetId
   );
-  const questAssetLink = quest_asset_link[0];
+
+  const questAssetLink = quest_asset_link[0] ?? {
+    active: false,
+    visible: false
+  };
 
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
@@ -212,7 +216,7 @@ export default function AssetDetailView() {
   const { quest } = useQuestById(currentQuestId || '');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const isParentActive =
-    activeProject?.active && quest?.active && questAssetLink?.active;
+    activeProject?.active && quest?.active && questAssetLink.active;
 
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
@@ -238,7 +242,7 @@ export default function AssetDetailView() {
     const translationHasText = !!translation.text;
     const textIconOpacity = translationHasText ? 1 : 0.5;
 
-    const isOwnTranslation = currentUser.id === translation.creator_id;
+    // const isOwnTranslation = currentUser.id === translation.creator_id;
 
     const isParentsActive = (isParentActive && asset?.active) === true;
 

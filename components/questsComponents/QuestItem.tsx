@@ -1,5 +1,4 @@
 import { QuestCard } from '@/components/QuestCard';
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
@@ -18,9 +17,6 @@ export const QuestItem = React.memo(
     project: Project | null;
     onPress: (quest: Quest) => void;
   }) => {
-    const { isUserOwner } = useSessionMemberships();
-    // const isOwner = project?.id ? isUserOwner(project.id) : false;
-
     const handlePress = useCallback(() => {
       onPress(quest);
     }, [quest, onPress]);

@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { useLocalization } from '@/hooks/useLocalization';
+// import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -31,15 +31,14 @@ interface TranslationSettingsModalProps {
   isVisible: boolean;
   onClose: () => void;
   translationId: string;
-  assetId: string;
 }
 
 type TStatusType = 'active' | 'visible';
 
 export const TranslationSettingsModal: React.FC<
   TranslationSettingsModalProps
-> = ({ isVisible, onClose, translationId, assetId }) => {
-  const { t } = useLocalization();
+> = ({ isVisible, onClose, translationId }) => {
+  // const { t } = useLocalization();
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTranslationLoaded, setIsTranslationLoaded] = useState(false);

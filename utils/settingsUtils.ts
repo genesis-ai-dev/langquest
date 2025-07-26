@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
 
 const SETTINGS_PREFIX = 'settings-';
 const SETTINGS_SHOW_HIDDEN_CONTENT = SETTINGS_PREFIX + 'show-hidden-content';
@@ -27,4 +28,6 @@ export const getOptionShowHiddenContent = async () => {
 
 export const setOptionShowHiddenContent = async (value: boolean) => {
   await setSettingsKey(SETTINGS_SHOW_HIDDEN_CONTENT, value ? 'true' : 'false');
+
+
 };
