@@ -65,12 +65,20 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   };
 
   const handleProjectPress = () => {
+    // if (project.active || membership?.membership === 'owner') {
     goToProject({ id: project.id, name: project.name });
+    // }
   };
 
   return (
     <TouchableOpacity onPress={handleProjectPress}>
-      <View style={sharedStyles.card}>
+      <View
+        style={[
+          sharedStyles.card,
+          !project.active && sharedStyles.disabled,
+          !project.visible && sharedStyles.invisible
+        ]}
+      >
         <View>
           <View
             style={{
@@ -235,17 +243,19 @@ export default function ProjectsView() {
           <Text style={styles.emptyText}>No projects found</Text>
         </View>
       ) : (
-        <FlashList
-          data={filteredProjects}
-          renderItem={({ item }) => <ProjectCard project={item} />}
-          keyExtractor={(item) => item.id}
-          estimatedItemSize={120}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={renderFooter}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
+        <>
+          <FlashList
+            data={filteredProjects}
+            renderItem={({ item }) => <ProjectCard project={item} />}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={120}
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={renderFooter}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          />
+        </>
       )}
     </View>
   );

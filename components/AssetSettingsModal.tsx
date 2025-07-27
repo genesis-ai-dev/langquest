@@ -13,6 +13,7 @@ import {
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -52,6 +53,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
 
   const { membership } = useUserPermissions(currentProjectId || '', 'manage');
   const isOwner = membership === 'owner';
+
+  const queryClient = useQueryClient();
 
   const { data: assetDataArray = [], refetch: refetchAsset } = useHybridQuery({
     queryKey: ['asset-settings', assetId],
@@ -148,13 +151,12 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       Alert.alert('Error', 'Failed to update asset settings');
     } finally {
       setIsSubmitting(false);
+      removeCachedQueries();
     }
   };
 
   const handleToggleStatusQuest = async (statusType: TStatusType) => {
     if (!assetQuestData) return;
-
-    console.log('handleToggleStatusQuest - assetQuestData:', assetQuestData);
 
     setIsSubmitting(true);
     try {
@@ -202,8 +204,37 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       Alert.alert('Error', 'Failed to update asset settings');
     } finally {
       setIsSubmitting(false);
+      removeCachedQueries();
     }
   };
+
+  function removeCachedQueries() {
+    const allQueries = queryClient.getQueryCache().findAll();
+    const filtered: string[][] = [];
+    allQueries.map((query) => {
+      if (
+        query.queryKey.some(
+          (key) =>
+            typeof key === 'string' &&
+            (key.includes(assetId) || key.includes(questId))
+        ) &&
+        (query.queryKey[0] == 'asset' ||
+          query.queryKey[0] == 'assets' ||
+          query.queryKey[0] == 'asset-content' ||
+          query.queryKey[0] == 'translation' ||
+          query.queryKey[0] == 'quest' ||
+          query.queryKey[0] == 'quest-asset-link')
+      )
+        filtered.push(query.queryKey as string[]);
+    });
+
+    filtered.map((qKey) =>
+      queryClient.removeQueries({
+        queryKey: qKey,
+        exact: false
+      })
+    );
+  }
 
   return (
     <Modal

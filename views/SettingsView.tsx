@@ -1,10 +1,15 @@
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, spacing } from '@/styles/theme';
+import {
+  getOptionShowHiddenContent,
+  setOptionShowHiddenContent
+} from '@/utils/settingsUtils';
+import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -43,6 +48,15 @@ export default function SettingsView() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHiddenContent, setShowHiddenContent] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      setShowHiddenContent(await getOptionShowHiddenContent());
+    };
+    void loadSettings();
+  });
+
   const handleNotificationToggle = (value: boolean) => {
     setNotificationsEnabled(value);
     // TODO: Implement actual notification permission logic
@@ -68,9 +82,20 @@ export default function SettingsView() {
   };
 
   const handleShowHiddenContentToggle = (value: boolean) => {
-    setShowHiddenContent(value);
-    // TODO: Implement Show hidden content logic
-    console.log('Show hidden content:', value);
+    setOptionShowHiddenContent(value)
+      .then(() => {
+        setShowHiddenContent(value);
+        queryClient.removeQueries({
+          queryKey: ['projects'],
+          exact: false
+        });
+      })
+      .catch((error) => {
+        Alert.alert('Error', 'Failed to update setting', [
+          { text: 'OK', style: 'default' }
+        ]);
+        console.error('Error updating show hidden content setting:', error);
+      });
   };
 
   const handleClearCache = () => {

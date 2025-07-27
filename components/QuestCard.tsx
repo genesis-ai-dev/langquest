@@ -39,15 +39,21 @@ export const QuestCard: React.FC<{
   const displayTags = useMemo(() => {
     if (!quest.tags.length) return [];
     return quest.tags.slice(0, 3).map((tag) => ({
-      id: tag.tag.id,
-      displayName: tag.tag.name.split(':')[1] || tag.tag.name
+      id: tag?.tag?.id,
+      displayName: tag?.tag?.name.split(':')[1] || tag?.tag?.name
     }));
   }, [quest.tags]);
 
   const hasMoreTags = quest.tags.length > 3;
 
   return (
-    <View style={sharedStyles.card}>
+    <View
+      style={[
+        sharedStyles.card,
+        !(project.active && quest.active) && sharedStyles.disabled,
+        !quest.visible && sharedStyles.invisible
+      ]}
+    >
       <View
         style={{
           flexDirection: 'row',
@@ -56,33 +62,35 @@ export const QuestCard: React.FC<{
         }}
       >
         <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>{quest.name}</Text>
-        <PrivateAccessGate
-          projectId={quest.project_id}
-          projectName={project.name || ''}
-          isPrivate={project.private || false}
-          action="download"
-          allowBypass={true}
-          onBypass={handleDownloadToggle}
-          renderTrigger={({ onPress, hasAccess }) => (
-            <DownloadIndicator
-              isFlaggedForDownload={isFlaggedForDownload}
-              isLoading={isLoading} // FIXME: for now, we are not showing download progress
-              onPress={
-                hasAccess || isFlaggedForDownload
-                  ? handleDownloadToggle
-                  : onPress
-              }
-              downloadType="quest"
-              stats={{
-                totalAssets: questClosure?.total_assets || 0,
-                totalTranslations: questClosure?.total_translations || 0
-              }}
-              // FIXME: for now, we are not showing download progress
-              // progressPercentage={progressPercentage}
-              // showProgress={totalAssets > 0 && !isDownloaded}
-            />
-          )}
-        />
+        {quest.active && project.active && (
+          <PrivateAccessGate
+            projectId={quest.project_id}
+            projectName={project.name || ''}
+            isPrivate={project.private || false}
+            action="download"
+            allowBypass={true}
+            onBypass={handleDownloadToggle}
+            renderTrigger={({ onPress, hasAccess }) => (
+              <DownloadIndicator
+                isFlaggedForDownload={isFlaggedForDownload}
+                isLoading={isLoading} // FIXME: for now, we are not showing download progress
+                onPress={
+                  hasAccess || isFlaggedForDownload
+                    ? handleDownloadToggle
+                    : onPress
+                }
+                downloadType="quest"
+                stats={{
+                  totalAssets: questClosure?.total_assets || 0,
+                  totalTranslations: questClosure?.total_translations || 0
+                }}
+                // FIXME: for now, we are not showing download progress
+                // progressPercentage={progressPercentage}
+                // showProgress={totalAssets > 0 && !isDownloaded}
+              />
+            )}
+          />
+        )}
       </View>
       {quest.description && (
         <Text style={sharedStyles.cardDescription}>{quest.description}</Text>

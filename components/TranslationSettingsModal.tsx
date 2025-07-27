@@ -1,8 +1,8 @@
-import { project } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
+import { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 // import { useLocalization } from '@/hooks/useLocalization';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
   colors,
@@ -27,70 +27,61 @@ import {
 } from 'react-native';
 import { SwitchBox } from './SwitchBox';
 
-interface ProjectSettingsModalProps {
+interface TranslationSettingsModalProps {
   isVisible: boolean;
   onClose: () => void;
-  projectId: string;
+  translationId: string;
 }
 
-type TProjectStatusType = 'private' | 'visible' | 'active';
+type TStatusType = 'active' | 'visible';
 
-export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
-  isVisible,
-  onClose,
-  projectId
-}) => {
+export const TranslationSettingsModal: React.FC<
+  TranslationSettingsModalProps
+> = ({ isVisible, onClose, translationId }) => {
   // const { t } = useLocalization();
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPrjLoaded, setIsPrjLoaded] = useState(false);
+  const [isTranslationLoaded, setIsTranslationLoaded] = useState(false);
 
-  const { membership } = useUserPermissions(projectId || '', 'manage');
-  const isOwner = membership === 'owner';
+  const { currentUser } = useAuth();
 
   const queryClient = useQueryClient();
 
-  const { data: projectDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['project-settings', projectId],
-    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
+  const { data: translationDataArray = [], refetch } = useHybridQuery({
+    queryKey: ['translation-settings', translationId],
+    onlineFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
       const { data, error } = await supabaseConnector.client
-        .from('project')
+        .from('translation')
         .select('*')
-        .eq('id', projectId)
+        .eq('id', translationId)
         .limit(1);
+
       if (error) throw error;
-      return data as (typeof project.$inferSelect)[];
+      return data as (typeof translation.$inferSelect)[];
     },
     offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: eq(project.id, projectId)
+      db.query.translation.findMany({
+        where: eq(translation.id, translationId)
       })
     )
   });
 
-  const projectData = projectDataArray[0];
-  if (projectData != undefined && !isPrjLoaded) {
-    setIsPrjLoaded(true);
+  const translationData = translationDataArray[0];
+  if (translationData != undefined && !isTranslationLoaded) {
+    setIsTranslationLoaded(true);
   }
+  const isOwnTranslation = currentUser?.id === translationData?.creator_id;
 
-  /* To be awared -> The information here is coming from the cache */
-  const [prjPrivate, setPrjPrivate] = useState(projectData?.private ?? false);
-  const [prjVisible, setPrjVisible] = useState(projectData?.visible ?? false);
-  const [prjActive, setPrjActive] = useState(projectData?.active ?? false);
+  const handleToggleStatus = async (statusType: TStatusType) => {
+    if (!translationData) return;
 
-  const handleToggleStatus = async (statusType: TProjectStatusType) => {
-    if (!projectData) return;
     setIsSubmitting(true);
 
-    let [privateProject, visible, active] = [prjPrivate, prjVisible, prjActive];
+    let [visible, active] = [translationData.visible, translationData.active];
+
     let message = '';
 
-    if (statusType === 'private') {
-      privateProject = !privateProject;
-      message = privateProject
-        ? 'The project has been made private'
-        : 'The project has been made public';
-    } else if (statusType === 'visible') {
+    if (statusType === 'visible') {
       if (visible) {
         visible = false;
         active = false;
@@ -98,8 +89,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         visible = true;
       }
       message = visible
-        ? 'The project has been made visible'
-        : 'The project has been made invisible';
+        ? 'The translation has been made visible'
+        : 'The translation has been made invisible';
     } else {
       if (!active) {
         visible = true;
@@ -108,46 +99,43 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         active = false;
       }
       message = active
-        ? 'The project has been made active'
-        : 'The project has been made inactive';
+        ? 'The translation has been made active'
+        : 'The translation has been made inactive';
     }
 
     try {
       await supabaseConnector.client
-        .from('project')
+        .from('translation')
         .update({
-          private: privateProject,
           visible,
           active,
           last_updated: new Date().toISOString()
         })
-        .match({ id: projectId });
+        .match({ id: translationId });
       refetch();
 
       Alert.alert('Success', message);
     } catch (error) {
-      console.error('Error updating project status:', error);
-      Alert.alert('Error', 'Failed to update project settings');
+      console.error('Error updating translation status:', error);
+      Alert.alert('Error', 'Failed to update translation settings');
     } finally {
       setIsSubmitting(false);
-      setPrjPrivate(privateProject);
-      setPrjVisible(visible);
-      setPrjActive(active);
 
-      // /* To reload projects in the main page */
-      // await queryClient.invalidateQueries({
-      //   queryKey: ['projects', 'infinite', 10, 'name', 'asc', 'online']
+      queryClient.removeQueries({
+        // queryKey: ['translations-with-votes-and-language', 'by-asset', assetId],
+        queryKey: ['translations-with-votes-and-language', 'by-asset'],
+        exact: false
+      });
+
+      queryClient.removeQueries({
+        queryKey: ['translation', translationId],
+        exact: false
+      });
+
+      // queryClient.removeQueries({
+      //   queryKey: ['translations', >>>> 'by-project', projectId],
+      //   exact: false
       // });
-
-      queryClient.removeQueries({
-        queryKey: ['projects'],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['project', projectId],
-        exact: false
-      });
     }
   };
 
@@ -164,7 +152,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
                 <Text style={sharedStyles.modalTitle}>
-                  {'Project Settings'}
+                  {'Translation Settings'}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
@@ -172,42 +160,30 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               </View>
 
               <SwitchBox
-                title={'Private Project'}
-                description={
-                  projectData?.private
-                    ? 'This project is private. Anyone can see it, but only members can contribute to it.'
-                    : 'This project is public. Anyone can contribute to it.'
-                }
-                // value={projectData?.private ?? false}
-                value={prjPrivate}
-                onChange={() => handleToggleStatus('private')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
-              />
-
-              <SwitchBox
                 title={'Visibility'}
                 description={
-                  projectData?.visible
-                    ? 'This project is visible to other users.'
-                    : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'
+                  translationData?.visible
+                    ? 'This translation is visible to other users.'
+                    : 'This translation is hidden and will not be shown to other users. An invisible translation is also inactive.'
                 }
-                // value={projectData?.visible ?? false}
-                value={prjVisible}
+                value={translationData?.visible ?? false}
                 onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+                disabled={
+                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
+                }
               />
-
               <SwitchBox
                 title={'Active'}
                 description={
-                  projectData?.active
-                    ? 'This project is currently active. An active project is also visible.'
-                    : 'This project is inactive. No actions can be performed unless it is reactivated.'
+                  translationData?.active
+                    ? 'This translation is currently active. An active translation is also visible.'
+                    : 'This translation is inactive. No actions can be performed unless it is reactivated.'
                 }
-                // value={projectData?.active ?? false}
-                value={prjActive}
+                value={translationData?.active ?? false}
                 onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+                disabled={
+                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
+                }
               />
             </View>
           </TouchableWithoutFeedback>
