@@ -30,7 +30,7 @@ export class QuestService {
     // Insert the quest
     const [newQuest] = await db.insert(quest).values({
       ...questData,
-      download_profiles: [] // Initialize with empty download profiles
+      download_profiles: questData.creator_id ? [questData.creator_id] : []
     }).returning();
 
     if (!newQuest) {
