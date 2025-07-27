@@ -12,7 +12,8 @@ export type AppView =
   | 'asset-detail'
   | 'profile'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'project-creation';
 
 export interface NavigationStackItem {
   view: AppView;
@@ -26,6 +27,29 @@ export interface NavigationStackItem {
 }
 
 export type Language = typeof language.$inferSelect;
+
+// Draft project and quest types
+export interface DraftProject {
+  id: string; // Temporary ID for draft
+  name: string;
+  description?: string;
+  source_language_id: string;
+  target_language_id: string;
+  private: boolean;
+  visible: boolean;
+  created_at: Date;
+  last_updated: Date;
+}
+
+export interface DraftQuest {
+  id: string; // Temporary ID for draft
+  project_id: string; // References draft project ID
+  name: string;
+  description?: string;
+  visible: boolean;
+  created_at: Date;
+  last_updated: Date;
+}
 
 // Recently visited item types
 export interface RecentProject {
@@ -60,13 +84,17 @@ interface LocalState {
   projectSourceFilter: string;
   projectTargetFilter: string;
 
+  // Draft projects and quests
+  draftProjects: DraftProject[];
+  draftQuests: DraftQuest[];
+
   // Authentication view state
   authView:
-    | 'sign-in'
-    | 'register'
-    | 'forgot-password'
-    | 'reset-password'
-    | null;
+  | 'sign-in'
+  | 'register'
+  | 'forgot-password'
+  | 'reset-password'
+  | null;
   setAuthView: (
     view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
   ) => void;
@@ -114,6 +142,19 @@ interface LocalState {
   addRecentQuest: (quest: RecentQuest) => void;
   addRecentAsset: (asset: RecentAsset) => void;
 
+  // Draft project methods
+  addDraftProject: (project: Omit<DraftProject, 'id' | 'created_at' | 'last_updated'>) => string;
+  updateDraftProject: (id: string, updates: Partial<Omit<DraftProject, 'id' | 'created_at'>>) => void;
+  removeDraftProject: (id: string) => void;
+  getDraftProject: (id: string) => DraftProject | undefined;
+
+  // Draft quest methods
+  addDraftQuest: (quest: Omit<DraftQuest, 'id' | 'created_at' | 'last_updated'>) => string;
+  updateDraftQuest: (id: string, updates: Partial<Omit<DraftQuest, 'id' | 'created_at'>>) => void;
+  removeDraftQuest: (id: string) => void;
+  getDraftQuestsByProjectId: (projectId: string) => DraftQuest[];
+  removeDraftQuestsByProjectId: (projectId: string) => void;
+
   // Attachment sync methods
   setAttachmentSyncProgress: (
     progress: Partial<LocalState['attachmentSyncProgress']>
@@ -123,9 +164,12 @@ interface LocalState {
   initialize: () => Promise<void>;
 }
 
+// Helper function to generate temporary IDs for drafts
+const generateTempId = () => `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 export const useLocalStore = create<LocalState>()(
   persist(
-    (set, _get) => ({
+    (set, get) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       languageId: null,
@@ -133,6 +177,10 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+
+      // Draft projects and quests
+      draftProjects: [],
+      draftQuests: [],
 
       // Authentication view state
       authView: null,
@@ -202,6 +250,96 @@ export const useLocalStore = create<LocalState>()(
           const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
         }),
+
+      // Draft project methods
+      addDraftProject: (projectData) => {
+        const id = generateTempId();
+        const now = new Date();
+        const draftProject: DraftProject = {
+          ...projectData,
+          id,
+          created_at: now,
+          last_updated: now
+        };
+
+        set((state) => ({
+          draftProjects: [...state.draftProjects, draftProject]
+        }));
+
+        return id;
+      },
+
+      updateDraftProject: (id, updates) =>
+        set((state) => ({
+          draftProjects: state.draftProjects.map((project) =>
+            project.id === id
+              ? { ...project, ...updates, last_updated: new Date() }
+              : project
+          )
+        })),
+
+      removeDraftProject: (id) =>
+        set((state) => {
+          // Also remove associated draft quests
+          const filteredQuests = state.draftQuests.filter(
+            (quest) => quest.project_id !== id
+          );
+          return {
+            draftProjects: state.draftProjects.filter(
+              (project) => project.id !== id
+            ),
+            draftQuests: filteredQuests
+          };
+        }),
+
+      getDraftProject: (id) => {
+        const state = get();
+        return state.draftProjects.find((project) => project.id === id);
+      },
+
+      // Draft quest methods
+      addDraftQuest: (questData) => {
+        const id = generateTempId();
+        const now = new Date();
+        const draftQuest: DraftQuest = {
+          ...questData,
+          id,
+          created_at: now,
+          last_updated: now
+        };
+
+        set((state) => ({
+          draftQuests: [...state.draftQuests, draftQuest]
+        }));
+
+        return id;
+      },
+
+      updateDraftQuest: (id, updates) =>
+        set((state) => ({
+          draftQuests: state.draftQuests.map((quest) =>
+            quest.id === id
+              ? { ...quest, ...updates, last_updated: new Date() }
+              : quest
+          )
+        })),
+
+      removeDraftQuest: (id) =>
+        set((state) => ({
+          draftQuests: state.draftQuests.filter((quest) => quest.id !== id)
+        })),
+
+      getDraftQuestsByProjectId: (projectId) => {
+        const state = get();
+        return state.draftQuests.filter((quest) => quest.project_id === projectId);
+      },
+
+      removeDraftQuestsByProjectId: (projectId) =>
+        set((state) => ({
+          draftQuests: state.draftQuests.filter(
+            (quest) => quest.project_id !== projectId
+          )
+        })),
 
       // Attachment sync methods
       setAttachmentSyncProgress: (progress) =>

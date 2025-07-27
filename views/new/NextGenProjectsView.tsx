@@ -2,8 +2,15 @@ import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import type { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -23,6 +30,29 @@ import { useSimpleHybridInfiniteData } from './useHybridData';
 type Project = typeof project.$inferSelect;
 
 type TabType = 'my' | 'all';
+
+// Create Project Button Component
+const CreateProjectButton: React.FC = () => {
+  const { goToProjectCreation } = useAppNavigation();
+
+  const handleCreateProject = () => {
+    goToProjectCreation();
+  };
+
+  return (
+    <TouchableOpacity style={styles.createButton} onPress={handleCreateProject}>
+      <View style={styles.createButtonContent}>
+        <Ionicons
+          name="add-circle-outline"
+          size={24}
+          color={colors.primary}
+          style={styles.createButtonIcon}
+        />
+        <Text style={styles.createButtonText}>Create New Project</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
@@ -81,7 +111,7 @@ export default function NextGenProjectsView() {
         .overrideTypes<Project[]>();
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
     20 // pageSize
   );
@@ -141,7 +171,7 @@ export default function NextGenProjectsView() {
         .overrideTypes<Project[]>();
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
     20 // pageSize
   );
@@ -204,14 +234,20 @@ export default function NextGenProjectsView() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const renderFooter = React.useCallback(() => {
-    if (!isFetchingNextPage) return null;
-
     return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View>
+        {/* Show create button only in "my projects" tab */}
+        {activeTab === 'my' && <CreateProjectButton />}
+
+        {/* Loading indicator for pagination */}
+        {isFetchingNextPage && (
+          <View style={styles.loadingFooter}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
       </View>
     );
-  }, [isFetchingNextPage]);
+  }, [isFetchingNextPage, activeTab]);
 
   const statusText = React.useMemo(() => {
     const offlineCount = projects.filter(
@@ -385,6 +421,29 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: colors.buttonText,
+    fontWeight: '600'
+  },
+  createButton: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    padding: spacing.large,
+    marginBottom: spacing.medium,
+    marginHorizontal: spacing.medium
+  },
+  createButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  createButtonIcon: {
+    marginRight: spacing.small
+  },
+  createButtonText: {
+    color: colors.primary,
+    fontSize: fontSizes.medium,
     fontWeight: '600'
   }
 });

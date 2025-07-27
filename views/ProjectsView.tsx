@@ -44,13 +44,15 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
 
   // Use the new download hook
   const {
-    isFlaggedForDownload,
-    isLoading: isDownloadLoading,
-    toggleDownload
+    isFlaggedForDownload: _isFlaggedForDownload,
+    isLoading: _isDownloadLoading,
+    toggleDownload: _toggleDownload
   } = useDownload('project', project.id);
 
   // Get project download stats for confirmation modal
-  const { projectClosure } = useProjectDownloadStatus(project.id);
+  const { projectClosure: _projectClosure } = useProjectDownloadStatus(
+    project.id
+  );
 
   // Get languages from session cache instead of individual queries
   const sourceLanguage = getLanguageById(project.source_language_id);
@@ -60,8 +62,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   const membership = getUserMembership(project.id);
   const membershipRole = membership?.membership;
 
-  const handleDownloadToggle = async () => {
-    await toggleDownload();
+  const _handleDownloadToggle = async () => {
+    await _toggleDownload();
   };
 
   const handleProjectPress = () => {
@@ -144,6 +146,29 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   );
 };
 
+// Create Project Button Component
+const CreateProjectButton: React.FC = () => {
+  const { navigate } = useAppNavigation();
+
+  const handleCreateProject = () => {
+    navigate({ view: 'project-creation' });
+  };
+
+  return (
+    <TouchableOpacity style={styles.createButton} onPress={handleCreateProject}>
+      <View style={styles.createButtonContent}>
+        <Ionicons
+          name="add-circle-outline"
+          size={24}
+          color={colors.primary}
+          style={styles.createButtonIcon}
+        />
+        <Text style={styles.createButtonText}>Create New Project</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function ProjectsView() {
   const { t } = useLocalization();
   const { currentUser: _currentUser } = useAuth();
@@ -152,12 +177,12 @@ export default function ProjectsView() {
   useRenderCounter('ProjectsView');
 
   // Use local DB for languages instead of session cache
-  const { languages } = useLanguages();
-  const { getUserMembership } = useUserMemberships();
+  const { languages: _languages } = useLanguages();
+  const { getUserMembership: _getUserMembership } = useUserMemberships();
 
   // Create helper functions similar to the old session cache
-  const getLanguageById = (languageId: string) => {
-    return languages.find((lang) => lang.id === languageId);
+  const _getLanguageById = (languageId: string) => {
+    return _languages.find((lang) => lang.id === languageId);
   };
 
   const _sourceFilter = useLocalStore((state) => state.projectSourceFilter);
@@ -242,7 +267,12 @@ export default function ProjectsView() {
           estimatedItemSize={120}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={renderFooter}
+          ListFooterComponent={() => (
+            <View>
+              <CreateProjectButton />
+              {renderFooter()}
+            </View>
+          )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
         />
@@ -313,5 +343,28 @@ const styles = StyleSheet.create({
   loadingFooter: {
     paddingVertical: spacing.medium,
     alignItems: 'center'
+  },
+  createButton: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: borderRadius.medium,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    padding: spacing.large,
+    marginBottom: spacing.medium,
+    marginHorizontal: spacing.medium
+  },
+  createButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  createButtonIcon: {
+    marginRight: spacing.small
+  },
+  createButtonText: {
+    color: colors.primary,
+    fontSize: fontSizes.medium,
+    fontWeight: '600'
   }
 });

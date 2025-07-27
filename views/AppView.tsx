@@ -21,6 +21,7 @@ import ProfileView from '@/views/ProfileView';
 import SettingsView from '@/views/SettingsView';
 import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
 import NextGenAssetsView from '@/views/new/NextGenAssetsView';
+import NextGenProjectCreationView from '@/views/new/NextGenProjectCreationView';
 import NextGenProjectsView from '@/views/new/NextGenProjectsView';
 import NextGenQuestsView from '@/views/new/NextGenQuestsView';
 
@@ -62,6 +63,8 @@ export default function AppView() {
         ) : (
           <ProjectsView />
         );
+      case 'project-creation':
+        return <NextGenProjectCreationView />;
       case 'quests':
         return SHOULD_USE_NEXT_GEN_VIEWS ? (
           <NextGenQuestsView />

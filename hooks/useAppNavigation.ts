@@ -159,6 +159,10 @@ export function useAppNavigation() {
     navigate({ view: 'settings' });
   }, [navigate]);
 
+  const goToProjectCreation = useCallback(() => {
+    navigate({ view: 'project-creation' });
+  }, [navigate]);
+
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
     const crumbs = [];
@@ -229,6 +233,7 @@ export function useAppNavigation() {
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToProjectCreation,
 
     // Utilities
     breadcrumbs,
@@ -252,30 +257,30 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-          id: currentProjectId,
-          name: currentProjectName || 'Project'
-        }
+        id: currentProjectId,
+        name: currentProjectName || 'Project'
+      }
       : null;
   }, [currentProjectId, currentProjectName]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-          id: currentQuestId,
-          name: currentQuestName || 'Quest',
-          project_id: currentProjectId || ''
-        }
+        id: currentQuestId,
+        name: currentQuestName || 'Quest',
+        project_id: currentProjectId || ''
+      }
       : null;
   }, [currentQuestId, currentQuestName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-          id: currentAssetId,
-          name: currentAssetName || 'Asset',
-          projectId: currentProjectId,
-          questId: currentQuestId
-        }
+        id: currentAssetId,
+        name: currentAssetName || 'Asset',
+        projectId: currentProjectId,
+        questId: currentQuestId
+      }
       : null;
   }, [currentAssetId, currentAssetName, currentProjectId, currentQuestId]);
 
