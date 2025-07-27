@@ -7,6 +7,8 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { DraftProject, DraftQuest } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import type { StructuredProjectCreationProgress } from '@/utils/structuredProjectCreator';
+import { structuredProjectCreator } from '@/utils/structuredProjectCreator';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -20,9 +22,12 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { PaginatedQuestList } from './components/PaginatedQuestList';
+import { ProjectTemplateSelector } from './components/ProjectTemplateSelector';
 import { useSimpleHybridData } from './useHybridData';
 
 type Language = typeof language.$inferSelect;
+type ProjectType = 'custom' | 'template';
 
 interface LanguageSelectProps {
   label: string;
@@ -103,28 +108,59 @@ const LanguageSelect: React.FC<LanguageSelectProps> = ({
   );
 };
 
-interface QuestItemProps {
-  quest: DraftQuest;
-  onEdit: (quest: DraftQuest) => void;
-  onDelete: (questId: string) => void;
+// Progress Modal Component
+interface ProgressModalProps {
+  visible: boolean;
+  progress: StructuredProjectCreationProgress;
 }
 
-const QuestItem: React.FC<QuestItemProps> = ({ quest, onEdit, onDelete }) => {
+const ProgressModal: React.FC<ProgressModalProps> = ({ visible, progress }) => {
+  if (!visible) return null;
+
+  const progressPercentage =
+    progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+
   return (
-    <View style={styles.questItem}>
-      <View style={styles.questItemContent}>
-        <Text style={styles.questName}>{quest.name}</Text>
-        {quest.description && (
-          <Text style={styles.questDescription}>{quest.description}</Text>
-        )}
-      </View>
-      <View style={styles.questActions}>
-        <TouchableOpacity onPress={() => onEdit(quest)}>
-          <Ionicons name="create-outline" size={20} color={colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => onDelete(quest.id)}>
-          <Ionicons name="trash-outline" size={20} color={colors.error} />
-        </TouchableOpacity>
+    <View style={styles.progressOverlay}>
+      <View style={styles.progressModal}>
+        <Text style={styles.progressTitle}>Creating Project</Text>
+        <Text style={styles.progressMessage}>{progress.message}</Text>
+
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${progressPercentage}%` }
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {progress.current} / {progress.total}
+          </Text>
+        </View>
+
+        <View style={styles.progressStages}>
+          {(['project', 'quests', 'assets'] as const).map((stage) => (
+            <View
+              key={stage}
+              style={[
+                styles.progressStage,
+                progress.stage === stage && styles.progressStageActive,
+                (['project', 'quests', 'assets'] as const).indexOf(stage) <
+                (['project', 'quests', 'assets'] as const).indexOf(
+                  progress.stage
+                )
+                  ? styles.progressStageComplete
+                  : {}
+              ]}
+            >
+              <Text style={styles.progressStageText}>
+                {stage.charAt(0).toUpperCase() + stage.slice(1)}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -134,6 +170,12 @@ export default function NextGenProjectCreationView() {
   const { goBack } = useAppNavigation();
   const { currentUser } = useAuth();
 
+  // Project type and template selection
+  const [projectType, setProjectType] = useState<ProjectType>('custom');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<
+    string | undefined
+  >();
+
   // Local state for project creation
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -142,7 +184,16 @@ export default function NextGenProjectCreationView() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // Quest editing state
+  // Progress tracking for structured projects
+  const [creationProgress, setCreationProgress] =
+    useState<StructuredProjectCreationProgress>({
+      stage: 'project',
+      current: 0,
+      total: 1,
+      message: ''
+    });
+
+  // Quest editing state (only for custom projects)
   const [editingQuest, setEditingQuest] = useState<DraftQuest | null>(null);
   const [questName, setQuestName] = useState('');
   const [questDescription, setQuestDescription] = useState('');
@@ -314,52 +365,84 @@ export default function NextGenProjectCreationView() {
   };
 
   const handlePublish = async () => {
-    if (!currentDraftProject || !currentUser) {
-      Alert.alert('Error', 'Cannot publish project');
+    if (!currentUser) {
+      Alert.alert('Error', 'Cannot publish project - user not logged in');
+      return;
+    }
+
+    if (!isProjectValid) {
+      Alert.alert('Error', 'Please complete all required project fields');
       return;
     }
 
     setIsPublishing(true);
 
     try {
-      console.log('Publishing project:', currentDraftProject);
-      console.log('With quests:', draftQuests);
+      const projectData: DraftProject = {
+        id: 'temp', // Will be ignored
+        name: projectName.trim(),
+        description: projectDescription.trim() || undefined,
+        source_language_id: sourceLanguageId,
+        target_language_id: targetLanguageId,
+        private: isPrivate,
+        visible: true,
+        created_at: new Date(),
+        last_updated: new Date()
+      };
 
-      // 1. Create the project in the database
-      const newProject = await projectService.createProjectFromDraft(
-        currentDraftProject,
-        currentUser.id
-      );
+      if (projectType === 'template' && selectedTemplateId) {
+        // Create structured project from template
+        console.log(
+          `Creating structured project from template: ${selectedTemplateId}`
+        );
 
-      console.log('Created project:', newProject);
+        const result = await structuredProjectCreator.createProjectFromTemplate(
+          selectedTemplateId,
+          projectData,
+          currentUser.id,
+          (progress) => setCreationProgress(progress)
+        );
 
-      // 2. Create all associated quests
-      let createdQuests: any[] = [];
-      if (draftQuests.length > 0) {
-        createdQuests = await questService.createMultipleQuestsFromDrafts(
-          draftQuests,
-          newProject.id,
+        Alert.alert(
+          'Project Created!',
+          `Successfully created "${result.project.name}" with ${result.quests.length} quests and ${result.assets.length} assets from template.`,
+          [{ text: 'OK', onPress: () => goBack() }]
+        );
+      } else {
+        // Create custom project with manual quests
+        console.log('Creating custom project:', projectData);
+        console.log('With quests:', draftQuests);
+
+        // 1. Create the project in the database
+        const newProject = await projectService.createProjectFromDraft(
+          projectData,
           currentUser.id
         );
-        console.log('Created quests:', createdQuests);
+
+        console.log('Created project:', newProject);
+
+        // 2. Create all associated quests
+        let createdQuests: any[] = [];
+        if (draftQuests.length > 0) {
+          createdQuests = await questService.createMultipleQuestsFromDrafts(
+            draftQuests,
+            newProject.id,
+            currentUser.id
+          );
+          console.log('Created quests:', createdQuests);
+        }
+
+        // 3. Remove from draft state once confirmed
+        if (draftProjectId) {
+          removeDraftProject(draftProjectId);
+        }
+
+        Alert.alert(
+          'Project Published!',
+          `Successfully published "${newProject.name}" with ${createdQuests.length} quest${createdQuests.length !== 1 ? 's' : ''}.`,
+          [{ text: 'OK', onPress: () => goBack() }]
+        );
       }
-
-      // 3. Remove from draft state once confirmed
-      removeDraftProject(draftProjectId!);
-
-      Alert.alert(
-        'Project Published!',
-        `Successfully published "${newProject.name}" with ${createdQuests.length} quest${createdQuests.length !== 1 ? 's' : ''}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate back to projects view
-              goBack();
-            }
-          }
-        ]
-      );
     } catch (error) {
       console.error('Error publishing project:', error);
       Alert.alert(
@@ -400,6 +483,12 @@ export default function NextGenProjectCreationView() {
     );
   }
 
+  const canPublish =
+    isProjectValid &&
+    (projectType === 'template' ||
+      currentDraftProject ||
+      draftQuests.length > 0);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -409,23 +498,19 @@ export default function NextGenProjectCreationView() {
         <TouchableOpacity onPress={handleCancel}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {currentDraftProject ? 'Edit Draft Project' : 'Create New Project'}
-        </Text>
+        <Text style={styles.headerTitle}>Create New Project</Text>
         <TouchableOpacity
-          onPress={currentDraftProject ? handlePublish : undefined}
-          disabled={!currentDraftProject || isPublishing}
+          onPress={canPublish ? handlePublish : undefined}
+          disabled={!canPublish || isPublishing}
           style={[
             styles.publishButton,
-            (!currentDraftProject || isPublishing) &&
-              styles.publishButtonDisabled
+            (!canPublish || isPublishing) && styles.publishButtonDisabled
           ]}
         >
           <Text
             style={[
               styles.publishButtonText,
-              (!currentDraftProject || isPublishing) &&
-                styles.publishButtonTextDisabled
+              (!canPublish || isPublishing) && styles.publishButtonTextDisabled
             ]}
           >
             {isPublishing ? 'Publishing...' : 'Publish'}
@@ -434,6 +519,14 @@ export default function NextGenProjectCreationView() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Project Template Selection */}
+        <ProjectTemplateSelector
+          selectedType={projectType}
+          selectedTemplateId={selectedTemplateId}
+          onTypeChange={setProjectType}
+          onTemplateChange={setSelectedTemplateId}
+        />
+
         {/* Project Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Project Details</Text>
@@ -447,7 +540,9 @@ export default function NextGenProjectCreationView() {
               placeholder="Enter project name"
               placeholderTextColor={colors.textSecondary}
               onBlur={
-                currentDraftProject ? handleUpdateDraftProject : undefined
+                currentDraftProject && projectType === 'custom'
+                  ? handleUpdateDraftProject
+                  : undefined
               }
             />
           </View>
@@ -463,7 +558,9 @@ export default function NextGenProjectCreationView() {
               multiline
               numberOfLines={3}
               onBlur={
-                currentDraftProject ? handleUpdateDraftProject : undefined
+                currentDraftProject && projectType === 'custom'
+                  ? handleUpdateDraftProject
+                  : undefined
               }
             />
           </View>
@@ -473,7 +570,7 @@ export default function NextGenProjectCreationView() {
             selectedLanguageId={sourceLanguageId}
             onSelect={(languageId) => {
               setSourceLanguageId(languageId);
-              if (currentDraftProject) {
+              if (currentDraftProject && projectType === 'custom') {
                 updateDraftProject(draftProjectId!, {
                   source_language_id: languageId
                 });
@@ -488,7 +585,7 @@ export default function NextGenProjectCreationView() {
             selectedLanguageId={targetLanguageId}
             onSelect={(languageId) => {
               setTargetLanguageId(languageId);
-              if (currentDraftProject) {
+              if (currentDraftProject && projectType === 'custom') {
                 updateDraftProject(draftProjectId!, {
                   target_language_id: languageId
                 });
@@ -503,7 +600,7 @@ export default function NextGenProjectCreationView() {
             onPress={() => {
               const newPrivate = !isPrivate;
               setIsPrivate(newPrivate);
-              if (currentDraftProject) {
+              if (currentDraftProject && projectType === 'custom') {
                 updateDraftProject(draftProjectId!, { private: newPrivate });
               }
             }}
@@ -516,7 +613,7 @@ export default function NextGenProjectCreationView() {
             <Text style={styles.checkboxLabel}>Make this project private</Text>
           </TouchableOpacity>
 
-          {!currentDraftProject && (
+          {projectType === 'custom' && !currentDraftProject && (
             <TouchableOpacity
               style={[
                 styles.createDraftButton,
@@ -537,8 +634,8 @@ export default function NextGenProjectCreationView() {
           )}
         </View>
 
-        {/* Quests Section */}
-        {currentDraftProject && (
+        {/* Quests Section - Only for Custom Projects */}
+        {projectType === 'custom' && currentDraftProject && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -623,26 +720,21 @@ export default function NextGenProjectCreationView() {
               </View>
             )}
 
-            {/* Quest List */}
-            {draftQuests.map((quest) => (
-              <QuestItem
-                key={quest.id}
-                quest={quest}
-                onEdit={handleEditQuest}
-                onDelete={handleDeleteQuest}
-              />
-            ))}
-
-            {draftQuests.length === 0 && !showQuestForm && (
-              <View style={styles.emptyQuests}>
-                <Text style={styles.emptyQuestsText}>
-                  No quests added yet. Add your first quest to get started.
-                </Text>
-              </View>
-            )}
+            {/* Paginated Quest List */}
+            <PaginatedQuestList
+              quests={draftQuests}
+              onEditQuest={handleEditQuest}
+              onDeleteQuest={handleDeleteQuest}
+            />
           </View>
         )}
       </ScrollView>
+
+      {/* Progress Modal for Structured Project Creation */}
+      <ProgressModal
+        visible={isPublishing && projectType === 'template'}
+        progress={creationProgress}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -669,7 +761,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.medium,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border
+    borderBottomColor: colors.inputBackground
   },
   headerTitle: {
     fontSize: fontSizes.large,
@@ -760,7 +852,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xsmall,
     maxHeight: 200,
     borderWidth: 1,
-    borderColor: colors.border
+    borderColor: colors.inputBackground
   },
   languageList: {
     maxHeight: 200
@@ -769,7 +861,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.medium,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border
+    borderBottomColor: colors.inputBackground
   },
   selectedLanguageOption: {
     backgroundColor: colors.primary + '20'
@@ -902,5 +994,84 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.medium,
     color: colors.textSecondary,
     textAlign: 'center'
+  },
+  progressOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
+  },
+  progressModal: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.large,
+    padding: spacing.large,
+    alignItems: 'center',
+    width: '80%'
+  },
+  progressTitle: {
+    fontSize: fontSizes.large,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.small
+  },
+  progressMessage: {
+    fontSize: fontSizes.medium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.medium
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 10,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: spacing.medium
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 5
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 5
+  },
+  progressText: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary
+  },
+  progressStages: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: spacing.medium
+  },
+  progressStage: {
+    paddingVertical: spacing.xsmall,
+    paddingHorizontal: spacing.medium,
+    borderRadius: borderRadius.small,
+    backgroundColor: colors.inputBackground
+  },
+  progressStageActive: {
+    backgroundColor: colors.primary + '20',
+    borderWidth: 1,
+    borderColor: colors.primary
+  },
+  progressStageComplete: {
+    backgroundColor: colors.primary + '20',
+    borderWidth: 1,
+    borderColor: colors.primary
+  },
+  progressStageText: {
+    fontSize: fontSizes.small,
+    color: colors.text,
+    fontWeight: '500'
   }
 });
