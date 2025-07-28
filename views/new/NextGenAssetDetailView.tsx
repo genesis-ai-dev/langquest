@@ -1,4 +1,5 @@
 import { AssetSkeleton } from '@/components/AssetSkeleton';
+import ImageCarousel from '@/components/ImageCarousel';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import type { language } from '@/db/drizzleSchema';
@@ -41,6 +42,8 @@ type AssetContent = typeof asset_content_link.$inferSelect;
 
 const ASSET_VIEWER_PROPORTION = 0.4;
 
+type TabType = 'text' | 'image';
+
 function useNextGenOfflineAsset(assetId: string) {
   return useQuery({
     queryKey: ['asset', 'offline', assetId],
@@ -78,6 +81,7 @@ export default function NextGenAssetDetailView() {
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<TabType>('text');
 
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
@@ -160,6 +164,21 @@ export default function NextGenAssetDetailView() {
     });
 
   const sourceLanguage = languages[0];
+
+  // Set the first available tab when asset data changes
+  useEffect(() => {
+    if (!activeAsset) return;
+
+    const hasTextContent =
+      activeAsset.content && activeAsset.content.length > 0;
+    const hasImages = activeAsset.images && activeAsset.images.length > 0;
+
+    if (hasTextContent) {
+      setActiveTab('text');
+    } else if (hasImages) {
+      setActiveTab('image');
+    }
+  }, [activeAsset]);
 
   // Debug logging
   const debugInfo = React.useMemo(
@@ -266,6 +285,50 @@ export default function NextGenAssetDetailView() {
         </View>
       </View>
 
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'text' && styles.activeTab,
+            (!activeAsset.content || activeAsset.content.length === 0) &&
+              styles.disabledTab
+          ]}
+          onPress={() => setActiveTab('text')}
+          disabled={!activeAsset.content || activeAsset.content.length === 0}
+        >
+          <Ionicons
+            name="text"
+            size={24}
+            color={
+              activeAsset.content && activeAsset.content.length > 0
+                ? colors.text
+                : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'image' && styles.activeTab,
+            (!activeAsset.images || activeAsset.images.length === 0) &&
+              styles.disabledTab
+          ]}
+          onPress={() => setActiveTab('image')}
+          disabled={!activeAsset.images || activeAsset.images.length === 0}
+        >
+          <Ionicons
+            name="image"
+            size={24}
+            color={
+              activeAsset.images && activeAsset.images.length > 0
+                ? colors.text
+                : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* Asset Content Viewer */}
       <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
         <ScrollView
@@ -273,76 +336,111 @@ export default function NextGenAssetDetailView() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentScrollViewContent}
         >
-          {activeAsset.content && activeAsset.content.length > 0 ? (
-            activeAsset.content.map((content, index) => (
-              <View key={index} style={styles.contentItem}>
-                <SourceContent
-                  content={content}
-                  sourceLanguage={sourceLanguage ?? null}
-                  audioUri={
-                    content.audio_id
-                      ? (() => {
-                          const attachment = attachmentStates.get(
-                            content.audio_id
-                          );
-                          const localUri = attachment?.local_uri;
+          {/* Text Content Tab */}
+          {activeTab === 'text' && (
+            <>
+              {activeAsset.content && activeAsset.content.length > 0 ? (
+                activeAsset.content.map((content, index) => (
+                  <View key={index} style={styles.contentItem}>
+                    <SourceContent
+                      content={content}
+                      sourceLanguage={sourceLanguage ?? null}
+                      audioUri={
+                        content.audio_id
+                          ? (() => {
+                              const attachment = attachmentStates.get(
+                                content.audio_id
+                              );
+                              const localUri = attachment?.local_uri;
 
-                          if (!localUri) {
-                            console.log(
-                              `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                              attachment?.state
-                            );
-                            return null;
-                          }
+                              if (!localUri) {
+                                console.log(
+                                  `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                                  attachment?.state
+                                );
+                                return null;
+                              }
 
-                          const fullUri =
-                            system.permAttachmentQueue?.getLocalUri(localUri);
-                          console.log(
-                            `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                          );
-                          return fullUri;
-                        })()
-                      : null
-                  }
-                  isLoading={isLoadingAttachments}
-                />
-
-                {/* Audio status indicator */}
-                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                {SHOW_DEV_ELEMENTS && content.audio_id && (
-                  <View style={styles.audioStatusContainer}>
-                    <Ionicons
-                      name={
-                        attachmentStates.get(content.audio_id)?.local_uri
-                          ? 'volume-high'
-                          : 'volume-mute'
+                              const fullUri =
+                                system.permAttachmentQueue?.getLocalUri(
+                                  localUri
+                                );
+                              console.log(
+                                `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                              );
+                              return fullUri;
+                            })()
+                          : null
                       }
-                      size={16}
-                      color={colors.textSecondary}
+                      isLoading={isLoadingAttachments}
                     />
-                    <Text style={styles.audioStatusText}>
-                      {attachmentStates.get(content.audio_id)?.local_uri
-                        ? t('audioReady')
-                        : t('audioNotAvailable')}
-                    </Text>
+
+                    {/* Audio status indicator */}
+                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    {SHOW_DEV_ELEMENTS && content.audio_id && (
+                      <View style={styles.audioStatusContainer}>
+                        <Ionicons
+                          name={
+                            attachmentStates.get(content.audio_id)?.local_uri
+                              ? 'volume-high'
+                              : 'volume-mute'
+                          }
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.audioStatusText}>
+                          {attachmentStates.get(content.audio_id)?.local_uri
+                            ? t('audioReady')
+                            : t('audioNotAvailable')}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noContentText}>{t('noContentAvailable')}</Text>
+                ))
+              ) : (
+                <Text style={styles.noContentText}>
+                  {t('noContentAvailable')}
+                </Text>
+              )}
+            </>
           )}
 
-          {/* Images info */}
-          {activeAsset.images && activeAsset.images.length > 0 && (
-            <View style={styles.imageInfo}>
-              <Text style={styles.imageInfoText}>
-                📷 {t('imagesAvailable', { count: activeAsset.images.length })}
-              </Text>
-            </View>
+          {/* Image Content Tab */}
+          {activeTab === 'image' && (
+            <>
+              {activeAsset.images && activeAsset.images.length > 0 ? (
+                <View style={styles.imageCarouselWrapper}>
+                  <ImageCarousel
+                    uris={activeAsset.images
+                      .map((imageId) => {
+                        const attachment = attachmentStates.get(imageId);
+                        const localUri = attachment?.local_uri;
+
+                        if (!localUri) {
+                          console.log(
+                            `[IMAGE] No local URI for image ${imageId}, state:`,
+                            attachment?.state
+                          );
+                          return null;
+                        }
+
+                        const fullUri =
+                          system.permAttachmentQueue?.getLocalUri(localUri);
+                        console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
+                        return fullUri;
+                      })
+                      .filter((uri): uri is string => uri !== null)}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.noContentText}>
+                  {t('noContentAvailable')}
+                </Text>
+              )}
+            </>
           )}
 
-          {/* Asset Info */}
+          {/* Asset Info - Always visible */}
           <View style={styles.assetInfo}>
             <Text style={styles.assetInfoText}>
               {t('language')}:{' '}
@@ -460,6 +558,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xsmall
   },
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: colors.backgroundSecondary,
+    paddingVertical: spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.small
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary
+  },
+  disabledTab: {
+    opacity: 0.5
+  },
   assetViewer: {
     backgroundColor: colors.backgroundSecondary,
     borderBottomWidth: 1,
@@ -483,16 +601,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     padding: spacing.large
-  },
-  imageInfo: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginTop: spacing.small
-  },
-  imageInfoText: {
-    color: colors.text,
-    fontSize: fontSizes.medium
   },
   assetInfo: {
     marginTop: spacing.medium,
@@ -544,5 +652,11 @@ const styles = StyleSheet.create({
   audioStatusText: {
     color: colors.textSecondary,
     fontSize: fontSizes.small
+  },
+  imageCarouselWrapper: {
+    height: 200, // Fixed height for the carousel
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 8,
+    overflow: 'hidden'
   }
 });
