@@ -190,8 +190,10 @@ export default function NextGenAssetDetailView() {
     void fetchCloudAsset();
   }, [currentAssetId, isOnline]);
 
-  // Determine which asset to display
-  const activeAsset = useOfflineData ? offlineAsset : cloudAsset;
+  // Determine which asset to display with fallback logic
+  const activeAsset = useOfflineData
+    ? offlineAsset
+    : cloudAsset || offlineAsset; // Fall back to offline if cloud fails
   const isLoading = useOfflineData ? isOfflineLoading : isCloudLoading;
 
   // Collect attachment IDs for audio support
@@ -420,61 +422,79 @@ export default function NextGenAssetDetailView() {
           contentContainerStyle={styles.contentScrollViewContent}
         >
           {activeAsset.content && activeAsset.content.length > 0 ? (
-            activeAsset.content.map((content, index) => (
-              <View key={index} style={styles.contentItem}>
-                <SourceContent
-                  content={content}
-                  sourceLanguage={sourceLanguage ?? null}
-                  audioUri={
-                    content.audio_id
-                      ? (() => {
-                          const attachment = attachmentStates.get(
-                            content.audio_id
-                          );
-                          const localUri = attachment?.local_uri;
+            activeAsset.content.map((content, index) => {
+              const isPlaceholder = content.text.includes(
+                'Add source text here'
+              );
 
-                          if (!localUri) {
-                            console.log(
-                              `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                              attachment?.state
+              return (
+                <View key={index} style={styles.contentItem}>
+                  {isPlaceholder && (
+                    <View style={styles.placeholderBadge}>
+                      <Ionicons
+                        name="create-outline"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.placeholderText}>
+                        Placeholder Content
+                      </Text>
+                    </View>
+                  )}
+                  <SourceContent
+                    content={content}
+                    sourceLanguage={sourceLanguage ?? null}
+                    audioUri={
+                      content.audio_id
+                        ? (() => {
+                            const attachment = attachmentStates.get(
+                              content.audio_id
                             );
-                            return null;
-                          }
+                            const localUri = attachment?.local_uri;
 
-                          const fullUri =
-                            system.permAttachmentQueue?.getLocalUri(localUri);
-                          console.log(
-                            `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                          );
-                          return fullUri;
-                        })()
-                      : null
-                  }
-                  isLoading={isLoadingAttachments}
-                />
+                            if (!localUri) {
+                              console.log(
+                                `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                                attachment?.state
+                              );
+                              return null;
+                            }
 
-                {/* Audio status indicator */}
-                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                {SHOW_DEV_ELEMENTS && content.audio_id && (
-                  <View style={styles.audioStatusContainer}>
-                    <Ionicons
-                      name={
-                        attachmentStates.get(content.audio_id)?.local_uri
-                          ? 'volume-high'
-                          : 'volume-mute'
-                      }
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.audioStatusText}>
-                      {attachmentStates.get(content.audio_id)?.local_uri
-                        ? t('audioReady')
-                        : t('audioNotAvailable')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ))
+                            const fullUri =
+                              system.permAttachmentQueue?.getLocalUri(localUri);
+                            console.log(
+                              `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                            );
+                            return fullUri;
+                          })()
+                        : null
+                    }
+                    isLoading={isLoadingAttachments}
+                  />
+
+                  {/* Audio status indicator */}
+                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                  {SHOW_DEV_ELEMENTS && content.audio_id && (
+                    <View style={styles.audioStatusContainer}>
+                      <Ionicons
+                        name={
+                          attachmentStates.get(content.audio_id)?.local_uri
+                            ? 'volume-high'
+                            : 'volume-mute'
+                        }
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.audioStatusText}>
+                        {attachmentStates.get(content.audio_id)?.local_uri
+                          ? t('audioReady')
+                          : t('audioNotAvailable')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })
           ) : (
             <Text style={styles.noContentText}>{t('noContentAvailable')}</Text>
           )}
@@ -722,5 +742,21 @@ const styles = StyleSheet.create({
   audioStatusText: {
     color: colors.textSecondary,
     fontSize: fontSizes.small
+  },
+  placeholderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: spacing.small,
+    paddingVertical: spacing.xsmall,
+    borderRadius: 12,
+    marginBottom: spacing.small,
+    alignSelf: 'flex-start'
+  },
+  placeholderText: {
+    color: colors.primary,
+    fontSize: fontSizes.small,
+    fontWeight: '600',
+    marginLeft: spacing.xsmall
   }
 });

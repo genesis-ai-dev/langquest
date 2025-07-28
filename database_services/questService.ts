@@ -63,6 +63,24 @@ export class QuestService {
 
     return createdQuests;
   }
+
+  // Bulk insert method for better performance
+  async createQuestsBulk(questsData: CreateQuestData[]): Promise<Quest[]> {
+    if (questsData.length === 0) return [];
+
+    console.log(`createQuestsBulk inserting ${questsData.length} quests`);
+
+    // Prepare data with download_profiles
+    const questsWithProfiles = questsData.map(questData => ({
+      ...questData,
+      download_profiles: questData.creator_id ? [questData.creator_id] : []
+    }));
+
+    const createdQuests = await system.db.insert(quest).values(questsWithProfiles).returning();
+
+    console.log(`createQuestsBulk successfully created ${createdQuests.length} quests`);
+    return createdQuests;
+  }
 }
 
 export const questService = new QuestService();

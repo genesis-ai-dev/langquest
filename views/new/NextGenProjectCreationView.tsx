@@ -7,7 +7,10 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { DraftProject, DraftQuest } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import type { StructuredProjectCreationProgress } from '@/utils/structuredProjectCreator';
+import type {
+  StructuredProjectCreationProgress,
+  StructuredProjectPreparationResult
+} from '@/utils/structuredProjectCreator';
 import { structuredProjectCreator } from '@/utils/structuredProjectCreator';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -24,6 +27,7 @@ import {
 } from 'react-native';
 import { PaginatedQuestList } from './components/PaginatedQuestList';
 import { ProjectTemplateSelector } from './components/ProjectTemplateSelector';
+import { StructuredProjectConfirmationModal } from './components/StructuredProjectConfirmationModal';
 import { useSimpleHybridData } from './useHybridData';
 
 type Language = typeof language.$inferSelect;
@@ -192,6 +196,11 @@ export default function NextGenProjectCreationView() {
       total: 1,
       message: ''
     });
+
+  // Confirmation modal for structured projects
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [preparedProjectData, setPreparedProjectData] =
+    useState<StructuredProjectPreparationResult | null>(null);
 
   // Quest editing state (only for custom projects)
   const [editingQuest, setEditingQuest] = useState<DraftQuest | null>(null);
@@ -375,74 +384,154 @@ export default function NextGenProjectCreationView() {
       return;
     }
 
+    // Create project data from current form state
+    const projectData: DraftProject = {
+      id: 'temp', // Will be ignored
+      name: projectName.trim(),
+      description: projectDescription.trim() || undefined,
+      source_language_id: sourceLanguageId,
+      target_language_id: targetLanguageId,
+      private: isPrivate,
+      visible: true,
+      created_at: new Date(),
+      last_updated: new Date()
+    };
+
+    console.log(
+      `Publishing project: "${projectData.name}" (type: ${projectType})`
+    );
+
+    if (projectType === 'template' && selectedTemplateId) {
+      // Template-based project creation with confirmation
+      try {
+        console.log(
+          `Preparing structured project from template: ${selectedTemplateId}`
+        );
+
+        // Step 1: Prepare all data in memory (no database operations)
+        const preparedData =
+          structuredProjectCreator.prepareProjectFromTemplate(
+            selectedTemplateId,
+            projectData
+          );
+
+        console.log('Prepared data:', {
+          questCount: preparedData.stats.questCount,
+          assetCount: preparedData.stats.assetCount,
+          contentCount: preparedData.stats.contentCount
+        });
+
+        // Step 2: Show confirmation modal
+        setPreparedProjectData(preparedData);
+        setShowConfirmationModal(true);
+      } catch (error) {
+        console.error('Error preparing project:', error);
+        Alert.alert(
+          'Preparation Error',
+          `Failed to prepare project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    } else {
+      // Custom project creation (no confirmation needed)
+      await handleCustomProjectCreation(projectData);
+    }
+  };
+
+  const handleConfirmStructuredProject = async () => {
+    if (!currentUser || !preparedProjectData) return;
+
     setIsPublishing(true);
+    setShowConfirmationModal(false);
 
     try {
       const projectData: DraftProject = {
-        id: 'temp', // Will be ignored
+        id: 'temp',
         name: projectName.trim(),
         description: projectDescription.trim() || undefined,
-        source_language_id: sourceLanguageId,
-        target_language_id: targetLanguageId,
+        source_language_id: sourceLanguageId!,
+        target_language_id: targetLanguageId!,
         private: isPrivate,
         visible: true,
         created_at: new Date(),
         last_updated: new Date()
       };
 
-      if (projectType === 'template' && selectedTemplateId) {
-        // Create structured project from template
-        console.log(
-          `Creating structured project from template: ${selectedTemplateId}`
-        );
+      console.log('Creating structured project from prepared data');
 
-        const result = await structuredProjectCreator.createProjectFromTemplate(
-          selectedTemplateId,
-          projectData,
-          currentUser.id,
-          (progress) => setCreationProgress(progress)
-        );
+      const result = await structuredProjectCreator.createFromPreparedData(
+        projectData,
+        currentUser.id,
+        preparedProjectData,
+        (progress) => setCreationProgress(progress)
+      );
 
-        Alert.alert(
-          'Project Created!',
-          `Successfully created "${result.project.name}" with ${result.quests.length} quests and ${result.assets.length} assets from template.`,
-          [{ text: 'OK', onPress: () => goBack() }]
-        );
-      } else {
-        // Create custom project with manual quests
-        console.log('Creating custom project:', projectData);
-        console.log('With quests:', draftQuests);
+      console.log(
+        `Template project created successfully: ${result.project.id}`
+      );
 
-        // 1. Create the project in the database
-        const newProject = await projectService.createProjectFromDraft(
-          projectData,
+      Alert.alert(
+        'Project Created!',
+        `Successfully created "${result.project.name}" with ${result.quests.length} quests and ${result.assets.length} assets from template.`,
+        [{ text: 'OK', onPress: () => goBack() }]
+      );
+    } catch (error) {
+      console.error('Error creating structured project:', error);
+      Alert.alert(
+        'Creation Error',
+        `Failed to create structured project: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsPublishing(false);
+      setPreparedProjectData(null);
+    }
+  };
+
+  const handleCancelStructuredProject = () => {
+    setShowConfirmationModal(false);
+    setPreparedProjectData(null);
+    console.log('User cancelled structured project creation');
+  };
+
+  const handleCustomProjectCreation = async (projectData: DraftProject) => {
+    if (!currentUser) return;
+
+    setIsPublishing(true);
+
+    try {
+      // Custom project creation with manual quests
+      console.log('Creating custom project:', projectData);
+      console.log('With quests:', draftQuests);
+
+      // 1. Create the project in the database
+      const newProject = await projectService.createProjectFromDraft(
+        projectData,
+        currentUser.id
+      );
+
+      console.log('Custom project created:', newProject.id);
+
+      // 2. Create all associated quests
+      let createdQuests: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (draftQuests.length > 0) {
+        createdQuests = await questService.createMultipleQuestsFromDrafts(
+          draftQuests,
+          newProject.id,
           currentUser.id
         );
-
-        console.log('Created project:', newProject);
-
-        // 2. Create all associated quests
-        let createdQuests: any[] = [];
-        if (draftQuests.length > 0) {
-          createdQuests = await questService.createMultipleQuestsFromDrafts(
-            draftQuests,
-            newProject.id,
-            currentUser.id
-          );
-          console.log('Created quests:', createdQuests);
-        }
-
-        // 3. Remove from draft state once confirmed
-        if (draftProjectId) {
-          removeDraftProject(draftProjectId);
-        }
-
-        Alert.alert(
-          'Project Published!',
-          `Successfully published "${newProject.name}" with ${createdQuests.length} quest${createdQuests.length !== 1 ? 's' : ''}.`,
-          [{ text: 'OK', onPress: () => goBack() }]
-        );
+        console.log('Created quests:', createdQuests.length);
       }
+
+      // 3. Clean up draft state
+      if (draftProjectId) {
+        console.log('Cleaning up draft project:', draftProjectId);
+        removeDraftProject(draftProjectId);
+      }
+
+      Alert.alert(
+        'Project Published!',
+        `Successfully published "${newProject.name}" with ${createdQuests.length} quest${createdQuests.length !== 1 ? 's' : ''}.`,
+        [{ text: 'OK', onPress: () => goBack() }]
+      );
     } catch (error) {
       console.error('Error publishing project:', error);
       Alert.alert(
@@ -474,6 +563,18 @@ export default function NextGenProjectCreationView() {
       setDraftProjectId(existingDrafts[0].id);
     }
   }, [draftProjects, projectName, draftProjectId]);
+
+  // Clean up draft project when switching to template mode
+  React.useEffect(() => {
+    if (projectType === 'template' && draftProjectId) {
+      console.log(
+        'Switching to template mode - cleaning up draft project:',
+        draftProjectId
+      );
+      removeDraftProject(draftProjectId);
+      setDraftProjectId(null);
+    }
+  }, [projectType, draftProjectId, removeDraftProject]);
 
   if (isLanguagesLoading) {
     return (
@@ -734,6 +835,16 @@ export default function NextGenProjectCreationView() {
       <ProgressModal
         visible={isPublishing && projectType === 'template'}
         progress={creationProgress}
+      />
+
+      {/* Confirmation Modal for Structured Project Creation */}
+      <StructuredProjectConfirmationModal
+        visible={showConfirmationModal}
+        projectName={projectName}
+        preparedData={preparedProjectData}
+        onConfirm={handleConfirmStructuredProject}
+        onCancel={handleCancelStructuredProject}
+        isLoading={isPublishing}
       />
     </KeyboardAvoidingView>
   );

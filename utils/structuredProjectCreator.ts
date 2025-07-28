@@ -1,3 +1,4 @@
+import type { AssetTemplate } from '@/database_services/assetService';
 import { assetService } from '@/database_services/assetService';
 import { projectService } from '@/database_services/projectService';
 import { questService } from '@/database_services/questService';
@@ -5,10 +6,22 @@ import type { DraftProject } from '@/store/localStore';
 import { getTemplateById } from './projectTemplates';
 
 export interface StructuredProjectCreationResult {
-    project: any; // eslint-disable-line @typescript-eslint/no-explicit-any -- Project type from service
-    quests: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any -- Quest type from service
-    assets: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any -- Asset type from service
+    project: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    quests: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+    assets: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
     totalItems: number;
+}
+
+export interface StructuredProjectPreparationResult {
+    template: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    questsData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+    assetsData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+    assetContentData: { asset_id: string; text: string; creatorId: string }[];
+    stats: {
+        questCount: number;
+        assetCount: number;
+        contentCount: number;
+    };
 }
 
 export interface StructuredProjectCreationProgress {
@@ -27,136 +40,408 @@ export class StructuredProjectCreator {
         creatorId: string,
         onProgress?: ProgressCallback
     ): Promise<StructuredProjectCreationResult> {
-        // Get template
         const template = getTemplateById(templateId);
         if (!template) {
-            throw new Error(`Template with ID "${templateId}" not found`);
+            throw new Error(`Template with ID '${templateId}' not found`);
         }
 
         console.log(`Creating structured project from template: ${template.name}`);
 
-        // Step 1: Create the project
-        onProgress?.({
-            stage: 'project',
-            current: 0,
-            total: 1,
-            message: 'Creating project...'
-        });
-
-        const project = await projectService.createProjectFromDraft(draftProject, creatorId);
-        console.log('Created project:', project);
-
-        onProgress?.({
-            stage: 'project',
-            current: 1,
-            total: 1,
-            message: 'Project created successfully'
-        });
-
-        // Step 2: Generate quest templates
-        const questTemplates = template.createQuests(draftProject.source_language_id);
-        console.log(`Generated ${questTemplates.length} quest templates`);
-
-        // Step 3: Create quests in batches
-        onProgress?.({
-            stage: 'quests',
-            current: 0,
-            total: questTemplates.length,
-            message: 'Creating quests...'
-        });
-
-        const createdQuests = [];
-        const QUEST_BATCH_SIZE = 10; // Process quests in batches
-
-        for (let i = 0; i < questTemplates.length; i += QUEST_BATCH_SIZE) {
-            const batch = questTemplates.slice(i, i + QUEST_BATCH_SIZE);
-
-            const batchPromises = batch.map(async (questTemplate) => {
-                return await questService.createQuestFromDraft(
-                    {
-                        project_id: project.id, // This will be ignored, but needed for type
-                        name: questTemplate.name,
-                        description: questTemplate.description,
-                        visible: questTemplate.visible,
-                        id: '', // Will be generated
-                        created_at: new Date(),
-                        last_updated: new Date()
-                    },
-                    project.id,
-                    creatorId
-                );
+        try {
+            // Step 1: Create the project
+            onProgress?.({
+                stage: 'project',
+                current: 0,
+                total: 1,
+                message: 'Creating project...'
             });
 
-            const batchResults = await Promise.all(batchPromises);
-            createdQuests.push(...batchResults);
+            const project = await projectService.createProjectFromDraft(draftProject, creatorId);
+
+            onProgress?.({
+                stage: 'project',
+                current: 1,
+                total: 1,
+                message: 'Project created successfully'
+            });
+
+            // Step 2: Generate all quest data in memory
+            onProgress?.({
+                stage: 'quests',
+                current: 0,
+                total: 1,
+                message: 'Generating quest data...'
+            });
+
+            const questTemplates = template.createQuests(draftProject.source_language_id);
+            console.log(`Generated ${questTemplates.length} quest templates`);
+
+            // Prepare quest data for bulk insert
+            const questsData = questTemplates.map(questTemplate => ({
+                name: questTemplate.name,
+                description: questTemplate.description,
+                project_id: project.id,
+                creator_id: creatorId,
+                visible: questTemplate.visible
+            }));
+
+            // Step 3: Bulk insert all quests at once
+            onProgress?.({
+                stage: 'quests',
+                current: 0,
+                total: questsData.length,
+                message: `Creating ${questsData.length} quests...`
+            });
+
+            const createdQuests = await questService.createQuestsBulk(questsData);
 
             onProgress?.({
                 stage: 'quests',
-                current: Math.min(i + QUEST_BATCH_SIZE, questTemplates.length),
-                total: questTemplates.length,
-                message: `Created ${Math.min(i + QUEST_BATCH_SIZE, questTemplates.length)} of ${questTemplates.length} quests`
+                current: createdQuests.length,
+                total: questsData.length,
+                message: `Created ${createdQuests.length} quests`
             });
-        }
 
-        console.log(`Created ${createdQuests.length} quests`);
+            // Step 4: Generate all asset data in memory
+            onProgress?.({
+                stage: 'assets',
+                current: 0,
+                total: 1,
+                message: 'Generating asset data...'
+            });
 
-        // Step 4: Create assets for each quest
-        onProgress?.({
-            stage: 'assets',
-            current: 0,
-            total: createdQuests.length,
-            message: 'Creating assets...'
-        });
+            const allAssetTemplates: { template: AssetTemplate; questId: string }[] = [];
 
-        const allAssets = [];
-        const ASSET_BATCH_SIZE = 5; // Smaller batches for assets since there are many per quest
+            // Generate asset templates for each quest
+            for (let i = 0; i < questTemplates.length; i++) {
+                const questTemplate = questTemplates[i];
+                const createdQuest = createdQuests[i];
 
-        for (let questIndex = 0; questIndex < createdQuests.length; questIndex++) {
-            const quest = createdQuests[questIndex];
-            if (!quest) continue; // Safety check
+                if (!questTemplate || !createdQuest) continue;
 
-            // Generate asset templates for this quest
-            const assetTemplates = template.createAssets(
-                draftProject.source_language_id,
-                quest.id,
-                quest.name
-            );
-
-            // Create assets in batches
-            for (let i = 0; i < assetTemplates.length; i += ASSET_BATCH_SIZE) {
-                const batch = assetTemplates.slice(i, i + ASSET_BATCH_SIZE);
-
-                const batchAssets = await assetService.createMultipleAssetsFromTemplates(
-                    batch,
-                    creatorId
+                const assetTemplates = template.createAssets(
+                    draftProject.source_language_id,
+                    createdQuest.id,
+                    questTemplate.name
                 );
 
-                allAssets.push(...batchAssets);
+                for (const assetTemplate of assetTemplates) {
+                    allAssetTemplates.push({ template: assetTemplate, questId: createdQuest.id });
+                }
             }
+
+            console.log(`Generated ${allAssetTemplates.length} asset templates`);
+
+            // Prepare asset data for bulk insert (without quest_id)
+            const assetsData = allAssetTemplates.map(({ template }) => ({
+                name: template.name,
+                source_language_id: template.source_language_id,
+                creator_id: creatorId,
+                visible: template.visible ?? true,
+                images: template.images
+            }));
+
+            // Step 5: Bulk insert all assets at once
+            onProgress?.({
+                stage: 'assets',
+                current: 0,
+                total: assetsData.length,
+                message: `Creating ${assetsData.length} assets...`
+            });
+
+            const createdAssets = await assetService.createAssetsBulk(assetsData);
 
             onProgress?.({
                 stage: 'assets',
-                current: questIndex + 1,
-                total: createdQuests.length,
-                message: `Created assets for quest ${questIndex + 1} of ${createdQuests.length} (${allAssets.length} total assets)`
+                current: createdAssets.length,
+                total: assetsData.length,
+                message: `Created ${createdAssets.length} assets`
             });
+
+            // Step 5.5: Create quest-asset links
+            const questAssetLinks = allAssetTemplates.map(({ questId }, index) => ({
+                quest_id: questId,
+                asset_id: createdAssets[index]!.id,
+                creatorId
+            }));
+
+            await assetService.createQuestAssetLinksBulk(questAssetLinks);
+            console.log(`Created ${questAssetLinks.length} quest-asset links`);
+
+            // Step 6: Prepare asset content data
+            const assetContentData = [];
+            for (let i = 0; i < allAssetTemplates.length; i++) {
+                const assetTemplate = allAssetTemplates[i];
+                const createdAsset = createdAssets[i];
+
+                if (!assetTemplate || !createdAsset || !assetTemplate.template.text_content) continue;
+
+                assetContentData.push({
+                    asset_id: createdAsset.id,
+                    text: assetTemplate.template.text_content,
+                    creatorId
+                });
+            }
+
+            // Step 7: Bulk insert all asset content
+            if (assetContentData.length > 0) {
+                onProgress?.({
+                    stage: 'assets',
+                    current: createdAssets.length,
+                    total: createdAssets.length + assetContentData.length,
+                    message: `Creating ${assetContentData.length} asset contents...`
+                });
+
+                await assetService.createAssetContentBulk(assetContentData);
+
+                onProgress?.({
+                    stage: 'assets',
+                    current: createdAssets.length + assetContentData.length,
+                    total: createdAssets.length + assetContentData.length,
+                    message: `Created ${assetContentData.length} asset contents`
+                });
+            }
+
+            console.log(`Successfully created structured project: ${project.name} with ${createdQuests.length} quests and ${createdAssets.length} assets`);
+
+            return {
+                project,
+                quests: createdQuests,
+                assets: createdAssets,
+                totalItems: 1 + createdQuests.length + createdAssets.length
+            };
+
+        } catch (error) {
+            console.error('Error creating structured project:', error);
+            throw new Error(`Failed to create structured project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    // Prepare all data in memory for confirmation (no database operations)
+    prepareProjectFromTemplate(
+        templateId: string,
+        draftProject: DraftProject
+    ): StructuredProjectPreparationResult {
+        const template = getTemplateById(templateId);
+        if (!template) {
+            throw new Error(`Template with ID '${templateId}' not found`);
         }
 
-        console.log(`Created ${allAssets.length} assets total`);
+        console.log(`Preparing structured project from template: ${template.name}`);
 
-        onProgress?.({
-            stage: 'complete',
-            current: 1,
-            total: 1,
-            message: `Successfully created ${template.name} project with ${createdQuests.length} quests and ${allAssets.length} assets`
-        });
+        // Step 1: Generate quest templates
+        const questTemplates = template.createQuests(draftProject.source_language_id);
+        console.log(`Generated ${questTemplates.length} quest templates`);
+
+        // Step 2: Prepare quest data for bulk insert
+        const questsData = questTemplates.map(questTemplate => ({
+            name: questTemplate.name,
+            description: questTemplate.description,
+            project_id: 'PLACEHOLDER', // Will be replaced with actual project ID
+            creator_id: 'PLACEHOLDER', // Will be replaced with actual creator ID
+            visible: questTemplate.visible
+        }));
+
+        // Step 3: Generate asset templates for each quest
+        const allAssetTemplates: { template: AssetTemplate; questIndex: number }[] = [];
+
+        for (let i = 0; i < questTemplates.length; i++) {
+            const questTemplate = questTemplates[i];
+            if (!questTemplate) continue;
+
+            const assetTemplates = template.createAssets(
+                draftProject.source_language_id,
+                'PLACEHOLDER', // Quest ID placeholder
+                questTemplate.name
+            );
+
+            for (const assetTemplate of assetTemplates) {
+                allAssetTemplates.push({ template: assetTemplate, questIndex: i });
+            }
+        }
+
+        console.log(`Generated ${allAssetTemplates.length} asset templates`);
+
+        // Step 4: Prepare asset data for bulk insert (without quest_id)
+        const assetsData = allAssetTemplates.map(({ template }) => ({
+            name: template.name,
+            source_language_id: template.source_language_id,
+            creator_id: 'PLACEHOLDER', // Will be replaced with actual creator ID
+            visible: template.visible ?? true,
+            images: template.images
+        }));
+
+        // Step 5: Prepare asset content data
+        const assetContentData = allAssetTemplates
+            .filter(({ template }) => template.text_content)
+            .map(({ template }) => ({
+                asset_id: 'PLACEHOLDER', // Will be replaced with actual asset ID
+                text: template.text_content!,
+                creatorId: 'PLACEHOLDER' // Will be replaced with actual creator ID
+            }));
 
         return {
-            project,
-            quests: createdQuests,
-            assets: allAssets,
-            totalItems: 1 + createdQuests.length + allAssets.length
+            template,
+            questsData,
+            assetsData,
+            assetContentData,
+            stats: {
+                questCount: questsData.length,
+                assetCount: assetsData.length,
+                contentCount: assetContentData.length
+            }
         };
+    }
+
+    // Execute the actual database inserts using prepared data
+    async createFromPreparedData(
+        draftProject: DraftProject,
+        creatorId: string,
+        preparedData: StructuredProjectPreparationResult,
+        onProgress?: ProgressCallback
+    ): Promise<StructuredProjectCreationResult> {
+        console.log(`Creating structured project from prepared data: ${draftProject.name}`);
+
+        try {
+            // Step 1: Create the project
+            onProgress?.({
+                stage: 'project',
+                current: 0,
+                total: 1,
+                message: 'Creating project...'
+            });
+
+            const project = await projectService.createProjectFromDraft(draftProject, creatorId);
+
+            onProgress?.({
+                stage: 'project',
+                current: 1,
+                total: 1,
+                message: 'Project created successfully'
+            });
+
+            // Step 2: Replace placeholders in quest data and bulk insert
+            onProgress?.({
+                stage: 'quests',
+                current: 0,
+                total: preparedData.questsData.length,
+                message: `Creating ${preparedData.questsData.length} quests...`
+            });
+
+            const questsDataWithIds = preparedData.questsData.map(questData => ({
+                ...questData,
+                project_id: project.id,
+                creator_id: creatorId
+            }));
+
+            const createdQuests = await questService.createQuestsBulk(questsDataWithIds);
+
+            onProgress?.({
+                stage: 'quests',
+                current: createdQuests.length,
+                total: preparedData.questsData.length,
+                message: `Created ${createdQuests.length} quests`
+            });
+
+            // Step 3: Replace placeholders in asset data and bulk insert
+            onProgress?.({
+                stage: 'assets',
+                current: 0,
+                total: preparedData.assetsData.length,
+                message: `Creating ${preparedData.assetsData.length} assets...`
+            });
+
+            const assetsDataWithIds = preparedData.assetsData.map(assetData => ({
+                ...assetData,
+                creator_id: creatorId
+            }));
+
+            const createdAssets = await assetService.createAssetsBulk(assetsDataWithIds);
+
+            onProgress?.({
+                stage: 'assets',
+                current: createdAssets.length,
+                total: preparedData.assetsData.length,
+                message: `Created ${createdAssets.length} assets`
+            });
+
+            // Step 3.5: Create quest-asset links
+            // The quest-asset mapping needs to be reconstructed from the template structure
+            // For now, we'll recreate the mapping using the same logic as the original template
+            const questAssetLinks: { quest_id: string; asset_id: string; creatorId: string }[] = [];
+            let assetIndex = 0;
+
+            // Recreate the same structure as in prepareProjectFromTemplate
+            for (let questIndex = 0; questIndex < preparedData.questsData.length; questIndex++) {
+                const quest = createdQuests[questIndex];
+                if (!quest) continue;
+
+                // Get the quest name to determine how many assets it should have
+                const questTemplate = preparedData.questsData[questIndex];
+                if (!questTemplate) continue;
+
+                const questName = questTemplate.name;
+                const assetTemplates = preparedData.template.createAssets(
+                    draftProject.source_language_id,
+                    'placeholder',
+                    questName
+                );
+
+                // Link each asset in this quest
+                for (let i = 0; i < assetTemplates.length; i++) {
+                    const asset = createdAssets[assetIndex];
+                    if (asset) {
+                        questAssetLinks.push({
+                            quest_id: quest.id,
+                            asset_id: asset.id,
+                            creatorId
+                        });
+                    }
+                    assetIndex++;
+                }
+            }
+
+            await assetService.createQuestAssetLinksBulk(questAssetLinks);
+            console.log(`Created ${questAssetLinks.length} quest-asset links`);
+
+            // Step 4: Replace placeholders in content data and bulk insert
+            if (preparedData.assetContentData.length > 0) {
+                onProgress?.({
+                    stage: 'assets',
+                    current: createdAssets.length,
+                    total: createdAssets.length + preparedData.assetContentData.length,
+                    message: `Creating ${preparedData.assetContentData.length} asset contents...`
+                });
+
+                const contentDataWithIds = preparedData.assetContentData.map((contentData, index) => ({
+                    ...contentData,
+                    asset_id: createdAssets[index]?.id || '',
+                    creatorId: creatorId
+                }));
+
+                await assetService.createAssetContentBulk(contentDataWithIds);
+
+                onProgress?.({
+                    stage: 'assets',
+                    current: createdAssets.length + preparedData.assetContentData.length,
+                    total: createdAssets.length + preparedData.assetContentData.length,
+                    message: `Created ${preparedData.assetContentData.length} asset contents`
+                });
+            }
+
+            console.log(`Successfully created structured project: ${project.name} with ${createdQuests.length} quests and ${createdAssets.length} assets`);
+
+            return {
+                project,
+                quests: createdQuests,
+                assets: createdAssets,
+                totalItems: 1 + createdQuests.length + createdAssets.length
+            };
+
+        } catch (error) {
+            console.error('Error creating structured project:', error);
+            throw new Error(`Failed to create structured project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 
     estimateCreationTime(templateId: string): {
@@ -169,13 +454,8 @@ export class StructuredProjectCreator {
             throw new Error(`Template with ID "${templateId}" not found`);
         }
 
-        // Rough estimates based on database operations
-        const questCreationTimeMs = 50; // ~50ms per quest
-        const assetCreationTimeMs = 100; // ~100ms per asset (includes content)
-
-        const totalTimeMs =
-            (template.questCount * questCreationTimeMs) +
-            (template.assetCount * assetCreationTimeMs);
+        // With bulk inserts, this should be much faster - just a few seconds
+        const totalTimeMs = 5000; // ~5 seconds for bulk operations
 
         return {
             questCount: template.questCount,
@@ -185,4 +465,4 @@ export class StructuredProjectCreator {
     }
 }
 
-export const structuredProjectCreator = new StructuredProjectCreator(); 
+export const structuredProjectCreator = new StructuredProjectCreator();
