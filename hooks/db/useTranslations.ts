@@ -11,7 +11,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { useEffect } from 'react';
 import {
   convertToSupabaseFetchConfig,
@@ -819,10 +819,12 @@ function getTranslationsWithAudioByAssetIdConfig(asset_id: string) {
   return createHybridSupabaseQueryConfig({
     queryKey: ['translations-with-audio', 'by-asset', asset_id],
     query: system.db.query.translation.findMany({
-      where: and(
-        eq(translation.asset_id, asset_id),
-        isNotNull(translation.audio)
-      )
+      where: eq(translation.asset_id, asset_id),
+      with: {
+        audio_segments: {
+          orderBy: (segments, { asc }) => [asc(segments.sequence_index)]
+        }
+      }
     }),
     enabled: !!asset_id
   });
@@ -861,10 +863,12 @@ function getTranslationsWithAudioByAssetIdsConfig(asset_ids: string[]) {
       return data;
     },
     offlineQuery: system.db.query.translation.findMany({
-      where: and(
-        inArray(translation.asset_id, asset_ids),
-        isNotNull(translation.audio)
-      )
+      where: inArray(translation.asset_id, asset_ids),
+      with: {
+        audio_segments: {
+          orderBy: (segments, { asc }) => [asc(segments.sequence_index)]
+        }
+      }
     }),
     enabled: !!asset_ids.length
   });

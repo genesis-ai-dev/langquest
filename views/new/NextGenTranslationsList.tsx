@@ -179,8 +179,10 @@ export default function NextGenTranslationsList({
   // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
     return translationsWithVotes
-      .filter((trans) => trans.audio)
-      .map((trans) => trans.audio!)
+      .filter((trans: any) => trans.audio_segments?.length > 0)
+      .flatMap((trans: any) =>
+        trans.audio_segments!.map((segment: any) => segment.audio_url)
+      )
       .filter(Boolean);
   }, [translationsWithVotes]);
 
@@ -204,9 +206,10 @@ export default function NextGenTranslationsList({
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
-  const getAudioUri = (translation: TranslationWithVotes) => {
-    if (!translation.audio) return undefined;
-    const localUri = attachmentStates.get(translation.audio)?.local_uri;
+  const getAudioUri = (translation: any) => {
+    if (!translation.audio_segments?.length) return undefined;
+    const firstSegment = translation.audio_segments[0];
+    const localUri = attachmentStates.get(firstSegment.audio_url)?.local_uri;
     return localUri
       ? system.permAttachmentQueue?.getLocalUri(localUri)
       : undefined;
@@ -348,26 +351,40 @@ export default function NextGenTranslationsList({
                     <Text style={styles.translationPreview} numberOfLines={2}>
                       {getPreviewText(trans.text || '')}
                     </Text>
-                    {trans.audio && (
-                      <Ionicons
-                        name="volume-high"
-                        size={16}
-                        color={colors.primary}
-                        style={styles.audioIcon}
-                      />
+                    {(trans as any).audio_segments?.length > 0 && (
+                      <View style={styles.audioIndicator}>
+                        <Ionicons
+                          name="volume-high"
+                          size={16}
+                          color={colors.primary}
+                          style={styles.audioIcon}
+                        />
+                        {(trans as any).audio_segments.length > 1 && (
+                          <Text style={styles.segmentCount}>
+                            {(trans as any).audio_segments.length}
+                          </Text>
+                        )}
+                      </View>
                     )}
                   </View>
 
-                  {/* Audio Player */}
-                  {trans.audio && getAudioUri(trans) && (
-                    <View style={styles.audioPlayerContainer}>
-                      <AudioPlayer
-                        audioUri={getAudioUri(trans)}
-                        useCarousel={false}
-                        mini={true}
-                      />
-                    </View>
-                  )}
+                  {/* Audio Player - show first segment */}
+                  {(trans as any).audio_segments?.length > 0 &&
+                    getAudioUri(trans) && (
+                      <View style={styles.audioPlayerContainer}>
+                        <AudioPlayer
+                          audioUri={getAudioUri(trans)}
+                          useCarousel={false}
+                          mini={true}
+                        />
+                        {(trans as any).audio_segments.length > 1 && (
+                          <Text style={styles.multiSegmentNote}>
+                            +{(trans as any).audio_segments.length - 1} more
+                            segments
+                          </Text>
+                        )}
+                      </View>
+                    )}
 
                   {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
                   {SHOW_DEV_ELEMENTS && (
@@ -582,6 +599,22 @@ const styles = StyleSheet.create({
   audioIcon: {
     marginLeft: spacing.small,
     marginTop: 2
+  },
+  audioIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.small,
+    marginTop: 2
+  },
+  segmentCount: {
+    fontSize: fontSizes.xsmall,
+    color: colors.textSecondary,
+    marginLeft: spacing.xsmall
+  },
+  multiSegmentNote: {
+    fontSize: fontSizes.xsmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xsmall
   },
   audioPlayerContainer: {
     marginVertical: spacing.small,

@@ -133,8 +133,10 @@ export default function AssetDetailView() {
       .filter(Boolean);
 
     const translationAudioIds = translationsWithVotesAndLanguage
-      .filter((translation) => translation.audio)
-      .map((translation) => translation.audio)
+      .filter((translation: any) => translation.audio_segments?.length > 0)
+      .flatMap((translation: any) =>
+        translation.audio_segments!.map((segment: any) => segment.audio_url)
+      )
       .filter(Boolean);
 
     return [contentAudioIds, asset.images ?? [], translationAudioIds].flat();
@@ -206,7 +208,7 @@ export default function AssetDetailView() {
     }
     const gemColor = getGemColor(translation, votes, currentUser.id);
 
-    const translationHasAudio = !!translation.audio;
+    const translationHasAudio = !!(translation as any).audio_segments?.length;
     const audioIconOpacity = translationHasAudio ? 1 : 0.5;
 
     const translationHasText = !!translation.text;

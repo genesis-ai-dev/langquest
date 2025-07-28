@@ -66,9 +66,11 @@ export async function calculateTotalAttachments(assetIds: string[]) {
 
       const translationAudioIds = translations
         ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
+          (translation: any) => translation.audio_segments?.length > 0
         )
-        .map((translation) => translation.audio!);
+        .flatMap((translation: any) =>
+          translation.audio_segments!.map((segment: any) => segment.audio_url)
+        );
 
       if (translationAudioIds) {
         totalAttachments += translationAudioIds.length;
@@ -123,9 +125,11 @@ export async function getAssetAttachmentIds(
     if (translationResult.status === 'fulfilled') {
       const translationAudioIds = translationResult.value
         ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
+          (translation: any) => translation.audio_segments?.length > 0
         )
-        .map((translation) => translation.audio!);
+        .flatMap((translation: any) =>
+          translation.audio_segments!.map((segment: any) => segment.audio_url)
+        );
       if (translationAudioIds) {
         attachmentIds.push(...translationAudioIds);
       }

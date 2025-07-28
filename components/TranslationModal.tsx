@@ -69,31 +69,57 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
     0;
 
   const { data: audioUriData, isLoading: loadingAudio } = useHybridQuery({
-    queryKey: ['audio', translation?.audio],
+    queryKey: ['audio-segments', translation?.id],
     onlineFn: async () => {
-      if (!translation?.audio) return [];
+      if (!translation?.audio_segments?.length) return [];
       try {
-        const uri = await getLocalUriFromAssetId(translation.audio);
-        return uri ? [{ uri }] : [];
+        const uriPromises = translation.audio_segments.map(
+          async (segment: any) => {
+            const uri = await getLocalUriFromAssetId(segment.audio_url);
+            return uri
+              ? {
+                  id: segment.id,
+                  uri,
+                  sequence: segment.sequence_index,
+                  audio_url: segment.audio_url
+                }
+              : null;
+          }
+        );
+        const results = await Promise.all(uriPromises);
+        return results.filter(Boolean).sort((a, b) => a.sequence - b.sequence);
       } catch (error) {
-        console.error('Error loading audio URI:', error);
+        console.error('Error loading audio segment URIs:', error);
         return [];
       }
     },
     offlineFn: async () => {
-      if (!translation?.audio) return [];
+      if (!translation?.audio_segments?.length) return [];
       try {
-        const uri = await getLocalUriFromAssetId(translation.audio);
-        return uri ? [{ uri }] : [];
+        const uriPromises = translation.audio_segments.map(
+          async (segment: any) => {
+            const uri = await getLocalUriFromAssetId(segment.audio_url);
+            return uri
+              ? {
+                  id: segment.id,
+                  uri,
+                  sequence: segment.sequence_index,
+                  audio_url: segment.audio_url
+                }
+              : null;
+          }
+        );
+        const results = await Promise.all(uriPromises);
+        return results.filter(Boolean).sort((a, b) => a.sequence - b.sequence);
       } catch (error) {
-        console.error('Error loading audio URI:', error);
+        console.error('Error loading audio segment URIs:', error);
         return [];
       }
     },
-    enabled: !!translation?.audio
+    enabled: !!translation?.audio_segments?.length
   });
 
-  const audioUri = audioUriData?.[0]?.uri || null;
+  const audioSegments = audioUriData || [];
 
   const { projectInfo } = useTranslationProjectInfo(translation?.asset_id);
   const project = projectInfo?.quest.project;
@@ -190,7 +216,10 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         target_language_id: translation.target_language_id,
         asset_id: translation.asset_id,
         creator_id: currentUser.id,
-        audio: translation.audio ?? ''
+        audio_urls:
+          translation.audio_segments?.map(
+            (segment: any) => segment.audio_url
+          ) || []
       });
     },
     onSuccess: () => {
@@ -288,16 +317,22 @@ export const TranslationModal: React.FC<TranslationModalProps> = ({
         <View style={styles.audioPlayerContainer}>
           {loadingAudio ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            translation.audio &&
-            audioUri && (
-              <AudioPlayer
-                audioUri={audioUri}
-                useCarousel={false}
-                mini={true}
-              />
-            )
-          )}
+          ) : audioSegments.length > 0 ? (
+            <View style={styles.audioSegmentsContainer}>
+              {audioSegments.map((audioData: any, index: number) => (
+                <View key={audioData.id} style={styles.audioSegmentWrapper}>
+                  <AudioPlayer
+                    audioUri={audioData.uri}
+                    useCarousel={false}
+                    mini={true}
+                  />
+                  {audioSegments.length > 1 && (
+                    <Text style={styles.segmentLabel}>Segment {index + 1}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
         {isEditing ? (
           <TouchableOpacity
@@ -507,6 +542,25 @@ const styles = StyleSheet.create({
   audioPlayerContainer: {
     marginTop: spacing.medium,
     marginBottom: spacing.medium
+  },
+  audioSegmentsContainer: {
+    flexDirection: 'column',
+    gap: spacing.small
+  },
+  audioSegmentWrapper: {
+    marginBottom: spacing.small,
+    position: 'relative'
+  },
+  segmentLabel: {
+    position: 'absolute',
+    top: -spacing.xsmall,
+    left: spacing.small,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.xsmall,
+    borderRadius: borderRadius.small,
+    fontSize: fontSizes.small,
+    color: colors.textSecondary,
+    zIndex: 1
   },
   actionsContainer: {
     flexDirection: 'row',

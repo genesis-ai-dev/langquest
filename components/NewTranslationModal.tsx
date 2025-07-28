@@ -94,7 +94,7 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
         target_language_id: activeProject.target_language_id,
         asset_id,
         creator_id: currentUser.id,
-        audio: audioAttachment ?? ''
+        audio_urls: audioAttachment ? [audioAttachment] : undefined
       });
 
       setTranslationText('');

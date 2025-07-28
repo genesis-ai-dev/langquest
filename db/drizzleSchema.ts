@@ -267,7 +267,6 @@ export const translation = sqliteTable(
       .notNull()
       .references(() => language.id),
     text: text(),
-    audio: text(),
     creator_id: text()
       .notNull()
       .references(() => profile.id),
@@ -294,7 +293,30 @@ export const translationRelations = relations(translation, ({ one, many }) => ({
     references: [profile.id]
   }),
   votes: many(vote),
-  reports: many(reports, { relationName: 'translation_reports' })
+  reports: many(reports, { relationName: 'translation_reports' }),
+  audio_segments: many(translation_audio_link)
+}));
+
+export const translation_audio_link = sqliteTable(
+  'translation_audio_link',
+  {
+    ...baseColumns,
+    translation_id: text().notNull().references(() => translation.id),
+    audio_url: text().notNull(),
+    sequence_index: int().notNull(), // For ordering segments
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
+  },
+  (t) => [
+    index('translation_id_idx').on(t.translation_id),
+    index('translation_audio_sequence_idx').on(t.translation_id, t.sequence_index)
+  ]
+);
+
+export const translation_audio_linkRelations = relations(translation_audio_link, ({ one }) => ({
+  translation: one(translation, {
+    fields: [translation_audio_link.translation_id],
+    references: [translation.id]
+  })
 }));
 
 export const reports = sqliteTable(
@@ -631,6 +653,7 @@ export const quest_closure = sqliteTable(
     // ID Arrays (for bulk downloads)
     asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    translation_audio_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
@@ -678,6 +701,7 @@ export const project_closure = sqliteTable(
     // ID Arrays (for bulk downloads - aggregated from all quest closures)
     asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
+    translation_audio_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
     language_ids: text({ mode: 'json' }).$type<string[]>().default([]),

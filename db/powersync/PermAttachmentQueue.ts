@@ -88,8 +88,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
                 isNotNull(asset_content_link.audio_id)
             }),
             this.db.query.translation.findMany({
-              columns: { audio: true },
-              where: (translation) => isNotNull(translation.audio)
+              with: {
+                audio_segments: {
+                  columns: { audio_url: true },
+                  orderBy: (segments, { asc }) => [asc(segments.sequence_index)]
+                }
+              }
             })
           ]);
 
@@ -98,8 +102,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           const contentLinkAudioIds = assetContentLinks.map(
             (link) => link.audio_id!
           );
-          const translationAudioIds = translations.map(
-            (translation) => translation.audio!
+          const translationAudioIds = translations.flatMap(
+            (translation: any) =>
+              translation.audio_segments?.map((segment: any) => segment.audio_url) || []
           );
 
           // Merge and deduplicate
@@ -176,8 +181,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       // Watch for changes in translation audio - trigger debounced refresh
       this.db.watch(
         this.db.query.translation.findMany({
-          columns: { audio: true },
-          where: (translation) => isNotNull(translation.audio)
+          with: {
+            audio_segments: {
+              columns: { audio_url: true },
+              orderBy: (segments, { asc }) => [asc(segments.sequence_index)]
+            }
+          }
         }),
         {
           onResult: () => {

@@ -10,7 +10,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useSimpleVAD } from '@/hooks/useVoiceActivityDetection';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
@@ -21,6 +21,7 @@ import {
   Animated,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -318,6 +319,49 @@ const UserFlaggingModal: React.FC<{
             <Text style={styles.modalSubmitButtonText}>Submit Flag</Text>
           </TouchableOpacity>
         </View>
+      </View>
+    </View>
+  );
+};
+
+// Custom Rabbit Mode Switch Component
+const RabbitModeSwitch: React.FC<{
+  value: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+}> = ({ value, onToggle, disabled = false }) => {
+  const { t } = useLocalization();
+
+  return (
+    <View style={styles.rabbitModeSwitchContainer}>
+      <View style={styles.rabbitModeSwitchContent}>
+        <View style={styles.rabbitModeSwitchInfo}>
+          <View style={styles.rabbitModeSwitchIcons}>
+            <MaterialCommunityIcons
+              name="tortoise"
+              size={20}
+              color={!value ? colors.primary : colors.textSecondary}
+            />
+          </View>
+          {/* <Text style={styles.rabbitModeSwitchTitle}>
+            {value ? 'Rabbit Mode' : 'Normal Mode'}
+          </Text> */}
+        </View>
+        <Switch
+          value={value}
+          onValueChange={onToggle}
+          disabled={disabled}
+          trackColor={{
+            false: colors.disabled,
+            true: disabled ? colors.disabled : colors.primary
+          }}
+          thumbColor={!value || disabled ? colors.disabled : colors.background}
+        />
+        <MaterialCommunityIcons
+          name="rabbit"
+          size={20}
+          color={value ? colors.primary : colors.textSecondary}
+        />
       </View>
     </View>
   );
@@ -673,12 +717,12 @@ export default function NextGenAssetsView() {
         target_language_id: questData.project.target_language_id,
         asset_id: currentAsset.id,
         creator_id: currentUser.id,
-        audio: audioAttachment // Store the audio attachment filename
+        audio_urls: audioAttachment ? [audioAttachment] : [] // Use audio_urls array instead of audio
       });
 
       // Create a recording segment for UI display
       const segment: RecordingSegment = {
-        id: translation!.id, // Use the translation ID as segment ID
+        id: translation.id, // Use the translation ID as segment ID
         assetId: currentAsset.id,
         startTime: currentRabbitState.recordingStartTime,
         endTime,
@@ -696,7 +740,7 @@ export default function NextGenAssetsView() {
         const assetToUpdate = updatedPulledAssets[currentAssetIndex]!;
         updatedPulledAssets[currentAssetIndex] = {
           ...assetToUpdate,
-          translations: [...assetToUpdate.translations, translation!],
+          translations: [...assetToUpdate.translations, translation],
           recordingSegments: [...assetToUpdate.recordingSegments, segment],
           hasRecording: true
         } as AssetWithTranslations;
@@ -713,7 +757,7 @@ export default function NextGenAssetsView() {
 
       console.log(
         '✅ Audio translation saved successfully with ID:',
-        translation!.id
+        translation.id
       );
     } catch (error) {
       console.error('❌ Error saving recording segment:', error);
@@ -1230,14 +1274,17 @@ export default function NextGenAssetsView() {
         <Text style={sharedStyles.title}>{t('assets')}</Text>
 
         {/* Rabbit Mode Toggle */}
-        <TouchableOpacity
-          style={styles.rabbitModeToggle}
-          onPress={handleEnterRabbitMode}
+        <RabbitModeSwitch
+          value={isRabbitMode}
+          onToggle={() => {
+            if (isRabbitMode) {
+              handleExitRabbitMode();
+            } else {
+              handleEnterRabbitMode();
+            }
+          }}
           disabled={assets.length === 0}
-        >
-          <Ionicons name="flash" size={16} color={colors.primary} />
-          <Text style={styles.rabbitModeToggleText}>🐰 Rabbit Mode</Text>
-        </TouchableOpacity>
+        />
       </View>
 
       {/* Search Bar */}
@@ -1842,5 +1889,36 @@ export const styles = StyleSheet.create({
   },
   spacer: {
     height: 100 // Adjust as needed to push content to the top
+  },
+  // Rabbit Mode Switch styles
+  rabbitModeSwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    borderRadius: 20,
+    paddingVertical: spacing.xsmall,
+    paddingHorizontal: spacing.small,
+    width: 120
+  },
+  rabbitModeSwitchContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1
+  },
+  rabbitModeSwitchInfo: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  rabbitModeSwitchIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: spacing.small,
+    gap: spacing.xsmall
+  },
+  rabbitModeSwitchTitle: {
+    fontSize: fontSizes.medium,
+    fontWeight: '600',
+    color: colors.text
   }
 });
