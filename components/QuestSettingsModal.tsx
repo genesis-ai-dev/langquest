@@ -1,6 +1,7 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
@@ -41,7 +42,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   questId,
   projectId
 }) => {
-  // const { t } = useLocalization();
+  const { t } = useLocalization();
   // TODO: add localization
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,31 +85,59 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
 
     let [visible, active] = [questData.visible, questData.active];
 
-    let message = '';
+    try {
+      if (statusType === 'visible') {
+        if (visible) {
+          visible = false;
+          active = false;
+        } else {
+          visible = true;
+        }
 
-    if (statusType === 'visible') {
-      if (visible) {
-        visible = false;
-        active = false;
-      } else {
-        visible = true;
+        await supabaseConnector.client
+          .from('quest')
+          .update({
+            visible,
+            active,
+            last_updated: new Date().toISOString()
+          })
+          .match({ id: questId });
+
+        refetch();
+
+        // Localization keys:
+        // success -> 'Success'
+        // questMadeInvisible -> 'The quest has been made invisible'
+        // questMadeVisible -> 'The quest has been made visible'
+        // error -> 'Error'
+        // failedToUpdateQuestSettings -> 'Failed to update quest settings'
+        Alert.alert(
+          t('success'),
+          questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
+        );
       }
-      message = visible
-        ? 'The quest has been made visible'
-        : 'The quest has been made invisible';
-    } else {
+    } catch (error) {
+      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!questData) return;
+
+    setIsSubmitting(true);
+
+    let [visible, active] = [questData.visible, questData.active];
+
+    try {
       if (!active) {
         visible = true;
         active = true;
       } else {
         active = false;
       }
-      message = active
-        ? 'The quest has been made active'
-        : 'The quest has been made inactive';
-    }
 
-    try {
       await supabaseConnector.client
         .from('quest')
         .update({
@@ -119,10 +148,18 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         .match({ id: questId });
       refetch();
 
-      Alert.alert('Success', message);
+      // Localization keys:
+      // success -> 'Success'
+      // questMadeInactive -> 'The quest has been made inactive'
+      // questMadeActive -> 'The quest has been made active'
+      // error -> 'Error'
+      // failedToUpdateQuestSettings -> 'Failed to update quest settings'
+      Alert.alert(
+        t('success'),
+        questData.active ? t('questMadeInactive') : t('questMadeActive')
+      );
     } catch (error) {
-      console.error('Error updating quest status:', error);
-      Alert.alert('Error', 'Failed to update quest settings');
+      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
 
@@ -166,29 +203,31 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>{'Quest Settings'}</Text>
+                <Text style={sharedStyles.modalTitle}>
+                  {t('questSettings')}
+                </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
               <SwitchBox
-                title={'Visibility'}
+                title={t('visibility')}
                 description={
                   questData?.visible
-                    ? 'This quest is visible to other users.'
-                    : 'This quest is hidden and will not be shown to other users. An invisible quest is also inactive.'
+                    ? t('visibleQuestDescription')
+                    : t('invisibleQuestDescription')
                 }
                 value={questData?.visible ?? false}
                 onChange={() => handleToggleStatus('visible')}
                 disabled={isSubmitting || !isQuestLoaded || !isOwner}
               />
               <SwitchBox
-                title={'Active'}
+                title={t('active')}
                 description={
                   questData?.active
-                    ? 'This quest is currently active. An active quest is also visible.'
-                    : 'This quest is inactive. No actions can be performed unless it is reactivated.'
+                    ? t('activeQuestDescription')
+                    : t('inactiveQuestDescription')
                 }
                 value={questData?.active ?? false}
                 onChange={() => handleToggleStatus('active')}

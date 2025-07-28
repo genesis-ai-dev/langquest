@@ -72,7 +72,9 @@ export default function ResetPasswordView2() {
     } catch (error) {
       Alert.alert(
         t('error') || 'Error',
-        error instanceof Error ? error.message : 'Failed to update password'
+        error instanceof Error
+          ? error.message
+          : t('passwordUpdateFailed') || 'Failed to update password'
       );
     } finally {
       setIsLoading(false);

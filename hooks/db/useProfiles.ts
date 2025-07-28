@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { profile, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
@@ -39,7 +40,7 @@ function getProfileByUserIdConfig(user_id: string) {
 export async function getProfileByUserId(user_id: string) {
   return (
     await hybridFetch(convertToFetchConfig(getProfileByUserIdConfig(user_id)))
-  )?.[0];
+  )[0];
 }
 
 /**
@@ -66,9 +67,22 @@ export function useUserMemberships(userId?: string) {
   const { currentUser } = useAuth();
   const user_id = userId || currentUser?.id;
 
-  const { data: memberships = [], isLoading } = useHybridQuery({
-    queryKey: ['user-memberships', user_id],
-    onlineFn: async () => {
+  const { data: memberships, isLoading } = useHybridData<ProfileProjectLink>({
+    dataType: 'user-memberships',
+    queryKeyParams: [user_id || ''],
+
+    // PowerSync query using Drizzle - this will be reactive!
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, user_id || ''),
+          eq(profile_project_link.active, true)
+        )
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
       if (!user_id) return [];
 
       const { data, error } = await system.supabaseConnector.client
@@ -79,21 +93,14 @@ export function useUserMemberships(userId?: string) {
 
       if (error) throw error;
       return data as ProfileProjectLink[];
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.profile_id, user_id || ''),
-          eq(profile_project_link.active, true)
-        )
-      })
-    ),
-    enabled: !!user_id
+    }
   });
 
   const getUserMembership = useCallback(
     (projectId: string): ProfileProjectLink | undefined => {
-      return memberships.find((m) => m.project_id === projectId);
+      return memberships.find(
+        (m: ProfileProjectLink) => m.project_id === projectId
+      );
     },
     [memberships]
   );

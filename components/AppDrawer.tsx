@@ -602,18 +602,18 @@ export default function AppDrawer({
               >
                 <Text style={styles.stalePercentageText}>
                   {!isConnected
-                    ? `${attachmentProgress.synced} files downloaded`
+                    ? `${attachmentProgress.synced} ${t('filesDownloaded')}`
                     : attachmentProgress.hasActivity
-                      ? `Downloading ${attachmentProgress.downloading + attachmentProgress.queued} files...`
+                      ? `${t('downloading')} ${attachmentProgress.downloading + attachmentProgress.queued} ${t('files')}...`
                       : powersyncStatus?.connected
                         ? powersyncStatus.dataFlowStatus.downloading
-                          ? 'Syncing database...'
+                          ? t('syncingDatabase')
                           : powersyncStatus.hasSynced
-                            ? `Last sync: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || 'Unknown'}`
-                            : 'Not synced'
+                            ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
+                            : t('notSynced')
                         : powersyncStatus?.connecting
-                          ? 'Connecting...'
-                          : 'Disconnected'}
+                          ? t('connecting')
+                          : t('disconnected')}
                 </Text>
 
                 {/* Progress bar for download progress */}
@@ -665,57 +665,59 @@ export default function AppDrawer({
                     {isInGracePeriod ? (
                       <>
                         <Text style={styles.completedText}>
-                          Download complete
+                          {t('downloadComplete')}
                         </Text>
                         <Text style={styles.progressText}>
                           {' '}
                           ({attachmentProgress.synced}/
-                          {attachmentProgress.total} files)
+                          {attachmentProgress.total} {t('files')})
                         </Text>
                       </>
                     ) : attachmentProgress.downloading > 0 &&
                       attachmentProgress.queued > 0 ? (
                       <>
                         <Text style={styles.downloadingText}>
-                          Downloading: {attachmentProgress.downloading}
+                          {t('downloading')}: {attachmentProgress.downloading}
                         </Text>
                         <Text style={styles.separatorText}>, </Text>
                         <Text style={styles.queuedText}>
-                          Queued: {attachmentProgress.queued}
+                          {t('queued')}: {attachmentProgress.queued}
                         </Text>
                         <Text style={styles.progressText}>
                           {' '}
                           ({attachmentProgress.synced}/
-                          {attachmentProgress.total} complete)
+                          {attachmentProgress.total} {t('complete')})
                         </Text>
                       </>
                     ) : attachmentProgress.downloading > 0 ? (
                       <>
                         <Text style={styles.downloadingText}>
-                          Downloading: {attachmentProgress.downloading} files
+                          {t('downloading')}: {attachmentProgress.downloading}{' '}
+                          {t('files')}
                         </Text>
                         <Text style={styles.progressText}>
                           {' '}
                           ({attachmentProgress.synced}/
-                          {attachmentProgress.total} complete)
+                          {attachmentProgress.total} {t('complete')})
                         </Text>
                       </>
                     ) : attachmentProgress.queued > 0 ? (
                       <>
                         <Text style={styles.queuedText}>
-                          Queued for download: {attachmentProgress.queued} files
+                          {t('queuedForDownload')}: {attachmentProgress.queued}{' '}
+                          {t('files')}
                         </Text>
                         <Text style={styles.progressText}>
                           {' '}
                           ({attachmentProgress.synced}/
-                          {attachmentProgress.total} complete)
+                          {attachmentProgress.total} {t('complete')})
                         </Text>
                       </>
                     ) : (
                       <>
                         <Text style={styles.progressText}>
                           {attachmentProgress.synced}/{attachmentProgress.total}{' '}
-                          files downloaded
+                          {t('filesDownloaded')}
                         </Text>
                       </>
                     )}

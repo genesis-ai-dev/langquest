@@ -1,7 +1,14 @@
-import { getLanguageById } from '@/hooks/db/useLanguages';
+import type { language } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
+import { hybridFetch } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { User } from '@supabase/supabase-js';
+import { eq } from 'drizzle-orm';
+
+type Language = typeof language.$inferSelect;
 
 export class TranslationUtils {
   static currentLanguage: SupportedLanguage = 'english';
@@ -14,7 +21,26 @@ export class TranslationUtils {
       const uiLanguageId = currentUser.user_metadata.ui_language_id;
       if (!uiLanguageId) return;
 
-      const language = await getLanguageById(uiLanguageId);
+      // Use hybridFetch directly
+      const languages = await hybridFetch<Language>({
+        offlineQuery: toCompilableQuery(
+          system.db.query.language.findMany({
+            where: eq(languageTable.id, uiLanguageId),
+            limit: 1
+          })
+        ),
+        cloudQueryFn: async () => {
+          const { data, error } = await system.supabaseConnector.client
+            .from('language')
+            .select('*')
+            .eq('id', uiLanguageId)
+            .overrideTypes<Language[]>();
+          if (error) throw error;
+          return data;
+        }
+      });
+
+      const language = languages[0];
       if (language?.english_name) {
         this.currentLanguage =
           language.english_name.toLowerCase() as SupportedLanguage;

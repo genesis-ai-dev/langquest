@@ -1,7 +1,7 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-// import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
@@ -40,18 +40,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onClose,
   projectId
 }) => {
-  // const { t } = useLocalization();
+  const { t } = useLocalization();
   const { db, supabaseConnector } = system;
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrjLoaded, setIsPrjLoaded] = useState(false);
 
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const queryClient = useQueryClient();
-
   const { data: projectDataArray = [], refetch } = useHybridQuery({
     queryKey: ['project-settings', projectId],
+    offlineQuery: toCompilableQuery(
+      db.select().from(project).where(eq(project.id, projectId))
+    ),
     onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
       const { data, error } = await supabaseConnector.client
         .from('project')
@@ -60,12 +62,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         .limit(1);
       if (error) throw error;
       return data as (typeof project.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: eq(project.id, projectId)
-      })
-    )
+    }
   });
 
   const projectData = projectDataArray[0];
@@ -73,7 +70,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     setIsPrjLoaded(true);
   }
 
-  /* To be awared -> The information here is coming from the cache */
+  /* To be aware -> The information here is coming from the cache */
   const [prjPrivate, setPrjPrivate] = useState(projectData?.private ?? false);
   const [prjVisible, setPrjVisible] = useState(projectData?.visible ?? false);
   const [prjActive, setPrjActive] = useState(projectData?.active ?? false);
@@ -82,37 +79,35 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     if (!projectData) return;
     setIsSubmitting(true);
 
-    let [privateProject, visible, active] = [prjPrivate, prjVisible, prjActive];
+    let privateProject = prjPrivate;
+    let visible = prjVisible;
+    let active = prjActive;
     let message = '';
 
-    if (statusType === 'private') {
-      privateProject = !privateProject;
-      message = privateProject
-        ? 'The project has been made private'
-        : 'The project has been made public';
-    } else if (statusType === 'visible') {
-      if (visible) {
-        visible = false;
-        active = false;
-      } else {
-        visible = true;
-      }
-      message = visible
-        ? 'The project has been made visible'
-        : 'The project has been made invisible';
-    } else {
-      if (!active) {
-        visible = true;
-        active = true;
-      } else {
-        active = false;
-      }
-      message = active
-        ? 'The project has been made active'
-        : 'The project has been made inactive';
-    }
-
     try {
+      if (statusType === 'private') {
+        privateProject = !privateProject;
+        message = privateProject
+          ? t('projectMadePrivate')
+          : t('projectMadePublic');
+      } else if (statusType === 'visible') {
+        if (visible) {
+          visible = false;
+          active = false;
+        } else {
+          visible = true;
+        }
+        message = visible ? t('projectMadeVisible') : t('projectMadeInvisible');
+      } else {
+        if (!active) {
+          visible = true;
+          active = true;
+        } else {
+          active = false;
+        }
+        message = active ? t('projectMadeActive') : t('projectMadeInactive');
+      }
+
       await supabaseConnector.client
         .from('project')
         .update({
@@ -122,23 +117,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           last_updated: new Date().toISOString()
         })
         .match({ id: projectId });
+
       refetch();
 
-      Alert.alert('Success', message);
+      Alert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating project status:', error);
-      Alert.alert('Error', 'Failed to update project settings');
+      Alert.alert(t('error'), t('failedToUpdateProjectSettings'));
     } finally {
       setIsSubmitting(false);
       setPrjPrivate(privateProject);
       setPrjVisible(visible);
       setPrjActive(active);
 
-      // /* To reload projects in the main page */
-      // await queryClient.invalidateQueries({
-      //   queryKey: ['projects', 'infinite', 10, 'name', 'asc', 'online']
-      // });
-
+      // To reload projects in the main page
       queryClient.removeQueries({
         queryKey: ['projects'],
         exact: false
@@ -164,7 +156,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
                 <Text style={sharedStyles.modalTitle}>
-                  {'Project Settings'}
+                  {t('projectSettings')}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
@@ -172,39 +164,36 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               </View>
 
               <SwitchBox
-                title={'Private Project'}
+                title={t('privateProject')}
                 description={
-                  projectData?.private
-                    ? 'This project is private. Anyone can see it, but only members can contribute to it.'
-                    : 'This project is public. Anyone can contribute to it.'
+                  prjPrivate
+                    ? t('privateProjectDescription')
+                    : t('publicProjectDescription')
                 }
-                // value={projectData?.private ?? false}
                 value={prjPrivate}
                 onChange={() => handleToggleStatus('private')}
                 disabled={isSubmitting || !isPrjLoaded || !isOwner}
               />
 
               <SwitchBox
-                title={'Visibility'}
+                title={t('visibility')}
                 description={
-                  projectData?.visible
-                    ? 'This project is visible to other users.'
-                    : 'This project is hidden and will not be shown to other users. An invisible project is also inactive.'
+                  prjVisible
+                    ? t('visibleProjectDescription')
+                    : t('invisibleProjectDescription')
                 }
-                // value={projectData?.visible ?? false}
                 value={prjVisible}
                 onChange={() => handleToggleStatus('visible')}
                 disabled={isSubmitting || !isPrjLoaded || !isOwner}
               />
 
               <SwitchBox
-                title={'Active'}
+                title={t('active')}
                 description={
-                  projectData?.active
-                    ? 'This project is currently active. An active project is also visible.'
-                    : 'This project is inactive. No actions can be performed unless it is reactivated.'
+                  prjActive
+                    ? t('activeProjectDescription')
+                    : t('inactiveProjectDescription')
                 }
-                // value={projectData?.active ?? false}
                 value={prjActive}
                 onChange={() => handleToggleStatus('active')}
                 disabled={isSubmitting || !isPrjLoaded || !isOwner}

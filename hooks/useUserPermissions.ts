@@ -1,9 +1,13 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
+
+// Type definition
+type Project = InferSelectModel<typeof project>;
 
 /**
  * # Access Control Constraints
@@ -133,17 +137,12 @@ export function useUserPermissions(
   // Only query for privacy if not provided
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
-  // Query for project details to get privacy setting
-  const { data: projectData = [] } = useHybridQuery({
-    queryKey: ['project-privacy', project_id],
-    onlineFn: async () => {
-      const { data } = await system.supabaseConnector.client
-        .from('project')
-        .select('private')
-        .eq('id', project_id)
-        .single();
-      return data ? [data] : [];
-    },
+  // Query for project details to get privacy setting using useHybridData
+  const { data: projectData } = useHybridData<Pick<Project, 'private'>>({
+    dataType: 'project-privacy',
+    queryKeyParams: [project_id],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(project.id, project_id),
@@ -151,15 +150,27 @@ export function useUserPermissions(
         limit: 1
       })
     ),
-    enabled: shouldQueryPrivacy
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (!shouldQueryPrivacy) return [];
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('private')
+        .eq('id', project_id);
+
+      if (error) throw error;
+      return data as Pick<Project, 'private'>[];
+    },
+
+    // Only enable cloud query when we should query privacy
+    enableCloudQuery: shouldQueryPrivacy
   });
 
   // Get membership from user memberships hook
   const membershipData = getUserMembership(project_id);
-  const isPrivate =
-    knownIsPrivate ??
-    (projectData[0] as { private: boolean } | undefined)?.private ??
-    false;
+  const isPrivate = knownIsPrivate ?? projectData[0]?.private ?? false;
   const membership = membershipData?.membership as MembershipRole;
 
   // If project_id is invalid, return no access

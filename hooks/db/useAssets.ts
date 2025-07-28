@@ -9,6 +9,7 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
+import { hybridFetch } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
@@ -24,9 +25,7 @@ import {
 } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
-  convertToFetchConfig,
   createHybridQueryConfig,
-  hybridFetch,
   useHybridInfiniteQuery,
   useHybridQuery
 } from '../useHybridQuery';
@@ -39,19 +38,21 @@ export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
 
 /**
- * Returns { asset, isLoading, error }
- * Fetches a single asset by ID from Supabase (online) or local Drizzle DB (offline)
+ * Returns a single asset by ID using hybrid fetch
  */
 
-function getAssetByIdConfig(asset_id: string | string[]) {
-  const assetIds = Array.isArray(asset_id) ? asset_id : [asset_id];
-  return createHybridQueryConfig({
-    queryKey: ['asset', asset_id],
-    onlineFn: async () => {
+export async function getAssetById(asset_id: string) {
+  const assets = await hybridFetch<Asset>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findMany({
+        where: eq(asset.id, asset_id)
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('asset')
         .select('*')
-        .in('id', assetIds)
+        .eq('id', asset_id)
         .overrideTypes<(Omit<Asset, 'images'> & { images: string })[]>();
       if (error) throw error;
 
@@ -59,20 +60,10 @@ function getAssetByIdConfig(asset_id: string | string[]) {
         ...asset,
         images: JSON.parse(asset.images) as Asset['images']
       }));
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.asset.findMany({
-        where: inArray(asset.id, assetIds)
-      })
-    ),
-    enabled: !!assetIds.length
+    }
   });
-}
 
-export async function getAssetById(asset_id: string) {
-  return (
-    await hybridFetch(convertToFetchConfig(getAssetByIdConfig(asset_id)))
-  )[0];
+  return assets[0];
 }
 
 export function useAssetById(asset_id: string | undefined) {
@@ -110,7 +101,26 @@ export function useAssetById(asset_id: string | undefined) {
 }
 
 export function getAssetsById(asset_ids: string[]) {
-  return hybridFetch(convertToFetchConfig(getAssetByIdConfig(asset_ids)));
+  return hybridFetch<Asset>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findMany({
+        where: inArray(asset.id, asset_ids)
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select('*')
+        .in('id', asset_ids)
+        .overrideTypes<(Omit<Asset, 'images'> & { images: string })[]>();
+      if (error) throw error;
+
+      return data.map((asset) => ({
+        ...asset,
+        images: JSON.parse(asset.images) as Asset['images']
+      }));
+    }
+  });
 }
 
 /**
@@ -140,7 +150,22 @@ function getAssetContentConfig(asset_id: string) {
 }
 
 export function getAssetContent(asset_id: string) {
-  return hybridFetch(convertToFetchConfig(getAssetContentConfig(asset_id)));
+  return hybridFetch<AssetContent>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: eq(asset_content_link.asset_id, asset_id)
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset_content_link')
+        .select('*')
+        .eq('asset_id', asset_id)
+        .overrideTypes<AssetContent[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
 }
 
 export function useAssetContent(asset_id: string) {
@@ -175,7 +200,22 @@ function getAssetsContentConfig(asset_ids: string[]) {
 }
 
 export function getAssetsContent(asset_ids: string[]) {
-  return hybridFetch(convertToFetchConfig(getAssetsContentConfig(asset_ids)));
+  return hybridFetch<AssetContent>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: inArray(asset_content_link.asset_id, asset_ids)
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset_content_link')
+        .select('*')
+        .in('asset_id', asset_ids)
+        .overrideTypes<AssetContent[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
 }
 
 export function useAssetsContent(asset_ids: string[]) {
@@ -214,9 +254,26 @@ function getAssetAudioContentConfig(asset_id: string) {
 }
 
 export function getAssetAudioContent(asset_id: string) {
-  return hybridFetch(
-    convertToFetchConfig(getAssetAudioContentConfig(asset_id))
-  );
+  return hybridFetch<AssetContent>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: and(
+          eq(asset_content_link.asset_id, asset_id),
+          isNotNull(asset_content_link.audio_id)
+        )
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset_content_link')
+        .select('*')
+        .eq('asset_id', asset_id)
+        .not('audio_id', 'is', null)
+        .overrideTypes<AssetContent[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
 }
 
 export function useAssetAudioContent(asset_id: string) {
@@ -255,9 +312,26 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
 }
 
 export function getAssetsAudioContent(asset_ids: string[]) {
-  return hybridFetch(
-    convertToFetchConfig(getAssetsAudioContentConfig(asset_ids))
-  );
+  return hybridFetch<AssetContent>({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset_content_link.findMany({
+        where: and(
+          inArray(asset_content_link.asset_id, asset_ids),
+          isNotNull(asset_content_link.audio_id)
+        )
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset_content_link')
+        .select('*')
+        .in('asset_id', asset_ids)
+        .not('audio_id', 'is', null)
+        .overrideTypes<AssetContent[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
 }
 
 export function useAssetsAudioContent(asset_ids: string[]) {
@@ -312,7 +386,42 @@ function getAssetsByQuestIdConfig(quest_id: string) {
 }
 
 export function getAssetsByQuestId(quest_id: string) {
-  return hybridFetch(convertToFetchConfig(getAssetsByQuestIdConfig(quest_id)));
+  return hybridFetch<Asset>({
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          id: asset.id,
+          name: asset.name,
+          source_language_id: asset.source_language_id,
+          images: asset.images,
+          creator_id: asset.creator_id,
+          visible: asset.visible,
+          active: asset.active,
+          created_at: asset.created_at,
+          last_updated: asset.last_updated,
+          download_profiles: asset.download_profiles
+        })
+        .from(asset)
+        .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+        .where(eq(quest_asset_link.quest_id, quest_id))
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select(
+          `
+          asset:asset_id (
+            *
+          )
+        `
+        )
+        .eq('quest_id', quest_id)
+        .overrideTypes<{ asset: Asset }[]>();
+
+      if (error) throw error;
+      return data.map((item) => item.asset).filter(Boolean);
+    }
+  });
 }
 
 /**

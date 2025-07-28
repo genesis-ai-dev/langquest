@@ -1,11 +1,16 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
-import { useProfileByUserId } from '@/hooks/db/useProfiles';
+import { profile as profileTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import {
@@ -19,9 +24,40 @@ import {
 
 function TermsView() {
   const { currentUser } = useAuth();
-  const { profile, isProfileLoading } = useProfileByUserId(
-    currentUser?.id ?? ''
-  );
+
+  type Profile = InferSelectModel<typeof profileTable>;
+
+  // Use useHybridData directly to fetch user profile
+  const { data: profiles, isLoading: isProfileLoading } =
+    useHybridData<Profile>({
+      dataType: 'profile',
+      queryKeyParams: [currentUser?.id || ''],
+
+      // PowerSync query using Drizzle
+      offlineQuery: toCompilableQuery(
+        system.db.query.profile.findMany({
+          where: eq(profileTable.id, currentUser?.id || ''),
+          limit: 1
+        })
+      ),
+
+      // Cloud query
+      cloudQueryFn: async () => {
+        if (!currentUser?.id) return [];
+        const { data, error } = await system.supabaseConnector.client
+          .from('profile')
+          .select('*')
+          .eq('id', currentUser.id)
+          .overrideTypes<Profile[]>();
+        if (error) throw error;
+        return data;
+      },
+
+      enableCloudQuery: !!currentUser?.id
+    });
+
+  const profile = profiles[0];
+
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const { t } = useLocalization();

@@ -1,8 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { profile_project_link, request } from '@/db/drizzleSchema';
+import {
+  profile_project_link,
+  project as projectTable,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useDownload } from '@/hooks/useDownloads';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -14,8 +16,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,12 +27,15 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+
+// Type definitions
+type Request = InferSelectModel<typeof request>;
+type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
 interface PrivateAccessGateProps {
   projectId: string;
@@ -77,21 +84,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { db } = system;
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoDownload, setAutoDownload] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
-  // Query for existing membership request
-  const { data: existingRequests = [], refetch } = useHybridQuery({
-    queryKey: ['membership-request', projectId, currentUser?.id],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select('*')
-        .eq('sender_profile_id', currentUser?.id || '')
-        .eq('project_id', projectId);
-      if (error) throw error;
-      return data;
-    },
+  // Query for existing membership request using useHybridData
+  const { data: existingRequests } = useHybridData<Request>({
+    dataType: 'membership-request',
+    queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.request.findMany({
         where: and(
@@ -100,22 +101,25 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         )
       })
     ),
-    enabled: !!currentUser?.id && !!projectId
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('sender_profile_id', currentUser?.id || '')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data as Request[];
+    }
   });
 
-  // Query for membership status (for modal mode)
-  const { data: membershipLinks = [] } = useHybridQuery({
-    queryKey: ['membership-status', projectId, currentUser?.id],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*')
-        .eq('profile_id', currentUser?.id || '')
-        .eq('project_id', projectId)
-        .eq('active', true);
-      if (error) throw error;
-      return data;
-    },
+  // Query for membership status (for modal mode) using useHybridData
+  const { data: membershipLinks } = useHybridData<ProfileProjectLink>({
+    dataType: 'membership-status',
+    queryKeyParams: [projectId, currentUser?.id || ''],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
@@ -125,16 +129,65 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         )
       })
     ),
-    enabled: !!currentUser?.id && !!projectId && modal,
-    refetchInterval: modal ? 2000 : false // Check every 2 seconds for membership changes in modal mode
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', currentUser?.id || '')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data as ProfileProjectLink[];
+    },
+
+    // Only run cloud query when in modal mode
+    enableCloudQuery: modal
   });
 
   const isMember = membershipLinks.length > 0;
   const existingRequest = existingRequests[0];
-  const { isFlaggedForDownload: isProjectDownloaded, mutation } = useDownload(
-    'project',
-    projectId
-  );
+
+  // Query for project download status using useHybridData
+  // This checks if the project has been downloaded (possibly through other actions)
+  const { data: downloadStatusData } = useHybridData<{
+    id: string;
+    download_profiles: string[] | null;
+  }>({
+    dataType: 'download-status',
+    queryKeyParams: ['project', projectId, currentUser?.id || ''],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      db.query.project.findMany({
+        where: eq(projectTable.id, projectId),
+        columns: {
+          id: true,
+          download_profiles: true
+        }
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, download_profiles')
+        .eq('id', projectId)
+        .overrideTypes<{ id: string; download_profiles: string[] | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+
+    // Transform to check if user is in download_profiles
+    getItemId: (item) => item.id
+  });
+
+  // Check if current user is in the download_profiles array
+  const projectData = downloadStatusData[0];
+  const isProjectDownloaded =
+    projectData?.download_profiles?.includes(currentUser?.id || '') ?? false;
 
   // Auto-close modal and trigger navigation when user becomes a member (modal mode only)
   useEffect(() => {
@@ -185,23 +238,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         });
       }
 
-      await refetch();
-
-      // Handle project download if toggle is enabled and not already downloaded
-      if (autoDownload && !isProjectDownloaded) {
-        try {
-          await mutation.mutateAsync(true);
-          console.log(
-            '[handleRequestMembership] Project download set successfully'
-          );
-        } catch (downloadError) {
-          console.error(
-            '[handleRequestMembership] Error setting project download:',
-            downloadError
-          );
-          // Don't fail the entire operation if download fails
-        }
-      }
+      // Trigger refresh by updating the refresh key
+      setRefreshKey((prev) => prev + 1);
 
       Alert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {
@@ -232,7 +270,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 })
                 .where(eq(request.id, existingRequest.id));
 
-              await refetch();
+              // Trigger refresh
+              setRefreshKey((prev) => prev + 1);
               Alert.alert(t('success'), t('requestWithdrawn'));
             } catch (error) {
               console.error('Error withdrawing request:', error);
@@ -584,40 +623,19 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
                 </View>
 
-                {/* Download toggle */}
-                <View style={styles.downloadSection}>
-                  <View style={styles.downloadToggleRow}>
-                    <Text style={styles.downloadLabel}>
-                      {isProjectDownloaded
-                        ? t('projectWillRemainDownloaded')
-                        : t('downloadProjectWhenRequestSent')}
-                    </Text>
-                    <Switch
-                      value={isProjectDownloaded ? true : autoDownload}
-                      onValueChange={
-                        isProjectDownloaded ? undefined : setAutoDownload
-                      }
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary
-                      }}
-                      thumbColor={
-                        isProjectDownloaded
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                      disabled={isSubmitting || isProjectDownloaded}
+                {/* Download status indicator */}
+                {isProjectDownloaded && (
+                  <View style={styles.downloadStatusBox}>
+                    <Ionicons
+                      name="cloud-download"
+                      size={20}
+                      color={colors.success}
                     />
+                    <Text style={styles.downloadStatusText}>
+                      {t('projectDownloaded')}
+                    </Text>
                   </View>
-                  {!isProjectDownloaded && !autoDownload && (
-                    <View style={styles.warningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
-                      <Text style={styles.warningText}>
-                        {t('downloadProjectOfflineWarning')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                )}
               </>
             ) : (
               <>
@@ -625,41 +643,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <Text style={styles.inlineDescription}>
                   {getActionMessage()}
                 </Text>
-
-                {/* Download toggle for inline mode */}
-                <View style={styles.inlineDownloadSection}>
-                  <View style={styles.inlineDownloadToggleRow}>
-                    <Text style={styles.inlineDownloadLabel}>
-                      {isProjectDownloaded
-                        ? t('projectWillRemainDownloaded')
-                        : t('downloadProjectWhenRequestSent')}
-                    </Text>
-                    <Switch
-                      value={isProjectDownloaded ? true : autoDownload}
-                      onValueChange={
-                        isProjectDownloaded ? undefined : setAutoDownload
-                      }
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary
-                      }}
-                      thumbColor={
-                        isProjectDownloaded
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                      disabled={isSubmitting || isProjectDownloaded}
-                    />
-                  </View>
-                  {!isProjectDownloaded && !autoDownload && (
-                    <View style={styles.inlineWarningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
-                      <Text style={styles.inlineWarningText}>
-                        {t('downloadProjectOfflineWarning')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
               </>
             )}
             <TouchableOpacity
@@ -931,6 +914,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSizes.small,
     color: colors.text,
+    lineHeight: 20
+  },
+  downloadStatusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)', // success color with transparency
+    padding: spacing.medium,
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing.large,
+    gap: spacing.small
+  },
+  downloadStatusText: {
+    flex: 1,
+    fontSize: fontSizes.small,
+    color: colors.success,
     lineHeight: 20
   },
   withdrawButton: {

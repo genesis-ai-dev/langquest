@@ -1,9 +1,9 @@
-import type { language } from '@/db/drizzleSchema';
-import type { Profile } from '@/hooks/db/useProfiles';
+import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+type Profile = typeof profile.$inferSelect;
 // Navigation types (forward declaration to avoid circular import)
 export type AppView =
   | 'projects'
