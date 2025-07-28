@@ -37,7 +37,8 @@ BEGIN
 END;
 $$;
 
--- Create trigger for new user signups
+-- Create trigger for new user signups (drop if exists first)
+DROP TRIGGER IF EXISTS on_auth_user_signup ON auth.users;
 CREATE TRIGGER on_auth_user_signup
 AFTER INSERT ON auth.users
 FOR EACH ROW
