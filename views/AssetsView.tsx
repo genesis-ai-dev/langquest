@@ -12,7 +12,6 @@ import type { Asset } from '@/database_services/assetService';
 import type { Tag } from '@/database_services/tagService';
 import { useInfiniteAssetsWithTagsByQuestId } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useQuestById } from '@/hooks/db/useQuests';
 import {
   useAppNavigation,
   useCurrentNavigation
@@ -45,8 +44,9 @@ import {
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { Project } from '@/hooks/db/useProjects';
+import { useQuestById } from '@/hooks/db/useQuests';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface SortingOption {
   field: string;
@@ -71,6 +71,10 @@ const AssetCard = React.memo(
   }) => {
     const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
+    const { quest } = useQuestById(currentQuestId);
+
+    const assetActive = asset.active && quest?.active && activeProject?.active;
+
     const {
       isFlaggedForDownload,
       isLoading: isDownloadLoading,
@@ -82,7 +86,13 @@ const AssetCard = React.memo(
     }, [toggleDownload]);
 
     return (
-      <View style={sharedStyles.card}>
+      <View
+        style={[
+          sharedStyles.card,
+          !assetActive && sharedStyles.disabled,
+          !asset.visible && sharedStyles.invisible
+        ]}
+      >
         <View
           style={{
             flexDirection: 'row',
@@ -93,7 +103,7 @@ const AssetCard = React.memo(
           <Text style={[sharedStyles.cardTitle, { flex: 1 }]}>
             {asset.name}
           </Text>
-          {isOwner && (
+          {isOwner && quest?.active && activeProject?.active && (
             <TouchableOpacity
               onPress={() => setShowAssetSettingsModal(true)}
               style={styles.statsButtonMini}
@@ -101,25 +111,27 @@ const AssetCard = React.memo(
               <Ionicons name="settings" size={22} color={colors.text} />
             </TouchableOpacity>
           )}
-          <PrivateAccessGate
-            projectId={activeProject?.id ?? ''}
-            projectName={activeProject?.name ?? ''}
-            isPrivate={activeProject?.private ?? false}
-            action="download"
-            allowBypass={true}
-            onBypass={handleDownloadToggle}
-            renderTrigger={({ onPress, hasAccess }) => (
-              <DownloadIndicator
-                isFlaggedForDownload={isFlaggedForDownload}
-                isLoading={isDownloadLoading}
-                onPress={
-                  hasAccess || isFlaggedForDownload
-                    ? handleDownloadToggle
-                    : onPress
-                }
-              />
-            )}
-          />
+          {assetActive && (
+            <PrivateAccessGate
+              projectId={activeProject.id || ''}
+              projectName={activeProject.name || ''}
+              isPrivate={activeProject.private || false}
+              action="download"
+              allowBypass={true}
+              onBypass={handleDownloadToggle}
+              renderTrigger={({ onPress, hasAccess }) => (
+                <DownloadIndicator
+                  isFlaggedForDownload={isFlaggedForDownload}
+                  isLoading={isDownloadLoading}
+                  onPress={
+                    hasAccess || isFlaggedForDownload
+                      ? handleDownloadToggle
+                      : onPress
+                  }
+                />
+              )}
+            />
+          )}
         </View>
 
         <View style={styles.translationCount}>
@@ -173,7 +185,6 @@ export default function AssetsView() {
 
   const { membership } = useUserPermissions(currentProjectId || '', 'manage');
   const isOwner = membership === 'owner';
-
   // Fallback to fresh query only if not in cache
   const { project } = useProjectById(currentProjectId || '');
 
@@ -199,13 +210,14 @@ export default function AssetsView() {
     activeFilters // Add active filters for server-side filtering
   );
 
-  // Extract all assets from pages
   const allAssets = useMemo(() => {
     if (!infiniteData?.pages) {
       return [];
     }
 
-    return infiniteData.pages.flatMap((page) => page.data);
+    return infiniteData.pages.flatMap((page) => {
+      return page.data;
+    });
   }, [infiniteData]);
 
   // Apply client-side sorting only - filtering is now handled server-side
@@ -244,9 +256,11 @@ export default function AssetsView() {
 
   // const getActiveOptionsCount = () => {
   //   const filterCount = Object.values(activeFilters).flat().length;
-  //   const sortCount = activeSorting.length;
+  //   const sortCount = activeSortinglength;
   //   return filterCount + sortCount;
   // };
+
+  // const { quest } = useQuestById(currentQuestId);
 
   const handleAssetPress = useCallback(
     (asset: Asset) => {

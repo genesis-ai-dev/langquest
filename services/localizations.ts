@@ -797,6 +797,23 @@ export const localizations = {
     spanish: 'No puede reportar su propia traducción',
     brazilian_portuguese: 'Você não pode reportar sua própria tradução'
   },
+  cannotReportInactiveTranslation: {
+    english: 'You cannot report inactive translation',
+    spanish: 'No puede reportar traducción inactiva',
+    brazilian_portuguese: 'Você não pode reportar tradução inativa'
+  },
+  cannotIdentifyUser: {
+    english: 'Unable to identify user',
+    spanish: 'No se puede identificar al usuario',
+    brazilian_portuguese: 'Não foi possível identificar o usuário'
+  },
+  cannotChangeTranslationSettings: {
+    english: 'Unathorized to change settings for this translation',
+    spanish:
+      'No tiene autorización para cambiar la configuración de esta traducción',
+    brazilian_portuguese:
+      'Você não tem autorização para alterar as configurações desta tradução'
+  },
   alreadyReportedTranslation: {
     english: 'You have already reported this translation',
     spanish: 'Ya ha reportado esta traducción',

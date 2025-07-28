@@ -8,6 +8,7 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import { hybridFetch } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
@@ -31,6 +32,7 @@ import {
 import type { Tag } from './useTags';
 
 export type Asset = InferSelectModel<typeof asset>;
+export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type AssetContent = InferSelectModel<typeof asset_content_link>;
 export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
@@ -834,6 +836,7 @@ export function useInfiniteAssetsWithTagsByQuestId(
           .from('quest_asset_link')
           .select(
             `
+            visible, active,
             asset:asset_id (
               *,
               tags:asset_tag_link!inner (
@@ -852,6 +855,7 @@ export function useInfiniteAssetsWithTagsByQuestId(
           .from('quest_asset_link')
           .select(
             `
+            visible, active,
             asset:asset_id (
               *,
               tags:asset_tag_link (
@@ -863,6 +867,13 @@ export function useInfiniteAssetsWithTagsByQuestId(
           `
           )
           .eq('quest_id', quest_id);
+      }
+
+      /* Verify if invisible assets should be excluded */
+      const includeInvisible = await getOptionShowHiddenContent();
+      if (!includeInvisible) {
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+        /* .eq('active', true); // if needed to include active */
       }
 
       // Add search functionality
@@ -895,7 +906,13 @@ export function useInfiniteAssetsWithTagsByQuestId(
 
       if (error) throw error;
 
-      let assets = data.map((item) => item.asset).filter(Boolean);
+      let assets = data
+        .map((item) => {
+          item.asset.visible = (item.visible && item.asset.visible) as boolean;
+          item.asset.active = (item.active && item.asset.active) as boolean;
+          return item.asset;
+        })
+        .filter(Boolean);
 
       // Apply client-side sorting if needed
       if (sortField && sortOrder) {
@@ -934,7 +951,11 @@ export function useInfiniteAssetsWithTagsByQuestId(
 
         // Build the base subquery for assets in this quest
         let assetIdsSubquery = system.db
-          .select({ asset_id: quest_asset_link.asset_id })
+          .select({
+            asset_id: quest_asset_link.asset_id,
+            visible: quest_asset_link.visible,
+            active: quest_asset_link.active
+          })
           .from(quest_asset_link)
           .where(eq(quest_asset_link.quest_id, quest_id));
 
@@ -950,7 +971,11 @@ export function useInfiniteAssetsWithTagsByQuestId(
 
           // Filter the quest assets to only include those that match search
           assetIdsSubquery = system.db
-            .select({ asset_id: quest_asset_link.asset_id })
+            .select({
+              asset_id: quest_asset_link.asset_id,
+              visible: quest_asset_link.visible,
+              active: quest_asset_link.active
+            })
             .from(quest_asset_link)
             .where(
               and(
@@ -1015,7 +1040,11 @@ export function useInfiniteAssetsWithTagsByQuestId(
 
             // Filter the base subquery to only include assets that match tag criteria
             assetIdsSubquery = system.db
-              .select({ asset_id: quest_asset_link.asset_id })
+              .select({
+                asset_id: quest_asset_link.asset_id,
+                visible: quest_asset_link.visible,
+                active: quest_asset_link.active
+              })
               .from(quest_asset_link)
               .where(
                 and(
@@ -1051,6 +1080,9 @@ export function useInfiniteAssetsWithTagsByQuestId(
           .from(quest_asset_link)
           .where(eq(quest_asset_link.quest_id, quest_id));
 
+        /* 
+          NEED TO CHECK: if total should count inactive assets
+        */
         const totalCount = totalAssets.length;
         const hasMore = offsetValue + pageSize < totalCount;
 
@@ -1081,4 +1113,66 @@ export function useInfiniteAssetsWithTagsByQuestId(
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000 // 10 minutes
   });
+}
+
+function getAssetQuestLinkById(
+  quest_id: string | undefined,
+  asset_id: string | undefined
+) {
+  return createHybridQueryConfig({
+    queryKey: ['quest-asset-link', quest_id, asset_id],
+    onlineFn: async () => {
+      // Get assets through junction table
+      if (!quest_id || !asset_id) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select(
+          `
+          visible, active
+        `
+        )
+        .eq('quest_id', quest_id)
+        .eq('asset_id', asset_id);
+      // .overrideTypes<{ questAssetLink: QuestAssetLink }[]>();
+
+      if (error) throw error;
+      return data; // .map((item) => item.asset).filter(Boolean);
+    },
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          visible: quest_asset_link.visible,
+          active: quest_asset_link.active
+        })
+        .from(quest_asset_link)
+        .where(
+          and(
+            eq(quest_asset_link.quest_id, quest_id || ''),
+            eq(quest_asset_link.asset_id, asset_id || '')
+          )
+        )
+    ),
+    enabled: !!quest_id && !!asset_id
+  });
+}
+
+// export function getAssetsByQuestId(quest_id: string) {
+//   return hybridFetch(convertToFetchConfig(getAssetsByQuestIdConfig(quest_id)));
+// }
+
+/**
+ * Returns { assets, isLoading, error }
+ * Fetches assets by quest ID from Supabase (online) or local Drizzle DB (offline)
+ */
+export function useAssetsQuestLinkById(
+  quest_id: string | undefined,
+  asset_id: string | undefined
+) {
+  const {
+    data: quest_asset_link,
+    isLoading: isDataLoading,
+    ...rest
+  } = useHybridQuery(getAssetQuestLinkById(quest_id, asset_id));
+
+  return { quest_asset_link, isDataLoading, ...rest };
 }
