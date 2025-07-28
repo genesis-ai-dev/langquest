@@ -1,3 +1,4 @@
+import { useLocalStore } from '@/store/localStore';
 import PostHog from 'posthog-react-native';
 
 // Simple initialization without circular dependency
@@ -20,61 +21,38 @@ const createPostHogInstance = (optIn = false) => {
 };
 
 // Initialize PostHog with basic settings immediately (no circular dependency)
-const posthog = createPostHogInstance(false);
+const posthog = createPostHogInstance();
+
+const changeAnalyticsState = async (newState: boolean) => {
+  if (newState) {
+    await posthog.optIn();
+  } else {
+    await posthog.optOut();
+  }
+};
 
 // Function to update PostHog settings once store is available
 // This will be called from the app initialization, not during module import
-export const initializePostHogWithStore = (
-  getStoreState: () => {
-    dateTermsAccepted: Date | null;
-    analyticsOptOut: boolean;
-  },
-  subscribeToStore: (
-    callback: (state: {
-      dateTermsAccepted: Date | null;
-      analyticsOptOut: boolean;
-    }) => void
-  ) => void
-) => {
+export const initializePostHogWithStore = () => {
+  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
   try {
-    const { dateTermsAccepted, analyticsOptOut } = getStoreState();
-
     // Update PostHog opt-in status based on store
     const shouldOptIn = !analyticsOptOut && !!dateTermsAccepted;
 
-    if (shouldOptIn) {
-      void posthog.optIn();
-    } else {
-      void posthog.optOut();
-    }
+    void changeAnalyticsState(shouldOptIn);
 
     // Subscribe to future changes
-    let previousAnalyticsOptOut = analyticsOptOut;
-    let previousDateTermsAccepted = dateTermsAccepted;
 
-    subscribeToStore((state) => {
+    const unsubscribe = useLocalStore.subscribe((state) => {
       const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } =
         state;
 
-      // Check if analytics-related settings have changed
-      if (
-        newOptOut !== previousAnalyticsOptOut ||
-        newTermsDate !== previousDateTermsAccepted
-      ) {
-        // Update previous values
-        previousAnalyticsOptOut = newOptOut;
-        previousDateTermsAccepted = newTermsDate;
+      const newShouldOptIn = !newOptOut && !!newTermsDate;
 
-        // Update PostHog opt-in status
-        const newShouldOptIn = !newOptOut && !!newTermsDate;
-
-        if (newShouldOptIn) {
-          void posthog.optIn();
-        } else {
-          void posthog.optOut();
-        }
-      }
+      void changeAnalyticsState(newShouldOptIn);
     });
+
+    return unsubscribe;
   } catch (error) {
     console.warn('Failed to initialize PostHog with store:', error);
   }
