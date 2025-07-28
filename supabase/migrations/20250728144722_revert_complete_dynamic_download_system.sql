@@ -25,7 +25,13 @@ END;
 $$;
 
 -- ====================================
--- PART 2: Drop All Functions
+-- PART 2: Drop Views First (before functions)
+-- ====================================
+
+DROP VIEW IF EXISTS download_tree_structure;
+
+-- ====================================
+-- PART 3: Drop All Functions
 -- ====================================
 
 -- Drop all functions created by the download system (in reverse dependency order)
@@ -66,13 +72,7 @@ DROP FUNCTION IF EXISTS find_all_paths_to_table(jsonb, text);
 DROP FUNCTION IF EXISTS build_reference_count_sql(jsonb, uuid, uuid);
 
 -- ====================================
--- PART 3: Drop Views
--- ====================================
-
-DROP VIEW IF EXISTS download_tree_structure;
-
--- ====================================
--- PART 5: Remove download_profiles Columns
+-- PART 4: Remove download_profiles Columns
 -- ====================================
 
 -- Remove download_profiles columns from all tables
