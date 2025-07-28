@@ -207,7 +207,6 @@ This setup allows you to test the app on a physical Android device while it's co
    npm run start -- --localhost --android
    ```
    - Do **not** press `a` to run on Android yet.
-   - If port 8081 is in use, add `--port 8082` (and adjust the reverse command below).
 
 4. In a new terminal, set up ADB reverse proxy for USB tunneling:
    ```bash
