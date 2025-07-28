@@ -13,6 +13,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
+import { Audio } from 'expo-av';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -55,6 +56,7 @@ interface RabbitModeState {
   isHoldingCard: boolean;
   recordingStartTime: number | null;
   recordingSegments: RecordingSegment[]; // All segments across all assets
+  audioRecording: Audio.Recording | null; // Add audio recording state
 }
 
 // Recording Segment Component
@@ -337,7 +339,8 @@ export default function NextGenAssetsView() {
     pulledAssets: [],
     isHoldingCard: false,
     recordingStartTime: null,
-    recordingSegments: [] // Initialize recordingSegments
+    recordingSegments: [], // Initialize recordingSegments
+    audioRecording: null // Initialize audio recording
   });
 
   // Use ref to store current rabbit state for callbacks to access
@@ -465,7 +468,7 @@ export default function NextGenAssetsView() {
   }, [assets]);
 
   // Voice Activity Detection for Rabbit Mode with actual recording
-  const handleSpeechStart = React.useCallback(() => {
+  const handleSpeechStart = React.useCallback(async () => {
     // Use ref to get current state instead of closure
     const currentRabbitState = rabbitStateRef.current;
 
@@ -494,12 +497,58 @@ export default function NextGenAssetsView() {
 
     console.log('✅ Starting recording for asset:', currentAsset.name);
 
-    // Just mark that we're recording - the VAD hook handles the actual Recording object
-    setRabbitState((prev) => ({
-      ...prev,
-      isRecording: true,
-      recordingStartTime: Date.now()
-    }));
+    try {
+      // Set up audio mode for recording
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false
+      });
+
+      // Create a new recording for saving audio (separate from VAD metering)
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync({
+        isMeteringEnabled: false, // We don't need metering for saved recordings
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000
+        },
+        ios: {
+          extension: '.m4a',
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+          audioQuality: Audio.IOSAudioQuality.MEDIUM,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false
+        },
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 128000
+        }
+      });
+
+      await recording.startAsync();
+      console.log('🎤 Audio recording started');
+
+      // Mark that we're recording and store the recording
+      setRabbitState((prev) => ({
+        ...prev,
+        isRecording: true,
+        recordingStartTime: Date.now(),
+        audioRecording: recording
+      }));
+    } catch (error) {
+      console.error('❌ Error starting audio recording:', error);
+    }
   }, [currentQuestId]);
 
   const handleSpeechEnd = React.useCallback(async () => {
@@ -515,6 +564,7 @@ export default function NextGenAssetsView() {
     );
     console.log('Current asset index:', currentRabbitState.currentAssetIndex);
     console.log('Recording start time:', currentRabbitState.recordingStartTime);
+    console.log('Audio recording exists:', !!currentRabbitState.audioRecording);
 
     if (!currentUser || !currentQuestId) {
       console.warn(
@@ -532,19 +582,38 @@ export default function NextGenAssetsView() {
       currentAsset ? currentAsset.name : 'NONE'
     );
 
-    if (!currentAsset || !currentRabbitState.recordingStartTime) {
+    if (
+      !currentAsset ||
+      !currentRabbitState.recordingStartTime ||
+      !currentRabbitState.audioRecording
+    ) {
       console.warn(
-        '❌ No current asset or recording start time - cannot save recording'
+        '❌ No current asset, recording start time, or audio recording - cannot save recording'
       );
       console.log('  - Current asset exists:', !!currentAsset);
       console.log(
         '  - Recording start time exists:',
         !!currentRabbitState.recordingStartTime
       );
+      console.log(
+        '  - Audio recording exists:',
+        !!currentRabbitState.audioRecording
+      );
+
+      // Clean up any partial recording
+      if (currentRabbitState.audioRecording) {
+        try {
+          await currentRabbitState.audioRecording.stopAndUnloadAsync();
+        } catch (error) {
+          console.error('Error cleaning up recording:', error);
+        }
+      }
+
       setRabbitState((prev) => ({
         ...prev,
         isRecording: false,
-        recordingStartTime: null
+        recordingStartTime: null,
+        audioRecording: null
       }));
       return;
     }
@@ -558,17 +627,29 @@ export default function NextGenAssetsView() {
       const endTime = Date.now();
       const duration = endTime - currentRabbitState.recordingStartTime;
 
-      // Create a recording segment
-      const segment: RecordingSegment = {
-        id: `segment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        assetId: currentAsset.id,
-        startTime: currentRabbitState.recordingStartTime,
-        endTime,
-        duration,
-        waveformData: Array.from({ length: 20 }, () => Math.random()) // Mock waveform data
-      };
+      console.log(`Creating audio translation for asset: ${currentAsset.name}`);
 
-      console.log(`Creating recording segment for asset: ${currentAsset.name}`);
+      // Stop the audio recording and get the URI
+      const recordingStatus =
+        await currentRabbitState.audioRecording.stopAndUnloadAsync();
+      const recordingUri = recordingStatus.uri;
+      console.log('🎤 Audio recording stopped, URI:', recordingUri);
+
+      if (!recordingUri) {
+        throw new Error('Failed to get recording URI');
+      }
+
+      // Save the audio file via the attachment queue (like NextGenNewTranslationModal does)
+      let audioAttachment: string | null = null;
+      if (system.permAttachmentQueue) {
+        console.log('💾 Saving audio via attachment queue...');
+        const attachment =
+          await system.permAttachmentQueue.saveAudio(recordingUri);
+        audioAttachment = attachment.filename;
+        console.log('✅ Audio saved with filename:', audioAttachment);
+      } else {
+        throw new Error('Attachment queue not available');
+      }
 
       // Get quest data to find project and target language
       const questData = await system.db.query.quest.findFirst({
@@ -582,14 +663,29 @@ export default function NextGenAssetsView() {
         throw new Error('Could not find target language for project');
       }
 
-      // Create the translation with segment info as text (for now)
-      await translationService.createTranslation({
-        text: `Recording segment ${segment.id} for ${currentAsset.name} (${duration}ms)`,
+      console.log(
+        `Creating audio-only translation with attachment: ${audioAttachment}`
+      );
+
+      // Create audio-only translation record (no text content)
+      const translation = await translationService.createTranslation({
+        text: null, // No text content for audio-only recordings
         target_language_id: questData.project.target_language_id,
         asset_id: currentAsset.id,
         creator_id: currentUser.id,
-        audio: null // No audio for now due to Recording object conflict
+        audio: audioAttachment // Store the audio attachment filename
       });
+
+      // Create a recording segment for UI display
+      const segment: RecordingSegment = {
+        id: translation!.id, // Use the translation ID as segment ID
+        assetId: currentAsset.id,
+        startTime: currentRabbitState.recordingStartTime,
+        endTime,
+        duration,
+        audioUri: audioAttachment, // Store the audio attachment filename
+        waveformData: Array.from({ length: 20 }, () => Math.random()) // Mock waveform data
+      };
 
       // Update state with new recording segment
       setRabbitState((prev) => {
@@ -597,24 +693,28 @@ export default function NextGenAssetsView() {
         const currentAssetIndex = prev.currentAssetIndex;
 
         // Add segment to current asset
-        const currentAsset = updatedPulledAssets[currentAssetIndex];
+        const assetToUpdate = updatedPulledAssets[currentAssetIndex]!;
         updatedPulledAssets[currentAssetIndex] = {
-          ...currentAsset,
-          translations: currentAsset.translations || [],
-          recordingSegments: [...currentAsset.recordingSegments, segment],
+          ...assetToUpdate,
+          translations: [...assetToUpdate.translations, translation!],
+          recordingSegments: [...assetToUpdate.recordingSegments, segment],
           hasRecording: true
-        };
+        } as AssetWithTranslations;
 
         return {
           ...prev,
           isRecording: false,
           recordingStartTime: null,
+          audioRecording: null, // Clear the recording reference
           pulledAssets: updatedPulledAssets,
           recordingSegments: [...prev.recordingSegments, segment]
         };
       });
 
-      console.log('✅ Recording segment saved successfully');
+      console.log(
+        '✅ Audio translation saved successfully with ID:',
+        translation!.id
+      );
     } catch (error) {
       console.error('❌ Error saving recording segment:', error);
       Alert.alert('Save Error', 'Failed to save recording. Please try again.');
@@ -623,7 +723,8 @@ export default function NextGenAssetsView() {
       setRabbitState((prev) => ({
         ...prev,
         isRecording: false,
-        recordingStartTime: null
+        recordingStartTime: null,
+        audioRecording: null
       }));
     }
   }, [currentUser, currentQuestId]);
@@ -770,7 +871,8 @@ export default function NextGenAssetsView() {
         isRecording: false,
         isHoldingCard: false,
         recordingStartTime: null,
-        recordingSegments: []
+        recordingSegments: [],
+        audioRecording: null // Clear audio recording on new asset
       }));
     } else {
       console.warn('⚠️ No unrecorded assets found to pull!');
@@ -793,7 +895,8 @@ export default function NextGenAssetsView() {
       pulledAssets: [],
       isHoldingCard: false,
       recordingStartTime: null,
-      recordingSegments: [] // Clear recording segments on exit
+      recordingSegments: [], // Clear recording segments on exit
+      audioRecording: null // Clear audio recording on exit
     });
   }, [stopListening]);
 
