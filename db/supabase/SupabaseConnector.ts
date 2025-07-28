@@ -369,7 +369,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
                 // Now parse the actual array
                 processed[field] =
                   typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
-                console.log(`Parsed ${field}:`, processed[field]);
+                // console.log(`Parsed ${field}:`, processed[field]);
               } catch (e) {
                 console.warn(`Failed to parse ${field} as JSON:`, e);
                 console.warn('Raw value:', processed[field]);
