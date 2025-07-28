@@ -299,14 +299,14 @@ export default function NextGenQuestsView() {
       <View style={styles.floatingButtonContainer}>
         <View style={styles.floatingButtonRow}>
           {/* Settings Button - Only visible to owners */}
-          {canManageProject && (
+          {/* canManageProject && (
             <TouchableOpacity
               onPress={() => setShowSettingsModal(true)}
               style={[styles.floatingButton, styles.settingsFloatingButton]}
             >
               <Ionicons name="settings" size={24} color={colors.text} />
             </TouchableOpacity>
-          )}
+          ) */}
 
           {/* Project Details Button */}
           <TouchableOpacity
