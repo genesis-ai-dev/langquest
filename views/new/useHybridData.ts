@@ -291,8 +291,8 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     pageSize = 10,
     getItemId = (item) => (item as { id: string }).id,
     transformCloudData,
-    offlineQueryOptions = {},
-    cloudQueryOptions = {},
+    offlineQueryOptions: _offlineQueryOptions = {},
+    cloudQueryOptions: _cloudQueryOptions = {},
     enableCloudQuery
   } = options;
 
@@ -308,12 +308,9 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const offlineQuery = useInfiniteQuery({
     queryKey: offlineQueryKey,
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    staleTime: offlineQueryOptions?.staleTime,
-    gcTime: offlineQueryOptions?.gcTime,
-    refetchOnWindowFocus: offlineQueryOptions?.refetchOnWindowFocus,
-    refetchOnMount: offlineQueryOptions?.refetchOnMount,
-    queryFn: async ({ pageParam }) => {
+    getNextPageParam: (lastPage: HybridPageData<TOfflineData>) =>
+      lastPage.nextCursor,
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
       const context: InfiniteQueryContext = {
         pageParam: pageParam,
         pageSize
@@ -333,13 +330,10 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const cloudQuery = useInfiniteQuery({
     queryKey: cloudQueryKey,
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage: HybridPageData<TCloudData>) =>
+      lastPage.nextCursor,
     enabled: shouldFetchCloud,
-    staleTime: cloudQueryOptions?.staleTime,
-    gcTime: cloudQueryOptions?.gcTime,
-    refetchOnWindowFocus: cloudQueryOptions?.refetchOnWindowFocus,
-    refetchOnMount: cloudQueryOptions?.refetchOnMount,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
       const context: InfiniteQueryContext = {
         pageParam: pageParam,
         pageSize
@@ -556,9 +550,9 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
       const rows: TOfflineData[] = [];
       if (result.rows) {
         for (let i = 0; i < result.rows.length; i++) {
-          const item = result.rows.item(i);
+          const item = result.rows.item(i) as TOfflineData;
           if (item) {
-            rows.push(item as TOfflineData);
+            rows.push(item);
           }
         }
       }
@@ -576,7 +570,7 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
   const isOnline = getNetworkStatus();
   let cloudData: TCloudData[] = [];
 
-  if (isOnline && cloudQueryFn) {
+  if (isOnline) {
     try {
       cloudData = await cloudQueryFn();
     } catch (error) {
@@ -667,7 +661,7 @@ export function useItemDownload(
             }
           );
           if (result.error) throw result.error;
-          return result.data;
+          return result.data as boolean;
         } else {
           // TODO: Implement undownload when available
           console.warn('Undownload not yet implemented for quest_closure');
@@ -690,8 +684,8 @@ export function useItemDownload(
     },
     onSuccess: () => {
       // Invalidate relevant queries to refresh download status
-      queryClient.invalidateQueries({ queryKey: [itemType + 's'] });
-      queryClient.invalidateQueries({ queryKey: ['download-status'] });
+      void queryClient.invalidateQueries({ queryKey: [itemType + 's'] });
+      void queryClient.invalidateQueries({ queryKey: ['download-status'] });
     }
   });
 }
