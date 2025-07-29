@@ -1,3 +1,4 @@
+import type { BibleReference } from '@/constants/bibleStructure';
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
@@ -73,6 +74,26 @@ export interface RecentAsset {
   visitedAt: Date;
 }
 
+// Recording session types for RapidRecordingView
+export interface AudioSegment {
+  id: string;
+  audioUri: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  verse: BibleReference;
+}
+
+export interface RecordingSession {
+  id: string;
+  title: string;
+  projectId: string;
+  initialReference: BibleReference;
+  segments: AudioSegment[];
+  created_at: Date;
+  last_updated: Date;
+}
+
 interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
@@ -87,6 +108,9 @@ interface LocalState {
   // Draft projects and quests
   draftProjects: DraftProject[];
   draftQuests: DraftQuest[];
+
+  // Recording sessions for RapidRecordingView
+  recordingSessions: RecordingSession[];
 
   // Authentication view state
   authView:
@@ -155,6 +179,12 @@ interface LocalState {
   getDraftQuestsByProjectId: (projectId: string) => DraftQuest[];
   removeDraftQuestsByProjectId: (projectId: string) => void;
 
+  // Recording session methods
+  getRecordingSession: (id: string) => RecordingSession | undefined;
+  createRecordingSession: (id: string, title: string, projectId: string, initialReference: BibleReference) => void;
+  addAudioSegment: (sessionId: string, segment: Omit<AudioSegment, 'id'>) => void;
+  deleteAudioSegment: (sessionId: string, segmentId: string) => void;
+
   // Attachment sync methods
   setAttachmentSyncProgress: (
     progress: Partial<LocalState['attachmentSyncProgress']>
@@ -181,6 +211,9 @@ export const useLocalStore = create<LocalState>()(
       // Draft projects and quests
       draftProjects: [],
       draftQuests: [],
+
+      // Recording sessions for RapidRecordingView
+      recordingSessions: [],
 
       // Authentication view state
       authView: null,
@@ -340,6 +373,53 @@ export const useLocalStore = create<LocalState>()(
             (quest) => quest.project_id !== projectId
           )
         })),
+
+      // Recording session methods
+      getRecordingSession: (id) => {
+        const state = get();
+        return state.recordingSessions.find((session) => session.id === id);
+      },
+      createRecordingSession: (id, title, projectId, initialReference) => {
+        const now = new Date();
+        const session: RecordingSession = {
+          id,
+          title,
+          projectId,
+          initialReference,
+          segments: [],
+          created_at: now,
+          last_updated: now
+        };
+        set((state) => ({
+          recordingSessions: [...state.recordingSessions, session]
+        }));
+      },
+      addAudioSegment: (sessionId, segment) => {
+        set((state) => ({
+          recordingSessions: state.recordingSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                segments: [...session.segments, { ...segment, id: generateTempId() }],
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+      deleteAudioSegment: (sessionId, segmentId) => {
+        set((state) => ({
+          recordingSessions: state.recordingSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                segments: session.segments.filter((segment) => segment.id !== segmentId),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
 
       // Attachment sync methods
       setAttachmentSyncProgress: (progress) =>

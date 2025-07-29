@@ -343,7 +343,7 @@ const RapidRecordingView = () => {
   const handleDeleteSegment = useCallback(
     (segmentId: string) => {
       const segment = recordingSession?.segments.find(
-        (s) => s.id === segmentId
+        (s: any) => s.id === segmentId
       );
       if (!segment) return;
 
@@ -463,7 +463,7 @@ const RapidRecordingView = () => {
         style={styles.timeline}
         contentContainerStyle={styles.timelineContent}
       >
-        {recordingSession?.segments.map((segment) => (
+        {recordingSession?.segments.map((segment: any) => (
           <View key={segment.id} style={styles.segmentCard}>
             <TouchableOpacity
               style={styles.segmentMenuButton}
