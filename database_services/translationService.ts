@@ -114,7 +114,8 @@ export class TranslationService {
         audio: data.audio,
         asset_id: data.asset_id,
         target_language_id: data.target_language_id,
-        creator_id: data.creator_id
+        creator_id: data.creator_id,
+        download_profiles: [data.creator_id]
       })
       .returning();
 

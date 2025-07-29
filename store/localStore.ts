@@ -1,9 +1,9 @@
-import type { language } from '@/db/drizzleSchema';
-import type { Profile } from '@/hooks/db/useProfiles';
+import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+type Profile = typeof profile.$inferSelect;
 // Navigation types (forward declaration to avoid circular import)
 export type AppView =
   | 'projects'
@@ -59,6 +59,17 @@ interface LocalState {
   analyticsOptOut: boolean;
   projectSourceFilter: string;
   projectTargetFilter: string;
+
+  // Authentication view state
+  authView:
+    | 'sign-in'
+    | 'register'
+    | 'forgot-password'
+    | 'reset-password'
+    | null;
+  setAuthView: (
+    view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
+  ) => void;
 
   // Navigation context - just IDs, not full data
   currentProjectId: string | null;
@@ -122,6 +133,10 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
+
+      // Authentication view state
+      authView: null,
+      setAuthView: (view) => set({ authView: view }),
 
       // Navigation context
       currentProjectId: null,
@@ -225,7 +240,7 @@ export const useLocalStore = create<LocalState>()(
             ([key]) =>
               ![
                 'language',
-                'currentUser',
+                'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
                 'currentAssetId',

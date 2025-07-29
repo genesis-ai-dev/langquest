@@ -1,17 +1,16 @@
-import type { project } from '@/db/drizzleSchema';
-import { useLanguageNames } from '@/hooks/db/useLanguages';
+import type { language, project } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq, inArray } from 'drizzle-orm';
 import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Match the type from projectService
-// type ProjectWithRelations = typeof project.$inferSelect & {
-//   source_language: typeof language.$inferSelect;
-//   target_language: typeof language.$inferSelect;
-// };
-
 type Project = typeof project.$inferSelect;
+type Language = typeof language.$inferSelect;
 
 interface ProjectDetailsProps {
   project: Project;
@@ -22,15 +21,45 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  const { languages } = useLanguageNames([
-    project.source_language_id,
-    project.target_language_id
-  ]);
+  const languageIds = [project.source_language_id, project.target_language_id];
 
-  const sourceLanguage = languages?.find(
+  // Use useHybridData directly
+  const { data: languages } = useHybridData<
+    Pick<Language, 'id' | 'native_name' | 'english_name'>
+  >({
+    dataType: 'languages',
+    queryKeyParams: languageIds,
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        columns: { id: true, native_name: true, english_name: true },
+        where: and(
+          eq(languageTable.active, true),
+          inArray(languageTable.id, languageIds)
+        )
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('language')
+        .select('id, native_name, english_name')
+        .eq('active', true)
+        .in('id', languageIds)
+        .overrideTypes<
+          { id: string; native_name: string; english_name: string }[]
+        >();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const sourceLanguage = languages.find(
     (language) => language.id === project.source_language_id
   );
-  const targetLanguage = languages?.find(
+  const targetLanguage = languages.find(
     (language) => language.id === project.target_language_id
   );
 
@@ -43,7 +72,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            {sourceLanguage?.native_name || sourceLanguage?.english_name} →
+            {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}
             {targetLanguage?.native_name || targetLanguage?.english_name}
           </Text>
         </View>

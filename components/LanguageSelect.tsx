@@ -1,9 +1,13 @@
 import type { language } from '@/db/drizzleSchema';
-import { useUIReadyLanguages } from '@/hooks/db/useLanguages';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq } from 'drizzle-orm';
 import {
   memo,
   default as React,
@@ -30,21 +34,47 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
     const savedLanguage = useLocalStore((state) => state.language);
     const { t } = useLocalization();
 
-    const { languages } = useUIReadyLanguages();
+    // Use useHybridData directly
+    const { data: languages } = useHybridData<Language>({
+      dataType: 'languages',
+      queryKeyParams: ['ui-ready'],
+
+      // PowerSync query using Drizzle
+      offlineQuery: toCompilableQuery(
+        system.db.query.language.findMany({
+          where: and(
+            eq(languageTable.active, true),
+            eq(languageTable.ui_ready, true)
+          )
+        })
+      ),
+
+      // Cloud query
+      cloudQueryFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('language')
+          .select('*')
+          .eq('active', true)
+          .eq('ui_ready', true)
+          .overrideTypes<Language[]>();
+        if (error) throw error;
+        return data;
+      }
+    });
 
     useEffect(() => {
-      if (languages && languages.length > 0) {
+      if (languages.length > 0) {
         setLanguagesLoaded?.(true);
       }
     }, [languages, setLanguagesLoaded]);
 
-    const defaultLanguage = languages?.find((l) => l.iso639_3 === 'eng');
+    const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
     const selectedLanguage =
-      languages?.find((l) => l.id === value) ?? savedLanguage;
+      languages.find((l) => l.id === value) ?? savedLanguage;
 
     const handleSelect = useCallback(
       (langName: string) => {
-        const lang = languages?.find((l) => l.native_name === langName);
+        const lang = languages.find((l) => l.native_name === langName);
         if (lang) {
           setLanguage(lang);
           onChange?.(lang);
@@ -75,10 +105,9 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
         value={
           selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
         }
-        options={
-          languages?.filter((l) => l.native_name).map((l) => l.native_name!) ??
-          []
-        }
+        options={languages
+          .filter((l) => l.native_name)
+          .map((l) => l.native_name!)}
         onSelect={handleSelect}
         isOpen={showLanguages}
         onToggle={handleToggle}

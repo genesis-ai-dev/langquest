@@ -1,38 +1,74 @@
-import { getCurrentUser } from '@/contexts/AuthContext';
-import { getLanguageById } from '@/hooks/db/useLanguages';
+import type { language } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
+import { hybridFetch } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { User } from '@supabase/supabase-js';
+import { eq } from 'drizzle-orm';
+
+type Language = typeof language.$inferSelect;
 
 export class TranslationUtils {
-  private static currentLanguage: SupportedLanguage = 'english';
+  static currentLanguage: SupportedLanguage = 'english';
 
-  static async initialize() {
+  static async initialize(currentUser: User | null) {
     try {
-      const currentUser = getCurrentUser();
       if (!currentUser) return;
-      const language = await getLanguageById(currentUser.ui_language_id ?? '');
+
+      // Get UI language from user metadata or profile
+      const uiLanguageId = currentUser.user_metadata.ui_language_id;
+      if (!uiLanguageId) return;
+
+      // Use hybridFetch directly
+      const languages = await hybridFetch<Language>({
+        offlineQuery: toCompilableQuery(
+          system.db.query.language.findMany({
+            where: eq(languageTable.id, uiLanguageId),
+            limit: 1
+          })
+        ),
+        cloudQueryFn: async () => {
+          const { data, error } = await system.supabaseConnector.client
+            .from('language')
+            .select('*')
+            .eq('id', uiLanguageId)
+            .overrideTypes<Language[]>();
+          if (error) throw error;
+          return data;
+        }
+      });
+
+      const language = languages[0];
       if (language?.english_name) {
         this.currentLanguage =
           language.english_name.toLowerCase() as SupportedLanguage;
       }
     } catch (error) {
-      console.error('Error initializing localizations:', error);
+      console.error('Error initializing TranslationUtils:', error);
     }
   }
 
-  static t(key: keyof typeof localizations) {
-    const localization = localizations[key];
-    return localization[this.currentLanguage];
-  }
+  static t(key: string, substitutions?: Record<string, string>): string {
+    // Access the translation by key first, then by language
+    const translationEntry =
+      key in localizations
+        ? localizations[key as keyof typeof localizations]
+        : undefined;
 
-  static formatMessage(
-    message: string,
-    params: Record<string, string>
-  ): string {
-    let formattedMessage = message;
-    for (const [key, value] of Object.entries(params)) {
-      formattedMessage = formattedMessage.replace(`{${key}}`, value);
+    const translation = translationEntry?.[this.currentLanguage] ?? key;
+
+    if (!substitutions) return translation;
+
+    let formattedMessage = translation;
+    for (const [placeholder, value] of Object.entries(substitutions)) {
+      formattedMessage = formattedMessage.replace(
+        new RegExp(`\\{${placeholder}\\}`, 'g'),
+        value
+      );
     }
+
     return formattedMessage;
   }
 }

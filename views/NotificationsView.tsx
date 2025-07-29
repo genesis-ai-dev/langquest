@@ -1,44 +1,33 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessionCache } from '@/contexts/SessionCacheContext';
-import type { project } from '@/db/drizzleSchema';
 import {
   invite,
   profile,
   profile_project_link,
+  project,
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { downloadRecord } from '@/hooks/useDownloads';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Type definitions for query results
-type InviteWithRelations = typeof invite.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-};
-
-type RequestWithRelations = typeof request.$inferSelect & {
-  project: typeof project.$inferSelect | null;
-};
 
 interface NotificationItem {
   id: string;
@@ -66,97 +55,125 @@ export default function NotificationsView() {
   const { currentUser } = useAuth();
   const isConnected = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  const [downloadToggles, setDownloadToggles] = useState<
-    Record<string, boolean>
-  >({});
+  // const [refreshKey, setRefreshKey] = useState(0);
 
-  // Use session cache for user memberships instead of separate query
-  const { userMemberships } = useSessionCache();
+  // Use user memberships from local DB instead of session cache
+  const { userMemberships } = useUserMemberships();
 
-  // Get owner project IDs from session cache
+  // Get owner project IDs from user memberships
   const ownerProjectIds = React.useMemo(() => {
-    return (
-      userMemberships
-        ?.filter(
-          (membership) => membership.membership === 'owner' && membership.active
-        )
-        .map((membership) => membership.project_id) ?? []
-    );
+    return userMemberships
+      .filter(
+        (membership) => membership.membership === 'owner' && membership.active
+      )
+      .map((membership) => membership.project_id);
   }, [userMemberships]);
 
-  // Query for invite notifications (where user's email matches) - without sender relation
-  const { data: inviteData = [], refetch: refetchInvites } = useHybridQuery({
-    queryKey: ['invite-notifications', currentUser?.email],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('invite')
-        .select(
-          `
-          *,
-          project!inner(id, name)
-        `
-        )
-        .eq('email', currentUser?.email || '')
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) {
-        console.error('Invite query error:', error);
-        throw error;
-      }
-      console.log('Invite query result:', data);
-      return data as InviteWithRelations[];
-    },
+  // Query for invite notifications (where user's email matches) - without project relation
+  const { data: inviteData } = useHybridData<typeof invite.$inferSelect>({
+    dataType: 'invite-notifications',
+    queryKeyParams: [currentUser?.email || ''],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
           eq(invite.status, 'pending'),
           eq(invite.active, true)
-        ),
-        with: {
-          project: true
-        }
+        )
       })
-    ),
-    enabled: !!currentUser?.email
+    )
+
+    // Cloud query
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('invite')
+    //     .select('*')
+    //     .eq('email', currentUser?.email || '')
+    //     .eq('status', 'pending')
+    //     .eq('active', true)
+    //     .overrideTypes<(typeof invite.$inferSelect)[]>();
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
-  // Get pending requests for owner projects (using session cache for owner project IDs) - without sender relation
-  const { data: requestData = [], refetch: refetchRequests } = useHybridQuery({
-    queryKey: ['request-notifications', ownerProjectIds],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select(
-          `
-          *,
-          project!inner(id, name)
-        `
-        )
-        .eq('status', 'pending')
-        .eq('active', true);
-      if (error) {
-        console.error('Request query error:', error);
-        throw error;
-      }
-      console.log('Request query result:', data);
-      return data as RequestWithRelations[];
-    },
+  // Get pending requests for owner projects - without project relation
+  const { data: requestData } = useHybridData<typeof request.$inferSelect>({
+    dataType: 'request-notifications',
+    queryKeyParams: [...ownerProjectIds],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
-        where: and(eq(request.status, 'pending'), eq(request.active, true)),
-        with: {
-          project: true
-        }
+        where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
-    ),
-    enabled: ownerProjectIds.length > 0
+    )
+
+    // Cloud query
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('request')
+    //     .select('*')
+    //     .eq('status', 'pending')
+    //     .eq('active', true)
+    //     .overrideTypes<(typeof request.$inferSelect)[]>();
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
   // Filter to only include requests for projects where the user is an owner
-  const filteredRequestData = requestData.filter((item: RequestWithRelations) =>
+  const filteredRequestData = requestData.filter((item) =>
     ownerProjectIds.includes(item.project_id)
   );
+
+  // Get unique project IDs from both invites and requests
+  const projectIds = React.useMemo(() => {
+    const ids = [
+      ...inviteData.map((invite) => invite.project_id),
+      ...filteredRequestData.map((request) => request.project_id)
+    ];
+    return [...new Set(ids)]; // Remove duplicates
+  }, [inviteData, filteredRequestData]);
+
+  // Query for projects separately
+  const { data: projects } = useHybridData<typeof project.$inferSelect>({
+    dataType: 'notification-projects',
+    queryKeyParams: [...projectIds],
+
+    // PowerSync query using Drizzle
+    offlineQuery:
+      projectIds.length > 0
+        ? toCompilableQuery(
+            system.db.query.project.findMany({
+              where: inArray(project.id, projectIds)
+            })
+          )
+        : 'SELECT * FROM project WHERE 1=0', // Empty query when no project IDs
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (projectIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .in('id', projectIds)
+        .overrideTypes<(typeof project.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Create a map of project ID to project data for easy lookup
+  const projectMap = React.useMemo(() => {
+    const map: Record<string, typeof project.$inferSelect> = {};
+    projects.forEach((proj) => {
+      map[proj.id] = proj;
+    });
+    return map;
+  }, [projects]);
 
   // Get unique sender profile IDs from both invites and requests
   const senderProfileIds = React.useMemo(() => {
@@ -168,21 +185,31 @@ export default function NotificationsView() {
   }, [inviteData, filteredRequestData]);
 
   // Query for sender profiles from local database
-  const { data: senderProfiles = [] } = useHybridQuery({
-    queryKey: ['sender-profiles', senderProfileIds],
-    onlineFn: async () => {
-      // For online, we still use the local database since profiles are always synced
-      const profiles = await system.db.query.profile.findMany({
-        where: inArray(profile.id, senderProfileIds)
-      });
-      return profiles;
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.profile.findMany({
-        where: inArray(profile.id, senderProfileIds)
-      })
-    ),
-    enabled: senderProfileIds.length > 0
+  const { data: senderProfiles } = useHybridData<SenderProfile>({
+    dataType: 'sender-profiles',
+    queryKeyParams: [...senderProfileIds],
+
+    // PowerSync query using Drizzle
+    offlineQuery:
+      senderProfileIds.length > 0
+        ? toCompilableQuery(
+            system.db.query.profile.findMany({
+              where: inArray(profile.id, senderProfileIds)
+            })
+          )
+        : 'SELECT * FROM profile WHERE 1=0', // Empty query when no sender IDs
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (senderProfileIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile')
+        .select('*')
+        .in('id', senderProfileIds)
+        .overrideTypes<SenderProfile[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Create a map of profile ID to profile data for easy lookup
@@ -194,36 +221,38 @@ export default function NotificationsView() {
     return map;
   }, [senderProfiles]);
 
-  const inviteNotifications: NotificationItem[] = inviteData.map(
-    (item: InviteWithRelations) => {
-      const senderProfile = senderProfileMap[item.sender_profile_id];
-      return {
-        id: item.id,
-        type: 'invite' as const,
-        status: item.status,
-        email: item.email,
-        project_id: item.project_id,
-        project_name: item.project?.name || t('unknownProject'),
-        sender_profile_id: item.sender_profile_id,
-        sender_name: senderProfile?.username || '',
-        sender_email: senderProfile?.email || '',
-        as_owner: item.as_owner || false,
-        created_at: item.created_at,
-        last_updated: item.last_updated
-      };
-    }
-  );
+  const inviteNotifications: NotificationItem[] = inviteData.map((item) => {
+    const senderProfile = senderProfileMap[item.sender_profile_id];
+    const projectData = projectMap[item.project_id];
+    return {
+      id: item.id,
+      type: 'invite' as const,
+      status: item.status,
+      email: item.email,
+      project_id: item.project_id,
+      project_name: projectData?.name || t('unknownProject'),
+      sender_profile_id: item.sender_profile_id,
+      sender_name: senderProfile?.username || '',
+      sender_email: senderProfile?.email || '',
+      as_owner: item.as_owner || false,
+      created_at: item.created_at,
+      last_updated: item.last_updated
+    };
+  });
+
+  console.log('inviteNotifications', inviteNotifications);
 
   const requestNotifications: NotificationItem[] = filteredRequestData.map(
-    (item: RequestWithRelations) => {
+    (item) => {
       const senderProfile = senderProfileMap[item.sender_profile_id];
+      const projectData = projectMap[item.project_id];
       return {
         id: item.id,
         type: 'request' as const,
         status: item.status,
         email: undefined,
         project_id: item.project_id,
-        project_name: item.project?.name || t('unknownProject'),
+        project_name: projectData?.name || t('unknownProject'),
         sender_profile_id: item.sender_profile_id,
         sender_name: senderProfile?.username || '',
         sender_email: senderProfile?.email || '',
@@ -233,35 +262,6 @@ export default function NotificationsView() {
       };
     }
   );
-
-  // Memoize notification IDs to prevent unnecessary re-renders
-  const notificationIds = React.useMemo(
-    () =>
-      inviteNotifications
-        .map((n) => n.id)
-        .sort()
-        .join(','),
-    [inviteNotifications]
-  );
-
-  // Initialize download toggles for invites
-  useEffect(() => {
-    if (inviteNotifications.length === 0) return;
-
-    setDownloadToggles((prev) => {
-      const newToggles = { ...prev };
-
-      inviteNotifications.forEach((notification) => {
-        // Only initialize if not already set
-        if (newToggles[notification.id] === undefined) {
-          // Default to true (download) since we can't check existing status easily
-          newToggles[notification.id] = true;
-        }
-      });
-
-      return newToggles;
-    });
-  }, [notificationIds]);
 
   // Filter out expired notifications
   const validInviteNotifications = inviteNotifications.filter(
@@ -280,8 +280,7 @@ export default function NotificationsView() {
     notificationId: string,
     type: 'invite' | 'request',
     projectId: string,
-    asOwner: boolean,
-    shouldDownload = false
+    asOwner: boolean
   ) => {
     if (processingIds.has(notificationId)) return;
 
@@ -290,8 +289,7 @@ export default function NotificationsView() {
       type,
       projectId,
       asOwner,
-      currentUserId: currentUser?.id,
-      shouldDownload
+      currentUserId: currentUser?.id
     });
 
     setProcessingIds((prev) => new Set(prev).add(notificationId));
@@ -365,20 +363,6 @@ export default function NotificationsView() {
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
         }
-
-        // Handle project download if requested
-        if (shouldDownload && currentUser) {
-          try {
-            await downloadRecord('project', projectId, false);
-          } catch (downloadError) {
-            console.error(
-              '[handleAccept] Error setting project download:',
-              downloadError
-            );
-            // Don't fail the entire operation if download fails
-            Alert.alert(t('warning'), t('invitationAcceptedDownloadFailed'));
-          }
-        }
       } else {
         // type === 'request'
         console.log('[handleAccept] Updating request to accepted...');
@@ -451,11 +435,6 @@ export default function NotificationsView() {
         }
       }
 
-      console.log('[handleAccept] Refetching notifications...');
-      // Refetch notifications
-      void refetchInvites();
-      void refetchRequests();
-
       Alert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
@@ -504,10 +483,6 @@ export default function NotificationsView() {
           .where(eq(request.id, notificationId));
       }
 
-      // Refetch notifications
-      void refetchInvites();
-      void refetchRequests();
-
       Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
@@ -524,16 +499,8 @@ export default function NotificationsView() {
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
     const roleText = item.as_owner ? t('ownerRole') : t('memberRole');
-    const shouldDownload = downloadToggles[item.id] ?? true;
 
-    console.log(
-      'Rendering notification:',
-      item.id,
-      'shouldDownload:',
-      shouldDownload,
-      'downloadToggles:',
-      downloadToggles
-    );
+    console.log('Rendering notification:', item.id);
 
     return (
       <View key={item.id} style={styles.notificationItem}>
@@ -570,7 +537,7 @@ export default function NotificationsView() {
           </Text>
 
           {/* Download toggle for invites */}
-          {item.type === 'invite' && (
+          {/* {item.type === 'invite' && (
             <View style={styles.downloadSection}>
               <View style={styles.downloadToggleRow}>
                 <Text style={styles.downloadLabel}>
@@ -613,20 +580,14 @@ export default function NotificationsView() {
                 </View>
               )}
             </View>
-          )}
+          )} */}
         </View>
 
         <View style={styles.notificationActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.acceptButton]}
             onPress={() =>
-              handleAccept(
-                item.id,
-                item.type,
-                item.project_id,
-                item.as_owner,
-                shouldDownload
-              )
+              handleAccept(item.id, item.type, item.project_id, item.as_owner)
             }
             disabled={isProcessing}
           >

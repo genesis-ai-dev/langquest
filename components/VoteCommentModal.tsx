@@ -77,7 +77,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
                 <TextInput
                   style={styles.textInput}
                   multiline
-                  placeholder="Enter your comment (optional)"
+                  placeholder={t('enterCommentOptional')}
                   placeholderTextColor={colors.textSecondary}
                   value={comment}
                   onChangeText={setComment}

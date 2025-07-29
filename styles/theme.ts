@@ -285,5 +285,12 @@ export const sharedStyles = StyleSheet.create({
     paddingVertical: spacing.xsmall,
     borderRadius: borderRadius.small,
     overflow: 'hidden'
+  },
+  invisible: {
+    opacity: 0.2
+  },
+  disabled: {
+    backgroundColor: colors.disabled,
+    opacity: 0.4
   }
 });

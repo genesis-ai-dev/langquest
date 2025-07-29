@@ -1,3 +1,4 @@
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors } from '@/styles/theme';
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -17,11 +18,12 @@ interface DownloadConfirmationModalProps {
 export const DownloadConfirmationModal: React.FC<
   DownloadConfirmationModalProps
 > = ({ visible, onConfirm, onCancel, downloadType, stats }) => {
+  const { t } = useLocalization();
   const getConfirmationText = () => {
     if (downloadType === 'project') {
-      return `Download this project for offline use?\n\nThis will download:\n• ${stats.totalQuests || 0} quests\n• ${stats.totalAssets || 0} assets\n• ${stats.totalTranslations || 0} translations`;
+      return `${t('downloadProjectConfirmation')}\n\n${t('thisWillDownload')}\n• ${stats.totalQuests || 0} ${t('quests')}\n• ${stats.totalAssets || 0} ${t('assets')}\n• ${stats.totalTranslations || 0} ${t('translations')}`;
     } else {
-      return `Download this quest for offline use?\n\nThis will download:\n• ${stats.totalAssets || 0} assets\n• ${stats.totalTranslations || 0} translations`;
+      return `${t('downloadQuestConfirmation')}\n\n${t('thisWillDownload')}\n• ${stats.totalAssets || 0} ${t('assets')}\n• ${stats.totalTranslations || 0} ${t('translations')}`;
     }
   };
 

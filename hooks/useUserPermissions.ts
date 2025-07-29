@@ -1,9 +1,13 @@
-import { useSessionMemberships } from '@/contexts/SessionCacheContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useUserMemberships } from '@/hooks/db/useProfiles';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
+
+// Type definition
+type Project = InferSelectModel<typeof project>;
 
 /**
  * # Access Control Constraints
@@ -124,8 +128,7 @@ export function useUserPermissions(
     active: boolean;
   };
 } {
-  const { getUserMembership, isUserMembershipsLoading } =
-    useSessionMemberships();
+  const { getUserMembership, isUserMembershipsLoading } = useUserMemberships();
   const { db } = system;
 
   // Don't run queries if project_id is empty or invalid
@@ -134,17 +137,12 @@ export function useUserPermissions(
   // Only query for privacy if not provided
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
-  // Query for project details to get privacy setting
-  const { data: projectData = [] } = useHybridQuery({
-    queryKey: ['project-privacy', project_id],
-    onlineFn: async () => {
-      const { data } = await system.supabaseConnector.client
-        .from('project')
-        .select('private')
-        .eq('id', project_id)
-        .single();
-      return data ? [data] : [];
-    },
+  // Query for project details to get privacy setting using useHybridData
+  const { data: projectData } = useHybridData<Pick<Project, 'private'>>({
+    dataType: 'project-privacy',
+    queryKeyParams: [project_id],
+
+    // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(project.id, project_id),
@@ -152,15 +150,27 @@ export function useUserPermissions(
         limit: 1
       })
     ),
-    enabled: shouldQueryPrivacy
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      if (!shouldQueryPrivacy) return [];
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('private')
+        .eq('id', project_id);
+
+      if (error) throw error;
+      return data as Pick<Project, 'private'>[];
+    },
+
+    // Only enable cloud query when we should query privacy
+    enableCloudQuery: shouldQueryPrivacy
   });
 
-  // Get membership from session cache (more efficient and consistent)
+  // Get membership from user memberships hook
   const membershipData = getUserMembership(project_id);
-  const isPrivate =
-    knownIsPrivate ??
-    (projectData[0] as { private: boolean } | undefined)?.private ??
-    false;
+  const isPrivate = knownIsPrivate ?? projectData[0]?.private ?? false;
   const membership = membershipData?.membership as MembershipRole;
 
   // If project_id is invalid, return no access
@@ -190,7 +200,11 @@ export function useUserPermissions(
       hasAccess: isLockVisible,
       membership,
       isMembershipLoading: isUserMembershipsLoading,
-      membershipData
+      membershipData: membershipData as {
+        project_id: string;
+        membership: 'owner' | 'member';
+        active: boolean;
+      }
     };
   }
 
@@ -222,6 +236,10 @@ export function useUserPermissions(
     hasAccess: hasRolePermission,
     membership,
     isMembershipLoading: isUserMembershipsLoading,
-    membershipData
+    membershipData: membershipData as {
+      project_id: string;
+      membership: 'owner' | 'member';
+      active: boolean;
+    }
   };
 }

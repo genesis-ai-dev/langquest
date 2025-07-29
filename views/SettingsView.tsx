@@ -1,10 +1,15 @@
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, spacing } from '@/styles/theme';
+import {
+  getOptionShowHiddenContent,
+  setOptionShowHiddenContent
+} from '@/utils/settingsUtils';
+import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -43,6 +48,15 @@ export default function SettingsView() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHiddenContent, setShowHiddenContent] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      setShowHiddenContent(await getOptionShowHiddenContent());
+    };
+    void loadSettings();
+  });
+
   const handleNotificationToggle = (value: boolean) => {
     setNotificationsEnabled(value);
     // TODO: Implement actual notification permission logic
@@ -68,24 +82,38 @@ export default function SettingsView() {
   };
 
   const handleShowHiddenContentToggle = (value: boolean) => {
-    setShowHiddenContent(value);
-    // TODO: Implement Show hidden content logic
-    console.log('Show hidden content:', value);
+    setOptionShowHiddenContent(value)
+      .then(() => {
+        setShowHiddenContent(value);
+        queryClient.removeQueries({
+          queryKey: ['projects'],
+          exact: false
+        });
+      })
+      .catch((error) => {
+        Alert.alert('Error', 'Failed to update setting', [
+          { text: 'OK', style: 'default' }
+        ]);
+        console.error('Error updating show hidden content setting:', error);
+      });
   };
 
   const handleClearCache = () => {
     Alert.alert(
-      'Clear Cache',
-      'Are you sure you want to clear all cached data?',
+      t('clearCache') || 'Clear Cache',
+      t('clearCacheConfirmation') ||
+        'Are you sure you want to clear all cached data?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Clear',
+          text: t('clear') || 'Clear',
           style: 'destructive',
           onPress: () => {
             // TODO: Implement cache clearing logic
-            console.log('Clearing cache...');
-            Alert.alert('Success', 'Cache cleared successfully');
+            Alert.alert(
+              t('success') || 'Success',
+              t('cacheClearedSuccess') || 'Cache cleared successfully'
+            );
           }
         }
       ]
@@ -94,22 +122,29 @@ export default function SettingsView() {
 
   const handleExportData = () => {
     if (!isOnline) {
-      Alert.alert('Error', 'This feature requires an internet connection');
+      Alert.alert(
+        t('error') || 'Error',
+        t('exportRequiresInternet') ||
+          'This feature requires an internet connection'
+      );
       return;
     }
     // TODO: Implement data export logic
-    console.log('Exporting data...');
-    Alert.alert('Info', 'Data export feature coming soon');
+    Alert.alert(
+      t('info') || 'Info',
+      t('exportDataComingSoon') || 'Data export feature coming soon'
+    );
   };
 
   const settingsSections: SettingsSection[] = [
     {
-      title: 'Notifications',
+      title: t('notifications') || 'Notifications',
       items: [
         {
           id: 'notifications',
-          title: 'Enable Notifications',
+          title: t('enableNotifications') || 'Enable Notifications',
           description:
+            t('notificationsDescription') ||
             'Receive notifications for app updates and important information',
           type: 'toggle',
           value: notificationsEnabled,
@@ -118,12 +153,13 @@ export default function SettingsView() {
       ]
     },
     {
-      title: 'Content Preferences',
+      title: t('contentPreferences') || 'Content Preferences',
       items: [
         {
           id: 'showHiddenContent',
-          title: 'Show Hidden Content',
+          title: t('showHiddenContent') || 'Show Hidden Content',
           description:
+            t('showHiddenContentDescription') ||
             'Allow displaying content that has been marked as invisible',
           type: 'toggle',
           value: showHiddenContent,
@@ -132,20 +168,24 @@ export default function SettingsView() {
       ]
     },
     {
-      title: 'Data & Storage',
+      title: t('dataAndStorage') || 'Data & Storage',
       items: [
         {
           id: 'wifiOnly',
-          title: 'Download on WiFi Only',
-          description: 'Only download content when connected to WiFi',
+          title: t('downloadOnWifiOnly') || 'Download on WiFi Only',
+          description:
+            t('downloadOnWifiOnlyDescription') ||
+            'Only download content when connected to WiFi',
           type: 'toggle',
           value: downloadOnWifiOnly,
           onPress: () => handleWifiOnlyToggle(!downloadOnWifiOnly)
         },
         {
           id: 'autoBackup',
-          title: 'Auto Backup',
-          description: 'Automatically backup your data to the cloud',
+          title: t('autoBackup') || 'Auto Backup',
+          description:
+            t('autoBackupDescription') ||
+            'Automatically backup your data to the cloud',
           type: 'toggle',
           value: autoBackup,
           onPress: () => handleAutoBackupToggle(!autoBackup),
@@ -153,15 +193,19 @@ export default function SettingsView() {
         },
         {
           id: 'clearCache',
-          title: 'Clear Cache',
-          description: 'Clear all cached data to free up storage space',
+          title: t('clearCache') || 'Clear Cache',
+          description:
+            t('clearCacheDescription') ||
+            'Clear all cached data to free up storage space',
           type: 'button',
           onPress: handleClearCache
         },
         {
           id: 'exportData',
-          title: 'Export Data',
-          description: 'Export your data for backup or transfer',
+          title: t('exportData') || 'Export Data',
+          description:
+            t('exportDataDescription') ||
+            'Export your data for backup or transfer',
           type: 'button',
           onPress: handleExportData,
           disabled: !isOnline
@@ -169,43 +213,56 @@ export default function SettingsView() {
       ]
     },
     {
-      title: 'Support',
+      title: t('support') || 'Support',
       items: [
         {
           id: 'help',
-          title: 'Help Center',
+          title: t('helpCenter') || 'Help Center',
           type: 'button',
           onPress: () => {
-            Alert.alert('Info', 'Help center feature coming soon');
+            Alert.alert(
+              t('info') || 'Info',
+              t('helpCenterComingSoon') || 'Help center feature coming soon'
+            );
           }
         },
         {
           id: 'contact',
-          title: 'Contact Support',
+          title: t('contactSupport') || 'Contact Support',
           type: 'button',
           onPress: () => {
             // TODO: Implement contact support logic
-            Alert.alert('Info', 'Contact support feature coming soon');
+            Alert.alert(
+              t('info') || 'Info',
+              t('contactSupportComingSoon') ||
+                'Contact support feature coming soon'
+            );
           }
         },
         {
           id: 'terms',
-          title: 'Terms & Conditions',
+          title: t('termsAndConditions') || 'Terms & Conditions',
           type: 'button',
           onPress: () => {
             // TODO: Navigate to terms page
-            Alert.alert('Info', 'Terms & Conditions feature coming soon');
+            Alert.alert(
+              t('info') || 'Info',
+              t('termsAndConditionsComingSoon') ||
+                'Terms & Conditions feature coming soon'
+            );
           }
         }
       ]
     },
     {
-      title: 'Advanced',
+      title: t('advanced') || 'Advanced',
       items: [
         {
           id: 'debug',
-          title: 'Debug Mode',
-          description: 'Enable debug mode for development features',
+          title: t('debugMode') || 'Debug Mode',
+          description:
+            t('debugModeDescription') ||
+            'Enable debug mode for development features',
           type: 'toggle',
           value: debugMode,
           onPress: () => handleDebugToggle(!debugMode)
@@ -325,7 +382,8 @@ export default function SettingsView() {
             {!isOnline && (
               <View style={styles.offlineMessage}>
                 <Text style={styles.offlineText}>
-                  Some settings require an internet connection
+                  {t('settingsRequireInternet') ||
+                    'Some settings require an internet connection'}
                 </Text>
               </View>
             )}

@@ -5,6 +5,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
@@ -35,7 +36,8 @@ interface ProfileFormData {
 }
 
 export default function ProfileView() {
-  const { currentUser, setCurrentUser } = useAuth();
+  // const { currentUser, setCurrentUser } = useAuth();
+  const { currentUser } = useAuth();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
@@ -46,13 +48,11 @@ export default function ProfileView() {
   const handleAnalyticsToggle = async (value: boolean) => {
     try {
       setAnalyticsOptOut(value);
-      if (posthog) {
-        // NOTE: ryder was getting errors where posthog was undefined when using usePostHog()
-        await posthog[`opt${value ? 'Out' : 'In'}`]();
-      }
+      // NOTE: ryder was getting errors where posthog was undefined when using usePostHog()
+      await posthog[`opt${value ? 'Out' : 'In'}`]();
     } catch (error) {
       console.error('Error saving analytics preference:', error);
-      Alert.alert('Error', t('failedSaveAnalyticsPreference'));
+      Alert.alert(t('error'), t('failedSaveAnalyticsPreference'));
     }
   };
 
@@ -67,8 +67,8 @@ export default function ProfileView() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: currentUser?.ui_language_id ?? '',
-      termsAccepted: !!currentUser?.terms_accepted
+      selectedLanguageId: currentUser?.user_metadata.ui_language_id ?? '',
+      termsAccepted: !!currentUser?.user_metadata.terms_accepted
     }
   });
 
@@ -76,11 +76,11 @@ export default function ProfileView() {
   useEffect(() => {
     if (currentUser) {
       reset({
-        selectedLanguageId: currentUser.ui_language_id ?? '',
+        selectedLanguageId: currentUser.user_metadata.ui_language_id ?? '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
-        termsAccepted: !!currentUser.terms_accepted
+        termsAccepted: !!currentUser.user_metadata.terms_accepted
       });
     }
   }, [currentUser, reset, analyticsOptOut]);
@@ -92,11 +92,11 @@ export default function ProfileView() {
       // Validate password change if attempted
       if (data.newPassword || data.confirmPassword || data.currentPassword) {
         if (!data.currentPassword) {
-          Alert.alert('Error', t('currentPasswordRequired'));
+          Alert.alert(t('error'), t('currentPasswordRequired'));
           return;
         }
         if (data.newPassword !== data.confirmPassword) {
-          Alert.alert('Error', t('passwordsNoMatch'));
+          Alert.alert(t('error'), t('passwordsNoMatch'));
           return;
         }
       }
@@ -113,8 +113,8 @@ export default function ProfileView() {
       });
 
       if (updatedUser) {
-        setCurrentUser(updatedUser);
-        Alert.alert('Success', t('profileUpdateSuccess'));
+        // setCurrentUser(updatedUser);
+        Alert.alert(t('success'), t('profileUpdateSuccess'));
 
         // Clear password fields
         reset({
@@ -126,7 +126,7 @@ export default function ProfileView() {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', t('failedUpdateProfile'));
+      Alert.alert(t('error'), t('failedUpdateProfile'));
     }
   };
 
@@ -140,7 +140,35 @@ export default function ProfileView() {
           <View style={styles.contentContainer}>
             <Text style={styles.pageTitle}>{t('profile')}</Text>
 
-            {posthog && !posthog.isDisabled && (
+            {/* User Profile Information */}
+            {currentUser && (
+              <View style={styles.profileInfoSection}>
+                <View style={styles.profileInfoRow}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.profileInfoValue}>
+                    {currentUser.email || 'No email provided'}
+                  </Text>
+                </View>
+                {currentUser.user_metadata.username && (
+                  <View style={styles.profileInfoRow}>
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.profileInfoValue}>
+                      {currentUser.user_metadata.username}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {!posthog.isDisabled && (
               <TouchableOpacity
                 style={styles.saveButton}
                 onPress={async () => {
@@ -232,7 +260,7 @@ export default function ProfileView() {
                     rules={{
                       minLength: {
                         value: 6,
-                        message: 'Password must be at least 6 characters'
+                        message: t('passwordMustBeAtLeast6Characters')
                       }
                     }}
                     render={({ field: { onChange, value } }) => (
@@ -443,5 +471,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: spacing.small
+  },
+  profileInfoSection: {
+    backgroundColor: colors.inputBackground,
+    padding: spacing.medium,
+    borderRadius: 8,
+    gap: spacing.small
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small
+  },
+  profileInfoValue: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1
   }
 });

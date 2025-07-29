@@ -1,10 +1,12 @@
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import { AttachmentState } from '@powersync/attachments';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -13,12 +15,14 @@ import {
   Text,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AppHeader({
   drawerToggleCallback
 }: {
   drawerToggleCallback: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const {
     breadcrumbs,
     canGoBack: _canGoBack,
@@ -29,8 +33,30 @@ export default function AppHeader({
   const { totalCount: notificationCount } = useNotifications();
   const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
     useSyncState();
+
+  // Get attachment states to monitor download queue
+  const { attachmentStates } = useAttachmentStates([]);
+
+  // Calculate if there are downloads in progress
+  const hasDownloadsInProgress = useMemo(() => {
+    if (attachmentStates.size === 0) return false;
+
+    for (const record of attachmentStates.values()) {
+      if (
+        record.state === AttachmentState.QUEUED_DOWNLOAD ||
+        record.state === AttachmentState.QUEUED_SYNC
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [attachmentStates]);
+
   const isSyncing =
-    isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
+    isDownloadOperationInProgress ||
+    isUpdateInProgress ||
+    isConnecting ||
+    hasDownloadsInProgress;
   const isConnected = useNetworkStatus();
 
   // Animation for sync indicator
@@ -62,7 +88,9 @@ export default function AppHeader({
   });
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[styles.container, { paddingTop: insets.top + spacing.small }]}
+    >
       <View style={styles.header}>
         {/* Back Button */}
         {/* {canGoBack && (

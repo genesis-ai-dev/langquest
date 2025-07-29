@@ -1,4 +1,5 @@
 import { useExpoUpdates } from '@/hooks/useExpoUpdates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -11,9 +12,10 @@ import {
 } from 'react-native';
 
 export function UpdateBanner() {
+  const { t } = useLocalization();
   const { updateInfo, isDownloadingUpdate, downloadUpdate } = useExpoUpdates();
 
-  if (!updateInfo?.[0]?.isUpdateAvailable) {
+  if (!updateInfo?.isUpdateAvailable) {
     return null;
   }
 
@@ -25,7 +27,7 @@ export function UpdateBanner() {
           size={20}
           color={colors.primary}
         />
-        <Text style={styles.text}>A new update is available!</Text>
+        <Text style={styles.text}>{t('updateAvailable')}</Text>
       </View>
       <TouchableOpacity
         style={styles.button}
@@ -35,7 +37,7 @@ export function UpdateBanner() {
         {isDownloadingUpdate ? (
           <ActivityIndicator size="small" color={colors.buttonText} />
         ) : (
-          <Text style={styles.buttonText}>Update Now</Text>
+          <Text style={styles.buttonText}>{t('updateNow')}</Text>
         )}
       </TouchableOpacity>
     </View>

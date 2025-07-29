@@ -1,12 +1,12 @@
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
+import type { profile } from '@/db/drizzleSchema';
 import {
   invite,
   profile_project_link,
   project as projectTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
@@ -17,6 +17,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
@@ -26,13 +27,11 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View
 } from 'react-native';
 
@@ -109,63 +108,94 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }
 
   // Query for project details to check if it's private
-  const { data: [project] = [], isLoading: projectLoading } = useHybridQuery({
-    queryKey: ['project', projectId],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', projectId);
-      if (error) throw error;
-      return data;
-    },
+  const { data: projectData, isLoading: projectLoading } = useHybridData<
+    typeof projectTable.$inferSelect
+  >({
+    dataType: 'project',
+    queryKeyParams: [projectId],
+
+    // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.project.findFirst({
-        where: eq(projectTable.id, projectId)
+      db.query.project.findMany({
+        where: eq(projectTable.id, projectId),
+        limit: 1
       })
     )
   });
 
-  // Query for active project members
-  const { data: memberData = [], refetch: refetchMembers } = useHybridQuery({
-    queryKey: ['project-members', projectId],
-    onlineFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*, profile(*)')
-        .eq('project_id', projectId)
-        .eq('active', true);
-      if (error) throw error;
-      return data;
-    },
+  const project = projectData[0];
+
+  // Query for active project members - get links first
+  const { data: memberLinks } = useHybridData<
+    typeof profile_project_link.$inferSelect
+  >({
+    dataType: 'project-member-links',
+    queryKeyParams: [projectId],
+
+    // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
           eq(profile_project_link.active, true)
-        ),
-        with: {
-          profile: true
-        }
+        )
       })
     )
   });
 
-  const members: Member[] = memberData
-    .filter((link) => link?.profile?.id) // Filter out entries with null profiles
-    .map((link) => ({
-      id: link.profile?.id || '',
-      email: link.profile?.email || '',
-      name: link.profile?.username || link.profile?.email || '',
-      role: (link.membership as 'owner' | 'member') || 'member',
-      active: true
-    }));
+  // Get unique profile IDs from member links
+  const profileIds = React.useMemo(() => {
+    return [...new Set(memberLinks.map((link) => link.profile_id))];
+  }, [memberLinks]);
+
+  // Query for profiles separately
+  const { data: profiles } = useHybridData<typeof profile.$inferSelect>({
+    dataType: 'member-profiles',
+    queryKeyParams: [...profileIds],
+
+    // Only offline query - no cloud query needed
+    offlineQuery:
+      profileIds.length > 0
+        ? toCompilableQuery(
+            db.query.profile.findMany({
+              where: (profile, { inArray }) => inArray(profile.id, profileIds)
+            })
+          )
+        : 'SELECT * FROM profile WHERE 1=0' // Empty query when no profile IDs
+  });
+
+  // Create a map of profile ID to profile for easy lookup
+  const profileMap = React.useMemo(() => {
+    const map: Record<string, typeof profile.$inferSelect> = {};
+    profiles.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [profiles]);
+
+  // Combine the data
+  const members: Member[] = React.useMemo(() => {
+    return memberLinks
+      .map((link) => {
+        const profile = profileMap[link.profile_id];
+        if (!profile) return null;
+
+        return {
+          id: profile.id,
+          email: profile.email || '',
+          name: profile.username || profile.email || '',
+          role: link.membership as 'owner' | 'member',
+          active: true
+        };
+      })
+      .filter((member): member is Member => member !== null);
+  }, [memberLinks, profileMap]);
 
   // Sort members: current user first, then owners alphabetically, then members alphabetically
   const sortedMembers = [...members].sort((a, b) => {
     // Current user always comes first
-    if (a.id === currentUser?.id) return -1;
-    if (b.id === currentUser?.id) return 1;
+    if (a.id === currentUser.id) return -1;
+    if (b.id === currentUser.id) return 1;
 
     // Then sort by role (owners before members)
     if (a.role !== b.role) {
@@ -179,46 +209,75 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   // console.log('members', members);
 
-  // Query for invited users
-  const { data: invitationData = [], refetch: refetchInvitations } =
-    useHybridQuery({
-      queryKey: ['project-invitations', projectId],
-      onlineFn: async () => {
-        const { data, error } = await system.supabaseConnector.client
-          .from('invite')
-          .select('*, receiver(*)')
-          .eq('project_id', projectId);
-        if (error) throw error;
-        return data;
-      },
-      offlineQuery: toCompilableQuery(
-        db.query.invite.findMany({
-          where: and(
-            eq(invite.project_id, projectId)
-            // Include pending, expired, declined, and withdrawn statuses
-          ),
-          with: {
-            receiver: true
-          }
-        })
-      )
-    });
+  // Query for invited users - get invites first
+  const { data: invites } = useHybridData<typeof invite.$inferSelect>({
+    dataType: 'project-invites',
+    queryKeyParams: [projectId],
 
-  const invitations: Invitation[] = invitationData
-    .filter((inv) =>
-      ['pending', 'expired', 'declined', 'withdrawn'].includes(inv.status)
+    // Only offline query - no cloud query needed
+    offlineQuery: toCompilableQuery(
+      db.query.invite.findMany({
+        where: eq(invite.project_id, projectId)
+      })
     )
-    .map((inv) => ({
-      id: inv.id,
-      email: inv.email,
-      name: inv.email,
-      role: inv.as_owner ? 'owner' : 'member',
-      status: inv.status,
-      created_at: inv.created_at,
-      last_updated: inv.last_updated,
-      receiver_profile_id: inv.receiver_profile_id,
-      count: inv.count
-    }));
+  });
+
+  // Get unique receiver profile IDs from invites
+  const receiverProfileIds = React.useMemo(() => {
+    return [
+      ...new Set(
+        invites
+          .map((inv) => inv.receiver_profile_id)
+          .filter((id): id is string => id !== null)
+      )
+    ];
+  }, [invites]);
+
+  // Query for receiver profiles separately
+  const { data: receiverProfiles } = useHybridData<typeof profile.$inferSelect>(
+    {
+      dataType: 'receiver-profiles',
+      queryKeyParams: [...receiverProfileIds],
+
+      // Only offline query - no cloud query needed
+      offlineQuery:
+        receiverProfileIds.length > 0
+          ? toCompilableQuery(
+              db.query.profile.findMany({
+                where: (profile, { inArray }) =>
+                  inArray(profile.id, receiverProfileIds)
+              })
+            )
+          : 'SELECT * FROM profile WHERE 1=0' // Empty query when no receiver IDs
+    }
+  );
+
+  // Create a map of profile ID to profile for receivers
+  const _receiverProfileMap = React.useMemo(() => {
+    const map: Record<string, typeof profile.$inferSelect> = {};
+    receiverProfiles.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [receiverProfiles]);
+
+  const invitations: Invitation[] = React.useMemo(() => {
+    return invites
+      .filter((inv) =>
+        ['pending', 'expired', 'declined', 'withdrawn'].includes(inv.status)
+      )
+      .map((inv) => ({
+        id: inv.id,
+        email: inv.email,
+        name: inv.email,
+        role: inv.as_owner ? 'owner' : 'member',
+        status: inv.status,
+        created_at: inv.created_at,
+        last_updated: inv.last_updated,
+        receiver_profile_id: inv.receiver_profile_id,
+        count: inv.count
+      }));
+  }, [invites]);
 
   // Filter invitations based on visibility rules
   const visibleInvitations = invitations.filter((inv) => {
@@ -233,7 +292,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   });
 
   // Check if current user is an owner (keep for compatibility with leave project logic)
-  const currentUserMembership = members.find((m) => m.id === currentUser?.id);
+  const _currentUserMembership = members.find((m) => m.id === currentUser.id);
 
   // Count active owners
   const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
@@ -262,7 +321,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       eq(profile_project_link.project_id, projectId)
                     )
                   );
-                void refetchMembers();
+                // void refetchMembers(); // Removed refetch
               } catch (error) {
                 console.error('Error removing member:', error);
                 Alert.alert(t('error'), t('failedToRemoveMember'));
@@ -297,7 +356,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       eq(profile_project_link.project_id, projectId)
                     )
                   );
-                void refetchMembers();
+                // void refetchMembers(); // Removed refetch
               } catch (error) {
                 console.error('Error promoting member:', error);
                 Alert.alert(t('error'), t('failedToPromoteMember'));
@@ -368,7 +427,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             )
           );
       }
-      void refetchInvitations();
+      // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error withdrawing invitation:', error);
       Alert.alert(t('error'), t('failedToWithdrawInvitation'));
@@ -396,7 +455,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           })
           .where(eq(invite.id, inviteId));
 
-        void refetchInvitations();
+        // void refetchInvitations(); // Removed refetch
         Alert.alert(t('success'), t('invitationResent'));
       } else {
         Alert.alert(t('error'), t('maxInviteAttemptsReached'));
@@ -483,7 +542,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
             setInviteEmail('');
             setInviteAsOwner(false);
-            void refetchInvitations();
+            // void refetchInvitations(); // Removed refetch
             Alert.alert(t('success'), t('invitationResent'));
             return;
           } else {
@@ -511,7 +570,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
       setInviteEmail('');
       setInviteAsOwner(false);
-      void refetchInvitations();
+      // void refetchInvitations(); // Removed refetch
       Alert.alert(t('success'), t('invitationSent'));
     } catch (error) {
       console.error('Error sending invitation:', error);
@@ -525,7 +584,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const renderMember = (member: Member) => {
-    const isCurrentUser = member.id === currentUser?.id;
+    const isCurrentUser = member.id === currentUser.id;
 
     return (
       <View key={member.id} style={styles.memberItem}>
@@ -701,189 +760,193 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
-          <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={[sharedStyles.modal, styles.modalContainer]}>
-                <View style={styles.header}>
-                  <Text style={sharedStyles.modalTitle}>
-                    {t('projectMembers')}
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={sharedStyles.modalTitle}>{t('projectMembers')}</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              {projectLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>
+                    {t('loadingProjectDetails')}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
                 </View>
-
-                {projectLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <Text style={styles.loadingText}>
-                      {t('loadingProjectDetails')}
-                    </Text>
+              ) : (
+                <PrivateAccessGate
+                  projectId={projectId}
+                  projectName={project?.name || ''}
+                  isPrivate={project?.private || false}
+                  action="view_membership"
+                  inline={true}
+                >
+                  <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.tab,
+                        activeTab === 'members' && styles.activeTab
+                      ]}
+                      onPress={() => setActiveTab('members')}
+                    >
+                      <Text
+                        style={[
+                          styles.tabText,
+                          activeTab === 'members' && styles.activeTabText
+                        ]}
+                      >
+                        {t('members')} ({sortedMembers.length})
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.tab,
+                        activeTab === 'invited' && styles.activeTab
+                      ]}
+                      onPress={() => setActiveTab('invited')}
+                    >
+                      <Text
+                        style={[
+                          styles.tabText,
+                          activeTab === 'invited' && styles.activeTabText
+                        ]}
+                      >
+                        {t('invited')} ({visibleInvitations.length})
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  <PrivateAccessGate
-                    projectId={projectId}
-                    projectName={project?.name || ''}
-                    isPrivate={project?.private || false}
-                    action="view_membership"
-                    inline={true}
+
+                  <ScrollView
+                    style={styles.membersList}
+                    contentContainerStyle={styles.membersListContent}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <View style={styles.tabContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.tab,
-                          activeTab === 'members' && styles.activeTab
-                        ]}
-                        onPress={() => setActiveTab('members')}
-                      >
-                        <Text
-                          style={[
-                            styles.tabText,
-                            activeTab === 'members' && styles.activeTabText
-                          ]}
-                        >
-                          {t('members')} ({sortedMembers.length})
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.tab,
-                          activeTab === 'invited' && styles.activeTab
-                        ]}
-                        onPress={() => setActiveTab('invited')}
-                      >
-                        <Text
-                          style={[
-                            styles.tabText,
-                            activeTab === 'invited' && styles.activeTabText
-                          ]}
-                        >
-                          {t('invited')} ({visibleInvitations.length})
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.membersList}>
-                      {activeTab === 'members' ? (
-                        sortedMembers.length > 0 ? (
-                          sortedMembers.map(renderMember)
-                        ) : (
-                          <Text style={styles.emptyText}>{t('noMembers')}</Text>
-                        )
-                      ) : visibleInvitations.length > 0 ? (
-                        visibleInvitations.map(renderInvitation)
+                    {activeTab === 'members' ? (
+                      sortedMembers.length > 0 ? (
+                        sortedMembers.map(renderMember)
                       ) : (
-                        <Text style={styles.emptyText}>
-                          {t('noInvitations')}
-                        </Text>
-                      )}
-                    </ScrollView>
+                        <Text style={styles.emptyText}>{t('noMembers')}</Text>
+                      )
+                    ) : visibleInvitations.length > 0 ? (
+                      visibleInvitations.map(renderInvitation)
+                    ) : (
+                      <Text style={styles.emptyText}>{t('noInvitations')}</Text>
+                    )}
+                  </ScrollView>
 
-                    <View style={styles.inviteSection}>
-                      {sendInvitePermissions.hasAccess ? (
-                        <>
-                          <Text style={styles.inviteTitle}>
-                            {t('inviteMembers')}
-                          </Text>
-                          <TextInput
-                            style={styles.input}
-                            placeholder={t('email')}
-                            placeholderTextColor={colors.textSecondary}
-                            value={inviteEmail}
-                            onChangeText={setInviteEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                          />
-                          <View style={styles.checkboxContainer}>
-                            <TouchableOpacity
-                              style={styles.checkboxRow}
-                              onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                            >
-                              <View
-                                style={[
-                                  styles.checkbox,
-                                  inviteAsOwner && styles.checkboxChecked
-                                ]}
-                              >
-                                {inviteAsOwner && (
-                                  <Ionicons
-                                    name="checkmark"
-                                    size={16}
-                                    color={colors.buttonText}
-                                  />
-                                )}
-                              </View>
-                              <Text style={styles.checkboxLabel}>
-                                {t('inviteAsOwner')}
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.tooltipButton}
-                              onPress={() => setShowTooltip(!showTooltip)}
-                            >
-                              <Ionicons
-                                name="help-circle-outline"
-                                size={20}
-                                color={colors.primary}
-                              />
-                            </TouchableOpacity>
-                          </View>
-                          {showTooltip && (
-                            <View style={styles.tooltip}>
-                              <Text style={styles.tooltipText}>
-                                {t('ownerTooltip')}
-                              </Text>
-                            </View>
-                          )}
+                  <View style={styles.inviteSection}>
+                    {sendInvitePermissions.hasAccess ? (
+                      <>
+                        <Text style={styles.inviteTitle}>
+                          {t('inviteMembers')}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder={t('email')}
+                          placeholderTextColor={colors.textSecondary}
+                          value={inviteEmail}
+                          onChangeText={setInviteEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                        />
+                        <View style={styles.checkboxContainer}>
                           <TouchableOpacity
-                            style={[
-                              sharedStyles.button,
-                              !isInviteButtonEnabled &&
-                                styles.inviteButtonDisabled
-                            ]}
-                            onPress={handleSendInvitation}
-                            disabled={!isInviteButtonEnabled || isSubmitting}
+                            style={styles.checkboxRow}
+                            onPress={() => setInviteAsOwner(!inviteAsOwner)}
                           >
-                            <Text style={sharedStyles.buttonText}>
-                              {isSubmitting
-                                ? t('sending')
-                                : t('sendInvitation')}
+                            <View
+                              style={[
+                                styles.checkbox,
+                                inviteAsOwner && styles.checkboxChecked
+                              ]}
+                            >
+                              {inviteAsOwner && (
+                                <Ionicons
+                                  name="checkmark"
+                                  size={16}
+                                  color={colors.buttonText}
+                                />
+                              )}
+                            </View>
+                            <Text style={styles.checkboxLabel}>
+                              {t('inviteAsOwner')}
                             </Text>
                           </TouchableOpacity>
-                        </>
-                      ) : (
-                        <View style={styles.ownerOnlyMessage}>
-                          <Ionicons
-                            name="ribbon"
-                            size={24}
-                            color={colors.textSecondary}
-                          />
-                          <Text style={styles.ownerOnlyText}>
-                            {t('onlyOwnersCanInvite')}
-                          </Text>
+                          <TouchableOpacity
+                            style={styles.tooltipButton}
+                            onPress={() => setShowTooltip(!showTooltip)}
+                          >
+                            <Ionicons
+                              name="help-circle-outline"
+                              size={20}
+                              color={colors.primary}
+                            />
+                          </TouchableOpacity>
                         </View>
-                      )}
-                    </View>
-                  </PrivateAccessGate>
-                )}
-              </View>
-            </TouchableWithoutFeedback>
-          </Pressable>
-        </TouchableWithoutFeedback>
+                        {showTooltip && (
+                          <View style={styles.tooltip}>
+                            <Text style={styles.tooltipText}>
+                              {t('ownerTooltip')}
+                            </Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={[
+                            sharedStyles.button,
+                            !isInviteButtonEnabled &&
+                              styles.inviteButtonDisabled
+                          ]}
+                          onPress={handleSendInvitation}
+                          disabled={!isInviteButtonEnabled || isSubmitting}
+                        >
+                          <Text style={sharedStyles.buttonText}>
+                            {isSubmitting ? t('sending') : t('sendInvitation')}
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <View style={styles.ownerOnlyMessage}>
+                        <Ionicons
+                          name="ribbon"
+                          size={24}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.ownerOnlyText}>
+                          {t('onlyOwnersCanInvite')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </PrivateAccessGate>
+              )}
+            </View>
+          </View>
+        </View>
       </Modal>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxHeight: '85%'
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)'
   },
-  header: {
+  modalContainer: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.large,
+    padding: spacing.large,
+    width: '90%',
+    height: '70%',
+    maxHeight: 600
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -891,6 +954,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: spacing.xsmall
+  },
+  modalBody: {
+    flex: 1,
+    overflow: 'hidden'
   },
   tabContainer: {
     flexDirection: 'row',
@@ -918,7 +985,10 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   membersList: {
-    maxHeight: 300,
+    flex: 1
+  },
+  membersListContent: {
+    paddingBottom: spacing.medium,
     paddingHorizontal: spacing.medium
   },
   memberItem: {
