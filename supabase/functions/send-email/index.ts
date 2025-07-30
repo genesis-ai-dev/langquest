@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
   });
   const ratelimit = new Ratelimit({
     redis,
-    limiter: Ratelimit.fixedWindow(4, '1 h'),
+    limiter: Ratelimit.fixedWindow(20, '1 h'),
     analytics: true
   });
   const payload = await req.text();

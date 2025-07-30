@@ -11,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   owner: 'eten-genesis',
   name: 'LangQuest',
   slug: 'langquest',
-  version: '1.2.2',
+  version: '1.2.3',
   orientation: 'portrait',
   icon: iconPath,
   scheme: 'langquest',
