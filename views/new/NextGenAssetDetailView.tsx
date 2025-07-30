@@ -40,7 +40,7 @@ interface AssetWithContent extends Asset {
 type Asset = typeof asset.$inferSelect;
 type AssetContent = typeof asset_content_link.$inferSelect;
 
-const ASSET_VIEWER_PROPORTION = 0.4;
+const ASSET_VIEWER_PROPORTION = 0.35;
 
 type TabType = 'text' | 'image';
 
@@ -440,7 +440,7 @@ export default function NextGenAssetDetailView() {
             </>
           )}
 
-          {/* Asset Info - Always visible */}
+          {/* Asset Info - Always visible 
           <View style={styles.assetInfo}>
             <Text style={styles.assetInfoText}>
               {t('language')}:{' '}
@@ -456,7 +456,7 @@ export default function NextGenAssetDetailView() {
                 })}
               </Text>
             )}
-          </View>
+          </View>*/}
         </ScrollView>
       </View>
 

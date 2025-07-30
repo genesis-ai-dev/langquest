@@ -1808,9 +1808,9 @@ export const localizations = {
     brazilian_portuguese: 'Isso baixará:'
   },
   translations: {
-    english: 'translations',
-    spanish: 'translations',
-    brazilian_portuguese: 'translations'
+    english: 'Translations',
+    spanish: 'Traducciones',
+    brazilian_portuguese: 'Traduções'
   },
   projectMadePublic: {
     english: 'The project has been made public',
