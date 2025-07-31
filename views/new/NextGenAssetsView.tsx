@@ -1,15 +1,16 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { translationService } from '@/database_services/translationService';
 import type { translation } from '@/db/drizzleSchema';
-import { asset, quest, quest_asset_link } from '@/db/drizzleSchema';
+import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useSimpleVAD } from '@/hooks/useVoiceActivityDetection';
+import { useRabbitModeVAD } from '@/hooks/useRabbitModeVAD';
+import { useLocalStore } from '@/store/localStore';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { RabbitModeFileManager } from '@/utils/rabbitModeFileManager';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
@@ -371,21 +372,28 @@ export default function NextGenAssetsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
 
+  // Audio recording permissions (using the same approach as AudioRecorder)
+  // Note: Permissions are handled by the VAD hook now
+
   // Rabbit Mode State
   const [isRabbitMode, setIsRabbitMode] = React.useState(false);
   const [showFlaggingModal, setShowFlaggingModal] = React.useState(false);
+  const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(
+    null
+  );
   const [rabbitState, setRabbitState] = React.useState<RabbitModeState>({
     isRecording: false,
     currentAssetIndex: 0,
     pulledAssets: [],
     isHoldingCard: false,
     recordingStartTime: null,
-    recordingSegments: [], // Initialize recordingSegments
-    audioRecording: null // Initialize audio recording
+    recordingSegments: [], // Mock segments for now
+    audioRecording: null // Handled by VAD hook
   });
 
   // Use ref to store current rabbit state for callbacks to access
   const rabbitStateRef = React.useRef<RabbitModeState>(rabbitState);
+  const recordingStartTimeRef = React.useRef<number | null>(null);
 
   // Update ref whenever state changes
   React.useEffect(() => {
@@ -508,221 +516,179 @@ export default function NextGenAssetsView() {
     }));
   }, [assets]);
 
-  // Use ref to store VAD functions for use in callbacks
+  // Voice Activity Detection for Rabbit Mode
   const vadFunctionsRef = React.useRef<{
     startListening: () => Promise<void>;
     stopListening: () => Promise<void>;
+    resetVAD: () => void;
   } | null>(null);
 
-  // Voice Activity Detection for Rabbit Mode with actual recording
-  const handleSpeechStart = React.useCallback(async () => {
-    // Use ref to get current state instead of closure
-    const currentRabbitState = rabbitStateRef.current;
+  const {
+    startListening: vadStartListening,
+    stopListening: vadStopListening,
+    resetVAD: vadReset,
+    state: vadState
+  } = useRabbitModeVAD(
+    {
+      onSpeechStart: () => {
+        void handleSpeechStart();
+      },
+      onSpeechEnd: (recordingUri?: string) => {
+        void handleSpeechEnd(recordingUri);
+      },
+      onLevelChange: (level: number) => {
+        // Always log audio levels for debugging thresholds
+        console.log(`🎵 Audio: ${level.toFixed(3)}`);
+      },
+      onStateChange: (state) => {
+        // Only log when state actually changes to reduce spam
+        const newState = state.isSpeaking ? 'SPEAKING' : 'LISTENING';
+        console.log(
+          `🎯 VAD: ${newState} (level: ${state.currentLevel.toFixed(3)})`
+        );
+      }
+    },
+    { saveRecordings: true }
+  );
 
+  const {
+    isListening,
+    isSpeaking: _isSpeaking, // Unused for now
+    currentLevel
+  } = vadState;
+
+  // Handle speech start
+  const handleSpeechStart = React.useCallback(() => {
     console.log('=== SPEECH STARTED IN RABBIT MODE ===');
-    console.log(
-      'Current pulled assets:',
-      currentRabbitState.pulledAssets.length
-    );
-    console.log('Current asset index:', currentRabbitState.currentAssetIndex);
-    console.log('Is holding card:', currentRabbitState.isHoldingCard);
+    console.log('Current session ID:', currentSessionId);
     console.log('Current quest ID:', currentQuestId);
 
-    const currentAsset =
-      currentRabbitState.pulledAssets[currentRabbitState.currentAssetIndex];
-    console.log('Current asset:', currentAsset ? currentAsset.name : 'NONE');
-
-    if (currentRabbitState.isHoldingCard || !currentQuestId) {
-      console.log('❌ Cannot start recording - holding card or no quest ID');
+    if (!currentSessionId || !currentQuestId || !currentUser) {
+      console.log(
+        '❌ Cannot start recording - missing session, quest, or user'
+      );
       return;
     }
+
+    // Get current session and asset from the new system
+    const session = useLocalStore
+      .getState()
+      .getRabbitModeSession(currentSessionId);
+    if (!session) {
+      console.log('❌ Cannot start recording - no active session found');
+      return;
+    }
+
+    const currentAsset = session.assets.find(
+      (asset) => asset.id === session.currentAssetId
+    );
+    console.log('Current asset:', currentAsset ? currentAsset.name : 'NONE');
 
     if (!currentAsset) {
       console.log('❌ Cannot start recording - no current asset available');
       return;
     }
 
-    console.log('✅ Starting recording for asset:', currentAsset.name);
+    console.log('✅ Recording started for asset:', currentAsset.name);
+    console.log('📝 VAD hook is handling the actual recording');
 
-    // Just mark the recording start time - the VAD is already handling the recording
+    // Store start time immediately in ref for immediate access
+    const startTime = Date.now();
+    recordingStartTimeRef.current = startTime;
+
+    // Just update UI state - VAD hook handles the actual recording
     setRabbitState((prev) => ({
       ...prev,
       isRecording: true,
-      recordingStartTime: Date.now(),
-      audioRecording: null // We'll use the VAD's recording instead
+      recordingStartTime: startTime
     }));
-  }, [currentQuestId]);
+  }, [currentSessionId, currentQuestId, currentUser]);
 
-  const handleSpeechEnd = React.useCallback(async () => {
-    // Use ref to get current state instead of closure
-    const currentRabbitState = rabbitStateRef.current;
+  const handleSpeechEnd = React.useCallback(
+    async (recordingUri?: string) => {
+      console.log('=== SPEECH ENDED IN RABBIT MODE ===');
+      console.log('Current user:', currentUser ? currentUser.id : 'NONE');
+      console.log('Current quest ID:', currentQuestId);
+      console.log('Current session ID:', currentSessionId);
+      console.log('Recording URI from VAD:', recordingUri);
 
-    console.log('=== SPEECH ENDED IN RABBIT MODE ===');
-    console.log('Current user:', currentUser ? currentUser.id : 'NONE');
-    console.log('Current quest ID:', currentQuestId);
-    console.log(
-      'Current pulled assets:',
-      currentRabbitState.pulledAssets.length
-    );
-    console.log('Current asset index:', currentRabbitState.currentAssetIndex);
-    console.log('Recording start time:', currentRabbitState.recordingStartTime);
-
-    if (!currentUser || !currentQuestId) {
-      console.warn(
-        '❌ Missing required data for saving recording - no user or quest'
-      );
-      return;
-    }
-
-    // Get the current asset being recorded for
-    const currentAsset =
-      currentRabbitState.pulledAssets[currentRabbitState.currentAssetIndex];
-
-    console.log(
-      'Current asset for recording:',
-      currentAsset ? currentAsset.name : 'NONE'
-    );
-
-    if (!currentAsset || !currentRabbitState.recordingStartTime) {
-      console.warn(
-        '❌ No current asset or recording start time - cannot save recording'
-      );
-      console.log('  - Current asset exists:', !!currentAsset);
-      console.log(
-        '  - Recording start time exists:',
-        !!currentRabbitState.recordingStartTime
-      );
-
-      setRabbitState((prev) => ({
-        ...prev,
-        isRecording: false,
-        recordingStartTime: null,
-        audioRecording: null
-      }));
-      return;
-    }
-
-    console.log(
-      '✅ Proceeding to save recording for asset:',
-      currentAsset.name
-    );
-
-    try {
-      const endTime = Date.now();
-      const duration = endTime - currentRabbitState.recordingStartTime;
-
-      console.log(`Creating audio translation for asset: ${currentAsset.name}`);
-
-      // Temporarily stop VAD to get its recording
-      console.log('⏸️ Temporarily stopping VAD to save recording...');
-      if (vadFunctionsRef.current?.stopListening) {
-        await vadFunctionsRef.current.stopListening();
+      if (!currentUser || !currentQuestId || !currentSessionId) {
+        console.warn('❌ Missing required data for saving recording');
+        return;
       }
 
-      // Give it a moment to clean up
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Note: Since we can't easily access the VAD's recording URI,
-      // we'll need to create a mock audio file for now
-      // In a production implementation, you'd want to modify the VAD to return its recording URI
-      const mockAudioUri = `mock_audio_${Date.now()}.m4a`;
-      const audioAttachment: string | null = null;
-
-      // For now, we'll create a placeholder since we can't access the VAD recording
-      // In a real implementation, you'd modify useSimpleVAD to expose its recording
-      console.log('⚠️ Using mock audio - VAD recording not accessible');
-
-      // Get quest data to find project and target language
-      const questData = await system.db.query.quest.findFirst({
-        where: eq(quest.id, currentQuestId),
-        with: {
-          project: true
-        }
-      });
-
-      if (!questData?.project?.target_language_id) {
-        throw new Error('Could not find target language for project');
+      // Get current session and asset
+      const session = useLocalStore
+        .getState()
+        .getRabbitModeSession(currentSessionId);
+      if (!session) {
+        console.warn('❌ No active session found');
+        return;
       }
 
-      console.log(`Creating audio-only translation with mock audio`);
+      const currentAsset = session.assets.find(
+        (a) => a.id === session.currentAssetId
+      );
+      if (!currentAsset) {
+        console.warn('❌ No current asset found in session');
+        return;
+      }
 
-      // Create audio-only translation record (no text content)
-      const translation = await translationService.createTranslation({
-        text: null, // No text content for audio-only recordings
-        target_language_id: questData.project.target_language_id,
-        asset_id: currentAsset.id,
-        creator_id: currentUser.id,
-        audio_urls: audioAttachment ? [audioAttachment] : [] // Will be empty for now
-      });
+      if (!recordingUri) {
+        console.warn('❌ No recording URI provided by VAD hook');
+        return;
+      }
 
-      // Create a recording segment for UI display
-      const segment: RecordingSegment = {
-        id: translation.id, // Use the translation ID as segment ID
-        assetId: currentAsset.id,
-        startTime: currentRabbitState.recordingStartTime,
-        endTime,
-        duration,
-        audioUri: mockAudioUri, // Mock URI for now
-        waveformData: Array.from({ length: 20 }, () => Math.random()) // Mock waveform data
-      };
+      if (!recordingStartTimeRef.current) {
+        console.warn('❌ Missing recording start time');
+        return;
+      }
 
-      // Update state with new recording segment
-      setRabbitState((prev) => {
-        const updatedPulledAssets = [...prev.pulledAssets];
-        const currentAssetIndex = prev.currentAssetIndex;
+      console.log('✅ All required data available for saving segment');
 
-        // Add segment to current asset
-        const assetToUpdate = updatedPulledAssets[currentAssetIndex]!;
-        updatedPulledAssets[currentAssetIndex] = {
-          ...assetToUpdate,
-          translations: [...assetToUpdate.translations, translation],
-          recordingSegments: [...assetToUpdate.recordingSegments, segment],
-          hasRecording: true
-        } as AssetWithTranslations;
+      try {
+        // Create segment record
+        const endTime = Date.now();
+        const duration = endTime - recordingStartTimeRef.current;
 
-        return {
+        // Save segment to draft session via RabbitModeFileManager
+        const savedUri = await RabbitModeFileManager.saveAudioSegment(
+          currentSessionId,
+          recordingUri
+        );
+
+        console.log('📁 Segment saved to permanent storage:', savedUri);
+
+        // Add segment to local store
+        useLocalStore
+          .getState()
+          .addRabbitModeSegment(currentSessionId, currentAsset.id, {
+            assetId: currentAsset.id,
+            startTime: recordingStartTimeRef.current,
+            endTime,
+            duration,
+            audioUri: savedUri
+          });
+
+        console.log('✅ Segment successfully added to draft session');
+
+        // Reset recording state
+        setRabbitState((prev) => ({
           ...prev,
           isRecording: false,
-          recordingStartTime: null,
-          audioRecording: null,
-          pulledAssets: updatedPulledAssets,
-          recordingSegments: [...prev.recordingSegments, segment]
-        };
-      });
-
-      console.log(
-        '✅ Audio translation saved successfully with ID:',
-        translation.id
-      );
-
-      // Restart VAD after a short delay
-      setTimeout(() => {
-        console.log('▶️ Restarting VAD listening...');
-        if (vadFunctionsRef.current?.startListening) {
-          void vadFunctionsRef.current.startListening();
-        }
-      }, 500);
-    } catch (error) {
-      console.error('❌ Error saving recording segment:', error);
-      Alert.alert('Save Error', 'Failed to save recording. Please try again.');
-
-      // Reset recording state on error and restart VAD
-      setRabbitState((prev) => ({
-        ...prev,
-        isRecording: false,
-        recordingStartTime: null,
-        audioRecording: null
-      }));
-
-      // Restart VAD even on error
-      setTimeout(() => {
-        console.log('▶️ Restarting VAD after error...');
-        if (vadFunctionsRef.current?.startListening) {
-          void vadFunctionsRef.current.startListening();
-        }
-      }, 500);
-    }
-  }, [currentUser, currentQuestId]);
+          recordingStartTime: null
+        }));
+      } catch (error) {
+        console.error('❌ Error saving recording segment:', error);
+      }
+    },
+    [
+      currentUser,
+      currentQuestId,
+      currentSessionId,
+      recordingStartTimeRef.current
+    ]
+  );
 
   // Handle deleting a recording segment
   const handleDeleteSegment = React.useCallback((segmentId: string) => {
@@ -810,99 +776,6 @@ export default function NextGenAssetsView() {
       }));
     }
   }, [assetsWithTranslations, rabbitState.pulledAssets]);
-
-  const {
-    startListening,
-    stopListening,
-    isListening,
-    isSpeaking: _isSpeaking,
-    currentLevel
-  } = useSimpleVAD(
-    () => {
-      void handleSpeechStart();
-    },
-    () => {
-      void handleSpeechEnd();
-    },
-    {
-      sensitive: true,
-      fastResponse: true
-    }
-  );
-
-  // Update ref whenever VAD functions change
-  React.useEffect(() => {
-    vadFunctionsRef.current = { startListening, stopListening };
-  }, [startListening, stopListening]);
-
-  // Handle entering rabbit mode
-  const handleEnterRabbitMode = React.useCallback(() => {
-    console.log('=== ENTERING RABBIT MODE ===');
-    console.log('Total assets available:', assets.length);
-    console.log('assetsWithTranslations:', assetsWithTranslations.length);
-
-    setIsRabbitMode(true);
-
-    // Automatically pull the first unrecorded asset
-    const firstUnrecordedAsset = assetsWithTranslations.find(
-      (asset) => !asset.hasRecording
-    );
-
-    console.log(
-      'First unrecorded asset found:',
-      firstUnrecordedAsset ? firstUnrecordedAsset.name : 'NONE'
-    );
-
-    if (firstUnrecordedAsset) {
-      console.log(
-        'Pulling first asset into rabbit state:',
-        firstUnrecordedAsset.name
-      );
-      setRabbitState((prev) => ({
-        ...prev,
-        pulledAssets: [
-          {
-            ...firstUnrecordedAsset,
-            translations: firstUnrecordedAsset.translations || [],
-            recordingSegments: firstUnrecordedAsset.recordingSegments || []
-          }
-        ],
-        currentAssetIndex: 0,
-        isRecording: false,
-        isHoldingCard: false,
-        recordingStartTime: null,
-        recordingSegments: [],
-        audioRecording: null // Clear audio recording on new asset
-      }));
-    } else {
-      console.warn('⚠️ No unrecorded assets found to pull!');
-    }
-
-    // Start VAD after a short delay
-    setTimeout(() => {
-      console.log('Starting VAD listening...');
-      if (vadFunctionsRef.current?.startListening) {
-        void vadFunctionsRef.current.startListening();
-      }
-    }, 500);
-  }, [vadFunctionsRef, assetsWithTranslations, assets.length]);
-
-  // Handle exiting rabbit mode
-  const handleExitRabbitMode = React.useCallback(() => {
-    if (vadFunctionsRef.current?.stopListening) {
-      void vadFunctionsRef.current.stopListening();
-    }
-    setIsRabbitMode(false);
-    setRabbitState({
-      isRecording: false,
-      currentAssetIndex: 0,
-      pulledAssets: [],
-      isHoldingCard: false,
-      recordingStartTime: null,
-      recordingSegments: [], // Clear recording segments on exit
-      audioRecording: null // Clear audio recording on exit
-    });
-  }, [vadFunctionsRef]);
 
   // Handle pulling an asset up
   const handlePullAsset = React.useCallback(
@@ -1041,6 +914,107 @@ export default function NextGenAssetsView() {
     );
   }
 
+  // Update ref whenever VAD functions change
+  React.useEffect(() => {
+    vadFunctionsRef.current = {
+      startListening: vadStartListening,
+      stopListening: vadStopListening,
+      resetVAD: vadReset
+    };
+  }, [vadStartListening, vadStopListening, vadReset]);
+
+  // Handle entering rabbit mode
+  const handleEnterRabbitMode = React.useCallback(() => {
+    console.log('=== ENTERING RABBIT MODE ===');
+    console.log('Total assets available:', assets.length);
+    console.log('Current quest ID:', currentQuestId);
+
+    if (!currentQuestId || assets.length === 0) {
+      console.warn('⚠️ Cannot enter rabbit mode without quest or assets');
+      return;
+    }
+
+    // Check for existing session first
+    let sessionId = useLocalStore
+      .getState()
+      .getActiveRabbitModeSession(currentQuestId)?.id;
+
+    if (!sessionId) {
+      // Create new session with all available assets
+      const assetIds = assets.map((a) => a.id);
+      const assetNames = new Map(assets.map((a) => [a.id, a.name]));
+
+      sessionId = useLocalStore.getState().createRabbitModeSession(
+        currentQuestId,
+        'Quest Recording Session', // TODO: Get actual quest name
+        'project-id', // TODO: Get actual project ID
+        assetIds
+      );
+
+      // Update session with actual asset names
+      const session = useLocalStore.getState().getRabbitModeSession(sessionId);
+      if (session) {
+        // Update the session assets with real names
+        session.assets.forEach((asset) => {
+          asset.name = assetNames.get(asset.id) || asset.name;
+        });
+      }
+
+      console.log(`✅ Created new rabbit mode session: ${sessionId}`);
+    } else {
+      console.log(`✅ Resuming existing rabbit mode session: ${sessionId}`);
+    }
+
+    setCurrentSessionId(sessionId);
+    setIsRabbitMode(true);
+
+    // Load session state for UI
+    const session = useLocalStore.getState().getRabbitModeSession(sessionId);
+    if (session) {
+      console.log(`📋 Session has ${session.assets.length} assets`);
+      console.log(
+        `🔓 Unlocked assets: ${session.assets.filter((a) => !a.isLocked).length}`
+      );
+      console.log(
+        `🔒 Locked assets: ${session.assets.filter((a) => a.isLocked).length}`
+      );
+
+      // Set current asset to first unlocked asset or first asset
+      const currentAsset =
+        session.assets.find((a) => !a.isLocked) || session.assets[0];
+      if (currentAsset) {
+        useLocalStore.getState().setCurrentAsset(sessionId, currentAsset.id);
+        console.log(`👉 Set current asset to: ${currentAsset.name}`);
+      }
+    }
+
+    // Start VAD after a short delay
+    setTimeout(() => {
+      console.log('▶️ Starting VAD listening...');
+      if (vadFunctionsRef.current?.startListening) {
+        void vadFunctionsRef.current.startListening();
+      }
+    }, 500);
+  }, [currentQuestId, assets, vadFunctionsRef]);
+
+  // Handle exiting rabbit mode
+  const handleExitRabbitMode = React.useCallback(() => {
+    if (vadFunctionsRef.current?.stopListening) {
+      void vadFunctionsRef.current.stopListening();
+    }
+    setIsRabbitMode(false);
+    setCurrentSessionId(null);
+    setRabbitState({
+      isRecording: false,
+      currentAssetIndex: 0,
+      pulledAssets: [],
+      isHoldingCard: false,
+      recordingStartTime: null,
+      recordingSegments: [], // Clear recording segments on exit
+      audioRecording: null // Clear audio recording on exit
+    });
+  }, [vadFunctionsRef]);
+
   // Render Rabbit Mode Interface
   if (isRabbitMode) {
     const unpulledAssets = assetsWithTranslations.filter(
@@ -1050,6 +1024,15 @@ export default function NextGenAssetsView() {
     const currentAsset =
       rabbitState.pulledAssets[rabbitState.currentAssetIndex];
     const nextAsset = unpulledAssets[0];
+
+    // Get current session and its segments for display
+    const currentSession = currentSessionId
+      ? useLocalStore.getState().getRabbitModeSession(currentSessionId)
+      : null;
+    const currentSessionAsset = currentSession?.assets.find(
+      (a) => a.id === currentSession.currentAssetId
+    );
+    const currentSegments = currentSessionAsset?.segments || [];
 
     return (
       <View style={styles.rabbitModeContainer}>
@@ -1073,71 +1056,89 @@ export default function NextGenAssetsView() {
           </TouchableOpacity>
         </View>
 
+        {/* VAD Status Bar - Visual Feedback */}
+        <View style={styles.vadStatusBar}>
+          <View style={styles.vadStatusContent}>
+            <View style={styles.vadStatusLeft}>
+              <View
+                style={[
+                  styles.statusIndicator,
+                  {
+                    backgroundColor: !isListening
+                      ? colors.textSecondary
+                      : rabbitState.isRecording
+                        ? colors.success
+                        : colors.primary
+                  }
+                ]}
+              />
+              <Text style={styles.vadStatusText}>
+                {!isListening
+                  ? '🔄 Getting ready...'
+                  : rabbitState.isRecording
+                    ? '🎙️ Recording...'
+                    : '👂 Listening...'}
+              </Text>
+            </View>
+            <MiniWaveform
+              isListening={isListening}
+              isRecording={rabbitState.isRecording}
+              level={currentLevel}
+            />
+          </View>
+        </View>
+
         {/* Scrollable Content Area */}
         <ScrollView
           style={styles.rabbitScrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Current Asset Section */}
-          {currentAsset && (
+          {currentSessionAsset && (
             <View style={styles.currentAssetSection}>
               <Text style={styles.sectionTitle}>Current Asset</Text>
               <View style={styles.currentAssetCard}>
-                <Text style={styles.assetName}>{currentAsset.name}</Text>
+                <Text style={styles.assetName}>{currentSessionAsset.name}</Text>
                 <View style={styles.assetStatus}>
                   <Ionicons
                     name={
-                      currentAsset.hasRecording
+                      currentSegments.length > 0
                         ? 'checkmark-circle'
                         : 'radio-button-off'
                     }
                     size={16}
                     color={
-                      currentAsset.hasRecording
+                      currentSegments.length > 0
                         ? colors.success
                         : colors.textSecondary
                     }
                   />
                   <Text style={styles.assetStatusText}>
-                    {currentAsset.recordingSegments.length} segment
-                    {currentAsset.recordingSegments.length !== 1 ? 's' : ''}
+                    {currentSegments.length} segment
+                    {currentSegments.length !== 1 ? 's' : ''}
                   </Text>
                 </View>
               </View>
 
-              {/* VAD Status */}
-              <View style={styles.vadStatus}>
-                <MiniWaveform
-                  isListening={isListening}
-                  isRecording={
-                    rabbitState.isRecording && !rabbitState.isHoldingCard
-                  }
-                  level={currentLevel}
-                />
-                <Text style={styles.vadText}>
-                  {!isListening
-                    ? 'Getting ready...'
-                    : rabbitState.isHoldingCard
-                      ? 'Paused - manipulating cards'
-                      : rabbitState.isRecording
-                        ? `Recording...`
-                        : 'Listening for speech...'}
-                </Text>
-              </View>
-
               {/* Recording Segments List */}
               <View style={styles.recordingSegmentsList}>
-                {currentAsset.recordingSegments.length > 0 ? (
-                  currentAsset.recordingSegments.map((segment, index) => (
+                {currentSegments.length > 0 ? (
+                  currentSegments.map((segment, index) => (
                     <RecordingSegmentItem
                       key={segment.id}
-                      segment={segment}
+                      segment={{
+                        id: segment.id,
+                        assetId: segment.assetId,
+                        startTime: segment.startTime,
+                        endTime: segment.endTime,
+                        duration: segment.duration,
+                        audioUri: segment.audioUri,
+                        waveformData: segment.waveformData
+                      }}
                       onDelete={handleDeleteSegment}
                       onReorder={handleReorderSegment}
                       canMoveUp={index > 0}
-                      canMoveDown={
-                        index < currentAsset.recordingSegments.length - 1
-                      }
+                      canMoveDown={index < currentSegments.length - 1}
                     />
                   ))
                 ) : (
@@ -1880,5 +1881,37 @@ export const styles = StyleSheet.create({
     fontSize: fontSizes.medium,
     fontWeight: '600',
     color: colors.text
+  },
+  // New styles for VAD Status Bar
+  vadStatusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.medium,
+    paddingVertical: spacing.small,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    marginBottom: spacing.small,
+    marginTop: spacing.small // Add some space above the current asset section
+  },
+  vadStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1
+  },
+  vadStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5
+  },
+  vadStatusText: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary
   }
 });

@@ -94,6 +94,38 @@ export interface RecordingSession {
   last_updated: Date;
 }
 
+// Rabbit Mode types for draft session management
+export interface RabbitModeSegment {
+  id: string;
+  assetId: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  audioUri: string; // Semi-permanent file path
+  waveformData?: number[];
+  order: number; // For reordering
+}
+
+export interface RabbitModeAsset {
+  id: string;
+  name: string;
+  segments: RabbitModeSegment[];
+  isLocked: boolean; // UI affordance for tracking reviewed assets
+  lockedAt?: Date;
+}
+
+export interface RabbitModeSession {
+  id: string;
+  questId: string;
+  questName: string;
+  projectId: string;
+  assets: RabbitModeAsset[];
+  created_at: Date;
+  last_updated: Date;
+  isCommitted: boolean;
+  currentAssetId?: string; // Track which asset user is currently on
+}
+
 interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
@@ -111,6 +143,9 @@ interface LocalState {
 
   // Recording sessions for RapidRecordingView
   recordingSessions: RecordingSession[];
+
+  // Rabbit Mode draft sessions
+  rabbitModeSessions: RabbitModeSession[];
 
   // Authentication view state
   authView:
@@ -185,6 +220,23 @@ interface LocalState {
   addAudioSegment: (sessionId: string, segment: Omit<AudioSegment, 'id'>) => void;
   deleteAudioSegment: (sessionId: string, segmentId: string) => void;
 
+  // Rabbit Mode session methods
+  createRabbitModeSession: (questId: string, questName: string, projectId: string, assetIds: string[]) => string;
+  addRabbitModeSegment: (sessionId: string, assetId: string, segment: Omit<RabbitModeSegment, 'id' | 'order'>) => void;
+  deleteRabbitModeSegment: (sessionId: string, assetId: string, segmentId: string) => void;
+  reorderRabbitModeSegments: (sessionId: string, assetId: string, segmentIds: string[]) => void;
+
+  // Asset locking (UI affordance)
+  lockAsset: (sessionId: string, assetId: string) => void;
+  unlockAsset: (sessionId: string, assetId: string) => void;
+  setCurrentAsset: (sessionId: string, assetId: string) => void;
+
+  // Session lifecycle
+  commitRabbitModeSession: (sessionId: string) => void;
+  deleteRabbitModeSession: (sessionId: string) => void;
+  getRabbitModeSession: (sessionId: string) => RabbitModeSession | undefined;
+  getActiveRabbitModeSession: (questId: string) => RabbitModeSession | undefined;
+
   // Attachment sync methods
   setAttachmentSyncProgress: (
     progress: Partial<LocalState['attachmentSyncProgress']>
@@ -214,6 +266,9 @@ export const useLocalStore = create<LocalState>()(
 
       // Recording sessions for RapidRecordingView
       recordingSessions: [],
+
+      // Rabbit Mode draft sessions
+      rabbitModeSessions: [],
 
       // Authentication view state
       authView: null,
@@ -419,6 +474,185 @@ export const useLocalStore = create<LocalState>()(
               : session
           )
         }));
+      },
+
+      // Rabbit Mode session methods
+      createRabbitModeSession: (questId, questName, projectId, assetIds) => {
+        const now = new Date();
+        const sessionId = generateTempId();
+        const session: RabbitModeSession = {
+          id: sessionId,
+          questId,
+          questName,
+          projectId,
+          assets: assetIds.map(assetId => ({
+            id: assetId,
+            name: `Asset ${assetId}`, // TODO: Get actual asset name
+            segments: [],
+            isLocked: false
+          })),
+          created_at: now,
+          last_updated: now,
+          isCommitted: false,
+          currentAssetId: assetIds[0] || undefined
+        };
+
+        set((state) => ({
+          rabbitModeSessions: [...state.rabbitModeSessions, session]
+        }));
+
+        return sessionId;
+      },
+
+      addRabbitModeSegment: (sessionId, assetId, segment) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: session.assets.map((asset) =>
+                  asset.id === assetId
+                    ? {
+                      ...asset,
+                      segments: [
+                        ...asset.segments,
+                        {
+                          ...segment,
+                          id: generateTempId(),
+                          order: asset.segments.length
+                        }
+                      ]
+                    }
+                    : asset
+                ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      deleteRabbitModeSegment: (sessionId, assetId, segmentId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: session.assets.map((asset) =>
+                  asset.id === assetId
+                    ? {
+                      ...asset,
+                      segments: asset.segments
+                        .filter((segment) => segment.id !== segmentId)
+                        .map((segment, index) => ({ ...segment, order: index })) // Reorder after deletion
+                    }
+                    : asset
+                ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      reorderRabbitModeSegments: (sessionId, assetId, segmentIds) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: session.assets.map((asset) =>
+                  asset.id === assetId
+                    ? {
+                      ...asset,
+                      segments: segmentIds
+                        .map((id) => asset.segments.find((seg) => seg.id === id))
+                        .filter((seg): seg is RabbitModeSegment => seg !== undefined)
+                        .map((segment, index) => ({ ...segment, order: index }))
+                    }
+                    : asset
+                ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      lockAsset: (sessionId, assetId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: session.assets.map((asset) =>
+                  asset.id === assetId
+                    ? { ...asset, isLocked: true, lockedAt: new Date() }
+                    : asset
+                ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      unlockAsset: (sessionId, assetId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: session.assets.map((asset) =>
+                  asset.id === assetId
+                    ? { ...asset, isLocked: false, lockedAt: undefined }
+                    : asset
+                ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      setCurrentAsset: (sessionId, assetId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, currentAssetId: assetId, last_updated: new Date() }
+              : session
+          )
+        }));
+      },
+
+      commitRabbitModeSession: (sessionId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, isCommitted: true, last_updated: new Date() }
+              : session
+          )
+        }));
+      },
+
+      deleteRabbitModeSession: (sessionId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.filter(
+            (session) => session.id !== sessionId
+          )
+        }));
+      },
+
+      getRabbitModeSession: (sessionId) => {
+        const state = get();
+        return state.rabbitModeSessions.find((session) => session.id === sessionId);
+      },
+
+      getActiveRabbitModeSession: (questId) => {
+        const state = get();
+        return state.rabbitModeSessions.find(
+          (session) => session.questId === questId && !session.isCommitted
+        );
       },
 
       // Attachment sync methods
