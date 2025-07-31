@@ -146,12 +146,26 @@ export default function NextGenQuestsView() {
     20 // pageSize
   );
 
-  // Flatten all pages into a single array
+  // Flatten all pages into a single array and deduplicate
   const quests = React.useMemo(() => {
     const allQuests = data.pages.flatMap((page) => page.data);
 
-    // Sort quests by name in natural alphanumerical order
-    return allQuests.sort((a, b) => {
+    // Deduplicate by ID to prevent duplicate keys in FlashList
+    const questMap = new Map<string, Quest & { source?: string }>();
+    allQuests.forEach((quest) => {
+      // Prioritize offline data over cloud data for duplicates
+      const existingQuest = questMap.get(quest.id);
+      if (
+        !existingQuest ||
+        (quest.source === 'localSqlite' &&
+          existingQuest.source === 'cloudSupabase')
+      ) {
+        questMap.set(quest.id, quest);
+      }
+    });
+
+    // Convert back to array and sort by name in natural alphanumerical order
+    return Array.from(questMap.values()).sort((a, b) => {
       // Use localeCompare with numeric option for natural sorting
       return a.name.localeCompare(b.name, undefined, {
         numeric: true,
