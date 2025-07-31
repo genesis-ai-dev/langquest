@@ -230,27 +230,26 @@ export const useLocalStore = create<LocalState>()(
         }),
 
       initialize: () => {
-        console.log('initializing local store');
-        // Language loading moved to app initialization to avoid circular dependency
+        const state = useLocalStore.getState();
+        if (!state.languageId) {
+          // Default to English if no language is set
+          const englishLang: Language = {
+            id: 'english-id',
+            active: true,
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            native_name: 'English',
+            english_name: 'English',
+            iso639_3: 'eng',
+            locale: 'en-US',
+            ui_ready: true,
+            creator_id: null,
+            download_profiles: null
+          };
+          set({ language: englishLang, languageId: englishLang.id });
+        }
         set({ isLanguageLoading: false });
         return Promise.resolve();
-=======
-      setAnalyticsOptOut: (optOut: boolean) => set({ analyticsOptOut: optOut }),
-      setLanguage: (lang: Language) =>
-        set({ language: lang, languageId: lang.id }),
-      acceptTerms: () => set({ dateTermsAccepted: new Date() }),
-      theme: 'system',
-      setTheme: (theme: Theme) => {
-        set({ theme });
-        colorScheme.set(theme);
-      },
-      initialize: async () => {
-        const langId = get().languageId;
-        if (langId) {
-          const language = await languageService.getLanguageById(langId);
-          set({ language, isLanguageLoading: false });
-        }
->>>>>>> acec407 (Enhance project configuration and UI components)
       }
     }),
     {
