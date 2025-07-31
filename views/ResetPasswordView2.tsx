@@ -10,6 +10,8 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -52,6 +54,8 @@ export default function ResetPasswordView2() {
 
       if (error) throw error;
 
+      Keyboard.dismiss();
+
       Alert.alert(
         t('success') || 'Success',
         t('passwordResetSuccess') ||
@@ -61,7 +65,12 @@ export default function ResetPasswordView2() {
             text: t('ok') || 'OK',
             onPress: () => {
               // Sign out and let auth context handle navigation to sign in
-              void signOut();
+              // void signOut();
+              InteractionManager.runAfterInteractions(() => {
+                requestAnimationFrame(() => {
+                  void signOut();
+                });
+              });
             }
           }
         ]
