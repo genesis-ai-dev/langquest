@@ -8,6 +8,8 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -42,7 +44,8 @@ export default function ForgotPasswordView2({
   } = useForm<ForgotPasswordFormData>({
     defaultValues: {
       email: ''
-    }
+    },
+    shouldUnregister: true
   });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
@@ -52,6 +55,10 @@ export default function ForgotPasswordView2({
 
       if (error) throw error;
 
+      // Reset form (may not be needed, once the page will change)
+      reset();
+      Keyboard.dismiss();
+
       Alert.alert(
         t('success') || 'Success',
         t('checkEmailForResetLink') ||
@@ -59,13 +66,16 @@ export default function ForgotPasswordView2({
         [
           {
             text: t('ok') || 'OK',
-            onPress: () => onNavigate('sign-in')
+            onPress: () => {
+              InteractionManager.runAfterInteractions(() => {
+                requestAnimationFrame(() => {
+                  onNavigate('sign-in');
+                });
+              });
+            }
           }
         ]
       );
-
-      // Reset form
-      reset();
     } catch (error) {
       Alert.alert(
         t('error') || 'Error',
@@ -83,11 +93,11 @@ export default function ForgotPasswordView2({
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={{ flex: 1 }}
     >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
           <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
@@ -139,17 +149,7 @@ export default function ForgotPasswordView2({
                         }
                       }}
                       render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
+                        <View style={[sharedStyles.input, styles.emailInput]}>
                           <Ionicons
                             name="mail-outline"
                             size={20}
@@ -179,14 +179,7 @@ export default function ForgotPasswordView2({
 
                   {/* Submit button */}
                   <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center'
-                      }
-                    ]}
+                    style={[sharedStyles.button, styles.submitButton]}
                     onPress={handleSubmit(onSubmit)}
                     disabled={isLoading}
                   >
@@ -213,8 +206,8 @@ export default function ForgotPasswordView2({
               </View>
             </View>
           </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
@@ -224,5 +217,16 @@ const styles = StyleSheet.create({
     color: colors.error || '#ff0000',
     fontSize: 12,
     alignSelf: 'flex-start'
+  },
+  submitButton: {
+    width: '100%',
+    marginTop: spacing.large,
+    alignSelf: 'center'
+  },
+  emailInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: spacing.medium
   }
 });
