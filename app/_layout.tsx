@@ -84,12 +84,7 @@ export default function RootLayout() {
                     headerShown: false
                   }}
                 >
-                  <Stack.Screen
-                    name="terms"
-                    options={{
-                      presentation: 'modal'
-                    }}
-                  />
+                  <Stack.Screen name="app" />
                 </Stack>
               </QueryProvider>
             </AudioProvider>
