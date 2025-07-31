@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Updates from 'expo-updates';
+import { useNetworkStatus } from './useNetworkStatus';
 
 export function useExpoUpdates() {
   const queryClient = useQueryClient();
+  const isConnected = useNetworkStatus();
 
   const {
     data: updateInfo,
@@ -12,25 +14,17 @@ export function useExpoUpdates() {
   } = useQuery({
     queryKey: ['updates'],
     queryFn: async () => {
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        return {
-          isUpdateAvailable: update.isAvailable,
-          manifest: update.manifest || null
-        };
-      } catch (error) {
-        console.error('Error checking for updates:', error);
-        return {
-          isUpdateAvailable: false,
-          manifest: null
-        };
-      }
+      const { isAvailable, ...update } = await Updates.checkForUpdateAsync();
+      return {
+        ...update,
+        isUpdateAvailable: isAvailable
+      };
     },
     // Check for updates less frequently
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    // Only check when online
-    enabled: navigator.onLine
+    // Only check when online and not in development mode
+    enabled: isConnected && !__DEV__
   });
 
   const downloadUpdateMutation = useMutation({

@@ -1,3 +1,4 @@
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
@@ -51,6 +52,7 @@ export default function RootLayout() {
           <AuthProvider>
             <QueryProvider>
               <AudioProvider>
+                <UpdateBanner />
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="app" />
                 </Stack>
