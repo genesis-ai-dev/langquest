@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { initializePostHogWithStore } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 import { colors } from '@/styles/theme';
@@ -41,14 +42,17 @@ export default function App() {
 
   // Initialize network listener on app startup
   useEffect(() => {
+    if (!isSystemReady) return;
     console.log('[App] Initializing network listener...');
     const cleanup = initializeNetwork();
+    const cleanupPostHog = initializePostHogWithStore();
 
     return () => {
       console.log('[App] Cleaning up network listener');
       cleanup();
+      cleanupPostHog?.();
     };
-  }, []);
+  }, [isSystemReady]);
 
   // Show loading while checking auth state
   if (isLoading) {
