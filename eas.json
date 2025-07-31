@@ -8,16 +8,17 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
-      "environment": "preview", // we want to use the preview environment for development
+      "environment": "preview",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-        "EXPO_PUBLIC_APP_VARIANT": "development" // show logout button in the app
+        "EXPO_PUBLIC_APP_VARIANT": "development"
       }
     },
     "preview": {
       "autoIncrement": true,
       "channel": "preview",
       "environment": "preview",
+      "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "preview"
