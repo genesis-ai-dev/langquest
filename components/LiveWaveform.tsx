@@ -11,6 +11,7 @@ interface LiveWaveformProps {
   onStartListening: () => void;
   onStopListening: () => void;
   style?: ViewStyle;
+  waveformData?: number[]; // Optional sine wave or placeholder data
 }
 
 export const LiveWaveform: React.FC<LiveWaveformProps> = ({
@@ -19,24 +20,42 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
   currentLevel,
   onStartListening,
   onStopListening,
-  style
+  style,
+  waveformData
 }) => {
-  const levelHistoryRef = useRef<number[]>(Array(40).fill(0));
+  // Helper function for creating properly typed arrays
+  const createZeroArray = (length: number): number[] =>
+    Array.from({ length }, () => 0);
+
+  const levelHistoryRef = useRef<number[]>(createZeroArray(40));
   const animationFrameRef = useRef<number | null>(null);
   const [displayLevels, setDisplayLevels] = React.useState<number[]>(
-    Array(40).fill(0)
+    createZeroArray(40)
   );
 
   // Smooth animation loop for waveform updates
   useEffect(() => {
     if (isListening) {
       const animate = () => {
-        // Add new level to history
-        levelHistoryRef.current.shift();
-        levelHistoryRef.current.push(currentLevel);
+        // Use provided waveformData or real-time levels
+        if (waveformData && waveformData.length > 0) {
+          // Use provided sine wave or placeholder data
+          const safeWaveformData = waveformData
+            .filter((val): val is number => typeof val === 'number')
+            .slice(0, 40);
 
-        // Update display with smooth interpolation
-        setDisplayLevels([...levelHistoryRef.current]);
+          // Pad with zeros if needed
+          while (safeWaveformData.length < 40) {
+            safeWaveformData.push(0);
+          }
+
+          setDisplayLevels(safeWaveformData);
+        } else {
+          // Add new level to history (real-time mode)
+          levelHistoryRef.current.shift();
+          levelHistoryRef.current.push(currentLevel);
+          setDisplayLevels([...levelHistoryRef.current]);
+        }
 
         animationFrameRef.current = requestAnimationFrame(animate);
       };
@@ -48,8 +67,8 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         animationFrameRef.current = null;
       }
       // Reset levels when not listening
-      levelHistoryRef.current = Array(40).fill(0);
-      setDisplayLevels(Array(40).fill(0));
+      levelHistoryRef.current = createZeroArray(40);
+      setDisplayLevels(createZeroArray(40));
     }
 
     return () => {
@@ -57,7 +76,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isListening, currentLevel]);
+  }, [isListening, currentLevel, waveformData]);
 
   // If not listening, show big record button
   if (!isListening) {

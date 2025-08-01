@@ -33,6 +33,7 @@ import AssetDetailView from './AssetDetailView';
 import AssetsView from './AssetsView';
 import ProjectsView from './ProjectsView';
 import QuestsView from './QuestsView';
+import RapidTranslationAssetsView from './new/RapidTranslationAssetsView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -73,7 +74,8 @@ export default function AppView() {
         );
       case 'assets':
         return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetsView />
+          // <NextGenAssetsView />
+          <RapidTranslationAssetsView />
         ) : (
           <AssetsView />
         );
