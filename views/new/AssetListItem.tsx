@@ -2,14 +2,13 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { colors } from '@/styles/theme';
+import { colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
 // import { AttachmentState } from '@powersync/attachments';
 import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './NextGenAssetsView';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -18,6 +17,7 @@ type Asset = typeof asset_type.$inferSelect;
 export interface AssetListItemProps {
   asset: Asset;
   attachmentState?: AttachmentRecord;
+  onPress?: (asset: Asset) => void;
 }
 
 // function renderSourceTag(source: string | undefined) {
@@ -76,7 +76,8 @@ export interface AssetListItemProps {
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
-  attachmentState
+  attachmentState,
+  onPress
 }) => {
   const { goToAsset } = useAppNavigation();
   const { currentUser } = useAuth();
@@ -91,10 +92,14 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   );
 
   const handlePress = () => {
-    goToAsset({
-      id: asset.id,
-      name: asset.name || t('unnamedAsset')
-    });
+    if (onPress) {
+      onPress(asset);
+    } else {
+      goToAsset({
+        id: asset.id,
+        name: asset.name || t('unnamedAsset')
+      });
+    }
   };
 
   const handleDownloadToggle = () => {
@@ -152,3 +157,22 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  listItem: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    padding: spacing.medium,
+    marginBottom: spacing.small,
+    gap: spacing.xsmall
+  },
+  assetName: {
+    color: colors.text,
+    fontSize: fontSizes.large,
+    fontWeight: 'bold'
+  },
+  assetInfo: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
+  }
+});

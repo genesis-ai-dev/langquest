@@ -1,7 +1,8 @@
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { PlayableWaveform } from './PlayableWaveform';
 
 interface Segment {
   id: string;
@@ -31,38 +32,11 @@ const formatDuration = (milliseconds: number): string => {
   return `${remainingSeconds}s`;
 };
 
-const MiniWaveform: React.FC<{
-  data?: number[];
-  color?: string;
-}> = ({ data = [], color = colors.primary }) => {
-  // Generate mock data if none provided
-  const waveformData =
-    data.length > 0 ? data : Array.from({ length: 20 }, () => Math.random());
-
-  return (
-    <View style={styles.waveformContainer}>
-      {waveformData.map((level, index) => {
-        const height = Math.max(4, level * 20);
-        return (
-          <View
-            key={index}
-            style={[
-              styles.waveformBar,
-              {
-                height,
-                backgroundColor: color
-              }
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-};
-
 export const RabbitModeSegmentDisplay: React.FC<
   RabbitModeSegmentDisplayProps
 > = ({ segments, onDeleteSegment, onReorderSegment, readOnly = false }) => {
+  const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
+
   if (segments.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -77,6 +51,18 @@ export const RabbitModeSegmentDisplay: React.FC<
   // Sort segments by order
   const sortedSegments = [...segments].sort((a, b) => a.order - b.order);
 
+  const handlePlaySegment = (segmentId: string) => {
+    setPlayingSegmentId(segmentId);
+  };
+
+  const handlePauseSegment = () => {
+    setPlayingSegmentId(null);
+  };
+
+  const handleStopSegment = () => {
+    setPlayingSegmentId(null);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Recordings ({segments.length})</Text>
@@ -84,6 +70,7 @@ export const RabbitModeSegmentDisplay: React.FC<
       {sortedSegments.map((segment, index) => {
         const canMoveUp = index > 0;
         const canMoveDown = index < sortedSegments.length - 1;
+        const isPlaying = playingSegmentId === segment.id;
 
         return (
           <View key={segment.id} style={styles.segmentItem}>
@@ -95,9 +82,15 @@ export const RabbitModeSegmentDisplay: React.FC<
                 </Text>
               </View>
 
-              <MiniWaveform
-                data={segment.waveformData}
-                color={colors.primary}
+              <PlayableWaveform
+                audioUri={segment.audioUri}
+                waveformData={segment.waveformData}
+                duration={segment.duration}
+                isPlaying={isPlaying}
+                onPlay={() => handlePlaySegment(segment.id)}
+                onPause={handlePauseSegment}
+                onStop={handleStopSegment}
+                style={styles.playableWaveform}
               />
             </View>
 
@@ -212,19 +205,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500'
   },
-  waveformContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 24,
-    backgroundColor: colors.background,
-    borderRadius: 4,
-    padding: 2,
-    gap: 1
-  },
-  waveformBar: {
-    width: 3,
-    borderRadius: 1,
-    minHeight: 4
+  playableWaveform: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0
   },
   segmentControls: {
     alignItems: 'center',
