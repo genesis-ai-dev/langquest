@@ -33,9 +33,9 @@ export function useExpoUpdates() {
         throw new Error('No update available');
       }
       await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Updates.reloadAsync();
       void queryClient.invalidateQueries({ queryKey: ['updates'] });
     }
   });
