@@ -17,13 +17,13 @@ import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { AttachmentState } from '@powersync/attachments';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { DimensionValue } from 'react-native';
+import type { DimensionValue, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Modal,
-  ProgressBarAndroid,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +38,103 @@ interface DrawerItemType {
   notificationCount?: number;
   disabled?: boolean;
 }
+
+// Custom progress bar component to replace ProgressBarAndroid
+interface CustomProgressBarProps {
+  progress?: number;
+  indeterminate?: boolean;
+  color?: string;
+  style?: ViewStyle;
+}
+
+const CustomProgressBar: React.FC<CustomProgressBarProps> = ({
+  progress = 0,
+  indeterminate = false,
+  color = colors.primary,
+  style
+}) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (indeterminate) {
+      // Create an indeterminate animation
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: false
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: false
+          })
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    } else {
+      // Animate to the progress value
+      Animated.timing(animatedValue, {
+        toValue: progress,
+        duration: 300,
+        useNativeDriver: false
+      }).start();
+    }
+  }, [progress, indeterminate, animatedValue]);
+
+  const progressWidth = indeterminate
+    ? animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['20%', '80%']
+      })
+    : animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0%', '100%']
+      });
+
+  const translateX = indeterminate
+    ? animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-50, 50]
+      })
+    : 0;
+
+  return (
+    <View style={[customProgressBarStyles.container, style]}>
+      <View style={customProgressBarStyles.track}>
+        <Animated.View
+          style={[
+            customProgressBarStyles.fill,
+            {
+              width: progressWidth,
+              backgroundColor: color,
+              transform: indeterminate ? [{ translateX }] : []
+            }
+          ]}
+        />
+      </View>
+    </View>
+  );
+};
+
+const customProgressBarStyles = StyleSheet.create({
+  container: {
+    height: 4,
+    width: '100%'
+  },
+  track: {
+    flex: 1,
+    backgroundColor: colors.disabled,
+    borderRadius: 2,
+    overflow: 'hidden'
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 2
+  }
+});
 
 // Shimmer component for grace period
 const ShimmerBar: React.FC<{ width?: DimensionValue }> = ({
@@ -359,6 +456,11 @@ export default function AppDrawer({
   };
 
   const confirmAndStartBackup = () => {
+    if (Platform.OS !== 'android') {
+      Alert.alert(t('error'), t('backupAndroidOnly'));
+      return;
+    }
+
     Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
       {
         text: t('cancel'),
@@ -486,7 +588,7 @@ export default function AppDrawer({
   ] as const;
 
   // Add logout for development
-  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development') {
+  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || __DEV__) {
     drawerItems.push({
       name: t('logOut'),
       icon: 'log-out',
@@ -582,8 +684,7 @@ export default function AppDrawer({
                       ? t('backingUp')
                       : t('restoring')}
                   </Text>
-                  <ProgressBarAndroid
-                    styleAttr="Horizontal"
+                  <CustomProgressBar
                     indeterminate={syncTotal === 0}
                     progress={progressPercentage}
                     color={colors.primary}
@@ -619,8 +720,7 @@ export default function AppDrawer({
                 {/* Progress bar for download progress */}
                 {(powersyncStatus?.downloadProgress ||
                   attachmentProgress.hasActivity) && (
-                  <ProgressBarAndroid
-                    styleAttr="Horizontal"
+                  <CustomProgressBar
                     indeterminate={
                       powersyncStatus?.downloadProgress ? true : false
                     }
@@ -629,7 +729,7 @@ export default function AppDrawer({
                         ? attachmentProgress.total > 0
                           ? attachmentProgress.synced / attachmentProgress.total
                           : 0
-                        : undefined
+                        : 0
                     }
                     color={colors.primary}
                     style={styles.syncStatusProgressBar}
@@ -725,8 +825,7 @@ export default function AppDrawer({
                   {isInGracePeriod ? (
                     <ShimmerBar />
                   ) : (
-                    <ProgressBarAndroid
-                      styleAttr="Horizontal"
+                    <CustomProgressBar
                       indeterminate={
                         attachmentProgress.hasActivity &&
                         attachmentProgress.total === 0

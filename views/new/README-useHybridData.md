@@ -160,7 +160,6 @@ Example implementation with FlashList for optimal performance:
   data={items}
   renderItem={renderItem}
   keyExtractor={keyExtractor}
-  estimatedItemSize={80}
   onEndReached={() => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();

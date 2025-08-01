@@ -42,14 +42,21 @@ export const initializePostHogWithStore = () => {
     void changeAnalyticsState(shouldOptIn);
 
     // Subscribe to future changes
+    let previousOptOut = analyticsOptOut;
+    let previousTermsDate = dateTermsAccepted;
 
     const unsubscribe = useLocalStore.subscribe((state) => {
       const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } =
         state;
 
-      const newShouldOptIn = !newOptOut && !!newTermsDate;
+      // Only update if the relevant values actually changed
+      if (newOptOut !== previousOptOut || newTermsDate !== previousTermsDate) {
+        previousOptOut = newOptOut;
+        previousTermsDate = newTermsDate;
 
-      void changeAnalyticsState(newShouldOptIn);
+        const newShouldOptIn = !newOptOut && !!newTermsDate;
+        void changeAnalyticsState(newShouldOptIn);
+      }
     });
 
     return unsubscribe;

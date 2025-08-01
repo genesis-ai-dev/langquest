@@ -286,7 +286,6 @@ export default function NextGenAssetsView() {
             data={assets}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            estimatedItemSize={80}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
             onEndReached={onEndReached}
