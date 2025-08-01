@@ -1425,6 +1425,11 @@ export const localizations = {
     spanish: 'La restauración solo está disponible en Android',
     brazilian_portuguese: 'A restauração só está disponível no Android'
   },
+  backupAndroidOnly: {
+    english: 'Backup is only available on Android',
+    spanish: 'El respaldo solo está disponible en Android',
+    brazilian_portuguese: 'O backup só está disponível no Android'
+  },
   permissionDenied: {
     english: 'Permission Denied',
     spanish: 'Permiso Denegado',
