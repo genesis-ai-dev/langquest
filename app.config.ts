@@ -62,7 +62,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         favicon: iconPath
       },
       plugins: [
-        'expo-build-properties',
+        [
+          'expo-build-properties',
+          {
+            android: {
+              compileSdkVersion: 35,
+              targetSdkVersion: 35,
+              buildToolsVersion: '35.0.0'
+            }
+          }
+        ],
         'expo-font',
         'expo-router',
         // migrate existing localization to expo-localization
