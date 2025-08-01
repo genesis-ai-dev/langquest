@@ -330,7 +330,6 @@ export default function NextGenProjectsView() {
         data={filteredProjects}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         onEndReached={onEndReached}

@@ -144,6 +144,14 @@ export class ProfileService {
           .select()
           .single<Profile>();
 
+      if (updateData.ui_language_id) {
+        await supabaseConnector.client.auth.updateUser({
+          data: {
+            ui_language_id: updateData.ui_language_id
+          }
+        });
+      }
+
       if (profileError) {
         console.error('Error updating profile:', profileError);
         throw profileError;
