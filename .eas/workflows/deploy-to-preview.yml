@@ -51,12 +51,12 @@ jobs:
   #   params:
   #     platform: ios
   #     profile: production
-  submit_android_build:
-    name: Submit Android Build
-    needs: [build_android]
-    type: submit
-    params:
-      build_id: ${{ needs.build_android.outputs.build_id }}
+  # submit_android_build:
+  #   name: Submit Android Build
+  #   needs: [build_android]
+  #   type: submit
+  #   params:
+  #     build_id: ${{ needs.build_android.outputs.build_id }}
   # submit_ios_build:
   #   name: Submit iOS Build
   #   needs: [build_ios]

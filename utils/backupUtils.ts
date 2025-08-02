@@ -6,11 +6,12 @@ import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 // --- Permission Helper ---
-export async function requestBackupDirectory(): Promise<string | null> {
+export async function requestBackupDirectory() {
   // Android-specific permission handling - return null for other platforms
   if (Platform.OS !== 'android') {
-    console.warn('Requesting backup directory is only supported on Android.');
-    return null;
+    throw new Error(
+      'Requesting backup directory is only supported on Android.'
+    );
   }
 
   try {

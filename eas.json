@@ -39,11 +39,6 @@
       "android": {
         "track": "production"
       }
-    },
-    "preview": {
-      "android": {
-        "track": "alpha"
-      }
     }
   }
 }
