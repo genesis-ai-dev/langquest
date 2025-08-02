@@ -44,11 +44,11 @@ export function useExpoUpdates() {
       }
       setStatus('downloading');
       await Updates.fetchUpdateAsync();
-    },
-    onSuccess: async () => {
       setStatus('reloading');
-      void queryClient.invalidateQueries({ queryKey: ['updates'] });
       await Updates.reloadAsync(); // reload without restarting app
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['updates'] });
     },
     onError: async (error) => {
       console.error('Error downloading update', error);
