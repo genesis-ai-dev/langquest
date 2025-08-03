@@ -248,7 +248,6 @@ export default function ProjectsView() {
             data={filteredProjects}
             renderItem={({ item }) => <ProjectCard project={item} />}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={120}
             onEndReached={onEndReached}
             onEndReachedThreshold={0.3}
             ListFooterComponent={renderFooter}

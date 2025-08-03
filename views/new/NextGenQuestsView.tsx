@@ -292,7 +292,6 @@ export default function NextGenQuestsView() {
             data={filteredQuests}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            estimatedItemSize={80}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
             onEndReached={onEndReached}
