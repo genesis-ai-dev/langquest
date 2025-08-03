@@ -67,6 +67,8 @@ export default function ForgotPasswordView2({
           {
             text: t('ok') || 'OK',
             onPress: () => {
+              // It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
+              // at next page.
               InteractionManager.runAfterInteractions(() => {
                 requestAnimationFrame(() => {
                   onNavigate('sign-in');

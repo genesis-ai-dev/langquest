@@ -65,7 +65,8 @@ export default function ResetPasswordView2() {
             text: t('ok') || 'OK',
             onPress: () => {
               // Sign out and let auth context handle navigation to sign in
-              // void signOut();
+              // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
+              // at next page.
               InteractionManager.runAfterInteractions(() => {
                 requestAnimationFrame(() => {
                   void signOut();
