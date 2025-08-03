@@ -359,6 +359,11 @@ export default function RegisterView2({
                     <Controller
                       control={control}
                       name="termsAccepted"
+                      rules={{
+                        required:
+                          t('termsRequired') ||
+                          'You must agree to the Terms and Privacy'
+                      }}
                       render={({ field: { onChange, value } }) => (
                         <TouchableOpacity
                           style={{
@@ -368,17 +373,12 @@ export default function RegisterView2({
                           }}
                           onPress={() => onChange(!value)}
                         >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              value ? styles.checkboxChecked : null
-                            ]}
-                          >
+                          <View style={[styles.checkbox]}>
                             {value && (
                               <Ionicons
                                 name="checkmark"
                                 size={16}
-                                color={colors.background}
+                                color={colors.text}
                               />
                             )}
                           </View>
@@ -389,6 +389,11 @@ export default function RegisterView2({
                         </TouchableOpacity>
                       )}
                     />
+                    {errors.termsAccepted && (
+                      <Text style={styles.errorText}>
+                        {errors.termsAccepted.message}
+                      </Text>
+                    )}
                   </View>
 
                   {/* Submit button */}
@@ -460,8 +465,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center'
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary
   }
+  // checkboxChecked: {
+  //   backgroundColor: colors.primary
+  // },
 });
