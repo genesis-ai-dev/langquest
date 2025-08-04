@@ -616,17 +616,18 @@ export const localizations = {
     spanish: 'Por favor seleccione un motivo para el reporte',
     brazilian_portuguese: 'Por favor, selecione um motivo para o relatório'
   },
-  analyticsOptOutLabel: {
-    english: 'Opt out of analytics',
-    spanish: 'Desactivar el análisis',
-    brazilian_portuguese: 'Optar por não participar da análise'
+  analyticsOptInLabel: {
+    english: 'Enable Analytics',
+    spanish: 'Habilitar Análisis',
+    brazilian_portuguese: 'Habilitar Análise'
   },
-  analyticsOptOutDescription: {
-    english: 'When enabled, we will not collect usage data to improve the app.',
+  analyticsOptInDescription: {
+    english:
+      'When disabled, we will not collect usage data to improve the app.',
     spanish:
-      'Cuando está habilitado, no recopilaremos datos de uso para mejorar la aplicación.',
+      'Cuando está deshabilitado, no recopilaremos datos de uso para mejorar la aplicación.',
     brazilian_portuguese:
-      'Quando ativado, não coletaremos dados de uso para melhorar o aplicativo.'
+      'Quando desativado, não coletaremos dados de uso para melhorar o aplicativo.'
   },
   sessionExpired: {
     english: 'Session expired',
@@ -806,6 +807,23 @@ export const localizations = {
     english: 'You cannot report your own translation',
     spanish: 'No puede reportar su propia traducción',
     brazilian_portuguese: 'Você não pode reportar sua própria tradução'
+  },
+  cannotReportInactiveTranslation: {
+    english: 'You cannot report inactive translation',
+    spanish: 'No puede reportar traducción inactiva',
+    brazilian_portuguese: 'Você não pode reportar tradução inativa'
+  },
+  cannotIdentifyUser: {
+    english: 'Unable to identify user',
+    spanish: 'No se puede identificar al usuario',
+    brazilian_portuguese: 'Não foi possível identificar o usuário'
+  },
+  cannotChangeTranslationSettings: {
+    english: 'Unathorized to change settings for this translation',
+    spanish:
+      'No tiene autorización para cambiar la configuración de esta traducción',
+    brazilian_portuguese:
+      'Você não tem autorização para alterar as configurações desta tradução'
   },
   alreadyReportedTranslation: {
     english: 'You have already reported this translation',
@@ -1417,6 +1435,11 @@ export const localizations = {
     spanish: 'La restauración solo está disponible en Android',
     brazilian_portuguese: 'A restauração só está disponível no Android'
   },
+  backupAndroidOnly: {
+    english: 'Backup is only available on Android',
+    spanish: 'El respaldo solo está disponible en Android',
+    brazilian_portuguese: 'O backup só está disponível no Android'
+  },
   permissionDenied: {
     english: 'Permission Denied',
     spanish: 'Permiso Denegado',
@@ -1800,9 +1823,9 @@ export const localizations = {
     brazilian_portuguese: 'Isso baixará:'
   },
   translations: {
-    english: 'translations',
-    spanish: 'translations',
-    brazilian_portuguese: 'translations'
+    english: 'Translations',
+    spanish: 'Traducciones',
+    brazilian_portuguese: 'Traduções'
   },
   projectMadePublic: {
     english: 'The project has been made public',

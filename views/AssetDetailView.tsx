@@ -28,15 +28,26 @@ import type { Translation } from '@/database_services/translationService';
 import type { Vote } from '@/database_services/voteService';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useAssetById, useAssetContent } from '@/hooks/db/useAssets';
+import {
+  useAssetById,
+  useAssetContent,
+  useAssetsQuestLinkById
+} from '@/hooks/db/useAssets';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useQuestById } from '@/hooks/db/useQuests';
 import type { Language } from '@/hooks/db/useTranslations';
 import { useTranslationsWithVotesAndLanguageByAssetId } from '@/hooks/db/useTranslations';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { calculateVoteCount, getGemColor } from '@/utils/progressUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -79,7 +90,18 @@ export default function AssetDetailView() {
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
   // Get current navigation state
-  const { currentAssetId, currentProjectId } = useCurrentNavigation();
+  const { currentAssetId, currentProjectId, currentQuestId } =
+    useCurrentNavigation();
+
+  const { quest_asset_link = [] } = useAssetsQuestLinkById(
+    currentQuestId,
+    currentAssetId
+  );
+
+  const questAssetLink = quest_asset_link[0] ?? {
+    active: false,
+    visible: false
+  };
 
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
@@ -92,6 +114,9 @@ export default function AssetDetailView() {
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
   const [pendingTranslationType, setPendingTranslationType] =
     useState<TranslationModalType | null>(null);
+
+  const [isTranslationParentsActive, setIsTranslationParentsActive] =
+    useState(false);
 
   // Always call hooks before any conditional returns
   useEffect(() => {
@@ -190,6 +215,11 @@ export default function AssetDetailView() {
     );
   }
 
+  const { quest } = useQuestById(currentQuestId || '');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const isParentActive =
+    activeProject?.active && quest?.active && questAssetLink.active;
+
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
   const translationsContainerHeight = screenHeight - assetViewerHeight - 100;
@@ -214,6 +244,15 @@ export default function AssetDetailView() {
     const translationHasText = !!translation.text;
     const textIconOpacity = translationHasText ? 1 : 0.5;
 
+    // const isOwnTranslation = currentUser.id === translation.creator_id;
+
+    const isParentsActive = (isParentActive && asset?.active) === true;
+
+    const handleTranslationModal = () => {
+      setSelectedTranslationId(translation.id);
+      setIsTranslationParentsActive(isParentsActive);
+    };
+
     return (
       <View
         style={{
@@ -234,8 +273,13 @@ export default function AssetDetailView() {
           <GemIcon color={gemColor} width={20} height={20} />
         )}
         <TouchableOpacity
-          style={[styles.translationCard, { flex: 1 }]}
-          onPress={() => setSelectedTranslationId(translation.id)}
+          style={[
+            styles.translationCard,
+            { flex: 1 },
+            (!isParentActive || !translation.active) && sharedStyles.disabled,
+            !translation.visible && sharedStyles.invisible
+          ]}
+          onPress={() => handleTranslationModal()}
         >
           <View
             style={[
@@ -260,63 +304,78 @@ export default function AssetDetailView() {
               </View>
             </View>
             <View style={styles.translationCardRight}>
-              <View style={styles.voteContainer}>
-                <Ionicons
-                  name={getVoteIconName(translation.id, 'up')}
-                  size={16}
-                  color={colors.text}
-                />
-                <Text style={styles.voteCount}>{voteCount}</Text>
-                <Ionicons
-                  name={getVoteIconName(translation.id, 'down')}
-                  size={16}
-                  color={colors.text}
-                />
-              </View>
+              {isParentsActive && translation.active && (
+                <View style={styles.voteContainer}>
+                  <Ionicons
+                    name={getVoteIconName(translation.id, 'up')}
+                    size={16}
+                    color={colors.text}
+                  />
+                  <Text style={styles.voteCount}>{voteCount}</Text>
+                  <Ionicons
+                    name={getVoteIconName(translation.id, 'down')}
+                    size={16}
+                    color={colors.text}
+                  />
+                </View>
+              )}
             </View>
           </View>
         </TouchableOpacity>
         <View style={{ flexDirection: 'column', gap: 6 }}>
-          <View
-            style={{
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }}
-          >
-            <MicrophoneIcon
-              fill={colors.text}
-              opacity={audioIconOpacity}
-              width={16}
-              height={16}
-            />
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 10,
-                opacity: audioIconOpacity
-              }}
-            >
-              {'00:00'}
-            </Text>
-          </View>
-          <View
-            style={{
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              opacity: textIconOpacity
-            }}
-          >
-            <KeyboardIcon fill={colors.text} width={16} height={16} />
-            <Text style={{ color: colors.text, fontSize: 10 }}>...</Text>
-          </View>
+          {isParentsActive && translation.active ? (
+            <>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+              >
+                <MicrophoneIcon
+                  fill={colors.text}
+                  opacity={audioIconOpacity}
+                  width={16}
+                  height={16}
+                />
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: 10,
+                    opacity: audioIconOpacity
+                  }}
+                >
+                  {'00:00'}
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: textIconOpacity
+                }}
+              >
+                <KeyboardIcon fill={colors.text} width={16} height={16} />
+                <Text style={{ color: colors.text, fontSize: 10 }}>...</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View
+                style={{
+                  width: 24
+                }}
+              ></View>
+            </>
+          )}
         </View>
       </View>
     );
   };
 
   const handleNewTranslation = () => {
+    if (!(isParentActive && asset?.active)) return;
     try {
       // Refresh translations after creating new one
       void refetch();
@@ -578,9 +637,11 @@ export default function AssetDetailView() {
         <TouchableOpacity
           style={[
             styles.newTranslationButton,
-            { flex: 1, backgroundColor: '#6545B6' }
+            { flex: 1, backgroundColor: '#6545B6' },
+            (!isParentActive || !asset?.active) && sharedStyles.disabled
           ]}
           onPress={() => {
+            if (!isParentActive || !asset?.active) return;
             if (hasAccess) {
               setIsTranslationModalVisible(true);
               setTranslationModalType(TranslationModalType.AUDIO);
@@ -613,8 +674,13 @@ export default function AssetDetailView() {
           </View>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.newTranslationButton, { flex: 1 }]}
+          style={[
+            styles.newTranslationButton,
+            { flex: 1 },
+            (!isParentActive || !asset?.active) && sharedStyles.disabled
+          ]}
           onPress={() => {
+            if (!isParentActive || !asset?.active) return;
             if (hasAccess) {
               setIsTranslationModalVisible(true);
               setTranslationModalType(TranslationModalType.TEXT);
@@ -651,12 +717,15 @@ export default function AssetDetailView() {
       {selectedTranslationId && (
         <TranslationModal
           translationId={selectedTranslationId}
+          assetId={currentAssetId}
           onClose={() => setSelectedTranslationId(null)}
+          isParentsActive={isTranslationParentsActive}
         />
       )}
 
       {isTranslationModalVisible &&
         assetContent &&
+        isParentActive &&
         (assetContent.length > 0 ||
           (asset?.images && asset.images.length > 0)) && (
           <NewTranslationModal

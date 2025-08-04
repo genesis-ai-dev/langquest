@@ -9,6 +9,7 @@ import {
   vote
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
@@ -697,6 +698,7 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
           `
           )
           .eq('asset_id', asset_id)
+          .eq('visible', true)
           .abortSignal(signal)
           .overrideTypes<
             (Translation & { votes: Vote[]; target_language: Language })[]
@@ -741,6 +743,10 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
         `
         )
         .eq('asset_id', asset_id);
+      const showInvisible = await getOptionShowHiddenContent();
+      if (!showInvisible) {
+        query = query.eq('visible', true);
+      }
 
       if (blockedUserIds.length > 0) {
         query = query.not('creator_id', 'in', `(${blockedUserIds.join(',')})`);

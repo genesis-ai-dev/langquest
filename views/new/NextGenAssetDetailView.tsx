@@ -1,4 +1,5 @@
 import { AssetSkeleton } from '@/components/AssetSkeleton';
+import ImageCarousel from '@/components/ImageCarousel';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import type { language } from '@/db/drizzleSchema';
@@ -12,7 +13,6 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -25,7 +25,6 @@ import {
   Dimensions,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View
@@ -36,13 +35,14 @@ import { useHybridData } from './useHybridData';
 
 interface AssetWithContent extends Asset {
   content?: AssetContent[];
-  source?: string;
 }
 
 type Asset = typeof asset.$inferSelect;
 type AssetContent = typeof asset_content_link.$inferSelect;
 
-const ASSET_VIEWER_PROPORTION = 0.4;
+const ASSET_VIEWER_PROPORTION = 0.35;
+
+type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
   return useQuery({
@@ -67,56 +67,21 @@ function useNextGenOfflineAsset(assetId: string) {
 
       return {
         ...assetData,
-        content: contentResult,
-        source: 'localSqlite'
+        content: contentResult
       } as AssetWithContent;
     },
     enabled: !!assetId
   });
 }
 
-async function useNextGenCloudAsset(
-  assetId: string
-): Promise<AssetWithContent | null> {
-  const { data: assetData, error: assetError } =
-    await system.supabaseConnector.client
-      .from('asset')
-      .select('*')
-      .eq('id', assetId)
-      .limit(1)
-      .overrideTypes<Asset[]>();
-
-  if (assetError) throw assetError;
-  if (!assetData.length) return null;
-
-  const { data: contentData, error: contentError } =
-    await system.supabaseConnector.client
-      .from('asset_content_link')
-      .select('*')
-      .eq('asset_id', assetId)
-      .overrideTypes<AssetContent[]>();
-
-  if (contentError) throw contentError;
-
-  return {
-    ...assetData[0],
-    content: contentData,
-    source: 'cloudSupabase'
-  } as AssetWithContent;
-}
-
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { currentAssetId, currentProjectId } = useCurrentNavigation();
-  const isOnline = useNetworkStatus();
 
-  const [useOfflineData, setUseOfflineData] = useState(false);
-  const [cloudAsset, setCloudAsset] = useState<AssetWithContent | null>(null);
-  const [isCloudLoading, setIsCloudLoading] = useState(true);
-  const [cloudError, setCloudError] = useState<Error | null>(null);
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<TabType>('text');
 
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
@@ -158,43 +123,9 @@ export default function NextGenAssetDetailView() {
     }
   }, [projectData]);
 
-  // Fetch cloud asset directly - only when online
-  useEffect(() => {
-    if (!currentAssetId) return;
-
-    const fetchCloudAsset = async () => {
-      try {
-        setIsCloudLoading(true);
-        setCloudError(null);
-
-        // Check network status before making cloud query
-        if (!isOnline) {
-          console.log('📱 [ASSET DETAIL] Skipping cloud query - offline');
-          setCloudAsset(null);
-          setIsCloudLoading(false);
-          return;
-        }
-
-        console.log('🌐 [ASSET DETAIL] Making cloud query - online');
-        const asset = await useNextGenCloudAsset(currentAssetId);
-        setCloudAsset(asset);
-      } catch (error) {
-        console.error('Error fetching cloud asset:', error);
-        setCloudError(error as Error);
-        setCloudAsset(null);
-      } finally {
-        setIsCloudLoading(false);
-      }
-    };
-
-    void fetchCloudAsset();
-  }, [currentAssetId, isOnline]);
-
-  // Determine which asset to display with fallback logic
-  const activeAsset = useOfflineData
-    ? offlineAsset
-    : cloudAsset || offlineAsset; // Fall back to offline if cloud fails
-  const isLoading = useOfflineData ? isOfflineLoading : isCloudLoading;
+  // Determine which asset to display
+  const activeAsset = offlineAsset;
+  const isLoading = isOfflineLoading;
 
   // Collect attachment IDs for audio support
   const allAttachmentIds = React.useMemo(() => {
@@ -229,52 +160,42 @@ export default function NextGenAssetDetailView() {
         })
       ),
 
-      // Cloud query
-      cloudQueryFn: async () => {
-        if (!activeAsset?.source_language_id) return [];
-        const { data, error } = await system.supabaseConnector.client
-          .from('language')
-          .select('*')
-          .eq('id', activeAsset.source_language_id)
-          .overrideTypes<Language[]>();
-        if (error) throw error;
-        return data;
-      },
-
-      enableCloudQuery: !!activeAsset?.source_language_id
+      enableCloudQuery: false
     });
 
   const sourceLanguage = languages[0];
+
+  // Set the first available tab when asset data changes
+  useEffect(() => {
+    if (!activeAsset) return;
+
+    const hasTextContent =
+      activeAsset.content && activeAsset.content.length > 0;
+    const hasImages = activeAsset.images && activeAsset.images.length > 0;
+
+    if (hasTextContent) {
+      setActiveTab('text');
+    } else if (hasImages) {
+      setActiveTab('image');
+    }
+  }, [activeAsset]);
 
   // Debug logging
   const debugInfo = React.useMemo(
     () => ({
       assetId: currentAssetId,
-      isOnline,
-      useOfflineData,
       offlineAsset: offlineAsset
         ? {
             id: offlineAsset.id,
             name: offlineAsset.name,
-            source: offlineAsset.source,
             contentCount: offlineAsset.content?.length ?? 0,
             hasAudio: offlineAsset.content?.some((c) => c.audio_id) ?? false
-          }
-        : null,
-      cloudAsset: cloudAsset
-        ? {
-            id: cloudAsset.id,
-            name: cloudAsset.name,
-            source: cloudAsset.source,
-            contentCount: cloudAsset.content?.length ?? 0,
-            hasAudio: cloudAsset.content?.some((c) => c.audio_id) ?? false
           }
         : null,
       activeAsset: activeAsset
         ? {
             id: activeAsset.id,
             name: activeAsset.name,
-            source: activeAsset.source,
             contentCount: activeAsset.content?.length ?? 0,
             hasAudio: activeAsset.content?.some((c) => c.audio_id) ?? false
           }
@@ -286,19 +207,14 @@ export default function NextGenAssetDetailView() {
           id,
           state: state.state,
           hasLocalUri: !!state.local_uri
-        })),
-      cloudError: cloudError?.message ?? null
+        }))
     }),
     [
       currentAssetId,
-      isOnline,
-      useOfflineData,
       offlineAsset,
-      cloudAsset,
       activeAsset,
       attachmentStates,
-      allAttachmentIds,
-      cloudError
+      allAttachmentIds
     ]
   );
 
@@ -325,20 +241,8 @@ export default function NextGenAssetDetailView() {
     return (
       <View style={sharedStyles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            {useOfflineData
-              ? t('assetNotAvailableOffline')
-              : cloudError
-                ? t('cloudError', { error: cloudError.message })
-                : t('assetNotFoundOnline')}
-          </Text>
-          <Text style={styles.errorHint}>
-            {useOfflineData && cloudAsset
-              ? t('trySwitchingToCloudDataSource')
-              : !useOfflineData && offlineAsset
-                ? t('trySwitchingToOfflineDataSource')
-                : t('assetMayNotBeSynchronized')}
-          </Text>
+          <Text style={styles.errorText}>{t('assetNotAvailableOffline')}</Text>
+          <Text style={styles.errorHint}>{t('assetMayNotBeSynchronized')}</Text>
         </View>
       </View>
     );
@@ -359,7 +263,7 @@ export default function NextGenAssetDetailView() {
 
   return (
     <View style={styles.container}>
-      {/* Data Source Toggle - Header */}
+      {/* Header */}
       <View style={styles.headerBar}>
         <View style={styles.titleContainer}>
           <Text style={styles.assetName}>{activeAsset.name}</Text>
@@ -379,39 +283,50 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {SHOW_DEV_ELEMENTS && (
-          <View style={styles.headerRight}>
-            <View style={styles.toggleRow}>
-              <Text
-                style={[
-                  styles.toggleText,
-                  !useOfflineData && styles.inactiveToggleText
-                ]}
-              >
-                💾
-              </Text>
-              <Switch
-                value={!useOfflineData}
-                onValueChange={(value) => setUseOfflineData(!value)}
-                trackColor={{
-                  false: colors.inputBackground,
-                  true: colors.primary
-                }}
-                thumbColor={colors.buttonText}
-                style={styles.switch}
-              />
-              <Text
-                style={[
-                  styles.toggleText,
-                  useOfflineData && styles.inactiveToggleText
-                ]}
-              >
-                🌐
-              </Text>
-            </View>
-          </View>
-        )}
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'text' && styles.activeTab,
+            (!activeAsset.content || activeAsset.content.length === 0) &&
+              styles.disabledTab
+          ]}
+          onPress={() => setActiveTab('text')}
+          disabled={!activeAsset.content || activeAsset.content.length === 0}
+        >
+          <Ionicons
+            name="text"
+            size={24}
+            color={
+              activeAsset.content && activeAsset.content.length > 0
+                ? colors.text
+                : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'image' && styles.activeTab,
+            (!activeAsset.images || activeAsset.images.length === 0) &&
+              styles.disabledTab
+          ]}
+          onPress={() => setActiveTab('image')}
+          disabled={!activeAsset.images || activeAsset.images.length === 0}
+        >
+          <Ionicons
+            name="image"
+            size={24}
+            color={
+              activeAsset.images && activeAsset.images.length > 0
+                ? colors.text
+                : colors.textSecondary
+            }
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Asset Content Viewer */}
@@ -421,94 +336,111 @@ export default function NextGenAssetDetailView() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentScrollViewContent}
         >
-          {activeAsset.content && activeAsset.content.length > 0 ? (
-            activeAsset.content.map((content, index) => {
-              const isPlaceholder = content.text.includes(
-                'Add source text here'
-              );
-
-              return (
-                <View key={index} style={styles.contentItem}>
-                  {isPlaceholder && (
-                    <View style={styles.placeholderBadge}>
-                      <Ionicons
-                        name="create-outline"
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.placeholderText}>
-                        Placeholder Content
-                      </Text>
-                    </View>
-                  )}
-                  <SourceContent
-                    content={content}
-                    sourceLanguage={sourceLanguage ?? null}
-                    audioUri={
-                      content.audio_id
-                        ? (() => {
-                            const attachment = attachmentStates.get(
-                              content.audio_id
-                            );
-                            const localUri = attachment?.local_uri;
-
-                            if (!localUri) {
-                              console.log(
-                                `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                                attachment?.state
+          {/* Text Content Tab */}
+          {activeTab === 'text' && (
+            <>
+              {activeAsset.content && activeAsset.content.length > 0 ? (
+                activeAsset.content.map((content, index) => (
+                  <View key={index} style={styles.contentItem}>
+                    <SourceContent
+                      content={content}
+                      sourceLanguage={sourceLanguage ?? null}
+                      audioUri={
+                        content.audio_id
+                          ? (() => {
+                              const attachment = attachmentStates.get(
+                                content.audio_id
                               );
-                              return null;
-                            }
+                              const localUri = attachment?.local_uri;
 
-                            const fullUri =
-                              system.permAttachmentQueue?.getLocalUri(localUri);
-                            console.log(
-                              `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                            );
-                            return fullUri;
-                          })()
-                        : null
-                    }
-                    isLoading={isLoadingAttachments}
-                  />
+                              if (!localUri) {
+                                console.log(
+                                  `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                                  attachment?.state
+                                );
+                                return null;
+                              }
 
-                  {/* Audio status indicator */}
-                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                  {SHOW_DEV_ELEMENTS && content.audio_id && (
-                    <View style={styles.audioStatusContainer}>
-                      <Ionicons
-                        name={
-                          attachmentStates.get(content.audio_id)?.local_uri
-                            ? 'volume-high'
-                            : 'volume-mute'
+                              const fullUri =
+                                system.permAttachmentQueue?.getLocalUri(
+                                  localUri
+                                );
+                              console.log(
+                                `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                              );
+                              return fullUri;
+                            })()
+                          : null
+                      }
+                      isLoading={isLoadingAttachments}
+                    />
+
+                    {/* Audio status indicator */}
+                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    {SHOW_DEV_ELEMENTS && content.audio_id && (
+                      <View style={styles.audioStatusContainer}>
+                        <Ionicons
+                          name={
+                            attachmentStates.get(content.audio_id)?.local_uri
+                              ? 'volume-high'
+                              : 'volume-mute'
+                          }
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.audioStatusText}>
+                          {attachmentStates.get(content.audio_id)?.local_uri
+                            ? t('audioReady')
+                            : t('audioNotAvailable')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noContentText}>
+                  {t('noContentAvailable')}
+                </Text>
+              )}
+            </>
+          )}
+
+          {/* Image Content Tab */}
+          {activeTab === 'image' && (
+            <>
+              {activeAsset.images && activeAsset.images.length > 0 ? (
+                <View style={styles.imageCarouselWrapper}>
+                  <ImageCarousel
+                    uris={activeAsset.images
+                      .map((imageId) => {
+                        const attachment = attachmentStates.get(imageId);
+                        const localUri = attachment?.local_uri;
+
+                        if (!localUri) {
+                          console.log(
+                            `[IMAGE] No local URI for image ${imageId}, state:`,
+                            attachment?.state
+                          );
+                          return null;
                         }
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.audioStatusText}>
-                        {attachmentStates.get(content.audio_id)?.local_uri
-                          ? t('audioReady')
-                          : t('audioNotAvailable')}
-                      </Text>
-                    </View>
-                  )}
+
+                        const fullUri =
+                          system.permAttachmentQueue?.getLocalUri(localUri);
+                        console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
+                        return fullUri;
+                      })
+                      .filter((uri): uri is string => uri !== null)}
+                  />
                 </View>
-              );
-            })
-          ) : (
-            <Text style={styles.noContentText}>{t('noContentAvailable')}</Text>
+              ) : (
+                <Text style={styles.noContentText}>
+                  {t('noContentAvailable')}
+                </Text>
+              )}
+            </>
           )}
 
-          {/* Images info */}
-          {activeAsset.images && activeAsset.images.length > 0 && (
-            <View style={styles.imageInfo}>
-              <Text style={styles.imageInfoText}>
-                📷 {t('imagesAvailable', { count: activeAsset.images.length })}
-              </Text>
-            </View>
-          )}
-
-          {/* Asset Info */}
+          {/* Asset Info - Always visible 
           <View style={styles.assetInfo}>
             <Text style={styles.assetInfoText}>
               {t('language')}:{' '}
@@ -516,15 +448,6 @@ export default function NextGenAssetDetailView() {
                 sourceLanguage?.english_name ??
                 t('unknown')}
             </Text>
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && (
-              <Text style={styles.assetInfoText}>
-                {t('source')}:{' '}
-                {activeAsset.source === 'cloudSupabase'
-                  ? t('cloud')
-                  : t('offline')}
-              </Text>
-            )}
             {activeAsset.content?.some((c) => c.audio_id) && (
               <Text style={styles.assetInfoText}>
                 🔊{' '}
@@ -533,7 +456,7 @@ export default function NextGenAssetDetailView() {
                 })}
               </Text>
             )}
-          </View>
+          </View>*/}
         </ScrollView>
       </View>
 
@@ -635,24 +558,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xsmall
   },
-  headerRight: {
+  tabBar: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: colors.backgroundSecondary,
+    paddingVertical: spacing.small,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.inputBorder
+  },
+  tab: {
+    flex: 1,
     alignItems: 'center',
-    gap: spacing.medium
+    paddingVertical: spacing.small
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary
   },
-  toggleText: {
-    fontSize: fontSizes.medium
-  },
-  inactiveToggleText: {
-    opacity: 0.3
-  },
-  switch: {
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
+  disabledTab: {
+    opacity: 0.5
   },
   assetViewer: {
     backgroundColor: colors.backgroundSecondary,
@@ -677,16 +601,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     padding: spacing.large
-  },
-  imageInfo: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginTop: spacing.small
-  },
-  imageInfoText: {
-    color: colors.text,
-    fontSize: fontSizes.medium
   },
   assetInfo: {
     marginTop: spacing.medium,
@@ -724,10 +638,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.large,
     gap: spacing.small
   },
-  disabledButton: {
-    backgroundColor: colors.inputBorder,
-    opacity: 0.7
-  },
   newTranslationButtonText: {
     color: colors.buttonText,
     fontSize: fontSizes.medium,
@@ -743,20 +653,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.small
   },
-  placeholderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary + '15',
-    paddingHorizontal: spacing.small,
-    paddingVertical: spacing.xsmall,
-    borderRadius: 12,
-    marginBottom: spacing.small,
-    alignSelf: 'flex-start'
-  },
-  placeholderText: {
-    color: colors.primary,
-    fontSize: fontSizes.small,
-    fontWeight: '600',
-    marginLeft: spacing.xsmall
+  imageCarouselWrapper: {
+    height: 200, // Fixed height for the carousel
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 8,
+    overflow: 'hidden'
   }
 });

@@ -1,8 +1,8 @@
-import { quest } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
+import { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { useLocalization } from '@/hooks/useLocalization';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
+// import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -27,167 +27,115 @@ import {
 } from 'react-native';
 import { SwitchBox } from './SwitchBox';
 
-interface QuestSettingsModalProps {
+interface TranslationSettingsModalProps {
   isVisible: boolean;
   onClose: () => void;
-  questId: string;
-  projectId: string;
+  translationId: string;
 }
 
 type TStatusType = 'active' | 'visible';
 
-export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
-  isVisible,
-  onClose,
-  questId,
-  projectId
-}) => {
-  const { t } = useLocalization();
-  // TODO: add localization
+export const TranslationSettingsModal: React.FC<
+  TranslationSettingsModalProps
+> = ({ isVisible, onClose, translationId }) => {
+  // const { t } = useLocalization();
   const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isQuestLoaded, setIsQuestLoaded] = useState(false);
+  const [isTranslationLoaded, setIsTranslationLoaded] = useState(false);
 
-  const { membership } = useUserPermissions(projectId || '', 'manage');
-  const isOwner = membership === 'owner';
+  const { currentUser } = useAuth();
 
   const queryClient = useQueryClient();
 
-  const { data: questDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['quest-settings', questId],
-    onlineFn: async (): Promise<(typeof quest.$inferSelect)[]> => {
+  const { data: translationDataArray = [], refetch } = useHybridQuery({
+    queryKey: ['translation-settings', translationId],
+    onlineFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
       const { data, error } = await supabaseConnector.client
-        .from('quest')
+        .from('translation')
         .select('*')
-        .eq('id', questId)
+        .eq('id', translationId)
         .limit(1);
 
       if (error) throw error;
-      return data as (typeof quest.$inferSelect)[];
+      return data as (typeof translation.$inferSelect)[];
     },
     offlineQuery: toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(quest.id, questId)
+      db.query.translation.findMany({
+        where: eq(translation.id, translationId)
       })
     )
   });
 
-  const questData = questDataArray[0];
-
-  if (questData != undefined && !isQuestLoaded) {
-    setIsQuestLoaded(true);
+  const translationData = translationDataArray[0];
+  if (translationData != undefined && !isTranslationLoaded) {
+    setIsTranslationLoaded(true);
   }
+  const isOwnTranslation = currentUser?.id === translationData?.creator_id;
 
   const handleToggleStatus = async (statusType: TStatusType) => {
-    if (!questData) return;
+    if (!translationData) return;
 
     setIsSubmitting(true);
 
-    let [visible, active] = [questData.visible, questData.active];
+    let [visible, active] = [translationData.visible, translationData.active];
 
-    try {
-      if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
+    let message = '';
 
-        await supabaseConnector.client
-          .from('quest')
-          .update({
-            visible,
-            active,
-            last_updated: new Date().toISOString()
-          })
-          .match({ id: questId });
-
-        refetch();
-
-        // Localization keys:
-        // success -> 'Success'
-        // questMadeInvisible -> 'The quest has been made invisible'
-        // questMadeVisible -> 'The quest has been made visible'
-        // error -> 'Error'
-        // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-        Alert.alert(
-          t('success'),
-          questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
-        );
+    if (statusType === 'visible') {
+      if (visible) {
+        visible = false;
+        active = false;
+      } else {
+        visible = true;
       }
-    } catch (error) {
-      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleActive = async () => {
-    if (!questData) return;
-
-    setIsSubmitting(true);
-
-    let [visible, active] = [questData.visible, questData.active];
-
-    try {
+      message = visible
+        ? 'The translation has been made visible'
+        : 'The translation has been made invisible';
+    } else {
       if (!active) {
         visible = true;
         active = true;
       } else {
         active = false;
       }
+      message = active
+        ? 'The translation has been made active'
+        : 'The translation has been made inactive';
+    }
 
+    try {
       await supabaseConnector.client
-        .from('quest')
+        .from('translation')
         .update({
           visible,
           active,
           last_updated: new Date().toISOString()
         })
-        .match({ id: questId });
+        .match({ id: translationId });
       refetch();
 
-      // Localization keys:
-      // success -> 'Success'
-      // questMadeInactive -> 'The quest has been made inactive'
-      // questMadeActive -> 'The quest has been made active'
-      // error -> 'Error'
-      // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-      Alert.alert(
-        t('success'),
-        questData.active ? t('questMadeInactive') : t('questMadeActive')
-      );
+      Alert.alert('Success', message);
     } catch (error) {
-      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
+      console.error('Error updating translation status:', error);
+      Alert.alert('Error', 'Failed to update translation settings');
     } finally {
       setIsSubmitting(false);
 
       queryClient.removeQueries({
-        queryKey: ['project', projectId],
+        // queryKey: ['translations-with-votes-and-language', 'by-asset', assetId],
+        queryKey: ['translations-with-votes-and-language', 'by-asset'],
         exact: false
       });
 
       queryClient.removeQueries({
-        queryKey: ['quest', questId],
+        queryKey: ['translation', translationId],
         exact: false
       });
 
-      queryClient.removeQueries({
-        queryKey: ['quests', 'by-project', projectId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: [
-          'assets',
-          'infinite',
-          'by-quest',
-          'with-tags-content',
-          questId
-        ],
-        exact: false
-      });
+      // queryClient.removeQueries({
+      //   queryKey: ['translations', >>>> 'by-project', projectId],
+      //   exact: false
+      // });
     }
   };
 
@@ -204,7 +152,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
             <View style={[sharedStyles.modal, styles.modalContainer]}>
               <View style={styles.header}>
                 <Text style={sharedStyles.modalTitle}>
-                  {t('questSettings')}
+                  {'Translation Settings'}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Ionicons name="close" size={24} color={colors.text} />
@@ -212,26 +160,30 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               </View>
 
               <SwitchBox
-                title={t('visibility')}
+                title={'Visibility'}
                 description={
-                  questData?.visible
-                    ? t('visibleQuestDescription')
-                    : t('invisibleQuestDescription')
+                  translationData?.visible
+                    ? 'This translation is visible to other users.'
+                    : 'This translation is hidden and will not be shown to other users. An invisible translation is also inactive.'
                 }
-                value={questData?.visible ?? false}
+                value={translationData?.visible ?? false}
                 onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+                disabled={
+                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
+                }
               />
               <SwitchBox
-                title={t('active')}
+                title={'Active'}
                 description={
-                  questData?.active
-                    ? t('activeQuestDescription')
-                    : t('inactiveQuestDescription')
+                  translationData?.active
+                    ? 'This translation is currently active. An active translation is also visible.'
+                    : 'This translation is inactive. No actions can be performed unless it is reactivated.'
                 }
-                value={questData?.active ?? false}
+                value={translationData?.active ?? false}
                 onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+                disabled={
+                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
+                }
               />
             </View>
           </TouchableWithoutFeedback>

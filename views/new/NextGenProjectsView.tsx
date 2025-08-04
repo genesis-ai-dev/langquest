@@ -1,6 +1,6 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import type { project } from '@/db/drizzleSchema';
+import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -12,8 +12,8 @@ import {
   spacing
 } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +21,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
@@ -58,7 +57,7 @@ export default function NextGenProjectsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
+  const [showDownloadedOnly] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
 
   const userId = currentUser?.id;
@@ -72,21 +71,28 @@ export default function NextGenProjectsView() {
       if (!userId) return [];
 
       const offset = pageParam * pageSize;
-      // This is a simplified query - you may need to join with membership table
-      // depending on your database schema
-      const projects = await system.db.query.project.findMany({
-        where: (fields, { eq, and, or }) =>
+
+      // Query projects where user is linked through profile_project_link
+      const projectLinks = await system.db
+        .select()
+        .from(profile_project_link)
+        .where(
           and(
-            eq(fields.active, true),
-            or(
-              eq(fields.creator_id, userId)
-              // Add membership check here if you have a membership table
-              // You might need to modify this based on your actual schema
-            )
-          ),
+            eq(profile_project_link.profile_id, userId),
+            eq(profile_project_link.active, true)
+          )
+        );
+
+      if (projectLinks.length === 0) return [];
+
+      const projectIds = projectLinks.map((link) => link.project_id);
+
+      const projects = await system.db.query.project.findMany({
+        where: and(eq(project.active, true), inArray(project.id, projectIds)),
         limit: pageSize,
         offset
       });
+
       return projects;
     },
     // Cloud query function
@@ -125,18 +131,43 @@ export default function NextGenProjectsView() {
       const offset = pageParam * pageSize;
 
       if (userId) {
-        // If user is logged in, exclude their projects
-        const projects = await system.db.query.project.findMany({
-          where: (fields, { eq, and, not }) =>
-            and(eq(fields.active, true), not(eq(fields.creator_id, userId))),
-          limit: pageSize,
-          offset
-        });
-        return projects;
+        // Get projects where user is a member
+        const userProjectLinks = await system.db
+          .select()
+          .from(profile_project_link)
+          .where(
+            and(
+              eq(profile_project_link.profile_id, userId),
+              eq(profile_project_link.active, true)
+            )
+          );
+
+        const userProjectIds = userProjectLinks.map((link) => link.project_id);
+
+        // Get all active projects excluding user's projects
+        if (userProjectIds.length > 0) {
+          const projects = await system.db.query.project.findMany({
+            where: and(
+              eq(project.active, true),
+              notInArray(project.id, userProjectIds)
+            ),
+            limit: pageSize,
+            offset
+          });
+          return projects;
+        } else {
+          // If user has no projects, show all active projects
+          const projects = await system.db.query.project.findMany({
+            where: eq(project.active, true),
+            limit: pageSize,
+            offset
+          });
+          return projects;
+        }
       } else {
         // If no user, show all active projects
         const projects = await system.db.query.project.findMany({
-          where: (fields, { eq }) => eq(fields.active, true),
+          where: eq(project.active, true),
           limit: pageSize,
           offset
         });
@@ -158,7 +189,8 @@ export default function NextGenProjectsView() {
         const { data: userProjects } = await system.supabaseConnector.client
           .from('profile_project_link')
           .select('project_id')
-          .eq('profile_id', userId);
+          .eq('profile_id', userId)
+          .overrideTypes<{ project_id: string }[]>();
 
         if (userProjects && userProjects.length > 0) {
           const userProjectIds = userProjects.map((p) => p.project_id);
@@ -305,7 +337,7 @@ export default function NextGenProjectsView() {
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}
         />
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
         >
@@ -314,7 +346,7 @@ export default function NextGenProjectsView() {
             size={20}
             color={showDownloadedOnly ? colors.primary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
@@ -334,7 +366,6 @@ export default function NextGenProjectsView() {
         data={filteredProjects}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         onEndReached={onEndReached}

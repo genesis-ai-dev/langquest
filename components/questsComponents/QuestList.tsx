@@ -5,6 +5,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHybridSupabaseInfiniteQuery } from '@/hooks/useHybridSupabaseQuery';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import type { SortingOption } from '@/views/QuestsView';
 import { FlashList } from '@shopify/flash-list';
 import { and, asc, desc, eq, like, or } from 'drizzle-orm';
@@ -133,12 +134,20 @@ export const QuestList = React.memo(
           query = query.order('name', { ascending: true });
         }
 
+        /* Verify if invisible assets should be excluded */
+        const includeInvisible = await getOptionShowHiddenContent();
+        if (!includeInvisible) {
+          query = query.eq('visible', true);
+          /* .eq('active', true); // if needed to include active */
+        }
+
         // Add pagination
         query = query
           .limit(pageSize)
           .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1);
 
         const { data, error } = await query.overrideTypes<QuestWithTags[]>();
+
         if (error) throw error;
         return data;
       },
