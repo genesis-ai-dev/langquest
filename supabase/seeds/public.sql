@@ -263,9 +263,18 @@ INSERT INTO "public"."quest_tag_link" ("quest_id", "tag_id", "active", "created_
 -- Data for Name: translation; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."translation" ("id", "created_at", "last_updated", "asset_id", "target_language_id", "text", "audio", "creator_id", "active") VALUES
-	('1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'First translation', 'translations/6f1dcec7-50a5-40dc-aad6-8a291b3a6b86.m4a', 'fd56eb4e-0b54-4715-863c-f865aee0b16d', true),
-	('38003a13-ec16-99cf-1973-c6bf864f63a8', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Second translation', 'translations/432012bd-87f4-43db-be4e-8a7512b800a4.m4a', '135167eb-7a93-4d90-8b00-85508facac71', true);
+INSERT INTO "public"."translation" ("id", "created_at", "last_updated", "asset_id", "target_language_id", "text", "creator_id", "active") VALUES
+	('1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'First translation', 'fd56eb4e-0b54-4715-863c-f865aee0b16d', true),
+	('38003a13-ec16-99cf-1973-c6bf864f63a8', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Second translation', '135167eb-7a93-4d90-8b00-85508facac71', true);
+
+
+--
+-- Data for Name: translation_audio_link; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."translation_audio_link" ("id", "created_at", "last_updated", "translation_id", "audio_url", "sequence_index", "active") VALUES
+	('550e8400-e29b-41d4-a716-446655440001', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', 'translations/6f1dcec7-50a5-40dc-aad6-8a291b3a6b86.m4a', 0, true),
+	('550e8400-e29b-41d4-a716-446655440002', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '38003a13-ec16-99cf-1973-c6bf864f63a8', 'translations/432012bd-87f4-43db-be4e-8a7512b800a4.m4a', 0, true);
 
 
 --
@@ -290,7 +299,6 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "translation_id
 	('647595ea-52f6-a36d-7f97-890fd8f98168', '2025-03-14 16:03:59+00', '2025-03-14 16:03:59+00', '5c2b1d74-e715-dfea-663e-ed7f038ab9df', 'up', '', 'ff6e4bb4-3840-4168-917a-d29e09145958', true),
 	('2f359fb4-2a9d-b450-7993-4b0e46949343', '2025-02-19 18:07:57+00', '2025-02-19 18:08:02+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'down', '', 'f2adf435-fd35-4927-8644-9b03785722b5', false),
 	('e21209a8-e126-f157-f6dd-a9e350a55da9', '2025-02-19 18:07:47+00', '2025-02-19 18:08:05+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true);
-
 
 --
 -- PostgreSQL database dump complete

@@ -126,7 +126,6 @@ export const AssetListView: React.FC<AssetListViewProps> = ({
         data={assets}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        estimatedItemSize={80}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         onEndReached={onEndReached}
