@@ -274,7 +274,21 @@ export default function NextGenTranslationsList({
             </View>
           )}
           {/* Sort options */}
+          <View></View>
           <View style={styles.sortContainer}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.xsmall
+              }}
+            >
+              <Ionicons
+                name="swap-vertical-outline"
+                size={16}
+                color={colors.text}
+              />
+            </View>
             <TouchableOpacity
               style={[
                 styles.sortButton,
