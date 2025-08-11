@@ -36,6 +36,13 @@ interface NextGenNewTranslationModalProps {
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
   targetLanguageId: string;
+  materializeContext?: {
+    templateId: string;
+    projectId: string;
+    projectSourceLanguageId: string;
+    questName: string;
+    assetName: string;
+  } | null;
 }
 
 type TranslationType = 'text' | 'audio';
@@ -48,7 +55,8 @@ export default function NextGenNewTranslationModal({
   assetName,
   assetContent,
   sourceLanguage,
-  targetLanguageId
+  targetLanguageId,
+  materializeContext
 }: NextGenNewTranslationModalProps) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
@@ -90,7 +98,8 @@ export default function NextGenNewTranslationModal({
         target_language_id: targetLanguageId,
         asset_id: assetId,
         creator_id: currentUser.id,
-        audio: audioAttachment
+        audio_urls: audioAttachment ? [audioAttachment] : undefined,
+        materializeIfMissing: materializeContext || undefined
       });
 
       setTranslationText('');

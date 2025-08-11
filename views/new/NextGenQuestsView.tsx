@@ -7,8 +7,10 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { BIBLE_TEMPLATE } from '@/utils/projectTemplates';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
@@ -78,6 +80,97 @@ export default function NextGenQuestsView() {
 
   const currentProject = projectData[0];
 
+  // Optimistic virtual quests from local template knowledge for fast-first paint
+  const optimisticVirtualQuests = React.useMemo(() => {
+    if (!currentProject?.templates?.includes('every-language-bible')) return [];
+
+    const v = BIBLE_TEMPLATE.createQuests(
+      currentProject.source_language_id
+    ).map((qt) => ({
+      id: `virtual_${qt.name}`,
+      name: qt.name,
+      description: qt.description ?? null,
+      project_id: currentProject.id,
+      creator_id: currentProject.creator_id || null,
+      visible: qt.visible,
+      active: true,
+      created_at: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      download_profiles: null,
+      source: 'localSqlite'
+    }));
+
+    // Apply search filtering early
+    const query = debouncedSearchQuery.trim().toLowerCase();
+    const filtered = query
+      ? v.filter(
+          (q) =>
+            (q.name || '').toLowerCase().includes(query) ||
+            (q.description ?? '').toLowerCase().includes(query)
+        )
+      : v;
+
+    // Natural sort
+    filtered.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    );
+    return filtered;
+  }, [
+    currentProject?.id,
+    currentProject?.templates,
+    currentProject?.source_language_id,
+    currentProject?.creator_id,
+    debouncedSearchQuery
+  ]);
+
+  // Draft quests from local store (created during draft flows), keyed by project
+  const draftQuests = useLocalStore((state) => state.draftQuests);
+  const optimisticLocalDraftQuests = React.useMemo(() => {
+    if (!currentProject?.id) return [];
+    const drafts = draftQuests
+      .filter((dq) => dq.project_id === currentProject.id)
+      .map((dq) => ({
+        id: dq.id,
+        name: dq.name,
+        description: dq.description ?? null,
+        project_id: currentProject.id,
+        creator_id: currentProject.creator_id || null,
+        visible: dq.visible,
+        active: true,
+        created_at: dq.created_at.toISOString(),
+        last_updated: dq.last_updated.toISOString(),
+        download_profiles: null,
+        source: 'localDraft'
+      }));
+
+    // Apply search filtering to drafts
+    const query = debouncedSearchQuery.trim().toLowerCase();
+    const filtered = query
+      ? drafts.filter(
+          (q) =>
+            (q.name || '').toLowerCase().includes(query) ||
+            (q.description ?? '').toLowerCase().includes(query)
+        )
+      : drafts;
+
+    // Sort
+    filtered.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    );
+    return filtered;
+  }, [
+    currentProject?.id,
+    currentProject?.creator_id,
+    draftQuests,
+    debouncedSearchQuery
+  ]);
+
   const {
     data,
     fetchNextPage,
@@ -109,11 +202,80 @@ export default function NextGenQuestsView() {
           )
         : baseCondition;
 
-      const quests = await system.db.query.quest.findMany({
+      // Default paginated fetch
+      let quests = await system.db.query.quest.findMany({
         where: whereConditions,
         limit: pageSize,
         offset
       });
+
+      // For templated projects, build a full combined list (materialized + virtual) and then slice by offset/pageSize
+      if (currentProject?.templates?.includes('every-language-bible')) {
+        // Fetch all materialized quests for this project (for dedup + ordering)
+        const allMaterialized = await system.db.query.quest.findMany({
+          where: baseCondition
+        });
+
+        // Apply search filter to materialized as well to keep ordering consistent
+        const filteredMaterialized = debouncedSearchQuery.trim()
+          ? allMaterialized.filter(
+              (q) =>
+                (q.name || '')
+                  .toLowerCase()
+                  .includes(debouncedSearchQuery.trim().toLowerCase()) ||
+                (q.description ?? '')
+                  .toLowerCase()
+                  .includes(debouncedSearchQuery.trim().toLowerCase())
+            )
+          : allMaterialized;
+
+        // Generate template virtual quests and filter
+        const templateQuests = BIBLE_TEMPLATE.createQuests(
+          currentProject.source_language_id
+        ).map((qt) => ({
+          id: `virtual_${qt.name}`,
+          name: qt.name,
+          description: qt.description ?? null,
+          project_id: currentProjectId,
+          creator_id: currentProject.creator_id || null,
+          visible: qt.visible,
+          active: true,
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          download_profiles: null,
+          source: 'localSqlite'
+        }));
+
+        const existingNames = new Set(filteredMaterialized.map((q) => q.name));
+        const virtuals = templateQuests.filter(
+          (tq) => !existingNames.has(tq.name)
+        );
+        const filteredVirtuals = debouncedSearchQuery.trim()
+          ? virtuals.filter(
+              (v) =>
+                (v.name || '')
+                  .toLowerCase()
+                  .includes(debouncedSearchQuery.trim().toLowerCase()) ||
+                (v.description ?? '')
+                  .toLowerCase()
+                  .includes(debouncedSearchQuery.trim().toLowerCase())
+            )
+          : virtuals;
+
+        // Combine full list and sort naturally once
+        const combinedFull = [
+          ...filteredMaterialized,
+          ...filteredVirtuals
+        ].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          })
+        );
+
+        // Slice by offset/pageSize for this page
+        quests = combinedFull.slice(offset, offset + pageSize);
+      }
 
       return quests;
     },
@@ -146,32 +308,10 @@ export default function NextGenQuestsView() {
     20 // pageSize
   );
 
-  // Flatten all pages into a single array and deduplicate
+  // Flatten pages; preserve ordering from pages (already sorted in offline query)
   const quests = React.useMemo(() => {
     const allQuests = data.pages.flatMap((page) => page.data);
-
-    // Deduplicate by ID to prevent duplicate keys in FlashList
-    const questMap = new Map<string, Quest & { source?: string }>();
-    allQuests.forEach((quest) => {
-      // Prioritize offline data over cloud data for duplicates
-      const existingQuest = questMap.get(quest.id);
-      if (
-        !existingQuest ||
-        (quest.source === 'localSqlite' &&
-          existingQuest.source === 'cloudSupabase')
-      ) {
-        questMap.set(quest.id, quest);
-      }
-    });
-
-    // Convert back to array and sort by name in natural alphanumerical order
-    return Array.from(questMap.values()).sort((a, b) => {
-      // Use localeCompare with numeric option for natural sorting
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      });
-    });
+    return allQuests;
   }, [data.pages]);
 
   // Filter quests based on download status
@@ -221,7 +361,12 @@ export default function NextGenQuestsView() {
     return `${isOnline ? '🟢' : '🔴'} Available: ${downloadedCount} | Needs Download: ${cloudCount} | Total: ${quests.length}`;
   }, [isOnline, quests]);
 
-  if (isLoading && !searchQuery) {
+  if (
+    isLoading &&
+    !searchQuery &&
+    optimisticVirtualQuests.length === 0 &&
+    optimisticLocalDraftQuests.length === 0
+  ) {
     return <ProjectListSkeleton />;
   }
 
@@ -289,7 +434,13 @@ export default function NextGenQuestsView() {
       ) : (
         <View style={{ flex: 1 }}>
           <FlashList
-            data={filteredQuests}
+            data={
+              isLoading &&
+              (optimisticVirtualQuests.length > 0 ||
+                optimisticLocalDraftQuests.length > 0)
+                ? [...optimisticLocalDraftQuests, ...optimisticVirtualQuests]
+                : filteredQuests
+            }
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}

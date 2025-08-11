@@ -1,4 +1,5 @@
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { getTemplateById } from '@/utils/projectTemplates';
 import type { StructuredProjectPreparationResult } from '@/utils/structuredProjectCreator';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -15,6 +16,7 @@ interface StructuredProjectConfirmationModalProps {
   visible: boolean;
   projectName: string;
   preparedData: StructuredProjectPreparationResult | null;
+  templateId?: string;
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -26,16 +28,31 @@ export const StructuredProjectConfirmationModal: React.FC<
   visible,
   projectName,
   preparedData,
+  templateId,
   onConfirm,
   onCancel,
   isLoading = false
 }) => {
-  if (!preparedData) return null;
+  // If preparedData not provided, compute minimal stats dynamically from templateId
+  let stats = preparedData?.stats;
+  let templateName: string | undefined;
+  if (!stats && templateId) {
+    const template = getTemplateById(templateId);
+    if (!template) return null;
+    templateName = template.name;
+    // Compute counts directly from template metadata
+    stats = {
+      questCount: template.questCount,
+      assetCount: template.assetCount,
+      contentCount: template.assetCount // content entries mirror assets for bible template
+    };
+  } else {
+    // Use prepared stats/template
+    const tmpl = preparedData?.template as { name?: string } | undefined;
+    templateName = tmpl?.name;
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const { stats, template } = preparedData;
-  // Type assertion since we know template structure from ProjectTemplate
-  const templateName = (template as { name: string }).name;
+  if (!stats) return null;
 
   return (
     <Modal

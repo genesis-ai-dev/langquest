@@ -18,6 +18,16 @@ export class QuestService {
     return db.select().from(quest).where(eq(quest.project_id, project_id));
   }
 
+  async getQuestByProjectAndName(project_id: string, name: string): Promise<Quest | undefined> {
+    const results = await db
+      .select()
+      .from(quest)
+      .where(eq(quest.project_id, project_id))
+      .where(eq(quest.name, name))
+      .limit(1);
+    return results[0];
+  }
+
   async getQuestById(quest_id: string) {
     return (
       await db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)

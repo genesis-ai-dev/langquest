@@ -520,6 +520,17 @@ export default function NextGenAssetDetailView() {
           assetContent={activeAsset.content}
           sourceLanguage={sourceLanguage}
           targetLanguageId={targetLanguageId}
+          materializeContext={
+            projectData?.templates?.includes('every-language-bible')
+              ? {
+                  templateId: 'bible-translation',
+                  projectId: currentProjectId || '',
+                  projectSourceLanguageId: sourceLanguage?.id || '',
+                  questName: activeAsset.name.replace(/:\d+$/, ''),
+                  assetName: activeAsset.name
+                }
+              : null
+          }
         />
       )}
     </View>

@@ -3,6 +3,7 @@ import { assetService } from '@/database_services/assetService';
 import { projectService } from '@/database_services/projectService';
 import { questService } from '@/database_services/questService';
 import type { DraftProject } from '@/store/localStore';
+import type { ProjectTemplate } from './projectTemplates';
 import { getTemplateById } from './projectTemplates';
 
 export interface StructuredProjectCreationResult {
@@ -12,10 +13,26 @@ export interface StructuredProjectCreationResult {
     totalItems: number;
 }
 
+export interface PreparedQuestData {
+    name: string;
+    description?: string;
+    project_id: string;
+    creator_id: string;
+    visible: boolean;
+}
+
+export interface PreparedAssetData {
+    name: string;
+    source_language_id: string;
+    creator_id: string;
+    visible: boolean;
+    images?: string[] | null;
+}
+
 export interface StructuredProjectPreparationResult {
-    template: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    questsData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
-    assetsData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+    template: ProjectTemplate;
+    questsData: PreparedQuestData[];
+    assetsData: PreparedAssetData[];
     assetContentData: { asset_id: string; text: string; creatorId: string }[];
     stats: {
         questCount: number;
@@ -34,6 +51,125 @@ export interface StructuredProjectCreationProgress {
 export type ProgressCallback = (progress: StructuredProjectCreationProgress) => void;
 
 export class StructuredProjectCreator {
+    // Lazily materialize a single quest (and its assets) for a templated project
+    async materializeQuestIfNeeded(
+        templateId: string,
+        projectId: string,
+        projectSourceLanguageId: string,
+        questName: string,
+        creatorId: string
+    ): Promise<{ questId: string; createdAssets: number }> {
+        // Check if quest already exists
+        const existingQuests = await questService.getQuestsByProjectId(projectId);
+        const existing = existingQuests.find(q => q.name === questName);
+        if (existing) {
+            return { questId: existing.id, createdAssets: 0 };
+        }
+
+        const template = getTemplateById(templateId);
+        if (!template) throw new Error(`Template with ID '${templateId}' not found`);
+
+        // Create the quest
+        const createdQuest = await questService.createQuest({
+            name: questName,
+            description: undefined,
+            project_id: projectId,
+            creator_id: creatorId,
+            visible: true
+        });
+
+        // Generate assets for this quest from the template
+        const assetTemplates = template.createAssets(
+            projectSourceLanguageId,
+            createdQuest.id,
+            questName
+        );
+
+        if (assetTemplates.length === 0) {
+            return { questId: createdQuest.id, createdAssets: 0 };
+        }
+
+        // Bulk create assets
+        const assetsData = assetTemplates.map(a => ({
+            name: a.name,
+            source_language_id: a.source_language_id,
+            creator_id: creatorId,
+            visible: a.visible ?? true,
+            images: a.images
+        }));
+
+        const createdAssets = await assetService.createAssetsBulk(assetsData);
+
+        // Link assets to quest in original order
+        await assetService.createQuestAssetLinksBulk(
+            createdAssets.map(a => ({ quest_id: createdQuest.id, asset_id: a.id, creatorId }))
+        );
+
+        // Create content where provided
+        const contentData = assetTemplates
+            .map((t, i) => ({ t, i }))
+            .filter(({ t }) => t.text_content)
+            .map(({ t, i }) => ({
+                asset_id: createdAssets[i]!.id,
+                text: t.text_content!,
+                creatorId
+            }));
+        if (contentData.length > 0) {
+            await assetService.createAssetContentBulk(contentData);
+        }
+
+        return { questId: createdQuest.id, createdAssets: createdAssets.length };
+    }
+
+    // Create an asset and ensure its quest exists/link it, used when first translation is submitted
+    async materializeForTranslation(
+        params: {
+            templateId: string;
+            projectId: string;
+            projectSourceLanguageId: string;
+            questName: string; // e.g., "Genesis 1"
+            assetName: string; // e.g., "Genesis 1:1"
+            creatorId: string;
+        }
+    ): Promise<{ questId: string; assetId: string }> {
+        const template = getTemplateById(params.templateId);
+        if (!template) throw new Error(`Template with ID '${params.templateId}' not found`);
+
+        // Ensure quest exists
+        const { questId } = await this.materializeQuestIfNeeded(
+            params.templateId,
+            params.projectId,
+            params.projectSourceLanguageId,
+            params.questName,
+            params.creatorId
+        );
+
+        // Check for existing asset by name
+        const existingAssets = await assetService.getAllAssets();
+        const existing = existingAssets.find(a => a.name === params.assetName);
+        let assetId: string;
+
+        if (!existing) {
+            const created = await assetService.createAsset({
+                name: params.assetName,
+                source_language_id: params.projectSourceLanguageId,
+                creator_id: params.creatorId,
+                visible: true,
+                images: null
+            });
+            assetId = created.id;
+        } else {
+            assetId = existing.id;
+        }
+
+        // Ensure quest-asset link exists
+        await assetService.createQuestAssetLinksBulk([
+            { quest_id: questId, asset_id: assetId, creatorId: params.creatorId }
+        ]);
+
+        return { questId, assetId };
+    }
+
     async createProjectFromTemplate(
         templateId: string,
         draftProject: DraftProject,
@@ -77,7 +213,7 @@ export class StructuredProjectCreator {
             console.log(`Generated ${questTemplates.length} quest templates`);
 
             // Prepare quest data for bulk insert
-            const questsData = questTemplates.map(questTemplate => ({
+            const questsData: PreparedQuestData[] = questTemplates.map(questTemplate => ({
                 name: questTemplate.name,
                 description: questTemplate.description,
                 project_id: project.id,
@@ -133,7 +269,7 @@ export class StructuredProjectCreator {
             console.log(`Generated ${allAssetTemplates.length} asset templates`);
 
             // Prepare asset data for bulk insert (without quest_id)
-            const assetsData = allAssetTemplates.map(({ template }) => ({
+            const assetsData: PreparedAssetData[] = allAssetTemplates.map(({ template }) => ({
                 name: template.name,
                 source_language_id: template.source_language_id,
                 creator_id: creatorId,
@@ -328,7 +464,7 @@ export class StructuredProjectCreator {
                 message: `Creating ${preparedData.questsData.length} quests...`
             });
 
-            const questsDataWithIds = preparedData.questsData.map(questData => ({
+            const questsDataWithIds: PreparedQuestData[] = preparedData.questsData.map(questData => ({
                 ...questData,
                 project_id: project.id,
                 creator_id: creatorId
@@ -351,7 +487,7 @@ export class StructuredProjectCreator {
                 message: `Creating ${preparedData.assetsData.length} assets...`
             });
 
-            const assetsDataWithIds = preparedData.assetsData.map(assetData => ({
+            const assetsDataWithIds: PreparedAssetData[] = preparedData.assetsData.map(assetData => ({
                 ...assetData,
                 creator_id: creatorId
             }));
@@ -372,30 +508,21 @@ export class StructuredProjectCreator {
             let assetIndex = 0;
 
             // Recreate the same structure as in prepareProjectFromTemplate
-            for (let questIndex = 0; questIndex < preparedData.questsData.length; questIndex++) {
-                const quest = createdQuests[questIndex];
-                if (!quest) continue;
+            for (const [questIndex, questItem] of preparedData.questsData.entries()) {
+                const q = createdQuests[questIndex];
+                if (!q) continue;
 
-                // Get the quest name to determine how many assets it should have
-                const questTemplate = preparedData.questsData[questIndex];
-                if (!questTemplate) continue;
-
-                const questName = questTemplate.name;
+                const questName = questItem.name;
                 const assetTemplates = preparedData.template.createAssets(
                     draftProject.source_language_id,
                     'placeholder',
                     questName
                 );
 
-                // Link each asset in this quest
-                for (let i = 0; i < assetTemplates.length; i++) {
-                    const asset = createdAssets[assetIndex];
-                    if (asset) {
-                        questAssetLinks.push({
-                            quest_id: quest.id,
-                            asset_id: asset.id,
-                            creatorId
-                        });
+                for (const _ of assetTemplates) {
+                    const a = createdAssets[assetIndex];
+                    if (a) {
+                        questAssetLinks.push({ quest_id: q.id, asset_id: a.id, creatorId });
                     }
                     assetIndex++;
                 }

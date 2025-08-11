@@ -18,22 +18,22 @@ import NotificationsView from '@/views/NotificationsView';
 import ProfileView from '@/views/ProfileView';
 // import ProjectsView from '@/views/ProjectsView';
 // import QuestsView from '@/views/QuestsView';
-import SettingsView from '@/views/SettingsView';
 import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
-import NextGenAssetsView from '@/views/new/NextGenAssetsView';
+// import NextGenAssetsView from '@/views/new/NextGenAssetsView';
+import AssetsView from '@/views/AssetsView';
 import NextGenProjectCreationView from '@/views/new/NextGenProjectCreationView';
 import NextGenProjectsView from '@/views/new/NextGenProjectsView';
 import NextGenQuestsView from '@/views/new/NextGenQuestsView';
+import SettingsView from '@/views/SettingsView';
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import AssetDetailView from './AssetDetailView';
-import AssetsView from './AssetsView';
+import RapidTranslationAssetsView from './new/RapidTranslationAssetsView';
 import ProjectsView from './ProjectsView';
 import QuestsView from './QuestsView';
-import RapidTranslationAssetsView from './new/RapidTranslationAssetsView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -78,6 +78,7 @@ export default function AppView() {
           <RapidTranslationAssetsView />
         ) : (
           <AssetsView />
+          // <NextGenAssetsView />
         );
       case 'asset-detail':
         return SHOULD_USE_NEXT_GEN_VIEWS ? (

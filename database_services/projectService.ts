@@ -31,7 +31,8 @@ export class ProjectService {
 
     const [newProject] = await system.db.insert(project).values({
       ...projectData,
-      download_profiles: projectData.creator_id ? [projectData.creator_id] : []
+      download_profiles: projectData.creator_id ? [projectData.creator_id] : [],
+      templates: (projectData as any).templates || null // eslint-disable-line @typescript-eslint/no-explicit-any
     }).returning();
 
     if (!newProject) {
@@ -58,7 +59,11 @@ export class ProjectService {
     return newProject;
   }
 
-  async createProjectFromDraft(draftProject: DraftProject, creatorId: string): Promise<Project> {
+  async createProjectFromDraft(
+    draftProject: DraftProject,
+    creatorId: string,
+    extra?: Partial<CreateProjectData>
+  ): Promise<Project> {
     const projectData: CreateProjectData = {
       name: draftProject.name,
       description: draftProject.description,
@@ -66,7 +71,8 @@ export class ProjectService {
       target_language_id: draftProject.target_language_id,
       creator_id: creatorId,
       private: draftProject.private,
-      visible: draftProject.visible
+      visible: draftProject.visible,
+      ...(extra || {})
     };
 
     return this.createProject(projectData);

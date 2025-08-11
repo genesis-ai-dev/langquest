@@ -1,4 +1,4 @@
-import { asset, quest_asset_link } from '@/db/drizzleSchema';
+import { asset, project, quest, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -6,8 +6,10 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useRabbitModeVAD } from '@/hooks/useRabbitModeVAD';
 import { useLocalStore } from '@/store/localStore';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { BIBLE_TEMPLATE } from '@/utils/projectTemplates';
 import { RabbitModeFileManager } from '@/utils/rabbitModeFileManager';
 import { generateWaveformData } from '@/utils/waveformGenerator';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
@@ -19,7 +21,7 @@ import {
   UIManager,
   View
 } from 'react-native';
-import { useSimpleHybridInfiniteData } from './useHybridData';
+import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 // Component imports
 import { LiveWaveform } from '@/components/LiveWaveform';
@@ -338,8 +340,39 @@ const VoiceActivityDetectionPanel = React.memo(() => {
 });
 
 export default function SimpleAssetsView() {
-  const { currentQuestId } = useCurrentNavigation();
+  const {
+    currentQuestId,
+    currentProjectId,
+    currentQuest: navQuest
+  } = useCurrentNavigation();
   const { t } = useLocalization();
+
+  // Fetch current quest and project to support virtual assets from templates
+  const { data: questData } = useHybridData<typeof quest.$inferSelect>({
+    dataType: 'quest',
+    queryKeyParams: [currentQuestId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest.findMany({
+        where: eq(quest.id, currentQuestId || ''),
+        limit: 1
+      })
+    ),
+    enableCloudQuery: false
+  });
+  const currentQuest = questData[0];
+
+  const { data: projectData } = useHybridData<typeof project.$inferSelect>({
+    dataType: 'project',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findMany({
+        where: eq(project.id, currentProjectId || ''),
+        limit: 1
+      })
+    ),
+    enableCloudQuery: false
+  });
+  const currentProject = projectData[0];
 
   // Properly subscribe to local store updates using the hook
   const activeSession = useLocalStore((state) =>
@@ -362,14 +395,20 @@ export default function SimpleAssetsView() {
   const isRabbitMode = !!activeSession;
 
   // Pre-fetch ALL assets for this quest (not paginated)
+  const isBibleTemplate = !!currentProject?.templates?.includes(
+    'every-language-bible'
+  );
+  const questNameKey =
+    navQuest?.name || (currentQuest ? currentQuest.name : '');
+
   const { data: allAssetsData, isLoading } = useSimpleHybridInfiniteData<Asset>(
     'assets-complete',
-    [currentQuestId || ''],
+    [currentQuestId || '', isBibleTemplate ? 'bible' : 'none', questNameKey],
     async () => {
       if (!currentQuestId) return [];
 
       try {
-        const assets = await system.db
+        let assets = await system.db
           .select({
             id: asset.id,
             name: asset.name,
@@ -385,6 +424,55 @@ export default function SimpleAssetsView() {
           .from(asset)
           .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
           .where(eq(quest_asset_link.quest_id, currentQuestId));
+
+        // Inject virtual assets for templated projects (e.g., Bible) based on quest name
+        const questName = currentQuest?.name || navQuest?.name;
+        if (isBibleTemplate && questName && currentProject) {
+          const questIdForTemplate =
+            currentQuest?.id || navQuest?.id || `virtual_${questName}`;
+          console.log('[ASSETS] Virtual injection conditions:', {
+            isBibleTemplate,
+            questName,
+            currentQuestLoaded: !!currentQuest,
+            navQuestLoaded: !!navQuest
+          });
+          const virtualTemplates = BIBLE_TEMPLATE.createAssets(
+            currentProject.source_language_id,
+            questIdForTemplate,
+            questName
+          );
+
+          const virtualAssets: Asset[] = virtualTemplates.map((tpl) => ({
+            // Use stable virtual IDs by name
+            id: `virtual_${tpl.name}`,
+            name: tpl.name,
+            source_language_id: tpl.source_language_id,
+            images: tpl.images ?? null,
+            creator_id: currentProject.creator_id || null,
+            visible: tpl.visible ?? true,
+            active: true,
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            download_profiles: []
+          })) as unknown as Asset[];
+          console.log('🔍 Virtual assets count:', virtualAssets.length);
+
+          // Deduplicate by name; prefer real assets over virtual
+          const byName = new Map<string, Asset>();
+          for (const a of assets as Asset[]) byName.set(a.name, a as Asset);
+          for (const v of virtualAssets)
+            if (!byName.has(v.name)) byName.set(v.name, v);
+
+          assets = Array.from(byName.values());
+        }
+
+        // Natural sort by name
+        (assets as Asset[]).sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          })
+        );
 
         return assets as Asset[];
       } catch (error) {

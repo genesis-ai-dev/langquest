@@ -94,7 +94,9 @@ export const project = sqliteTable(
     creator_id: text().references(() => profile.id),
     private: int({ mode: 'boolean' }).notNull().default(false),
     visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
+    download_profiles: text({ mode: 'json' }).$type<string[]>(),
+    // Optional project templates; used to lazily materialize content (e.g., Bible)
+    templates: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [
     index('name_idx').on(table.name),

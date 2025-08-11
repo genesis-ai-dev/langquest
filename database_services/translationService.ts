@@ -1,6 +1,8 @@
 import { and, eq, inArray, not } from 'drizzle-orm';
 // import { db } from '../db/database';
+import { structuredProjectCreator } from '@/utils/structuredProjectCreator';
 import {
+  asset,
   blocked_content,
   blocked_users,
   translation,
@@ -127,14 +129,41 @@ export class TranslationService {
     target_language_id: string;
     asset_id: string;
     creator_id: string;
-    audio_urls?: string[]; // Changed from single audio to array
+    audio_urls?: string[];
+    materializeIfMissing?: {
+      templateId: string;
+      projectId: string;
+      projectSourceLanguageId: string;
+      questName: string;
+      assetName: string;
+    };
   }) {
+    // Materialize quest/asset if the asset doesn't exist yet and we have template context
+    let assetIdToUse = data.asset_id;
+    const existingAsset = await db.query.asset.findFirst({
+      where: eq(asset.id, data.asset_id)
+    });
+
+    if ((!existingAsset || data.asset_id.startsWith('virtual_')) && data.materializeIfMissing) {
+      const { templateId, projectId, projectSourceLanguageId, questName, assetName } =
+        data.materializeIfMissing;
+
+      const { assetId } = await structuredProjectCreator.materializeForTranslation({
+        templateId,
+        projectId,
+        projectSourceLanguageId,
+        questName,
+        assetName,
+        creatorId: data.creator_id
+      });
+      assetIdToUse = assetId;
+    }
     // Create the translation record (no audio field)
     const [newTranslation] = await db
       .insert(translation)
       .values({
         text: data.text,
-        asset_id: data.asset_id,
+        asset_id: assetIdToUse,
         target_language_id: data.target_language_id,
         creator_id: data.creator_id,
         download_profiles: [data.creator_id]
@@ -206,7 +235,9 @@ export class TranslationService {
       orderBy: (segments, { desc }) => [desc(segments.sequence_index)]
     });
 
-    const nextIndex = existingSegments.length > 0 ? existingSegments[0].sequence_index + 1 : 0;
+    const nextIndex = existingSegments.length > 0 && existingSegments[0]
+      ? existingSegments[0].sequence_index + 1
+      : 0;
 
     // Insert the new audio segment
     const [newSegment] = await db

@@ -408,20 +408,25 @@ export default function NextGenProjectCreationView() {
           `Preparing structured project from template: ${selectedTemplateId}`
         );
 
-        // Step 1: Prepare all data in memory (no database operations)
-        const preparedData =
-          structuredProjectCreator.prepareProjectFromTemplate(
+        // Optionally prepare data, but we will confirm lazily with templateId
+        let preparedData: StructuredProjectPreparationResult | null = null;
+        try {
+          preparedData = structuredProjectCreator.prepareProjectFromTemplate(
             selectedTemplateId,
             projectData
           );
+          console.log('Prepared data:', {
+            questCount: preparedData.stats.questCount,
+            assetCount: preparedData.stats.assetCount,
+            contentCount: preparedData.stats.contentCount
+          });
+        } catch (e) {
+          console.warn(
+            'Preparation optional step failed; proceeding with templateId only',
+            e
+          );
+        }
 
-        console.log('Prepared data:', {
-          questCount: preparedData.stats.questCount,
-          assetCount: preparedData.stats.assetCount,
-          contentCount: preparedData.stats.contentCount
-        });
-
-        // Step 2: Show confirmation modal
         setPreparedProjectData(preparedData);
         setShowConfirmationModal(true);
       } catch (error) {
@@ -456,29 +461,25 @@ export default function NextGenProjectCreationView() {
         last_updated: new Date()
       };
 
-      console.log('Creating structured project from prepared data');
+      console.log('Creating templated project with lazy materialization flag');
 
-      const result = await structuredProjectCreator.createFromPreparedData(
+      // Store the template flag on the project; defer record creation
+      const newProject = await projectService.createProjectFromDraft(
         projectData,
         currentUser.id,
-        preparedProjectData,
-        (progress) => setCreationProgress(progress)
-      );
-
-      console.log(
-        `Template project created successfully: ${result.project.id}`
+        { templates: ['every-language-bible'] }
       );
 
       Alert.alert(
         'Project Created!',
-        `Successfully created "${result.project.name}" with ${result.quests.length} quests and ${result.assets.length} assets from template.`,
+        `Created "${newProject.name}". Content will be backed up to the cloud as you translate.`,
         [{ text: 'OK', onPress: () => goBack() }]
       );
     } catch (error) {
-      console.error('Error creating structured project:', error);
+      console.error('Error creating templated project:', error);
       Alert.alert(
         'Creation Error',
-        `Failed to create structured project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to create templated project: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     } finally {
       setIsPublishing(false);
@@ -842,6 +843,7 @@ export default function NextGenProjectCreationView() {
         visible={showConfirmationModal}
         projectName={projectName}
         preparedData={preparedProjectData}
+        templateId={selectedTemplateId}
         onConfirm={handleConfirmStructuredProject}
         onCancel={handleCancelStructuredProject}
         isLoading={isPublishing}
