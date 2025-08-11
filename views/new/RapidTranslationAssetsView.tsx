@@ -1,6 +1,9 @@
 import { asset, project, quest, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useRabbitModeVAD } from '@/hooks/useRabbitModeVAD';
@@ -75,6 +78,15 @@ const VoiceActivityDetectionPanel = React.memo(() => {
   const [adaptiveThreshold, setAdaptiveThreshold] = React.useState(0.7); // Will be updated by calibration
   const recordingStartTimeRef = React.useRef<number | null>(null);
   const calibrationLevelsRef = React.useRef<number[]>([]);
+
+  // Local UI VAD state that reacts to hook callbacks
+  const [uiVadState, setUiVadState] = React.useState({
+    isListening: false,
+    isSpeaking: false,
+    currentLevel: 0,
+    speechDuration: 0,
+    silenceDuration: 0
+  });
 
   // Simple CSS-based animated sine wave for initialization only
   const initializationSineWave = React.useMemo(() => {
@@ -197,8 +209,7 @@ const VoiceActivityDetectionPanel = React.memo(() => {
   const {
     startListening,
     stopListening,
-    resetVAD: _resetVAD,
-    state: vadState
+    resetVAD: _resetVAD
   } = useRabbitModeVAD(
     {
       onSpeechStart: handleSpeechStart,
@@ -212,18 +223,25 @@ const VoiceActivityDetectionPanel = React.memo(() => {
         }
 
         // Minimal logging for level debugging (only when listening and not calibrating)
-        if (vadState.isListening && !isCalibrating && Math.random() < 0.05) {
+        if (uiVadState.isListening && !isCalibrating && Math.random() < 0.05) {
           // Reduced to 5%
           console.log(
-            `🎵 Level: ${level.toFixed(3)}, Speaking: ${vadState.isSpeaking}, Threshold: ${adaptiveThreshold.toFixed(3)}`
+            `🎵 Level: ${level.toFixed(3)}, Speaking: ${uiVadState.isSpeaking}, Threshold: ${adaptiveThreshold.toFixed(3)}`
           );
         }
       },
       onStateChange: (state) => {
-        // Don't log during calibration to reduce noise
-        if (!isCalibrating) {
+        setUiVadState({
+          isListening: state.isListening,
+          isSpeaking: state.isSpeaking,
+          currentLevel: state.currentLevel,
+          speechDuration: state.speechDuration,
+          silenceDuration: state.silenceDuration
+        });
+        // Minimal log
+        if (!isCalibrating && Math.random() < 0.02) {
           console.log(
-            `🎯 VAD State: listening=${state.isListening}, speaking=${state.isSpeaking}, level=${state.currentLevel.toFixed(3)}, speechDur=${state.speechDuration}ms, silenceDur=${state.silenceDuration}ms`
+            `🎯 VAD: listening=${state.isListening}, speaking=${state.isSpeaking}`
           );
         }
       }
@@ -239,11 +257,11 @@ const VoiceActivityDetectionPanel = React.memo(() => {
 
   // Determine what waveform data to show
   const displayWaveformData = React.useMemo(() => {
-    if (!vadState.isListening) return undefined;
+    if (!uiVadState.isListening) return undefined;
     if (isInitializing || isCalibrating) return initializationSineWave;
     return undefined;
   }, [
-    vadState.isListening,
+    uiVadState.isListening,
     isInitializing,
     isCalibrating,
     initializationSineWave
@@ -322,9 +340,10 @@ const VoiceActivityDetectionPanel = React.memo(() => {
   return (
     <View style={styles.vadContainer}>
       <LiveWaveform
-        isListening={vadState.isListening}
+        isListening={uiVadState.isListening}
         isRecording={isRecording}
-        currentLevel={displayWaveformData ? 0 : vadState.currentLevel}
+        isSpeaking={uiVadState.isSpeaking}
+        currentLevel={displayWaveformData ? 0 : uiVadState.currentLevel}
         waveformData={displayWaveformData}
         onStartListening={handleStartListening}
         onStopListening={handleStopListening}
@@ -537,15 +556,31 @@ export default function SimpleAssetsView() {
     []
   );
 
+  const { goToAsset } = useAppNavigation();
   const handleAssetPress = React.useCallback(
     (asset: Asset) => {
       if (activeSession) {
+        // Rabbit Mode on: change current session asset only
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setCurrentAsset(activeSession.id, asset.id);
         console.log('🎯 Set current asset to:', asset.name);
+      } else {
+        // Rabbit Mode off: navigate to asset detail
+        goToAsset({
+          id: asset.id,
+          name: asset.name,
+          projectId: currentProject?.id,
+          questId: currentQuestId || undefined
+        });
       }
     },
-    [activeSession, setCurrentAsset]
+    [
+      activeSession,
+      setCurrentAsset,
+      goToAsset,
+      currentProject?.id,
+      currentQuestId
+    ]
   );
 
   // Rabbit mode toggle handlers
@@ -600,8 +635,8 @@ export default function SimpleAssetsView() {
         />
       </View>
 
-      {/* Voice Activity Detection Interface */}
-      <VoiceActivityDetectionPanel />
+      {/* Voice Activity Detection Interface - only when Rabbit Mode is ON */}
+      {isRabbitMode && <VoiceActivityDetectionPanel />}
 
       <ScrollView
         style={styles.scrollView}

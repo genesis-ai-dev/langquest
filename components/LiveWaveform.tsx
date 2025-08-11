@@ -7,6 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface LiveWaveformProps {
   isListening: boolean;
   isRecording: boolean;
+  isSpeaking?: boolean;
   currentLevel: number;
   onStartListening: () => void;
   onStopListening: () => void;
@@ -16,7 +17,8 @@ interface LiveWaveformProps {
 
 export const LiveWaveform: React.FC<LiveWaveformProps> = ({
   isListening,
-  isRecording,
+  isRecording: _isRecording,
+  isSpeaking = false,
   currentLevel,
   onStartListening,
   onStopListening,
@@ -99,10 +101,10 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         style={[
           styles.waveformButton,
           {
-            backgroundColor: isRecording
+            backgroundColor: isSpeaking
               ? colors.success
               : colors.inputBackground,
-            borderColor: isRecording ? colors.success : colors.primary
+            borderColor: isSpeaking ? colors.success : colors.primary
           }
         ]}
         onPress={onStopListening}
@@ -120,7 +122,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
                   styles.waveformBar,
                   {
                     height,
-                    backgroundColor: isRecording
+                    backgroundColor: isSpeaking
                       ? colors.background
                       : colors.primary,
                     opacity
@@ -136,9 +138,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
             style={[
               styles.statusIndicator,
               {
-                backgroundColor: isRecording
-                  ? colors.background
-                  : colors.primary
+                backgroundColor: isSpeaking ? colors.background : colors.primary
               }
             ]}
           />
@@ -146,11 +146,11 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
             style={[
               styles.statusText,
               {
-                color: isRecording ? colors.background : colors.primary
+                color: isSpeaking ? colors.background : colors.primary
               }
             ]}
           >
-            {isRecording ? 'Recording...' : 'Listening...'}
+            {isSpeaking ? 'Speaking...' : 'Listening...'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -164,7 +164,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         <Ionicons
           name="stop"
           size={20}
-          color={isRecording ? colors.success : colors.primary}
+          color={isSpeaking ? colors.success : colors.primary}
         />
       </TouchableOpacity>
     </View>

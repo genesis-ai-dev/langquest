@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: RabbitModeVADConfig = {
     speechThreshold: 0.6, // Increased from 0.4 - silence between speeches was ~0.57
     minimumSpeechDuration: 200, // Reduced from 300ms for faster response
     maximumSilenceDuration: 600, // Reduced from 800ms for quicker cutoff
-    sampleInterval: 100,
+    sampleInterval: 30,
     saveRecordings: true
 };
 
@@ -57,40 +57,26 @@ export const useRabbitModeVAD = (
     // Audio monitoring
     const recordingRef = useRef<Audio.Recording | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const stoppingRef = useRef<boolean>(false);
     const levelHistoryRef = useRef<number[]>([]);
     const speechStartTimeRef = useRef<number | null>(null);
     const lastSpeechTimeRef = useRef<number | null>(null);
 
     // Smoothing function for audio levels
     const smoothAudioLevel = useCallback((newLevel: number): number => {
-        levelHistoryRef.current.push(newLevel);
-
-        // Keep only last 5 samples for smoothing
-        if (levelHistoryRef.current.length > 5) {
-            levelHistoryRef.current.shift();
-        }
-
-        // Calculate weighted average (more weight to recent samples)
-        const weights = [0.1, 0.15, 0.2, 0.25, 0.3];
-        let weightedSum = 0;
-        let totalWeight = 0;
-
-        for (let i = 0; i < levelHistoryRef.current.length; i++) {
-            const weight = weights[i] ?? 0.1;
-            const level = levelHistoryRef.current[i] ?? 0;
-            weightedSum += level * weight;
-            totalWeight += weight;
-        }
-
-        return totalWeight > 0 ? weightedSum / totalWeight : newLevel;
+        // Exponential moving average for snappy response
+        const prev = levelHistoryRef.current.length > 0 ? levelHistoryRef.current[levelHistoryRef.current.length - 1] ?? 0 : 0;
+        const alpha = 0.2; // 0.1-0.2 is snappy; increase for more smoothing
+        const ema = prev * (1 - alpha) + newLevel * alpha;
+        levelHistoryRef.current.push(ema);
+        if (levelHistoryRef.current.length > 10) levelHistoryRef.current.shift();
+        return ema;
     }, []);
 
     // Process audio levels and detect speech
-    const processAudioLevel = useCallback(async () => {
-        if (!recordingRef.current || !stateRef.current.isListening) return;
-
+    const processStatusUpdate = useCallback((status: Audio.RecordingStatus) => {
+        if (stoppingRef.current || !stateRef.current.isListening) return;
         try {
-            const status = await recordingRef.current.getStatusAsync();
             if (!status.isRecording) return;
 
             const currentTime = Date.now();
@@ -98,12 +84,16 @@ export const useRabbitModeVAD = (
             const normalizedLevel = Math.max(0, Math.min(1, (rawLevel + 160) / 160));
             const smoothedLevel = smoothAudioLevel(normalizedLevel);
 
+            // Normalize relative to threshold so 0 ~ threshold
+            const threshold = (DEFAULT_CONFIG.speechThreshold);
+            const relativeLevel = Math.max(0, (smoothedLevel - threshold) / Math.max(0.0001, 1 - threshold));
+
             // Update state
             const previousState = { ...stateRef.current };
-            stateRef.current.currentLevel = smoothedLevel;
+            stateRef.current.currentLevel = relativeLevel;
             stateRef.current.averageLevel = levelHistoryRef.current.length > 0
                 ? levelHistoryRef.current.reduce((a, b) => a + b, 0) / levelHistoryRef.current.length
-                : smoothedLevel;
+                : relativeLevel;
 
             // Detect speech
             if (smoothedLevel > finalConfig.speechThreshold) {
@@ -136,27 +126,27 @@ export const useRabbitModeVAD = (
                     stateRef.current.speechDuration = 0;
 
                     // Stop recording and get URI if we're saving recordings
-                    let recordingUri: string | undefined;
-                    if (finalConfig.saveRecordings) {
-                        try {
-                            await recordingRef.current.stopAndUnloadAsync();
-                            const uri = recordingRef.current.getURI();
-                            recordingUri = uri || undefined;
-                            console.log('📁 Saved speech recording:', recordingUri);
-
-                            // Restart recording for next speech segment
-                            await startNewRecording();
-                        } catch (error) {
-                            console.error('❌ Error saving recording:', error);
+                    const finalizeSegment = async () => {
+                        let recordingUri: string | undefined;
+                        if (finalConfig.saveRecordings && recordingRef.current) {
+                            try {
+                                await recordingRef.current.stopAndUnloadAsync();
+                                const uri = recordingRef.current.getURI();
+                                recordingUri = uri || undefined;
+                                console.log('📁 Saved speech recording:', recordingUri);
+                                await startNewRecording();
+                            } catch (error) {
+                                console.error('❌ Error saving recording:', error);
+                            }
                         }
-                    }
-
-                    callbacks.onSpeechEnd(recordingUri);
+                        callbacks.onSpeechEnd(recordingUri);
+                    };
+                    void finalizeSegment();
                 }
             }
 
             // Notify level change
-            callbacks.onLevelChange(smoothedLevel);
+            callbacks.onLevelChange(relativeLevel);
 
             // Notify state change if state changed
             if (JSON.stringify(previousState) !== JSON.stringify(stateRef.current)) {
@@ -198,8 +188,16 @@ export const useRabbitModeVAD = (
         });
 
         await recording.startAsync();
+        // Native-driven status updates for low latency
+        recording.setOnRecordingStatusUpdate((status: Audio.RecordingStatus) => {
+            processStatusUpdate(status);
+        });
+        // Update cadence (ms) if available on platform
+        if (typeof (recording as unknown as { setProgressUpdateInterval?: (ms: number) => void }).setProgressUpdateInterval === 'function') {
+            (recording as unknown as { setProgressUpdateInterval: (ms: number) => void }).setProgressUpdateInterval(finalConfig.sampleInterval);
+        }
         recordingRef.current = recording;
-    }, []);
+    }, [finalConfig.sampleInterval, processStatusUpdate]);
 
     // Start listening for voice activity
     const startListening = useCallback(async () => {
@@ -229,17 +227,12 @@ export const useRabbitModeVAD = (
             speechStartTimeRef.current = null;
             lastSpeechTimeRef.current = null;
 
-            // Start monitoring audio levels
-            intervalRef.current = setInterval(() => {
-                void processAudioLevel();
-            }, finalConfig.sampleInterval);
-
             callbacks.onStateChange({ ...stateRef.current });
         } catch (error) {
             console.error('Error starting rabbit mode VAD:', error);
             throw error;
         }
-    }, [callbacks, processAudioLevel, finalConfig.sampleInterval, startNewRecording]);
+    }, [callbacks, startNewRecording]);
 
     // Stop listening
     const stopListening = useCallback(async () => {
@@ -254,8 +247,12 @@ export const useRabbitModeVAD = (
 
             // Stop and cleanup recording
             if (recordingRef.current) {
+                stoppingRef.current = true;
+                // Detach listener before stopping
+                recordingRef.current.setOnRecordingStatusUpdate(null);
                 await recordingRef.current.stopAndUnloadAsync();
                 recordingRef.current = null;
+                stoppingRef.current = false;
             }
 
             // Reset state

@@ -16,6 +16,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { BIBLE_TEMPLATE } from '@/utils/projectTemplates';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -76,7 +77,8 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentAssetId, currentProjectId } = useCurrentNavigation();
+  const { currentAssetId, currentProjectId, currentAsset } =
+    useCurrentNavigation();
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
@@ -123,8 +125,59 @@ export default function NextGenAssetDetailView() {
     }
   }, [projectData]);
 
+  // Draft asset fallback for templated projects (virtual/draft view)
+  const draftAsset: AssetWithContent | null = React.useMemo(() => {
+    if (
+      !currentAssetId ||
+      !projectData?.templates?.includes('every-language-bible')
+    )
+      return null;
+    // If this is a virtual asset or offline asset is missing, synthesize a draft view
+    const isVirtualId = currentAssetId.startsWith('virtual_');
+    const assetName = currentAsset?.name || offlineAsset?.name || '';
+    if (!isVirtualId && offlineAsset) return null;
+    if (!assetName) return null;
+
+    // Derive quest name from asset name (e.g., "Genesis 1:1" -> "Genesis 1")
+    const questName = assetName.replace(/:\d+$/, '');
+    const tplAssets = BIBLE_TEMPLATE.createAssets(
+      projectData.source_language_id,
+      `virtual_${questName}`,
+      questName
+    );
+    const tpl = tplAssets.find((a) => a.name === assetName);
+
+    const draft: AssetWithContent = {
+      id: currentAssetId,
+      name: assetName,
+      source_language_id: projectData.source_language_id,
+      images: tpl?.images ?? null,
+      creator_id: projectData.creator_id || null,
+      visible: true,
+      active: true,
+      created_at: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      download_profiles: null,
+      content: tpl?.text_content
+        ? ([
+            {
+              id: `virtual_content_${currentAssetId}`,
+              asset_id: currentAssetId,
+              text: tpl.text_content,
+              audio_id: null,
+              download_profiles: null,
+              created_at: new Date().toISOString(),
+              last_updated: new Date().toISOString(),
+              active: true
+            }
+          ] as unknown as AssetContent[])
+        : []
+    };
+    return draft;
+  }, [currentAssetId, currentAsset, offlineAsset, projectData]);
+
   // Determine which asset to display
-  const activeAsset = offlineAsset;
+  const activeAsset = offlineAsset || draftAsset;
   const isLoading = isOfflineLoading;
 
   // Collect attachment IDs for audio support
