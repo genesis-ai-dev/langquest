@@ -12,6 +12,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import React from 'react';
@@ -21,6 +22,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
