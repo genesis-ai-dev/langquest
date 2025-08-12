@@ -7,6 +7,7 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import type { DraftProject } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -29,6 +30,15 @@ import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
 type Project = typeof project.$inferSelect;
+type ProjectOrDraft = Project | DraftProject;
+
+// Helper function to safely get creator_id from either project type
+const getCreatorId = (project: ProjectOrDraft): string | null => {
+  if ('creator_id' in project) {
+    return project.creator_id || null;
+  }
+  return null;
+};
 
 export default function NextGenQuestsView() {
   const { t } = useLocalization();
@@ -80,25 +90,37 @@ export default function NextGenQuestsView() {
 
   const currentProject = projectData[0];
 
+  // Get draft project data for optimistic rendering when project data is still loading
+  const draftProjects = useLocalStore((state) => state.draftProjects);
+  const currentDraftProject = React.useMemo(() => {
+    if (!currentProjectId) return null;
+    return draftProjects.find((dp) => dp.id === currentProjectId) || null;
+  }, [currentProjectId, draftProjects]);
+
   // Optimistic virtual quests from local template knowledge for fast-first paint
   const optimisticVirtualQuests = React.useMemo(() => {
-    if (!currentProject?.templates?.includes('every-language-bible')) return [];
+    // Use draft project data if available, otherwise use loaded project data
+    const projectToUse = currentProject || currentDraftProject;
 
-    const v = BIBLE_TEMPLATE.createQuests(
-      currentProject.source_language_id
-    ).map((qt) => ({
-      id: `virtual_${qt.name}`,
-      name: qt.name,
-      description: qt.description ?? null,
-      project_id: currentProject.id,
-      creator_id: currentProject.creator_id || null,
-      visible: qt.visible,
-      active: true,
-      created_at: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
-      download_profiles: null,
-      source: 'localSqlite'
-    }));
+    if (!projectToUse?.templates?.includes('every-language-bible')) return [];
+
+    // Generate only what we need for the first paint to avoid heavy work on navigation
+    const FIRST_PAGE_SIZE = 40; // render the first N only; more will stream via list/infinite data
+    const v = BIBLE_TEMPLATE.createQuests(projectToUse.source_language_id)
+      .slice(0, FIRST_PAGE_SIZE)
+      .map((qt) => ({
+        id: `virtual_${qt.name}`,
+        name: qt.name,
+        description: qt.description ?? null,
+        project_id: projectToUse.id,
+        creator_id: getCreatorId(projectToUse),
+        visible: qt.visible,
+        active: true,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        download_profiles: null,
+        source: 'localSqlite'
+      }));
 
     // Apply search filtering early
     const query = debouncedSearchQuery.trim().toLowerCase();
@@ -110,34 +132,35 @@ export default function NextGenQuestsView() {
         )
       : v;
 
-    // Natural sort
-    filtered.sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      })
-    );
+    // Do not sort here; leave ordering to FlashList stability and offline query to save CPU on nav
     return filtered;
   }, [
     currentProject?.id,
     currentProject?.templates,
     currentProject?.source_language_id,
     currentProject?.creator_id,
+    currentDraftProject?.id,
+    currentDraftProject?.templates,
+    currentDraftProject?.source_language_id,
+    currentDraftProject?.creator_id,
     debouncedSearchQuery
   ]);
 
   // Draft quests from local store (created during draft flows), keyed by project
   const draftQuests = useLocalStore((state) => state.draftQuests);
   const optimisticLocalDraftQuests = React.useMemo(() => {
-    if (!currentProject?.id) return [];
+    // Use draft project data if available, otherwise use loaded project data
+    const projectToUse = currentProject || currentDraftProject;
+    if (!projectToUse?.id) return [];
+
     const drafts = draftQuests
-      .filter((dq) => dq.project_id === currentProject.id)
+      .filter((dq) => dq.project_id === projectToUse.id)
       .map((dq) => ({
         id: dq.id,
         name: dq.name,
         description: dq.description ?? null,
-        project_id: currentProject.id,
-        creator_id: currentProject.creator_id || null,
+        project_id: projectToUse.id,
+        creator_id: getCreatorId(projectToUse),
         visible: dq.visible,
         active: true,
         created_at: dq.created_at.toISOString(),
@@ -167,6 +190,8 @@ export default function NextGenQuestsView() {
   }, [
     currentProject?.id,
     currentProject?.creator_id,
+    currentDraftProject?.id,
+    currentDraftProject?.creator_id,
     draftQuests,
     debouncedSearchQuery
   ]);
@@ -210,7 +235,8 @@ export default function NextGenQuestsView() {
       });
 
       // For templated projects, build a full combined list (materialized + virtual) and then slice by offset/pageSize
-      if (currentProject?.templates?.includes('every-language-bible')) {
+      const projectToUse = currentProject || currentDraftProject;
+      if (projectToUse?.templates?.includes('every-language-bible')) {
         // Fetch all materialized quests for this project (for dedup + ordering)
         const allMaterialized = await system.db.query.quest.findMany({
           where: baseCondition
@@ -231,13 +257,13 @@ export default function NextGenQuestsView() {
 
         // Generate template virtual quests and filter
         const templateQuests = BIBLE_TEMPLATE.createQuests(
-          currentProject.source_language_id
+          projectToUse.source_language_id
         ).map((qt) => ({
           id: `virtual_${qt.name}`,
           name: qt.name,
           description: qt.description ?? null,
           project_id: currentProjectId,
-          creator_id: currentProject.creator_id || null,
+          creator_id: getCreatorId(projectToUse),
           visible: qt.visible,
           active: true,
           created_at: new Date().toISOString(),

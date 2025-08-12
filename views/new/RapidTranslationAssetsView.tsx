@@ -295,6 +295,7 @@ const VoiceActivityDetectionPanel = React.memo(() => {
       );
     } else {
       console.log('🎯 Calibration failed, using fallback threshold: 0.7');
+      // Use a sane fallback that matches the log statement
       setAdaptiveThreshold(0.7);
     }
 
@@ -759,10 +760,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.medium
   },
   liveWaveform: {
-    height: 100,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    overflow: 'hidden'
+    // Let the control define its own size and look; keep layout simple
+    alignSelf: 'center',
+    paddingVertical: spacing.small
   },
   calibrationText: {
     marginTop: spacing.small,

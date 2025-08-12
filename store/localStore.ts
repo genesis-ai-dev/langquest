@@ -36,8 +36,10 @@ export interface DraftProject {
   description?: string;
   source_language_id: string;
   target_language_id: string;
+  creator_id?: string; // User ID of the creator
   private: boolean;
   visible: boolean;
+  templates?: string[]; // Template IDs (e.g., ['every-language-bible'])
   created_at: Date;
   last_updated: Date;
 }

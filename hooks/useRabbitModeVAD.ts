@@ -85,7 +85,8 @@ export const useRabbitModeVAD = (
             const smoothedLevel = smoothAudioLevel(normalizedLevel);
 
             // Normalize relative to threshold so 0 ~ threshold
-            const threshold = (DEFAULT_CONFIG.speechThreshold);
+            // Use the final configured threshold (can be calibrated at runtime)
+            const threshold = (finalConfig.speechThreshold);
             const relativeLevel = Math.max(0, (smoothedLevel - threshold) / Math.max(0.0001, 1 - threshold));
 
             // Update state
@@ -94,6 +95,14 @@ export const useRabbitModeVAD = (
             stateRef.current.averageLevel = levelHistoryRef.current.length > 0
                 ? levelHistoryRef.current.reduce((a, b) => a + b, 0) / levelHistoryRef.current.length
                 : relativeLevel;
+
+            // Lightweight diagnostics (1% sampled) to help tune thresholds without spamming logs
+            if (Math.random() < 0.01) {
+                const rawStr = typeof rawLevel === 'number' ? rawLevel.toFixed(1) : String(rawLevel);
+                console.log(
+                    `[VAD] lvl(raw=${rawStr}, norm=${normalizedLevel.toFixed(3)}, smooth=${smoothedLevel.toFixed(3)}) thresh=${threshold.toFixed(3)} rel=${relativeLevel.toFixed(3)} speaking=${stateRef.current.isSpeaking}`
+                );
+            }
 
             // Detect speech
             if (smoothedLevel > finalConfig.speechThreshold) {

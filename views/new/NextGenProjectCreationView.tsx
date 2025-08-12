@@ -455,8 +455,10 @@ export default function NextGenProjectCreationView() {
         description: projectDescription.trim() || undefined,
         source_language_id: sourceLanguageId!,
         target_language_id: targetLanguageId!,
+        creator_id: currentUser.id,
         private: isPrivate,
         visible: true,
+        templates: ['every-language-bible'], // Store template info for optimistic rendering
         created_at: new Date(),
         last_updated: new Date()
       };

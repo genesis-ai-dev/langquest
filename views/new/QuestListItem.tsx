@@ -37,12 +37,18 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
   // Check if quest is downloaded
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
 
-  // Fetch quest closure data for download stats
+  // Fetch quest closure data for download stats (skip for virtual quests)
+  const isVirtualQuest = quest.id.startsWith('virtual_');
   const { data: questClosureData } = useHybridData<QuestClosure>({
     dataType: 'quest_closure',
     queryKeyParams: [quest.id],
     offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${quest.id}' LIMIT 1`,
     cloudQueryFn: async () => {
+      // Skip cloud query for virtual quests to avoid UUID parsing errors
+      if (isVirtualQuest) {
+        return [];
+      }
+
       // Cloud query for quest closure
       const { data, error } = await system.supabaseConnector.client
         .from('quest_closure')
@@ -57,7 +63,8 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
 
       return data ? [data] : [];
     },
-    getItemId: (item) => item.quest_id
+    getItemId: (item) => item.quest_id,
+    enableCloudQuery: !isVirtualQuest
   });
 
   // Get the first (and only) quest closure record

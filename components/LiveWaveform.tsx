@@ -8,6 +8,7 @@ interface LiveWaveformProps {
   isListening: boolean;
   isRecording: boolean;
   isSpeaking?: boolean;
+  isSaving?: boolean;
   currentLevel: number;
   onStartListening: () => void;
   onStopListening: () => void;
@@ -19,6 +20,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
   isListening,
   isRecording: _isRecording,
   isSpeaking = false,
+  isSaving = false,
   currentLevel,
   onStartListening,
   onStopListening,
@@ -86,10 +88,13 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
       <TouchableOpacity
         style={[styles.recordButton, style]}
         onPress={onStartListening}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
       >
-        <Ionicons name="mic" size={32} color={colors.background} />
-        <Text style={styles.recordButtonText}>Start Recording</Text>
+        <View style={styles.recordGlow} />
+        <View style={styles.recordInnerCircle}>
+          <Ionicons name="mic" size={36} color={colors.background} />
+        </View>
+        <Text style={styles.recordButtonText}>Tap to start</Text>
       </TouchableOpacity>
     );
   }
@@ -101,10 +106,8 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         style={[
           styles.waveformButton,
           {
-            backgroundColor: isSpeaking
-              ? colors.success
-              : colors.inputBackground,
-            borderColor: isSpeaking ? colors.success : colors.primary
+            backgroundColor: isSpeaking ? '#22c55e' : colors.inputBackground,
+            borderColor: isSpeaking ? '#22c55e' : colors.primary
           }
         ]}
         onPress={onStopListening}
@@ -113,7 +116,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         <View style={styles.waveformDisplay}>
           {displayLevels.map((level, index) => {
             const height = Math.max(4, level * 60);
-            const opacity = Math.max(0.3, level);
+            const opacity = Math.max(0.25, level);
 
             return (
               <View
@@ -145,13 +148,21 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
           <Text
             style={[
               styles.statusText,
-              {
-                color: isSpeaking ? colors.background : colors.primary
-              }
+              { color: isSpeaking ? colors.background : colors.primary }
             ]}
           >
             {isSpeaking ? 'Speaking...' : 'Listening...'}
           </Text>
+          {isSaving && (
+            <View style={styles.savingPill}>
+              <Ionicons
+                name="cloud-upload"
+                size={16}
+                color={colors.background}
+              />
+              <Text style={styles.savingText}>Saving…</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -164,7 +175,7 @@ export const LiveWaveform: React.FC<LiveWaveformProps> = ({
         <Ionicons
           name="stop"
           size={20}
-          color={isSpeaking ? colors.success : colors.primary}
+          color={isSpeaking ? '#22c55e' : colors.primary}
         />
       </TouchableOpacity>
     </View>
@@ -180,25 +191,41 @@ const styles = StyleSheet.create({
   recordButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 80,
+    width: 160,
+    height: 160
+  },
+  recordGlow: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: colors.primary,
-    borderRadius: 75,
-    width: 150,
-    height: 150,
+    opacity: 0.15
+  },
+  recordInnerCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 56,
+    width: 112,
+    height: 112,
     borderWidth: 2,
     borderColor: colors.primary
   },
   recordButtonText: {
-    color: colors.background,
-    fontSize: fontSizes.small,
+    color: colors.text,
+    fontSize: fontSizes.medium,
     fontWeight: 'bold',
-    marginTop: spacing.xsmall
+    marginTop: spacing.small
   },
   waveformButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 132,
+    height: 132,
+    borderRadius: 16,
     borderWidth: 2,
     padding: spacing.small
   },
@@ -206,16 +233,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 80,
-    width: 120,
+    height: 64,
+    width: 108,
     backgroundColor: 'transparent',
-    borderRadius: 40,
+    borderRadius: 12,
     paddingHorizontal: 4,
-    marginBottom: spacing.xsmall
+    marginBottom: spacing.xsmall,
+    overflow: 'hidden'
   },
   waveformBar: {
-    width: 2.5,
-    marginHorizontal: 0.5,
+    width: 3,
+    marginHorizontal: 1,
     borderRadius: 1,
     minHeight: 4
   },
@@ -230,6 +258,21 @@ const styles = StyleSheet.create({
     marginRight: spacing.xsmall
   },
   statusText: {
+    fontSize: fontSizes.xsmall,
+    fontWeight: '600'
+  },
+  savingPill: {
+    marginLeft: spacing.small,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  savingText: {
+    color: colors.background,
     fontSize: fontSizes.xsmall,
     fontWeight: '600'
   },
