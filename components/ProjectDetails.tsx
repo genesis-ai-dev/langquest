@@ -1,11 +1,14 @@
 import type { language, project } from '@/db/drizzleSchema';
-import { language as languageTable } from '@/db/drizzleSchema';
+import {
+  language as languageTable,
+  project_language_link as pll
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -21,47 +24,56 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  const languageIds = [project.source_language_id, project.target_language_id];
+  // Fetch project source languages from project_language_link and single target from project
+  const { data: sourceLanguages = [] } = useHybridData<Language>({
+    dataType: 'project-source-languages',
+    queryKeyParams: [project.id],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          id: languageTable.id,
+          native_name: languageTable.native_name,
+          english_name: languageTable.english_name
+        })
+        .from(pll)
+        .innerJoin(languageTable, eq(pll.language_id, languageTable.id))
+        .where(
+          and(eq(pll.project_id, project.id), eq(pll.language_type, 'source'))
+        )
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('language:language_id(id, native_name, english_name)')
+        .eq('project_id', project.id)
+        .eq('language_type', 'source')
+        .overrideTypes<{ language: Language }[]>();
+      if (error) throw error;
+      return data.map((row) => row.language);
+    }
+  });
 
-  // Use useHybridData directly
-  const { data: languages } = useHybridData<
-    Pick<Language, 'id' | 'native_name' | 'english_name'>
-  >({
-    dataType: 'languages',
-    queryKeyParams: languageIds,
-
-    // PowerSync query using Drizzle
+  const { data: targetLangArr = [] } = useHybridData<Language>({
+    dataType: 'project-target-language',
+    queryKeyParams: [project.target_language_id],
     offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         columns: { id: true, native_name: true, english_name: true },
-        where: and(
-          eq(languageTable.active, true),
-          inArray(languageTable.id, languageIds)
-        )
+        where: eq(languageTable.id, project.target_language_id)
       })
     ),
-
-    // Cloud query
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('language')
         .select('id, native_name, english_name')
-        .eq('active', true)
-        .in('id', languageIds)
-        .overrideTypes<
-          { id: string; native_name: string; english_name: string }[]
-        >();
+        .eq('id', project.target_language_id)
+        .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     }
   });
 
-  const sourceLanguage = languages.find(
-    (language) => language.id === project.source_language_id
-  );
-  const targetLanguage = languages.find(
-    (language) => language.id === project.target_language_id
-  );
+  const targetLanguage = targetLangArr[0];
 
   return (
     <View style={styles.overlay}>
@@ -72,8 +84,13 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            {sourceLanguage?.native_name || sourceLanguage?.english_name} →{' '}
-            {targetLanguage?.native_name || targetLanguage?.english_name}
+            {sourceLanguages.length
+              ? sourceLanguages
+                  .map((l) => l.native_name || l.english_name)
+                  .filter(Boolean)
+                  .join(', ')
+              : '—'}{' '}
+            → {targetLanguage?.native_name || targetLanguage?.english_name}
           </Text>
         </View>
 
