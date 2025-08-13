@@ -102,6 +102,34 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   npm run env:clean
   ```
 
+  - This resets your local database and applies the latest migrations found in `supabase/migrations/` to your local instance.
+  - To verify which migrations are applied:
+    - In Supabase Studio: open `http://localhost:54323` → Database → Migrations
+    - Via CLI:
+      - Direct: `npx supabase migration list --local`
+      - Or using the project alias: `npm run supabase migration list -- --local`
+
+- If the environment stopped after cleaning, start it again:
+
+  ```bash
+  npm run env
+  ```
+
+- Populate closure tables after seeding (choose one):
+
+  - From Supabase Studio (SQL editor):
+    ```sql
+    SELECT public.populate_closures();
+    ```
+
+  Note: The function returns void; Studio may show an empty result. To verify closure rows exist:
+  ```sql
+  SELECT COUNT(*) AS project_closure_rows FROM public.project_closure;
+  SELECT COUNT(*) AS quest_closure_rows FROM public.quest_closure;
+  ```
+
+  This runs `supabase/scripts/populate_closures.sql` against the local DB. It’s idempotent and safe to rerun.
+
 ### Usage
 
 #### Making Database Changes

@@ -369,7 +369,7 @@ function getAssetsByQuestIdConfig(quest_id: string) {
         .select({
           id: asset.id,
           name: asset.name,
-          source_language_id: asset.source_language_id,
+          // source_language_id removed from asset-level usage; use content-level source_language_id
           images: asset.images,
           creator_id: asset.creator_id,
           visible: asset.visible,
@@ -388,22 +388,15 @@ function getAssetsByQuestIdConfig(quest_id: string) {
 export function getAssetsByQuestId(quest_id: string) {
   return hybridFetch<Asset>({
     offlineQuery: toCompilableQuery(
-      system.db
-        .select({
-          id: asset.id,
-          name: asset.name,
-          source_language_id: asset.source_language_id,
-          images: asset.images,
-          creator_id: asset.creator_id,
-          visible: asset.visible,
-          active: asset.active,
-          created_at: asset.created_at,
-          last_updated: asset.last_updated,
-          download_profiles: asset.download_profiles
-        })
-        .from(asset)
-        .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-        .where(eq(quest_asset_link.quest_id, quest_id))
+      system.db.query.asset.findMany({
+        where: inArray(
+          asset.id,
+          system.db
+            .select({ asset_id: quest_asset_link.asset_id })
+            .from(quest_asset_link)
+            .where(eq(quest_asset_link.quest_id, quest_id))
+        )
+      })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
@@ -484,7 +477,7 @@ export function useAssetsByProjectId(project_id: string) {
         .selectDistinct({
           id: asset.id,
           name: asset.name,
-          source_language_id: asset.source_language_id,
+          // source_language_id removed from asset-level usage; use content-level source_language_id
           images: asset.images,
           creator_id: asset.creator_id,
           visible: asset.visible,
