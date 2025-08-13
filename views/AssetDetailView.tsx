@@ -12,7 +12,6 @@ import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
 import LumpOfCoalIcon from '@/components/LumpOfCoalIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
-import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PendingCount } from '@/components/PendingCount';
 import { PickaxeCount } from '@/components/PickaxeCount';
 import PickaxeIcon from '@/components/PickaxeIcon';
@@ -733,7 +732,7 @@ export default function AssetDetailView() {
         />
       )}
 
-      {isTranslationModalVisible &&
+      {/* {isTranslationModalVisible &&
         assetContent &&
         isParentActive &&
         (assetContent.length > 0 ||
@@ -754,7 +753,7 @@ export default function AssetDetailView() {
             )}
             loadingAttachments={isLoadingAttachments}
           />
-        )}
+        )} */}
 
       <PrivateAccessGate
         projectId={activeProject?.id || ''}
