@@ -29,7 +29,6 @@ DECLARE
     quests_updated INTEGER := 0;
     quest_closures_updated INTEGER := 0;
     project_closures_updated INTEGER := 0;
-    sibling_quest_closures_updated INTEGER := 0;
 BEGIN
     -- Logging
     RAISE NOTICE '[download_quest_closure] Starting for quest_id: %, profile_id: %', quest_id_param, profile_id_param;
@@ -208,20 +207,6 @@ BEGIN
     GET DIAGNOSTICS quest_closures_updated = ROW_COUNT;
     RAISE NOTICE '[download_quest_closure] Updated quest_closure: % rows', quest_closures_updated;
     
-    -- Also update all sibling quest_closure records for other quests in the same project
-    UPDATE quest_closure 
-    SET download_profiles = CASE 
-        WHEN download_profiles @> ARRAY[profile_id_param] THEN download_profiles
-        ELSE array_append(COALESCE(download_profiles, '{}'), profile_id_param)
-    END
-    WHERE project_id = closure_record.project_id 
-    AND quest_id != quest_id_param;
-    GET DIAGNOSTICS sibling_quest_closures_updated = ROW_COUNT;
-    RAISE NOTICE '[download_quest_closure] Updated sibling quest_closures: % rows', sibling_quest_closures_updated;
-    
-    -- Add sibling updates to total count
-    quest_closures_updated := quest_closures_updated + sibling_quest_closures_updated;
-    
     -- Also update the project_closure record to include this profile
     UPDATE project_closure 
     SET download_profiles = CASE 
@@ -233,7 +218,7 @@ BEGIN
     RAISE NOTICE '[download_quest_closure] Updated project_closure: % rows', project_closures_updated;
     
     -- Logging
-    RAISE NOTICE '[download_quest_closure] Completed for quest_id: %, profile_id: %. Updated project, % quest_closures total (including siblings), and project_closure', quest_id_param, profile_id_param, quest_closures_updated;
+    RAISE NOTICE '[download_quest_closure] Completed for quest_id: %, profile_id: %. Updated project, % quest_closures total, and project_closure', quest_id_param, profile_id_param, quest_closures_updated;
 
     -- Return summary of what was updated
     RETURN QUERY
