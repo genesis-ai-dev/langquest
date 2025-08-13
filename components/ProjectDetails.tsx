@@ -1,7 +1,7 @@
 import type { language, project } from '@/db/drizzleSchema';
 import {
   language as languageTable,
-  project_language_link as pll
+  project_language_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -25,7 +25,10 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   onClose
 }) => {
   // Fetch project source languages from project_language_link and single target from project
-  const { data: sourceLanguages = [] } = useHybridData<Language>({
+  const { data: sourceLanguages = [] } = useHybridData<
+    Pick<Language, 'id' | 'native_name' | 'english_name'>,
+    Language
+  >({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
     offlineQuery: toCompilableQuery(
@@ -35,10 +38,16 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
           native_name: languageTable.native_name,
           english_name: languageTable.english_name
         })
-        .from(pll)
-        .innerJoin(languageTable, eq(pll.language_id, languageTable.id))
+        .from(project_language_link)
+        .innerJoin(
+          languageTable,
+          eq(project_language_link.language_id, languageTable.id)
+        )
         .where(
-          and(eq(pll.project_id, project.id), eq(pll.language_type, 'source'))
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'source')
+          )
         )
     ),
     cloudQueryFn: async () => {
@@ -50,10 +59,18 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         .overrideTypes<{ language: Language }[]>();
       if (error) throw error;
       return data.map((row) => row.language);
-    }
+    },
+    transformCloudData: (lang) => ({
+      id: lang.id,
+      native_name: lang.native_name,
+      english_name: lang.english_name
+    })
   });
 
-  const { data: targetLangArr = [] } = useHybridData<Language>({
+  const { data: targetLangArr = [] } = useHybridData<
+    Pick<Language, 'id' | 'native_name' | 'english_name'>,
+    Language
+  >({
     dataType: 'project-target-language',
     queryKeyParams: [project.target_language_id],
     offlineQuery: toCompilableQuery(
@@ -70,7 +87,12 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
-    }
+    },
+    transformCloudData: (lang) => ({
+      id: lang.id,
+      native_name: lang.native_name,
+      english_name: lang.english_name
+    })
   });
 
   const targetLanguage = targetLangArr[0];
