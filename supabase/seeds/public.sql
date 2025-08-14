@@ -113,7 +113,13 @@ INSERT INTO "public"."asset_content_link" ("id", "created_at", "last_updated", "
 	('a8af02f5-f432-4cff-bc7c-f1626184af32', '2025-02-17 17:21:04.571513+00', '2025-02-17 17:21:04.571513+00', '2d33323a-f98c-4642-ab8c-8225cd664ce1', 'content/1_1_BES.mp3', 'Como varios intentos se han hecho para poner en orden el relato de aquellos eventos que tuvieron lugar entre nosotros, (BES)', true),
 	('c7b3a8e0-38c5-4631-ba42-8b5b145b8962', '2025-02-17 17:31:43.169346+00', '2025-02-17 17:31:43.169346+00', 'eff8abcd-6179-4b14-aaaa-69ab054a99ae', 'content/1_3_BES.mp3', 'Yo tambien excelentísimo Teófilo me pareció bien, después de haber hecho la investigación, con gran cuidado, de todas las cosas de los acontecimientos desde su origen, y poner los hechos por escrito. (BES)', true),
 	('dabee9fe-ce54-42c7-9ac9-ae4eaa7cfefe', '2025-02-17 17:28:43.564091+00', '2025-02-17 17:28:43.564091+00', 'b538be82-1ff6-4131-9d1e-fa71fb398134', 'content/2_4_BES.mp3', 'Y subió José de Galilea, de la ciudad de Nazaret, a Judea, a Belén, la ciudad de David, porque era de la casa y familia de David, (BES)', true),
-	('b085093e-30e5-4c64-b3e1-55b8f0617492', '2025-02-17 14:58:16.829421+00', '2025-02-17 14:58:16.829421+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', 'content/1_2_BES.mp3', 'Tal como nos lo transmitieron por aquellos que lo vieron desde el principio y fueron predicadores de la palabra, (BES)', true);
+    ('b085093e-30e5-4c64-b3e1-55b8f0617492', '2025-02-17 14:58:16.829421+00', '2025-02-17 14:58:16.829421+00', '13120777-7cef-4942-b2b8-37cd9f241c1b', 'content/1_2_BES.mp3', 'Tal como nos lo transmitieron por aquellos que lo vieron desde el principio y fueron predicadores de la palabra, (BES)', true),
+    ('c1f2a3b4-d5e6-4789-9abc-0def12345678', '2025-02-17 17:26:10.000000+00', '2025-02-17 17:26:10.000000+00', 'a513e5d6-126b-4725-9029-ec08c7f55a0a', 'content/1_1_PDDPT.mp3', 'Puesto que muchos intentaron hacer una narración ordenada de los acontecimientos que han tenido cumplimiento entre nosotros, (PDDPT)', true);
+
+-- Set source language only for the extra Lucas 1:1 Mixteco content to Universal
+UPDATE "public"."asset_content_link"
+SET "source_language_id" = 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2'
+WHERE "id" = 'c1f2a3b4-d5e6-4789-9abc-0def12345678';
 
 --
 -- Data for Name: tag; Type: TABLE DATA; Schema: public; Owner: postgres
@@ -217,6 +223,10 @@ INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "descr
 	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1-5 (Mixteco)', 'Traducir Lucas 1:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
 	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Mixteco)', 'Traducir Lucas 2:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
 	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true);
+
+-- Link Mixteco project to Universal language as a source via project_language_link
+INSERT INTO "public"."project_language_link" ("project_id", "language_id", "language_type", "active", "created_at", "last_updated") VALUES
+  ('bace07b1-41de-4535-9c68-aa81683d9370', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'source', true, NOW(), NOW());
 
 
 --
