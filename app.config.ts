@@ -89,6 +89,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             resizeMode: 'contain',
             backgroundColor: '#ffffff'
           }
+        ],
+        [
+          'react-native-edge-to-edge',
+
+          {
+            android: {
+              parentTheme: 'Default',
+              enforceNavigationBarContrast: false
+            }
+          }
         ]
       ],
       experiments: {
