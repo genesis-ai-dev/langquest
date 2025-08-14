@@ -11,7 +11,7 @@ import { colors } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { styles } from './NextGenProjectsView';
@@ -51,35 +51,49 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
   );
 
   // Fetch language information for source and target languages
-  const { data: languages = [] } = useHybridData<Language>({
-    dataType: 'project-languages',
-    queryKeyParams: [project.source_language_id, project.target_language_id],
+  // Fetch multiple source languages via project_language_link and single target via project
+  const { data: sourceLanguages = [] } = useHybridData<Language, Language>({
+    dataType: 'project-source-languages',
+    queryKeyParams: [project.id],
     offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
-        where: inArray(languageTable.id, [
-          project.source_language_id,
-          project.target_language_id
-        ])
+        where: (language) => eq(language.id, language.id),
+        // Placeholder; PowerSync offline query requires a compilable query; we will not use offline here
+        limit: 0
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('language:language_id(id, native_name, english_name)')
+        .eq('project_id', project.id)
+        .eq('language_type', 'source')
+        .overrideTypes<{ language: Language }[]>();
+      if (error) throw error;
+      return data.map((row) => row.language);
+    }
+  });
+
+  const { data: targetLangArr = [] } = useHybridData<Language>({
+    dataType: 'project-target-language',
+    queryKeyParams: [project.target_language_id],
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: eq(languageTable.id, project.target_language_id)
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('language')
         .select('*')
-        .in('id', [project.source_language_id, project.target_language_id])
+        .eq('id', project.target_language_id)
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     }
   });
 
-  // Find the specific languages
-  const sourceLanguage = languages.find(
-    (lang) => lang.id === project.source_language_id
-  );
-  const targetLanguage = languages.find(
-    (lang) => lang.id === project.target_language_id
-  );
+  const targetLanguage = targetLangArr[0];
 
   // Helper function to get display name for a language
   const getLanguageDisplayName = (language: Language | undefined) => {
@@ -179,8 +193,10 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
           </View>
 
           <Text style={styles.languagePair}>
-            {getLanguageDisplayName(sourceLanguage)} →{' '}
-            {getLanguageDisplayName(targetLanguage)}
+            {sourceLanguages.length
+              ? sourceLanguages.map((l) => getLanguageDisplayName(l)).join(', ')
+              : '—'}{' '}
+            → {getLanguageDisplayName(targetLanguage)}
           </Text>
           {project.description && (
             <Text style={styles.description} numberOfLines={2}>

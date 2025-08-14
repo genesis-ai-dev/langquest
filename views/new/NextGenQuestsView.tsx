@@ -7,7 +7,13 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -256,14 +262,32 @@ export default function NextGenQuestsView() {
           </View>
         )}
         <TouchableOpacity
-          style={styles.filterButton}
+          style={[styles.filterButton]}
           onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
         >
           <Ionicons
-            name={showDownloadedOnly ? 'filter' : 'filter-outline'}
             size={20}
-            color={showDownloadedOnly ? colors.primary : colors.textSecondary}
+            name={showDownloadedOnly ? 'funnel' : 'funnel-outline'}
+            color={colors.text}
+            style={{ zIndex: 1 }}
           />
+          {showDownloadedOnly && (
+            <>
+              {/* This first icon is to put the icon background white */}
+              <Ionicons
+                size={16}
+                name="ellipse"
+                style={[styles.backgroundBox]}
+                color={colors.text}
+              />
+              <Ionicons
+                size={16}
+                name="checkmark-circle"
+                style={[styles.checkIcon]}
+                color={colors.primary}
+              />
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -395,7 +419,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.medium,
-    position: 'relative'
+    position: 'relative',
+    gap: spacing.small
   },
   searchInput: {
     flex: 1,
@@ -480,10 +505,21 @@ export const styles = StyleSheet.create({
   filterButton: {
     position: 'absolute',
     right: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  backgroundBox: {
+    position: 'absolute',
+    padding: 2,
+    borderRadius: borderRadius.small,
+    right: 0,
+    zIndex: 1000
+  },
+  checkIcon: {
+    position: 'absolute',
+    padding: 2,
+    borderRadius: borderRadius.small,
+    right: 0,
+    zIndex: 1000
   }
 });

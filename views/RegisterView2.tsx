@@ -2,11 +2,13 @@ import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { safeNavigate } from '@/utils/sharedUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -33,15 +35,25 @@ interface RegisterFormData {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function RegisterView2({
-  onNavigate
+  onNavigate,
+  sharedAuthInfo
 }: {
-  onNavigate: (view: 'sign-in') => void;
+  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
+  sharedAuthInfo?: SharedAuthInfo;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
   const { t } = useLocalization();
   const currentLanguage = useLocalStore((state) => state.language);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      reset({
+        email: sharedAuthInfo.email || ''
+      });
+    }
+  }, [sharedAuthInfo?.email]);
 
   const {
     control,
@@ -82,9 +94,8 @@ export default function RegisterView2({
       // Alert.alert(
       //   t('success') || 'Success',
       //   t('checkEmail') || 'Please check your email to confirm your account',
-      //   [{ text: t('ok') || 'OK', onPress: () => onNavigate('sign-in') }]
+      //   [{ text: t('ok') || 'OK', onPress: () => safeNavigate(() =>onNavigate('sign-in', { email: watch('email')}) })]
       // );
-
       // Reset form
       reset();
     } catch (error) {
@@ -359,6 +370,11 @@ export default function RegisterView2({
                     <Controller
                       control={control}
                       name="termsAccepted"
+                      rules={{
+                        required:
+                          t('termsRequired') ||
+                          'You must agree to the Terms and Privacy'
+                      }}
                       render={({ field: { onChange, value } }) => (
                         <TouchableOpacity
                           style={{
@@ -368,17 +384,12 @@ export default function RegisterView2({
                           }}
                           onPress={() => onChange(!value)}
                         >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              value ? styles.checkboxChecked : null
-                            ]}
-                          >
+                          <View style={[styles.checkbox]}>
                             {value && (
                               <Ionicons
                                 name="checkmark"
                                 size={16}
-                                color={colors.background}
+                                color={colors.text}
                               />
                             )}
                           </View>
@@ -389,6 +400,11 @@ export default function RegisterView2({
                         </TouchableOpacity>
                       )}
                     />
+                    {errors.termsAccepted && (
+                      <Text style={styles.errorText}>
+                        {errors.termsAccepted.message}
+                      </Text>
+                    )}
                   </View>
 
                   {/* Submit button */}
@@ -416,7 +432,11 @@ export default function RegisterView2({
                   {/* Sign in link */}
                   <View style={{ alignItems: 'center', gap: spacing.medium }}>
                     <TouchableOpacity
-                      onPress={() => onNavigate('sign-in')}
+                      onPress={() =>
+                        safeNavigate(() =>
+                          onNavigate('sign-in', { email: watch('email') })
+                        )
+                      }
                       style={[
                         {
                           paddingVertical: spacing.small,
@@ -460,8 +480,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center'
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary
   }
+  // checkboxChecked: {
+  //   backgroundColor: colors.primary
+  // },
 });
