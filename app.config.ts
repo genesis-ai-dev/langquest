@@ -72,16 +72,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             }
           }
         ],
-        'expo-font',
-        'expo-router',
-        // migrate existing localization to expo-localization
-        'expo-localization',
-        [
-          'expo-screen-orientation',
-          {
-            initialOrientation: 'PORTRAIT_UP'
-          }
-        ],
         [
           'expo-splash-screen',
           {
@@ -98,6 +88,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
               parentTheme: 'Default',
               enforceNavigationBarContrast: false
             }
+          }
+        ],
+        'expo-font',
+        'expo-router',
+        // migrate existing localization to expo-localization
+        'expo-localization',
+        [
+          'expo-screen-orientation',
+          {
+            initialOrientation: 'PORTRAIT_UP'
           }
         ]
       ],
