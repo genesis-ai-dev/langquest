@@ -1,11 +1,14 @@
 // Minimal queue worker for local Supabase. Processes at most one queued job per request.
-import pg from "npm:pg@8.11.3";
+import pg from 'npm:pg@8.11.3';
 
 // Prefer internal DSN if available (works inside Docker network)
-const dbUrl = Deno.env.get("SUPABASE_DB_URL")
-  || Deno.env.get("PS_DATA_SOURCE_URI")
-  || "postgresql://postgres:postgres@supabase_db_langquest:5432/postgres";
-const { Pool } = pg as unknown as { Pool: new (opts: { connectionString: string; max?: number }) => any };
+const dbUrl =
+  Deno.env.get('SUPABASE_DB_URL') ||
+  Deno.env.get('PS_DATA_SOURCE_URI') ||
+  'postgresql://postgres:postgres@supabase_db_langquest:5432/postgres';
+const { Pool } = pg as unknown as {
+  Pool: new (opts: { connectionString: string; max?: number }) => any;
+};
 const pool = new Pool({ connectionString: dbUrl, max: 1 });
 
 async function withClient<T>(fn: (c: any) => Promise<T>) {
@@ -23,11 +26,11 @@ async function processOneMessage(batchSize = 25, maxSteps = 6) {
   return withClient(async (c) => {
     // Read one message from pgmq
     const read = await c.query(
-      "select * from pgmq.read($1::text, $2::int, $3::int)",
-      ["clone_queue", 120, 1],
+      'select * from pgmq.read($1::text, $2::int, $3::int)',
+      ['clone_queue', 120, 1]
     );
     if (read.rowCount === 0) {
-      return { status: "empty", steps: [] as string[] };
+      return { status: 'empty', steps: [] as string[] };
     }
 
     const { msg_id, message } = read.rows[0] as {
@@ -39,55 +42,53 @@ async function processOneMessage(batchSize = 25, maxSteps = 6) {
 
     if (!jobId) {
       // bad message; archive and bail
-      await c.query("select pgmq.archive($1::text, $2::bigint)", [
-        "clone_queue",
-        msg_id,
+      await c.query('select pgmq.archive($1::text, $2::bigint)', [
+        'clone_queue',
+        msg_id
       ]);
-      return { status: "archived_bad_message", steps };
+      return { status: 'archived_bad_message', steps };
     }
 
     // Perform several small steps; function is idempotent/staged
     for (let i = 0; i < maxSteps; i++) {
       const res = await c.query<StepResult>(
-        "select * from public.perform_clone_step($1::uuid, $2::int)",
-        [jobId, batchSize],
+        'select * from public.perform_clone_step($1::uuid, $2::int)',
+        [jobId, batchSize]
       );
       const row = res.rows[0];
-      steps.push(row?.message ?? "noop");
+      steps.push(row?.message ?? 'noop');
       if (row?.done) {
         // Finalize and archive the message
-        await c.query("select pgmq.archive($1::text, $2::bigint)", [
-          "clone_queue",
-          msg_id,
+        await c.query('select pgmq.archive($1::text, $2::bigint)', [
+          'clone_queue',
+          msg_id
         ]);
-        return { status: "done", steps };
+        return { status: 'done', steps };
       }
     }
 
     // Not done; message will reappear after VT expiry
-    return { status: "in_progress", steps };
+    return { status: 'in_progress', steps };
   });
 }
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const batchSize = Number(url.searchParams.get("batchSize") ?? "25");
-  const maxSteps = Number(url.searchParams.get("maxSteps") ?? "6");
+  const batchSize = Number(url.searchParams.get('batchSize') ?? '25');
+  const maxSteps = Number(url.searchParams.get('maxSteps') ?? '6');
 
   try {
     const result = await processOneMessage(
       Number.isFinite(batchSize) ? batchSize : 25,
-      Number.isFinite(maxSteps) ? maxSteps : 6,
+      Number.isFinite(maxSteps) ? maxSteps : 6
     );
     return new Response(JSON.stringify(result), {
-      headers: { "content-type": "application/json" },
+      headers: { 'content-type': 'application/json' }
     });
   } catch (e) {
     return new Response(
-      JSON.stringify({ status: "error", error: String(e?.message ?? e) }),
-      { status: 500, headers: { "content-type": "application/json" } },
+      JSON.stringify({ status: 'error', error: String(e?.message ?? e) }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
     );
   }
 });
-
-
