@@ -6,8 +6,7 @@ import { colors } from '@/styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
@@ -18,21 +17,12 @@ import TermsView from '@/views/TermsView';
 // Wrapper component to provide consistent gradient background
 function AppWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.container}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          style={styles.gradient}
-        >
-          <SafeAreaView
-            style={styles.safeArea}
-            edges={['left', 'right']} // Remove 'top' to let gradient fill status bar
-          >
-            {children}
-          </SafeAreaView>
-        </LinearGradient>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -100,17 +90,15 @@ export default function App() {
   }
 
   // Normal authenticated user - show main app (AppView has its own wrapper)
-  return <AppView />;
+  return (
+    <AppWrapper>
+      <AppView />
+    </AppWrapper>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
   gradient: {
-    flex: 1
-  },
-  safeArea: {
     flex: 1
   }
 });

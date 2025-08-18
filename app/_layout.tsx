@@ -8,7 +8,9 @@ import { PowerSyncContext } from '@powersync/react-native';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -41,19 +43,24 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent={true}
+      <SystemBars
+        style={{
+          statusBar: 'light',
+          navigationBar: 'light'
+        }}
       />
       <PowerSyncContext.Provider value={system.powersync}>
         <PostHogProvider>
           <AuthProvider>
             <QueryProvider>
               <AudioProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="app" />
-                </Stack>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="app" />
+                    </Stack>
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
               </AudioProvider>
             </QueryProvider>
           </AuthProvider>

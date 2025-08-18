@@ -142,7 +142,10 @@ export default function ProfileView() {
                     size={20}
                     color={colors.textSecondary}
                   />
-                  <Text style={styles.profileInfoValue}>
+                  <Text
+                    style={styles.profileInfoValue}
+                    accessibilityLabel="ph-no-capture"
+                  >
                     {currentUser.email || 'No email provided'}
                   </Text>
                 </View>
@@ -153,7 +156,10 @@ export default function ProfileView() {
                       size={20}
                       color={colors.textSecondary}
                     />
-                    <Text style={styles.profileInfoValue}>
+                    <Text
+                      style={styles.profileInfoValue}
+                      accessibilityLabel="ph-no-capture"
+                    >
                       {currentUser.user_metadata.username}
                     </Text>
                   </View>
