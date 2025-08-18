@@ -301,8 +301,12 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "translation_id
 	('2f359fb4-2a9d-b450-7993-4b0e46949343', '2025-02-19 18:07:57+00', '2025-02-19 18:08:02+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'down', '', 'f2adf435-fd35-4927-8644-9b03785722b5', false),
 	('e21209a8-e126-f157-f6dd-a9e350a55da9', '2025-02-19 18:07:47+00', '2025-02-19 18:08:05+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true);
 
+-- Temporarily set search_path so unqualified names inside functions resolve to public
+SELECT set_config('search_path', 'public', true);
 SELECT * FROM public.rebuild_all_project_closures();
 SELECT * FROM public.rebuild_all_quest_closures();
+-- Restore to empty search_path (local to this script execution)
+SELECT set_config('search_path', '', true);
 
 --
 -- PostgreSQL database dump complete
