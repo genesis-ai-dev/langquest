@@ -2,6 +2,7 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { project, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -84,6 +85,10 @@ export default function NextGenQuestsView() {
 
   const currentProject = projectData[0];
 
+  const currentStatus = useStatusContext();
+  currentStatus.layerStatus(LayerType.PROJECT, currentProjectId || '');
+  const { showInvisibleContent } = currentStatus;
+
   const {
     data,
     fetchNextPage,
@@ -105,15 +110,16 @@ export default function NextGenQuestsView() {
       const baseCondition = eq(quest.project_id, currentProjectId);
 
       // Add search filtering for offline
-      const whereConditions = debouncedSearchQuery.trim()
-        ? and(
-            baseCondition,
-            or(
+      const whereConditions = and(
+        baseCondition,
+        debouncedSearchQuery.trim()
+          ? or(
               like(quest.name, `%${debouncedSearchQuery}%`),
               like(quest.description, `%${debouncedSearchQuery}%`)
             )
-          )
-        : baseCondition;
+          : undefined,
+        !showInvisibleContent ? eq(quest.visible, true) : undefined
+      );
 
       const quests = await system.db.query.quest.findMany({
         where: whereConditions,
@@ -134,6 +140,10 @@ export default function NextGenQuestsView() {
         .from('quest')
         .select('*')
         .eq('project_id', currentProjectId);
+
+      if (!showInvisibleContent) {
+        query = query.eq('visible', true);
+      }
 
       // Add search filtering
       if (debouncedSearchQuery.trim()) {
@@ -336,14 +346,14 @@ export default function NextGenQuestsView() {
       <View style={styles.floatingButtonContainer}>
         <View style={styles.floatingButtonRow}>
           {/* Settings Button - Only visible to owners */}
-          {/* canManageProject && (
+          {canManageProject && (
             <TouchableOpacity
               onPress={() => setShowSettingsModal(true)}
-              style={[styles.floatingButton, styles.settingsFloatingButton]}
+              style={[styles.floatingButton, styles.secondaryFloatingButton]}
             >
               <Ionicons name="settings" size={24} color={colors.text} />
             </TouchableOpacity>
-          ) */}
+          )}
 
           {/* Project Details Button */}
           <TouchableOpacity

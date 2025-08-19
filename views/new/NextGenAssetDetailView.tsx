@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import ImageCarousel from '@/components/ImageCarousel';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { LayerStatus } from '@/database_services/types';
 import type { language } from '@/db/drizzleSchema';
 import {
   asset,
@@ -76,12 +80,15 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentAssetId, currentProjectId } = useCurrentNavigation();
+  const { currentAssetId, currentProjectId, currentQuestId } =
+    useCurrentNavigation();
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('text');
+
+  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
@@ -126,6 +133,16 @@ export default function NextGenAssetDetailView() {
   // Determine which asset to display
   const activeAsset = offlineAsset;
   const isLoading = isOfflineLoading;
+
+  const currentStatus = useStatusContext();
+
+  const { allowEditing, allowSettings, invisible } =
+    currentStatus.getStatusParams(
+      LayerType.ASSET,
+      activeAsset?.id || '',
+      activeAsset as LayerStatus,
+      currentQuestId
+    );
 
   // Collect attachment IDs for audio support
   const allAttachmentIds = React.useMemo(() => {
@@ -272,7 +289,12 @@ export default function NextGenAssetDetailView() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.headerBar}>
+      <View
+        style={[
+          styles.headerBar
+          // !allowSettings && sharedStyles.disabled
+        ]}
+      >
         <View style={styles.titleContainer}>
           <Text style={styles.assetName}>{activeAsset.name}</Text>
           {projectData?.private && (
@@ -291,10 +313,30 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
+        {SHOW_DEV_ELEMENTS && (
+          <Text style={[{ color: colors.text }]}>
+            V: {offlineAsset.visible ? '🟢' : '🔴'} A:{' '}
+            {offlineAsset.active ? '🟢' : '🔴'}
+          </Text>
+        )}
+
+        {translateMembership === 'owner' && allowSettings && (
+          <TouchableOpacity
+            onPress={() => setShowAssetSettingsModal(true)}
+            style={styles.statsButton}
+          >
+            <Ionicons name="settings" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar
+          // !allowEditing && sharedStyles.disabled
+        ]}
+      >
         <TouchableOpacity
           style={[
             styles.tab,
@@ -338,9 +380,16 @@ export default function NextGenAssetDetailView() {
       </View>
 
       {/* Asset Content Viewer */}
-      <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+      <View
+        style={[
+          styles.assetViewer,
+          !allowEditing && sharedStyles.disabled,
+          invisible && sharedStyles.invisible,
+          { height: assetViewerHeight }
+        ]}
+      >
         <ScrollView
-          style={styles.contentScrollView}
+          style={[styles.contentScrollView]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentScrollViewContent}
         >
@@ -389,7 +438,7 @@ export default function NextGenAssetDetailView() {
                     />
 
                     {/* Audio status indicator */}
-                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    {}
                     {SHOW_DEV_ELEMENTS && content.audio_id && (
                       <View style={styles.audioStatusContainer}>
                         <Ionicons
@@ -446,7 +495,7 @@ export default function NextGenAssetDetailView() {
                   />
                 </View>
               ) : (
-                <Text style={styles.noContentText}>
+                <Text style={[styles.noContentText]}>
                   {t('noContentAvailable')}
                 </Text>
               )}
@@ -512,8 +561,11 @@ export default function NextGenAssetDetailView() {
         />
       ) : (
         <TouchableOpacity
-          style={styles.newTranslationButton}
-          onPress={handleNewTranslationPress}
+          style={[
+            styles.newTranslationButton,
+            !allowEditing && sharedStyles.disabled
+          ]}
+          onPress={() => (allowEditing ? handleNewTranslationPress() : null)}
         >
           <Ionicons name="add" size={24} color={colors.buttonText} />
           <Text style={styles.newTranslationButtonText}>
@@ -523,7 +575,7 @@ export default function NextGenAssetDetailView() {
       )}
 
       {/* New Translation Modal */}
-      {canTranslate && (
+      {canTranslate && allowEditing && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
           onClose={() => setShowNewTranslationModal(false)}
@@ -535,6 +587,12 @@ export default function NextGenAssetDetailView() {
           targetLanguageId={targetLanguageId}
         />
       )}
+
+      <AssetSettingsModal
+        isVisible={showAssetSettingsModal}
+        onClose={() => setShowAssetSettingsModal(false)}
+        assetId={activeAsset.id}
+      />
     </View>
   );
 }
@@ -671,5 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 8,
     overflow: 'hidden'
+  },
+  statsButton: {
+    marginLeft: spacing.medium
   }
 });

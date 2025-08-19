@@ -1,7 +1,10 @@
 import AudioPlayer from '@/components/AudioPlayer';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { TranslationSettingsModal } from '@/components/TranslationSettingsModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { translationService } from '@/database_services/translationService';
+import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -45,6 +48,8 @@ interface TranslationWithVotes {
   created_at: string;
   target_language_id: string;
   asset_id: string;
+  active: boolean;
+  visible: boolean;
   votes: {
     id: string;
     polarity: 'up' | 'down';
@@ -102,6 +107,7 @@ export default function NextGenTranslationModal({
   );
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { data: translationData, isLoading } =
     useNextGenTranslation(translationId);
@@ -225,6 +231,17 @@ export default function NextGenTranslationModal({
     createTranscription();
   };
 
+  const layerStatus = useStatusContext();
+  if (!layerStatus) {
+    console.error('Status context is not available');
+    return null;
+  }
+  const { allowEditing, allowSettings } = layerStatus.getStatusParams(
+    LayerType.TRANSLATION,
+    translationData?.id || '',
+    translationData as LayerStatus
+  );
+
   if (!visible) return null;
 
   return (
@@ -242,30 +259,51 @@ export default function NextGenTranslationModal({
             <Text style={styles.title}>{t('translation')}</Text>
             <View style={styles.headerButtons}>
               {/* Edit/Transcription button */}
-              <PrivateAccessGate
-                projectId={projectId || ''}
-                projectName={projectName || ''}
-                isPrivate={isPrivateProject}
-                action="edit_transcription"
-                renderTrigger={({ onPress, hasAccess }) => (
-                  <TouchableOpacity
-                    onPress={hasAccess ? toggleEdit : onPress}
-                    style={styles.editButton}
-                  >
-                    <Ionicons
-                      name={
-                        hasAccess
-                          ? isEditing
-                            ? 'close'
-                            : 'pencil'
-                          : 'lock-closed'
-                      }
-                      size={20}
-                      color={hasAccess ? colors.primary : colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-              />
+              {allowEditing && (
+                <PrivateAccessGate
+                  projectId={projectId || ''}
+                  projectName={projectName || ''}
+                  isPrivate={isPrivateProject}
+                  action="edit_transcription"
+                  renderTrigger={({ onPress, hasAccess }) => (
+                    <TouchableOpacity
+                      onPress={hasAccess ? toggleEdit : onPress}
+                      style={styles.editButton}
+                    >
+                      <Ionicons
+                        name={
+                          hasAccess
+                            ? isEditing
+                              ? 'close'
+                              : 'pencil'
+                            : 'lock-closed'
+                        }
+                        size={20}
+                        color={
+                          hasAccess ? colors.primary : colors.textSecondary
+                        }
+                      />
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+              {isOwnTranslation && allowSettings && (
+                <TouchableOpacity
+                  style={[
+                    styles.editButton,
+                    {
+                      alignSelf: 'flex-start'
+                    }
+                  ]}
+                  onPress={
+                    () => setShowSettingsModal(true)
+                    //handleSettingsPress
+                  }
+                  disabled={false}
+                >
+                  <Ionicons name={'settings'} size={20} color={colors.text} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -373,72 +411,75 @@ export default function NextGenTranslationModal({
                     action="vote"
                     inline={true}
                   >
-                    <View style={styles.votingContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.voteButton,
-                          styles.upVoteButton,
-                          userVote?.polarity === 'up' && styles.voteButtonActive
-                        ]}
-                        onPress={() => handleVote({ voteType: 'up' })}
-                        disabled={isVotePending}
-                      >
-                        {pendingVoteType === 'up' ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.buttonText}
-                          />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name={
-                                userVote?.polarity === 'up'
-                                  ? 'thumbs-up'
-                                  : 'thumbs-up-outline'
-                              }
-                              size={24}
+                    {allowEditing && (
+                      <View style={styles.votingContainer}>
+                        <TouchableOpacity
+                          style={[
+                            styles.voteButton,
+                            styles.upVoteButton,
+                            userVote?.polarity === 'up' &&
+                              styles.voteButtonActive
+                          ]}
+                          onPress={() => handleVote({ voteType: 'up' })}
+                          disabled={isVotePending || !allowEditing}
+                        >
+                          {pendingVoteType === 'up' ? (
+                            <ActivityIndicator
+                              size="small"
                               color={colors.buttonText}
                             />
-                            <Text style={styles.voteButtonText}>
-                              {t('good')}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                          ) : (
+                            <>
+                              <Ionicons
+                                name={
+                                  userVote?.polarity === 'up'
+                                    ? 'thumbs-up'
+                                    : 'thumbs-up-outline'
+                                }
+                                size={24}
+                                color={colors.buttonText}
+                              />
+                              <Text style={styles.voteButtonText}>
+                                {t('good')}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[
-                          styles.voteButton,
-                          styles.downVoteButton,
-                          userVote?.polarity === 'down' &&
-                            styles.voteButtonActive
-                        ]}
-                        onPress={() => handleVote({ voteType: 'down' })}
-                        disabled={isVotePending}
-                      >
-                        {pendingVoteType === 'down' ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.buttonText}
-                          />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name={
-                                userVote?.polarity === 'down'
-                                  ? 'thumbs-down'
-                                  : 'thumbs-down-outline'
-                              }
-                              size={24}
+                        <TouchableOpacity
+                          style={[
+                            styles.voteButton,
+                            styles.downVoteButton,
+                            userVote?.polarity === 'down' &&
+                              styles.voteButtonActive
+                          ]}
+                          onPress={() => handleVote({ voteType: 'down' })}
+                          disabled={isVotePending || !allowEditing}
+                        >
+                          {pendingVoteType === 'down' ? (
+                            <ActivityIndicator
+                              size="small"
                               color={colors.buttonText}
                             />
-                            <Text style={styles.voteButtonText}>
-                              {t('needsWork')}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                          ) : (
+                            <>
+                              <Ionicons
+                                name={
+                                  userVote?.polarity === 'down'
+                                    ? 'thumbs-down'
+                                    : 'thumbs-down-outline'
+                                }
+                                size={24}
+                                color={colors.buttonText}
+                              />
+                              <Text style={styles.voteButtonText}>
+                                {t('needsWork')}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </PrivateAccessGate>
                 )}
 
@@ -455,7 +496,13 @@ export default function NextGenTranslationModal({
                     </Text>
                   </View>
                 )}
-
+                {isOwnTranslation && (
+                  <TranslationSettingsModal
+                    isVisible={showSettingsModal}
+                    onClose={() => setShowSettingsModal(false)}
+                    translationId={translationId}
+                  />
+                )}
                 {/* Debug Info */}
                 {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
                 {SHOW_DEV_ELEMENTS && (
@@ -510,7 +557,8 @@ const styles = StyleSheet.create({
     color: colors.text
   },
   closeButton: {
-    padding: spacing.small
+    //padding: spacing.small,
+    padding: 6
   },
   headerButtons: {
     flexDirection: 'row',

@@ -1696,6 +1696,11 @@ export const localizations = {
     spanish: 'Ajustes del Asset',
     brazilian_portuguese: 'Ajustes do Asset'
   },
+  assetSettingsLoadError: {
+    english: 'Error loading asset settings.',
+    spanish: 'Error al cargar la configuración de asset.',
+    brazilian_portuguese: 'Erro ao carregar as configurações do asset.'
+  },
   general: {
     english: 'General',
     spanish: 'General',
@@ -1862,6 +1867,11 @@ export const localizations = {
     spanish: 'Error al actualizar el estado activo del proyecto',
     brazilian_portuguese: 'Falha ao atualizar o status ativo do projeto'
   },
+  projectSettingsLoadError: {
+    english: 'Error loading quest settings.',
+    spanish: 'Error al cargar la configuración de quest.',
+    brazilian_portuguese: 'Erro ao carregar as configurações da quest.'
+  },
   projectSettings: {
     english: 'Project Settings',
     spanish: 'Configuración del Proyecto',
@@ -1906,6 +1916,11 @@ export const localizations = {
     english: 'Quest Settings',
     spanish: 'Configuración de la Misión',
     brazilian_portuguese: 'Configurações da Missão'
+  },
+  questSettingsLoadError: {
+    english: 'Error loading quest settings.',
+    spanish: 'Error al cargar la configuración de quest.',
+    brazilian_portuguese: 'Erro ao carregar as configurações da quest.'
   },
   visibleQuestDescription: {
     english: 'This quest is visible to users',
@@ -2431,6 +2446,65 @@ export const localizations = {
     english: 'My Projects',
     spanish: 'Mis proyectos',
     brazilian_portuguese: 'Meus projetos'
+  },
+  statusTranslationActive: {
+    english:
+      'This translation is currently active. An active translation is also visible.',
+    spanish:
+      'Esta traducción está actualmente activa. Una traducción activa también es visible.',
+    brazilian_portuguese:
+      'Esta tradução está atualmente ativa. Uma tradução ativa também é visível.'
+  },
+  statusTranslationInactive: {
+    english:
+      'This translation is inactive. No actions can be performed unless it is reactivated.',
+    spanish:
+      'Esta traducción está inactiva. No se pueden realizar acciones a menos que se reactive.',
+    brazilian_portuguese:
+      'Esta tradução está inativa. Nenhuma ação pode ser realizada a menos que seja reativada.'
+  },
+  statusTranslationVisible: {
+    english: 'This translation is visible to other users.',
+    spanish: 'Esta traducción es visible para otros usuarios.',
+    brazilian_portuguese: 'Esta tradução está visível para outros usuários.'
+  },
+  statusTranslationInvisible: {
+    english:
+      'This translation is hidden and will not be shown to other users. An invisible translation is also inactive.',
+    spanish:
+      'Esta traducción está oculta y no se mostrará a otros usuarios. Una traducción invisible también está inactiva.',
+    brazilian_portuguese:
+      'Esta tradução está oculta e não será mostrada para outros usuários. Uma tradução invisível também está inativa.'
+  },
+  statusTranslationMadeVisible: {
+    english: 'The translation has been made visible',
+    spanish: 'La traducción se ha hecho visible',
+    brazilian_portuguese: 'A tradução foi tornada visível'
+  },
+  statusTranslationMadeInvisible: {
+    english: 'The translation has been made invisible',
+    spanish: 'La traducción se ha hecho invisible',
+    brazilian_portuguese: 'A tradução foi tornada invisível'
+  },
+  statusTranslationMadeActive: {
+    english: 'The translation has been made active',
+    spanish: 'La traducción se ha activado',
+    brazilian_portuguese: 'A tradução foi ativada'
+  },
+  statusTranslationMadeInactive: {
+    english: 'The translation has been made inactive',
+    spanish: 'La traducción ha sido desactivada',
+    brazilian_portuguese: 'A tradução foi desativada'
+  },
+  statusTranslationUpdateFailed: {
+    english: 'Failed to update translation settings',
+    spanish: 'Error al actualizar la configuración de la traducción',
+    brazilian_portuguese: 'Falha ao atualizar as configurações da tradução'
+  },
+  translationSettingsLoadError: {
+    english: 'Error loading translation settings.',
+    spanish: 'Error al cargar la configuración de traducción.',
+    brazilian_portuguese: 'Erro ao carregar as configurações de tradução.'
   }
 } as const;
 

@@ -1,13 +1,15 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { useAuth } from '@/contexts/AuthContext';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { LayerStatus } from '@/database_services/types';
 import type { language, project } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors } from '@/styles/theme';
+import { colors, sharedStyles } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -101,11 +103,23 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
     return language.native_name || language.english_name || 'Unknown';
   };
 
+  const layerStatus = useStatusContext();
+  const { allowEditing, invisible } = layerStatus.getStatusParams(
+    LayerType.PROJECT,
+    project.id || '',
+    project as LayerStatus
+  );
+
   const handlePress = () => {
     // If project is private and user doesn't have access, show the modal
     if (project.private && !hasAccess) {
       setShowPrivateModal(true);
     } else {
+      layerStatus.setLayerStatus(
+        LayerType.PROJECT,
+        project as LayerStatus,
+        project.id
+      );
       goToProject({
         id: project.id,
         name: project.name
@@ -115,6 +129,11 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
 
   const handleMembershipGranted = () => {
     // Navigate to project after membership is granted
+    layerStatus.setLayerStatus(
+      LayerType.PROJECT,
+      project as LayerStatus,
+      project.id
+    );
     goToProject({
       id: project.id,
       name: project.name
@@ -123,6 +142,11 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
 
   const handleBypass = () => {
     // Allow viewing the project even without membership
+    layerStatus.setLayerStatus(
+      LayerType.PROJECT,
+      project as LayerStatus,
+      project.id
+    );
     goToProject({
       id: project.id,
       name: project.name
@@ -138,7 +162,13 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
   return (
     <>
       <TouchableOpacity onPress={handlePress}>
-        <View style={styles.listItem}>
+        <View
+          style={[
+            styles.listItem,
+            !allowEditing && sharedStyles.disabled,
+            invisible && sharedStyles.invisible
+          ]}
+        >
           <View style={styles.listItemHeader}>
             <View
               style={{
