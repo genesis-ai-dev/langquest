@@ -1,6 +1,8 @@
-import { project } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateProjectStatus,
+  useProjectStatuses
+} from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
@@ -11,9 +13,6 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -41,47 +40,37 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  const { db, supabaseConnector } = system;
-  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPrjLoaded, setIsPrjLoaded] = useState(false);
-
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const { data: projectDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['project-settings', projectId],
-    offlineQuery: toCompilableQuery(
-      db.select().from(project).where(eq(project.id, projectId))
-    ),
-    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', projectId)
-        .limit(1);
-      if (error) throw error;
-      return data as (typeof project.$inferSelect)[];
+  const layerStatus = useStatusContext();
+
+  const {
+    data: projectData,
+    isLoading,
+    isError,
+    refetch
+  } = useProjectStatuses(projectId);
+
+  React.useEffect(() => {
+    if (isError) {
+      Alert.alert(t('error'), t('projectSettingsLoadError'));
+      onClose();
     }
-  });
+  }, [isError]);
 
-  const projectData = projectDataArray[0];
-  if (projectData != undefined && !isPrjLoaded) {
-    setIsPrjLoaded(true);
+  if (isError) {
+    return null;
   }
-
-  /* To be aware -> The information here is coming from the cache */
-  const [prjPrivate, setPrjPrivate] = useState(projectData?.private ?? false);
-  const [prjVisible, setPrjVisible] = useState(projectData?.visible ?? false);
-  const [prjActive, setPrjActive] = useState(projectData?.active ?? false);
 
   const handleToggleStatus = async (statusType: TProjectStatusType) => {
     if (!projectData) return;
     setIsSubmitting(true);
 
-    let privateProject = prjPrivate;
-    let visible = prjVisible;
-    let active = prjActive;
+    let privateProject = projectData.private;
+    let visible = projectData.visible;
+    let active = projectData.active;
     let message = '';
 
     try {
@@ -108,15 +97,16 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         message = active ? t('projectMadeActive') : t('projectMadeInactive');
       }
 
-      await supabaseConnector.client
-        .from('project')
-        .update({
-          private: privateProject,
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: projectId });
+      await updateProjectStatus(projectId, {
+        private: privateProject,
+        visible,
+        active
+      });
+      layerStatus.setLayerStatus(
+        LayerType.PROJECT,
+        { visible, active },
+        projectId
+      );
 
       refetch();
 
@@ -126,20 +116,6 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       Alert.alert(t('error'), t('failedToUpdateProjectSettings'));
     } finally {
       setIsSubmitting(false);
-      setPrjPrivate(privateProject);
-      setPrjVisible(visible);
-      setPrjActive(active);
-
-      // To reload projects in the main page
-      queryClient.removeQueries({
-        queryKey: ['projects'],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['project', projectId],
-        exact: false
-      });
     }
   };
 
@@ -166,37 +142,37 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               <SwitchBox
                 title={t('privateProject')}
                 description={
-                  prjPrivate
+                  projectData?.private
                     ? t('privateProjectDescription')
                     : t('publicProjectDescription')
                 }
-                value={prjPrivate}
+                value={projectData?.private ?? false}
                 onChange={() => handleToggleStatus('private')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
 
               <SwitchBox
                 title={t('visibility')}
                 description={
-                  prjVisible
+                  projectData?.visible
                     ? t('visibleProjectDescription')
                     : t('invisibleProjectDescription')
                 }
-                value={prjVisible}
+                value={projectData?.visible ?? false}
                 onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
 
               <SwitchBox
                 title={t('active')}
                 description={
-                  prjActive
+                  projectData?.active
                     ? t('activeProjectDescription')
                     : t('inactiveProjectDescription')
                 }
-                value={prjActive}
+                value={projectData?.active ?? false}
                 onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
             </View>
           </TouchableWithoutFeedback>
