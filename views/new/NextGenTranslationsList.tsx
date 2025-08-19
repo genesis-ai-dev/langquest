@@ -1,4 +1,5 @@
-import AudioPlayer from '@/components/AudioPlayer';
+import { TranslationCard } from '@/components/TranslationCard';
+import { useStatusContext } from '@/contexts/StatusContext';
 import { translation, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -66,6 +67,14 @@ export default function NextGenTranslationsList({
   >(null);
   const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
+  const currentLayer = useStatusContext();
+  const { showInvisibleContent } = currentLayer;
+
+  const conditions = [
+    eq(translation.asset_id, assetId),
+    !showInvisibleContent ? eq(translation.visible, true) : undefined
+  ];
+
   // First query: Get translations
   const {
     data: translations,
@@ -81,15 +90,17 @@ export default function NextGenTranslationsList({
       system.db
         .select()
         .from(translation)
-        .where(eq(translation.asset_id, assetId))
+        .where(and(...conditions.filter(Boolean)))
     ),
 
     // Cloud query function
     cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
+      let query = system.supabaseConnector.client
         .from('translation')
         .select('*')
         .eq('asset_id', assetId);
+      if (!showInvisibleContent) query = query.eq('visible', true);
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Translation[];
@@ -227,8 +238,19 @@ export default function NextGenTranslationsList({
     ? translationsOfflineError
     : translationsCloudError;
 
+  // const layerStatus = useStatusContext();
+  // const { allowEditing } = layerStatus.getStatusParams(LayerType.ASSET, '', {
+  //   visible: true,
+  //   active: true
+  // });
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container
+        // !allowEditing && sharedStyles.disabled
+      ]}
+    >
       <View style={styles.horizontalLine} />
 
       {/* Header with toggle and sort options */}
@@ -339,7 +361,10 @@ export default function NextGenTranslationsList({
 
       {/* Translations List */}
       <ScrollView
-        style={styles.scrollView}
+        style={[
+          styles.scrollView
+          //  !allowEditing && sharedStyles.disabled
+        ]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
@@ -351,73 +376,13 @@ export default function NextGenTranslationsList({
           />
         ) : sortedTranslations.length > 0 ? (
           sortedTranslations.map((trans) => (
-            <TouchableOpacity
+            <TranslationCard
               key={trans.id}
-              style={styles.translationCard}
-              onPress={() => handleTranslationPress(trans.id)}
-            >
-              <View style={styles.translationCardContent}>
-                <View style={styles.translationCardLeft}>
-                  <View style={styles.translationHeader}>
-                    <Text style={styles.translationPreview} numberOfLines={2}>
-                      {getPreviewText(trans.text || '')}
-                    </Text>
-                    {trans.audio && (
-                      <Ionicons
-                        name="volume-high"
-                        size={16}
-                        color={colors.primary}
-                        style={styles.audioIcon}
-                      />
-                    )}
-                  </View>
-
-                  {/* Audio Player */}
-                  {trans.audio && getAudioUri(trans) && (
-                    <View style={styles.audioPlayerContainer}>
-                      <AudioPlayer
-                        audioUri={getAudioUri(trans)}
-                        useCarousel={false}
-                        mini={true}
-                      />
-                    </View>
-                  )}
-
-                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                  {SHOW_DEV_ELEMENTS && (
-                    <Text style={styles.sourceTag}>
-                      {trans.source === 'cloudSupabase'
-                        ? '🌐 Cloud'
-                        : '💾 Offline'}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.translationCardRight}>
-                  <View style={styles.voteContainer}>
-                    <Ionicons
-                      name="thumbs-up"
-                      size={16}
-                      color={colors.text}
-                      style={{ opacity: trans.upVotes > 0 ? 1 : 0.3 }}
-                    />
-                    <Text style={styles.voteCount}>{trans.netVotes}</Text>
-                    <Ionicons
-                      name="thumbs-down"
-                      size={16}
-                      color={colors.text}
-                      style={{ opacity: trans.downVotes > 0 ? 1 : 0.3 }}
-                    />
-                  </View>
-                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                  {SHOW_DEV_ELEMENTS && (
-                    <Text style={styles.netVoteText}>
-                      {trans.upVotes} ↑ {trans.downVotes} ↓
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
+              translation={trans}
+              previewText={getPreviewText(trans.text || '')}
+              handleTranslationPress={handleTranslationPress}
+              audioUri={getAudioUri(trans)}
+            />
           ))
         ) : (
           <View style={styles.emptyContainer}>

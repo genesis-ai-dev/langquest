@@ -1,6 +1,8 @@
-import { quest } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateQuestStatus,
+  useQuestStatuses
+} from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
@@ -11,9 +13,6 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -34,7 +33,7 @@ interface QuestSettingsModalProps {
   projectId: string;
 }
 
-type TStatusType = 'active' | 'visible';
+// type TStatusType = 'active' | 'visible';
 
 export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   isVisible,
@@ -43,42 +42,27 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  // TODO: add localization
-  const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isQuestLoaded, setIsQuestLoaded] = useState(false);
 
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const queryClient = useQueryClient();
+  const layerStatus = useStatusContext();
 
-  const { data: questDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['quest-settings', questId],
-    onlineFn: async (): Promise<(typeof quest.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('id', questId)
-        .limit(1);
+  const {
+    data: questData,
+    isLoading,
+    isError,
+    refetch
+  } = useQuestStatuses(questId);
 
-      if (error) throw error;
-      return data as (typeof quest.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(quest.id, questId)
-      })
-    )
-  });
-
-  const questData = questDataArray[0];
-
-  if (questData != undefined && !isQuestLoaded) {
-    setIsQuestLoaded(true);
+  if (isError) {
+    Alert.alert(t('error'), t('questSettingsLoadError'));
+    onClose();
+    return null;
   }
 
-  const handleToggleStatus = async (statusType: TStatusType) => {
+  const handleToggleVisible = async () => {
     if (!questData) return;
 
     setIsSubmitting(true);
@@ -86,37 +70,25 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     let [visible, active] = [questData.visible, questData.active];
 
     try {
-      if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
-
-        await supabaseConnector.client
-          .from('quest')
-          .update({
-            visible,
-            active,
-            last_updated: new Date().toISOString()
-          })
-          .match({ id: questId });
-
-        refetch();
-
-        // Localization keys:
-        // success -> 'Success'
-        // questMadeInvisible -> 'The quest has been made invisible'
-        // questMadeVisible -> 'The quest has been made visible'
-        // error -> 'Error'
-        // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-        Alert.alert(
-          t('success'),
-          questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
-        );
+      //      if (statusType === 'visible') {
+      if (visible) {
+        visible = false;
+        active = false;
+      } else {
+        visible = true;
       }
+
+      await updateQuestStatus(questId, { visible, active });
+      refetch();
+      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
+
+      Alert.alert(
+        t('success'),
+        questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
+      );
+      //    }
     } catch (error) {
+      console.log(error);
       Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
@@ -138,15 +110,9 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         active = false;
       }
 
-      await supabaseConnector.client
-        .from('quest')
-        .update({
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: questId });
+      await updateQuestStatus(questId, { visible, active });
       refetch();
+      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
 
       // Localization keys:
       // success -> 'Success'
@@ -159,35 +125,10 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         questData.active ? t('questMadeInactive') : t('questMadeActive')
       );
     } catch (error) {
+      console.log(error);
       Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
-
-      queryClient.removeQueries({
-        queryKey: ['project', projectId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['quest', questId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['quests', 'by-project', projectId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: [
-          'assets',
-          'infinite',
-          'by-quest',
-          'with-tags-content',
-          questId
-        ],
-        exact: false
-      });
     }
   };
 
@@ -219,8 +160,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
                     : t('invisibleQuestDescription')
                 }
                 value={questData?.visible ?? false}
-                onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+                onChange={() => handleToggleVisible()}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
               <SwitchBox
                 title={t('active')}
@@ -230,8 +171,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
                     : t('inactiveQuestDescription')
                 }
                 value={questData?.active ?? false}
-                onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
+                onChange={() => handleToggleActive()}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
             </View>
           </TouchableWithoutFeedback>

@@ -1,3 +1,4 @@
+import { useStatusContext } from '@/contexts/StatusContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors, spacing } from '@/styles/theme';
@@ -5,7 +6,6 @@ import {
   getOptionShowHiddenContent,
   setOptionShowHiddenContent
 } from '@/utils/settingsUtils';
-import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
@@ -48,7 +48,7 @@ export default function SettingsView() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHiddenContent, setShowHiddenContent] = useState(false);
 
-  const queryClient = useQueryClient();
+  const currentStatus = useStatusContext();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -85,10 +85,7 @@ export default function SettingsView() {
     setOptionShowHiddenContent(value)
       .then(() => {
         setShowHiddenContent(value);
-        queryClient.removeQueries({
-          queryKey: ['projects'],
-          exact: false
-        });
+        currentStatus.setShowInvisibleContent(value);
       })
       .catch((error) => {
         Alert.alert('Error', 'Failed to update setting', [
