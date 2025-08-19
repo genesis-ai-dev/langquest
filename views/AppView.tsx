@@ -122,13 +122,7 @@ export default function AppView() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
   gradient: {
-    flex: 1
-  },
-  safeArea: {
     flex: 1
   },
   appContainer: {

@@ -12,7 +12,6 @@ import ImageCarousel from '@/components/ImageCarousel';
 import KeyboardIcon from '@/components/KeyboardIcon';
 import LumpOfCoalIcon from '@/components/LumpOfCoalIcon';
 import MicrophoneIcon from '@/components/MicrophoneIcon';
-import { NewTranslationModal } from '@/components/NewTranslationModal';
 import { PendingCount } from '@/components/PendingCount';
 import { PickaxeCount } from '@/components/PickaxeCount';
 import PickaxeIcon from '@/components/PickaxeIcon';
@@ -33,7 +32,7 @@ import {
   useAssetContent,
   useAssetsQuestLinkById
 } from '@/hooks/db/useAssets';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useLanguages } from '@/hooks/db/useLanguages';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import type { Language } from '@/hooks/db/useTranslations';
@@ -138,15 +137,22 @@ export default function AssetDetailView() {
   const { assetContent, isAssetContentLoading } = useAssetContent(
     currentAssetId || ''
   );
-  const {
-    language: sourceLanguage,
-    isLanguageLoading: isSourceLanguageLoading
-  } = useLanguageById(asset?.source_language_id || '');
+  const { languages } = useLanguages();
+  const contentLanguageIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    assetContent?.forEach(
+      (c) => c.source_language_id && ids.add(c.source_language_id)
+    );
+    return Array.from(ids);
+  }, [assetContent]);
+  const languageById = React.useMemo(
+    () => new Map(languages.map((l) => [l.id, l] as const)),
+    [languages]
+  );
   const { translationsWithVotesAndLanguage, refetch } =
     useTranslationsWithVotesAndLanguageByAssetId(currentAssetId || '');
 
-  const isLoading =
-    isAssetLoading || isAssetContentLoading || isSourceLanguageLoading;
+  const isLoading = isAssetLoading || isAssetContentLoading;
 
   const allAttachmentIds = React.useMemo(() => {
     if (!asset || !assetContent || !translationsWithVotesAndLanguage) return [];
@@ -445,7 +451,12 @@ export default function AssetDetailView() {
                   return (
                     <SourceContent
                       content={content}
-                      sourceLanguage={sourceLanguage ?? null}
+                      sourceLanguage={
+                        content.source_language_id
+                          ? (languageById.get(content.source_language_id) ??
+                            null)
+                          : null
+                      }
                       audioUri={
                         content.audio_id
                           ? (() => {
@@ -721,7 +732,7 @@ export default function AssetDetailView() {
         />
       )}
 
-      {isTranslationModalVisible &&
+      {/* {isTranslationModalVisible &&
         assetContent &&
         isParentActive &&
         (assetContent.length > 0 ||
@@ -742,7 +753,7 @@ export default function AssetDetailView() {
             )}
             loadingAttachments={isLoadingAttachments}
           />
-        )}
+        )} */}
 
       <PrivateAccessGate
         projectId={activeProject?.id || ''}
