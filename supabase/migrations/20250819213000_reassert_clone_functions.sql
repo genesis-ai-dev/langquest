@@ -278,8 +278,16 @@ begin
       return query select false, format('rebuilt quest closures batch: %s', v_rows);
     end if;
 
+    -- Rebuild final project closure
     perform public.rebuild_single_project_closure(v_dst_project_id);
-    update public.clone_job set progress = progress || jsonb_build_object('stage','done'), status = 'done', updated_at = now() where id = p_job_id;
+    
+    -- Mark job as fully complete
+    update public.clone_job 
+    set progress = progress || jsonb_build_object('stage','done'), 
+        status = 'done', 
+        updated_at = now() 
+    where id = p_job_id;
+    
     return query select true, 'done';
   end if;
 
