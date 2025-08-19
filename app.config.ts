@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: 'LangQuest',
       slug: 'langquest',
-      version: '1.3.0',
+      version: '1.3.1',
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
@@ -88,6 +88,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             image: './assets/images/icon.png',
             resizeMode: 'contain',
             backgroundColor: '#ffffff'
+          }
+        ],
+        [
+          'react-native-edge-to-edge',
+
+          {
+            android: {
+              parentTheme: 'Default',
+              enforceNavigationBarContrast: false
+            }
           }
         ]
       ],

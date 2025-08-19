@@ -89,7 +89,6 @@ export default function NextGenAssetsView() {
           .select({
             id: asset.id,
             name: asset.name,
-            source_language_id: asset.source_language_id,
             images: asset.images,
             creator_id: asset.creator_id,
             visible: asset.visible,

@@ -23,7 +23,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -163,24 +163,32 @@ export default function NextGenAssetDetailView() {
 
   type Language = typeof language.$inferSelect;
 
-  // Use useHybridData directly to fetch source language
-  const { data: languages, isLoading: isSourceLanguageLoading } =
-    useHybridData<Language>({
-      dataType: 'language',
-      queryKeyParams: [activeAsset?.source_language_id || ''],
-
-      // PowerSync query using Drizzle
-      offlineQuery: toCompilableQuery(
-        system.db.query.language.findMany({
-          where: eq(languageTable.id, activeAsset?.source_language_id || ''),
-          limit: 1
-        })
-      ),
-
-      enableCloudQuery: false
+  // Collect content-level language IDs for this asset
+  const contentLanguageIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    activeAsset?.content?.forEach((c) => {
+      if (c.source_language_id) ids.add(c.source_language_id);
     });
+    return Array.from(ids);
+  }, [activeAsset?.content]);
 
-  const sourceLanguage = languages[0];
+  // Fetch all languages used by content items
+  const { data: contentLanguages = [] } = useHybridData<Language>({
+    dataType: 'languages-by-id',
+    queryKeyParams: contentLanguageIds,
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: contentLanguageIds.length
+          ? inArray(languageTable.id, contentLanguageIds)
+          : undefined
+      })
+    ),
+    enableCloudQuery: false
+  });
+
+  const languageById = React.useMemo(() => {
+    return new Map(contentLanguages.map((l) => [l.id, l] as const));
+  }, [contentLanguages]);
 
   // Set the first available tab when asset data changes
   useEffect(() => {
@@ -250,7 +258,7 @@ export default function NextGenAssetDetailView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  if (isLoading || isSourceLanguageLoading) {
+  if (isLoading) {
     return <AssetSkeleton />;
   }
 
@@ -393,7 +401,12 @@ export default function NextGenAssetDetailView() {
                   <View key={index} style={styles.contentItem}>
                     <SourceContent
                       content={content}
-                      sourceLanguage={sourceLanguage ?? null}
+                      sourceLanguage={
+                        content.source_language_id
+                          ? (languageById.get(content.source_language_id) ??
+                            null)
+                          : null
+                      }
                       audioUri={
                         content.audio_id
                           ? (() => {
@@ -570,7 +583,7 @@ export default function NextGenAssetDetailView() {
           assetId={currentAssetId}
           assetName={activeAsset.name}
           assetContent={activeAsset.content}
-          sourceLanguage={sourceLanguage}
+          sourceLanguage={null}
           targetLanguageId={targetLanguageId}
         />
       )}
