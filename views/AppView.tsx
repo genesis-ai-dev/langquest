@@ -7,8 +7,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { Suspense, useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { colors } from '@/styles/theme';
@@ -93,44 +91,33 @@ export default function AppView() {
   };
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.container}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          style={styles.gradient}
-        >
-          <SafeAreaView
-            style={styles.safeArea}
-            edges={['left', 'right']} // Remove 'top' to let gradient fill status bar
-          >
-            <StatusProvider>
-              <View style={styles.appContainer}>
-                {/* Drawer Navigation */}
-                <AppDrawer
-                  drawerIsVisible={drawerIsVisible}
-                  setDrawerIsVisible={setDrawerIsVisible}
-                />
+    <LinearGradient
+      colors={[colors.gradientStart, colors.gradientEnd]}
+      style={styles.gradient}
+    >
+      <StatusProvider>
+        <View style={styles.appContainer}>
+          {/* Drawer Navigation */}
+          <AppDrawer
+            drawerIsVisible={drawerIsVisible}
+            setDrawerIsVisible={setDrawerIsVisible}
+          />
 
-                {/* Main Content Area */}
-                <View style={styles.contentContainer}>
-                  {/* App Header */}
-                  <AppHeader
-                    drawerToggleCallback={() =>
-                      setDrawerIsVisible(!drawerIsVisible)
-                    }
-                  />
+          {/* Main Content Area */}
+          <View style={styles.contentContainer}>
+            {/* App Header */}
+            <AppHeader
+              drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+            />
 
-                  {/* Current View */}
-                  <Suspense fallback={<LoadingView />}>
-                    {renderCurrentView()}
-                  </Suspense>
-                </View>
-              </View>
-            </StatusProvider>
-          </SafeAreaView>
-        </LinearGradient>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+            {/* Current View */}
+            <Suspense fallback={<LoadingView />}>
+              {renderCurrentView()}
+            </Suspense>
+          </View>
+        </View>
+      </StatusProvider>
+    </LinearGradient>
   );
 }
 

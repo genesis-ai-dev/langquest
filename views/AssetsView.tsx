@@ -141,7 +141,7 @@ const AssetCard = React.memo(
           <AssetSettingsModal
             isVisible={showAssetSettingsModal}
             onClose={() => setShowAssetSettingsModal(false)}
-            questId={currentQuestId}
+            // questId={currentQuestId}
             assetId={asset.id}
           />
         )}
