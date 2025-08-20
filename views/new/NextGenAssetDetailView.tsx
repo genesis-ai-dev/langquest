@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import ImageCarousel from '@/components/ImageCarousel';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { LayerStatus } from '@/database_services/types';
 import type { language } from '@/db/drizzleSchema';
 import {
   asset,
@@ -19,7 +23,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -76,12 +80,15 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentAssetId, currentProjectId } = useCurrentNavigation();
+  const { currentAssetId, currentProjectId, currentQuestId } =
+    useCurrentNavigation();
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('text');
+
+  const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
 
   const { data: offlineAsset, isLoading: isOfflineLoading } =
     useNextGenOfflineAsset(currentAssetId || '');
@@ -127,6 +134,16 @@ export default function NextGenAssetDetailView() {
   const activeAsset = offlineAsset;
   const isLoading = isOfflineLoading;
 
+  const currentStatus = useStatusContext();
+
+  const { allowEditing, allowSettings, invisible } =
+    currentStatus.getStatusParams(
+      LayerType.ASSET,
+      activeAsset?.id || '',
+      activeAsset as LayerStatus,
+      currentQuestId
+    );
+
   // Collect attachment IDs for audio support
   const allAttachmentIds = React.useMemo(() => {
     if (!activeAsset?.content) return [];
@@ -146,24 +163,32 @@ export default function NextGenAssetDetailView() {
 
   type Language = typeof language.$inferSelect;
 
-  // Use useHybridData directly to fetch source language
-  const { data: languages, isLoading: isSourceLanguageLoading } =
-    useHybridData<Language>({
-      dataType: 'language',
-      queryKeyParams: [activeAsset?.source_language_id || ''],
-
-      // PowerSync query using Drizzle
-      offlineQuery: toCompilableQuery(
-        system.db.query.language.findMany({
-          where: eq(languageTable.id, activeAsset?.source_language_id || ''),
-          limit: 1
-        })
-      ),
-
-      enableCloudQuery: false
+  // Collect content-level language IDs for this asset
+  const contentLanguageIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    activeAsset?.content?.forEach((c) => {
+      if (c.source_language_id) ids.add(c.source_language_id);
     });
+    return Array.from(ids);
+  }, [activeAsset?.content]);
 
-  const sourceLanguage = languages[0];
+  // Fetch all languages used by content items
+  const { data: contentLanguages = [] } = useHybridData<Language>({
+    dataType: 'languages-by-id',
+    queryKeyParams: contentLanguageIds,
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: contentLanguageIds.length
+          ? inArray(languageTable.id, contentLanguageIds)
+          : undefined
+      })
+    ),
+    enableCloudQuery: false
+  });
+
+  const languageById = React.useMemo(() => {
+    return new Map(contentLanguages.map((l) => [l.id, l] as const));
+  }, [contentLanguages]);
 
   // Set the first available tab when asset data changes
   useEffect(() => {
@@ -233,7 +258,7 @@ export default function NextGenAssetDetailView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  if (isLoading || isSourceLanguageLoading) {
+  if (isLoading) {
     return <AssetSkeleton />;
   }
 
@@ -264,7 +289,12 @@ export default function NextGenAssetDetailView() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.headerBar}>
+      <View
+        style={[
+          styles.headerBar
+          // !allowSettings && sharedStyles.disabled
+        ]}
+      >
         <View style={styles.titleContainer}>
           <Text style={styles.assetName}>{activeAsset.name}</Text>
           {projectData?.private && (
@@ -283,10 +313,30 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
+        {SHOW_DEV_ELEMENTS && (
+          <Text style={[{ color: colors.text }]}>
+            V: {offlineAsset.visible ? '🟢' : '🔴'} A:{' '}
+            {offlineAsset.active ? '🟢' : '🔴'}
+          </Text>
+        )}
+
+        {translateMembership === 'owner' && allowSettings && (
+          <TouchableOpacity
+            onPress={() => setShowAssetSettingsModal(true)}
+            style={styles.statsButton}
+          >
+            <Ionicons name="settings" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar
+          // !allowEditing && sharedStyles.disabled
+        ]}
+      >
         <TouchableOpacity
           style={[
             styles.tab,
@@ -330,9 +380,16 @@ export default function NextGenAssetDetailView() {
       </View>
 
       {/* Asset Content Viewer */}
-      <View style={[styles.assetViewer, { height: assetViewerHeight }]}>
+      <View
+        style={[
+          styles.assetViewer,
+          !allowEditing && sharedStyles.disabled,
+          invisible && sharedStyles.invisible,
+          { height: assetViewerHeight }
+        ]}
+      >
         <ScrollView
-          style={styles.contentScrollView}
+          style={[styles.contentScrollView]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentScrollViewContent}
         >
@@ -344,7 +401,12 @@ export default function NextGenAssetDetailView() {
                   <View key={index} style={styles.contentItem}>
                     <SourceContent
                       content={content}
-                      sourceLanguage={sourceLanguage ?? null}
+                      sourceLanguage={
+                        content.source_language_id
+                          ? (languageById.get(content.source_language_id) ??
+                            null)
+                          : null
+                      }
                       audioUri={
                         content.audio_id
                           ? (() => {
@@ -376,7 +438,7 @@ export default function NextGenAssetDetailView() {
                     />
 
                     {/* Audio status indicator */}
-                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    {}
                     {SHOW_DEV_ELEMENTS && content.audio_id && (
                       <View style={styles.audioStatusContainer}>
                         <Ionicons
@@ -433,7 +495,7 @@ export default function NextGenAssetDetailView() {
                   />
                 </View>
               ) : (
-                <Text style={styles.noContentText}>
+                <Text style={[styles.noContentText]}>
                   {t('noContentAvailable')}
                 </Text>
               )}
@@ -499,8 +561,11 @@ export default function NextGenAssetDetailView() {
         />
       ) : (
         <TouchableOpacity
-          style={styles.newTranslationButton}
-          onPress={handleNewTranslationPress}
+          style={[
+            styles.newTranslationButton,
+            !allowEditing && sharedStyles.disabled
+          ]}
+          onPress={() => (allowEditing ? handleNewTranslationPress() : null)}
         >
           <Ionicons name="add" size={24} color={colors.buttonText} />
           <Text style={styles.newTranslationButtonText}>
@@ -510,7 +575,7 @@ export default function NextGenAssetDetailView() {
       )}
 
       {/* New Translation Modal */}
-      {canTranslate && (
+      {canTranslate && allowEditing && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
           onClose={() => setShowNewTranslationModal(false)}
@@ -518,10 +583,16 @@ export default function NextGenAssetDetailView() {
           assetId={currentAssetId}
           assetName={activeAsset.name}
           assetContent={activeAsset.content}
-          sourceLanguage={sourceLanguage}
+          sourceLanguage={null}
           targetLanguageId={targetLanguageId}
         />
       )}
+
+      <AssetSettingsModal
+        isVisible={showAssetSettingsModal}
+        onClose={() => setShowAssetSettingsModal(false)}
+        assetId={activeAsset.id}
+      />
     </View>
   );
 }
@@ -658,5 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 8,
     overflow: 'hidden'
+  },
+  statsButton: {
+    marginLeft: spacing.medium
   }
 });

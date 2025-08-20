@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { safeNavigate } from '@/utils/sharedUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
@@ -10,7 +11,6 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
-  InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -63,15 +63,10 @@ export default function ResetPasswordView2() {
         [
           {
             text: t('ok') || 'OK',
-            onPress: () => {
-              // Sign out and let auth context handle navigation to sign in
-              // void signOut();
-              InteractionManager.runAfterInteractions(() => {
-                requestAnimationFrame(() => {
-                  void signOut();
-                });
-              });
-            }
+            // Sign out and let auth context handle navigation to sign in
+            // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
+            // at next page.
+            onPress: () => safeNavigate(() => void signOut())
           }
         ]
       );

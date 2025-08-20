@@ -1,15 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { safeNavigate } from '@/utils/sharedUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
-  InteractionManager,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,18 +28,29 @@ interface ForgotPasswordFormData {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function ForgotPasswordView2({
-  onNavigate
+  onNavigate,
+  sharedAuthInfo
 }: {
-  onNavigate: (view: 'sign-in') => void;
+  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
+  sharedAuthInfo?: SharedAuthInfo;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { resetPassword } = useAuth();
   const { t } = useLocalization();
 
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      reset({
+        email: sharedAuthInfo.email || ''
+      });
+    }
+  }, [sharedAuthInfo?.email]);
+
   const {
     control,
     handleSubmit,
     formState: { errors },
+    watch,
     reset
   } = useForm<ForgotPasswordFormData>({
     defaultValues: {
@@ -56,8 +67,8 @@ export default function ForgotPasswordView2({
       if (error) throw error;
 
       // Reset form (may not be needed, once the page will change)
-      reset();
-      Keyboard.dismiss();
+      // reset();
+      // Keyboard.dismiss();
 
       Alert.alert(
         t('success') || 'Success',
@@ -66,13 +77,10 @@ export default function ForgotPasswordView2({
         [
           {
             text: t('ok') || 'OK',
-            onPress: () => {
-              InteractionManager.runAfterInteractions(() => {
-                requestAnimationFrame(() => {
-                  onNavigate('sign-in');
-                });
-              });
-            }
+            onPress: () =>
+              safeNavigate(() =>
+                onNavigate('sign-in', { email: watch('email') })
+              )
           }
         ]
       );
@@ -194,7 +202,13 @@ export default function ForgotPasswordView2({
 
                   {/* Back to login link */}
                   <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                    <TouchableOpacity onPress={() => onNavigate('sign-in')}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        safeNavigate(() =>
+                          onNavigate('sign-in', { email: watch('email') })
+                        )
+                      }
+                    >
                       <Text
                         style={[sharedStyles.link, { textAlign: 'center' }]}
                       >

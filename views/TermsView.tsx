@@ -241,7 +241,9 @@ const styles = StyleSheet.create({
     lineHeight: 24
   },
   linkText: {
-    fontSize: 16
+    fontSize: 16,
+    color: colors.text,
+    textDecorationLine: 'underline'
   },
   termsCheckbox: {
     width: '100%',

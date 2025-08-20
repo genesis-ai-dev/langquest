@@ -8,6 +8,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
+// removed: useHybridData lookups and related query helpers
 import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import {
@@ -58,6 +59,8 @@ export default function NextGenNewTranslationModal({
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
   const [audioUri, setAudioUri] = useState<string | null>(null);
+
+  // Note: source language options restriction will be handled by parent; modal displays the selected sourceLanguage if provided
 
   const handleSubmit = async () => {
     if (!currentUser) {

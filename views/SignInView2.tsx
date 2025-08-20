@@ -2,10 +2,12 @@ import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { safeNavigate } from '@/utils/sharedUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -29,17 +31,31 @@ interface SignInFormData {
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 export default function SignInView2({
-  onNavigate
+  onNavigate,
+  sharedAuthInfo
 }: {
-  onNavigate: (view: 'register' | 'forgot-password') => void;
+  onNavigate: (
+    view: 'register' | 'forgot-password',
+    sharedAuthInfo?: SharedAuthInfo
+  ) => void;
+  sharedAuthInfo?: SharedAuthInfo;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLocalization();
+
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      reset({
+        email: sharedAuthInfo.email || ''
+      });
+    }
+  }, [sharedAuthInfo?.email]);
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors }
   } = useForm<SignInFormData>({
     defaultValues: {
@@ -66,7 +82,15 @@ export default function SignInView2({
         t('error') || 'Error',
         error instanceof Error
           ? error.message
-          : t('signInError') || 'Sign in failed'
+          : t('signInError') || 'Sign in failed',
+        [
+          { text: t('ok') || 'OK' },
+          {
+            text: t('newUser'),
+            onPress: () =>
+              safeNavigate(() => onNavigate('register', { email: data.email }))
+          }
+        ]
       );
     } finally {
       setIsLoading(false);
@@ -218,7 +242,13 @@ export default function SignInView2({
 
                     {/* Forgot password link */}
                     <TouchableOpacity
-                      onPress={() => onNavigate('forgot-password')}
+                      onPress={() =>
+                        safeNavigate(() =>
+                          onNavigate('forgot-password', {
+                            email: watch('email')
+                          })
+                        )
+                      }
                     >
                       <Text style={[sharedStyles.link]}>
                         {t('forgotPassword') || 'Forgot Password?'}
@@ -251,7 +281,11 @@ export default function SignInView2({
                   {/* Register link */}
                   <View style={{ alignItems: 'center', gap: spacing.medium }}>
                     <TouchableOpacity
-                      onPress={() => onNavigate('register')}
+                      onPress={() =>
+                        safeNavigate(() =>
+                          onNavigate('register', { email: watch('email') })
+                        )
+                      }
                       style={[
                         {
                           paddingVertical: spacing.small,
