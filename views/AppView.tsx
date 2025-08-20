@@ -26,6 +26,7 @@ import NextGenQuestsView from '@/views/new/NextGenQuestsView';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
+import { StatusProvider } from '@/contexts/StatusContext';
 import AssetDetailView from './AssetDetailView';
 import AssetsView from './AssetsView';
 import ProjectsView from './ProjectsView';
@@ -94,24 +95,28 @@ export default function AppView() {
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={styles.gradient}
     >
-      <View style={styles.appContainer}>
-        {/* Drawer Navigation */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
-
-        {/* Main Content Area */}
-        <View style={styles.contentContainer}>
-          {/* App Header */}
-          <AppHeader
-            drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+      <StatusProvider>
+        <View style={styles.appContainer}>
+          {/* Drawer Navigation */}
+          <AppDrawer
+            drawerIsVisible={drawerIsVisible}
+            setDrawerIsVisible={setDrawerIsVisible}
           />
 
-          {/* Current View */}
-          <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
+          {/* Main Content Area */}
+          <View style={styles.contentContainer}>
+            {/* App Header */}
+            <AppHeader
+              drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+            />
+
+            {/* Current View */}
+            <Suspense fallback={<LoadingView />}>
+              {renderCurrentView()}
+            </Suspense>
+          </View>
         </View>
-      </View>
+      </StatusProvider>
     </LinearGradient>
   );
 }
