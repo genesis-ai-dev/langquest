@@ -85,13 +85,11 @@ export const ResetPassword = ({
       title: 'Resetim LangQuest Password bilong yu',
       greeting: 'Hello,',
       description:
-        "Someone requestim resetim password bilong yu account langquest yu. Yu no strongim yu, plis ignore email yu.",
-      instruction:
-        'Click button long yu pastim resetim password bilong yu:',
+        'Someone requestim resetim password bilong yu account langquest yu. Yu no strongim yu, plis ignore email yu.',
+      instruction: 'Click button long yu pastim resetim password bilong yu:',
       button: 'Resetim Password',
       orCopy: 'Or copyim pasteim link yu long yu browser:',
       expiry: 'Link yu no expireim long 24 hours.'
-    }
     }
   };
 
