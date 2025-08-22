@@ -67,6 +67,31 @@ export const ResetPassword = ({
       button: 'Redefinir Senha',
       orCopy: 'Ou copie e cole este link no seu navegador:',
       expiry: 'Este link vai expirar em 24 horas.'
+    },
+    'id-ID': {
+      preview: 'Atur Ulang Kata Sandi LangQuest Anda',
+      title: 'Atur Ulang Kata Sandi',
+      greeting: 'Halo,',
+      description:
+        'Seseorang meminta pembaruan kata sandi untuk akun LangQuest Anda. Jika bukan Anda, silakan abaikan email ini.',
+      instruction:
+        'Klik tombol di bawah ini untuk mengatur ulang kata sandi Anda:',
+      button: 'Atur Ulang Kata Sandi',
+      orCopy: 'Atau salin dan tempel tautan ini di peramban Anda:',
+      expiry: 'Tautan ini akan kadaluarsa dalam 24 jam.'
+    },
+    'tpi-PG': {
+      preview: 'Resetim LangQuest Password bilong yu',
+      title: 'Resetim LangQuest Password bilong yu',
+      greeting: 'Hello,',
+      description:
+        "Someone requestim resetim password bilong yu account langquest yu. Yu no strongim yu, plis ignore email yu.",
+      instruction:
+        'Click button long yu pastim resetim password bilong yu:',
+      button: 'Resetim Password',
+      orCopy: 'Or copyim pasteim link yu long yu browser:',
+      expiry: 'Link yu no expireim long 24 hours.'
+    }
     }
   };
 
