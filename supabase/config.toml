@@ -310,6 +310,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.clone-worker]
 enabled = true
 verify_jwt = false
+entrypoint = "./functions/clone-worker/index.ts"
 
 [functions.sqltr]
 enabled = true
