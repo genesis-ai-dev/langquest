@@ -58,6 +58,24 @@ export const ConfirmEmail = ({
       button: 'Confirmar Conta',
       orCopy: 'Ou você pode copiar e colar este link no seu navegador:',
       expiry: 'Este link vai expirar em 24 horas.'
+    },
+    'id-ID': {
+      preview: 'Konfirmasi Akun LangQuest Anda',
+      title: 'Konfirmasi Akun',
+      description:
+        'Klik tautan di bawah ini untuk mengonfirmasi akun Anda dan menyelesaikan registrasi:',
+      button: 'Konfirmasi Akun',
+      orCopy: 'Atau salin dan tempel tautan ini di peramban Anda:',
+      expiry: 'Tautan ini akan kadaluarsa dalam 24 jam.'
+    },
+    'tpi-PG': {
+      preview: 'Strongim LangQuest Akaun bilong yu',
+      title: 'Strongim LangQuest Akaun bilong yu',
+      description:
+        'Click link long yu pastim strongim yu account yu and completeim registration yu:',
+      button: 'Strongim LangQuest Akaun',
+      orCopy: 'Or copyim pasteim link yu long yu browser:',
+      expiry: 'Link yu no expireim long 24 hours.'
     }
   };
 
