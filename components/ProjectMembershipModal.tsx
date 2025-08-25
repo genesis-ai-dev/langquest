@@ -78,7 +78,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { currentUser } = useAuth();
 
   // Get comprehensive user permissions for this project
-  const managePermissions = useUserPermissions(projectId, 'manage');
   const sendInvitePermissions = useUserPermissions(
     projectId,
     'send_invite_section'
@@ -294,8 +293,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   // Check if current user is an owner (keep for compatibility with leave project logic)
   const _currentUserMembership = members.find((m) => m.id === currentUser.id);
 
-  // Count active owners
-  const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
+  // Note: Owner count validation is now handled server-side in leave_project function
 
   const handleRemoveMember = (memberId: string, memberName: string) => {
     Alert.alert(
@@ -369,11 +367,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleLeaveProject = () => {
-    if (activeOwnerCount <= 1 && managePermissions.hasAccess) {
-      Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
-      return;
-    }
-
     Alert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
       { text: t('cancel'), style: 'cancel' },
       {
@@ -382,19 +375,60 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         onPress: () => {
           void (async () => {
             try {
-              await db
-                .update(profile_project_link)
-                .set({ active: false, last_updated: new Date().toISOString() })
-                .where(
-                  and(
-                    eq(profile_project_link.profile_id, currentUser.id),
-                    eq(profile_project_link.project_id, projectId)
-                  )
+              console.log('[handleLeaveProject] Leaving project...');
+
+              const response = await system.supabaseConnector.client.rpc(
+                'leave_project',
+                {
+                  p_project_id: projectId
+                }
+              );
+
+              const result = response.data as {
+                success: boolean;
+                error?: string;
+                action?: string;
+                was_owner?: boolean;
+              } | null;
+
+              if (response.error) {
+                console.error(
+                  '[handleLeaveProject] Error calling leave_project:',
+                  response.error
                 );
+                throw new Error(
+                  `Failed to leave project: ${response.error.message}`
+                );
+              }
+
+              if (!result?.success) {
+                console.error(
+                  '[handleLeaveProject] Function returned error:',
+                  result?.error
+                );
+                throw new Error(result?.error || 'Failed to leave project');
+              }
+
+              console.log(
+                '[handleLeaveProject] Successfully left project:',
+                result
+              );
+
+              // Show success message
+              const successMessage =
+                'Successfully left project' +
+                (result.was_owner ? ' (you were an owner)' : '');
+
+              Alert.alert(t('success'), successMessage);
               onClose();
             } catch (error) {
               console.error('Error leaving project:', error);
-              Alert.alert(t('error'), t('failedToLeaveProject'));
+              Alert.alert(
+                t('error'),
+                error instanceof Error
+                  ? error.message
+                  : t('failedToLeaveProject')
+              );
             }
           })();
         }
@@ -404,33 +438,46 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const handleWithdrawInvitation = async (inviteId: string) => {
     try {
-      // Find the invitation first
-      const invitation = invitations.find((i) => i.id === inviteId);
+      // Use secure server-side function to handle invite withdrawal
+      // This ensures only project owners can withdraw invites and handles all logic server-side
+      const response = await system.supabaseConnector.client.rpc(
+        'process_project_invite',
+        {
+          invite_id: inviteId,
+          action: 'withdraw'
+        }
+      );
 
-      await db
-        .update(invite)
-        .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite.id, inviteId));
+      const result = response.data as {
+        success: boolean;
+        error?: string;
+        action?: string;
+      } | null;
 
-      // Also deactivate any profile_project_link if exists
-      if (invitation?.receiver_profile_id) {
-        await db
-          .update(profile_project_link)
-          .set({ active: false, last_updated: new Date().toISOString() })
-          .where(
-            and(
-              eq(
-                profile_project_link.profile_id,
-                invitation.receiver_profile_id
-              ),
-              eq(profile_project_link.project_id, projectId)
-            )
-          );
+      if (response.error) {
+        console.error(
+          '[handleWithdrawInvitation] Error calling process_project_invite:',
+          response.error
+        );
+        throw new Error(
+          `Failed to withdraw invitation: ${response.error.message}`
+        );
+      }
+
+      if (!result?.success) {
+        console.error(
+          '[handleWithdrawInvitation] Function returned error:',
+          result?.error
+        );
+        throw new Error(result?.error || 'Failed to withdraw invitation');
       }
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error withdrawing invitation:', error);
-      Alert.alert(t('error'), t('failedToWithdrawInvitation'));
+      Alert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('failedToWithdrawInvitation')
+      );
     }
   };
 
@@ -488,90 +535,58 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         return;
       }
 
-      // Check for any existing invitation (including declined, withdrawn, expired)
-      const existingInvites = await db.query.invite.findMany({
-        where: and(
-          eq(invite.email, inviteEmail),
-          eq(invite.project_id, projectId)
-        ),
-        with: {
-          receiver: true
+      // Use secure server-side function to handle invite creation/updates
+      // This prevents profile enumeration and handles all the complex logic server-side
+      const response = await system.supabaseConnector.client.rpc(
+        'create_or_update_project_invite',
+        {
+          p_email: inviteEmail,
+          p_project_id: projectId,
+          p_as_owner: inviteAsOwner
         }
-      });
-      const existingInvite = existingInvites[0];
+      );
 
-      if (existingInvite) {
-        const MAX_INVITE_ATTEMPTS = 5; // Configure max attempts as needed
+      console.log(
+        '[handleSendInvitation] Successfully sent invitation:',
+        response.data
+      );
 
-        // Check if the invitee has an inactive profile_project_link
-        let hasInactiveLink = false;
-        if (existingInvite.receiver_profile_id) {
-          const profileLinks = await db.query.profile_project_link.findMany({
-            where: and(
-              eq(
-                profile_project_link.profile_id,
-                existingInvite.receiver_profile_id
-              ),
-              eq(profile_project_link.project_id, projectId)
-            )
-          });
-          hasInactiveLink =
-            profileLinks.some((link) => link.active === false) ||
-            profileLinks.length === 0;
-        }
+      const result = response.data as {
+        success: boolean;
+        error?: string;
+        action?: string;
+        invite_id?: string;
+      } | null;
 
-        // Check if we can re-invite
-        if (
-          ['declined', 'withdrawn', 'expired'].includes(
-            existingInvite.status
-          ) ||
-          hasInactiveLink
-        ) {
-          if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
-            // Update existing invitation
-            await db
-              .update(invite)
-              .set({
-                status: 'pending',
-                as_owner: inviteAsOwner,
-                count: (existingInvite.count || 0) + 1,
-                last_updated: new Date().toISOString(),
-                sender_profile_id: currentUser.id // Update sender in case it's different
-              })
-              .where(eq(invite.id, existingInvite.id));
-
-            setInviteEmail('');
-            setInviteAsOwner(false);
-            // void refetchInvitations(); // Removed refetch
-            Alert.alert(t('success'), t('invitationResent'));
-            return;
-          } else {
-            Alert.alert(t('error'), t('maxInviteAttemptsReached'));
-            setIsSubmitting(false);
-            return;
-          }
-        } else {
-          // Invitation is still pending or in another active state
-          Alert.alert(t('error'), t('invitationAlreadySent'));
-          setIsSubmitting(false);
-          return;
-        }
+      if (response.error) {
+        console.error(
+          '[handleSendInvitation] Error calling create_or_update_project_invite:',
+          response.error
+        );
+        throw new Error(
+          `Failed to process invitation: ${response.error.message}`
+        );
       }
 
-      // Create new invitation
-      await db.insert(invite).values({
-        sender_profile_id: currentUser.id,
-        email: inviteEmail,
-        project_id: projectId,
-        status: 'pending',
-        as_owner: inviteAsOwner,
-        count: 1
-      });
+      if (!result?.success) {
+        console.error(
+          '[handleSendInvitation] Function returned error:',
+          result?.error
+        );
+        throw new Error(result?.error || 'Failed to send invitation');
+      }
 
       setInviteEmail('');
       setInviteAsOwner(false);
       // void refetchInvitations(); // Removed refetch
-      Alert.alert(t('success'), t('invitationSent'));
+
+      // Show appropriate success message based on action
+      const successMessage =
+        result.action === 'updated'
+          ? t('invitationResent')
+          : t('invitationSent');
+
+      Alert.alert(t('success'), successMessage);
     } catch (error) {
       console.error('Error sending invitation:', error);
       Alert.alert(
@@ -731,7 +746,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               </TouchableOpacity>
             )}
           {withdrawInvitePermissions.hasAccess &&
-            invitation.status !== 'withdrawn' && (
+            invitation.status === 'pending' && (
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => void handleWithdrawInvitation(invitation.id)}

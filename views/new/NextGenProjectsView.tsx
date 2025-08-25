@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import type { Vote } from '@/hooks/db/useVotes';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -11,6 +12,7 @@ import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -268,6 +270,227 @@ export default function NextGenProjectsView() {
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${projects.length}`;
   }, [isOnline, projects]);
 
+  // RLS Policy Testing Function
+  const testRLSPolicies = React.useCallback(async () => {
+    if (!userId) {
+      Alert.alert('Error', 'Must be logged in to test RLS policies');
+      return;
+    }
+
+    console.log('Testing RLS policies');
+    const results: string[] = [];
+
+    const fakeUserId = 'cfee7714-cebe-409e-950b-ddc48c92d964';
+
+    try {
+      // Test 1: Try to create membership for someone else (should FAIL)
+      results.push('🔒 TEST 1: Profile Project Link Security');
+      const { error: error1 } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .insert({
+          profile_id: fakeUserId,
+          project_id: 'bace07b1-41de-4535-9c68-aa81683d9370',
+          membership: 'owner'
+        });
+
+      const { data: linkData } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('*')
+        .eq('profile_id', fakeUserId)
+        .limit(1);
+
+      if (
+        error1?.message.includes('row-level security') ||
+        linkData?.length === 0
+      ) {
+        results.push(
+          `✅ SECURE: Cannot create membership for another user! ${error1?.message ?? 'No error message'}`
+        );
+      } else {
+        results.push(
+          `❌ SECURITY BREACH: Could create membership for another user!`
+        );
+      }
+      // Test 2: Try to update someone else's vote (should FAIL)
+      results.push('\n🔒 TEST 2: Vote Update Security');
+      const { error: error2 } = await system.supabaseConnector.client
+        .from('vote')
+        .update({ polarity: 'down', comment: 'Hacked!' })
+        .eq('id', 'aa0e8400-e29b-41d4-a716-446655440003');
+
+      const { data: vote } = await system.supabaseConnector.client
+        .from('vote')
+        .select('*')
+        .eq('id', 'aa0e8400-e29b-41d4-a716-446655440003')
+        .limit(1)
+        .overrideTypes<Vote[]>();
+
+      console.log('error2', error2);
+      if (
+        error2?.message.includes('row-level security') ||
+        (vote && vote[0]?.polarity !== 'down' && vote[0]?.comment !== 'Hacked!')
+      ) {
+        results.push(
+          `✅ SECURE: Cannot modify another user's vote! ${error2?.message ?? 'No error message'} ${JSON.stringify(vote)}`
+        );
+      } else {
+        results.push("❌ SECURITY BREACH: Could modify another user's vote!");
+      }
+
+      // Test 3: Try to create translation as someone else (should FAIL)
+      results.push('\n🔒 TEST 3: Translation Creation Security');
+      const { error: error3 } = await system.supabaseConnector.client
+        .from('translation')
+        .insert({
+          id: 'd37dc4a4-481c-4bce-a77b-dc2a1ec1ae1d',
+          asset_id: '3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3',
+          creator_id: fakeUserId, // Try to impersonate
+          text: 'Hacked translation'
+        });
+      if (error3?.message.includes('row-level security')) {
+        results.push(
+          `✅ SECURE: Cannot create translation as another user! ${error3.message}`
+        );
+      } else {
+        results.push(
+          `❌ SECURITY BREACH: Could create translation as another user!`
+        );
+      }
+
+      // Test 4: Try to create report as someone else (should FAIL)
+      results.push('\n🔒 TEST 4: Report Creation Security');
+      const { error: error4 } = await system.supabaseConnector.client
+        .from('reports')
+        .insert({
+          id: '8bcfeaf7-370c-44fb-acd9-dfbb25751fb7',
+          record_id: '990e8400-e29b-41d4-a716-446655440003',
+          record_table: 'translation',
+          reporter_id: fakeUserId, // Try to impersonate
+          reason: 'spam',
+          details: 'Fake report'
+        });
+      if (error4?.message.includes('row-level security')) {
+        results.push(
+          `✅ SECURE: Cannot create report as another user! ${error4.message}`
+        );
+      } else {
+        results.push(
+          `❌ SECURITY BREACH: Could create report as another user!`
+        );
+      }
+
+      // Test 5: Try to create vote as someone else (should FAIL)
+      results.push('\n🔒 TEST 5: Vote Creation Security');
+      const { error: error5 } = await system.supabaseConnector.client
+        .from('vote')
+        .insert({
+          id: '7c6b3d72-1c12-4f0d-9b07-f2e44d5fa3be',
+          translation_id: '990e8400-e29b-41d4-a716-446655440001',
+          polarity: 'up',
+          creator_id: fakeUserId, // Try to impersonate
+          comment: 'Fake vote'
+        });
+      if (error5?.message.includes('row-level security')) {
+        results.push(
+          `✅ SECURE: Cannot create vote as another user! ${error5.message}`
+        );
+      } else {
+        results.push('❌ SECURITY BREACH: Could create vote as another user!');
+      }
+
+      // Test 6: Project owner should be able to view project invites (should SUCCEED)
+      results.push('\n🔒 TEST 6: Project Owner Can View Project Invites');
+      const { data: inviteData, error: error6 } =
+        await system.supabaseConnector.client
+          .from('invite')
+          .select('*')
+          .eq('receiver_profile_id', 'f2adf435-fd35-4927-8644-9b03785722b5'); // Keean2's invites
+
+      if (error6) {
+        results.push(`❌ ERROR: Failed to query invites - ${error6.message}`);
+      } else if (inviteData.length > 0) {
+        results.push(
+          '✅ EXPECTED: Project owner can view invites for their projects'
+        );
+      } else {
+        results.push(
+          '❌ UNEXPECTED: Should be able to see project invites as owner'
+        );
+      }
+
+      // Test 7: Create legitimate content as self (should SUCCEED)
+      results.push('\n🔒 TEST 7: Legitimate Operations');
+      const { error: error7 } = await system.supabaseConnector.client
+        .from('vote')
+        .insert({
+          id: '6cc13c0b-e18a-4bf7-92b0-8198e2244de0',
+          translation_id: '990e8400-e29b-41d4-a716-446655440001',
+          polarity: 'up',
+          creator_id: userId, // Our own ID
+          comment: 'Test vote from RLS test'
+        });
+
+      if (error7) {
+        results.push(
+          `❌ FAILED: Could not create legitimate vote: ${error7.message}`
+        );
+      } else {
+        results.push('✅ SUCCESS: Can create legitimate vote as self');
+
+        // Clean up the test vote
+        const { error: cleanupError } = await system.supabaseConnector.client
+          .from('vote')
+          .delete()
+          .eq('id', '6cc13c0b-e18a-4bf7-92b0-8198e2244de0');
+
+        if (cleanupError) {
+          results.push(
+            `⚠️ WARNING: Could not clean up test vote: ${cleanupError.message}`
+          );
+        }
+      }
+
+      // Test 8: Update our own content (should SUCCEED)
+      results.push('\n🔒 TEST 8: Update Own Content');
+      const { data: ourVotes, error: error8a } =
+        await system.supabaseConnector.client
+          .from('vote')
+          .select('*')
+          .eq('creator_id', userId)
+          .limit(1);
+
+      if (error8a) {
+        results.push(
+          `❌ FAILED: Could not query own votes: ${error8a.message}`
+        );
+      } else {
+        const firstVote = ourVotes[0] as { id: string } | undefined;
+        if (firstVote?.id) {
+          const { error: error8b } = await system.supabaseConnector.client
+            .from('vote')
+            .update({ comment: 'Updated by RLS test' })
+            .eq('id', firstVote.id);
+
+          if (error8b) {
+            results.push(
+              `❌ FAILED: Could not update own vote: ${error8b.message}`
+            );
+          } else {
+            results.push('✅ SUCCESS: Can update own vote');
+          }
+        } else {
+          results.push('⚠️ SKIPPED: No votes found to update');
+        }
+      }
+
+      Alert.alert('RLS Policy Test Results', results.join('\n'), [
+        { text: 'OK' }
+      ]);
+    } catch (error) {
+      Alert.alert('Test Error', `Failed to complete tests: ${String(error)}`);
+    }
+  }, [userId]);
+
   if (isLoading) {
     return <ProjectListSkeleton />;
   }
@@ -328,15 +551,24 @@ export default function NextGenProjectsView() {
 
       {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS && (
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: fontSizes.small,
-            marginBottom: spacing.small
-          }}
-        >
-          {statusText}
-        </Text>
+        <View style={{ marginBottom: spacing.medium }}>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: fontSizes.small,
+              marginBottom: spacing.small
+            }}
+          >
+            {statusText}
+          </Text>
+          <Pressable
+            style={styles.testButton}
+            onPress={testRLSPolicies}
+            disabled={!userId}
+          >
+            <Text style={styles.testButtonText}>🔒 Test RLS Policies</Text>
+          </Pressable>
+        </View>
       )}
 
       <FlashList
@@ -429,6 +661,18 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: colors.buttonText,
+    fontWeight: '600'
+  },
+  testButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: spacing.small,
+    paddingHorizontal: spacing.medium,
+    alignItems: 'center'
+  },
+  testButtonText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
     fontWeight: '600'
   }
 });

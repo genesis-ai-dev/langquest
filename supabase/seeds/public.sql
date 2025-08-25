@@ -301,6 +301,109 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "translation_id
 	('2f359fb4-2a9d-b450-7993-4b0e46949343', '2025-02-19 18:07:57+00', '2025-02-19 18:08:02+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'down', '', 'f2adf435-fd35-4927-8644-9b03785722b5', false),
 	('e21209a8-e126-f157-f6dd-a9e350a55da9', '2025-02-19 18:07:47+00', '2025-02-19 18:08:05+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true);
 
+--
+-- ================================================================
+-- TEST DATA FOR SECURITY TESTING (Keean and Keean2)
+-- ================================================================
+-- This section adds comprehensive test data for the users Keean and Keean2
+-- to support testing of the RLS security policies we implemented.
+--
+
+-- ================================================================
+-- PROFILE_PROJECT_LINK: Membership Test Data
+-- ================================================================
+-- Testing different membership scenarios for security validation
+
+INSERT INTO "public"."profile_project_link" ("profile_id", "project_id", "membership", "active", "created_at", "last_updated") VALUES
+	-- Keean as OWNER of first project (for testing owner permissions)
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00'),
+	
+	-- Keean2 as MEMBER of first project (for testing member vs owner permissions)
+	('f2adf435-fd35-4927-8644-9b03785722b5', 'bace07b1-41de-4535-9c68-aa81683d9370', 'member', true, '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00'),
+	
+	-- Keean2 as OWNER of second project (for cross-project permission testing)
+	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00');
+
+-- ================================================================
+-- INVITES: Invitation Test Data  
+-- ================================================================
+-- Testing invite creation, acceptance, and permission scenarios
+
+INSERT INTO "public"."invite" ("id", "sender_profile_id", "receiver_profile_id", "project_id", "status", "as_owner", "email", "count", "active", "created_at", "last_updated") VALUES
+	-- Pending invite from Keean (owner) to Keean3 (323eanboi@gmail.com) for member role
+	('550e8400-e29b-41d4-a716-446655440001', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', NULL, 'bace07b1-41de-4535-9c68-aa81683d9370', 'pending', false, '323eanboi@gmail.com', 1, true, '2024-01-03 00:00:00+00', '2024-01-03 00:00:00+00'),
+	
+	-- Accepted invite from Keean2 (owner) to Keean for owner role (cross-project)
+	('550e8400-e29b-41d4-a716-446655440002', 'f2adf435-fd35-4927-8644-9b03785722b5', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'accepted', true, 'realdinozoid@gmail.com', 1, true, '2024-01-03 00:00:00+00', '2024-01-03 00:00:00+00'),
+	
+	-- Withdrawn invite for testing withdrawn status
+	('550e8400-e29b-41d4-a716-446655440003', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'f2adf435-fd35-4927-8644-9b03785722b5', 'bace07b1-41de-4535-9c68-aa81683d9370', 'withdrawn', false, '422eanboi@gmail.com', 1, true, '2024-01-03 00:00:00+00', '2024-01-03 00:00:00+00');
+
+-- ================================================================
+-- REQUESTS: Membership Request Test Data
+-- ================================================================
+-- Testing request creation, approval, and permission scenarios
+
+INSERT INTO "public"."request" ("id", "sender_profile_id", "project_id", "status", "count", "active", "created_at", "last_updated") VALUES
+	-- Accepted request from Keean2 (422eanboi@gmail.com) to join Keean's project
+	('660e8400-e29b-41d4-a716-446655440002', 'f2adf435-fd35-4927-8644-9b03785722b5', 'bace07b1-41de-4535-9c68-aa81683d9370', 'accepted', 1, true, '2024-01-04 00:00:00+00', '2024-01-04 00:00:00+00'),
+
+
+-- ================================================================
+-- TRANSLATIONS: Translation Test Data 
+-- ================================================================
+-- Testing translation creation and ownership permissions
+
+INSERT INTO "public"."translation" ("id", "asset_id", "target_language_id", "text", "audio", "creator_id", "visible", "active", "created_at", "last_updated") VALUES
+	-- Keean's translations (should only be editable by Keean)
+	('990e8400-e29b-41d4-a716-446655440001', 'a513e5d6-126b-4725-9029-ec08c7f55a0a', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Keean translation of Lucas 1:1', NULL, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', true, true, '2024-01-07 00:00:00+00', '2024-01-07 00:00:00+00'),
+	('990e8400-e29b-41d4-a716-446655440002', '13120777-7cef-4942-b2b8-37cd9f241c1b', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Keean translation of Lucas 1:2', NULL, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', true, true, '2024-01-07 00:00:00+00', '2024-01-07 00:00:00+00'),
+	
+	-- Keean2's translations (should only be editable by Keean2)
+	('990e8400-e29b-41d4-a716-446655440003', 'eff8abcd-6179-4b14-aaaa-69ab054a99ae', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Keean2 translation of Lucas 1:3', NULL, 'f2adf435-fd35-4927-8644-9b03785722b5', true, true, '2024-01-07 00:00:00+00', '2024-01-07 00:00:00+00'),
+	('990e8400-e29b-41d4-a716-446655440004', '3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Keean2 translation of Lucas 1:4', NULL, 'f2adf435-fd35-4927-8644-9b03785722b5', true, true, '2024-01-07 00:00:00+00', '2024-01-07 00:00:00+00');
+
+-- ================================================================
+-- VOTES: Vote Test Data
+-- ================================================================  
+-- Testing vote creation and update permissions (extending existing votes)
+
+INSERT INTO "public"."vote" ("id", "translation_id", "polarity", "comment", "creator_id", "active", "created_at", "last_updated") VALUES
+	-- Keean's votes (should only be editable by Keean)
+	('aa0e8400-e29b-41d4-a716-446655440001', '990e8400-e29b-41d4-a716-446655440003', 'up', '', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', true, '2024-01-08 00:00:00+00', '2024-01-08 00:00:00+00'),
+	('aa0e8400-e29b-41d4-a716-446655440002', '990e8400-e29b-41d4-a716-446655440004', 'down', '', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', true, '2024-01-08 00:00:00+00', '2024-01-08 00:00:00+00'),
+	
+	-- Keean2's votes (should only be editable by Keean2)
+	('aa0e8400-e29b-41d4-a716-446655440003', '990e8400-e29b-41d4-a716-446655440001', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true, '2024-01-08 00:00:00+00', '2024-01-08 00:00:00+00'),
+	('aa0e8400-e29b-41d4-a716-446655440004', '990e8400-e29b-41d4-a716-446655440002', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true, '2024-01-08 00:00:00+00', '2024-01-08 00:00:00+00');
+
+-- ================================================================
+-- REPORTS: Report Test Data
+-- ================================================================
+-- Testing report creation permissions and impersonation prevention
+
+INSERT INTO "public"."reports" ("id", "record_id", "record_table", "reporter_id", "reason", "details", "active", "created_at", "last_updated") VALUES
+	-- Keean's reports (should only be creatable by Keean as reporter)
+	('bb0e8400-e29b-41d4-a716-446655440001', '990e8400-e29b-41d4-a716-446655440004', 'translation', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'inappropriate_content', 'Translation contains inappropriate language', true, '2024-01-09 00:00:00+00', '2024-01-09 00:00:00+00'),
+	('bb0e8400-e29b-41d4-a716-446655440002', 'f2adf435-fd35-4927-8644-9b03785722b5', 'profile', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'spam', 'User is posting spam content', true, '2024-01-09 00:00:00+00', '2024-01-09 00:00:00+00'),
+	
+	-- Keean2's reports (should only be creatable by Keean2 as reporter)  
+	('bb0e8400-e29b-41d4-a716-446655440003', '990e8400-e29b-41d4-a716-446655440002', 'translation', 'f2adf435-fd35-4927-8644-9b03785722b5', 'other', 'Translation quality is very poor', true, '2024-01-09 00:00:00+00', '2024-01-09 00:00:00+00'),
+	('bb0e8400-e29b-41d4-a716-446655440004', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'profile', 'f2adf435-fd35-4927-8644-9b03785722b5', 'inappropriate_content', 'User is being harassing in comments', true, '2024-01-09 00:00:00+00', '2024-01-09 00:00:00+00');
+
+-- ================================================================
+-- UPDATE PROJECT CREATOR IDs  
+-- ================================================================
+-- Set project creators to match the ownership assignments
+
+UPDATE "public"."project" 
+SET "creator_id" = 'c111d43b-5983-4342-9d9e-5fc8d09d77b9' 
+WHERE "id" = 'bace07b1-41de-4535-9c68-aa81683d9370';
+
+UPDATE "public"."project" 
+SET "creator_id" = 'f2adf435-fd35-4927-8644-9b03785722b5' 
+WHERE "id" = 'b819ba73-2274-468d-b18d-330b1ecf49b1';
+
 -- Temporarily set search_path so unqualified names inside functions resolve to public
 SELECT set_config('search_path', 'public', true);
 SELECT * FROM public.rebuild_all_project_closures();

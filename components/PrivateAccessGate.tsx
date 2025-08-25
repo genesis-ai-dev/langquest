@@ -230,6 +230,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           .where(eq(request.id, existingRequest.id));
       } else {
         // Create new request
+        console.log('Creating new request');
+        console.log('currentUser', currentUser.id);
         await db.insert(request).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,

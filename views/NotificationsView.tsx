@@ -297,72 +297,44 @@ export default function NotificationsView() {
     try {
       // Update the appropriate table based on type
       if (type === 'invite') {
-        console.log('[handleAccept] Updating invite to accepted...');
+        console.log('[handleAccept] Processing invite acceptance...');
 
-        // First check if the record exists
-        const existingRecord = await system.db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Existing invite record:', existingRecord);
+        // Use secure database function to handle complete invite processing
+        // This function handles both invite status update and membership creation/reactivation
+        // and prevents privilege escalation by determining membership level server-side
+        const response = await system.supabaseConnector.client.rpc(
+          'process_project_invite',
+          {
+            invite_id: notificationId,
+            action: 'accept'
+          }
+        );
+        const result = response.data as {
+          success: boolean;
+          error?: string;
+          action?: string;
+          membership?: string;
+        } | null;
 
-        const updateResult = await system.db
-          .update(invite)
-          .set({
-            status: 'accepted',
-            last_updated: new Date().toISOString()
-          })
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Invite update result:', updateResult);
-
-        // Verify the update worked by querying the record
-        const updatedRecord = await system.db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Updated invite record:', updatedRecord);
-
-        const existingLink = await system.db
-          .select()
-          .from(profile_project_link)
-          .where(
-            and(
-              eq(profile_project_link.profile_id, currentUser!.id),
-              eq(profile_project_link.project_id, projectId)
-            )
+        if (response.error) {
+          console.error(
+            '[handleAccept] Error calling process_project_invite:',
+            response.error
           );
-
-        if (existingLink.length > 0) {
-          // Update existing link
-          await system.db
-            .update(profile_project_link)
-            .set({
-              active: true,
-              membership: asOwner ? 'owner' : 'member',
-              last_updated: new Date().toISOString()
-            })
-            .where(
-              and(
-                eq(profile_project_link.profile_id, currentUser!.id),
-                eq(profile_project_link.project_id, projectId)
-              )
-            );
-        } else {
-          // Create new link
-          const newLinkData = {
-            id: `${currentUser!.id}_${projectId}`,
-            profile_id: currentUser!.id,
-            project_id: projectId,
-            membership: asOwner ? 'owner' : 'member',
-            active: true
-          };
-          console.log('[handleAccept] New link data:', newLinkData);
-
-          const insertResult = await system.db
-            .insert(profile_project_link)
-            .values(newLinkData);
-          console.log('[handleAccept] Insert result:', insertResult);
+          throw new Error(
+            `Failed to process invite: ${response.error.message}`
+          );
         }
+
+        if (!result?.success) {
+          console.error(
+            '[handleAccept] Function returned error:',
+            result?.error
+          );
+          throw new Error(result?.error || 'Failed to accept invite');
+        }
+
+        console.log('[handleAccept] Successfully processed invite:', result);
       } else {
         // type === 'request'
         console.log('[handleAccept] Updating request to accepted...');
@@ -465,13 +437,42 @@ export default function NotificationsView() {
     try {
       // Update the appropriate table based on type
       if (type === 'invite') {
-        await system.db
-          .update(invite)
-          .set({
-            status: 'declined',
-            last_updated: new Date().toISOString()
-          })
-          .where(eq(invite.id, notificationId));
+        console.log('[handleDecline] Processing invite decline...');
+
+        // Use secure database function to handle invite processing
+        // This prevents potential security issues by handling updates server-side
+        const response = await system.supabaseConnector.client.rpc(
+          'process_project_invite',
+          {
+            invite_id: notificationId,
+            action: 'decline'
+          }
+        );
+        const result = response.data as {
+          success: boolean;
+          error?: string;
+          action?: string;
+        } | null;
+
+        if (response.error) {
+          console.error(
+            '[handleDecline] Error calling process_project_invite:',
+            response.error
+          );
+          throw new Error(
+            `Failed to process invite: ${response.error.message}`
+          );
+        }
+
+        if (!result?.success) {
+          console.error(
+            '[handleDecline] Function returned error:',
+            result?.error
+          );
+          throw new Error(result?.error || 'Failed to decline invite');
+        }
+
+        console.log('[handleDecline] Successfully processed invite:', result);
       } else {
         // type === 'request'
         await system.db
@@ -486,7 +487,10 @@ export default function NotificationsView() {
       Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert(t('error'), t('failedToDeclineInvite'));
+      Alert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('failedToDeclineInvite')
+      );
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
