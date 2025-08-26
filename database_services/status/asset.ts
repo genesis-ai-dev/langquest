@@ -1,6 +1,6 @@
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver/lib/src/utils/compilableQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 // import { useQueryClient } from '@tanstack/react-query/build/legacy/QueryClientProvider';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { and, eq } from 'drizzle-orm';

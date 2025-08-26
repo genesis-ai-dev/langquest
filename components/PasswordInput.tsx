@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import type { RegisteredStyle, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface PasswordInputProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
-  style?: RegisteredStyle<ViewStyle> & { color: string };
+  style?: StyleProp<ViewStyle> & { color: string };
   placeholderTextColor?: string;
 }
 

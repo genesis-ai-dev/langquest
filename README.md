@@ -128,8 +128,6 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   SELECT COUNT(*) AS quest_closure_rows FROM public.quest_closure;
   ```
 
-  This runs `supabase/scripts/populate_closures.sql` against the local DB. It’s idempotent and safe to rerun.
-
 ### Usage
 
 #### Making Database Changes
