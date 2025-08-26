@@ -613,31 +613,9 @@ with check (
 --
 -- IMPROVEMENT: Consolidate into single 'FOR ALL' policy for better performance
 -- and simpler maintenance while maintaining identical security.
-drop policy if exists "Users can create their own content blocks" on "public"."blocked_content";
 drop policy if exists "Users can delete their own content blocks" on "public"."blocked_content";
-drop policy if exists "Users can update their own content blocks" on "public"."blocked_content";
-drop policy if exists "Users can view their own blocked content" on "public"."blocked_content";
 
-drop policy if exists "Users can create their own blocks" on "public"."blocked_users";
 drop policy if exists "Users can delete their own blocks" on "public"."blocked_users";
-drop policy if exists "Users can update their own blocks" on "public"."blocked_users";
-drop policy if exists "Users can view their own blocked users" on "public"."blocked_users";
-
-create policy "All actions allowed for own blocked content"
-on public.blocked_content
-for all
-to authenticated
-with check (
-  (auth.uid() = profile_id)
-);
-
-create policy "All actions allowed for own blocked users"
-on public.blocked_users
-for all
-to authenticated
-with check (
-  (auth.uid() = blocker_id)
-);
 
 -- ================================================================
 -- MIGRATION COMPLETE
