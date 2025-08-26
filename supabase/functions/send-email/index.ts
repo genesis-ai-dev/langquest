@@ -20,7 +20,9 @@ const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
   es: 'Confirma tu cuenta de LangQuest',
   fr: 'Confirmez votre compte LangQuest',
-  'pt-BR': 'Confirme sua conta LangQuest'
+  'pt-BR': 'Confirme sua conta LangQuest',
+  'id-ID': 'Konfirmasi Akun LangQuest Anda',
+  'tpi-PG': 'Strongim LangQuest Akaun bilong yu'
 };
 // Email subject translations
 const emailSubjects = {
@@ -30,13 +32,17 @@ const emailSubjects = {
     en: 'Reset Your LangQuest Password',
     es: 'Restablece tu contraseña de LangQuest',
     fr: 'Réinitialisez votre mot de passe LangQuest',
-    'pt-BR': 'Redefina sua senha do LangQuest'
+    'pt-BR': 'Redefina sua senha do LangQuest',
+    'id-ID': 'Atur Ulang Kata Sandi LangQuest Anda',
+    'tpi-PG': 'Resetim LangQuest Password bilong yu'
   },
   invite: {
     en: "You've been invited to join a project on LangQuest",
     es: 'Has sido invitado a unirte a un proyecto en LangQuest',
     fr: 'Vous avez été invité à rejoindre un projet sur LangQuest',
-    'pt-BR': 'Você foi convidado para participar de um projeto no LangQuest'
+    'pt-BR': 'Você foi convidado para participar de um projeto no LangQuest',
+    'id-ID': 'Anda telah diundang untuk bergabung dalam proyek di LangQuest',
+    'tpi-PG': 'Yu telah strongim langquest bilong yu'
   }
 };
 const emailTypeEndpoint = {
