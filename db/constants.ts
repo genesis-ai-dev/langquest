@@ -3,3 +3,11 @@ export const reasonOptions = [
   'spam',
   'other'
 ] as const;
+
+export const statusOptions = [
+  'pending',
+  'accepted',
+  'declined',
+  'withdrawn'
+  // 'expired'
+] as const;

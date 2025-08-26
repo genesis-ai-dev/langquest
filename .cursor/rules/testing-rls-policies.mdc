@@ -1,0 +1,140 @@
+---
+description: Guidelines for testing Supabase Row Level Security (RLS) policies during development directly against the database
+alwaysApply: false
+---
+
+## Connecting to the Local Development Database
+
+```bash
+PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres
+```
+
+Refer to supabase/config.toml if anon users are enabled, if not then don't login as an anon user.
+
+## Testing Procedures
+
+To test policies on the database itself (from the SQL Editor or from `psql`) without switching to your frontend and logging in as different users, you can utilize these helper SQL procedures:
+
+```sql
+grant anon, authenticated to postgres;
+
+create or replace procedure auth.login_as_user (user_email text)
+    language plpgsql
+    as $$
+declare
+    auth_user auth.users;
+begin
+    select
+        * into auth_user
+    from
+        auth.users
+    where
+        email = user_email;
+    execute format('set request.jwt.claim.sub=%L', (auth_user).id::text);
+    execute format('set request.jwt.claim.role=%I', (auth_user).role);
+    execute format('set request.jwt.claim.email=%L', (auth_user).email);
+    execute format('set request.jwt.claims=%L', json_strip_nulls(json_build_object('app_metadata', (auth_user).raw_app_meta_data))::text);
+
+    raise notice '%', format( 'set role %I; -- logging in as %L (%L)', (auth_user).role, (auth_user).id, (auth_user).email);
+    execute format('set role %I', (auth_user).role);
+end;
+$$;
+
+create or replace procedure auth.login_as_anon ()
+    language plpgsql
+    as $$
+begin
+    set request.jwt.claim.sub='';
+    set request.jwt.claim.role='';
+    set request.jwt.claim.email='';
+    set request.jwt.claims='';
+    set role anon;
+end;
+$$;
+
+create or replace procedure auth.logout ()
+    language plpgsql
+    as $$
+begin
+    set request.jwt.claim.sub='';
+    set request.jwt.claim.role='';
+    set request.jwt.claim.email='';
+    set request.jwt.claims='';
+    set role postgres;
+end;
+$$;
+```
+
+## Usage
+
+### Switch to a specific user
+
+```sql
+call auth.login_as_user('user@example.com');
+```
+
+### Switch to anonymous role
+
+```sql
+call auth.login_as_anon();
+```
+
+### Return to postgres role
+
+```sql
+call auth.logout();
+```
+
+## Testing Example
+
+Here's an example workflow for testing RLS policies:
+
+```sql
+-- Start with postgres role (full access)
+postgres=> select id, email from auth.users;
+                  id                  |       email
+--------------------------------------+-------------------
+ d4f0aa86-e6f6-41d1-bd32-391f077cf1b9 | user1@example.com
+ 15d6811a-16ee-4fa2-9b18-b63085688be4 | user2@example.com
+(2 rows)
+
+-- Test as anonymous user
+postgres=> call auth.login_as_anon();
+CALL
+postgres=> update public.profiles set updated_at=now();
+UPDATE 0 -- anon users cannot update any profile
+
+-- Test as authenticated user
+postgres=> call auth.login_as_user('user1@example.com');
+NOTICE:  set role authenticated; -- logging in as 'd4f0aa86-e6f6-41d1-bd32-391f077cf1b9' ('user1@example.com')
+CALL
+postgres=> update public.profiles set updated_at=now();
+UPDATE 1 -- authenticated users can update their own profile
+
+-- Return to postgres role
+postgres=> call auth.logout();
+CALL
+postgres=> update public.profiles set updated_at=now();
+UPDATE 2 -- postgres role has full access
+```
+
+## Best Practices
+
+1. **Always test with different roles**: Test your policies with `anon`, `authenticated`, and specific user contexts
+2. **Use in development**: These procedures are perfect for development and testing environments
+3. **pgTAP integration**: These procedures can be used for writing pgTAP unit tests for policies
+4. **Clean up after testing**: Always call `auth.logout()` when finished testing to return to postgres role
+5. **Verify expected behavior**: Make sure your policies behave as intended for each role
+
+## When to Use
+
+- **Policy development**: When writing new RLS policies
+- **Policy debugging**: When existing policies aren't working as expected
+- **Unit testing**: For automated testing of database policies
+- **Security validation**: To ensure data access is properly restricted
+
+## Security Notes
+
+- These procedures should only be used in development and testing environments
+- Never use these in production
+- Always logout after testing to avoid accidentally running queries with wrong permissions

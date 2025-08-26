@@ -7,7 +7,11 @@ import {
   sqliteView,
   text
 } from 'drizzle-orm/sqlite-core';
-import { reasonOptions } from './constants';
+import { reasonOptions, statusOptions } from './constants';
+
+// NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
+// see the official PowerSync documentation for the correct column types:
+// https://docs.powersync.com/usage/sync-rules/types#types
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
@@ -497,7 +501,7 @@ export const invite = sqliteTable(
     project_id: text()
       .notNull()
       .references(() => project.id),
-    status: text().notNull(),
+    status: text({ enum: statusOptions }).notNull(),
     as_owner: int({ mode: 'boolean' }).notNull().default(false),
     email: text().notNull(),
     count: int().notNull()
@@ -530,7 +534,7 @@ export const request = sqliteTable('request', {
   project_id: text()
     .notNull()
     .references(() => project.id),
-  status: text().notNull(),
+  status: text({ enum: statusOptions }).notNull(),
   count: int().notNull()
 });
 
