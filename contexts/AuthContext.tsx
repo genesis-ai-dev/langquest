@@ -1,5 +1,4 @@
 import { system } from '@/db/powersync/system';
-import { useLocalStore } from '@/store/localStore';
 import type {
   AuthError,
   AuthResponse,
@@ -81,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Initializing system...');
       setIsSystemReady(false);
       await system.init();
-      await useLocalStore.persist.rehydrate(); // once system is ready (with auth session), rehydrate local store
       setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {

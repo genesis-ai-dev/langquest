@@ -19,7 +19,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [position, setPositionState] = useState(0);
   const [duration, setDuration] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
-  const positionUpdateInterval = useRef<NodeJS.Timeout | null>(null);
+  const positionUpdateInterval = useRef<number | null>(null);
 
   // Clear the position update interval
   const clearPositionInterval = () => {
