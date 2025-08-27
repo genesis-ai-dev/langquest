@@ -1,6 +1,6 @@
 import { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver/lib/src/utils/compilableQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 // import { useQueryClient } from '@tanstack/react-query/build/legacy/QueryClientProvider';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { eq } from 'drizzle-orm';

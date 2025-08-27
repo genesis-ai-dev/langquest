@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface PasswordInputProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
-  style?: any;
+  style?: StyleProp<ViewStyle> & { color: string };
   placeholderTextColor?: string;
 }
 
@@ -18,7 +19,6 @@ export const PasswordInput = ({
   placeholderTextColor
 }: PasswordInputProps) => {
   const [showPassword, setShowPassword] = useState(false);
-
   return (
     <View style={[styles.container, style]} accessibilityLabel="ph-no-capture">
       <TextInput
