@@ -72,7 +72,7 @@ async function processOneMessage(batchSize = 25, maxSteps = 6) {
 
     // Not done; archive this message and send a new one immediately
     await c.query('select pgmq.archive($1::text, $2::bigint)', [
-      'clone_queue', 
+      'clone_queue',
       msg_id
     ]);
     await c.query('select pgmq.send($1::text, $2::jsonb)', [
