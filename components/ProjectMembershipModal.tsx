@@ -313,6 +313,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   .update(profile_project_link)
                   .set({
                     active: false,
+                    membership: 'member', // Demote to member when removed
                     last_updated: new Date().toISOString()
                   })
                   .where(
@@ -384,7 +385,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             try {
               await db
                 .update(profile_project_link)
-                .set({ active: false, last_updated: new Date().toISOString() })
+                .set({
+                  active: false,
+                  membership: 'member', // Demote to member when leaving
+                  last_updated: new Date().toISOString()
+                })
                 .where(
                   and(
                     eq(profile_project_link.profile_id, currentUser.id),
@@ -525,16 +530,23 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           ['declined', 'withdrawn', 'expired'].includes(
             existingInvite.status
           ) ||
-          hasInactiveLink
+          (existingInvite.status === 'accepted' && hasInactiveLink) // Allow reinvitation if user was removed after accepting
         ) {
           if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
             // Update existing invitation
+            // Only increment count if previous invite was declined (user actively rejected)
+            // Don't count: accepted+inactive (successful then removed), withdrawn (sender cancelled), expired (timed out)
+            const newCount =
+              existingInvite.status === 'declined'
+                ? (existingInvite.count || 0) + 1
+                : existingInvite.count || 0;
+
             await db
               .update(invite)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
-                count: (existingInvite.count || 0) + 1,
+                count: newCount,
                 last_updated: new Date().toISOString(),
                 sender_profile_id: currentUser.id // Update sender in case it's different
               })
@@ -731,7 +743,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               </TouchableOpacity>
             )}
           {withdrawInvitePermissions.hasAccess &&
-            invitation.status !== 'withdrawn' && (
+            invitation.status === 'pending' && (
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => void handleWithdrawInvitation(invitation.id)}

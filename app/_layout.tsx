@@ -12,11 +12,10 @@ import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react-native';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { LogBox, Platform } from 'react-native';
-
-LogBox.ignoreAllLogs(); // Ignore log notifications in the app
+import React, { useEffect } from 'react';
+import { SystemBars } from 'react-native-edge-to-edge';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   const hasMounted = useRef(false);
@@ -71,23 +70,27 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    <>
+      <SystemBars
+        style={{
+          statusBar: colorScheme === 'dark' ? 'light' : 'dark',
+          navigationBar: colorScheme === 'dark' ? 'light' : 'dark',
+        }}
+      />
       <PowerSyncContext.Provider value={system.powersync}>
         <PostHogProvider>
           <AuthProvider>
-            <AudioProvider>
-              <QueryProvider>
-                <UpdateBanner />
-                <Stack
-                  screenOptions={{
-                    headerShown: false
-                  }}
-                >
-                  <Stack.Screen name="app" />
-                </Stack>
-              </QueryProvider>
-            </AudioProvider>
+            <QueryProvider>
+              <AudioProvider>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="app" />
+                    </Stack>
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
+              </AudioProvider>
+            </QueryProvider>
           </AuthProvider>
         </PostHogProvider>
       </PowerSyncContext.Provider>

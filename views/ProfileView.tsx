@@ -23,16 +23,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Analytics storage key
-export const ANALYTICS_OPT_OUT_KEY = 'analytics_opt_out';
-
 interface ProfileFormData {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
   selectedLanguageId: string;
   termsAccepted: boolean;
-  analyticsOptOut: boolean;
 }
 
 export default function ProfileView() {
@@ -44,12 +40,15 @@ export default function ProfileView() {
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
 
-  // Handle analytics opt-out toggle
-  const handleAnalyticsToggle = async (value: boolean) => {
+  // Derive analytics enabled state (opposite of opt-out)
+  const analyticsEnabled = !analyticsOptOut;
+
+  // Handle analytics toggle - now toggles "enabled" instead of "opt-out"
+  const handleAnalyticsToggle = (optedIn: boolean) => {
     try {
-      setAnalyticsOptOut(value);
-      // NOTE: ryder was getting errors where posthog was undefined when using usePostHog()
-      await posthog[`opt${value ? 'Out' : 'In'}`]();
+      // Convert "enabled" to "opt-out" for storage
+      setAnalyticsOptOut(!optedIn);
+      console.log('optedOut', posthog.optedOut);
     } catch (error) {
       console.error('Error saving analytics preference:', error);
       Alert.alert(t('error'), t('failedSaveAnalyticsPreference'));
@@ -75,15 +74,9 @@ export default function ProfileView() {
   // Set initial values from user's profile
   useEffect(() => {
     if (currentUser) {
-      reset({
-        selectedLanguageId: currentUser.user_metadata.ui_language_id ?? '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-        termsAccepted: !!currentUser.user_metadata.terms_accepted
-      });
+      reset();
     }
-  }, [currentUser, reset, analyticsOptOut]);
+  }, [currentUser, reset]);
 
   const onSubmit = async (data: ProfileFormData) => {
     if (!currentUser) return;
@@ -149,7 +142,10 @@ export default function ProfileView() {
                     size={20}
                     color={colors.textSecondary}
                   />
-                  <Text style={styles.profileInfoValue}>
+                  <Text
+                    style={styles.profileInfoValue}
+                    accessibilityLabel="ph-no-capture"
+                  >
                     {currentUser.email || 'No email provided'}
                   </Text>
                 </View>
@@ -160,7 +156,10 @@ export default function ProfileView() {
                       size={20}
                       color={colors.textSecondary}
                     />
-                    <Text style={styles.profileInfoValue}>
+                    <Text
+                      style={styles.profileInfoValue}
+                      accessibilityLabel="ph-no-capture"
+                    >
                       {currentUser.user_metadata.username}
                     </Text>
                   </View>
@@ -180,25 +179,25 @@ export default function ProfileView() {
               </TouchableOpacity>
             )}
 
-            {/* Analytics Opt-Out */}
+            {/* Analytics Toggle - Now shows "Enable Analytics" */}
             <View style={styles.settingRow}>
               <Text style={styles.settingLabel}>
-                {t('analyticsOptOutLabel')}
+                {t('analyticsOptInLabel')}
               </Text>
               <Switch
-                value={analyticsOptOut}
+                value={analyticsEnabled}
                 onValueChange={handleAnalyticsToggle}
                 trackColor={{
                   false: colors.textSecondary,
                   true: colors.primary // Use primary color for better contrast
                 }}
                 thumbColor={
-                  analyticsOptOut ? colors.primary : colors.inputBackground
+                  analyticsEnabled ? colors.primary : colors.inputBackground
                 }
               />
             </View>
             <Text style={styles.settingDescription}>
-              {t('analyticsOptOutDescription')}
+              {t('analyticsOptInDescription')}
             </Text>
 
             {/* Language Selection - Always available */}

@@ -1,18 +1,10 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
-import { useAuth } from '@/contexts/AuthContext';
-import { profileService } from '@/database_services/profileService';
-import { profile as profileTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import type { InferSelectModel } from 'drizzle-orm';
-import { eq } from 'drizzle-orm';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -23,83 +15,19 @@ import {
 } from 'react-native';
 
 function TermsView() {
-  const { currentUser } = useAuth();
-
-  type Profile = InferSelectModel<typeof profileTable>;
-
-  // Use useHybridData directly to fetch user profile
-  const { data: profiles, isLoading: isProfileLoading } =
-    useHybridData<Profile>({
-      dataType: 'profile',
-      queryKeyParams: [currentUser?.id || ''],
-
-      // PowerSync query using Drizzle
-      offlineQuery: toCompilableQuery(
-        system.db.query.profile.findMany({
-          where: eq(profileTable.id, currentUser?.id || ''),
-          limit: 1
-        })
-      ),
-
-      // Cloud query
-      cloudQueryFn: async () => {
-        if (!currentUser?.id) return [];
-        const { data, error } = await system.supabaseConnector.client
-          .from('profile')
-          .select('*')
-          .eq('id', currentUser.id)
-          .overrideTypes<Profile[]>();
-        if (error) throw error;
-        return data;
-      },
-
-      enableCloudQuery: !!currentUser?.id
-    });
-
-  const profile = profiles[0];
-
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const { t } = useLocalization();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Sync database terms acceptance with local store
-  useEffect(() => {
-    if (profile?.terms_accepted_at) {
-      const dbTermsDate = new Date(profile.terms_accepted_at);
-      // Only update local store if database has a more recent acceptance
-      if (!dateTermsAccepted || dbTermsDate > new Date(dateTermsAccepted)) {
-        acceptTerms(); // This will update the local store
-      }
-    }
-  }, [profile, dateTermsAccepted, acceptTerms]);
-
-  const handleAcceptTerms = useCallback(async () => {
+  const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
 
     // Update local store immediately for UI responsiveness
     acceptTerms();
 
-    // Update database if user is logged in
-    if (currentUser?.id) {
-      try {
-        const now = new Date().toISOString();
-        await profileService.updateProfile({
-          id: currentUser.id,
-          terms_accepted: true,
-          terms_accepted_at: now
-        });
-        console.log(
-          'Terms acceptance updated in database for user:',
-          currentUser.id
-        );
-      } catch (error) {
-        console.error('Error updating terms acceptance in database:', error);
-      }
-    }
-
     // Navigation will be handled automatically by app.tsx when terms are accepted
-  }, [acceptTerms, currentUser?.id]);
+  }, [acceptTerms]);
 
   const handleToggleTerms = useCallback(() => {
     setTermsAccepted(!termsAccepted);
@@ -114,8 +42,8 @@ function TermsView() {
   }, []);
 
   // Check terms acceptance from database first, fall back to local store
-  const hasAcceptedTerms = profile?.terms_accepted || !!dateTermsAccepted;
-  const canAcceptTerms = !hasAcceptedTerms && !isProfileLoading;
+  const hasAcceptedTerms = !!dateTermsAccepted;
+  const canAcceptTerms = !hasAcceptedTerms;
 
   const [languagesLoaded, setLanguagesLoaded] = useState(false);
   const onLayoutView = useCallback(() => {
@@ -241,7 +169,9 @@ const styles = StyleSheet.create({
     lineHeight: 24
   },
   linkText: {
-    fontSize: 16
+    fontSize: 16,
+    color: colors.text,
+    textDecorationLine: 'underline'
   },
   termsCheckbox: {
     width: '100%',

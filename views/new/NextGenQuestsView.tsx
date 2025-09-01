@@ -2,12 +2,19 @@ import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { project, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import {
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
+} from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -78,6 +85,10 @@ export default function NextGenQuestsView() {
 
   const currentProject = projectData[0];
 
+  const currentStatus = useStatusContext();
+  currentStatus.layerStatus(LayerType.PROJECT, currentProjectId || '');
+  const { showInvisibleContent } = currentStatus;
+
   const {
     data,
     fetchNextPage,
@@ -99,15 +110,16 @@ export default function NextGenQuestsView() {
       const baseCondition = eq(quest.project_id, currentProjectId);
 
       // Add search filtering for offline
-      const whereConditions = debouncedSearchQuery.trim()
-        ? and(
-            baseCondition,
-            or(
+      const whereConditions = and(
+        baseCondition,
+        debouncedSearchQuery.trim()
+          ? or(
               like(quest.name, `%${debouncedSearchQuery}%`),
               like(quest.description, `%${debouncedSearchQuery}%`)
             )
-          )
-        : baseCondition;
+          : undefined,
+        !showInvisibleContent ? eq(quest.visible, true) : undefined
+      );
 
       const quests = await system.db.query.quest.findMany({
         where: whereConditions,
@@ -129,6 +141,10 @@ export default function NextGenQuestsView() {
         .select('*')
         .eq('project_id', currentProjectId);
 
+      if (!showInvisibleContent) {
+        query = query.eq('visible', true);
+      }
+
       // Add search filtering
       if (debouncedSearchQuery.trim()) {
         query = query.or(
@@ -146,12 +162,26 @@ export default function NextGenQuestsView() {
     20 // pageSize
   );
 
-  // Flatten all pages into a single array
+  // Flatten all pages into a single array and deduplicate
   const quests = React.useMemo(() => {
     const allQuests = data.pages.flatMap((page) => page.data);
 
-    // Sort quests by name in natural alphanumerical order
-    return allQuests.sort((a, b) => {
+    // Deduplicate by ID to prevent duplicate keys in FlashList
+    const questMap = new Map<string, Quest & { source?: string }>();
+    allQuests.forEach((quest) => {
+      // Prioritize offline data over cloud data for duplicates
+      const existingQuest = questMap.get(quest.id);
+      if (
+        !existingQuest ||
+        (quest.source === 'localSqlite' &&
+          existingQuest.source === 'cloudSupabase')
+      ) {
+        questMap.set(quest.id, quest);
+      }
+    });
+
+    // Convert back to array and sort by name in natural alphanumerical order
+    return Array.from(questMap.values()).sort((a, b) => {
       // Use localeCompare with numeric option for natural sorting
       return a.name.localeCompare(b.name, undefined, {
         numeric: true,
@@ -242,14 +272,32 @@ export default function NextGenQuestsView() {
           </View>
         )}
         <TouchableOpacity
-          style={styles.filterButton}
+          style={[styles.filterButton]}
           onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
         >
           <Ionicons
-            name={showDownloadedOnly ? 'filter' : 'filter-outline'}
             size={20}
-            color={showDownloadedOnly ? colors.primary : colors.textSecondary}
+            name={showDownloadedOnly ? 'funnel' : 'funnel-outline'}
+            color={colors.text}
+            style={{ zIndex: 1 }}
           />
+          {showDownloadedOnly && (
+            <>
+              {/* This first icon is to put the icon background white */}
+              <Ionicons
+                size={16}
+                name="ellipse"
+                style={[styles.backgroundBox]}
+                color={colors.text}
+              />
+              <Ionicons
+                size={16}
+                name="checkmark-circle"
+                style={[styles.checkIcon]}
+                color={colors.primary}
+              />
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -278,7 +326,6 @@ export default function NextGenQuestsView() {
             data={filteredQuests}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            estimatedItemSize={80}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
             onEndReached={onEndReached}
@@ -299,14 +346,14 @@ export default function NextGenQuestsView() {
       <View style={styles.floatingButtonContainer}>
         <View style={styles.floatingButtonRow}>
           {/* Settings Button - Only visible to owners */}
-          {/* canManageProject && (
+          {canManageProject && (
             <TouchableOpacity
               onPress={() => setShowSettingsModal(true)}
-              style={[styles.floatingButton, styles.settingsFloatingButton]}
+              style={[styles.floatingButton, styles.secondaryFloatingButton]}
             >
               <Ionicons name="settings" size={24} color={colors.text} />
             </TouchableOpacity>
-          ) */}
+          )}
 
           {/* Project Details Button */}
           <TouchableOpacity
@@ -382,7 +429,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.medium,
-    position: 'relative'
+    position: 'relative',
+    gap: spacing.small
   },
   searchInput: {
     flex: 1,
@@ -467,10 +515,21 @@ export const styles = StyleSheet.create({
   filterButton: {
     position: 'absolute',
     right: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
+    padding: spacing.small,
+    borderRadius: borderRadius.small
+  },
+  backgroundBox: {
+    position: 'absolute',
+    padding: 2,
+    borderRadius: borderRadius.small,
+    right: 0,
+    zIndex: 1000
+  },
+  checkIcon: {
+    position: 'absolute',
+    padding: 2,
+    borderRadius: borderRadius.small,
+    right: 0,
+    zIndex: 1000
   }
 });

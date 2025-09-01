@@ -44,6 +44,7 @@ export const colors = {
   accent: adjustColor(getColorHex(themeColor), 30),
   error: '#FF0000',
   disabled: '#999999',
+  inactive: '#777777',
   success: '#16BFC6', // Green color for success state
   alert: '#CA59E5', // purple color for alert state
   downVoted: '#7f6138' // a light brown
@@ -107,7 +108,7 @@ export const sharedStyles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colors.inputBorder,
-    paddingVertical: spacing.medium,
+    paddingVertical: 12,
     paddingHorizontal: spacing.large,
     width: '100%',
     minHeight: 48,
@@ -290,7 +291,7 @@ export const sharedStyles = StyleSheet.create({
     opacity: 0.2
   },
   disabled: {
-    backgroundColor: colors.disabled,
+    backgroundColor: colors.inactive,
     opacity: 0.4
   }
 });

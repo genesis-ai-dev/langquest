@@ -1,32 +1,43 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
+
 import { AssetListItem } from './AssetListItem';
 import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Asset = typeof asset.$inferSelect;
+type AssetQuestLink = Asset & {
+  quest_active: boolean;
+  quest_visible: boolean;
+};
 
 export default function NextGenAssetsView() {
-  const { currentQuestId } = useCurrentNavigation();
+  const { currentQuestId, currentProjectId } = useCurrentNavigation();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
   const { t } = useLocalization();
+  const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
   // Debounce the search query
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -36,6 +47,19 @@ export default function NextGenAssetsView() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
+  const { membership } = useUserPermissions(
+    currentProjectId || '',
+    'open_project',
+    false
+  );
+
+  const isOwner = membership === 'owner';
+
+  // Clean deeper layers
+  const currentStatus = useStatusContext();
+  currentStatus.layerStatus(LayerType.QUEST);
+  const { showInvisibleContent } = currentStatus;
+
   const {
     data,
     fetchNextPage,
@@ -44,7 +68,7 @@ export default function NextGenAssetsView() {
     isLoading,
     isOnline,
     isFetching
-  } = useSimpleHybridInfiniteData<Asset>(
+  } = useSimpleHybridInfiniteData<AssetQuestLink>(
     'assets',
     [currentQuestId || '', debouncedSearchQuery],
     // Offline query function - Assets must be downloaded to use
@@ -54,23 +78,30 @@ export default function NextGenAssetsView() {
       try {
         const offset = pageParam * pageSize;
 
+        const conditions = [
+          eq(quest_asset_link.quest_id, currentQuestId),
+          !showInvisibleContent ? eq(asset.visible, true) : undefined,
+          !showInvisibleContent ? eq(quest_asset_link.visible, true) : undefined
+        ];
+
         // Build base query
         const baseQuery = system.db
           .select({
             id: asset.id,
             name: asset.name,
-            source_language_id: asset.source_language_id,
             images: asset.images,
             creator_id: asset.creator_id,
             visible: asset.visible,
             active: asset.active,
             created_at: asset.created_at,
             last_updated: asset.last_updated,
-            download_profiles: asset.download_profiles
+            download_profiles: asset.download_profiles,
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active
           })
           .from(asset)
           .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-          .where(eq(quest_asset_link.quest_id, currentQuestId));
+          .where(and(...conditions.filter(Boolean)));
 
         // Add search filtering if search query exists
         if (debouncedSearchQuery.trim()) {
@@ -90,12 +121,16 @@ export default function NextGenAssetsView() {
           });
 
           // Apply pagination to filtered results
-          return filteredAssets.slice(offset, offset + pageSize) as Asset[];
+          return filteredAssets.slice(
+            offset,
+            offset + pageSize
+          ) as AssetQuestLink[];
         }
 
         // Normal pagination without search
         const assets = await baseQuery.limit(pageSize).offset(offset);
-        return assets as Asset[];
+
+        return assets as AssetQuestLink[];
       } catch (error) {
         console.error('[ASSETS] Offline query error:', error);
         return [];
@@ -105,7 +140,7 @@ export default function NextGenAssetsView() {
     // eslint-disable-next-line @typescript-eslint/require-await
     async () => {
       // Assets must be downloaded to be used, so cloud query returns empty
-      return [] as Asset[];
+      return [] as AssetQuestLink[];
     },
     20 // pageSize
   );
@@ -156,10 +191,11 @@ export default function NextGenAssetsView() {
   }, [attachmentStates]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: Asset & { source?: string } }) => (
+    ({ item }: { item: AssetQuestLink & { source?: string } }) => (
       <AssetListItem
         asset={item}
         attachmentState={attachmentStates.get(item.id)}
+        questId={currentQuestId || ''}
       />
     ),
     [attachmentStates]
@@ -210,6 +246,14 @@ export default function NextGenAssetsView() {
       })
       .join(' | ');
   }, [attachmentStateSummary, t]);
+
+  const statusContext = useStatusContext();
+  // statusContext.layerStatus(LayerType.QUEST, currentQuestId || '');
+  const { allowSettings } = statusContext.getStatusParams(
+    LayerType.QUEST,
+    currentQuestId
+  );
+  // statusContext?.setLayerStatus(LayerType.QUEST, statusContext.layerStatus, '');
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -286,7 +330,6 @@ export default function NextGenAssetsView() {
             data={assets}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            estimatedItemSize={80}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
             onEndReached={onEndReached}
@@ -301,6 +344,29 @@ export default function NextGenAssetsView() {
             }
           />
         </View>
+      )}
+
+      {/* Floating action buttons */}
+      <View style={styles.floatingButtonContainer}>
+        <View style={styles.floatingButtonRow}>
+          {/* Quest Settings Button */}
+          {allowSettings && isOwner && (
+            <TouchableOpacity
+              onPress={() => setShowSettingsModal(true)}
+              style={[styles.floatingButton, styles.secondaryFloatingButton]}
+            >
+              <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      {allowSettings && isOwner && (
+        <QuestSettingsModal
+          isVisible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          questId={currentQuestId}
+          projectId={currentProjectId || ''}
+        />
       )}
     </View>
   );
@@ -400,5 +466,36 @@ export const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: fontSizes.medium
+  },
+  floatingButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: spacing.large,
+    right: spacing.large,
+    gap: spacing.small
+  },
+  floatingButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.small
+  },
+  secondaryFloatingButton: {
+    backgroundColor: colors.inputBackground
+  },
+  settingsFloatingButton: {
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
   }
 });
