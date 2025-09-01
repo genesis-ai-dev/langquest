@@ -1,6 +1,5 @@
 import '../global.css';
 
-import { UpdateBanner } from '@/components/UpdateBanner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -12,7 +11,8 @@ import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react-native';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -70,11 +70,11 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <SystemBars
         style={{
           statusBar: colorScheme === 'dark' ? 'light' : 'dark',
-          navigationBar: colorScheme === 'dark' ? 'light' : 'dark',
+          navigationBar: colorScheme === 'dark' ? 'light' : 'dark'
         }}
       />
       <PowerSyncContext.Provider value={system.powersync}>
