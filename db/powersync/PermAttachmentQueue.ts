@@ -63,7 +63,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       }
 
       let isRefreshing = false;
-      let debounceTimeout: NodeJS.Timeout | null = null;
+      let debounceTimeout: number | null = null;
 
       // Unified function to query all tables and update PowerSync with complete list
       const refreshAllAttachments = async () => {

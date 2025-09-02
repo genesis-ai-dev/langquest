@@ -128,8 +128,6 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   SELECT COUNT(*) AS quest_closure_rows FROM public.quest_closure;
   ```
 
-  This runs `supabase/scripts/populate_closures.sql` against the local DB. It’s idempotent and safe to rerun.
-
 ### Usage
 
 #### Making Database Changes
@@ -145,7 +143,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 4. Generate a migration file with a descriptive name to describe your changes:
 
    ```bash
-   npm run supabase:migration:diff -- "your_migration_description"
+   npm run supabase db diff -- -f "your_migration_description"
    ```
 
    > This creates a timestamped SQL migration file in the `supabase/migrations` directory. The script automatically handles storage permissions issues during migration generation.
