@@ -7,7 +7,11 @@ import {
   sqliteView,
   text
 } from 'drizzle-orm/sqlite-core';
-import { reasonOptions } from './constants';
+import { reasonOptions, statusOptions } from './constants';
+
+// NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
+// see the official PowerSync documentation for the correct column types:
+// https://docs.powersync.com/usage/sync-rules/types#types
 
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
@@ -121,6 +125,8 @@ export const projectRelations = relations(project, ({ one, many }) => ({
   invites: many(invite),
   requests: many(request)
 }));
+
+// (removed duplicate early definition of project_language_link)
 export const quest = sqliteTable(
   'quest',
   {
@@ -255,6 +261,41 @@ export const quest_asset_linkRelations = relations(
     asset: one(asset, {
       fields: [quest_asset_link.asset_id],
       references: [asset.id]
+    })
+  })
+);
+
+// Project-language link with explicit type separation (source/target)
+export const project_language_link = sqliteTable(
+  'project_language_link',
+  {
+    ...linkColumns,
+    project_id: text()
+      .notNull()
+      .references(() => project.id),
+    language_id: text()
+      .notNull()
+      .references(() => language.id),
+    language_type: text({ enum: ['source', 'target'] }).notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
+  },
+  (t) => [
+    primaryKey({ columns: [t.project_id, t.language_id, t.language_type] }),
+    index('pll_project_id_idx').on(t.project_id),
+    index('pll_language_type_idx').on(t.language_type)
+  ]
+);
+
+export const project_language_linkRelations = relations(
+  project_language_link,
+  ({ one }) => ({
+    project: one(project, {
+      fields: [project_language_link.project_id],
+      references: [project.id]
+    }),
+    language: one(language, {
+      fields: [project_language_link.language_id],
+      references: [language.id]
     })
   })
 );
@@ -443,11 +484,15 @@ export const asset_content_link = sqliteTable(
     asset_id: text()
       .notNull()
       .references(() => asset.id),
+    source_language_id: text().references(() => language.id),
     text: text().notNull(),
     audio_id: text(),
     download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
-  (t) => [index('asset_id_idx').on(t.asset_id)]
+  (t) => [
+    index('asset_id_idx').on(t.asset_id),
+    index('asset_content_link_source_language_id_idx').on(t.source_language_id)
+  ]
 );
 
 export const asset_content_linkRelations = relations(
@@ -456,6 +501,10 @@ export const asset_content_linkRelations = relations(
     asset: one(asset, {
       fields: [asset_content_link.asset_id],
       references: [asset.id]
+    }),
+    source_language: one(language, {
+      fields: [asset_content_link.source_language_id],
+      references: [language.id]
     })
   })
 );
@@ -476,7 +525,7 @@ export const invite = sqliteTable(
     project_id: text()
       .notNull()
       .references(() => project.id),
-    status: text().notNull(),
+    status: text({ enum: statusOptions }).notNull(),
     as_owner: int({ mode: 'boolean' }).notNull().default(false),
     email: text().notNull(),
     count: int().notNull()
@@ -509,7 +558,7 @@ export const request = sqliteTable('request', {
   project_id: text()
     .notNull()
     .references(() => project.id),
-  status: text().notNull(),
+  status: text({ enum: statusOptions }).notNull(),
   count: int().notNull()
 });
 

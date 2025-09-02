@@ -687,7 +687,10 @@ export const useLocalStore = create<LocalState>()(
     {
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
-      skipHydration: true,
+      // skipHydration: true,
+      onRehydrateStorage: () => (state) => {
+        console.log('rehydrating local store', state);
+      },
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(

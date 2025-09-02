@@ -1,5 +1,6 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -64,6 +65,15 @@ export default function NextGenProjectsView() {
 
   const userId = currentUser?.id;
 
+  // Clean Status Navigation
+  const currentContext = useStatusContext();
+  currentContext.setLayerStatus(
+    LayerType.PROJECT,
+    { active: true, visible: true },
+    ''
+  );
+  const showInvisibleContent = currentContext.showInvisibleContent;
+
   // Query for My Projects (user is owner or member)
   const myProjectsQuery = useSimpleHybridInfiniteData<Project>(
     'my-projects',
@@ -89,8 +99,13 @@ export default function NextGenProjectsView() {
 
       const projectIds = projectLinks.map((link) => link.project_id);
 
+      const conditions = [
+        inArray(project.id, projectIds),
+        !showInvisibleContent ? eq(project.visible, true) : undefined
+      ];
+
       const projects = await system.db.query.project.findMany({
-        where: and(eq(project.active, true), inArray(project.id, projectIds)),
+        where: and(...conditions.filter(Boolean)),
         limit: pageSize,
         offset
       });
@@ -105,7 +120,7 @@ export default function NextGenProjectsView() {
       const to = from + pageSize - 1;
 
       // Query projects where user is creator or member
-      const { data, error } = await system.supabaseConnector.client
+      let query = system.supabaseConnector.client
         .from('project')
         .select(
           `
@@ -113,10 +128,10 @@ export default function NextGenProjectsView() {
           profile_project_link!inner(profile_id)
         `
         )
-        .eq('active', true)
         .eq('profile_project_link.profile_id', userId)
-        .range(from, to)
-        .overrideTypes<Project[]>();
+        .range(from, to);
+      if (!showInvisibleContent) query = query.eq('visible', true);
+      const { data, error } = await query.overrideTypes<Project[]>();
 
       if (error) throw error;
       return data || [];
@@ -150,7 +165,7 @@ export default function NextGenProjectsView() {
         if (userProjectIds.length > 0) {
           const projects = await system.db.query.project.findMany({
             where: and(
-              eq(project.active, true),
+              // eq(project.active, true),
               notInArray(project.id, userProjectIds)
             ),
             limit: pageSize,
@@ -181,10 +196,8 @@ export default function NextGenProjectsView() {
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
 
-      let query = system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('active', true);
+      let query = system.supabaseConnector.client.from('project').select('*');
+      // .eq('active', true);
 
       // Exclude projects where user is a member (if user is logged in)
       if (userId) {

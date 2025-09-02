@@ -1,10 +1,12 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { LayerStatus } from '@/database_services/types';
 import type { quest, quest_closure } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors } from '@/styles/theme';
+import { colors, sharedStyles } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
@@ -76,6 +78,13 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
     quest.id
   );
 
+  const currentStatus = useStatusContext();
+  const { allowEditing, invisible } = currentStatus.getStatusParams(
+    LayerType.ASSET,
+    quest.id || '',
+    quest as LayerStatus
+  );
+
   // Determine if this is a cloud quest that needs downloading
   const isCloudQuest = quest.source === 'cloudSupabase';
   const needsDownload = isCloudQuest && !isDownloaded;
@@ -83,6 +92,11 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
   const handlePress = () => {
     // Only allow navigation if quest is downloaded or not from cloud
     if (!needsDownload) {
+      currentStatus.setLayerStatus(
+        LayerType.QUEST,
+        quest as LayerStatus,
+        quest.id
+      );
       goToQuest({
         id: quest.id,
         project_id: quest.project_id,
@@ -118,7 +132,9 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
           needsDownload && {
             opacity: 0.5,
             backgroundColor: colors.inputBackground + '80' // More muted background
-          }
+          },
+          !allowEditing && sharedStyles.disabled,
+          invisible && sharedStyles.invisible
         ]}
       >
         <View

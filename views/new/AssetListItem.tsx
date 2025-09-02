@@ -2,10 +2,11 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { colors, fontSizes, spacing } from '@/styles/theme';
+import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
 // import { AttachmentState } from '@powersync/attachments';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,8 +15,14 @@ import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 // Define props locally to avoid require cycle
 
 type Asset = typeof asset_type.$inferSelect;
+
+type AssetQuestLink = Asset & {
+  quest_active: boolean;
+  quest_visible: boolean;
+};
 export interface AssetListItemProps {
-  asset: Asset;
+  asset: AssetQuestLink;
+  questId: string;
   attachmentState?: AttachmentRecord;
   onPress?: (asset: Asset) => void;
 }
@@ -76,8 +83,8 @@ export interface AssetListItemProps {
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
-  attachmentState,
-  onPress
+  questId,
+  attachmentState
 }) => {
   const { goToAsset } = useAppNavigation();
   const { currentUser } = useAuth();
@@ -91,15 +98,34 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     asset.id
   );
 
+  const layerStatus = useStatusContext();
+  const { allowEditing, invisible } = layerStatus.getStatusParams(
+    LayerType.ASSET,
+    asset.id || '',
+    {
+      visible: asset.visible && asset.quest_visible,
+      active: asset.active && asset.quest_active
+    },
+    questId
+  );
+
   const handlePress = () => {
-    if (onPress) {
-      onPress(asset);
-    } else {
-      goToAsset({
-        id: asset.id,
-        name: asset.name || t('unnamedAsset')
-      });
-    }
+    layerStatus.setLayerStatus(
+      LayerType.ASSET,
+      {
+        visible: asset.visible,
+        active: asset.active,
+        quest_active: asset.quest_active,
+        quest_visible: asset.quest_visible
+      },
+      asset.id,
+      questId
+    );
+
+    goToAsset({
+      id: asset.id,
+      name: asset.name || t('unnamedAsset')
+    });
   };
 
   const handleDownloadToggle = () => {
@@ -111,7 +137,13 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
 
   return (
     <TouchableOpacity onPress={handlePress}>
-      <View style={styles.listItem}>
+      <View
+        style={[
+          styles.listItem,
+          !allowEditing && sharedStyles.disabled,
+          invisible && sharedStyles.invisible
+        ]}
+      >
         <View
           style={{
             flexDirection: 'row',

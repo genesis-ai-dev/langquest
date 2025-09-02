@@ -102,6 +102,32 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
   npm run env:clean
   ```
 
+  - This resets your local database and applies the latest migrations found in `supabase/migrations/` to your local instance.
+  - To verify which migrations are applied:
+    - In Supabase Studio: open `http://localhost:54323` → Database → Migrations
+    - Via CLI:
+      - Direct: `npx supabase migration list --local`
+      - Or using the project alias: `npm run supabase migration list -- --local`
+
+- If the environment stopped after cleaning, start it again:
+
+  ```bash
+  npm run env
+  ```
+
+- Populate closure tables after seeding (choose one):
+
+  - From Supabase Studio (SQL editor):
+    ```sql
+    SELECT public.populate_closures();
+    ```
+
+  Note: The function returns void; Studio may show an empty result. To verify closure rows exist:
+  ```sql
+  SELECT COUNT(*) AS project_closure_rows FROM public.project_closure;
+  SELECT COUNT(*) AS quest_closure_rows FROM public.quest_closure;
+  ```
+
 ### Usage
 
 #### Making Database Changes
@@ -117,7 +143,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 4. Generate a migration file with a descriptive name to describe your changes:
 
    ```bash
-   npm run supabase:migration:diff -- "your_migration_description"
+   npm run supabase db diff -- -f "your_migration_description"
    ```
 
    > This creates a timestamped SQL migration file in the `supabase/migrations` directory. The script automatically handles storage permissions issues during migration generation.

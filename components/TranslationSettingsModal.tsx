@@ -1,8 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { translation } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
-// import { useLocalization } from '@/hooks/useLocalization';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateTranslationStatus,
+  useTranslationStatuses
+} from '@/database_services/status/translation';
+import { useLocalization } from '@/hooks/useLocalization';
 import {
   borderRadius,
   colors,
@@ -11,9 +13,6 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -38,39 +37,25 @@ type TStatusType = 'active' | 'visible';
 export const TranslationSettingsModal: React.FC<
   TranslationSettingsModalProps
 > = ({ isVisible, onClose, translationId }) => {
-  // const { t } = useLocalization();
-  const { db, supabaseConnector } = system;
+  const { t } = useLocalization();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isTranslationLoaded, setIsTranslationLoaded] = useState(false);
-
   const { currentUser } = useAuth();
 
-  const queryClient = useQueryClient();
+  const {
+    data: translationData,
+    isLoading,
+    isError,
+    refetch
+  } = useTranslationStatuses(translationId);
 
-  const { data: translationDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['translation-settings', translationId],
-    onlineFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('translation')
-        .select('*')
-        .eq('id', translationId)
-        .limit(1);
-
-      if (error) throw error;
-      return data as (typeof translation.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.translation.findMany({
-        where: eq(translation.id, translationId)
-      })
-    )
-  });
-
-  const translationData = translationDataArray[0];
-  if (translationData != undefined && !isTranslationLoaded) {
-    setIsTranslationLoaded(true);
+  if (isError) {
+    Alert.alert(t('error'), t('translationSettingsLoadError'));
+    onClose();
+    return null;
   }
+
   const isOwnTranslation = currentUser?.id === translationData?.creator_id;
+  const layerStatus = useStatusContext();
 
   const handleToggleStatus = async (statusType: TStatusType) => {
     if (!translationData) return;
@@ -89,8 +74,8 @@ export const TranslationSettingsModal: React.FC<
         visible = true;
       }
       message = visible
-        ? 'The translation has been made visible'
-        : 'The translation has been made invisible';
+        ? t('statusTranslationMadeVisible')
+        : t('statusTranslationMadeInvisible');
     } else {
       if (!active) {
         visible = true;
@@ -99,43 +84,25 @@ export const TranslationSettingsModal: React.FC<
         active = false;
       }
       message = active
-        ? 'The translation has been made active'
-        : 'The translation has been made inactive';
+        ? t('statusTranslationMadeActive')
+        : t('statusTranslationMadeInactive');
     }
 
     try {
-      await supabaseConnector.client
-        .from('translation')
-        .update({
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: translationId });
+      await updateTranslationStatus(translationId, { visible, active });
+      layerStatus.setLayerStatus(
+        LayerType.TRANSLATION,
+        { visible, active },
+        translationId
+      );
       refetch();
 
-      Alert.alert('Success', message);
+      Alert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating translation status:', error);
-      Alert.alert('Error', 'Failed to update translation settings');
+      Alert.alert(t('error'), t('statusTranslationUpdateFailed'));
     } finally {
       setIsSubmitting(false);
-
-      queryClient.removeQueries({
-        // queryKey: ['translations-with-votes-and-language', 'by-asset', assetId],
-        queryKey: ['translations-with-votes-and-language', 'by-asset'],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['translation', translationId],
-        exact: false
-      });
-
-      // queryClient.removeQueries({
-      //   queryKey: ['translations', >>>> 'by-project', projectId],
-      //   exact: false
-      // });
     }
   };
 
@@ -163,27 +130,23 @@ export const TranslationSettingsModal: React.FC<
                 title={'Visibility'}
                 description={
                   translationData?.visible
-                    ? 'This translation is visible to other users.'
-                    : 'This translation is hidden and will not be shown to other users. An invisible translation is also inactive.'
+                    ? t('statusTranslationVisible')
+                    : t('statusTranslationInvisible')
                 }
                 value={translationData?.visible ?? false}
                 onChange={() => handleToggleStatus('visible')}
-                disabled={
-                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
-                }
+                disabled={isSubmitting || isLoading || !isOwnTranslation}
               />
               <SwitchBox
                 title={'Active'}
                 description={
                   translationData?.active
-                    ? 'This translation is currently active. An active translation is also visible.'
-                    : 'This translation is inactive. No actions can be performed unless it is reactivated.'
+                    ? t('statusTranslationActive')
+                    : t('statusTranslationInactive')
                 }
                 value={translationData?.active ?? false}
                 onChange={() => handleToggleStatus('active')}
-                disabled={
-                  isSubmitting || !isTranslationLoaded || !isOwnTranslation
-                }
+                disabled={isSubmitting || isLoading || !isOwnTranslation}
               />
             </View>
           </TouchableWithoutFeedback>
