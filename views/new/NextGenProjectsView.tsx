@@ -1,3 +1,4 @@
+import EnergyVADRecorder from '@/components/EnergyVADRecorder';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -62,6 +63,7 @@ export default function NextGenProjectsView() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showDownloadedOnly] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
+  const [showVoiceRecorder, setShowVoiceRecorder] = React.useState(false);
 
   const userId = currentUser?.id;
 
@@ -73,6 +75,12 @@ export default function NextGenProjectsView() {
     ''
   );
   const showInvisibleContent = currentContext.showInvisibleContent;
+  // Handle voice recording completion
+  const handleRecordingComplete = React.useCallback((uri: string) => {
+    console.log('Voice recording completed:', uri);
+    // TODO: Process the audio recording (e.g., speech-to-text for search)
+    // For now, just log the URI
+  }, []);
 
   // Query for My Projects (user is owner or member)
   const myProjectsQuery = useSimpleHybridInfiniteData<Project>(
@@ -352,6 +360,16 @@ export default function NextGenProjectsView() {
           onChangeText={setSearchQuery}
           placeholderTextColor={colors.textSecondary}
         />
+        <TouchableOpacity
+          style={styles.voiceButton}
+          onPress={() => setShowVoiceRecorder(!showVoiceRecorder)}
+        >
+          <Ionicons
+            name={showVoiceRecorder ? 'mic' : 'mic-outline'}
+            size={20}
+            color={showVoiceRecorder ? colors.primary : colors.textSecondary}
+          />
+        </TouchableOpacity>
         {/* <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
@@ -363,6 +381,17 @@ export default function NextGenProjectsView() {
           />
         </TouchableOpacity> */}
       </View>
+
+      {/* Voice Recorder */}
+      {showVoiceRecorder && (
+        <View style={styles.voiceRecorderContainer}>
+          <EnergyVADRecorder
+            onRecordingComplete={handleRecordingComplete}
+            energyThreshold={0.03}
+            showEnergyVisualization={true}
+          />
+        </View>
+      )}
 
       {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS && (
@@ -442,6 +471,15 @@ export const styles = StyleSheet.create({
   },
   filterButton: {
     paddingHorizontal: spacing.small
+  },
+  voiceButton: {
+    paddingHorizontal: spacing.small
+  },
+  voiceRecorderContainer: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    marginBottom: spacing.medium,
+    padding: spacing.medium
   },
   tabContainer: {
     flexDirection: 'row',

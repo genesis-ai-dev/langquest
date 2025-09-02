@@ -74,6 +74,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           }
         ],
         [
+          'expo-build-properties',
+          {
+            android: {
+              compileSdkVersion: 35,
+              targetSdkVersion: 35,
+              buildToolsVersion: '35.0.0'
+            }
+          }
+        ],
+        [
           'expo-splash-screen',
           {
             image: './assets/images/icon.png',
@@ -89,6 +99,16 @@ export default ({ config }: ConfigContext): ExpoConfig =>
               parentTheme: 'Default',
               enforceNavigationBarContrast: false
             }
+          }
+        ],
+        'expo-font',
+        'expo-router',
+        // migrate existing localization to expo-localization
+        'expo-localization',
+        [
+          'expo-screen-orientation',
+          {
+            initialOrientation: 'PORTRAIT_UP'
           }
         ]
       ],
