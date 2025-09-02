@@ -37,12 +37,17 @@ $$;
 -- allow authenticated users to call the function
 grant execute on function public.create_project_ownership(uuid, uuid) to authenticated;
 
--- optional: if a read-own policy does not already exist, create one
--- this enables clients to query their own membership links when needed
-create policy if not exists "read own links"
-on public.profile_project_link
-for select
-to authenticated
-using (profile_id = auth.uid());
+-- optional: ensure a read-own select policy exists (ignore if it already exists)
+do $$
+begin
+  create policy "read own links"
+  on public.profile_project_link
+  for select
+  to authenticated
+  using (profile_id = auth.uid());
+exception when duplicate_object then
+  -- policy already exists; do nothing
+  null;
+end$$;
 
 
