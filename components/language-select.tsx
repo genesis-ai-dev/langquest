@@ -6,21 +6,22 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { useSystem } from '@/contexts/SystemContext';
-import { language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
-import { Languages } from '@/lib/icons/Languages';
+import type { language } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@powersync/react-native';
-import { eq } from 'drizzle-orm';
-import React from 'react';
+import { LanguagesIcon } from 'lucide-react-native';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from './ui/icon';
 
 type Language = typeof language.$inferSelect;
 
 interface LanguageSelectProps {
+  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
   onChange?: (language: Language) => void;
   label?: boolean;
@@ -29,7 +30,8 @@ interface LanguageSelectProps {
 
 export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   value,
-  onChange
+  onChange,
+  setLanguagesLoaded
 }) => {
   const insets = useSafeAreaInsets();
   const contentInsets = {
@@ -42,18 +44,40 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     right: 21
   };
 
-  const { db } = useSystem();
   const setLanguage = useLocalStore((state) => state.setLanguage);
   const savedLanguage = useLocalStore((state) => state.language);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
 
-  const { data: languages } = useQuery(
-    toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.ui_ready, true)
+  const { data: languages } = useHybridData<Language>({
+    dataType: 'languages',
+    queryKeyParams: ['ui-ready'],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: (languageTable, { eq, and }) =>
+          and(eq(languageTable.active, true), eq(languageTable.ui_ready, true))
       })
-    )
-  );
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('language')
+        .select('*')
+        .eq('active', true)
+        .eq('ui_ready', true)
+        .overrideTypes<Language[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  useEffect(() => {
+    if (languages.length > 0) {
+      setLanguagesLoaded?.(true);
+    }
+  }, [languages, setLanguagesLoaded]);
 
   const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
   const selectedLanguage =
@@ -76,10 +100,10 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         }
       }}
     >
-      <SelectTrigger className="flex-row items-center h-12 px-3 rounded-md border border-input bg-background">
-        <Languages size={20} className="text-muted-foreground" />
+      <SelectTrigger className="h-12 flex-row items-center rounded-md px-3">
+        <Icon as={LanguagesIcon} className="text-muted-foreground" />
         <SelectValue
-          className="text-foreground text-sm native:text-base"
+          className="text-base text-foreground"
           placeholder={t('selectLanguage')}
         />
       </SelectTrigger>

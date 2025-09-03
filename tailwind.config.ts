@@ -1,6 +1,74 @@
 import { hairlineWidth } from 'nativewind/theme';
+import fs from 'node:fs';
+import path from 'node:path';
 import { type Config } from 'tailwindcss';
 import tailwindcssAnimate from 'tailwindcss-animate';
+import plugin from 'tailwindcss/plugin';
+
+function extractCssVariableBlocks(css: string) {
+  const findBlock = (marker: string) => {
+    const start = css.indexOf(marker);
+    if (start === -1) return '';
+    const braceStart = css.indexOf('{', start);
+    if (braceStart === -1) return '';
+    let depth = 0;
+    for (let i = braceStart; i < css.length; i++) {
+      const ch = css[i];
+      if (ch === '{') depth++;
+      if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          return css.slice(braceStart + 1, i);
+        }
+      }
+    }
+    return '';
+  };
+
+  const rootBlock = findBlock(':root');
+  const darkRootBlock = findBlock('.dark:root');
+  return { rootBlock, darkRootBlock };
+}
+
+function parseVariables(block: string): Record<string, string> {
+  const vars: Record<string, string> = {};
+  block
+    .split(/\n|;/g)
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('--'))
+    .forEach((line) => {
+      const idx = line.indexOf(':');
+      if (idx === -1) return;
+      const key = line.slice(0, idx).trim();
+      const raw = line.slice(idx + 1).trim();
+      const value = raw.replace(/;$/, '');
+      vars[key] = value;
+    });
+  return vars;
+}
+
+const generateTokensPlugin = plugin(() => {
+  try {
+    const cssPath = path.resolve(process.cwd(), 'global.css');
+    if (!fs.existsSync(cssPath)) return;
+    const css = fs.readFileSync(cssPath, 'utf8');
+    const { rootBlock, darkRootBlock } = extractCssVariableBlocks(css);
+    if (!rootBlock || !darkRootBlock) return;
+
+    const lightVars = parseVariables(rootBlock);
+    const darkVars = parseVariables(darkRootBlock);
+
+    const outPath = path.resolve(process.cwd(), 'generated-tokens.ts');
+    const file = `export const cssTokens = {\n  light: ${JSON.stringify(
+      { ...darkVars, ...lightVars },
+      null,
+      2
+    )},\n  dark: ${JSON.stringify({ ...lightVars, ...darkVars }, null, 2)}\n} as const;\n`;
+    fs.writeFileSync(outPath, file, 'utf8');
+  } catch {
+    // Fail silently; this file is optional and generation will retry on next build
+  }
+});
 
 const config = {
   darkMode: 'class',
@@ -62,7 +130,7 @@ const config = {
       }
     }
   },
-  plugins: [tailwindcssAnimate]
+  plugins: [tailwindcssAnimate, generateTokensPlugin]
 } satisfies Config;
 
 export default config;

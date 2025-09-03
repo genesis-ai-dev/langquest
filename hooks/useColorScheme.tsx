@@ -1,5 +1,14 @@
 import { useLocalStore } from '@/store/localStore';
-import { useColorScheme as useNativewindColorScheme } from 'nativewind';
+import {
+  colorScheme as nativewindColorScheme,
+  useColorScheme as useNativewindColorScheme
+} from 'nativewind';
+
+export function getColorScheme(): 'light' | 'dark' {
+  const colorScheme = nativewindColorScheme.get();
+  const stateTheme = useLocalStore.getState().theme;
+  return stateTheme === 'system' ? colorScheme! : stateTheme;
+}
 
 export function useColorScheme() {
   // const colorScheme = useNativeColorScheme();

@@ -16,6 +16,11 @@
   }
 
   :root {
+    --radius: 0.5rem;
+    --default-icon-size: 16;
+  }
+
+  :root {
     --background: 240 100% 98.04%;
     --foreground: 240 27.59% 22.75%;
     --card: 0 0% 100%;
@@ -33,7 +38,7 @@
     --destructive: 350.18 100% 66.47%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 34.78% 90.98%;
-    --input: 240 34.78% 90.98%;
+    --input: 0 0% 100%;
     --ring: 251.9 55.76% 57.45%;
     --chart-1: 251.9 55.76% 57.45%;
     --chart-2: 249.64 94.92% 76.86%;
@@ -48,7 +53,9 @@
     --sidebar-accent-foreground: 240 27.59% 22.75%;
     --sidebar-border: 240 34.78% 90.98%;
     --sidebar-ring: 251.9 55.76% 57.45%;
-    --radius: 0.5rem;
+
+    --background-gradient-start: 262.5 60% 98.04%;
+    --background-gradient-end: 262.5 57% 30%;
   }
 
   .dark:root {
@@ -69,7 +76,7 @@
     --destructive: 350.18 100% 66.47%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 26.15% 25.49%;
-    --input: 240 26.15% 25.49%;
+    --input: 240 27.78% 14.12%;
     --ring: 251.25 100% 78.04%;
     --chart-1: 251.25 100% 78.04%;
     --chart-2: 230.49 44.09% 63.53%;
@@ -84,6 +91,8 @@
     --sidebar-accent-foreground: 240 48.72% 92.35%;
     --sidebar-border: 240 26.15% 25.49%;
     --sidebar-ring: 251.25 100% 78.04%;
-    --radius: 0.5rem;
+
+    --background-gradient-start: 262.5 0% 0%;
+    --background-gradient-end: 262.5 67% 15%;
   }
 }

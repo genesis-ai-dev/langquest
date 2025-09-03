@@ -1,5 +1,5 @@
 import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/styleUtils';
 import * as TogglePrimitive from '@rn-primitives/toggle';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';

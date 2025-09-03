@@ -1,14 +1,16 @@
-import '../global.css';
+import '@/global.css';
 
-import { ThemeProvider } from '@/components/theme-provider';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react-native';
+// Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { ThemeProvider } from '@react-navigation/native';
+import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -16,6 +18,21 @@ import { Platform } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { cssTokens } from '@/generated-tokens';
+import { toNavTheme } from '@/utils/styleUtils';
+import { DarkTheme, DefaultTheme } from '@react-navigation/native';
+
+export const NAV_THEME = {
+  light: {
+    ...DefaultTheme,
+    colors: toNavTheme(cssTokens.light as Record<string, string>)
+  },
+  dark: {
+    ...DarkTheme,
+    colors: toNavTheme(cssTokens.dark as Record<string, string>)
+  }
+};
 
 export default function RootLayout() {
   const hasMounted = useRef(false);
@@ -69,12 +86,17 @@ export default function RootLayout() {
     return null;
   }
 
+  const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  console.log('[RootLayout] scheme:', scheme);
+
   return (
-    <ThemeProvider>
+    <ThemeProvider value={NAV_THEME[scheme]}>
       <SystemBars
         style={{
-          statusBar: colorScheme === 'dark' ? 'light' : 'dark',
-          navigationBar: colorScheme === 'dark' ? 'light' : 'dark'
+          statusBar: systemBarsStyle,
+          navigationBar: systemBarsStyle
         }}
       />
       <PowerSyncContext.Provider value={system.powersync}>
@@ -87,6 +109,7 @@ export default function RootLayout() {
                     <Stack screenOptions={{ headerShown: false }}>
                       <Stack.Screen name="app" />
                     </Stack>
+                    <PortalHost />
                   </GestureHandlerRootView>
                 </SafeAreaProvider>
               </AudioProvider>

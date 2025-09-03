@@ -1,5 +1,5 @@
 import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/styleUtils';
 import type { TextRef, ViewRef } from '@rn-primitives/types';
 import * as React from 'react';
 import type { TextProps, ViewProps } from 'react-native';
@@ -37,7 +37,7 @@ const CardTitle = React.forwardRef<TextRef, TextProps>(
       aria-level={3}
       ref={ref}
       className={cn(
-        'text-2xl text-card-foreground font-semibold leading-none tracking-tight',
+        'text-lg font-semibold leading-none tracking-tight text-card-foreground',
         className
       )}
       {...props}

@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/LanguageSelect';
+import { LanguageSelect } from '@/components/language-select';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';

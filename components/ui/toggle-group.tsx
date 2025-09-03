@@ -1,10 +1,10 @@
 import { TextClassContext } from '@/components/ui/text';
 import { toggleTextVariants, toggleVariants } from '@/components/ui/toggle';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/styleUtils';
 import * as ToggleGroupPrimitive from '@rn-primitives/toggle-group';
 import type { VariantProps } from 'class-variance-authority';
-import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
+import { Icon } from './icon';
 
 const ToggleGroupContext = React.createContext<VariantProps<
   typeof toggleVariants
@@ -77,13 +77,10 @@ ToggleGroupItem.displayName = ToggleGroupPrimitive.Item.displayName;
 
 function ToggleGroupIcon({
   className,
-  icon: Icon,
   ...props
-}: React.ComponentPropsWithoutRef<LucideIcon> & {
-  icon: LucideIcon;
-}) {
+}: React.ComponentProps<typeof Icon>) {
   const textClass = React.useContext(TextClassContext);
-  return <Icon className={cn(textClass, className)} {...props} />;
+  return <Icon className={cn('shrink-0', textClass, className)} {...props} />;
 }
 
 export { ToggleGroup, ToggleGroupIcon, ToggleGroupItem };

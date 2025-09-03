@@ -137,7 +137,7 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
-      theme: 'system' as Theme,
+      theme: 'dark',
 
       // Authentication view state
       authView: null,
@@ -168,7 +168,10 @@ export const useLocalStore = create<LocalState>()(
       },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
-      setTheme: (theme) => set({ theme }),
+      setTheme: (theme) => {
+        set({ theme });
+        colorScheme.set(theme);
+      },
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
       projectSourceFilter: 'All',
@@ -258,6 +261,7 @@ export const useLocalStore = create<LocalState>()(
       // skipHydration: true,
       onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
+        if (state) colorScheme.set(state.theme);
       },
       partialize: (state) =>
         Object.fromEntries(
@@ -272,11 +276,7 @@ export const useLocalStore = create<LocalState>()(
                 'navigationStack'
               ].includes(key)
           )
-        ),
-      onRehydrateStorage: (state) => {
-        console.log('onRehydrateStorage', state);
-        colorScheme.set(state.theme);
-      }
+        )
     }
   )
 );

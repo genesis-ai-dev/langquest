@@ -1,10 +1,9 @@
-import { Check } from '@/lib/icons/Check';
-import { ChevronDown } from '@/lib/icons/ChevronDown';
-import { ChevronUp } from '@/lib/icons/ChevronUp';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/styleUtils';
 import * as SelectPrimitive from '@rn-primitives/select';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { Icon } from './icon';
 
 type Option = SelectPrimitive.Option;
 
@@ -21,15 +20,15 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex flex-row h-10 native:h-12 items-center text-sm justify-between rounded-md border border-input bg-background px-3 py-2 web:ring-offset-background text-muted-foreground web:focus:outline-none web:focus:ring-2 web:focus:ring-ring web:focus:ring-offset-2 [&>span]:line-clamp-1',
+      'flex flex-row h-10 native:h-12 items-center text-sm native:text-base justify-between rounded-md border border-border bg-input px-3 py-2 web:ring-offset-background text-muted-foreground web:focus:outline-none web:focus:ring-2 web:focus:ring-ring web:focus:ring-offset-2 [&>span]:line-clamp-1',
       props.disabled && 'web:cursor-not-allowed opacity-50',
       className
     )}
     {...props}
   >
     <>{children}</>
-    <ChevronDown
-      size={16}
+    <Icon
+      as={ChevronDownIcon}
       aria-hidden={true}
       className="text-muted-foreground"
     />
@@ -55,7 +54,7 @@ const SelectScrollUpButton = ({
       )}
       {...props}
     >
-      <ChevronUp size={14} className="text-foreground" />
+      <Icon as={ChevronUpIcon} size={14} className="text-foreground" />
     </SelectPrimitive.ScrollUpButton>
   );
 };
@@ -78,7 +77,7 @@ const SelectScrollDownButton = ({
       )}
       {...props}
     >
-      <ChevronDown size={14} className="text-muted-foreground" />
+      <Icon as={ChevronDownIcon} size={14} className="text-muted-foreground" />
     </SelectPrimitive.ScrollDownButton>
   );
 };
@@ -158,7 +157,12 @@ const SelectItem = React.forwardRef<
   >
     <View className="absolute left-2 native:left-3.5 flex h-3.5 native:pt-px w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check size={16} strokeWidth={3} className="text-popover-foreground" />
+        <Icon
+          as={CheckIcon}
+          size={16}
+          strokeWidth={3}
+          className="text-popover-foreground"
+        />
       </SelectPrimitive.ItemIndicator>
     </View>
     <SelectPrimitive.ItemText className="text-sm native:text-base text-popover-foreground web:group-focus:text-accent-foreground" />

@@ -4,12 +4,10 @@
  * Replaces the entire file-based routing structure
  */
 
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { Suspense, useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { colors } from '@/styles/theme';
 
 // View Components (to be created/migrated)
 import NotificationsView from '@/views/NotificationsView';
@@ -91,33 +89,26 @@ export default function AppView() {
   };
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={styles.gradient}
-    >
-      <StatusProvider>
-        <View style={styles.appContainer}>
-          {/* Drawer Navigation */}
-          <AppDrawer
-            drawerIsVisible={drawerIsVisible}
-            setDrawerIsVisible={setDrawerIsVisible}
+    <StatusProvider>
+      <View style={styles.appContainer}>
+        {/* Drawer Navigation */}
+        <AppDrawer
+          drawerIsVisible={drawerIsVisible}
+          setDrawerIsVisible={setDrawerIsVisible}
+        />
+
+        {/* Main Content Area */}
+        <View style={styles.contentContainer}>
+          {/* App Header */}
+          <AppHeader
+            drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
           />
 
-          {/* Main Content Area */}
-          <View style={styles.contentContainer}>
-            {/* App Header */}
-            <AppHeader
-              drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
-            />
-
-            {/* Current View */}
-            <Suspense fallback={<LoadingView />}>
-              {renderCurrentView()}
-            </Suspense>
-          </View>
+          {/* Current View */}
+          <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
         </View>
-      </StatusProvider>
-    </LinearGradient>
+      </View>
+    </StatusProvider>
   );
 }
 

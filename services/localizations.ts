@@ -176,6 +176,13 @@ export const localizations = {
     tok_pisin: 'Putim email bilong yu',
     indonesian: 'Masukkan email Anda'
   },
+  enterYourPassword: {
+    english: 'Enter your password',
+    spanish: 'Ingrese su contraseña',
+    brazilian_portuguese: 'Digite sua senha',
+    tok_pisin: 'Putim password bilong yu',
+    indonesian: 'Masukkan kata sandi Anda'
+  },
   error: {
     english: 'Error',
     spanish: 'Error',

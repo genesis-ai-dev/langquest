@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/styleUtils';
 import type { LinkProps } from 'expo-router';
 import { Link as NativeLink } from 'expo-router';
 import type { TextProps } from 'react-native';
