@@ -225,7 +225,7 @@ export default function AppDrawer({
   const [showAttachmentProgress, setShowAttachmentProgress] = useState(false);
   const [isInGracePeriod, setIsInGracePeriod] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const gracePeriodTimer = useRef<number | null>(null);
+  const gracePeriodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const GRACE_PERIOD_MS = 3000; // 3 seconds grace period
 
   // Get PowerSync status
