@@ -5,6 +5,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Type definition
 type Project = InferSelectModel<typeof project>;
@@ -130,6 +131,7 @@ export function useUserPermissions(
 } {
   const { getUserMembership, isUserMembershipsLoading } = useUserMemberships();
   const { db } = system;
+  const { currentUser } = useAuth();
 
   // Don't run queries if project_id is empty or invalid
   const isValidProjectId = Boolean(project_id && project_id.trim() !== '');
@@ -138,7 +140,9 @@ export function useUserPermissions(
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
   // Query for project details to get privacy setting using useHybridData
-  const { data: projectData } = useHybridData<Pick<Project, 'private'>>({
+  const { data: projectData } = useHybridData<
+    Pick<Project, 'private' | 'creator_id'>
+  >({
     dataType: 'project-privacy',
     queryKeyParams: [project_id],
 
@@ -146,7 +150,7 @@ export function useUserPermissions(
     offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(project.id, project_id),
-        columns: { private: true },
+        columns: { private: true, creator_id: true },
         limit: 1
       })
     ),
@@ -157,11 +161,11 @@ export function useUserPermissions(
 
       const { data, error } = await system.supabaseConnector.client
         .from('project')
-        .select('private')
+        .select('private, creator_id')
         .eq('id', project_id);
 
       if (error) throw error;
-      return data as Pick<Project, 'private'>[];
+      return data as Pick<Project, 'private' | 'creator_id'>[];
     },
 
     // Only enable cloud query when we should query privacy
@@ -169,9 +173,23 @@ export function useUserPermissions(
   });
 
   // Get membership from user memberships hook
-  const membershipData = getUserMembership(project_id);
+  const linkMembershipData = getUserMembership(project_id);
   const isPrivate = knownIsPrivate ?? projectData[0]?.private ?? false;
-  const membership = membershipData?.membership as MembershipRole;
+  const isOwnerByCreator = Boolean(
+    currentUser?.id && projectData[0]?.creator_id === currentUser.id
+  );
+  const effectiveMembership: MembershipRole =
+    (linkMembershipData?.membership as MembershipRole) ||
+    (isOwnerByCreator ? 'owner' : undefined);
+  const effectiveMembershipData =
+    linkMembershipData ||
+    (isOwnerByCreator
+      ? ({
+          project_id,
+          membership: 'owner',
+          active: true
+        } as const)
+      : undefined);
 
   // If project_id is invalid, return no access
   if (!isValidProjectId) {
@@ -194,13 +212,13 @@ export function useUserPermissions(
     // Lock controls are only visible if:
     // 1. Project is private AND
     // 2. User is not a member (or not logged in)
-    const isLockVisible = isPrivate && !membership;
+    const isLockVisible = isPrivate && !effectiveMembership;
 
     return {
       hasAccess: isLockVisible,
-      membership,
+      membership: effectiveMembership,
       isMembershipLoading: isUserMembershipsLoading,
-      membershipData: membershipData as {
+      membershipData: effectiveMembershipData as {
         project_id: string;
         membership: 'owner' | 'member';
         active: boolean;
@@ -222,21 +240,21 @@ export function useUserPermissions(
   if (!isPrivate && privacyGatedActions.includes(action)) {
     return {
       hasAccess: true,
-      membership,
+      membership: effectiveMembership,
       isMembershipLoading: isUserMembershipsLoading
     };
   }
 
   // For private projects or always-gated actions, check membership permissions
   const hasRolePermission = Boolean(
-    membership && PERMISSION_LOOKUP[membership].has(action)
+    effectiveMembership && PERMISSION_LOOKUP[effectiveMembership].has(action)
   );
 
   return {
     hasAccess: hasRolePermission,
-    membership,
+    membership: effectiveMembership,
     isMembershipLoading: isUserMembershipsLoading,
-    membershipData: membershipData as {
+    membershipData: effectiveMembershipData as {
       project_id: string;
       membership: 'owner' | 'member';
       active: boolean;
