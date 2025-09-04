@@ -15,12 +15,14 @@ import {
   Text,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AppHeader({
   drawerToggleCallback
 }: {
   drawerToggleCallback: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const {
     breadcrumbs,
     canGoBack: _canGoBack,
@@ -86,7 +88,9 @@ export default function AppHeader({
   });
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[styles.container, { paddingTop: insets.top + spacing.small }]}
+    >
       <View style={styles.header}>
         {/* Back Button */}
         {/* {canGoBack && (
@@ -209,12 +213,12 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
     paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.medium
+    paddingVertical: spacing.small
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center'
-    // minHeight: 54 // Standard touch target
+    alignItems: 'center',
+    minHeight: 54 // Standard touch target
   },
   backButton: {
     marginRight: spacing.small,

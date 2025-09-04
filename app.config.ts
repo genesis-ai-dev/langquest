@@ -86,7 +86,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
 
           {
             android: {
-              parentTheme: 'dark',
+              parentTheme: 'Default',
               enforceNavigationBarContrast: false
             }
           }
