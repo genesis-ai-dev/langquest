@@ -109,6 +109,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
     "tailwind-merge": "^3.3.0",
+    "tailwindcss": "^3.4.13",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.4",
     "zustand": "^5.0.3"
@@ -136,8 +137,7 @@
     "jest-expo": "~53.0.9",
     "metro-react-native-babel-transformer": "^0.77.0",
     "prettier": "^3.6.2",
-    "prettier-plugin-tailwindcss": "^0.5.11",
-    "tailwindcss": "^3.4.17",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "react-test-renderer": "19.0.0",
     "sharp-cli": "^5.2.0",
     "supabase": "^2.30.4",
