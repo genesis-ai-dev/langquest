@@ -140,7 +140,9 @@ export function useUserPermissions(
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
   // Query for project details to get privacy setting using useHybridData
-  const { data: projectData } = useHybridData<Pick<Project, 'private' | 'creator_id'>>({
+  const { data: projectData } = useHybridData<
+    Pick<Project, 'private' | 'creator_id'>
+  >({
     dataType: 'project-privacy',
     queryKeyParams: [project_id],
 
@@ -176,7 +178,9 @@ export function useUserPermissions(
   const isOwnerByCreator = Boolean(
     currentUser?.id && projectData[0]?.creator_id === currentUser.id
   );
-  const effectiveMembership: MembershipRole = (linkMembershipData?.membership as MembershipRole) || (isOwnerByCreator ? 'owner' : undefined);
+  const effectiveMembership: MembershipRole =
+    (linkMembershipData?.membership as MembershipRole) ||
+    (isOwnerByCreator ? 'owner' : undefined);
   const effectiveMembershipData =
     linkMembershipData ||
     (isOwnerByCreator
