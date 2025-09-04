@@ -12,7 +12,7 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
   const [isLoading, setIsLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const previousStatesRef = useRef<Map<string, AttachmentRecord>>(new Map());
-  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Abort any previous query

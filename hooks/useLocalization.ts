@@ -75,11 +75,7 @@ export function useLocalization(languageOverride?: string | null) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString = (
-      userLanguage in localizations[key]
-        ? localizations[key][userLanguage]
-        : localizations[key].english
-    ) as string;
+    let translatedString = localizations[key][userLanguage] as string;
 
     // If options is a number, treat as a single value for a placeholder like {{value}}
     if (typeof options === 'number') {

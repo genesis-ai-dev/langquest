@@ -2,7 +2,6 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { storage } from '@/utils/storage';
 import { Ionicons } from '@expo/vector-icons';
-import { CircleArrowDownIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +11,6 @@ import {
 } from 'react-native';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
-import { Icon } from './ui/icon';
 
 interface DownloadIndicatorProps {
   isFlaggedForDownload: boolean;
@@ -29,7 +27,6 @@ interface DownloadIndicatorProps {
     totalTranslations?: number;
     totalQuests?: number;
   };
-  className?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
@@ -40,8 +37,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   progressPercentage = 0,
   showProgress = false,
   downloadType,
-  stats,
-  className
+  stats
 }) => {
   const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isFlaggedForDownload;
@@ -144,12 +140,11 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
                 }
               ]}
             />
-            <Icon
-              as={CircleArrowDownIcon}
+            <Ionicons
+              name="arrow-down-circle-outline"
               size={size}
               color={color}
               style={styles.progressIcon}
-              className={className}
             />
           </View>
         ) : (

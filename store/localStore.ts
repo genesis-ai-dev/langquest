@@ -1,6 +1,5 @@
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colorScheme } from 'nativewind';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -27,7 +26,6 @@ export interface NavigationStackItem {
 }
 
 export type Language = typeof language.$inferSelect;
-export type Theme = 'light' | 'dark' | 'system';
 
 // Recently visited item types
 export interface RecentProject {
@@ -123,8 +121,6 @@ interface LocalState {
   resetAttachmentSyncProgress: () => void;
 
   initialize: () => Promise<void>;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -137,7 +133,6 @@ export const useLocalStore = create<LocalState>()(
       isLanguageLoading: true,
       dateTermsAccepted: null,
       analyticsOptOut: false,
-      theme: 'dark',
 
       // Authentication view state
       authView: null,
@@ -168,10 +163,6 @@ export const useLocalStore = create<LocalState>()(
       },
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
-      setTheme: (theme) => {
-        set({ theme });
-        colorScheme.set(theme);
-      },
       setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
       projectSourceFilter: 'All',
@@ -233,24 +224,8 @@ export const useLocalStore = create<LocalState>()(
         }),
 
       initialize: () => {
-        const state = useLocalStore.getState();
-        if (!state.languageId) {
-          // Default to English if no language is set
-          const englishLang: Language = {
-            id: 'english-id',
-            active: true,
-            created_at: new Date().toISOString(),
-            last_updated: new Date().toISOString(),
-            native_name: 'English',
-            english_name: 'English',
-            iso639_3: 'eng',
-            locale: 'en-US',
-            ui_ready: true,
-            creator_id: null,
-            download_profiles: null
-          };
-          set({ language: englishLang, languageId: englishLang.id });
-        }
+        console.log('initializing local store');
+        // Language loading moved to app initialization to avoid circular dependency
         set({ isLanguageLoading: false });
         return Promise.resolve();
       }
@@ -261,7 +236,6 @@ export const useLocalStore = create<LocalState>()(
       // skipHydration: true,
       onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
-        if (state) colorScheme.set(state.theme);
       },
       partialize: (state) =>
         Object.fromEntries(

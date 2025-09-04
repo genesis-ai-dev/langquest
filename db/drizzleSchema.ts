@@ -89,6 +89,9 @@ export const project = sqliteTable(
     ...baseColumns,
     name: text().notNull(),
     description: text(),
+    source_language_id: text()
+      .notNull()
+      .references(() => language.id),
     target_language_id: text()
       .notNull()
       .references(() => language.id),
@@ -99,11 +102,17 @@ export const project = sqliteTable(
   },
   (table) => [
     index('name_idx').on(table.name),
+    index('source_language_id_idx').on(table.source_language_id),
     index('target_language_id_idx').on(table.target_language_id)
   ]
 );
 
 export const projectRelations = relations(project, ({ one, many }) => ({
+  source_language: one(language, {
+    fields: [project.source_language_id],
+    references: [language.id],
+    relationName: 'sourceLanguage'
+  }),
   target_language: one(language, {
     fields: [project.target_language_id],
     references: [language.id],
@@ -111,7 +120,6 @@ export const projectRelations = relations(project, ({ one, many }) => ({
   }),
   quests: many(quest),
   profile_project_links: many(profile_project_link),
-  source_languages: many(project_language_link),
   invites: many(invite),
   requests: many(request)
 }));
