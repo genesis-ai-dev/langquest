@@ -60,7 +60,7 @@ const ToggleGroupItem = React.forwardRef<
             variant: context.variant || variant,
             size: context.size || size
           }),
-          props.disabled && 'web:pointer-events-none opacity-50',
+          props.disabled && 'opacity-50 web:pointer-events-none',
           ToggleGroupPrimitive.utils.getIsSelected(value, props.value) &&
             'bg-accent',
           className

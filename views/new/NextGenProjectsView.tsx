@@ -10,7 +10,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
-import { and, eq, inArray, like, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
 import { SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
@@ -62,7 +62,11 @@ export default function NextGenProjectsView() {
       const conditions = [
         inArray(project.id, projectIds),
         !showInvisibleContent && eq(project.visible, true),
-        searchQuery && like(project.name, `%${searchQuery.trim()}%`)
+        searchQuery &&
+          or(
+            like(project.name, `%${searchQuery.trim()}%`),
+            like(project.description, `%${searchQuery.trim()}%`)
+          )
       ];
 
       const projects = await system.db.query.project.findMany({
@@ -93,7 +97,9 @@ export default function NextGenProjectsView() {
         .range(from, to);
       if (!showInvisibleContent) query = query.eq('visible', true);
       if (searchQuery.trim())
-        query = query.ilike('name', `%${searchQuery.trim()}%`);
+        query = query.or(
+          `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
+        );
       const { data, error } = await query.overrideTypes<Project[]>();
 
       if (error) throw error;
@@ -127,7 +133,11 @@ export default function NextGenProjectsView() {
       const conditions = [
         eq(project.active, true),
         userProjectIds.length > 0 && notInArray(project.id, userProjectIds),
-        trimmed && like(project.name, `%${trimmed}%`)
+        trimmed &&
+          or(
+            like(project.name, `%${trimmed}%`),
+            like(project.description, `%${trimmed}%`)
+          )
       ];
 
       const projects = await system.db.query.project.findMany({
@@ -161,7 +171,9 @@ export default function NextGenProjectsView() {
       }
 
       if (searchQuery.trim())
-        query = query.ilike('name', `%${searchQuery.trim()}%`);
+        query = query.or(
+          `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
+        );
 
       const { data, error } = await query
         .range(from, to)
@@ -207,11 +219,7 @@ export default function NextGenProjectsView() {
         <View className="flex flex-row items-center gap-2">
           <Input
             className="flex-1"
-            placeholder={
-              activeTab === 'my'
-                ? t('searchMyProjects')
-                : t('searchAllProjects')
-            }
+            placeholder={t('searchProjects')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             prefix={SearchIcon}

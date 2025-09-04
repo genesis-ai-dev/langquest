@@ -3319,11 +3319,11 @@ export const localizations = {
     indonesian: 'Semua Proyek'
   },
   searchProjects: {
-    english: 'Search projects',
-    spanish: 'Buscar proyectos',
-    brazilian_portuguese: 'Buscar projetos',
-    tok_pisin: 'Painim ol project',
-    indonesian: 'Cari proyek'
+    english: 'Search projects...',
+    spanish: 'Buscar proyectos...',
+    brazilian_portuguese: 'Buscar projetos...',
+    tok_pisin: 'Painim ol project...',
+    indonesian: 'Cari proyek...'
   },
   noProjectSelected: {
     english: 'No Project Selected',
@@ -3436,20 +3436,6 @@ export const localizations = {
     brazilian_portuguese: 'Download requerido',
     tok_pisin: 'Yu mas daunim',
     indonesian: 'Unduhan diperlukan'
-  },
-  searchMyProjects: {
-    english: 'Search my projects',
-    spanish: 'Buscar mis proyectos',
-    brazilian_portuguese: 'Buscar meus projetos',
-    tok_pisin: 'Painim ol project bilong mi',
-    indonesian: 'Cari proyek saya'
-  },
-  searchAllProjects: {
-    english: 'Search all projects',
-    spanish: 'Buscar todos los proyectos',
-    brazilian_portuguese: 'Buscar todos os projetos',
-    tok_pisin: 'Painim olgeta project',
-    indonesian: 'Cari semua proyek'
   },
   myProjects: {
     english: 'My Projects',

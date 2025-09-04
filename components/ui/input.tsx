@@ -5,11 +5,11 @@ import type { LucideIcon } from 'lucide-react-native';
 import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import { Icon } from './icon';
 
 const inputVariants = cva(
-  'native:text-lg flex flex-row justify-center rounded-lg border border-border bg-input text-base text-foreground web:flex web:w-full web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2 lg:text-sm',
+  'flex w-full min-w-48 flex-row items-center rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5 web:w-full',
   {
     variants: {
       size: {
@@ -32,9 +32,9 @@ const inputTextVariants = cva(
   {
     variants: {
       size: {
-        sm: 'native:text-sm native:leading-[1.25] text-sm',
-        default: 'native:text-base native:leading-[1.25] text-base',
-        lg: 'native:text-lg native:leading-[1.25]'
+        sm: 'native:text-sm native:leading-4 text-sm',
+        default: 'native:text-base native:leading-5 text-base',
+        lg: 'native:text-lg native:leading-5'
       }
     },
     defaultVariants: {
@@ -69,7 +69,7 @@ const prefixUnstyledVariants = cva('', {
   }
 });
 
-const prefixStyledVariants = cva('border-r border-border', {
+const prefixStyledVariants = cva('h-full border-r border-border', {
   variants: {
     size: {
       sm: 'mr-3 w-10',
@@ -82,13 +82,25 @@ const prefixStyledVariants = cva('border-r border-border', {
   }
 });
 
-const suffixStyledVariants = cva('', {
+const suffixUnstyledVariants = cva('', {
   variants: {
     size: {
-      sm: 'flex w-fit items-center justify-center border-l border-muted p-2 text-input',
-      default:
-        'flex w-fit items-center justify-center border-l border-muted p-3 text-input',
-      lg: 'flex w-fit items-center justify-center border-l border-muted p-4 text-input'
+      sm: 'w-10',
+      default: 'w-12',
+      lg: 'w-14'
+    }
+  },
+  defaultVariants: {
+    size: 'default'
+  }
+});
+
+const suffixStyledVariants = cva('h-full border-l border-border', {
+  variants: {
+    size: {
+      sm: 'ml-3 w-10',
+      default: 'ml-4 w-12',
+      lg: 'ml-4 w-14'
     }
   },
   defaultVariants: {
@@ -100,7 +112,7 @@ interface InputProps
   extends TextInputProps,
     VariantProps<typeof inputVariants> {
   prefix?: React.ReactNode | LucideIcon;
-  suffix?: React.ReactNode;
+  suffix?: React.ReactNode | LucideIcon;
   prefixStyling?: boolean;
   suffixStyling?: boolean;
   hideEye?: boolean;
@@ -130,7 +142,13 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
       <View
         className={cn(
           inputVariants({ size }),
-          props.editable === false && 'opacity-50 web:cursor-not-allowed',
+          props.editable === false &&
+            cn(
+              'opacity-50',
+              Platform.select({
+                web: 'disabled:pointer-events-none disabled:cursor-not-allowed'
+              })
+            ),
           !prefix && 'pl-3',
           !suffix && 'pr-3',
           className
@@ -142,7 +160,7 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
         {prefix && (
           <View
             className={cn(
-              'flex items-center justify-center text-input',
+              'flex flex-row items-center justify-center py-1 text-input',
               prefixStyling
                 ? prefixStyledVariants({ size })
                 : prefixUnstyledVariants({ size })
@@ -160,12 +178,16 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
         )}
         <TextInput
           ref={ref}
-          // className={cn(
-          //   'web:flex h-10 native:h-12 web:w-full rounded-md border border-input bg-background px-3 web:py-2 text-base lg:text-sm native:text-lg native:leading-[1.25] text-foreground web:ring-offset-background file:border-0 file:bg-transparent file:font-medium web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
-          //   props.editable === false && 'opacity-50 web:cursor-not-allowed',
-          //   className
-          // )}
-          className={cn(inputTextVariants({ size }))}
+          className={cn(
+            inputTextVariants({ size }),
+            Platform.select({
+              web: cn(
+                'outline-none transition-[color,box-shadow] selection:bg-primary selection:text-primary-foreground md:text-sm',
+                'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive py-1'
+              )
+            })
+          )}
           placeholderClassName={cn(
             'text-muted-foreground',
             placeholderClassName
@@ -189,8 +211,22 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
           </Pressable>
         )}
         {suffix && (
-          <View className={cn(suffixStyling && suffixStyledVariants({ size }))}>
-            {suffix}
+          <View
+            className={cn(
+              'flex flex-row items-center justify-center py-1 text-input',
+              suffixStyling
+                ? suffixStyledVariants({ size })
+                : suffixUnstyledVariants({ size })
+            )}
+          >
+            {suffix && React.isValidElement(suffix) ? (
+              suffix
+            ) : (
+              <Icon
+                as={suffix as LucideIcon}
+                className={iconSizeVariants({ size })}
+              />
+            )}
           </View>
         )}
       </View>
