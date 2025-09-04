@@ -13,7 +13,7 @@ import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
 import { SearchIcon } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 type TabType = 'my' | 'all';
@@ -198,7 +198,7 @@ export default function NextGenProjectsView() {
   const data = projects.pages.flatMap((page) => page.data);
 
   return (
-    <View className="flex flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-col gap-4">
         {/* Tabs */}
         <Tabs
@@ -238,6 +238,7 @@ export default function NextGenProjectsView() {
           contentContainerStyle={{ paddingBottom: data.length * 12 }}
           keyExtractor={(item) => item.id}
           recycleItems
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => <ProjectListItem project={item} />}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) {
@@ -245,6 +246,13 @@ export default function NextGenProjectsView() {
             }
           }}
           onEndReachedThreshold={0.5}
+          ListFooterComponent={() =>
+            isFetchingNextPage ? (
+              <View className="p-4">
+                <ActivityIndicator size="small" className="text-primary" />
+              </View>
+            ) : null
+          }
         />
       )}
     </View>

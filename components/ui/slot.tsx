@@ -32,7 +32,7 @@ const Pressable = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof RNPressable>,
     React.ElementRef<typeof RNPressable>
   >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(pressableSlotProps, children.props),
+    ...mergeProps(pressableSlotProps, (children as any).props),
     ref: forwardedRef
       ? composeRefs(forwardedRef, (children as any).ref)
       : (children as any).ref
@@ -54,7 +54,7 @@ const View = React.forwardRef<React.ElementRef<typeof RNView>, RNViewProps>(
       React.ComponentPropsWithoutRef<typeof RNView>,
       React.ElementRef<typeof RNView>
     >(isTextChildren(children) ? <></> : children, {
-      ...mergeProps(viewSlotProps, children.props),
+      ...mergeProps(viewSlotProps, (children as any).props),
       ref: forwardedRef
         ? composeRefs(forwardedRef, (children as any).ref)
         : (children as any).ref
@@ -77,7 +77,7 @@ const Text = React.forwardRef<React.ElementRef<typeof RNText>, RNTextProps>(
       React.ComponentPropsWithoutRef<typeof RNText>,
       React.ElementRef<typeof RNText>
     >(isTextChildren(children) ? <></> : children, {
-      ...mergeProps(textSlotProps, children.props),
+      ...mergeProps(textSlotProps, (children as any).props),
       ref: forwardedRef
         ? composeRefs(forwardedRef, (children as any).ref)
         : (children as any).ref
@@ -106,7 +106,7 @@ const Image = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof RNImage>,
     React.ElementRef<typeof RNImage>
   >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(imageSlotProps, children.props),
+    ...mergeProps(imageSlotProps, (children as any).props),
     ref: forwardedRef
       ? composeRefs(forwardedRef, (children as any).ref)
       : (children as any).ref
@@ -134,7 +134,7 @@ const Input = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof RNTextInput>,
     React.ElementRef<typeof RNTextInput>
   >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(inputSlotProps, children.props),
+    ...mergeProps(inputSlotProps, (children as any).props),
     ref: forwardedRef
       ? composeRefs(forwardedRef, (children as any).ref)
       : (children as any).ref

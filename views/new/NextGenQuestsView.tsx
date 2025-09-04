@@ -232,7 +232,7 @@ export default function NextGenQuestsView() {
         ListFooterComponent={() =>
           isFetchingNextPage ? (
             <View className="items-center py-4">
-              <ActivityIndicator size="small" className="fill-primary" />
+              <ActivityIndicator size="small" className="text-primary" />
             </View>
           ) : null
         }
@@ -248,7 +248,7 @@ export default function NextGenQuestsView() {
       />
 
       {/* Floating action buttons */}
-      <View style={{ bottom: 24, right: 24 }} className="absolute">
+      <View style={{ bottom: 0, right: 24 }} className="absolute">
         <View className="flex flex-row gap-2">
           {canManageProject && (
             <Button
