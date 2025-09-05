@@ -1,6 +1,7 @@
+import { ConfigContext } from '@expo/config';
 import type { ConfigPlugin } from '@expo/config-plugins';
 import { withPodfileProperties } from '@expo/config-plugins';
-import { ConfigContext, ExpoConfig } from 'expo/config';
+import { ExpoConfig } from '@expo/config-types';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
 const iconPath = './assets/images/langquest_icon_v1.png';
@@ -99,16 +100,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
               parentTheme: 'Default',
               enforceNavigationBarContrast: false
             }
-          }
-        ],
-        'expo-font',
-        'expo-router',
-        // migrate existing localization to expo-localization
-        'expo-localization',
-        [
-          'expo-screen-orientation',
-          {
-            initialOrientation: 'PORTRAIT_UP'
           }
         ]
       ],
