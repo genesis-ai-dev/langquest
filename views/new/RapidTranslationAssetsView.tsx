@@ -75,7 +75,7 @@ const VoiceActivityDetectionPanel = React.memo(() => {
   const [isRecording, setIsRecording] = React.useState(false);
   const [isInitializing, setIsInitializing] = React.useState(false);
   const [isCalibrating, setIsCalibrating] = React.useState(false);
-  const [adaptiveThreshold, setAdaptiveThreshold] = React.useState(0.7); // Will be updated by calibration
+  const [adaptiveThreshold, setAdaptiveThreshold] = React.useState(0.7); // 0..1 normalized
   const recordingStartTimeRef = React.useRef<number | null>(null);
   const calibrationLevelsRef = React.useRef<number[]>([]);
 
@@ -226,7 +226,7 @@ const VoiceActivityDetectionPanel = React.memo(() => {
         if (uiVadState.isListening && !isCalibrating && Math.random() < 0.05) {
           // Reduced to 5%
           console.log(
-            `🎵 Level: ${level.toFixed(3)}, Speaking: ${uiVadState.isSpeaking}, Threshold: ${adaptiveThreshold.toFixed(3)}`
+            `🎵 Level(n): ${level.toFixed(3)} thr=${adaptiveThreshold.toFixed(3)} speaking=${uiVadState.isSpeaking}`
           );
         }
       },
@@ -273,8 +273,8 @@ const VoiceActivityDetectionPanel = React.memo(() => {
     setIsCalibrating(true);
     calibrationLevelsRef.current = [];
 
-    // Calibrate for 3 seconds
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Calibrate for 2 seconds of ambient noise
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     if (calibrationLevelsRef.current.length > 0) {
       // Calculate adaptive threshold
@@ -282,21 +282,21 @@ const VoiceActivityDetectionPanel = React.memo(() => {
       const avgLevel =
         calibrationLevelsRef.current.reduce((a, b) => a + b, 0) /
         calibrationLevelsRef.current.length;
-      const adaptiveMargin = 0.15; // Standard margin
-      const newThreshold = Math.max(
-        maxLevel + adaptiveMargin,
-        avgLevel + adaptiveMargin * 2
+      // Place threshold above ambient but not too close to 1.0
+      const margin = 0.12;
+      const newThreshold = Math.min(
+        0.95,
+        Math.max(0.05, Math.max(maxLevel + margin, avgLevel + margin * 1.5))
       );
 
-      setAdaptiveThreshold(Math.min(newThreshold, 0.9)); // Cap at 0.9 to avoid impossible thresholds
+      setAdaptiveThreshold(newThreshold);
 
       console.log(
         `🎯 Calibration complete! Background: avg=${avgLevel.toFixed(3)}, max=${maxLevel.toFixed(3)} → Threshold: ${newThreshold.toFixed(3)}`
       );
     } else {
-      console.log('🎯 Calibration failed, using fallback threshold: 0.7');
-      // Use a sane fallback that matches the log statement
-      setAdaptiveThreshold(0.7);
+      console.log('🎯 Calibration failed, using fallback threshold: 0.6');
+      setAdaptiveThreshold(0.6);
     }
 
     setIsCalibrating(false);
@@ -350,10 +350,66 @@ const VoiceActivityDetectionPanel = React.memo(() => {
         onStopListening={handleStopListening}
         style={styles.liveWaveform}
       />
-      {isCalibrating && (
-        <Text style={styles.calibrationText}>
-          🎯 Calibrating background noise...
-        </Text>
+      <View style={{ alignItems: 'center', marginTop: 6 }}>
+        {isCalibrating ? (
+          <Text style={styles.calibrationText}>
+            🎯 Calibrating background noise…
+          </Text>
+        ) : (
+          <Text style={styles.calibrationText}>
+            Sensitivity: {(1 - adaptiveThreshold).toFixed(2)} (tap to adjust)
+          </Text>
+        )}
+      </View>
+
+      {/* Sensitivity controls: quick presets and fine tuning */}
+      {!isCalibrating && (
+        <View style={styles.sensitivityRow}>
+          <Text style={styles.sensitivityLabel}>Sensitivity</Text>
+          <View style={styles.sensitivityButtons}>
+            <Text
+              style={[
+                styles.sensitivityPill,
+                adaptiveThreshold <= 0.45
+                  ? styles.sensitivityPillActive
+                  : undefined
+              ]}
+              onPress={() => setAdaptiveThreshold(0.45)}
+            >
+              High
+            </Text>
+            <Text
+              style={[
+                styles.sensitivityPill,
+                adaptiveThreshold > 0.45 && adaptiveThreshold < 0.7
+                  ? styles.sensitivityPillActive
+                  : undefined
+              ]}
+              onPress={() => setAdaptiveThreshold(0.6)}
+            >
+              Normal
+            </Text>
+            <Text
+              style={[
+                styles.sensitivityPill,
+                adaptiveThreshold >= 0.7
+                  ? styles.sensitivityPillActive
+                  : undefined
+              ]}
+              onPress={() => setAdaptiveThreshold(0.75)}
+            >
+              Low
+            </Text>
+          </View>
+          <Text
+            style={styles.recalibrateLink}
+            onPress={() => {
+              void performCalibration();
+            }}
+          >
+            Recalibrate
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -479,7 +535,7 @@ export default function SimpleAssetsView() {
 
           // Deduplicate by name; prefer real assets over virtual
           const byName = new Map<string, Asset>();
-          for (const a of assets as Asset[]) byName.set(a.name, a as Asset);
+          for (const a of assets as Asset[]) byName.set(a.name, a);
           for (const v of virtualAssets)
             if (!byName.has(v.name)) byName.set(v.name, v);
 
@@ -659,7 +715,8 @@ export default function SimpleAssetsView() {
             <View key={asset.id} style={styles.assetContainer}>
               {/* Asset Item */}
               <AssetListItem
-                asset={asset}
+                asset={{ ...asset, quest_active: true, quest_visible: true }}
+                questId={currentQuestId}
                 attachmentState={attachmentStates.get(asset.id)}
                 onPress={handleAssetPress}
               />
@@ -769,5 +826,37 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     color: colors.textSecondary,
     textAlign: 'center'
+  },
+  sensitivityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.medium,
+    marginTop: spacing.xsmall
+  },
+  sensitivityLabel: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary
+  },
+  sensitivityButtons: {
+    flexDirection: 'row',
+    gap: spacing.xsmall
+  },
+  sensitivityPill: {
+    paddingHorizontal: spacing.small,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: colors.inputBackground,
+    color: colors.text,
+    overflow: 'hidden'
+  },
+  sensitivityPillActive: {
+    backgroundColor: colors.primary,
+    color: colors.background
+  },
+  recalibrateLink: {
+    color: colors.primary,
+    fontSize: fontSizes.small,
+    textDecorationLine: 'underline'
   }
 });

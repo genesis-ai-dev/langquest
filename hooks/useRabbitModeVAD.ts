@@ -1,5 +1,6 @@
 import { Audio } from 'expo-av';
 import { useCallback, useEffect, useRef } from 'react';
+import { useMicrophoneEnergy } from './useMicrophoneEnergy';
 
 export interface RabbitModeVADCallbacks {
     onSpeechStart: () => void;
@@ -56,11 +57,20 @@ export const useRabbitModeVAD = (
 
     // Audio monitoring
     const recordingRef = useRef<Audio.Recording | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const stoppingRef = useRef<boolean>(false);
     const levelHistoryRef = useRef<number[]>([]);
     const speechStartTimeRef = useRef<number | null>(null);
     const lastSpeechTimeRef = useRef<number | null>(null);
+    const isStartingRecorderRef = useRef<boolean>(false);
+
+    // Native energy monitor hook (second microphone dedicated to metering)
+    const {
+        isActive: isEnergyActive,
+        energyResult,
+        startEnergyDetection,
+        stopEnergyDetection,
+        requestPermissions: requestEnergyPermissions
+    } = useMicrophoneEnergy();
 
     // Smoothing function for audio levels
     const smoothAudioLevel = useCallback((newLevel: number): number => {
@@ -74,39 +84,35 @@ export const useRabbitModeVAD = (
     }, []);
 
     // Process audio levels and detect speech
-    const processStatusUpdate = useCallback((status: Audio.RecordingStatus) => {
-        if (stoppingRef.current || !stateRef.current.isListening) return;
-        try {
-            if (!status.isRecording) return;
+    // Convert dBFS (negative) to normalized [0,1]
+    const dbToNormalized = (dbValue: number, floorDb = -60): number => {
+        if (Number.isNaN(dbValue)) return 0;
+        const clamped = Math.max(floorDb, Math.min(0, dbValue));
+        return (clamped - floorDb) / (0 - floorDb);
+    };
 
+    const processEnergySample = useCallback((energyDb: number) => {
+        if (!stateRef.current.isListening) return;
+        try {
             const currentTime = Date.now();
-            const rawLevel = status.metering ?? 0;
-            const normalizedLevel = Math.max(0, Math.min(1, (rawLevel + 160) / 160));
+            // Native energy comes in dBFS (~-60..0). Normalize to 0..1.
+            const normalizedLevel = Math.max(0, Math.min(1, dbToNormalized(energyDb)));
             const smoothedLevel = smoothAudioLevel(normalizedLevel);
 
-            // Normalize relative to threshold so 0 ~ threshold
             // Use the final configured threshold (can be calibrated at runtime)
-            const threshold = (finalConfig.speechThreshold);
+            const threshold = finalConfig.speechThreshold;
             const relativeLevel = Math.max(0, (smoothedLevel - threshold) / Math.max(0.0001, 1 - threshold));
 
             // Update state
             const previousState = { ...stateRef.current };
-            stateRef.current.currentLevel = relativeLevel;
+            // Expose normalized level for UI purposes
+            stateRef.current.currentLevel = smoothedLevel;
             stateRef.current.averageLevel = levelHistoryRef.current.length > 0
                 ? levelHistoryRef.current.reduce((a, b) => a + b, 0) / levelHistoryRef.current.length
                 : relativeLevel;
 
-            // Lightweight diagnostics (1% sampled) to help tune thresholds without spamming logs
-            if (Math.random() < 0.01) {
-                const rawStr = typeof rawLevel === 'number' ? rawLevel.toFixed(1) : String(rawLevel);
-                console.log(
-                    `[VAD] lvl(raw=${rawStr}, norm=${normalizedLevel.toFixed(3)}, smooth=${smoothedLevel.toFixed(3)}) thresh=${threshold.toFixed(3)} rel=${relativeLevel.toFixed(3)} speaking=${stateRef.current.isSpeaking}`
-                );
-            }
-
             // Detect speech
-            if (smoothedLevel > finalConfig.speechThreshold) {
-                // Speech detected
+            if (smoothedLevel > threshold) {
                 if (!speechStartTimeRef.current) {
                     speechStartTimeRef.current = currentTime;
                 }
@@ -115,37 +121,73 @@ export const useRabbitModeVAD = (
                 stateRef.current.speechDuration = currentTime - speechStartTimeRef.current;
                 stateRef.current.silenceDuration = 0;
 
-                // Check if we've had speech long enough to trigger start
-                if (!stateRef.current.isSpeaking &&
-                    stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
+                if (!stateRef.current.isSpeaking && stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
                     stateRef.current.isSpeaking = true;
                     callbacks.onSpeechStart();
+                    // Start recorder on speech start
+                    const startRecorder = async () => {
+                        try {
+                            if (isStartingRecorderRef.current || recordingRef.current) return;
+                            isStartingRecorderRef.current = true;
+                            const recording = new Audio.Recording();
+                            await recording.prepareToRecordAsync({
+                                android: {
+                                    extension: '.m4a',
+                                    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+                                    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+                                    sampleRate: 44100,
+                                    numberOfChannels: 2,
+                                    bitRate: 128000,
+                                },
+                                ios: {
+                                    extension: '.m4a',
+                                    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+                                    audioQuality: Audio.IOSAudioQuality.MEDIUM,
+                                    sampleRate: 44100,
+                                    numberOfChannels: 2,
+                                    bitRate: 128000,
+                                    linearPCMBitDepth: 16,
+                                    linearPCMIsBigEndian: false,
+                                    linearPCMIsFloat: false,
+                                },
+                                web: {
+                                    mimeType: 'audio/webm',
+                                    bitsPerSecond: 128000,
+                                },
+                            });
+                            await recording.startAsync();
+                            recordingRef.current = recording;
+                        } catch (error) {
+                            console.error('Error starting recorder:', error);
+                        } finally {
+                            isStartingRecorderRef.current = false;
+                        }
+                    };
+                    void startRecorder();
                 }
             } else {
-                // No speech detected
                 if (lastSpeechTimeRef.current) {
                     stateRef.current.silenceDuration = currentTime - lastSpeechTimeRef.current;
                 }
 
-                // Check if we should stop speech detection
-                if (stateRef.current.isSpeaking &&
-                    stateRef.current.silenceDuration >= finalConfig.maximumSilenceDuration) {
+                if (stateRef.current.isSpeaking && stateRef.current.silenceDuration >= finalConfig.maximumSilenceDuration) {
                     stateRef.current.isSpeaking = false;
                     speechStartTimeRef.current = null;
                     stateRef.current.speechDuration = 0;
 
-                    // Stop recording and get URI if we're saving recordings
                     const finalizeSegment = async () => {
                         let recordingUri: string | undefined;
                         if (finalConfig.saveRecordings && recordingRef.current) {
                             try {
+                                stoppingRef.current = true;
                                 await recordingRef.current.stopAndUnloadAsync();
                                 const uri = recordingRef.current.getURI();
                                 recordingUri = uri || undefined;
-                                console.log('📁 Saved speech recording:', recordingUri);
-                                await startNewRecording();
                             } catch (error) {
                                 console.error('❌ Error saving recording:', error);
+                            } finally {
+                                recordingRef.current = null;
+                                stoppingRef.current = false;
                             }
                         }
                         callbacks.onSpeechEnd(recordingUri);
@@ -154,59 +196,20 @@ export const useRabbitModeVAD = (
                 }
             }
 
-            // Notify level change
-            callbacks.onLevelChange(relativeLevel);
+            // Notify level change with normalized level (better for calibration and UI)
+            callbacks.onLevelChange(smoothedLevel);
 
             // Notify state change if state changed
             if (JSON.stringify(previousState) !== JSON.stringify(stateRef.current)) {
                 callbacks.onStateChange({ ...stateRef.current });
             }
         } catch (error) {
-            console.error('Error processing audio level:', error);
+            console.error('Error processing energy sample:', error);
         }
     }, [finalConfig, callbacks, smoothAudioLevel]);
 
     // Helper to start a new recording
-    const startNewRecording = useCallback(async () => {
-        const recording = new Audio.Recording();
-        await recording.prepareToRecordAsync({
-            isMeteringEnabled: true,
-            android: {
-                extension: '.m4a',
-                outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-                audioEncoder: Audio.AndroidAudioEncoder.AAC,
-                sampleRate: 44100,
-                numberOfChannels: 2,
-                bitRate: 128000,
-            },
-            ios: {
-                extension: '.m4a',
-                outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-                audioQuality: Audio.IOSAudioQuality.MEDIUM,
-                sampleRate: 44100,
-                numberOfChannels: 2,
-                bitRate: 128000,
-                linearPCMBitDepth: 16,
-                linearPCMIsBigEndian: false,
-                linearPCMIsFloat: false,
-            },
-            web: {
-                mimeType: 'audio/webm',
-                bitsPerSecond: 128000,
-            },
-        });
-
-        await recording.startAsync();
-        // Native-driven status updates for low latency
-        recording.setOnRecordingStatusUpdate((status: Audio.RecordingStatus) => {
-            processStatusUpdate(status);
-        });
-        // Update cadence (ms) if available on platform
-        if (typeof (recording as unknown as { setProgressUpdateInterval?: (ms: number) => void }).setProgressUpdateInterval === 'function') {
-            (recording as unknown as { setProgressUpdateInterval: (ms: number) => void }).setProgressUpdateInterval(finalConfig.sampleInterval);
-        }
-        recordingRef.current = recording;
-    }, [finalConfig.sampleInterval, processStatusUpdate]);
+    // Removed: metering/monitoring handled by native module
 
     // Start listening for voice activity
     const startListening = useCallback(async () => {
@@ -218,6 +221,8 @@ export const useRabbitModeVAD = (
             if (status !== Audio.PermissionStatus.GRANTED) {
                 throw new Error('Microphone permission not granted');
             }
+            // Ensure native energy monitor has permissions too
+            await requestEnergyPermissions();
 
             // Set audio mode for recording
             await Audio.setAudioModeAsync({
@@ -228,8 +233,8 @@ export const useRabbitModeVAD = (
                 playThroughEarpieceAndroid: false,
             });
 
-            // Start initial recording
-            await startNewRecording();
+            // Start native energy detection (dedicated metering stream)
+            await startEnergyDetection();
 
             stateRef.current.isListening = true;
             levelHistoryRef.current = [];
@@ -241,24 +246,21 @@ export const useRabbitModeVAD = (
             console.error('Error starting rabbit mode VAD:', error);
             throw error;
         }
-    }, [callbacks, startNewRecording]);
+    }, [callbacks, requestEnergyPermissions, startEnergyDetection]);
 
     // Stop listening
     const stopListening = useCallback(async () => {
         if (!stateRef.current.isListening) return;
 
         try {
-            // Stop monitoring
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
+            // Stop native energy detection
+            if (isEnergyActive) {
+                await stopEnergyDetection();
             }
 
             // Stop and cleanup recording
             if (recordingRef.current) {
                 stoppingRef.current = true;
-                // Detach listener before stopping
-                recordingRef.current.setOnRecordingStatusUpdate(null);
                 await recordingRef.current.stopAndUnloadAsync();
                 recordingRef.current = null;
                 stoppingRef.current = false;
@@ -280,7 +282,7 @@ export const useRabbitModeVAD = (
         } catch (error) {
             console.error('Error stopping rabbit mode VAD:', error);
         }
-    }, [callbacks]);
+    }, [callbacks, isEnergyActive, stopEnergyDetection]);
 
     // Reset the VAD state
     const resetVAD = useCallback(() => {
@@ -297,14 +299,19 @@ export const useRabbitModeVAD = (
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
             if (recordingRef.current) {
                 recordingRef.current.stopAndUnloadAsync().catch(console.error);
             }
         };
     }, []);
+
+    // Feed energy samples into the detector
+    useEffect(() => {
+        if (!energyResult) return;
+        processEnergySample(energyResult.energy);
+        // We intentionally depend only on timestamp to sample new values without re-binding
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [energyResult?.timestamp]);
 
     return {
         startListening,
