@@ -14,6 +14,8 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   startEnergyDetection: () => Promise<void>;
   stopEnergyDetection: () => Promise<void>;
   clearError: () => void;
+  startSegment: (options?: { prerollMs?: number }) => Promise<void>;
+  stopSegment: () => Promise<string | null>;
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergy {
@@ -101,11 +103,36 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
+  const startSegment = useCallback(async (options?: { prerollMs?: number }) => {
+    try {
+      await (MicrophoneEnergyModule as unknown as {
+        startSegment: (opts?: { prerollMs?: number }) => Promise<void>;
+      }).startSegment(options);
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: `Start segment error: ${String(error)}` }));
+      throw error;
+    }
+  }, []);
+
+  const stopSegment = useCallback(async (): Promise<string | null> => {
+    try {
+      const uri = await (MicrophoneEnergyModule as unknown as {
+        stopSegment: () => Promise<string | null>;
+      }).stopSegment();
+      return uri;
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: `Stop segment error: ${String(error)}` }));
+      throw error;
+    }
+  }, []);
+
   return {
     ...state,
     requestPermissions,
     startEnergyDetection,
     stopEnergyDetection,
-    clearError
+    clearError,
+    startSegment,
+    stopSegment
   };
 }

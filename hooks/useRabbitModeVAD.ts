@@ -56,6 +56,7 @@ export const useRabbitModeVAD = (
     });
 
     // Audio monitoring
+    // Expo recorder path deprecated by native segmented recording
     const recordingRef = useRef<Audio.Recording | null>(null);
     const stoppingRef = useRef<boolean>(false);
     const isRecorderActiveRef = useRef<boolean>(false);
@@ -73,7 +74,9 @@ export const useRabbitModeVAD = (
         energyResult,
         startEnergyDetection,
         stopEnergyDetection,
-        requestPermissions: requestEnergyPermissions
+        requestPermissions: requestEnergyPermissions,
+        startSegment,
+        stopSegment
     } = useMicrophoneEnergy();
 
     // Smoothing function for audio levels
@@ -143,33 +146,8 @@ export const useRabbitModeVAD = (
                         if (normalizedLevel > earlyThreshold) {
                             isStartingRecorderRef.current = true;
                             startAttemptedForThisSpeechRef.current = true;
-                            const options = {
-                                android: {
-                                    extension: '.m4a',
-                                    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-                                    audioEncoder: Audio.AndroidAudioEncoder.AAC,
-                                    sampleRate: 44100,
-                                    numberOfChannels: 2,
-                                    bitRate: 128000,
-                                },
-                                ios: {
-                                    extension: '.m4a',
-                                    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-                                    audioQuality: Audio.IOSAudioQuality.MEDIUM,
-                                    sampleRate: 44100,
-                                    numberOfChannels: 2,
-                                    bitRate: 128000,
-                                    linearPCMBitDepth: 16,
-                                    linearPCMIsBigEndian: false,
-                                    linearPCMIsFloat: false,
-                                },
-                                web: {
-                                    mimeType: 'audio/webm',
-                                    bitsPerSecond: 128000,
-                                },
-                            } as const;
-                            const { recording } = await Audio.Recording.createAsync(options);
-                            recordingRef.current = recording;
+                            // Start native segmented recording with preroll
+                            await startSegment({ prerollMs: 300 });
                             isRecorderActiveRef.current = true;
                             if (!recorderNotifiedStartRef.current) {
                                 recorderNotifiedStartRef.current = true;
@@ -211,55 +189,18 @@ export const useRabbitModeVAD = (
 
                     const finalizeSegment = async () => {
                         let recordingUri: string | undefined;
-                        if (finalConfig.saveRecordings && recordingRef.current) {
-                            try {
-                                stoppingRef.current = true;
-                                await recordingRef.current.stopAndUnloadAsync();
-                                const uri = recordingRef.current.getURI();
+                        try {
+                            if (finalConfig.saveRecordings) {
+                                const uri = await stopSegment();
                                 recordingUri = uri || undefined;
                                 isRecorderActiveRef.current = false;
-                            } catch (error) {
-                                console.error('❌ Error saving recording:', error);
-                            } finally {
-                                // Immediately prepare the next recording for minimal start latency
-                                try {
-                                    const nextRec = new Audio.Recording();
-                                    await nextRec.prepareToRecordAsync({
-                                        android: {
-                                            extension: '.m4a',
-                                            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-                                            audioEncoder: Audio.AndroidAudioEncoder.AAC,
-                                            sampleRate: 44100,
-                                            numberOfChannels: 2,
-                                            bitRate: 128000,
-                                        },
-                                        ios: {
-                                            extension: '.m4a',
-                                            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-                                            audioQuality: Audio.IOSAudioQuality.MEDIUM,
-                                            sampleRate: 44100,
-                                            numberOfChannels: 2,
-                                            bitRate: 128000,
-                                            linearPCMBitDepth: 16,
-                                            linearPCMIsBigEndian: false,
-                                            linearPCMIsFloat: false,
-                                        },
-                                        web: {
-                                            mimeType: 'audio/webm',
-                                            bitsPerSecond: 128000,
-                                        },
-                                    });
-                                    recordingRef.current = nextRec;
-                                    recorderNotifiedStartRef.current = false;
-                                } catch (prepErr) {
-                                    console.error('Error preparing next recorder:', prepErr);
-                                    recordingRef.current = null;
-                                    recorderNotifiedStartRef.current = false;
-                                }
-                                stoppingRef.current = false;
                             }
+                        } catch (error) {
+                            console.error('❌ Error stopping segment:', error);
                         }
                         callbacks.onSpeechEnd(recordingUri);
+                        // Allow next onSpeechStart to fire on next speech
+                        recorderNotifiedStartRef.current = false;
                     };
                     void finalizeSegment();
                     startAttemptedForThisSpeechRef.current = false;
