@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { ProjectDetails } from '@/components/ProjectDetails';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import { questService } from '@/database_services/questService';
 import { project, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -49,6 +52,7 @@ const getCreatorId = (project: ProjectOrDraft): string | null => {
 
 export default function NextGenQuestsView() {
   const { t } = useLocalization();
+  const { currentUser } = useAuth();
   const { currentProjectId } = useCurrentNavigation();
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
   const [showProjectDetails, setShowProjectDetails] = React.useState(false);
@@ -56,6 +60,9 @@ export default function NextGenQuestsView() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
   const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
+  const [showAddQuestModal, setShowAddQuestModal] = React.useState(false);
+  const [newQuestName, setNewQuestName] = React.useState('');
+  const [newQuestDescription, setNewQuestDescription] = React.useState('');
 
   // Debounce the search query
   React.useEffect(() => {
@@ -99,6 +106,7 @@ export default function NextGenQuestsView() {
 
   // Get draft project data for optimistic rendering when project data is still loading
   const draftProjects = useLocalStore((state) => state.draftProjects);
+  const addDraftQuest = useLocalStore((state) => state.addDraftQuest);
   const currentDraftProject = React.useMemo(() => {
     if (!currentProjectId) return null;
     return draftProjects.find((dp) => dp.id === currentProjectId) || null;
@@ -170,8 +178,14 @@ export default function NextGenQuestsView() {
         creator_id: getCreatorId(projectToUse),
         visible: dq.visible,
         active: true,
-        created_at: dq.created_at.toISOString(),
-        last_updated: dq.last_updated.toISOString(),
+        created_at: (dq.created_at instanceof Date
+          ? dq.created_at
+          : new Date()
+        ).toISOString(),
+        last_updated: (dq.last_updated instanceof Date
+          ? dq.last_updated
+          : new Date()
+        ).toISOString(),
         download_profiles: null,
         source: 'localDraft'
       }));
@@ -521,6 +535,17 @@ export default function NextGenQuestsView() {
       {/* Floating action buttons */}
       <View style={styles.floatingButtonContainer}>
         <View style={styles.floatingButtonRow}>
+          {/* Add Quest (for drafts or unstructured projects) */}
+          {((currentDraftProject &&
+            currentDraftProject.id === currentProjectId) ||
+            !currentProject?.templates?.includes('every-language-bible')) && (
+            <TouchableOpacity
+              onPress={() => setShowAddQuestModal(true)}
+              style={styles.floatingButton}
+            >
+              <Ionicons name="add" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
           {/* Settings Button - Only visible to owners */}
           {canManageProject && (
             <TouchableOpacity
@@ -571,6 +596,147 @@ export default function NextGenQuestsView() {
           onClose={() => setShowSettingsModal(false)}
           projectId={currentProjectId || ''}
         />
+      )}
+
+      {/* Add Quest Modal */}
+      {showAddQuestModal && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderRadius: 12,
+              padding: spacing.large,
+              width: '90%'
+            }}
+          >
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: fontSizes.large,
+                fontWeight: '600',
+                marginBottom: spacing.medium
+              }}
+            >
+              Add Quest
+            </Text>
+
+            <Text style={{ color: colors.text, marginBottom: spacing.xsmall }}>
+              Name
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: colors.inputBackground,
+                color: colors.text,
+                borderRadius: 8,
+                paddingHorizontal: spacing.medium,
+                paddingVertical: spacing.small,
+                marginBottom: spacing.medium
+              }}
+              value={newQuestName}
+              onChangeText={setNewQuestName}
+              placeholder={'Quest Name'}
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <Text style={{ color: colors.text, marginBottom: spacing.xsmall }}>
+              Description
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: colors.inputBackground,
+                color: colors.text,
+                borderRadius: 8,
+                paddingHorizontal: spacing.medium,
+                paddingVertical: spacing.small,
+                marginBottom: spacing.medium
+              }}
+              value={newQuestDescription}
+              onChangeText={setNewQuestDescription}
+              placeholder={'Quest Description'}
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={2}
+            />
+
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: spacing.medium
+              }}
+            >
+              <TouchableOpacity onPress={() => setShowAddQuestModal(false)}>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: fontSizes.medium
+                  }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!newQuestName.trim()) return;
+                  const projectIdForDraft =
+                    currentProjectId || currentDraftProject?.id || '';
+                  if (!projectIdForDraft) return;
+                  const isDraft = projectIdForDraft.startsWith('draft_');
+                  try {
+                    if (isDraft) {
+                      addDraftQuest({
+                        project_id: projectIdForDraft,
+                        name: newQuestName.trim(),
+                        description: newQuestDescription.trim() || undefined,
+                        visible: true
+                      });
+                      console.log('Draft quest added locally');
+                    } else if (currentUser) {
+                      await questService.createQuest({
+                        name: newQuestName.trim(),
+                        description: newQuestDescription.trim() || undefined,
+                        project_id: projectIdForDraft,
+                        creator_id: currentUser.id,
+                        visible: true
+                      });
+                      console.log('Quest created in database');
+                    }
+                  } catch (e) {
+                    console.error('Failed to add quest:', e);
+                  } finally {
+                    setNewQuestName('');
+                    setNewQuestDescription('');
+                    setShowAddQuestModal(false);
+                  }
+                }}
+                disabled={!newQuestName.trim()}
+              >
+                <Text
+                  style={{
+                    color: !newQuestName.trim()
+                      ? colors.textSecondary
+                      : colors.primary,
+                    fontSize: fontSizes.medium,
+                    fontWeight: '600'
+                  }}
+                >
+                  Add Quest
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       )}
     </View>
   );

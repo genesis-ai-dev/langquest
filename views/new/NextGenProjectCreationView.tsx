@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { useAuth } from '@/contexts/AuthContext';
 import { projectService } from '@/database_services/projectService';
 import { questService } from '@/database_services/questService';
 import type { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import type { DraftProject, DraftQuest } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
@@ -25,6 +27,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import LanguagePickerModal from './components/LanguagePickerModal';
 import { PaginatedQuestList } from './components/PaginatedQuestList';
 import { ProjectTemplateSelector } from './components/ProjectTemplateSelector';
 import { StructuredProjectConfirmationModal } from './components/StructuredProjectConfirmationModal';
@@ -32,85 +35,6 @@ import { useSimpleHybridData } from './useHybridData';
 
 type Language = typeof language.$inferSelect;
 type ProjectType = 'custom' | 'template';
-
-interface LanguageSelectProps {
-  label: string;
-  selectedLanguageId: string | null;
-  onSelect: (languageId: string) => void;
-  languages: Language[];
-  placeholder: string;
-}
-
-const LanguageSelect: React.FC<LanguageSelectProps> = ({
-  label,
-  selectedLanguageId,
-  onSelect,
-  languages,
-  placeholder
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const selectedLanguage = languages.find(
-    (lang) => lang.id === selectedLanguageId
-  );
-
-  return (
-    <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TouchableOpacity
-        style={styles.languageSelect}
-        onPress={() => setIsOpen(!isOpen)}
-      >
-        <Text
-          style={[
-            styles.languageSelectText,
-            !selectedLanguage && styles.placeholderText
-          ]}
-        >
-          {selectedLanguage
-            ? selectedLanguage.native_name || selectedLanguage.english_name
-            : placeholder}
-        </Text>
-        <Ionicons
-          name={isOpen ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={colors.textSecondary}
-        />
-      </TouchableOpacity>
-
-      {isOpen && (
-        <View style={styles.languageDropdown}>
-          <ScrollView style={styles.languageList} nestedScrollEnabled>
-            {languages.map((language) => (
-              <TouchableOpacity
-                key={language.id}
-                style={[
-                  styles.languageOption,
-                  selectedLanguageId === language.id &&
-                    styles.selectedLanguageOption
-                ]}
-                onPress={() => {
-                  onSelect(language.id);
-                  setIsOpen(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.languageOptionText,
-                    selectedLanguageId === language.id &&
-                      styles.selectedLanguageOptionText
-                  ]}
-                >
-                  {language.native_name || language.english_name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-    </View>
-  );
-};
 
 // Progress Modal Component
 interface ProgressModalProps {
@@ -173,6 +97,8 @@ const ProgressModal: React.FC<ProgressModalProps> = ({ visible, progress }) => {
 export default function NextGenProjectCreationView() {
   const { goBack } = useAppNavigation();
   const { currentUser } = useAuth();
+  const { t } = useLocalization();
+  // no ref needed; ScrollView auto-adjusts with keyboard settings
 
   // Project type and template selection
   const [projectType, setProjectType] = useState<ProjectType>('custom');
@@ -187,9 +113,12 @@ export default function NextGenProjectCreationView() {
   const [targetLanguageId, setTargetLanguageId] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Progress tracking for structured projects
-  const [creationProgress, setCreationProgress] =
+  const [creationProgress, _setCreationProgress] =
     useState<StructuredProjectCreationProgress>({
       stage: 'project',
       current: 0,
@@ -237,10 +166,11 @@ export default function NextGenProjectCreationView() {
           .from('language')
           .select('*')
           .eq('active', true)
-          .order('english_name');
+          .order('english_name')
+          .overrideTypes<Language[]>();
 
         if (error) throw error;
-        return data || [];
+        return data;
       }
     );
 
@@ -579,30 +509,82 @@ export default function NextGenProjectCreationView() {
     }
   }, [projectType, draftProjectId, removeDraftProject]);
 
+  const canProceed =
+    step === 1
+      ? Boolean(
+          sourceLanguageId &&
+            targetLanguageId &&
+            sourceLanguageId !== targetLanguageId
+        )
+      : step === 2
+        ? true
+        : isProjectValid &&
+          (projectType === 'template' ||
+            currentDraftProject ||
+            draftQuests.length > 0);
+
+  const onNext = () => {
+    if (step === 1) {
+      if (
+        !sourceLanguageId ||
+        !targetLanguageId ||
+        sourceLanguageId === targetLanguageId
+      ) {
+        Alert.alert(t('languages'), t('selectLanguage'));
+        return;
+      }
+      setStep(2);
+    } else if (step === 2) {
+      setStep(3);
+    } else {
+      void handlePublish();
+    }
+  };
+
+  const onBack = () => {
+    if (step > 1) {
+      setStep((step - 1) as unknown as 1 | 2 | 3);
+    } else {
+      handleCancel();
+    }
+  };
+
+  const swapLanguages = () => {
+    if (sourceLanguageId && targetLanguageId) {
+      const newSource = targetLanguageId;
+      const newTarget = sourceLanguageId;
+      setSourceLanguageId(newSource);
+      setTargetLanguageId(newTarget);
+      if (currentDraftProject && projectType === 'custom') {
+        updateDraftProject(draftProjectId!, {
+          source_language_id: newSource,
+          target_language_id: newTarget
+        });
+      }
+    }
+  };
+
   if (isLanguagesLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading languages...</Text>
+        <Text style={styles.loadingText}>{t('languages')}</Text>
       </View>
     );
   }
 
-  const canPublish =
-    isProjectValid &&
-    (projectType === 'template' ||
-      currentDraftProject ||
-      draftQuests.length > 0);
+  // Allow publishing without pre-adding quests for custom projects
+  const canPublish = isProjectValid;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create New Project</Text>
+        <Text style={styles.headerTitle}>{t('createNewProject')}</Text>
         <TouchableOpacity
           onPress={canPublish ? handlePublish : undefined}
           disabled={!canPublish || isPublishing}
@@ -617,126 +599,203 @@ export default function NextGenProjectCreationView() {
               (!canPublish || isPublishing) && styles.publishButtonTextDisabled
             ]}
           >
-            {isPublishing ? 'Publishing...' : 'Publish'}
+            {isPublishing ? '...' : 'Publish'}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Project Template Selection */}
-        <ProjectTemplateSelector
-          selectedType={projectType}
-          selectedTemplateId={selectedTemplateId}
-          onTypeChange={setProjectType}
-          onTemplateChange={setSelectedTemplateId}
-        />
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: spacing.large * 2 }}
+        automaticallyAdjustKeyboardInsets
+      >
+        {/* Step indicator */}
+        <Text style={styles.stepIndicator}>{`Step ${step} / 3`}</Text>
 
-        {/* Project Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Project Details</Text>
+        {/* Step 1: Languages */}
+        {step === 1 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('languages')}</Text>
 
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Project Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              value={projectName}
-              onChangeText={setProjectName}
-              placeholder="Enter project name"
-              placeholderTextColor={colors.textSecondary}
-              onBlur={
-                currentDraftProject && projectType === 'custom'
-                  ? handleUpdateDraftProject
-                  : undefined
-              }
-            />
-          </View>
-
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              value={projectDescription}
-              onChangeText={setProjectDescription}
-              placeholder="Enter project description (optional)"
-              placeholderTextColor={colors.textSecondary}
-              multiline
-              numberOfLines={3}
-              onBlur={
-                currentDraftProject && projectType === 'custom'
-                  ? handleUpdateDraftProject
-                  : undefined
-              }
-            />
-          </View>
-
-          <LanguageSelect
-            label="Source Language *"
-            selectedLanguageId={sourceLanguageId}
-            onSelect={(languageId) => {
-              setSourceLanguageId(languageId);
-              if (currentDraftProject && projectType === 'custom') {
-                updateDraftProject(draftProjectId!, {
-                  source_language_id: languageId
-                });
-              }
-            }}
-            languages={languages}
-            placeholder="Select source language"
-          />
-
-          <LanguageSelect
-            label="Target Language *"
-            selectedLanguageId={targetLanguageId}
-            onSelect={(languageId) => {
-              setTargetLanguageId(languageId);
-              if (currentDraftProject && projectType === 'custom') {
-                updateDraftProject(draftProjectId!, {
-                  target_language_id: languageId
-                });
-              }
-            }}
-            languages={languages}
-            placeholder="Select target language"
-          />
-
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => {
-              const newPrivate = !isPrivate;
-              setIsPrivate(newPrivate);
-              if (currentDraftProject && projectType === 'custom') {
-                updateDraftProject(draftProjectId!, { private: newPrivate });
-              }
-            }}
-          >
-            <Ionicons
-              name={isPrivate ? 'checkbox' : 'checkbox-outline'}
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={styles.checkboxLabel}>Make this project private</Text>
-          </TouchableOpacity>
-
-          {projectType === 'custom' && !currentDraftProject && (
-            <TouchableOpacity
-              style={[
-                styles.createDraftButton,
-                !isProjectValid && styles.createDraftButtonDisabled
-              ]}
-              onPress={handleCreateDraftProject}
-              disabled={!isProjectValid}
-            >
+            <View style={styles.fieldContainer}>
               <Text
-                style={[
-                  styles.createDraftButtonText,
-                  !isProjectValid && styles.createDraftButtonTextDisabled
-                ]}
+                style={styles.fieldLabel}
+              >{`${t('source')} ${t('language')}`}</Text>
+              <TouchableOpacity
+                style={styles.languageSelect}
+                onPress={() => setShowSourcePicker(true)}
               >
-                Create Draft Project
+                <Ionicons
+                  name="language"
+                  size={18}
+                  color={colors.textSecondary}
+                  style={{ marginRight: spacing.small }}
+                />
+                <Text
+                  style={[
+                    styles.languageSelectText,
+                    !sourceLanguageId && styles.placeholderText
+                  ]}
+                >
+                  {sourceLanguageId
+                    ? languages.find((l) => l.id === sourceLanguageId)
+                        ?.native_name ||
+                      languages.find((l) => l.id === sourceLanguageId)
+                        ?.english_name
+                    : t('selectLanguage')}
+                </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.swapRow}>
+              <TouchableOpacity
+                style={styles.swapButton}
+                onPress={swapLanguages}
+              >
+                <Ionicons
+                  name="swap-vertical"
+                  size={20}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>{t('targetLanguage')}</Text>
+              <TouchableOpacity
+                style={styles.languageSelect}
+                onPress={() => setShowTargetPicker(true)}
+              >
+                <Ionicons
+                  name="flag-outline"
+                  size={18}
+                  color={colors.textSecondary}
+                  style={{ marginRight: spacing.small }}
+                />
+                <Text
+                  style={[
+                    styles.languageSelectText,
+                    !targetLanguageId && styles.placeholderText
+                  ]}
+                >
+                  {targetLanguageId
+                    ? languages.find((l) => l.id === targetLanguageId)
+                        ?.native_name ||
+                      languages.find((l) => l.id === targetLanguageId)
+                        ?.english_name
+                    : t('selectLanguage')}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Step 2: Project Template Selection */}
+        {step === 2 && (
+          <ProjectTemplateSelector
+            selectedType={projectType}
+            selectedTemplateId={selectedTemplateId}
+            onTypeChange={setProjectType}
+            onTemplateChange={setSelectedTemplateId}
+          />
+        )}
+
+        {/* Step 3: Project Details */}
+        {step === 3 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('projectSettings')}</Text>
+
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={projectName}
+                onChangeText={setProjectName}
+                placeholder="Enter project name"
+                placeholderTextColor={colors.textSecondary}
+                onBlur={
+                  currentDraftProject && projectType === 'custom'
+                    ? handleUpdateDraftProject
+                    : undefined
+                }
+              />
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.multilineInput]}
+                value={projectDescription}
+                onChangeText={setProjectDescription}
+                placeholder="Enter project description (optional)"
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={3}
+                onBlur={
+                  currentDraftProject && projectType === 'custom'
+                    ? handleUpdateDraftProject
+                    : undefined
+                }
+              />
+            </View>
+
+            {/* Language selection handled via modal above */}
+
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => {
+                const newPrivate = !isPrivate;
+                setIsPrivate(newPrivate);
+                if (currentDraftProject && projectType === 'custom') {
+                  updateDraftProject(draftProjectId!, { private: newPrivate });
+                }
+              }}
+            >
+              <Ionicons
+                name={isPrivate ? 'checkbox' : 'checkbox-outline'}
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.checkboxLabel}>
+                Make this project private
               </Text>
             </TouchableOpacity>
-          )}
-        </View>
+
+            {projectType === 'custom' && !currentDraftProject && (
+              <TouchableOpacity
+                style={[
+                  styles.createDraftButton,
+                  !isProjectValid && styles.createDraftButtonDisabled
+                ]}
+                onPress={handleCreateDraftProject}
+                disabled={!isProjectValid}
+              >
+                <Text
+                  style={[
+                    styles.createDraftButtonText,
+                    !isProjectValid && styles.createDraftButtonTextDisabled
+                  ]}
+                >
+                  Create Draft Project
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Quests Section - Only for Custom Projects */}
         {projectType === 'custom' && currentDraftProject && (
@@ -850,6 +909,63 @@ export default function NextGenProjectCreationView() {
         onCancel={handleCancelStructuredProject}
         isLoading={isPublishing}
       />
+
+      {/* Language pickers */}
+      <LanguagePickerModal
+        visible={showSourcePicker}
+        title={`${t('source')} ${t('language')}`}
+        languages={languages}
+        selectedLanguageId={sourceLanguageId}
+        onSelect={(languageId) => {
+          setSourceLanguageId(languageId);
+          if (currentDraftProject && projectType === 'custom') {
+            updateDraftProject(draftProjectId!, {
+              source_language_id: languageId
+            });
+          }
+        }}
+        onClose={() => setShowSourcePicker(false)}
+      />
+      <LanguagePickerModal
+        visible={showTargetPicker}
+        title={t('targetLanguage')}
+        languages={languages}
+        selectedLanguageId={targetLanguageId}
+        onSelect={(languageId) => {
+          setTargetLanguageId(languageId);
+          if (currentDraftProject && projectType === 'custom') {
+            updateDraftProject(draftProjectId!, {
+              target_language_id: languageId
+            });
+          }
+        }}
+        onClose={() => setShowTargetPicker(false)}
+      />
+
+      {/* Sticky footer actions */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.bottomBack}
+          onPress={onBack}
+          disabled={isPublishing}
+        >
+          <Text style={styles.bottomBackText}>{t('goBack')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.bottomNext, !canProceed && styles.bottomNextDisabled]}
+          onPress={onNext}
+          disabled={!canProceed || isPublishing}
+        >
+          <Text
+            style={[
+              styles.bottomNextText,
+              !canProceed && styles.bottomNextTextDisabled
+            ]}
+          >
+            {step < 3 ? 'Continue' : 'Publish'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -906,8 +1022,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.medium
   },
+  stepIndicator: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
+    marginTop: spacing.small
+  },
   section: {
     marginVertical: spacing.medium
+  },
+  swapRow: {
+    alignItems: 'center',
+    marginVertical: spacing.small
+  },
+  swapButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.inputBackground,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1188,5 +1321,44 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     color: colors.text,
     fontWeight: '500'
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.medium,
+    paddingVertical: spacing.small,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.inputBackground
+  },
+  bottomBack: {
+    paddingHorizontal: spacing.medium,
+    paddingVertical: spacing.small
+  },
+  bottomBackText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.medium
+  },
+  bottomNext: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.large,
+    paddingVertical: spacing.small,
+    borderRadius: borderRadius.medium
+  },
+  bottomNextDisabled: {
+    backgroundColor: colors.inputBackground
+  },
+  bottomNextText: {
+    color: colors.buttonText,
+    fontSize: fontSizes.medium,
+    fontWeight: '700'
+  },
+  bottomNextTextDisabled: {
+    color: colors.textSecondary
   }
 });
