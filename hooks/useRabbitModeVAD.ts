@@ -118,8 +118,8 @@ export const useRabbitModeVAD = (
                 ? levelHistoryRef.current.reduce((a, b) => a + b, 0) / levelHistoryRef.current.length
                 : relativeLevel;
 
-            // Detect speech
-            if (smoothedLevel > threshold) {
+            // Detect speech (use raw level for rising edge to reduce latency)
+            if (normalizedLevel > threshold) {
                 const wasSpeechStarted = !!speechStartTimeRef.current;
                 if (!wasSpeechStarted) {
                     speechStartTimeRef.current = currentTime;
@@ -142,12 +142,12 @@ export const useRabbitModeVAD = (
                         if (now - lastStartAttemptTsRef.current < 150) return;
                         lastStartAttemptTsRef.current = now;
                         // Start a bit earlier using hysteresis; create and start fresh to avoid stale state
-                        const earlyThreshold = Math.max(0.01, threshold - 0.25);
-                        if (normalizedLevel > earlyThreshold) {
+                        const earlyThreshold = Math.max(0.01, threshold - 0.15);
+                        if (normalizedLevel >= earlyThreshold) {
                             isStartingRecorderRef.current = true;
                             startAttemptedForThisSpeechRef.current = true;
                             // Start native segmented recording with preroll
-                            await startSegment({ prerollMs: 300 });
+                            await startSegment({ prerollMs: 350 });
                             isRecorderActiveRef.current = true;
                             if (!recorderNotifiedStartRef.current) {
                                 recorderNotifiedStartRef.current = true;
