@@ -53,10 +53,17 @@ export const PlayableWaveform: React.FC<PlayableWaveformProps> = ({
             setLocalIsPlaying(status.isPlaying);
 
             if (status.didJustFinish) {
-              setPosition(0);
+              // Reset to allow replay without remount
               setLocalIsPlaying(false);
+              setPosition(0);
               if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
+              }
+              // Seek to 0 to ensure the next play starts from the beginning
+              try {
+                void newSound.setPositionAsync(0);
+              } catch (err) {
+                console.log('Position reset failed:', err);
               }
               onStop?.();
             }
@@ -98,6 +105,11 @@ export const PlayableWaveform: React.FC<PlayableWaveformProps> = ({
         await sound.pauseAsync();
         onPause?.();
       } else {
+        // If at end, reset to 0 before replaying
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded && status.didJustFinish) {
+          await sound.setPositionAsync(0);
+        }
         await sound.playAsync();
         onPlay?.();
       }

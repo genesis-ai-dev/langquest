@@ -16,6 +16,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
+  Alert,
   LayoutAnimation,
   Platform,
   ScrollView,
@@ -602,9 +603,28 @@ export default function SimpleAssetsView() {
   const { attachmentStates } = useAttachmentStates(assetIds);
 
   // Handlers
-  const handleDeleteSegment = React.useCallback((segmentId: string) => {
-    console.log('Mock: Delete segment', segmentId);
-  }, []);
+  const handleDeleteSegment = React.useCallback(
+    (segmentId: string) => {
+      if (!activeSession?.id || !currentAssetId) return;
+      Alert.alert(
+        'Delete recording',
+        'Are you sure you want to delete this recording?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              const deleteSegment =
+                useLocalStore.getState().deleteRabbitModeSegment;
+              deleteSegment(activeSession.id, currentAssetId, segmentId);
+            }
+          }
+        ]
+      );
+    },
+    [activeSession?.id, currentAssetId]
+  );
 
   const handleReorderSegment = React.useCallback(
     (segmentId: string, direction: 'up' | 'down') => {

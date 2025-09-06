@@ -192,7 +192,12 @@ export default function NextGenAssetDetailView() {
     currentStatus.getStatusParams(
       LayerType.ASSET,
       activeAsset?.id || '',
-      activeAsset as LayerStatus,
+      activeAsset
+        ? ({
+            visible: !!activeAsset.visible,
+            active: !!activeAsset.active
+          } as LayerStatus)
+        : undefined,
       currentQuestId
     );
 

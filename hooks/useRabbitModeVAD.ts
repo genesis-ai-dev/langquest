@@ -58,10 +58,14 @@ export const useRabbitModeVAD = (
     // Audio monitoring
     const recordingRef = useRef<Audio.Recording | null>(null);
     const stoppingRef = useRef<boolean>(false);
+    const isRecorderActiveRef = useRef<boolean>(false);
     const levelHistoryRef = useRef<number[]>([]);
     const speechStartTimeRef = useRef<number | null>(null);
     const lastSpeechTimeRef = useRef<number | null>(null);
     const isStartingRecorderRef = useRef<boolean>(false);
+    const recorderNotifiedStartRef = useRef<boolean>(false);
+    const lastStartAttemptTsRef = useRef<number>(0);
+    const startAttemptedForThisSpeechRef = useRef<boolean>(false);
 
     // Native energy monitor hook (second microphone dedicated to metering)
     const {
@@ -113,24 +117,33 @@ export const useRabbitModeVAD = (
 
             // Detect speech
             if (smoothedLevel > threshold) {
-                if (!speechStartTimeRef.current) {
+                const wasSpeechStarted = !!speechStartTimeRef.current;
+                if (!wasSpeechStarted) {
                     speechStartTimeRef.current = currentTime;
+                    startAttemptedForThisSpeechRef.current = false;
                 }
 
                 lastSpeechTimeRef.current = currentTime;
-                stateRef.current.speechDuration = currentTime - speechStartTimeRef.current;
+                stateRef.current.speechDuration = speechStartTimeRef.current
+                    ? currentTime - speechStartTimeRef.current
+                    : 0;
                 stateRef.current.silenceDuration = 0;
 
-                if (!stateRef.current.isSpeaking && stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
-                    stateRef.current.isSpeaking = true;
-                    callbacks.onSpeechStart();
-                    // Start recorder on speech start
-                    const startRecorder = async () => {
-                        try {
-                            if (isStartingRecorderRef.current || recordingRef.current) return;
+                // Start recorder immediately on threshold crossing for minimal latency
+                const ensureRecorderStarted = async () => {
+                    try {
+                        if (isStartingRecorderRef.current || isRecorderActiveRef.current) return;
+                        if (startAttemptedForThisSpeechRef.current) return;
+                        // Throttle start attempts to avoid native contention
+                        const now = Date.now();
+                        if (now - lastStartAttemptTsRef.current < 150) return;
+                        lastStartAttemptTsRef.current = now;
+                        // Start a bit earlier using hysteresis; create and start fresh to avoid stale state
+                        const earlyThreshold = Math.max(0.01, threshold - 0.25);
+                        if (normalizedLevel > earlyThreshold) {
                             isStartingRecorderRef.current = true;
-                            const recording = new Audio.Recording();
-                            await recording.prepareToRecordAsync({
+                            startAttemptedForThisSpeechRef.current = true;
+                            const options = {
                                 android: {
                                     extension: '.m4a',
                                     outputFormat: Audio.AndroidOutputFormat.MPEG_4,
@@ -154,16 +167,37 @@ export const useRabbitModeVAD = (
                                     mimeType: 'audio/webm',
                                     bitsPerSecond: 128000,
                                 },
-                            });
-                            await recording.startAsync();
+                            } as const;
+                            const { recording } = await Audio.Recording.createAsync(options);
                             recordingRef.current = recording;
-                        } catch (error) {
-                            console.error('Error starting recorder:', error);
-                        } finally {
-                            isStartingRecorderRef.current = false;
+                            isRecorderActiveRef.current = true;
+                            if (!recorderNotifiedStartRef.current) {
+                                recorderNotifiedStartRef.current = true;
+                                callbacks.onSpeechStart();
+                            }
                         }
-                    };
-                    void startRecorder();
+                    } catch (error) {
+                        console.error('Error ensuring recorder started:', error);
+                        isRecorderActiveRef.current = false;
+                        recordingRef.current = null;
+                        // allow a retry on next crossing if this failed
+                        startAttemptedForThisSpeechRef.current = false;
+                    } finally {
+                        isStartingRecorderRef.current = false;
+                    }
+                };
+                // Only try to start on the rising edge / first frames of speech
+                if (!wasSpeechStarted) {
+                    void ensureRecorderStarted();
+                }
+
+                if (!stateRef.current.isSpeaking && stateRef.current.speechDuration >= finalConfig.minimumSpeechDuration) {
+                    stateRef.current.isSpeaking = true;
+                    // onSpeechStart may already be sent when recorder began; avoid duplicate UX flicker
+                    if (!recorderNotifiedStartRef.current) {
+                        callbacks.onSpeechStart();
+                        recorderNotifiedStartRef.current = true;
+                    }
                 }
             } else {
                 if (lastSpeechTimeRef.current) {
@@ -183,16 +217,52 @@ export const useRabbitModeVAD = (
                                 await recordingRef.current.stopAndUnloadAsync();
                                 const uri = recordingRef.current.getURI();
                                 recordingUri = uri || undefined;
+                                isRecorderActiveRef.current = false;
                             } catch (error) {
                                 console.error('❌ Error saving recording:', error);
                             } finally {
-                                recordingRef.current = null;
+                                // Immediately prepare the next recording for minimal start latency
+                                try {
+                                    const nextRec = new Audio.Recording();
+                                    await nextRec.prepareToRecordAsync({
+                                        android: {
+                                            extension: '.m4a',
+                                            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+                                            audioEncoder: Audio.AndroidAudioEncoder.AAC,
+                                            sampleRate: 44100,
+                                            numberOfChannels: 2,
+                                            bitRate: 128000,
+                                        },
+                                        ios: {
+                                            extension: '.m4a',
+                                            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+                                            audioQuality: Audio.IOSAudioQuality.MEDIUM,
+                                            sampleRate: 44100,
+                                            numberOfChannels: 2,
+                                            bitRate: 128000,
+                                            linearPCMBitDepth: 16,
+                                            linearPCMIsBigEndian: false,
+                                            linearPCMIsFloat: false,
+                                        },
+                                        web: {
+                                            mimeType: 'audio/webm',
+                                            bitsPerSecond: 128000,
+                                        },
+                                    });
+                                    recordingRef.current = nextRec;
+                                    recorderNotifiedStartRef.current = false;
+                                } catch (prepErr) {
+                                    console.error('Error preparing next recorder:', prepErr);
+                                    recordingRef.current = null;
+                                    recorderNotifiedStartRef.current = false;
+                                }
                                 stoppingRef.current = false;
                             }
                         }
                         callbacks.onSpeechEnd(recordingUri);
                     };
                     void finalizeSegment();
+                    startAttemptedForThisSpeechRef.current = false;
                 }
             }
 
@@ -224,17 +294,58 @@ export const useRabbitModeVAD = (
             // Ensure native energy monitor has permissions too
             await requestEnergyPermissions();
 
-            // Set audio mode for recording
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: true,
-                playsInSilentModeIOS: true,
-                staysActiveInBackground: false,
-                shouldDuckAndroid: true,
-                playThroughEarpieceAndroid: false,
-            });
+            // Set audio mode for recording (defensive)
+            try {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (err) {
+                console.log('Audio mode setup warning:', err);
+            }
 
             // Start native energy detection (dedicated metering stream)
             await startEnergyDetection();
+
+            // Pre-warm recorder so startAsync is near-instant on threshold crossing
+            try {
+                if (!recordingRef.current) {
+                    const preRec = new Audio.Recording();
+                    await preRec.prepareToRecordAsync({
+                        android: {
+                            extension: '.m4a',
+                            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+                            audioEncoder: Audio.AndroidAudioEncoder.AAC,
+                            sampleRate: 44100,
+                            numberOfChannels: 2,
+                            bitRate: 128000,
+                        },
+                        ios: {
+                            extension: '.m4a',
+                            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+                            audioQuality: Audio.IOSAudioQuality.MEDIUM,
+                            sampleRate: 44100,
+                            numberOfChannels: 2,
+                            bitRate: 128000,
+                            linearPCMBitDepth: 16,
+                            linearPCMIsBigEndian: false,
+                            linearPCMIsFloat: false,
+                        },
+                        web: {
+                            mimeType: 'audio/webm',
+                            bitsPerSecond: 128000,
+                        },
+                    });
+                    recordingRef.current = preRec;
+                    isRecorderActiveRef.current = false;
+                }
+            } catch (prepErr) {
+                console.error('Pre-warm recorder failed:', prepErr);
+                recordingRef.current = null;
+            }
 
             stateRef.current.isListening = true;
             levelHistoryRef.current = [];
@@ -253,17 +364,35 @@ export const useRabbitModeVAD = (
         if (!stateRef.current.isListening) return;
 
         try {
-            // Stop native energy detection
-            if (isEnergyActive) {
-                await stopEnergyDetection();
+            // Stop native energy detection (ignore benign errors)
+            try {
+                if (isEnergyActive) {
+                    await stopEnergyDetection();
+                }
+            } catch {
+                console.log('Energy detection already stopped.');
             }
 
-            // Stop and cleanup recording
-            if (recordingRef.current) {
-                stoppingRef.current = true;
-                await recordingRef.current.stopAndUnloadAsync();
+            // Stop and cleanup recording if active
+            if (isRecorderActiveRef.current && recordingRef.current) {
+                try {
+                    stoppingRef.current = true;
+                    await recordingRef.current.stopAndUnloadAsync();
+                } catch {
+                    console.log('Recorder already stopped.');
+                } finally {
+                    recordingRef.current = null;
+                    stoppingRef.current = false;
+                    isRecorderActiveRef.current = false;
+                }
+            } else if (recordingRef.current) {
+                // Pre-warmed recorder that never started
+                try {
+                    await recordingRef.current.stopAndUnloadAsync();
+                } catch {
+                    // already stopped or never started
+                }
                 recordingRef.current = null;
-                stoppingRef.current = false;
             }
 
             // Reset state
@@ -309,8 +438,7 @@ export const useRabbitModeVAD = (
     useEffect(() => {
         if (!energyResult) return;
         processEnergySample(energyResult.energy);
-        // We intentionally depend only on timestamp to sample new values without re-binding
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // We intentionally keep dependencies minimal to avoid re-binding
     }, [energyResult?.timestamp]);
 
     return {
