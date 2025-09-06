@@ -25,6 +25,7 @@ import { BIBLE_TEMPLATE } from '@/utils/projectTemplates';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
+import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, like, or } from 'drizzle-orm';
 import React from 'react';
 import {
@@ -54,6 +55,7 @@ export default function NextGenQuestsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { currentProjectId } = useCurrentNavigation();
+  const queryClient = useQueryClient();
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
   const [showProjectDetails, setShowProjectDetails] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
@@ -712,6 +714,10 @@ export default function NextGenQuestsView() {
                       });
                       console.log('Quest created in database');
                     }
+                    // Refresh the list
+                    await queryClient.invalidateQueries({
+                      queryKey: ['quests', currentProjectId || '']
+                    });
                   } catch (e) {
                     console.error('Failed to add quest:', e);
                   } finally {
