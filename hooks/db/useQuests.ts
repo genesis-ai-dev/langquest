@@ -1,9 +1,13 @@
-import { quest as questTable } from '@/db/drizzleSchema';
+import { quest, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import {
+  useHybridData,
+  useSimpleHybridInfiniteData
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { keepPreviousData } from '@tanstack/react-query';
 import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, like, notInArray, or } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
   convertToFetchConfig,
@@ -12,6 +16,7 @@ import {
   useHybridInfiniteQuery,
   useHybridQuery
 } from '../useHybridQuery';
+import { useUserRestrictions } from './useBlocks';
 import type { Tag } from './useTags';
 
 export type Quest = InferSelectModel<typeof questTable>;
@@ -106,22 +111,23 @@ export function useQuestsWithTagsByProjectId(project_id: string) {
   return { quests, isQuestsLoading, ...rest };
 }
 
-/**
- * Returns { quest, isLoading, error }
- * Fetches a single quest by ID from Supabase (online) or local Drizzle DB (offline)
- */
 export function useQuestById(quest_id: string | undefined) {
   const { db, supabaseConnector } = system;
 
-  // Main query using hybrid query
   const {
     data: questArray,
     isLoading: isQuestLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['quest', quest_id],
-    enabled: !!quest_id,
-    onlineFn: async () => {
+  } = useHybridData({
+    dataType: 'quest',
+    queryKeyParams: ['quest', quest_id],
+    offlineQuery: toCompilableQuery(
+      db.query.quest.findMany({
+        where: (fields, { eq }) => eq(fields.id, quest_id!),
+        limit: 1
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('quest')
         .select('*')
@@ -130,13 +136,7 @@ export function useQuestById(quest_id: string | undefined) {
         .overrideTypes<Quest[]>();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.quest.findMany({
-        where: (fields, { eq }) => eq(fields.id, quest_id!),
-        limit: 1
-      })
-    )
+    }
   });
 
   const quest = questArray[0] || null;
@@ -397,4 +397,127 @@ export function usePaginatedQuestsWithTagsByProjectId(
     placeholderData: keepPreviousData, // This provides smooth transitions between pages
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
+}
+
+export function useInfiniteQuestsByProjectId(
+  projectId: string | undefined,
+  debouncedSearchQuery: string,
+  showHiddenContent: boolean
+) {
+  const {
+    data: restrictions,
+    isRestrictionsLoading
+    // hasError: hasRestrictionsError
+  } = useUserRestrictions('quests', true, true, false);
+
+  const blockContentIds = (restrictions.blockedContentIds ?? []).map(
+    (c) => c.content_id
+  );
+  const blockUserIds = (restrictions.blockedUserIds ?? []).map(
+    (c) => c.blocked_id
+  );
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isQuestsLoading,
+    isOnline,
+    isFetching
+  } = useSimpleHybridInfiniteData<Quest>(
+    'quests',
+    [projectId || '', debouncedSearchQuery], // Use debounced search query
+    // Offline query function
+    async ({ pageParam, pageSize }) => {
+      if (!projectId) return [];
+
+      const offset = pageParam * pageSize;
+
+      // Build where conditions
+      const baseCondition = eq(quest.project_id, projectId);
+
+      // Add search filtering for offline
+      const whereConditions = and(
+        baseCondition,
+        debouncedSearchQuery.trim()
+          ? or(
+              like(quest.name, `%${debouncedSearchQuery}%`),
+              like(quest.description, `%${debouncedSearchQuery}%`)
+            )
+          : undefined,
+        !showHiddenContent ? eq(quest.visible, true) : undefined,
+        blockContentIds.length > 0
+          ? notInArray(quest.id, blockContentIds)
+          : undefined,
+        blockUserIds.length > 0
+          ? or(
+              isNull(quest.creator_id),
+              notInArray(quest.creator_id, blockUserIds)
+            )
+          : undefined
+      );
+
+      const quests = await system.db.query.quest.findMany({
+        where: whereConditions,
+        limit: pageSize,
+        offset
+      });
+
+      return quests;
+    },
+    // Cloud query function
+    async ({ pageParam, pageSize }) => {
+      if (!projectId) return [];
+
+      const from = pageParam * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('project_id', projectId);
+
+      if (!showHiddenContent) {
+        query = query.eq('visible', true);
+      }
+
+      if (blockContentIds.length > 0) {
+        query = query.not('id', 'in', `(${blockContentIds.join(',')})`);
+      }
+
+      if (blockUserIds.length > 0) {
+        query = query.or(
+          `creator_id.is.null,creator_id.not.in.(${blockUserIds.join(',')})`
+        );
+      }
+
+      // Add search filtering
+      if (debouncedSearchQuery.trim()) {
+        query = query.or(
+          `name.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`
+        );
+      }
+
+      const { data, error } = await query
+        .range(from, to)
+        .overrideTypes<Quest[]>();
+
+      if (error) throw error;
+      return data;
+    },
+    20 // pageSize
+  );
+
+  const isLoading = isQuestsLoading || isRestrictionsLoading;
+
+  return {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline,
+    isFetching
+  };
 }

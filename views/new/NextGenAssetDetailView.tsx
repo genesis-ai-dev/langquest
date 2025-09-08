@@ -2,6 +2,7 @@
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import ImageCarousel from '@/components/ImageCarousel';
+import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -17,6 +18,7 @@ import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -89,9 +91,13 @@ export default function NextGenAssetDetailView() {
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
-  const { data: offlineAsset, isLoading: isOfflineLoading } =
-    useNextGenOfflineAsset(currentAssetId || '');
+  const {
+    data: offlineAsset,
+    isLoading: isOfflineLoading,
+    refetch: refetchOfflineAsset
+  } = useNextGenOfflineAsset(currentAssetId || '');
 
   // Load asset attachments when asset ID changes
   useEffect(() => {
@@ -247,6 +253,11 @@ export default function NextGenAssetDetailView() {
     console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
   }, [debugInfo]);
 
+  const { hasReported, isLoading: isReportLoading } = useHasUserReported(
+    currentAssetId || '',
+    'assets'
+  );
+
   if (!currentAssetId) {
     return (
       <View style={sharedStyles.container}>
@@ -320,23 +331,29 @@ export default function NextGenAssetDetailView() {
           </Text>
         )}
 
-        {translateMembership === 'owner' && allowSettings && (
-          <TouchableOpacity
-            onPress={() => setShowAssetSettingsModal(true)}
-            style={styles.statsButton}
-          >
-            <Ionicons name="settings" size={22} color={colors.text} />
-          </TouchableOpacity>
-        )}
+        {allowSettings &&
+          (translateMembership === 'owner' ? (
+            <TouchableOpacity
+              onPress={() => setShowAssetSettingsModal(true)}
+              style={styles.statsButton}
+            >
+              <Ionicons name="settings" size={22} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            !hasReported &&
+            !isReportLoading && (
+              <TouchableOpacity
+                onPress={() => setShowReportModal(true)}
+                style={styles.statsButton}
+              >
+                <Ionicons name="flag" size={20} color={colors.text} />
+              </TouchableOpacity>
+            )
+          ))}
       </View>
 
       {/* Tab Bar */}
-      <View
-        style={[
-          styles.tabBar
-          // !allowEditing && sharedStyles.disabled
-        ]}
-      >
+      <View style={[styles.tabBar]}>
         <TouchableOpacity
           style={[
             styles.tab,
@@ -592,6 +609,15 @@ export default function NextGenAssetDetailView() {
         isVisible={showAssetSettingsModal}
         onClose={() => setShowAssetSettingsModal(false)}
         assetId={activeAsset.id}
+      />
+      <ReportModal
+        isVisible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        recordId={activeAsset.id}
+        creatorId={activeAsset?.creator_id ?? undefined}
+        recordTable="assets"
+        hasAlreadyReported={hasReported}
+        onReportSubmitted={() => refetchOfflineAsset()}
       />
     </View>
   );

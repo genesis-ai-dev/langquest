@@ -73,7 +73,7 @@ export function useHasUserReported(
     getHasUserReportedConfig(record_id, record_table, reporter_id)
   );
 
-  const hasReported = (reportArray?.length || 0) > 0;
+  const hasReported = (reportArray.length || 0) > 0;
 
   return { hasReported, isReportLoading, ...rest };
 }

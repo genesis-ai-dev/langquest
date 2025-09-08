@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -41,6 +42,19 @@ export default function NextGenProjectsView() {
     ''
   );
   const showInvisibleContent = currentContext.showInvisibleContent;
+
+  const {
+    data: restrictions
+    // isRestrictionsLoading,
+    // refetch: refetchRestrictions
+  } = useUserRestrictions('projects', true, true, false);
+
+  const blockContentIds = (restrictions.blockedContentIds ?? []).map(
+    (c) => c.content_id
+  );
+  const blockUserIds = (restrictions.blockedUserIds ?? []).map(
+    (c) => c.blocked_id
+  );
 
   // Query for My Projects (user is owner or member)
   const myProjectsQuery = useSimpleHybridInfiniteData<Project>(
@@ -129,26 +143,27 @@ export default function NextGenProjectsView() {
 
         const userProjectIds = userProjectLinks.map((link) => link.project_id);
 
+        const conditions = [
+          userProjectIds.length > 0
+            ? notInArray(project.id, userProjectIds)
+            : undefined,
+          !showInvisibleContent ? eq(project.visible, true) : undefined,
+          blockUserIds.length > 0
+            ? notInArray(project.creator_id, blockUserIds)
+            : undefined,
+          blockContentIds.length > 0
+            ? notInArray(project.id, blockContentIds)
+            : undefined
+        ];
+
         // Get all active projects excluding user's projects
-        if (userProjectIds.length > 0) {
-          const projects = await system.db.query.project.findMany({
-            where: and(
-              // eq(project.active, true),
-              notInArray(project.id, userProjectIds)
-            ),
-            limit: pageSize,
-            offset
-          });
-          return projects;
-        } else {
-          // If user has no projects, show all active projects
-          const projects = await system.db.query.project.findMany({
-            where: eq(project.active, true),
-            limit: pageSize,
-            offset
-          });
-          return projects;
-        }
+        const projects = await system.db.query.project.findMany({
+          where: and(...conditions.filter(Boolean)),
+          limit: pageSize,
+          offset
+        });
+
+        return projects;
       } else {
         // If no user, show all active projects
         const projects = await system.db.query.project.findMany({
@@ -165,7 +180,6 @@ export default function NextGenProjectsView() {
       const to = from + pageSize - 1;
 
       let query = system.supabaseConnector.client.from('project').select('*');
-      // .eq('active', true);
 
       // Exclude projects where user is a member (if user is logged in)
       if (userId) {
@@ -179,6 +193,13 @@ export default function NextGenProjectsView() {
           const userProjectIds = userProjects.map((p) => p.project_id);
           query = query.not('id', 'in', `(${userProjectIds.join(',')})`);
         }
+        if (!showInvisibleContent) query = query.eq('visible', true);
+        if (blockUserIds.length > 0)
+          query = query.or(
+            `creator_id.is.null,creator_id.not.in.(${blockUserIds.join(',')})`
+          );
+        if (blockContentIds.length > 0)
+          query = query.not('id', 'in', `(${blockContentIds.join(',')})`);
       }
 
       const { data, error } = await query

@@ -9,7 +9,10 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
-import { hybridFetch } from '@/views/new/useHybridData';
+import {
+  hybridFetch,
+  useSimpleHybridInfiniteData
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
@@ -19,7 +22,9 @@ import {
   eq,
   inArray,
   isNotNull,
+  isNull,
   like,
+  notInArray,
   or,
   sql
 } from 'drizzle-orm';
@@ -29,6 +34,7 @@ import {
   useHybridInfiniteQuery,
   useHybridQuery
 } from '../useHybridQuery';
+import { useUserRestrictions } from './useBlocks';
 import type { Tag } from './useTags';
 
 export type Asset = InferSelectModel<typeof asset>;
@@ -1168,4 +1174,132 @@ export function useAssetsQuestLinkById(
   } = useHybridQuery(getAssetQuestLinkById(quest_id, asset_id));
 
   return { quest_asset_link, isDataLoading, ...rest };
+}
+
+type AssetQuestLink = Asset & {
+  quest_active: boolean;
+  quest_visible: boolean;
+};
+
+export function useAssetsByQuest(
+  quest_id: string,
+  searchQuery: string,
+  showHiddenContent: boolean
+) {
+  const { data: restrictions, isRestrictionsLoading } = useUserRestrictions(
+    'assets',
+    true,
+    true,
+    false
+  );
+
+  const blockContentIds = (restrictions.blockedContentIds ?? []).map(
+    (c) => c.content_id
+  );
+  const blockUserIds = (restrictions.blockedUserIds ?? []).map(
+    (c) => c.blocked_id
+  );
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isAssetsLoading,
+    isOnline,
+    isFetching
+  } = useSimpleHybridInfiniteData<AssetQuestLink>(
+    'assets',
+    [quest_id || '', searchQuery],
+    // Offline query function - Assets must be downloaded to use
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      try {
+        const offset = pageParam * pageSize;
+
+        const conditions = [
+          eq(quest_asset_link.quest_id, quest_id),
+          !showHiddenContent ? eq(asset.visible, true) : undefined,
+          !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+          blockContentIds.length > 0
+            ? notInArray(asset.id, blockContentIds)
+            : undefined,
+          blockUserIds.length > 0
+            ? or(
+                isNull(asset.creator_id),
+                notInArray(asset.creator_id, blockUserIds)
+              )
+            : undefined
+        ];
+
+        // Build base query
+        const baseQuery = system.db
+          .select({
+            id: asset.id,
+            name: asset.name,
+            images: asset.images,
+            creator_id: asset.creator_id,
+            visible: asset.visible,
+            active: asset.active,
+            created_at: asset.created_at,
+            last_updated: asset.last_updated,
+            download_profiles: asset.download_profiles,
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active
+          })
+          .from(asset)
+          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+          .where(and(...conditions.filter(Boolean)));
+
+        // Add search filtering if search query exists
+        if (searchQuery.trim()) {
+          // For offline search with joins, we need to fetch all and filter
+          const allAssets = await baseQuery;
+          // Safe filtering with proper null checks
+          const searchTerm = searchQuery.trim().toLowerCase();
+          const filteredAssets = allAssets.filter((a) => {
+            // Ensure name exists and is a string
+            const assetName = a.name;
+            return (
+              assetName &&
+              typeof assetName === 'string' &&
+              assetName.toLowerCase().includes(searchTerm)
+            );
+          });
+
+          // Apply pagination to filtered results
+          return filteredAssets.slice(
+            offset,
+            offset + pageSize
+          ) as AssetQuestLink[];
+        }
+
+        // Normal pagination without search
+        const assets = await baseQuery.limit(pageSize).offset(offset);
+
+        return assets as AssetQuestLink[];
+      } catch (error) {
+        console.error('[ASSETS] Offline query error:', error);
+        return [];
+      }
+    },
+    // Cloud query function - Since assets must be downloaded, we return empty
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async () => {
+      // Assets must be downloaded to be used, so cloud query returns empty
+      return [] as AssetQuestLink[];
+    },
+    20 // pageSize
+  );
+
+  return {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isAssetsLoading || isRestrictionsLoading,
+    isOnline,
+    isFetching
+  };
 }

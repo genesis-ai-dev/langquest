@@ -10,6 +10,8 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
+import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver/lib/src/utils/compilableQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm';
@@ -22,6 +24,7 @@ import {
   useHybridSupabaseRealtimeQuery
 } from '../useHybridSupabaseQuery';
 import { useNetworkStatus } from '../useNetworkStatus';
+import { useUserRestrictions } from './useBlocks';
 
 export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
@@ -29,6 +32,14 @@ export type Language = InferSelectModel<typeof language>;
 export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type Quest = InferSelectModel<typeof quest>;
 export type Project = InferSelectModel<typeof project>;
+export type BlockedContent = InferSelectModel<typeof blocked_content>;
+
+interface TranslationWithVotes extends Translation {
+  upVotes: number;
+  downVotes: number;
+  netVotes: number;
+  source?: 'localSqlite' | 'cloudSupabase';
+}
 
 /**
  * Returns { translations, isLoading, error }
@@ -567,6 +578,146 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
   });
 
   return { translationsWithVotes, isTranslationsWithVotesLoading, ...rest };
+}
+
+export function useTranslationsWithVotesByAsset(
+  asset_id: string,
+  retrieveHiddenContent: boolean,
+  translationsRefreshKey: string,
+  voteRefreshKey: string,
+  useOfflineData: boolean
+) {
+  const conditions = [
+    eq(translation.asset_id, asset_id),
+    !retrieveHiddenContent ? eq(translation.visible, true) : undefined
+  ];
+
+  const {
+    data: translations,
+    isLoading: isTranslationsLoading,
+    offlineError: translationsOfflineError,
+    cloudError: translationsCloudError
+  } = useHybridData<Translation>({
+    dataType: 'translations',
+    queryKeyParams: [asset_id, translationsRefreshKey || 0, voteRefreshKey],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select()
+        .from(translation)
+        .where(and(...conditions.filter(Boolean)))
+    ),
+
+    // Cloud query function
+    cloudQueryFn: async () => {
+      let query = system.supabaseConnector.client
+        .from('translation')
+        .select('*')
+        .eq('asset_id', asset_id);
+      if (!retrieveHiddenContent) query = query.eq('visible', true);
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data as Translation[];
+    },
+
+    // Disable cloud query when user explicitly wants offline data
+    enableCloudQuery: !useOfflineData
+  });
+
+  const {
+    data: restrictions,
+    isRestrictionsLoading,
+    hasError: hasRestrictionsError
+  } = useUserRestrictions('translations', true, true, useOfflineData);
+
+  const blockContentIds = new Set(
+    restrictions.blockedContentIds?.map((c) => c.content_id)
+  );
+  const blockUserIds = new Set(
+    restrictions.blockedUserIds?.map((c) => c.blocked_id)
+  );
+
+  // Unify translations + votes
+  const translationIds: string[] = [];
+  const translationsMap = new Map<string, number>();
+  const translationWithVotes: TranslationWithVotes[] = [];
+
+  let idx = 0;
+  translations.map((trans) => {
+    if (!blockContentIds.has(trans.id) && !blockUserIds.has(trans.creator_id)) {
+      translationIds.push(trans.id);
+      translationsMap.set(trans.id, idx);
+      translationWithVotes.push({
+        ...trans,
+        upVotes: 0,
+        downVotes: 0,
+        netVotes: 0
+      });
+      idx++;
+    }
+  });
+
+  const {
+    data: votes,
+    isLoading: isVotesLoading,
+    cloudError: votesCloudError,
+    offlineError: votesOfflineError
+  } = useHybridData<Vote>({
+    dataType: 'votes',
+    queryKeyParams: [...translationIds, voteRefreshKey],
+
+    // PowerSync query for votes
+    offlineQuery:
+      translationIds.length > 0
+        ? toCompilableQuery(
+            system.db
+              .select()
+              .from(vote)
+              .where(
+                and(
+                  inArray(vote.translation_id, translationIds),
+                  eq(vote.active, true)
+                )
+              )
+          )
+        : 'SELECT * FROM vote WHERE 1=0', // Empty query when no translations
+
+    // Cloud query for votes
+    cloudQueryFn: async () => {
+      if (translationIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('vote')
+        .select('*')
+        .in('translation_id', translationIds)
+        .eq('active', true);
+
+      if (error) throw error;
+      return data as Vote[];
+    },
+
+    // Disable cloud query when user explicitly wants offline data
+    enableCloudQuery: !useOfflineData
+  });
+
+  votes.forEach((v) => {
+    const idx = translationsMap.get(v.translation_id);
+    if (typeof idx === 'number' && translationWithVotes[idx]) {
+      if (v.polarity === 'up') translationWithVotes[idx].upVotes++;
+      else translationWithVotes[idx].downVotes++;
+      translationWithVotes[idx].netVotes =
+        translationWithVotes[idx].upVotes - translationWithVotes[idx].downVotes;
+    }
+  });
+
+  return {
+    data: translationWithVotes,
+    isLoading: isTranslationsLoading || isVotesLoading || isRestrictionsLoading,
+    hasError: useOfflineData
+      ? translationsOfflineError || votesOfflineError || hasRestrictionsError
+      : translationsCloudError || votesCloudError || hasRestrictionsError
+  };
 }
 
 /**

@@ -27,6 +27,11 @@ export const localizations = {
     spanish: 'Todo',
     brazilian_portuguese: 'Todos'
   },
+  options: {
+    english: 'Options',
+    spanish: 'Opciones',
+    brazilian_portuguese: 'Opções'
+  },
   apply: {
     english: 'Apply',
     spanish: 'Aplicar',
@@ -283,6 +288,16 @@ export const localizations = {
     spanish: 'Misiones',
     brazilian_portuguese: 'Missões'
   },
+  project: {
+    english: 'Project',
+    spanish: 'Proyecto',
+    brazilian_portuguese: 'Projeto'
+  },
+  quest: {
+    english: 'Quest',
+    spanish: 'Misión',
+    brazilian_portuguese: 'Missão'
+  },
   questOptions: {
     english: 'Quest Options',
     spanish: 'Opciones de misión',
@@ -409,6 +424,11 @@ export const localizations = {
     spanish: 'Votos',
     brazilian_portuguese: 'Votos'
   },
+  voting: {
+    english: 'Voting',
+    spanish: 'Votación',
+    brazilian_portuguese: 'Votação'
+  },
   warning: {
     english: 'Warning',
     spanish: 'Advertencia',
@@ -428,6 +448,11 @@ export const localizations = {
     english: 'Assets',
     spanish: 'Recursos',
     brazilian_portuguese: 'Recursos'
+  },
+  asset: {
+    english: 'Asset',
+    spanish: 'Recurso',
+    brazilian_portuguese: 'Recurso'
   },
   remaining: {
     english: 'remaining',
@@ -551,10 +576,30 @@ export const localizations = {
     spanish: 'Enviar Feedback de la App',
     brazilian_portuguese: 'Enviar Feedback do App'
   },
+  reportProject: {
+    english: 'Report Project',
+    spanish: 'Reportar Proyecto',
+    brazilian_portuguese: 'Reportar Projeto'
+  },
+  reportQuest: {
+    english: 'Report Quest',
+    spanish: 'Reportar Quest',
+    brazilian_portuguese: 'Reportar Quest'
+  },
+  reportAsset: {
+    english: 'Report Asset',
+    spanish: 'Reportar Recurso',
+    brazilian_portuguese: 'Reportar Recurso'
+  },
   reportTranslation: {
     english: 'Report Translation',
     spanish: 'Reportar Traducción',
     brazilian_portuguese: 'Reportar Tradução'
+  },
+  reportGeneric: {
+    english: 'Report',
+    spanish: 'Reportar',
+    brazilian_portuguese: 'Reportar'
   },
   selectReasonLabel: {
     english: 'Select a reason',

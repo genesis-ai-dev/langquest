@@ -208,7 +208,6 @@ export function useProjectById(projectId: string | undefined) {
         .limit(1)
         .overrideTypes<Project[]>();
       if (error) throw error;
-      console.log(data);
       return data;
     },
     offlineQuery: toCompilableQuery(
@@ -225,7 +224,7 @@ export function useProjectById(projectId: string | undefined) {
     )
   });
 
-  const project = projectArray?.[0] || null;
+  const project = projectArray[0] || null;
 
   return { project, isProjectLoading, ...rest };
 }

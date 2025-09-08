@@ -1,16 +1,15 @@
 import { TranslationCard } from '@/components/TranslationCard';
 import { useStatusContext } from '@/contexts/StatusContext';
-import { translation, vote } from '@/db/drizzleSchema';
+import type { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useTranslationsWithVotesByAsset } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, inArray } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,8 +20,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import NextGenTranslationModal from './NextGenTranslationModal';
-import { useHybridData } from './useHybridData';
+import NextGenTranslationModal from './NextGenTranslationModalAlt';
 
 interface NextGenTranslationsListProps {
   assetId: string;
@@ -40,7 +38,7 @@ interface NextGenTranslationsListProps {
 
 // Base types from the database
 type Translation = InferSelectModel<typeof translation>;
-type Vote = InferSelectModel<typeof vote>;
+// type Vote = InferSelectModel<typeof vote>;
 
 // Extended type with vote information
 interface TranslationWithVotes extends Translation {
@@ -70,117 +68,18 @@ export default function NextGenTranslationsList({
   const currentLayer = useStatusContext();
   const { showInvisibleContent } = currentLayer;
 
-  const conditions = [
-    eq(translation.asset_id, assetId),
-    !showInvisibleContent ? eq(translation.visible, true) : undefined
-  ];
-
-  // First query: Get translations
   const {
-    data: translations,
-    isLoading: isTranslationsLoading,
-    offlineError: translationsOfflineError,
-    cloudError: translationsCloudError
-  } = useHybridData<Translation>({
-    dataType: 'translations',
-    queryKeyParams: [assetId, refreshKey || 0, voteRefreshKey],
-
-    // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
-      system.db
-        .select()
-        .from(translation)
-        .where(and(...conditions.filter(Boolean)))
-    ),
-
-    // Cloud query function
-    cloudQueryFn: async () => {
-      let query = system.supabaseConnector.client
-        .from('translation')
-        .select('*')
-        .eq('asset_id', assetId);
-      if (!showInvisibleContent) query = query.eq('visible', true);
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as Translation[];
-    },
-
-    // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
-  });
-
-  // Get translation IDs for vote query
-  const translationIds = React.useMemo(() => {
-    return translations.map((t) => t.id);
-  }, [translations]);
-
-  // Second query: Get votes for all translations
-  const { data: votes, isLoading: isVotesLoading } = useHybridData<Vote>({
-    dataType: 'votes',
-    queryKeyParams: [...translationIds, voteRefreshKey],
-
-    // PowerSync query for votes
-    offlineQuery:
-      translationIds.length > 0
-        ? toCompilableQuery(
-            system.db
-              .select()
-              .from(vote)
-              .where(
-                and(
-                  inArray(vote.translation_id, translationIds),
-                  eq(vote.active, true)
-                )
-              )
-          )
-        : 'SELECT * FROM vote WHERE 1=0', // Empty query when no translations
-
-    // Cloud query for votes
-    cloudQueryFn: async () => {
-      if (translationIds.length === 0) return [];
-
-      const { data, error } = await system.supabaseConnector.client
-        .from('vote')
-        .select('*')
-        .in('translation_id', translationIds)
-        .eq('active', true);
-
-      if (error) throw error;
-      return data as Vote[];
-    },
-
-    // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
-  });
-
-  // Combine translations with vote counts
-  const translationsWithVotes = React.useMemo(() => {
-    // Group votes by translation ID
-    const votesByTranslation = new Map<string, Vote[]>();
-    votes.forEach((v) => {
-      const existing = votesByTranslation.get(v.translation_id) || [];
-      votesByTranslation.set(v.translation_id, [...existing, v]);
-    });
-
-    // Calculate vote counts for each translation
-    return translations.map((trans) => {
-      const translationVotes = votesByTranslation.get(trans.id) || [];
-      const upVotes = translationVotes.filter(
-        (v) => v.polarity === 'up'
-      ).length;
-      const downVotes = translationVotes.filter(
-        (v) => v.polarity === 'down'
-      ).length;
-
-      return {
-        ...trans,
-        upVotes,
-        downVotes,
-        netVotes: upVotes - downVotes
-      } as TranslationWithVotes;
-    });
-  }, [translations, votes]);
+    data: translationsWithVotes,
+    isLoading,
+    hasError
+  } = useTranslationsWithVotesByAsset(
+    assetId,
+    // '',
+    showInvisibleContent,
+    String(refreshKey),
+    String(voteRefreshKey),
+    useOfflineData
+  );
 
   // Use props from parent if available, otherwise default behavior
   const isPrivateProject = projectData?.private || false;
@@ -232,17 +131,6 @@ export default function NextGenTranslationsList({
     // Increment vote refresh key to trigger re-queries
     setVoteRefreshKey((prev) => prev + 1);
   };
-
-  const isLoading = isTranslationsLoading || isVotesLoading;
-  const hasError = useOfflineData
-    ? translationsOfflineError
-    : translationsCloudError;
-
-  // const layerStatus = useStatusContext();
-  // const { allowEditing } = layerStatus.getStatusParams(LayerType.ASSET, '', {
-  //   visible: true,
-  //   active: true
-  // });
 
   return (
     <View
