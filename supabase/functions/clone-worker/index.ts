@@ -2,10 +2,13 @@
 import pg from 'npm:pg@8.11.3';
 
 // Prefer internal DSN if available (works inside Docker network)
+// Fallbacks:
+// - 'db' is the standard hostname for the local Postgres service inside Supabase's Docker network
+// - localhost:54322 works for direct host access when running via `supabase functions serve`
 const dbUrl =
   Deno.env.get('SUPABASE_DB_URL') ||
   Deno.env.get('PS_DATA_SOURCE_URI') ||
-  'postgresql://postgres:postgres@supabase_db_langquest:5432/postgres';
+  'postgresql://postgres:postgres@db:5432/postgres';
 const { Pool } = pg as unknown as {
   Pool: new (opts: { connectionString: string; max?: number }) => any;
 };
@@ -27,7 +30,7 @@ async function processOneMessage(batchSize = 25, maxSteps = 6) {
     // Read one message from pgmq
     const read = await c.query(
       'select * from pgmq.read($1::text, $2::int, $3::int)',
-      ['clone_queue', 120, 1]
+      ['clone_queue', 5, 1]
     );
     if (read.rowCount === 0) {
       return { status: 'empty', steps: [] as string[] };
@@ -67,7 +70,15 @@ async function processOneMessage(batchSize = 25, maxSteps = 6) {
       }
     }
 
-    // Not done; message will reappear after VT expiry
+    // Not done; archive this message and send a new one immediately
+    await c.query('select pgmq.archive($1::text, $2::bigint)', [
+      'clone_queue',
+      msg_id
+    ]);
+    await c.query('select pgmq.send($1::text, $2::jsonb)', [
+      'clone_queue',
+      JSON.stringify({ job_id: jobId })
+    ]);
     return { status: 'in_progress', steps };
   });
 }

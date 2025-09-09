@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: 'LangQuest',
       slug: 'langquest',
-      version: '1.3.1',
+      version: '1.3.2',
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
@@ -32,6 +32,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         bundleIdentifier: uniqueIdentifier
       },
       android: {
+        edgeToEdgeEnabled: true,
         adaptiveIcon: {
           foregroundImage: iconPath,
           backgroundColor: '#ffffff'
@@ -62,16 +63,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         favicon: iconPath
       },
       plugins: [
-        [
-          'expo-build-properties',
-          {
-            android: {
-              compileSdkVersion: 35,
-              targetSdkVersion: 35,
-              buildToolsVersion: '35.0.0'
-            }
-          }
-        ],
         'expo-font',
         'expo-router',
         // migrate existing localization to expo-localization
