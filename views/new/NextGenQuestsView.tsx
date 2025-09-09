@@ -1,12 +1,18 @@
-import { ProjectDetails } from '@/components/ProjectDetails';
+import type { FloatingMenuItem } from '@/components/FloatingMenu';
+import { createMenuItem, FloatingMenu } from '@/components/FloatingMenu';
+import { ModalDetails } from '@/components/ModalDetails';
+import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { project, quest } from '@/db/drizzleSchema';
+import type { quest } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useInfiniteQuestsByProjectId } from '@/hooks/db/useQuests';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   borderRadius,
@@ -19,7 +25,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
-import { and, eq, like, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -30,7 +36,7 @@ import {
   View
 } from 'react-native';
 import { QuestListItem } from './QuestListItem';
-import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
+import { useHybridData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
 type Project = typeof project.$inferSelect;
@@ -41,6 +47,7 @@ export default function NextGenQuestsView() {
   const [showMembershipModal, setShowMembershipModal] = React.useState(false);
   const [showProjectDetails, setShowProjectDetails] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+  const [showReportModal, setShowReportModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
   const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
@@ -97,70 +104,17 @@ export default function NextGenQuestsView() {
     isLoading,
     isOnline,
     isFetching
-  } = useSimpleHybridInfiniteData<Quest>(
-    'quests',
-    [currentProjectId || '', debouncedSearchQuery], // Use debounced search query
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
-      if (!currentProjectId) return [];
-
-      const offset = pageParam * pageSize;
-
-      // Build where conditions
-      const baseCondition = eq(quest.project_id, currentProjectId);
-
-      // Add search filtering for offline
-      const whereConditions = and(
-        baseCondition,
-        debouncedSearchQuery.trim()
-          ? or(
-              like(quest.name, `%${debouncedSearchQuery}%`),
-              like(quest.description, `%${debouncedSearchQuery}%`)
-            )
-          : undefined,
-        !showInvisibleContent ? eq(quest.visible, true) : undefined
-      );
-
-      const quests = await system.db.query.quest.findMany({
-        where: whereConditions,
-        limit: pageSize,
-        offset
-      });
-
-      return quests;
-    },
-    // Cloud query function
-    async ({ pageParam, pageSize }) => {
-      if (!currentProjectId) return [];
-
-      const from = pageParam * pageSize;
-      const to = from + pageSize - 1;
-
-      let query = system.supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('project_id', currentProjectId);
-
-      if (!showInvisibleContent) {
-        query = query.eq('visible', true);
-      }
-
-      // Add search filtering
-      if (debouncedSearchQuery.trim()) {
-        query = query.or(
-          `name.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`
-        );
-      }
-
-      const { data, error } = await query
-        .range(from, to)
-        .overrideTypes<Quest[]>();
-
-      if (error) throw error;
-      return data;
-    },
-    20 // pageSize
+  } = useInfiniteQuestsByProjectId(
+    currentProjectId,
+    debouncedSearchQuery,
+    showInvisibleContent
   );
+
+  const {
+    hasReported,
+    isLoading: isReportLoading
+    // refetch: refetchReport
+  } = useHasUserReported(currentProjectId || '', 'projects');
 
   // Flatten all pages into a single array and deduplicate
   const quests = React.useMemo(() => {
@@ -236,6 +190,31 @@ export default function NextGenQuestsView() {
 
     return `${isOnline ? '🟢' : '🔴'} Available: ${downloadedCount} | Needs Download: ${cloudCount} | Total: ${quests.length}`;
   }, [isOnline, quests]);
+
+  const menuItems = React.useMemo<FloatingMenuItem[]>(() => {
+    const items = [];
+    if (canManageProject) {
+      items.push(
+        createMenuItem('settings', 'Settings', () => setShowSettingsModal(true))
+      );
+    } else {
+      if (!hasReported && !isReportLoading) {
+        items.push(
+          createMenuItem('flag', 'Report', () => setShowReportModal(true))
+        );
+      }
+    }
+
+    return [
+      ...items,
+      createMenuItem('people', 'Membership', () =>
+        setShowMembershipModal(true)
+      ),
+      createMenuItem('information-circle', 'Info', () =>
+        setShowProjectDetails(true)
+      )
+    ];
+  }, [canManageProject, hasReported, isReportLoading]);
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -321,7 +300,7 @@ export default function NextGenQuestsView() {
           <Text style={styles.searchingText}>{t('searching')}</Text>
         </View>
       ) : (
-        <View style={{ flex: 1 }}>
+        <View style={[{ flex: 1 }]}>
           <FlashList
             data={filteredQuests}
             renderItem={renderItem}
@@ -342,36 +321,7 @@ export default function NextGenQuestsView() {
         </View>
       )}
 
-      {/* Floating action buttons */}
-      <View style={styles.floatingButtonContainer}>
-        <View style={styles.floatingButtonRow}>
-          {/* Settings Button - Only visible to owners */}
-          {canManageProject && (
-            <TouchableOpacity
-              onPress={() => setShowSettingsModal(true)}
-              style={[styles.floatingButton, styles.secondaryFloatingButton]}
-            >
-              <Ionicons name="settings" size={24} color={colors.text} />
-            </TouchableOpacity>
-          )}
-
-          {/* Project Details Button */}
-          <TouchableOpacity
-            onPress={() => setShowProjectDetails(true)}
-            style={[styles.floatingButton, styles.secondaryFloatingButton]}
-          >
-            <Ionicons name="information-circle" size={24} color={colors.text} />
-          </TouchableOpacity>
-
-          {/* Membership Button */}
-          <TouchableOpacity
-            onPress={() => setShowMembershipModal(true)}
-            style={styles.floatingButton}
-          >
-            <Ionicons name="people" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <FloatingMenu items={menuItems} />
 
       {/* Membership Modal */}
       <ProjectMembershipModal
@@ -382,18 +332,30 @@ export default function NextGenQuestsView() {
 
       {/* Project Details Modal */}
       {showProjectDetails && currentProject && (
-        <ProjectDetails
-          project={currentProject}
+        <ModalDetails
+          isVisible={showProjectDetails}
+          content={currentProject}
+          contentType="project"
           onClose={() => setShowProjectDetails(false)}
         />
       )}
 
       {/* Settings Modal - Only for owners */}
-      {canManageProject && (
+      {canManageProject ? (
         <ProjectSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           projectId={currentProjectId || ''}
+        />
+      ) : (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={currentProjectId}
+          creatorId={currentProject?.creator_id ?? undefined}
+          recordTable="projects"
+          hasAlreadyReported={hasReported}
+          onReportSubmitted={() => null}
         />
       )}
     </View>
@@ -464,13 +426,35 @@ export const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5
   },
+  floatingReportButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
   floatingButtonContainer: {
     position: 'absolute',
     bottom: spacing.large,
     right: spacing.large,
-    gap: spacing.small
+    gap: spacing.small,
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   floatingButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.small
+  },
+  floatingButtonRowLeft: {
     flexDirection: 'row',
     gap: spacing.small
   },

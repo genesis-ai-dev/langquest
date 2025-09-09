@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "lint": {
+    "files": {
+      "include": ["supabase/functions/"]
+    }
+  },
+  "imports": {
+    "pg": "npm:pg@8.11.3"
+  },
+  "nodeModulesDir": "auto"
+}

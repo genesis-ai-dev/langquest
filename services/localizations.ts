@@ -35,6 +35,11 @@ export const localizations = {
     tok_pisin: 'Olgeta',
     indonesian: 'Semua'
   },
+  options: {
+    english: 'Options',
+    spanish: 'Opciones',
+    brazilian_portuguese: 'Opções'
+  },
   apply: {
     english: 'Apply',
     spanish: 'Aplicar',
@@ -393,6 +398,16 @@ export const localizations = {
     tok_pisin: 'Ol Quest',
     indonesian: 'Misi'
   },
+  project: {
+    english: 'Project',
+    spanish: 'Proyecto',
+    brazilian_portuguese: 'Projeto'
+  },
+  quest: {
+    english: 'Quest',
+    spanish: 'Misión',
+    brazilian_portuguese: 'Missão'
+  },
   questOptions: {
     english: 'Quest Options',
     spanish: 'Opciones de misión',
@@ -570,6 +585,11 @@ export const localizations = {
     tok_pisin: 'Ol Vote',
     indonesian: 'Suara'
   },
+  voting: {
+    english: 'Voting',
+    spanish: 'Votación',
+    brazilian_portuguese: 'Votação'
+  },
   warning: {
     english: 'Warning',
     spanish: 'Advertencia',
@@ -597,6 +617,11 @@ export const localizations = {
     brazilian_portuguese: 'Recursos',
     tok_pisin: 'Ol Asset',
     indonesian: 'Aset'
+  },
+  asset: {
+    english: 'Asset',
+    spanish: 'Recurso',
+    brazilian_portuguese: 'Recurso'
   },
   remaining: {
     english: 'remaining',
@@ -771,12 +796,32 @@ export const localizations = {
     tok_pisin: 'Salim App Feedback',
     indonesian: 'Kirim Umpan Balik Aplikasi'
   },
+  reportProject: {
+    english: 'Report Project',
+    spanish: 'Reportar Proyecto',
+    brazilian_portuguese: 'Reportar Projeto'
+  },
+  reportQuest: {
+    english: 'Report Quest',
+    spanish: 'Reportar Quest',
+    brazilian_portuguese: 'Reportar Quest'
+  },
+  reportAsset: {
+    english: 'Report Asset',
+    spanish: 'Reportar Recurso',
+    brazilian_portuguese: 'Reportar Recurso'
+  },
   reportTranslation: {
     english: 'Report Translation',
     spanish: 'Reportar Traducción',
     brazilian_portuguese: 'Reportar Tradução',
     tok_pisin: 'Reportim Translation',
     indonesian: 'Laporkan Terjemahan'
+  },
+  reportGeneric: {
+    english: 'Report',
+    spanish: 'Reportar',
+    brazilian_portuguese: 'Reportar'
   },
   selectReasonLabel: {
     english: 'Select a reason',

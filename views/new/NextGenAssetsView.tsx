@@ -1,8 +1,7 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { asset, quest_asset_link } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import type { asset } from '@/db/drizzleSchema';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -11,19 +10,23 @@ import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { and, eq } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 
+import type { FloatingMenuItem } from '@/components/FloatingMenu';
+import { createMenuItem, FloatingMenu } from '@/components/FloatingMenu';
+import { ModalDetails } from '@/components/ModalDetails';
+import { ReportModal } from '@/components/NewReportModal';
+import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useQuestById } from '@/hooks/db/useQuests';
+import { useHasUserReported } from '@/hooks/useReports';
 import { AssetListItem } from './AssetListItem';
-import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -36,7 +39,11 @@ export default function NextGenAssetsView() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
   const { t } = useLocalization();
+  const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+  const [showReportModal, setShowReportModal] = React.useState(false);
+
+  const { quest } = useQuestById(currentQuestId);
 
   // Debounce the search query
   React.useEffect(() => {
@@ -68,81 +75,10 @@ export default function NextGenAssetsView() {
     isLoading,
     isOnline,
     isFetching
-  } = useSimpleHybridInfiniteData<AssetQuestLink>(
-    'assets',
-    [currentQuestId || '', debouncedSearchQuery],
-    // Offline query function - Assets must be downloaded to use
-    async ({ pageParam, pageSize }) => {
-      if (!currentQuestId) return [];
-
-      try {
-        const offset = pageParam * pageSize;
-
-        const conditions = [
-          eq(quest_asset_link.quest_id, currentQuestId),
-          !showInvisibleContent ? eq(asset.visible, true) : undefined,
-          !showInvisibleContent ? eq(quest_asset_link.visible, true) : undefined
-        ];
-
-        // Build base query
-        const baseQuery = system.db
-          .select({
-            id: asset.id,
-            name: asset.name,
-            images: asset.images,
-            creator_id: asset.creator_id,
-            visible: asset.visible,
-            active: asset.active,
-            created_at: asset.created_at,
-            last_updated: asset.last_updated,
-            download_profiles: asset.download_profiles,
-            quest_visible: quest_asset_link.visible,
-            quest_active: quest_asset_link.active
-          })
-          .from(asset)
-          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
-          .where(and(...conditions.filter(Boolean)));
-
-        // Add search filtering if search query exists
-        if (debouncedSearchQuery.trim()) {
-          // For offline search with joins, we need to fetch all and filter
-          const allAssets = await baseQuery;
-
-          // Safe filtering with proper null checks
-          const searchTerm = debouncedSearchQuery.trim().toLowerCase();
-          const filteredAssets = allAssets.filter((a) => {
-            // Ensure name exists and is a string
-            const assetName = a.name;
-            return (
-              assetName &&
-              typeof assetName === 'string' &&
-              assetName.toLowerCase().includes(searchTerm)
-            );
-          });
-
-          // Apply pagination to filtered results
-          return filteredAssets.slice(
-            offset,
-            offset + pageSize
-          ) as AssetQuestLink[];
-        }
-
-        // Normal pagination without search
-        const assets = await baseQuery.limit(pageSize).offset(offset);
-
-        return assets as AssetQuestLink[];
-      } catch (error) {
-        console.error('[ASSETS] Offline query error:', error);
-        return [];
-      }
-    },
-    // Cloud query function - Since assets must be downloaded, we return empty
-    // eslint-disable-next-line @typescript-eslint/require-await
-    async () => {
-      // Assets must be downloaded to be used, so cloud query returns empty
-      return [] as AssetQuestLink[];
-    },
-    20 // pageSize
+  } = useAssetsByQuest(
+    currentQuestId || '',
+    debouncedSearchQuery,
+    showInvisibleContent
   );
 
   // Flatten all pages into a single array
@@ -247,13 +183,39 @@ export default function NextGenAssetsView() {
       .join(' | ');
   }, [attachmentStateSummary, t]);
 
+  const {
+    hasReported,
+    // isLoading: isReportLoading,
+    refetch: refetchReport
+  } = useHasUserReported(currentQuestId || '', 'quests');
+
   const statusContext = useStatusContext();
-  // statusContext.layerStatus(LayerType.QUEST, currentQuestId || '');
   const { allowSettings } = statusContext.getStatusParams(
     LayerType.QUEST,
     currentQuestId
   );
-  // statusContext?.setLayerStatus(LayerType.QUEST, statusContext.layerStatus, '');
+
+  const menuItems = React.useMemo<FloatingMenuItem[]>(() => {
+    const items = [];
+    if (allowSettings && isOwner) {
+      items.push(
+        createMenuItem('settings', 'Settings', () => setShowSettingsModal(true))
+      );
+    } else {
+      if (!hasReported) {
+        items.push(
+          createMenuItem('flag', 'Report', () => setShowReportModal(true))
+        );
+      }
+    }
+
+    return [
+      ...items,
+      createMenuItem('information-circle', 'Info', () =>
+        setShowDetailsModal(true)
+      )
+    ];
+  }, [allowSettings, isOwner, hasReported]);
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -325,7 +287,7 @@ export default function NextGenAssetsView() {
           <Text style={styles.searchingText}>{t('searching')}</Text>
         </View>
       ) : (
-        <View style={{ flex: 1 }}>
+        <View style={[{ flex: 1, marginBottom: spacing.xlarge }]}>
           <FlashList
             data={assets}
             renderItem={renderItem}
@@ -346,26 +308,33 @@ export default function NextGenAssetsView() {
         </View>
       )}
 
-      {/* Floating action buttons */}
-      <View style={styles.floatingButtonContainer}>
-        <View style={styles.floatingButtonRow}>
-          {/* Quest Settings Button */}
-          {allowSettings && isOwner && (
-            <TouchableOpacity
-              onPress={() => setShowSettingsModal(true)}
-              style={[styles.floatingButton, styles.secondaryFloatingButton]}
-            >
-              <Ionicons name="settings" size={24} color={colors.text} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      <FloatingMenu items={menuItems} />
+
       {allowSettings && isOwner && (
         <QuestSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           questId={currentQuestId}
           projectId={currentProjectId || ''}
+        />
+      )}
+      {showDetailsModal && quest && (
+        <ModalDetails
+          isVisible={showDetailsModal}
+          contentType="quest"
+          content={quest}
+          onClose={() => setShowDetailsModal(false)}
+        />
+      )}
+      {showReportModal && (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={currentQuestId}
+          recordTable="quests"
+          hasAlreadyReported={hasReported}
+          creatorId={quest?.creator_id ?? undefined}
+          onReportSubmitted={() => refetchReport()}
         />
       )}
     </View>
@@ -466,36 +435,41 @@ export const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: fontSizes.medium
-  },
-  floatingButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 28,
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5
-  },
-  floatingButtonContainer: {
-    position: 'absolute',
-    bottom: spacing.large,
-    right: spacing.large,
-    gap: spacing.small
-  },
-  floatingButtonRow: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  secondaryFloatingButton: {
-    backgroundColor: colors.inputBackground
-  },
-  settingsFloatingButton: {
-    backgroundColor: colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: colors.inputBorder
   }
+  // floatingButton: {
+  //   backgroundColor: colors.primary,
+  //   borderRadius: 28,
+  //   width: 56,
+  //   height: 56,
+  //   justifyContent: 'center',
+  //   alignItems: 'center',
+  //   shadowColor: '#000',
+  //   shadowOffset: { width: 0, height: 2 },
+  //   shadowOpacity: 0.25,
+  //   shadowRadius: 3.84,
+  //   elevation: 5
+  // },
+  // floatingButtonContainer: {
+  //   width: '100%',
+  //   position: 'absolute',
+  //   bottom: spacing.large,
+  //   right: spacing.large,
+  //   gap: spacing.small,
+  //   display: 'flex',
+  //   flexDirection: 'row',
+  //   justifyContent: 'space-between',
+  //   alignItems: 'center'
+  // },
+  // floatingButtonRow: {
+  //   flexDirection: 'row',
+  //   gap: spacing.small
+  // },
+  // secondaryFloatingButton: {
+  //   backgroundColor: colors.inputBackground
+  // },
+  // settingsFloatingButton: {
+  //   backgroundColor: colors.backgroundSecondary,
+  //   borderWidth: 1,
+  //   borderColor: colors.inputBorder
+  // }
 });

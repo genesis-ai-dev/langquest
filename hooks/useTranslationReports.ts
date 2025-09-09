@@ -8,5 +8,5 @@ export const useTranslationReports = (
     return { hasReported: false, isLoading: false };
   }
 
-  return useHasUserReported(translationId, 'translations', reporterId);
+  return useHasUserReported(translationId, 'translations');
 };
