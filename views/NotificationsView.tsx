@@ -310,17 +310,38 @@ export default function NotificationsView() {
           .update(invite)
           .set({
             status: 'accepted',
+            count: 1, // Reset count to 1 on successful acceptance - fresh start for future invites
             last_updated: new Date().toISOString()
           })
           .where(eq(invite.id, notificationId));
         console.log('[handleAccept] Invite update result:', updateResult);
 
         // Verify the update worked by querying the record
-        const updatedRecord = await system.db
+        const [updatedRecord] = await system.db
           .select()
           .from(invite)
-          .where(eq(invite.id, notificationId));
+          .where(eq(invite.id, notificationId))
+          .limit(1);
         console.log('[handleAccept] Updated invite record:', updatedRecord);
+
+        if (updatedRecord?.receiver_profile_id) {
+          await system.db
+            .update(request)
+            .set({
+              status: 'accepted',
+              count: 1, // Reset count to 1 on successful acceptance - fresh start for future requests
+              last_updated: new Date().toISOString()
+            })
+            .where(
+              and(
+                eq(
+                  request.sender_profile_id,
+                  updatedRecord.receiver_profile_id
+                ),
+                eq(request.project_id, updatedRecord.project_id)
+              )
+            );
+        }
 
         const existingLink = await system.db
           .select()
@@ -381,6 +402,7 @@ export default function NotificationsView() {
           .update(request)
           .set({
             status: 'accepted',
+            count: 1, // Reset count to 1 on successful acceptance - fresh start for future requests
             last_updated: new Date().toISOString()
           })
           .where(eq(request.id, notificationId));
@@ -395,6 +417,24 @@ export default function NotificationsView() {
 
         if (requestRecord.length > 0 && requestRecord[0]) {
           const senderProfileId = requestRecord[0].sender_profile_id;
+
+          console.log('[handleAccept] Updating invite for request:', {
+            senderProfileId,
+            projectId
+          });
+
+          await system.db
+            .update(invite)
+            .set({
+              count: 1, // Reset count to 1 on successful acceptance (for invite as well) - fresh start for future invites
+              last_updated: new Date().toISOString()
+            })
+            .where(
+              and(
+                eq(invite.receiver_profile_id, senderProfileId),
+                eq(invite.project_id, projectId)
+              )
+            );
 
           // Create or update profile_project_link for the requester
           const existingLink = await system.db
@@ -474,13 +514,31 @@ export default function NotificationsView() {
           .where(eq(invite.id, notificationId));
       } else {
         // type === 'request'
-        await system.db
-          .update(request)
-          .set({
-            status: 'declined',
-            last_updated: new Date().toISOString()
-          })
+        // First get the existing request to check current status
+        const existingRequest = await system.db
+          .select()
+          .from(request)
           .where(eq(request.id, notificationId));
+
+        if (existingRequest.length > 0 && existingRequest[0]) {
+          const currentRequest = existingRequest[0];
+
+          // Only increment count if previous request was declined (user actively rejected)
+          // Don't count: accepted+inactive (successful then removed), withdrawn (sender cancelled), expired (timed out)
+          const newCount =
+            currentRequest.status === 'declined'
+              ? (currentRequest.count || 0) + 1
+              : currentRequest.count || 0;
+
+          await system.db
+            .update(request)
+            .set({
+              status: 'declined',
+              count: newCount,
+              last_updated: new Date().toISOString()
+            })
+            .where(eq(request.id, notificationId));
+        }
       }
 
       Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));

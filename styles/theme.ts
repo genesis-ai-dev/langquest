@@ -108,7 +108,7 @@ export const sharedStyles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colors.inputBorder,
-    paddingVertical: spacing.medium,
+    paddingVertical: 12,
     paddingHorizontal: spacing.large,
     width: '100%',
     minHeight: 48,
