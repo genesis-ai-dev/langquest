@@ -68,29 +68,27 @@ export default function NextGenQuestsView() {
   );
 
   // Fetch current project data
-  const { data: projectData, refetch: refetchProject } = useHybridData<Project>(
-    {
-      dataType: 'project',
-      queryKeyParams: [currentProjectId || ''],
-      offlineQuery: toCompilableQuery(
-        system.db.query.project.findMany({
-          where: eq(project.id, currentProjectId || ''),
-          limit: 1
-        })
-      ),
-      cloudQueryFn: async () => {
-        if (!currentProjectId) return [];
-        const { data, error } = await system.supabaseConnector.client
-          .from('project')
-          .select('*')
-          .eq('id', currentProjectId)
-          .overrideTypes<Project[]>();
-        if (error) throw error;
-        return data;
-      },
-      enableCloudQuery: !!currentProjectId
-    }
-  );
+  const { data: projectData } = useHybridData<Project>({
+    dataType: 'project',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findMany({
+        where: eq(project.id, currentProjectId || ''),
+        limit: 1
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .overrideTypes<Project[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId
+  });
 
   const currentProject = projectData[0];
 
@@ -357,7 +355,7 @@ export default function NextGenQuestsView() {
           creatorId={currentProject?.creator_id ?? undefined}
           recordTable="projects"
           hasAlreadyReported={hasReported}
-          onReportSubmitted={() => refetchProject()}
+          onReportSubmitted={() => null}
         />
       )}
     </View>

@@ -98,8 +98,8 @@ export function useUserRestrictions(
     data: blockedContent,
     isLoading: isBlockedContentLoading,
     cloudError: blockedContentCloudError,
-    offlineError: blockedContentOfflineError,
-    refetch: refetchBlockedContent
+    offlineError: blockedContentOfflineError
+    // refetch: refetchBlockedContent
   } = useHybridData<{ content_id: string }>({
     dataType: 'blocked_content',
     queryKeyParams: ['blocked_content', contentType, currentUser.id],
@@ -139,8 +139,8 @@ export function useUserRestrictions(
     data: blockedUsers,
     isLoading: isBlockedUsersLoading,
     cloudError: blockedUsersCloudError,
-    offlineError: blockedUsersOfflineError,
-    refetch: refetchBlockedUsers
+    offlineError: blockedUsersOfflineError
+    // refetch: refetchBlockedUsers
   } = useHybridData<{ blocked_id: string }>({
     dataType: 'blocked_users',
     queryKeyParams: ['blocked_users', currentUser.id],
@@ -170,10 +170,10 @@ export function useUserRestrictions(
     enableCloudQuery: !useOfflineData
   });
 
-  const refetch = () => {
-    void refetchBlockedContent();
-    void refetchBlockedUsers();
-  };
+  // const refetch = () => {
+  //   void refetchBlockedContent();
+  //   void refetchBlockedUsers();
+  // };
 
   return {
     data: {
@@ -183,7 +183,6 @@ export function useUserRestrictions(
     isRestrictionsLoading: isBlockedContentLoading || isBlockedUsersLoading,
     hasError: useOfflineData
       ? blockedContentOfflineError || blockedUsersOfflineError
-      : blockedContentCloudError || blockedUsersCloudError,
-    refetch
+      : blockedContentCloudError || blockedUsersCloudError
   };
 }
