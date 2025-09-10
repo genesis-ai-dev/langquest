@@ -1,4 +1,5 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -199,6 +200,8 @@ export default function ProfileView() {
             <Text style={styles.settingDescription}>
               {t('analyticsOptInDescription')}
             </Text>
+
+            <ThemeToggle />
 
             {/* Language Selection - Always available */}
             <View style={styles.controllerContainer}>
