@@ -19,6 +19,7 @@ interface RabbitModeSegmentDisplayProps {
   onDeleteSegment: (segmentId: string) => void;
   onReorderSegment: (segmentId: string, direction: 'up' | 'down') => void;
   readOnly?: boolean;
+  compact?: boolean;
 }
 
 const formatDuration = (milliseconds: number): string => {
@@ -34,7 +35,13 @@ const formatDuration = (milliseconds: number): string => {
 
 export const RabbitModeSegmentDisplay: React.FC<
   RabbitModeSegmentDisplayProps
-> = ({ segments, onDeleteSegment, onReorderSegment, readOnly = false }) => {
+> = ({
+  segments,
+  onDeleteSegment,
+  onReorderSegment,
+  readOnly = false,
+  compact = false
+}) => {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
 
   if (segments.length === 0) {
@@ -65,7 +72,9 @@ export const RabbitModeSegmentDisplay: React.FC<
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recordings ({segments.length})</Text>
+      {!compact && (
+        <Text style={styles.title}>Recordings ({segments.length})</Text>
+      )}
 
       {sortedSegments.map((segment, index) => {
         const canMoveUp = index > 0;
@@ -73,14 +82,22 @@ export const RabbitModeSegmentDisplay: React.FC<
         const isPlaying = playingSegmentId === segment.id;
 
         return (
-          <View key={segment.id} style={styles.segmentItem}>
+          <View
+            key={segment.id}
+            style={[
+              styles.segmentItem,
+              compact ? styles.segmentItemCompact : undefined
+            ]}
+          >
             <View style={styles.segmentContent}>
-              <View style={styles.segmentHeader}>
-                <Text style={styles.segmentNumber}>#{index + 1}</Text>
-                <Text style={styles.segmentDuration}>
-                  {formatDuration(segment.duration)}
-                </Text>
-              </View>
+              {!compact && (
+                <View style={styles.segmentHeader}>
+                  <Text style={styles.segmentNumber}>#{index + 1}</Text>
+                  <Text style={styles.segmentDuration}>
+                    {formatDuration(segment.duration)}
+                  </Text>
+                </View>
+              )}
 
               <PlayableWaveform
                 audioUri={segment.audioUri}
@@ -90,11 +107,14 @@ export const RabbitModeSegmentDisplay: React.FC<
                 onPlay={() => handlePlaySegment(segment.id)}
                 onPause={handlePauseSegment}
                 onStop={handleStopSegment}
-                style={styles.playableWaveform}
+                style={[
+                  styles.playableWaveform,
+                  compact ? styles.playableWaveformCompact : undefined
+                ]}
               />
             </View>
 
-            {!readOnly && (
+            {!readOnly && !compact && (
               <View style={styles.segmentControls}>
                 <TouchableOpacity
                   style={[
@@ -210,6 +230,9 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     padding: 0
   },
+  playableWaveformCompact: {
+    padding: 0
+  },
   segmentControls: {
     alignItems: 'center',
     gap: spacing.xsmall
@@ -225,5 +248,12 @@ const styles = StyleSheet.create({
     padding: spacing.xsmall,
     borderRadius: 4,
     backgroundColor: colors.inputBackground
+  },
+  segmentItemCompact: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.small,
+    marginBottom: spacing.xsmall
   }
 });

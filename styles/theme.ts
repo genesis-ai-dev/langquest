@@ -47,7 +47,8 @@ export const colors = {
   inactive: '#777777',
   success: '#16BFC6', // Green color for success state
   alert: '#CA59E5', // purple color for alert state
-  downVoted: '#7f6138' // a light brown
+  downVoted: '#7f6138', // a light brown
+  transparent: 'transparent'
 };
 
 export const fontSizes = {

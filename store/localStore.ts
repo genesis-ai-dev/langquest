@@ -108,6 +108,25 @@ export interface RabbitModeSegment {
   order: number; // For reordering
 }
 
+// V2 mixed items model for sessions
+export type RabbitModeItem =
+  | {
+    id: string;
+    kind: 'segment';
+    audioUri: string;
+    startTime: number;
+    endTime: number;
+    duration: number;
+    waveformData?: number[];
+  }
+  | {
+    id: string;
+    kind: 'milestone';
+    // For structured projects, associate an asset; for unstructured, omit and use label/numbering
+    assetId?: string;
+    label?: string; // e.g., asset name or auto-increment number as a string
+  };
+
 export interface RabbitModeAsset {
   id: string;
   name: string;
@@ -126,6 +145,10 @@ export interface RabbitModeSession {
   last_updated: Date;
   isCommitted: boolean;
   currentAssetId?: string; // Track which asset user is currently on
+  // V2 items model
+  items?: RabbitModeItem[];
+  mode?: 'structured' | 'unstructured';
+  nextAutoNumber?: number; // for unstructured milestone numbering
 }
 
 interface LocalState {
@@ -227,6 +250,23 @@ interface LocalState {
   addRabbitModeSegment: (sessionId: string, assetId: string, segment: Omit<RabbitModeSegment, 'id' | 'order'>) => void;
   deleteRabbitModeSegment: (sessionId: string, assetId: string, segmentId: string) => void;
   reorderRabbitModeSegments: (sessionId: string, assetId: string, segmentIds: string[]) => void;
+  reorderRabbitModeAssets: (sessionId: string, assetIds: string[]) => void;
+
+  // V2 mixed items model actions
+  addRabbitModeMilestone: (
+    sessionId: string,
+    milestone?: { label?: string; assetId?: string }
+  ) => void;
+  addRabbitModeItemSegment: (
+    sessionId: string,
+    segment: Omit<Extract<RabbitModeItem, { kind: 'segment' }>, 'id' | 'kind'>
+  ) => void;
+  moveRabbitModeItem: (
+    sessionId: string,
+    itemId: string,
+    direction: 'up' | 'down'
+  ) => void;
+  deleteRabbitModeItem: (sessionId: string, itemId: string) => void;
 
   // Asset locking (UI affordance)
   lockAsset: (sessionId: string, assetId: string) => void;
@@ -496,7 +536,10 @@ export const useLocalStore = create<LocalState>()(
           created_at: now,
           last_updated: now,
           isCommitted: false,
-          currentAssetId: assetIds[0] || undefined
+          currentAssetId: assetIds[0] || undefined,
+          items: [],
+          mode: assetIds.length > 0 ? 'structured' : 'unstructured',
+          nextAutoNumber: 1
         };
 
         set((state) => ({
@@ -527,6 +570,19 @@ export const useLocalStore = create<LocalState>()(
                     }
                     : asset
                 ),
+                // Also append to V2 items model for unified publishing/UX
+                items: [
+                  ...(session.items || []),
+                  {
+                    id: generateTempId(),
+                    kind: 'segment' as const,
+                    audioUri: segment.audioUri,
+                    startTime: segment.startTime,
+                    endTime: segment.endTime,
+                    duration: segment.duration,
+                    waveformData: segment.waveformData
+                  }
+                ],
                 last_updated: new Date()
               }
               : session
@@ -574,6 +630,109 @@ export const useLocalStore = create<LocalState>()(
                     }
                     : asset
                 ),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      reorderRabbitModeAssets: (sessionId, assetIds) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                assets: assetIds
+                  .map((id) => session.assets.find((a) => a.id === id))
+                  .filter((a): a is RabbitModeAsset => a !== undefined),
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      // V2 mixed items model actions
+      addRabbitModeMilestone: (sessionId, milestone) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                items: [
+                  ...(session.items || []),
+                  {
+                    id: generateTempId(),
+                    kind: 'milestone' as const,
+                    assetId: milestone?.assetId,
+                    label:
+                      milestone?.label ||
+                      (session.mode === 'unstructured'
+                        ? String(session.nextAutoNumber || 1)
+                        : undefined)
+                  }
+                ],
+                nextAutoNumber:
+                  session.mode === 'unstructured'
+                    ? (session.nextAutoNumber || 1) + 1
+                    : session.nextAutoNumber,
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      addRabbitModeItemSegment: (sessionId, segment) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                items: [
+                  ...(session.items || []),
+                  {
+                    id: generateTempId(),
+                    kind: 'segment' as const,
+                    audioUri: segment.audioUri,
+                    startTime: segment.startTime,
+                    endTime: segment.endTime,
+                    duration: segment.duration,
+                    waveformData: segment.waveformData
+                  }
+                ],
+                last_updated: new Date()
+              }
+              : session
+          )
+        }));
+      },
+
+      moveRabbitModeItem: (sessionId, itemId, direction) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) => {
+            if (session.id !== sessionId) return session;
+            const items = [...(session.items || [])];
+            const idx = items.findIndex((it) => it.id === itemId);
+            if (idx === -1) return session;
+            const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+            if (swapWith < 0 || swapWith >= items.length) return session;
+            const tmp = items[swapWith]!;
+            items[swapWith] = items[idx]!;
+            items[idx] = tmp;
+            return { ...session, items, last_updated: new Date() };
+          })
+        }));
+      },
+
+      deleteRabbitModeItem: (sessionId, itemId) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                ...session,
+                items: (session.items || []).filter((it) => it.id !== itemId),
                 last_updated: new Date()
               }
               : session

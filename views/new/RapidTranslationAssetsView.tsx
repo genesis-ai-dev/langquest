@@ -17,11 +17,13 @@ import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
   Alert,
+  FlatList,
   LayoutAnimation,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   UIManager,
   View
 } from 'react-native';
@@ -29,10 +31,9 @@ import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 // Component imports
 import { LiveWaveform } from '@/components/LiveWaveform';
+import { PlayableWaveform } from '@/components/PlayableWaveform';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { RabbitModeSegmentDisplay } from '@/components/RabbitModeSegmentDisplay';
 import { RabbitModeSwitch } from '@/components/RabbitModeSwitch';
-import { AssetListItem } from './AssetListItem';
 
 // Enable LayoutAnimation on Android
 if (
@@ -460,6 +461,9 @@ export default function SimpleAssetsView() {
       : undefined
   );
   const setCurrentAsset = useLocalStore((state) => state.setCurrentAsset);
+  const addMilestone = useLocalStore((state) => state.addRabbitModeMilestone);
+  const moveItem = useLocalStore((state) => state.moveRabbitModeItem);
+  const deleteItem = useLocalStore((state) => state.deleteRabbitModeItem);
   const createRabbitModeSession = useLocalStore(
     (state) => state.createRabbitModeSession
   );
@@ -470,6 +474,7 @@ export default function SimpleAssetsView() {
 
   // Rabbit mode state
   const isRabbitMode = !!activeSession;
+  const [isEditMode, setIsEditMode] = React.useState(false);
 
   // Pre-fetch ALL assets for this quest (not paginated)
   const isBibleTemplate = !!currentProject?.templates?.includes(
@@ -575,25 +580,53 @@ export default function SimpleAssetsView() {
     });
   }, [allAssetsData.pages]);
 
-  // Get segments for current asset - now properly subscribing to store updates
-  const currentAssetSegments = React.useMemo(() => {
-    if (!activeSession?.assets || !currentAssetId) return [];
+  // Build item list from session.items (milestones + segments)
+  interface SegmentRow {
+    id: string;
+    startTime: number;
+    endTime: number;
+    duration: number;
+    audioUri: string;
+    waveformData?: number[];
+  }
+  type RowItem =
+    | { kind: 'milestone'; id: string; label?: string; assetId?: string }
+    | { kind: 'segment'; id: string; segment: SegmentRow };
 
-    const currentRabbitAsset = activeSession.assets.find(
-      (a) => a.id === currentAssetId
+  const listData: RowItem[] = React.useMemo(() => {
+    if (!activeSession?.items) return [];
+    return activeSession.items.map((it) =>
+      it.kind === 'milestone'
+        ? { kind: 'milestone', id: it.id, label: it.label, assetId: it.assetId }
+        : {
+            kind: 'segment',
+            id: it.id,
+            segment: {
+              id: it.id,
+              startTime: it.startTime,
+              endTime: it.endTime,
+              duration: it.duration,
+              audioUri: it.audioUri,
+              waveformData: it.waveformData
+            }
+          }
     );
-    if (!currentRabbitAsset?.segments) return [];
+  }, [activeSession?.items, activeSession?.last_updated]);
 
-    return currentRabbitAsset.segments.map((seg) => ({
-      id: seg.id,
-      startTime: seg.startTime,
-      endTime: seg.endTime,
-      duration: seg.duration,
-      audioUri: seg.audioUri,
-      waveformData: seg.waveformData,
-      order: seg.order
-    }));
-  }, [activeSession?.assets, currentAssetId, activeSession?.last_updated]); // Include last_updated to trigger on changes
+  // Track consumed and remaining assets for structured flows
+  const consumedAssetIds = React.useMemo(() => {
+    const set = new Set<string>();
+    if (activeSession?.items) {
+      for (const it of activeSession.items) {
+        if (it.kind === 'milestone' && it.assetId) set.add(it.assetId);
+      }
+    }
+    return set;
+  }, [activeSession?.items]);
+
+  const remainingAssets = React.useMemo(() => {
+    return assets.filter((a) => !consumedAssetIds.has(a.id));
+  }, [assets, consumedAssetIds]);
 
   // Watch attachment states
   const assetIds = React.useMemo(
@@ -601,6 +634,37 @@ export default function SimpleAssetsView() {
     [assets.length]
   );
   const { attachmentStates } = useAttachmentStates(assetIds);
+
+  // Handlers for milestone-based model
+  const handlePlus = React.useCallback(() => {
+    if (!activeSession) return;
+    if (activeSession.mode === 'structured') {
+      // Advance to next remaining asset (skip already consumed)
+      const idx = assets.findIndex(
+        (a) => a.id === activeSession.currentAssetId
+      );
+      const nextAsset =
+        assets
+          .slice(Math.max(idx + 1, 0))
+          .find((a) => !consumedAssetIds.has(a.id)) || remainingAssets[0];
+      if (!nextAsset) return;
+      addMilestone(activeSession.id, {
+        assetId: nextAsset.id,
+        label: nextAsset.name || undefined
+      });
+      setCurrentAsset(activeSession.id, nextAsset.id);
+    } else {
+      // Unstructured: add auto-numbered milestone
+      addMilestone(activeSession.id);
+    }
+  }, [
+    activeSession?.id,
+    activeSession?.mode,
+    activeSession?.currentAssetId,
+    assets,
+    consumedAssetIds,
+    remainingAssets
+  ]);
 
   // Handlers
   const handleDeleteSegment = React.useCallback(
@@ -626,11 +690,12 @@ export default function SimpleAssetsView() {
     [activeSession?.id, currentAssetId]
   );
 
-  const handleReorderSegment = React.useCallback(
-    (segmentId: string, direction: 'up' | 'down') => {
-      console.log('Mock: Reorder segment', segmentId, direction);
+  const handleReorderItem = React.useCallback(
+    (itemId: string, direction: 'up' | 'down') => {
+      if (!activeSession) return;
+      moveItem(activeSession.id, itemId, direction);
     },
-    []
+    [activeSession?.id]
   );
 
   const { goToAsset } = useAppNavigation();
@@ -698,79 +763,220 @@ export default function SimpleAssetsView() {
     <View style={sharedStyles.container}>
       <View style={styles.headerContainer}>
         <Text style={[sharedStyles.title, styles.title]}>{t('assets')}</Text>
-
-        <RabbitModeSwitch
-          value={isRabbitMode}
-          onToggle={() => {
-            if (isRabbitMode) {
-              handleExitRabbitMode();
-            } else {
-              handleEnterRabbitMode();
-            }
-          }}
-          disabled={assets.length === 0}
-        />
+        <View style={styles.headerControls}>
+          <RabbitModeSwitch
+            value={isRabbitMode}
+            onToggle={() => {
+              if (isRabbitMode) {
+                handleExitRabbitMode();
+                setIsEditMode(false);
+              } else {
+                handleEnterRabbitMode();
+              }
+            }}
+            disabled={assets.length === 0}
+          />
+          {isRabbitMode && (
+            <TouchableOpacity
+              onPress={() => setIsEditMode((v) => !v)}
+              style={[
+                styles.editToggle,
+                isEditMode ? styles.editToggleActive : undefined
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isEditMode ? 'Exit edit mode' : 'Enter edit mode'
+              }
+            >
+              <Text
+                style={[
+                  styles.editToggleText,
+                  isEditMode ? styles.editToggleTextActive : undefined
+                ]}
+              >
+                {isEditMode ? 'Done' : 'Edit'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Voice Activity Detection Interface - only when Rabbit Mode is ON */}
       {isRabbitMode && <VoiceActivityDetectionPanel />}
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {assets.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              No assets found for this quest.
-            </Text>
+      {/* Cursor row: shows current insertion point and + button */}
+      {isRabbitMode && (
+        <View style={styles.cursorRow}>
+          <View style={styles.cursorInfo}>
+            <Text style={styles.cursorLabel}>Current</Text>
+            <View style={styles.cursorPill}>
+              <Text style={styles.cursorPillText}>
+                {activeSession?.mode === 'structured'
+                  ? assets.find((a) => a.id === activeSession?.currentAssetId)
+                      ?.name || '—'
+                  : `#${activeSession?.nextAutoNumber ?? 1}`}
+              </Text>
+            </View>
           </View>
-        )}
+          <TouchableOpacity style={styles.plusButton} onPress={handlePlus}>
+            <Text style={styles.plusButtonText}>＋</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-        {/* All Assets in Natural Order */}
-        {assets.map((asset) => {
-          const isCurrentAsset = asset.id === currentAssetId;
-
-          return (
-            <View key={asset.id} style={styles.assetContainer}>
-              {/* Asset Item */}
-              <AssetListItem
-                asset={{ ...asset, quest_active: true, quest_visible: true }}
-                questId={currentQuestId}
-                attachmentState={attachmentStates.get(asset.id)}
-                onPress={handleAssetPress}
-              />
-
-              {/* Segments Accordion - Expands In Place */}
-              {isCurrentAsset && currentAssetSegments.length > 0 && (
-                <View style={styles.segmentsAccordion}>
-                  <RabbitModeSegmentDisplay
-                    segments={currentAssetSegments}
-                    onDeleteSegment={handleDeleteSegment}
-                    onReorderSegment={handleReorderSegment}
-                    readOnly={false}
-                  />
+      <FlatList
+        data={
+          isRabbitMode
+            ? listData
+            : assets.map(
+                (a) =>
+                  ({
+                    kind: 'milestone',
+                    id: a.id,
+                    label: a.name,
+                    assetId: a.id
+                  }) as const
+              )
+        }
+        keyExtractor={(item) => `${item.kind}:${item.id}`}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => {
+          if (item.kind === 'milestone') {
+            const label =
+              item.label ||
+              (item.assetId
+                ? assets.find((a) => a.id === item.assetId)?.name
+                : undefined) ||
+              'Milestone';
+            return (
+              <View style={[styles.milestoneRow, styles.centerRow]}>
+                <View style={styles.milestonePill}>
+                  <Text style={styles.milestoneText}>{label}</Text>
                 </View>
-              )}
+                {isEditMode && (
+                  <View style={styles.segmentRowControls}>
+                    <TouchableOpacity
+                      style={styles.controlButton}
+                      onPress={() => handleReorderItem(item.id, 'up')}
+                    >
+                      <Text style={styles.controlButtonText}>↑</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.controlButton}
+                      onPress={() => handleReorderItem(item.id, 'down')}
+                    >
+                      <Text style={styles.controlButtonText}>↓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => {
+                        if (!activeSession) return;
+                        deleteItem(activeSession.id, item.id);
+                      }}
+                    >
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          }
 
-              {/* Current Asset Indicator */}
-              {isCurrentAsset && (
-                <View style={styles.currentIndicator}>
-                  <Text style={styles.currentIndicatorText}>📍 Current</Text>
+          const { segment } = item;
+          return (
+            <View style={[styles.segmentRow, styles.centerRow]}>
+              <View style={styles.segmentRowContent}>
+                <PlayableWaveform
+                  audioUri={segment.audioUri}
+                  waveformData={segment.waveformData}
+                  duration={segment.duration}
+                  style={styles.segmentWaveform}
+                />
+              </View>
+              {isEditMode && (
+                <View style={styles.segmentRowControls}>
+                  <TouchableOpacity
+                    style={styles.controlButton}
+                    onPress={() => handleReorderItem(item.id, 'up')}
+                  >
+                    <Text style={styles.controlButtonText}>↑</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.controlButton}
+                    onPress={() => handleReorderItem(item.id, 'down')}
+                  >
+                    <Text style={styles.controlButtonText}>↓</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => {
+                      if (!activeSession) return;
+                      deleteItem(activeSession.id, item.id);
+                    }}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
           );
-        })}
-
-        {assets.length > 0 && !activeSession && (
-          <View style={styles.noSessionContainer}>
-            <Text style={styles.noSessionText}>
-              Toggle Rabbit Mode above to start recording sessions.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+        }}
+        ListEmptyComponent={
+          isRabbitMode ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                No items yet. Use ＋ to add a marker.
+              </Text>
+            </View>
+          ) : assets.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                No assets found for this quest.
+              </Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          isRabbitMode && activeSession?.mode === 'structured' ? (
+            <View style={styles.assetPickerContainer}>
+              <Text style={styles.assetPickerLabel}>Next asset</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {remainingAssets.map((a) => (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={styles.assetIdPill}
+                    onPress={() => {
+                      if (!activeSession) return;
+                      const idx = remainingAssets.findIndex(
+                        (x) => x.id === a.id
+                      );
+                      const toConsume =
+                        idx >= 0 ? remainingAssets.slice(0, idx + 1) : [a];
+                      for (const assetToAdd of toConsume) {
+                        addMilestone(activeSession.id, {
+                          assetId: assetToAdd.id,
+                          label: assetToAdd.name || undefined
+                        });
+                      }
+                      setCurrentAsset(activeSession.id, a.id);
+                    }}
+                  >
+                    <Text style={styles.assetIdText}>
+                      {a.name || a.id.substring(0, 8)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : assets.length > 0 && !activeSession ? (
+            <View style={styles.noSessionContainer}>
+              <Text style={styles.noSessionText}>
+                Toggle Rabbit Mode above to start recording sessions.
+              </Text>
+            </View>
+          ) : null
+        }
+      />
     </View>
   );
 }
@@ -783,6 +989,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.medium,
     paddingHorizontal: spacing.medium
   },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small
+  },
   title: {
     paddingHorizontal: 0, // Remove padding since it's in headerContainer now
     marginBottom: 0
@@ -790,9 +1001,50 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1
   },
+  listContent: {
+    paddingBottom: spacing.large
+  },
   assetContainer: {
     marginBottom: spacing.small,
     paddingHorizontal: spacing.medium
+  },
+  assetIdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.medium,
+    marginBottom: spacing.xsmall
+  },
+  assetIdPill: {
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 999,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: 8
+  },
+  assetIdPillActive: {
+    backgroundColor: colors.primary
+  },
+  assetIdText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  assetIdTextActive: {
+    color: colors.background
+  },
+  assetIdControls: {
+    flexDirection: 'row',
+    gap: spacing.xsmall
+  },
+  assetControlButton: {
+    paddingHorizontal: spacing.xsmall,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: colors.inputBackground,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
   },
   segmentsAccordion: {
     marginTop: spacing.small,
@@ -831,6 +1083,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic'
+  },
+  assetPickerContainer: {
+    marginTop: spacing.medium,
+    paddingHorizontal: spacing.medium,
+    gap: spacing.xsmall
+  },
+  assetPickerLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small,
+    marginBottom: spacing.xsmall
   },
   vadContainer: {
     marginBottom: spacing.medium,
@@ -878,5 +1140,152 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSizes.small,
     textDecorationLine: 'underline'
+  },
+  editToggle: {
+    marginLeft: spacing.small,
+    paddingHorizontal: spacing.small,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.inputBackground,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
+  },
+  editToggleActive: {
+    backgroundColor: colors.primary
+  },
+  editToggleText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  editToggleTextActive: {
+    color: colors.background
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.medium,
+    marginBottom: spacing.xsmall,
+    gap: spacing.small
+  },
+  milestonePill: {
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 999,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: 6
+  },
+  milestoneText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  centerRow: {
+    justifyContent: 'center'
+  },
+  cursorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.medium,
+    marginBottom: spacing.small
+  },
+  cursorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small
+  },
+  cursorLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
+  },
+  cursorPill: {
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 999,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: 6
+  },
+  cursorPillText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  plusButton: {
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: 6
+  },
+  plusButtonText: {
+    color: colors.background,
+    fontSize: fontSizes.medium,
+    fontWeight: '700'
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.medium,
+    marginBottom: spacing.xsmall,
+    gap: spacing.small
+  },
+  segmentRowContent: {
+    flex: 1
+  },
+  segmentRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xsmall
+  },
+  segmentRowNumber: {
+    fontSize: fontSizes.small,
+    fontWeight: '600',
+    color: colors.primary
+  },
+  segmentRowDuration: {
+    fontSize: fontSizes.small,
+    color: colors.textSecondary
+  },
+  segmentWaveform: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0
+  },
+  segmentRowControls: {
+    alignItems: 'center',
+    gap: spacing.xsmall
+  },
+  controlButton: {
+    paddingHorizontal: spacing.xsmall,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: colors.inputBackground,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
+  },
+  controlButtonDisabled: {
+    opacity: 0.3
+  },
+  controlButtonText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
+  },
+  deleteButton: {
+    paddingHorizontal: spacing.xsmall,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: colors.inputBackground,
+    borderWidth: 1,
+    borderColor: colors.inputBorder
+  },
+  deleteButtonText: {
+    color: colors.error,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
   }
 });

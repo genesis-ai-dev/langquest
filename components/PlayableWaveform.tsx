@@ -1,7 +1,7 @@
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Audio } from 'expo-av';
 import React, { useEffect, useRef, useState } from 'react';
-import type { ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface PlayableWaveformProps {
@@ -12,7 +12,7 @@ interface PlayableWaveformProps {
   onPause?: () => void;
   onStop?: () => void;
   isPlaying?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const PlayableWaveform: React.FC<PlayableWaveformProps> = ({
@@ -169,13 +169,12 @@ export const PlayableWaveform: React.FC<PlayableWaveformProps> = ({
             color={colors.primary}
           />
         </View> */}
-      </View>
-
-      {/* Duration info */}
-      <View style={styles.timeInfo}>
-        <Text style={styles.timeText}>
-          {formatTime(position)} / {formatTime(duration)}
-        </Text>
+        {/* Duration info */}
+        <View style={styles.timeInfo}>
+          <Text style={styles.timeText}>
+            {formatTime(position)} / {formatTime(duration)}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
