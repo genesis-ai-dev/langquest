@@ -2,8 +2,8 @@ import { borderRadius, colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import React, { useRef, useState } from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import PagerView from 'react-native-pager-view';
 
 interface CarouselProps<T> {
   items: T[];
@@ -13,51 +13,32 @@ interface CarouselProps<T> {
 
 function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
   const [currentPage, setCurrentPage] = useState(0);
-  const scrollViewRef = useRef<ScrollView | null>(null);
+  const pagerRef = useRef<PagerView>(null);
 
   if (items.length === 0) return null;
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollX = event.nativeEvent.contentOffset.x;
-    const itemWidth = event.nativeEvent.layoutMeasurement.width;
-    const newPage = Math.round(scrollX / itemWidth);
-
-    if (newPage !== currentPage) {
-      setCurrentPage(newPage);
-      if (onPageChange) {
-        onPageChange();
-      }
-    }
-  };
-
-  const scrollToPage = (pageIndex: number) => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: pageIndex * 300, // Assuming item width of 300
-        animated: true
-      });
+  const handlePageChange = (e: { nativeEvent: { position: number } }) => {
+    const newPage = e.nativeEvent.position;
+    setCurrentPage(newPage);
+    if (onPageChange) {
+      onPageChange();
     }
   };
 
   return (
     <View style={styles.carouselContainer}>
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScroll}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        snapToInterval={300} // Match item width
-        decelerationRate="fast"
+      <PagerView
+        ref={pagerRef}
+        style={styles.pagerView}
+        initialPage={0}
+        onPageSelected={handlePageChange}
       >
         {items.map((item, index) => (
           <View key={index} style={styles.carouselItem}>
             {renderItem(item, index)}
           </View>
         ))}
-      </ScrollView>
+      </PagerView>
       <View style={styles.controlsContainer}>
         <TouchableOpacity
           style={[
@@ -65,7 +46,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
             styles.navButtonLeft,
             currentPage === 0 && { opacity: 0 }
           ]}
-          onPress={() => scrollToPage(currentPage - 1)}
+          onPress={() => pagerRef.current?.setPage(currentPage - 1)}
           disabled={currentPage === 0}
         >
           <Ionicons name="chevron-back" size={20} color={colors.text} />
@@ -87,7 +68,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
             styles.navButtonRight,
             currentPage === items.length - 1 && { opacity: 0 }
           ]}
-          onPress={() => scrollToPage(currentPage + 1)}
+          onPress={() => pagerRef.current?.setPage(currentPage + 1)}
           disabled={currentPage === items.length - 1}
         >
           <Ionicons name="chevron-forward" size={20} color={colors.text} />
@@ -103,19 +84,15 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative'
   },
-  scrollView: {
+  pagerView: {
     flex: 1
   },
-  scrollContent: {
-    alignItems: 'center'
-  },
   carouselItem: {
-    width: 300,
+    width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: borderRadius.medium,
-    marginHorizontal: 0
+    borderRadius: borderRadius.medium
   },
   controlsContainer: {
     flexDirection: 'row',

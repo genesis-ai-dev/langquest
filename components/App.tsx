@@ -27,7 +27,9 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
       <SafeAreaView
         style={{ flex: 1 }}
         className={clsx(
-          (currentView === 'projects' || currentView === 'quests') &&
+          (currentView === 'projects' ||
+            currentView === 'quests' ||
+            currentView === 'profile') &&
             'bg-background'
         )}
       >

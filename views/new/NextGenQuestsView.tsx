@@ -1,13 +1,16 @@
-import type { FloatingMenuItem } from '@/components/FloatingMenu';
-import { createMenuItem, FloatingMenu } from '@/components/FloatingMenu';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
-import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { project, quest } from '@/db/drizzleSchema';
@@ -23,6 +26,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, like, or } from 'drizzle-orm';
 import {
   FilterIcon,
+  FlagIcon,
   InfoIcon,
   SearchIcon,
   SettingsIcon,
@@ -179,30 +183,7 @@ export default function NextGenQuestsView() {
     });
   }, [data.pages]);
 
-  const menuItems = React.useMemo<FloatingMenuItem[]>(() => {
-    const items = [];
-    if (canManageProject) {
-      items.push(
-        createMenuItem('settings', 'Settings', () => setShowSettingsModal(true))
-      );
-    } else {
-      if (!hasReported && !isReportLoading) {
-        items.push(
-          createMenuItem('flag', 'Report', () => setShowReportModal(true))
-        );
-      }
-    }
-
-    return [
-      ...items,
-      createMenuItem('people', 'Membership', () =>
-        setShowMembershipModal(true)
-      ),
-      createMenuItem('information-circle', 'Info', () =>
-        setShowProjectDetails(true)
-      )
-    ];
-  }, [canManageProject, hasReported, isReportLoading]);
+  // Speed dial items are composed inline below
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -284,7 +265,7 @@ export default function NextGenQuestsView() {
       />
 
       {/* Floating action buttons */}
-      <View style={{ bottom: 0, right: 24 }} className="absolute">
+      {/* <View style={{ bottom: 0, right: 24 }} className="absolute">
         <View className="flex flex-row gap-2">
           {canManageProject && (
             <Button
@@ -313,9 +294,38 @@ export default function NextGenQuestsView() {
             <Icon as={UsersIcon} size={22} strokeWidth={2.5} />
           </Button>
         </View>
-      </View>
+      </View> */}
 
-      <FloatingMenu items={menuItems} />
+      <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
+        <SpeedDial>
+          <SpeedDialItems>
+            {canManageProject ? (
+              <SpeedDialItem
+                icon={SettingsIcon}
+                variant="outline"
+                onPress={() => setShowSettingsModal(true)}
+              />
+            ) : !hasReported && !isReportLoading ? (
+              <SpeedDialItem
+                icon={FlagIcon}
+                variant="outline"
+                onPress={() => setShowReportModal(true)}
+              />
+            ) : null}
+            <SpeedDialItem
+              icon={UsersIcon}
+              variant="outline"
+              onPress={() => setShowMembershipModal(true)}
+            />
+            <SpeedDialItem
+              icon={InfoIcon}
+              variant="outline"
+              onPress={() => setShowProjectDetails(true)}
+            />
+          </SpeedDialItems>
+          <SpeedDialTrigger />
+        </SpeedDial>
+      </View>
 
       {/* Membership Modal */}
       <ProjectMembershipModal

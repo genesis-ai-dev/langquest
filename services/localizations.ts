@@ -797,11 +797,11 @@ export const localizations = {
     indonesian: 'Lihat Privasi Lengkap'
   },
   submitFeedback: {
-    english: 'Submit App Feedback',
-    spanish: 'Enviar Feedback de la App',
-    brazilian_portuguese: 'Enviar Feedback do App',
-    tok_pisin: 'Salim App Feedback',
-    indonesian: 'Kirim Umpan Balik Aplikasi'
+    english: 'Submit Feedback',
+    spanish: 'Enviar Feedback',
+    brazilian_portuguese: 'Enviar Feedback',
+    tok_pisin: 'Salim Feedback',
+    indonesian: 'Kirim Umpan Balik'
   },
   reportProject: {
     english: 'Report Project',
@@ -900,14 +900,14 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela reson long report',
     indonesian: 'Silakan pilih alasan untuk laporan'
   },
-  analyticsOptInLabel: {
+  enableAnalytics: {
     english: 'Enable Analytics',
     spanish: 'Habilitar Análisis',
     brazilian_portuguese: 'Habilitar Análise',
     tok_pisin: 'Onim Analytics',
     indonesian: 'Aktifkan Analitik'
   },
-  analyticsOptInDescription: {
+  analyticsDescription: {
     english:
       'When disabled, we will not collect usage data to improve the app.',
     spanish:

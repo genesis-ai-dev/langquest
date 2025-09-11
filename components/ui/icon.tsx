@@ -1,16 +1,57 @@
 import { cn, getThemeToken } from '@/utils/styleUtils';
 import type { LucideIcon, LucideProps } from 'lucide-react-native';
+import type { MotiProps } from 'moti';
+import { useMotify } from 'moti';
 import { cssInterop } from 'nativewind';
+import Animated from 'react-native-reanimated';
 
-type IconProps = LucideProps & {
-  as: LucideIcon;
-};
+type IconProps = MotiProps<LucideProps> &
+  LucideProps & {
+    as: LucideIcon;
+  };
 
-function IconImpl({ as: IconComponent, ...props }: IconProps) {
-  return <IconComponent {...props} />;
-}
+import React from 'react';
+
+const MotiIconImpl = React.forwardRef<
+  React.ComponentRef<LucideIcon>,
+  IconProps
+>(function IconImpl({ as: IconComponent, ...props }, ref) {
+  const AnimatedComponent = Animated.createAnimatedComponent(IconComponent);
+  const animated = useMotify<LucideProps>(props);
+  return (
+    <AnimatedComponent
+      {...props}
+      animatedProps={animated.style}
+      // @ts-expect-error - ref type mismatch between animated component and original
+      ref={ref}
+    />
+  );
+});
+
+const IconImpl = React.forwardRef<React.ComponentRef<LucideIcon>, IconProps>(
+  function IconImpl({ as: IconComponent, ...props }, ref) {
+    return (
+      <IconComponent
+        {...props}
+        // @ts-expect-error - ref type mismatch
+        ref={ref}
+      />
+    );
+  }
+);
 
 cssInterop(IconImpl, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: {
+      height: 'size',
+      width: 'size',
+      fill: 'fill'
+    }
+  }
+});
+
+cssInterop(MotiIconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
@@ -57,4 +98,20 @@ function Icon({
   );
 }
 
-export { Icon };
+function MotiIcon({
+  as: IconComponent,
+  className,
+  size = getThemeToken('default-icon-size'),
+  ...props
+}: IconProps) {
+  return (
+    <MotiIconImpl
+      as={IconComponent}
+      className={cn('text-foreground', className)}
+      size={size}
+      {...props}
+    />
+  );
+}
+
+export { Icon, MotiIcon };

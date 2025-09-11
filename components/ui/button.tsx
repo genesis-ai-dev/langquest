@@ -6,7 +6,7 @@ import * as React from 'react';
 import { Pressable } from 'react-native';
 
 const buttonVariants = cva(
-  'group flex items-center justify-center rounded-md web:ring-offset-background web:transition-colors web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+  'group flex items-center justify-center rounded-md active:scale-95 web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
   {
     variants: {
       variant: {
@@ -23,7 +23,9 @@ const buttonVariants = cva(
         sm: 'h-9 rounded-md px-3',
         default: 'native:h-12 native:px-5 native:py-3 h-10 px-4 py-2',
         lg: 'native:h-14 h-11 rounded-md px-8',
-        icon: 'h-10 w-10'
+        icon: 'h-10 w-10',
+        'icon-lg': 'h-12 w-12',
+        'icon-xl': 'h-14 w-14'
       }
     },
     defaultVariants: {
@@ -50,7 +52,9 @@ const buttonTextVariants = cva(
         default: '',
         sm: '',
         lg: 'native:text-lg',
-        icon: ''
+        icon: '',
+        'icon-lg': '',
+        'icon-xl': ''
       }
     },
     defaultVariants: {

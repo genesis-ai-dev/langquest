@@ -8,7 +8,7 @@ const config = getDefaultConfig(__dirname);
 // SQL Extension
 config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
 
-config.resolver.sourceExts.push('sql');
+// config.resolver.sourceExts.push('sql');
 
 module.exports = withNativeWind(config, {
   input: './global.css',

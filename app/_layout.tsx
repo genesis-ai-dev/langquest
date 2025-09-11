@@ -1,4 +1,7 @@
 import '@/global.css';
+import { Platform } from 'react-native';
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
 
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -14,7 +17,6 @@ import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,6 +24,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { cssTokens } from '@/generated-tokens';
 import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
+
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel
+} from 'react-native-reanimated';
+
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false // Disables warnings with nativewind animations
+});
 
 export const NAV_THEME = {
   light: {
@@ -35,6 +48,13 @@ export const NAV_THEME = {
 };
 
 export default function RootLayout() {
+  if (Platform.OS === 'web') {
+    const g = globalThis as unknown as Record<string, unknown>;
+    if (typeof g._frameTimestamp === 'undefined') {
+      // Workaround for Reanimated on web (see Moti docs)
+      g._frameTimestamp = null as unknown as number;
+    }
+  }
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);

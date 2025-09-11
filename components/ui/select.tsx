@@ -1,6 +1,7 @@
 import { cn } from '@/utils/styleUtils';
 import * as SelectPrimitive from '@rn-primitives/select';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
+import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Icon } from './icon';
@@ -94,32 +95,38 @@ const SelectContent = React.forwardRef<
         style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
       >
         <View className="z-50">
-          <SelectPrimitive.Content
-            ref={ref}
-            className={cn(
-              'relative z-50 max-h-96 min-w-[8rem] rounded-md border border-border bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-              position === 'popper' &&
-                'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
-              open
-                ? 'web:animate-in web:fade-in-0 web:zoom-in-95'
-                : 'web:animate-out web:fade-out-0 web:zoom-out-95',
-              className
-            )}
-            position={position}
-            {...props}
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: open ? 1 : 0 }}
+            transition={{ type: 'timing', duration: 200 }}
           >
-            <SelectScrollUpButton />
-            <SelectPrimitive.Viewport
+            <SelectPrimitive.Content
+              ref={ref}
               className={cn(
-                'p-1',
+                'relative z-50 max-h-96 min-w-[8rem] rounded-md border border-border bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
                 position === 'popper' &&
-                  'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
+                  'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+                open
+                  ? 'web:animate-in web:fade-in-0 web:zoom-in-95'
+                  : 'web:animate-out web:fade-out-0 web:zoom-out-95',
+                className
               )}
+              position={position}
+              {...props}
             >
-              {children}
-            </SelectPrimitive.Viewport>
-            <SelectScrollDownButton />
-          </SelectPrimitive.Content>
+              <SelectScrollUpButton />
+              <SelectPrimitive.Viewport
+                className={cn(
+                  'p-1',
+                  position === 'popper' &&
+                    'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
+                )}
+              >
+                {children}
+              </SelectPrimitive.Viewport>
+              <SelectScrollDownButton />
+            </SelectPrimitive.Content>
+          </MotiView>
         </View>
       </SelectPrimitive.Overlay>
     </SelectPrimitive.Portal>

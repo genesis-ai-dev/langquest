@@ -143,7 +143,30 @@ const Input = React.forwardRef<
 
 Input.displayName = 'SlotInput';
 
-export { Image, Input, Pressable, Text, View };
+type GenericExtraProps<Extra extends object> = {
+  children: React.ReactElement<any>;
+} & Extra;
+
+function Generic<Extra extends object>(
+  props: GenericExtraProps<Extra>
+) {
+  const { children, ...slotProps } = props as unknown as {
+    children: React.ReactElement<any>;
+  } & AnyProps;
+
+  if (!React.isValidElement(children)) {
+    console.log('Slot.Generic - Invalid asChild element', children);
+    return null;
+  }
+
+  return React.cloneElement(
+    children as React.ReactElement<any>,
+    mergeProps(slotProps, (children as any).props) as Partial<any> &
+      React.Attributes
+  );
+}
+
+export { Generic, Image, Input, Pressable, Text, View };
 
 // This project uses code from WorkOS/Radix Primitives.
 // The code is licensed under the MIT License.

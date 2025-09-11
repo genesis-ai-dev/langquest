@@ -78,10 +78,17 @@ const generateTokensPlugin = plugin(() => {
 
 const config = {
   darkMode: 'class',
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: [
+    './app/**/*.{ts,tsx}',
+    './views/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}'
+  ],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      transitionDuration: {
+        DEFAULT: '200ms'
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

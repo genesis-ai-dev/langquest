@@ -35,11 +35,11 @@ export const cssTokens = {
     '--background-gradient-start': '262.5 0% 0%',
     '--background-gradient-end': '262.5 67% 15%',
     '--radius': '0.5rem',
-    '--default-icon-size': '16'
+    '--default-icon-size': '18'
   },
   dark: {
     '--radius': '0.5rem',
-    '--default-icon-size': '16',
+    '--default-icon-size': '18',
     '--background': '240 25.49% 10%',
     '--foreground': '240 48.72% 92.35%',
     '--card': '240 27.78% 14.12%',
