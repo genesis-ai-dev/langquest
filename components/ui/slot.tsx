@@ -147,9 +147,7 @@ type GenericExtraProps<Extra extends object> = {
   children: React.ReactElement<any>;
 } & Extra;
 
-function Generic<Extra extends object>(
-  props: GenericExtraProps<Extra>
-) {
+function Generic<Extra extends object>(props: GenericExtraProps<Extra>) {
   const { children, ...slotProps } = props as unknown as {
     children: React.ReactElement<any>;
   } & AnyProps;
