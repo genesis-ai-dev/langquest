@@ -59,7 +59,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       web: {
         bundler: 'metro',
-        output: 'static',
         favicon: iconPath
       },
       plugins: [
@@ -86,7 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
 
           {
             android: {
-              parentTheme: 'Default',
+              parentTheme: 'dark',
               enforceNavigationBarContrast: false
             }
           }

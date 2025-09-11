@@ -1,42 +1,41 @@
-import type { FloatingMenuItem } from '@/components/FloatingMenu';
-import { createMenuItem, FloatingMenu } from '@/components/FloatingMenu';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
+import { Text } from '@/components/ui/text';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { quest } from '@/db/drizzleSchema';
-import { project } from '@/db/drizzleSchema';
+import { project, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useInfiniteQuestsByProjectId } from '@/hooks/db/useQuests';
+import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
+import { cn } from '@/utils/styleUtils';
+import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
-import React from 'react';
+import { and, eq, like, or } from 'drizzle-orm';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+  FilterIcon,
+  FlagIcon,
+  InfoIcon,
+  SearchIcon,
+  SettingsIcon,
+  UsersIcon
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { QuestListItem } from './QuestListItem';
-import { useHybridData } from './useHybridData';
+import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
 type Project = typeof project.$inferSelect;
@@ -44,30 +43,20 @@ type Project = typeof project.$inferSelect;
 export default function NextGenQuestsView() {
   const { t } = useLocalization();
   const { currentProjectId } = useCurrentNavigation();
-  const [showMembershipModal, setShowMembershipModal] = React.useState(false);
-  const [showProjectDetails, setShowProjectDetails] = React.useState(false);
-  const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
-  const [showDownloadedOnly, setShowDownloadedOnly] = React.useState(false);
-
-  // Debounce the search query
-  React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Check user permissions for settings cog visibility
+  const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
+    '',
+    300
+  );
+  const [showDownloadedOnly, setShowDownloadedOnly] = useState(false);
   const { hasAccess: canManageProject } = useUserPermissions(
     currentProjectId || '',
     'project_settings_cog'
   );
 
-  // Fetch current project data
   const { data: projectData } = useHybridData<Project>({
     dataType: 'project',
     queryKeyParams: [currentProjectId || ''],
@@ -89,7 +78,6 @@ export default function NextGenQuestsView() {
     },
     enableCloudQuery: !!currentProjectId
   });
-
   const currentProject = projectData[0];
 
   const currentStatus = useStatusContext();
@@ -97,26 +85,77 @@ export default function NextGenQuestsView() {
   const { showInvisibleContent } = currentStatus;
 
   const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isOnline,
-    isFetching
-  } = useInfiniteQuestsByProjectId(
-    currentProjectId,
-    debouncedSearchQuery,
-    showInvisibleContent
-  );
-
-  const {
     hasReported,
     isLoading: isReportLoading
     // refetch: refetchReport
   } = useHasUserReported(currentProjectId || '', 'projects');
 
-  // Flatten all pages into a single array and deduplicate
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useSimpleHybridInfiniteData<Quest>(
+      'quests',
+      [currentProjectId || '', debouncedSearchQuery],
+      // Offline query function
+      async ({ pageParam, pageSize }) => {
+        if (!currentProjectId) return [];
+
+        const offset = pageParam * pageSize;
+
+        // Build where conditions
+        const baseCondition = eq(quest.project_id, currentProjectId);
+
+        const conditions = [
+          baseCondition,
+          debouncedSearchQuery.trim() &&
+            or(
+              like(quest.name, `%${debouncedSearchQuery.trim()}%`),
+              like(quest.description, `%${debouncedSearchQuery.trim()}%`)
+            ),
+          !showInvisibleContent && eq(quest.visible, true)
+        ];
+        // Add search filtering for offline
+        const whereConditions = and(...conditions.filter(Boolean));
+
+        const quests = await system.db.query.quest.findMany({
+          where: whereConditions,
+          limit: pageSize,
+          offset
+        });
+
+        return quests;
+      },
+      // Cloud query function
+      async ({ pageParam, pageSize }) => {
+        if (!currentProjectId) return [];
+
+        const from = pageParam * pageSize;
+        const to = from + pageSize - 1;
+
+        let query = system.supabaseConnector.client
+          .from('quest')
+          .select('*')
+          .eq('project_id', currentProjectId);
+
+        if (!showInvisibleContent) {
+          query = query.eq('visible', true);
+        }
+
+        // Add search filtering
+        if (debouncedSearchQuery.trim()) {
+          query = query.or(
+            `name.ilike.%${debouncedSearchQuery.trim()}%,description.ilike.%${debouncedSearchQuery.trim()}%`
+          );
+        }
+
+        const { data, error } = await query
+          .range(from, to)
+          .overrideTypes<Quest[]>();
+
+        if (error) throw error;
+        return data;
+      },
+      20 // pageSize
+    );
+
   const quests = React.useMemo(() => {
     const allQuests = data.pages.flatMap((page) => page.data);
 
@@ -144,77 +183,7 @@ export default function NextGenQuestsView() {
     });
   }, [data.pages]);
 
-  // Filter quests based on download status
-  const filteredQuests = React.useMemo(() => {
-    if (showDownloadedOnly) {
-      return quests.filter((quest) => quest.source === 'localSqlite');
-    }
-    return quests;
-  }, [quests, showDownloadedOnly]);
-
-  const renderItem = React.useCallback(
-    ({ item }: { item: Quest & { source?: string } }) => (
-      <QuestListItem quest={item} />
-    ),
-    []
-  );
-
-  const keyExtractor = React.useCallback(
-    (item: Quest & { source?: string }) => item.id,
-    []
-  );
-
-  const onEndReached = React.useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  const renderFooter = React.useCallback(() => {
-    if (!isFetchingNextPage) return null;
-
-    return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }, [isFetchingNextPage]);
-
-  const statusText = React.useMemo(() => {
-    const downloadedCount = quests.filter(
-      (q) => q.source === 'localSqlite'
-    ).length;
-    const cloudCount = quests.filter(
-      (q) => q.source === 'cloudSupabase'
-    ).length;
-
-    return `${isOnline ? '🟢' : '🔴'} Available: ${downloadedCount} | Needs Download: ${cloudCount} | Total: ${quests.length}`;
-  }, [isOnline, quests]);
-
-  const menuItems = React.useMemo<FloatingMenuItem[]>(() => {
-    const items = [];
-    if (canManageProject) {
-      items.push(
-        createMenuItem('settings', 'Settings', () => setShowSettingsModal(true))
-      );
-    } else {
-      if (!hasReported && !isReportLoading) {
-        items.push(
-          createMenuItem('flag', 'Report', () => setShowReportModal(true))
-        );
-      }
-    }
-
-    return [
-      ...items,
-      createMenuItem('people', 'Membership', () =>
-        setShowMembershipModal(true)
-      ),
-      createMenuItem('information-circle', 'Info', () =>
-        setShowProjectDetails(true)
-      )
-    ];
-  }, [canManageProject, hasReported, isReportLoading]);
+  // Speed dial items are composed inline below
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -222,106 +191,141 @@ export default function NextGenQuestsView() {
 
   if (!currentProjectId) {
     return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>{t('noProjectSelected')}</Text>
+      <View className="flex-1 items-center justify-center p-6">
+        <Text>{t('noProjectSelected')}</Text>
       </View>
     );
   }
 
-  return (
-    <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>{t('quests')}</Text>
+  const filteredQuests = quests.filter((quest) =>
+    showDownloadedOnly ? quest.source === 'localSqlite' : true
+  );
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('search')}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor={colors.textSecondary}
-        />
-        <View style={styles.searchIconContainer}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-        </View>
-        {/* Show loading indicator in search bar when searching */}
-        {isFetching && searchQuery && (
-          <View style={styles.searchLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        )}
-        <TouchableOpacity
-          style={[styles.filterButton]}
-          onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
-        >
-          <Ionicons
-            size={20}
-            name={showDownloadedOnly ? 'funnel' : 'funnel-outline'}
-            color={colors.text}
-            style={{ zIndex: 1 }}
+  return (
+    <View className="relative flex flex-1 flex-col gap-6 p-6">
+      <View className="flex flex-col gap-4">
+        <Text className="text-xl font-semibold">{t('quests')}</Text>
+        <View className="flex flex-row items-center gap-2">
+          <Input
+            placeholder={t('searchQuests')}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            prefix={SearchIcon}
+            suffix={
+              <TouchableOpacity
+                onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
+              >
+                <Icon
+                  as={FilterIcon}
+                  className={cn(
+                    'text-muted-foreground',
+                    showDownloadedOnly && 'text-primary'
+                  )}
+                  fill={showDownloadedOnly ? 'currentColor' : 'none'}
+                />
+              </TouchableOpacity>
+            }
+            suffixStyling={false}
+            prefixStyling={false}
+            size="sm"
           />
-          {showDownloadedOnly && (
-            <>
-              {/* This first icon is to put the icon background white */}
-              <Ionicons
-                size={16}
-                name="ellipse"
-                style={[styles.backgroundBox]}
-                color={colors.text}
-              />
-              <Ionicons
-                size={16}
-                name="checkmark-circle"
-                style={[styles.checkIcon]}
-                color={colors.primary}
-              />
-            </>
-          )}
-        </TouchableOpacity>
+        </View>
       </View>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-      {SHOW_DEV_ELEMENTS && (
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: fontSizes.small,
-            marginBottom: spacing.small
-          }}
-        >
-          {statusText}
-        </Text>
-      )}
+      <LegendList
+        data={filteredQuests}
+        columnWrapperStyle={{ gap: 12 }}
+        contentContainerStyle={{ paddingBottom: filteredQuests.length * 12 }}
+        keyExtractor={(item) => item.id}
+        recycleItems
+        renderItem={({ item }) => <QuestListItem quest={item} />}
+        showsVerticalScrollIndicator={false}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={() =>
+          isFetchingNextPage ? (
+            <View className="items-center py-4">
+              <ActivityIndicator size="small" className="text-primary" />
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={() => (
+          <View className="flex-1 items-center justify-center py-16">
+            <Text className="text-muted-foreground">
+              {debouncedSearchQuery
+                ? t('noQuestsFound')
+                : t('noQuestsAvailable')}
+            </Text>
+          </View>
+        )}
+      />
 
-      {/* Show skeleton only on initial load, not during search */}
-      {isLoading && searchQuery ? (
-        <View style={styles.searchingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.searchingText}>{t('searching')}</Text>
-        </View>
-      ) : (
-        <View style={[{ flex: 1 }]}>
-          <FlashList
-            data={filteredQuests}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {searchQuery ? t('noQuestsFound') : t('noQuestsAvailable')}
-                </Text>
-              </View>
-            }
-          />
-        </View>
-      )}
+      {/* Floating action buttons */}
+      {/* <View style={{ bottom: 0, right: 24 }} className="absolute">
+        <View className="flex flex-row gap-2">
+          {canManageProject && (
+            <Button
+              onPress={() => setShowSettingsModal(true)}
+              size="icon"
+              variant="outline"
+            >
+              <Icon as={SettingsIcon} size={22} strokeWidth={2.5} />
+            </Button>
+          )}
 
-      <FloatingMenu items={menuItems} />
+          <Button
+            onPress={() => setShowProjectDetails(true)}
+            // className="h-14 w-14 items-center justify-center rounded-full bg-input shadow"
+            size="icon"
+            variant="outline"
+          >
+            <Icon as={InfoIcon} size={22} strokeWidth={2.5} />
+          </Button>
+
+          <Button
+            onPress={() => setShowMembershipModal(true)}
+            // className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow"
+            size="icon"
+          >
+            <Icon as={UsersIcon} size={22} strokeWidth={2.5} />
+          </Button>
+        </View>
+      </View> */}
+
+      <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
+        <SpeedDial>
+          <SpeedDialItems>
+            {canManageProject ? (
+              <SpeedDialItem
+                icon={SettingsIcon}
+                variant="outline"
+                onPress={() => setShowSettingsModal(true)}
+              />
+            ) : !hasReported && !isReportLoading ? (
+              <SpeedDialItem
+                icon={FlagIcon}
+                variant="outline"
+                onPress={() => setShowReportModal(true)}
+              />
+            ) : null}
+            <SpeedDialItem
+              icon={UsersIcon}
+              variant="outline"
+              onPress={() => setShowMembershipModal(true)}
+            />
+            <SpeedDialItem
+              icon={InfoIcon}
+              variant="outline"
+              onPress={() => setShowProjectDetails(true)}
+            />
+          </SpeedDialItems>
+          <SpeedDialTrigger />
+        </SpeedDial>
+      </View>
 
       {/* Membership Modal */}
       <ProjectMembershipModal
@@ -361,159 +365,3 @@ export default function NextGenQuestsView() {
     </View>
   );
 }
-
-export const styles = StyleSheet.create({
-  listContainer: {
-    paddingVertical: spacing.small
-  },
-  listItem: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginBottom: spacing.small,
-    gap: spacing.xsmall
-  },
-  questName: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold'
-  },
-  description: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    opacity: 0.8
-  },
-  loadingFooter: {
-    paddingVertical: spacing.medium,
-    alignItems: 'center'
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.medium,
-    position: 'relative',
-    gap: spacing.small
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    paddingLeft: 40, // Make room for search icon
-    color: colors.text,
-    fontSize: fontSizes.medium
-  },
-  searchIconContainer: {
-    position: 'absolute',
-    left: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  floatingButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 28,
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5
-  },
-  floatingReportButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 28,
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5
-  },
-  floatingButtonContainer: {
-    position: 'absolute',
-    bottom: spacing.large,
-    right: spacing.large,
-    gap: spacing.small,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  floatingButtonRow: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  floatingButtonRowLeft: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  secondaryFloatingButton: {
-    backgroundColor: colors.inputBackground
-  },
-  settingsFloatingButton: {
-    backgroundColor: colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: colors.inputBorder
-  },
-  searchLoadingContainer: {
-    position: 'absolute',
-    right: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  searchingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: spacing.xlarge
-  },
-  searchingText: {
-    marginTop: spacing.medium,
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xlarge
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  },
-  filterButton: {
-    position: 'absolute',
-    right: spacing.small,
-    padding: spacing.small,
-    borderRadius: borderRadius.small
-  },
-  backgroundBox: {
-    position: 'absolute',
-    padding: 2,
-    borderRadius: borderRadius.small,
-    right: 0,
-    zIndex: 1000
-  },
-  checkIcon: {
-    position: 'absolute',
-    padding: 2,
-    borderRadius: borderRadius.small,
-    right: 0,
-    zIndex: 1000
-  }
-});

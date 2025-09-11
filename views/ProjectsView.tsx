@@ -52,8 +52,8 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
   // Get project download stats for confirmation modal
   const { projectClosure } = useProjectDownloadStatus(project.id);
 
-  // Get languages from session cache instead of individual queries
-  const sourceLanguage = getLanguageById(project.source_language_id);
+  // Get target language directly; source languages are now managed via project_language_link
+  const sourceLanguage = undefined;
   const targetLanguage = getLanguageById(project.target_language_id);
 
   // Get membership from session cache instead of individual query
@@ -137,8 +137,7 @@ const ProjectCard: React.FC<{ project: typeof project.$inferSelect }> = ({
             /> */}
           </View>
           <Text style={sharedStyles.cardLanguageText}>
-            {sourceLanguage?.native_name ?? sourceLanguage?.english_name} →{' '}
-            {targetLanguage?.native_name ?? targetLanguage?.english_name}
+            — → {targetLanguage?.native_name ?? targetLanguage?.english_name}
           </Text>
         </View>
 
