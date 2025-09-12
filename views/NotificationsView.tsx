@@ -518,7 +518,7 @@ export default function NotificationsView() {
             </Text>
           </View>
 
-          <Text style={styles.notificationMessage}>
+          <Text style={styles.notificationMessage} ph-no-capture>
             {item.type === 'invite'
               ? t('invitedYouToJoin', {
                   sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
