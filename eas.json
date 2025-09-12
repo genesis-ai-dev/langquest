@@ -1,17 +1,22 @@
 {
   "cli": {
     "version": ">= 12.5.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
     "development": {
-      "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
       "environment": "preview",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "development"
+      },
+      "developmentClient": true,
+      "ios": {
+        "simulator": true,
+        "distribution": "store"
       }
     },
     "preview": {
@@ -22,6 +27,9 @@
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "preview"
+      },
+      "ios": {
+        "distribution": "store"
       }
     },
     "production": {
@@ -35,9 +43,17 @@
     }
   },
   "submit": {
+    "preview": {
+      "ios": {
+        "ascAppId": "6752446665"
+      }
+    },
     "production": {
       "android": {
         "track": "production"
+      },
+      "ios": {
+        "ascAppId": "6752446665"
       }
     }
   }

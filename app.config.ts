@@ -8,6 +8,8 @@ const iconPath = './assets/images/langquest_icon_v1.png';
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
+const profile = process.env.EAS_BUILD_PROFILE;
+
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod(
     {
@@ -29,7 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       ios: {
         supportsTablet: true,
         requireFullScreen: true,
-        bundleIdentifier: uniqueIdentifier
+        bundleIdentifier: uniqueIdentifier,
+        config: {
+          usesNonExemptEncryption: false
+        }
       },
       android: {
         edgeToEdgeEnabled: true,
@@ -89,7 +94,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
               enforceNavigationBarContrast: false
             }
           }
-        ]
+        ],
+        ['testflight-dev-deploy', { enabled: profile === 'development' }]
       ],
       experiments: {
         typedRoutes: true
