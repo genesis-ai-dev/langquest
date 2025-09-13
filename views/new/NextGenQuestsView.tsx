@@ -202,7 +202,7 @@ export default function NextGenQuestsView() {
   );
 
   return (
-    <View className="relative flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-col gap-4">
         <Text className="text-xl font-semibold">{t('quests')}</Text>
         <View className="flex flex-row items-center gap-2">
@@ -235,11 +235,10 @@ export default function NextGenQuestsView() {
       <LegendList
         data={filteredQuests}
         columnWrapperStyle={{ gap: 12 }}
-        contentContainerStyle={{ paddingBottom: filteredQuests.length * 12 }}
         keyExtractor={(item) => item.id}
         recycleItems
         renderItem={({ item }) => <QuestListItem quest={item} />}
-        showsVerticalScrollIndicator={false}
+        estimatedItemSize={175}
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) {
             fetchNextPage();

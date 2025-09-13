@@ -8,7 +8,7 @@ import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -111,15 +111,15 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     setAudioUri(uri);
   }
 
-  async function handleClose() {
+  function handleClose() {
     // Stop any playing audio when modal closes
     void stopCurrentSound();
 
     if (audioUri) {
-      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      const fileInfo = new ExpoFile(audioUri).info();
       if (fileInfo.exists) {
         console.log('Deleting recording', audioUri);
-        await FileSystem.deleteAsync(audioUri);
+        new ExpoFile(audioUri).delete();
       }
     }
     onClose();

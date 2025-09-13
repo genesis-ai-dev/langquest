@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
 import type { RecordingOptions } from 'expo-av/build/Audio';
-import * as FileSystem from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 import React, { useEffect, useState } from 'react';
 import {
   Platform,
@@ -158,7 +158,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
       const uri = recording.getURI();
       if (recordingUri) {
-        await FileSystem.deleteAsync(recordingUri);
+        new ExpoFile(recordingUri).delete();
         console.log('Deleting previous recording attempt', recordingUri);
       }
       console.log('Recording stopped and stored at', uri);

@@ -257,12 +257,12 @@ export default function NextGenProjectsView() {
         <ProjectListSkeleton />
       ) : (
         <LegendList
+          key={activeTab}
           data={data}
           columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{ paddingBottom: data.length * 12 }}
           keyExtractor={(item) => item.id}
           recycleItems
-          showsVerticalScrollIndicator={false}
+          estimatedItemSize={175}
           renderItem={({ item }) => <ProjectListItem project={item} />}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) {

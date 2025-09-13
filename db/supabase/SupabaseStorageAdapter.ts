@@ -2,7 +2,7 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import type { StorageAdapter } from '@powersync/attachments';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decode as decodeBase64 } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 
 export interface SupabaseStorageAdapterOptions {
   client: SupabaseClient;
@@ -47,35 +47,40 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     return data;
   }
 
-  async writeFile(
+  writeFile(
     fileURI: string,
     base64Data: string,
     options?: {
-      encoding?: FileSystem.EncodingType;
+      encoding?: 'utf8' | 'base64';
     }
   ): Promise<void> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-
+    const { encoding = 'utf8' } = options ?? {};
     const dir = fileURI.split('/').slice(0, -1).join('/');
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-
-    await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
+    new Directory(dir).create({ intermediates: true, idempotent: true });
+    if (encoding === 'base64') {
+      const bytes = new Uint8Array(decodeBase64(base64Data));
+      new File(fileURI).write(bytes);
+    } else {
+      new File(fileURI).write(base64Data);
+    }
+    return Promise.resolve();
   }
 
   async readFile(
     fileURI: string,
-    options?: { encoding?: FileSystem.EncodingType; mediaType?: string }
+    options?: { encoding?: 'utf8' | 'base64'; mediaType?: string }
   ): Promise<ArrayBuffer> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
-    if (!exists) {
+    const { encoding = 'utf8' } = options ?? {};
+    const f = new File(fileURI);
+    if (!f.exists) {
       throw new Error(`File does not exist: ${fileURI}`);
     }
-    const fileContent = await FileSystem.readAsStringAsync(fileURI, options);
-    if (encoding === FileSystem.EncodingType.Base64) {
-      return this.base64ToArrayBuffer(fileContent);
+    if (encoding === 'base64') {
+      const b64 = f.base64();
+      return this.base64ToArrayBuffer(b64);
     }
-    return this.stringToArrayBuffer(fileContent);
+    const text = await f.text();
+    return this.stringToArrayBuffer(text);
   }
 
   async deleteFile(
@@ -83,7 +88,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     options?: { filename?: string }
   ): Promise<void> {
     if (await this.fileExists(uri)) {
-      await FileSystem.deleteAsync(uri);
+      new File(uri).delete();
     }
 
     const { filename } = options ?? {};
@@ -106,30 +111,35 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     // console.debug('Deleted file from storage', data);
   }
 
-  async fileExists(fileURI: string): Promise<boolean> {
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
-    return exists;
+  fileExists(fileURI: string): Promise<boolean> {
+    const f = new File(fileURI);
+    return Promise.resolve(f.exists);
   }
 
-  async makeDir(uri: string): Promise<void> {
-    const { exists } = await FileSystem.getInfoAsync(uri);
-    if (!exists) {
-      await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
+  makeDir(uri: string): Promise<void> {
+    const d = new Directory(uri);
+    if (!d.exists) {
+      d.create({ intermediates: true, idempotent: true });
     }
+    return Promise.resolve();
   }
 
-  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
-    await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
+  copyFile(sourceUri: string, targetUri: string) {
+    new File(sourceUri).copy(new File(targetUri));
+    return Promise.resolve();
   }
 
   getUserStorageDirectory(): string {
-    return FileSystem.documentDirectory!;
+    return Paths.document.uri;
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async stringToArrayBuffer(str: string) {
+  stringToArrayBuffer(str: string): ArrayBuffer {
     const encoder = new TextEncoder();
-    return encoder.encode(str).buffer as ArrayBuffer;
+    const bytes = encoder.encode(str);
+    // Copy into a new ArrayBuffer to avoid SharedArrayBuffer types
+    const out = new Uint8Array(bytes.length);
+    out.set(bytes);
+    return out.buffer;
   }
 
   /**
@@ -137,6 +147,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
-    return decodeBase64(base64);
+    const bytes = new Uint8Array(decodeBase64(base64));
+    return bytes.buffer;
   }
 }

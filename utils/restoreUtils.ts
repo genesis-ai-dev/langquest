@@ -1,5 +1,5 @@
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import { Directory, Paths } from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { Alert, Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import { translation } from '@/db/drizzleSchema'; // Removed unused project, quest, quest_asset_link
@@ -161,11 +161,14 @@ async function restoreFromBackup(
     if (options.restoreAudio) {
       // This will always be true now
       console.log('[restoreFromBackup] Starting audio file restore');
-      const localAttachmentsDir =
-        (FileSystem.documentDirectory ?? '') + 'shared_attachments/'; // Target shared_attachments
+      const localAttachmentsDir = new Directory(
+        Paths.document.uri,
+        'shared_attachments'
+      ).uri; // Target shared_attachments
       try {
-        await FileSystem.makeDirectoryAsync(localAttachmentsDir, {
-          intermediates: true
+        new Directory(localAttachmentsDir).create({
+          intermediates: true,
+          idempotent: true
         });
       } catch (e) {
         console.warn(

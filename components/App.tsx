@@ -25,8 +25,8 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
       style={styles.gradient}
     >
       <SafeAreaView
-        style={{ flex: 1 }}
         className={clsx(
+          'flex-1',
           (currentView === 'projects' ||
             currentView === 'quests' ||
             currentView === 'profile') &&

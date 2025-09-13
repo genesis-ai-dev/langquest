@@ -9,7 +9,7 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 // removed: useHybridData lookups and related query helpers
-import * as FileSystem from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -113,13 +113,13 @@ export default function NextGenNewTranslationModal({
     setAudioUri(uri);
   };
 
-  const handleClose = async () => {
+  const handleClose = () => {
     // Clean up audio file if exists
     if (audioUri) {
       try {
-        const fileInfo = await FileSystem.getInfoAsync(audioUri);
-        if (fileInfo.exists) {
-          await FileSystem.deleteAsync(audioUri);
+        const info = new ExpoFile(audioUri).info();
+        if (info.exists) {
+          new ExpoFile(audioUri).delete();
         }
       } catch (error) {
         console.error('Error cleaning up audio file:', error);
@@ -141,7 +141,7 @@ export default function NextGenNewTranslationModal({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="height"
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >

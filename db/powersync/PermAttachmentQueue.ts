@@ -6,7 +6,7 @@ import type {
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { isNotNull } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
@@ -202,11 +202,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
-    await this.storage.writeFile(localUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64
-    });
+    new ExpoFile(localUri).write(base64Data);
 
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const fileInfo = new ExpoFile(localUri).info();
     if (fileInfo.exists) {
       photoAttachment.size = fileInfo.size;
     }
@@ -223,12 +221,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       extension
     );
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
-    await FileSystem.moveAsync({
-      from: tempUri,
-      to: localUri
-    });
+    new ExpoFile(tempUri).move(new ExpoFile(localUri));
 
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const fileInfo = new ExpoFile(localUri).info();
     if (fileInfo.exists) {
       audioAttachment.size = fileInfo.size;
     }

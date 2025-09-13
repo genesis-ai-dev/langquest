@@ -1,8 +1,9 @@
 import type { System } from '@/db/powersync/system'; // Import System type
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
+import { decode as decodeBase64 } from 'base64-arraybuffer';
 import { eq } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import { File as ExpoFile, Paths } from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 // --- Permission Helper ---
@@ -95,11 +96,13 @@ export async function backupUnsyncedAudio(
       if (!audioId) continue; // Skip null/empty IDs just in case
 
       // Construct the source path based on the attachment ID
-      const sourceUri = `${FileSystem.documentDirectory}shared_attachments/${audioId}`;
+      const sourceUri = new ExpoFile(
+        new ExpoFile(Paths.document.uri),
+        'shared_attachments',
+        audioId
+      ).uri;
       try {
-        const fileInfo = await FileSystem.getInfoAsync(sourceUri, {
-          size: true
-        });
+        const fileInfo = new ExpoFile(sourceUri).info();
         if (!fileInfo.exists) {
           console.warn(
             `[backupUnsyncedAudio] Source file not found: ${sourceUri}`
@@ -163,15 +166,9 @@ export async function backupUnsyncedAudio(
           mimeType
         );
         // Read source file content as Base64 and write it under the new name
-        const fileContentBase64 = await FileSystem.readAsStringAsync(
-          sourceUri,
-          {
-            encoding: FileSystem.EncodingType.Base64
-          }
-        );
-        await FileSystem.writeAsStringAsync(backupFileUri, fileContentBase64, {
-          encoding: FileSystem.EncodingType.Base64
-        });
+        const fileContentBase64 = new ExpoFile(sourceUri).base64();
+        const decodedBytes = new Uint8Array(decodeBase64(fileContentBase64));
+        new ExpoFile(backupFileUri).write(decodedBytes);
         count++;
         onProgress?.(index + 1, totalFiles);
       } catch (error: unknown) {
