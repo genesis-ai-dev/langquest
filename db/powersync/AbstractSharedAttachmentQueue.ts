@@ -10,7 +10,7 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { randomUUID } from 'expo-crypto';
+import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
 
 // Extended interface that includes our storage_type field
@@ -65,7 +65,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     }
 
     // For new uploads, generate a new ID
-    const photoId = record?.id ?? randomUUID();
+    const photoId = record?.id ?? uuid.v4();
     const filename =
       record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
     const localUri = this.getLocalFilePathSuffix(filename);

@@ -34,8 +34,8 @@ const Pressable = React.forwardRef<
   >(isTextChildren(children) ? <></> : children, {
     ...mergeProps(pressableSlotProps, (children as any).props),
     ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).ref)
-      : (children as any).ref
+      ? composeRefs(forwardedRef, (children as any).props?.ref)
+      : (children as any).props?.ref
   });
 });
 
@@ -56,8 +56,8 @@ const View = React.forwardRef<React.ElementRef<typeof RNView>, RNViewProps>(
     >(isTextChildren(children) ? <></> : children, {
       ...mergeProps(viewSlotProps, (children as any).props),
       ref: forwardedRef
-        ? composeRefs(forwardedRef, (children as any).ref)
-        : (children as any).ref
+        ? composeRefs(forwardedRef, (children as any).props?.ref)
+        : (children as any).props?.ref
     });
   }
 );
@@ -79,8 +79,8 @@ const Text = React.forwardRef<React.ElementRef<typeof RNText>, RNTextProps>(
     >(isTextChildren(children) ? <></> : children, {
       ...mergeProps(textSlotProps, (children as any).props),
       ref: forwardedRef
-        ? composeRefs(forwardedRef, (children as any).ref)
-        : (children as any).ref
+        ? composeRefs(forwardedRef, (children as any).props?.ref)
+        : (children as any).props?.ref
     });
   }
 );
@@ -108,8 +108,8 @@ const Image = React.forwardRef<
   >(isTextChildren(children) ? <></> : children, {
     ...mergeProps(imageSlotProps, (children as any).props),
     ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).ref)
-      : (children as any).ref
+      ? composeRefs(forwardedRef, (children as any).props?.ref)
+      : (children as any).props?.ref
   });
 });
 
@@ -136,8 +136,8 @@ const Input = React.forwardRef<
   >(isTextChildren(children) ? <></> : children, {
     ...mergeProps(inputSlotProps, (children as any).props),
     ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).ref)
-      : (children as any).ref
+      ? composeRefs(forwardedRef, (children as any).props?.ref)
+      : (children as any).props?.ref
   });
 });
 

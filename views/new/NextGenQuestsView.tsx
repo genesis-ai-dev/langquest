@@ -202,7 +202,7 @@ export default function NextGenQuestsView() {
   );
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pb-0">
       <View className="flex flex-col gap-4">
         <Text className="text-xl font-semibold">{t('quests')}</Text>
         <View className="flex flex-row items-center gap-2">
@@ -233,6 +233,7 @@ export default function NextGenQuestsView() {
       </View>
 
       <LegendList
+        key={showDownloadedOnly ? 'downloaded' : 'all'}
         data={filteredQuests}
         columnWrapperStyle={{ gap: 12 }}
         keyExtractor={(item) => item.id}

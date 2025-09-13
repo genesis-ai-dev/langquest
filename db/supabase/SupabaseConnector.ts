@@ -54,6 +54,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       throw new Error('PowerSync URL is not defined');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.client = createClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
@@ -425,21 +426,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
 
         if (result.error) {
-          console.error(result.error);
           console.debug('Upload data:', result.data, opData);
           result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
             result
           )}`;
+          result.error.stack = undefined;
           throw result.error;
         }
       }
 
       await transaction.complete();
     } catch (ex) {
-      console.debug(ex);
       const error = ex as Error & { code?: string };
+      console.error(`Upload data exception: ${error.message}`);
       // Note: PostHog integration moved to avoid circular dependency
-      console.error('Upload data exception:', error);
       if (
         typeof error.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code!))

@@ -2056,21 +2056,6 @@ export const localizations = {
     tok_pisin: 'I no inap resendim invitation',
     indonesian: 'Gagal mengirim ulang undangan'
   },
-  // Restore-related translations
-  restoreAndroidOnly: {
-    english: 'Restore is only available on Android',
-    spanish: 'La restauración solo está disponible en Android',
-    brazilian_portuguese: 'A restauração só está disponível no Android',
-    tok_pisin: 'Restore i pinis long Android',
-    indonesian: 'Pemulihan hanya tersedia di Android'
-  },
-  backupAndroidOnly: {
-    english: 'Backup is only available on Android',
-    spanish: 'El respaldo solo está disponible en Android',
-    brazilian_portuguese: 'O backup só está disponível no Android',
-    tok_pisin: 'Backup i pinis long Android',
-    indonesian: 'Cadangan hanya tersedia di Android'
-  },
   permissionDenied: {
     english: 'Permission Denied',
     spanish: 'Permiso Denegado',

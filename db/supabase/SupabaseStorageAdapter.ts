@@ -1,7 +1,6 @@
 import { AppConfig } from '@/db/supabase/AppConfig';
 import type { StorageAdapter } from '@powersync/attachments';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { decode as decodeBase64 } from 'base64-arraybuffer';
 import { Directory, File, Paths } from 'expo-file-system';
 
 export interface SupabaseStorageAdapterOptions {
@@ -9,6 +8,8 @@ export interface SupabaseStorageAdapterOptions {
 }
 
 export class SupabaseStorageAdapter implements StorageAdapter {
+  private readonly encoder = new TextEncoder();
+
   constructor(private options: SupabaseStorageAdapterOptions) {}
 
   async uploadFile(
@@ -58,8 +59,8 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     const dir = fileURI.split('/').slice(0, -1).join('/');
     new Directory(dir).create({ intermediates: true, idempotent: true });
     if (encoding === 'base64') {
-      const bytes = new Uint8Array(decodeBase64(base64Data));
-      new File(fileURI).write(bytes);
+      const decodedBytes = atob(base64Data);
+      new File(fileURI).write(decodedBytes);
     } else {
       new File(fileURI).write(base64Data);
     }
@@ -133,21 +134,18 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     return Paths.document.uri;
   }
 
-  stringToArrayBuffer(str: string): ArrayBuffer {
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(str);
-    // Copy into a new ArrayBuffer to avoid SharedArrayBuffer types
-    const out = new Uint8Array(bytes.length);
-    out.set(bytes);
-    return out.buffer;
+  stringToArrayBuffer(str: string) {
+    const bytes = this.encoder.encode(str);
+    return bytes.buffer as unknown as ArrayBuffer;
   }
 
   /**
    * Converts a base64 string to an ArrayBuffer
    */
   // eslint-disable-next-line @typescript-eslint/require-await
-  async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
-    const bytes = new Uint8Array(decodeBase64(base64));
-    return bytes.buffer;
+  async base64ToArrayBuffer(base64: string) {
+    const binaryString = atob(base64);
+    const bytes = this.encoder.encode(binaryString);
+    return bytes.buffer as unknown as ArrayBuffer;
   }
 }

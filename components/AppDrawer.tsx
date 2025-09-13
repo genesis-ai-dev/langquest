@@ -23,7 +23,6 @@ import {
   Alert,
   Animated,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -364,13 +363,9 @@ export default function AppDrawer({
   };
 
   const handleBackup = async () => {
-    setIsBackingUp(true);
-    setSyncOperation('backup');
-    setSyncProgress(0);
-    setSyncTotal(1); // Default to 1 to avoid division by zero
-
     let finalAlertTitle = t('backupErrorTitle'); // Default to error
     let finalAlertMessage = '';
+    let aborted = false;
 
     try {
       // 1. System & Queue Init Checks
@@ -405,9 +400,11 @@ export default function AppDrawer({
 
       // 2. Permissions
       console.log('[handleBackup] Requesting directory permissions...');
-      const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
+      const baseDirectoryUri = await requestBackupDirectory();
       if (!baseDirectoryUri) {
-        throw new Error(t('storagePermissionDenied'));
+        // User cancelled or no directory – silently exit
+        aborted = true;
+        return;
       }
       console.log('[handleBackup] Permissions granted, preparing paths...');
 
@@ -415,6 +412,11 @@ export default function AppDrawer({
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       prepareBackupPaths(timestamp); // Call it but don't store result if unneeded
       console.log('[handleBackup] Paths prepared, attempting audio backup...');
+
+      setIsBackingUp(true);
+      setSyncOperation('backup');
+      setSyncProgress(0);
+      setSyncTotal(1); // Default to 1 to avoid division by zero
 
       // 4. Execute Backup (Audio Only) with progress callback
       const audioResult = await backupUnsyncedAudio(
@@ -426,7 +428,22 @@ export default function AppDrawer({
       // 5. Construct Success Message (Audio Only)
       finalAlertTitle = t('backupCompleteTitle');
       console.log('audioResult', audioResult);
-      finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
+      // Reuse restore-style message structure if available
+      const copied = audioResult.copied;
+      const skippedExists = audioResult.alreadyExists;
+      const skippedErrors = audioResult.errors.length;
+      let msg = t('restoreCompleteBase', {
+        audioCopied: String(copied),
+        audioSkippedDueToError: String(skippedErrors)
+      });
+      if (skippedExists > 0) {
+        msg +=
+          ' ' +
+          t('restoreSkippedLocallyPart', {
+            audioSkippedLocally: String(skippedExists)
+          });
+      }
+      finalAlertMessage = msg;
     } catch (error: unknown) {
       // Handle errors from any awaited step above
       console.log('[handleBackup] Entered CATCH block.');
@@ -439,28 +456,29 @@ export default function AppDrawer({
     } finally {
       // 6. Final Alert & State Reset
       console.log('[handleBackup] Entered FINALLY block.');
-      setIsBackingUp(false);
-      // Set operation to null after a delay to allow seeing the final progress
-      setTimeout(() => {
-        setSyncOperation(null);
-      }, 1500);
+      if (aborted) {
+        // do not alert on user-cancel; still reset state
+        setIsBackingUp(false);
+        setTimeout(() => setSyncOperation(null), 0);
+      } else {
+        setIsBackingUp(false);
+        // Set operation to null after a delay to allow seeing the final progress
+        setTimeout(() => {
+          setSyncOperation(null);
+        }, 1500);
 
-      // Ensure message isn't empty if something went wrong before catch block assignment
-      if (!finalAlertMessage) {
-        finalAlertMessage = t('criticalBackupError', {
-          error: 'Backup failed unexpectedly'
-        });
+        // Ensure message isn't empty if something went wrong before catch block assignment
+        if (!finalAlertMessage) {
+          finalAlertMessage = t('criticalBackupError', {
+            error: 'Backup failed unexpectedly'
+          });
+        }
+        Alert.alert(finalAlertTitle, finalAlertMessage);
       }
-      Alert.alert(finalAlertTitle, finalAlertMessage);
     }
   };
 
   const confirmAndStartBackup = () => {
-    if (Platform.OS !== 'android') {
-      Alert.alert(t('error'), t('backupAndroidOnly'));
-      return;
-    }
-
     Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
       {
         text: t('cancel'),
@@ -594,7 +612,7 @@ export default function AppDrawer({
       icon: 'log-out',
       onPress: () => {
         void signOut();
-        setDrawerIsVisible(false);
+        closeDrawer();
       },
       disabled: !systemReady || isOperationActive
     });

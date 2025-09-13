@@ -10,7 +10,8 @@ import {
   Column,
   ColumnType,
   PowerSyncDatabase,
-  Schema
+  Schema,
+  SyncClientImplementation
 } from '@powersync/react-native';
 import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
@@ -227,7 +228,9 @@ export class System {
 
       // Connect with the current user credentials
       console.log('Connecting PowerSync...');
-      await this.powersync.connect(this.supabaseConnector);
+      await this.powersync.connect(this.supabaseConnector, {
+        clientImplementation: SyncClientImplementation.RUST
+      });
       console.log('PowerSync connected successfully');
 
       // Store the current user ID

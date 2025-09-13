@@ -35,6 +35,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -298,7 +299,7 @@ export default function NextGenAssetDetailView() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Header */}
       <View
         style={[
@@ -619,7 +620,7 @@ export default function NextGenAssetDetailView() {
         hasAlreadyReported={hasReported}
         onReportSubmitted={() => refetchOfflineAsset()}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

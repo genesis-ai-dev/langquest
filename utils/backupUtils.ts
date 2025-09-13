@@ -1,40 +1,31 @@
 import type { System } from '@/db/powersync/system'; // Import System type
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
-import { decode as decodeBase64 } from 'base64-arraybuffer';
+import { pickDirectory } from '@react-native-documents/picker';
 import { eq } from 'drizzle-orm';
-import { File as ExpoFile, Paths } from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system/legacy';
+import { Directory, File as ExpoFile, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 // --- Permission Helper ---
-export async function requestBackupDirectory() {
-  // Android-specific permission handling - return null for other platforms
-  if (Platform.OS !== 'android') {
-    throw new Error(
-      'Requesting backup directory is only supported on Android.'
-    );
-  }
-
+export async function requestBackupDirectory(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  // iOS: ask user to pick a directory
   try {
-    // Always request new permissions from the user
-    console.log('Requesting directory permissions from user...');
-    const permissions =
-      await StorageAccessFramework.requestDirectoryPermissionsAsync();
-
-    if (permissions.granted && permissions.directoryUri) {
-      console.log('Directory permission granted:', permissions.directoryUri);
-      // We DO NOT save this to AsyncStorage anymore.
-      // The user will be prompted each time.
-      return permissions.directoryUri;
-    } else {
-      console.log('Directory permission denied or URI missing.');
-      return null; // Permission denied or URI missing
+    const { uri } = await pickDirectory({
+      requestLongTermAccess: false
+    });
+    // Validate the uri is a non-empty string
+    if (uri && uri.length > 0) {
+      return uri;
     }
-  } catch (dirError) {
-    console.error('Error during directory permission request:', dirError);
-    // Optionally, inform the user with an Alert here
-    // Alert.alert('Error', 'Failed to get directory permissions.');
-    throw dirError; // Re-throw to be handled by the caller (e.g., backup/restore function)
+    // Treat empty selection as cancel
+    return null;
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
+    // Swallow user-cancel errors; surface anything else
+    if (message.includes('cancel')) return null;
+    if (message.includes('operation was cancelled')) return null;
+    throw e;
   }
 }
 
@@ -67,8 +58,12 @@ export async function backupUnsyncedAudio(
   // _audioBaseDirPath: string, // unused for flat backup
   // _timestamp: string // unused for flat backup
   onProgress?: ProgressCallback
-): Promise<{ count: number; errors: string[] }> {
-  let count = 0;
+): Promise<{ copied: number; alreadyExists: number; errors: string[] }> {
+  if (Platform.OS === 'web') {
+    return { copied: 0, alreadyExists: 0, errors: [] };
+  }
+  let copied = 0;
+  let alreadyExists = 0;
   const errors: string[] = [];
   try {
     const unsyncedIds = await getFilesInUploadQueue();
@@ -78,17 +73,12 @@ export async function backupUnsyncedAudio(
     onProgress?.(0, totalFiles);
 
     // Get existing files in the backup directory to avoid duplicates
-    const existingFiles =
-      await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
+    const targetDir = new Directory(baseDirectoryUri);
+    const existingItems = targetDir.list();
     const existingFileNames = new Set(
-      existingFiles.map((uri) => {
-        const encoded = uri.split('/').pop()!;
-        const decodedSegment = decodeURIComponent(encoded);
-        // Extract the actual filename after the last '/' if present
-        return decodedSegment.includes('/')
-          ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
-          : decodedSegment;
-      })
+      existingItems
+        .filter((item): item is File => item instanceof File)
+        .map((f) => f.name)
     );
 
     // Iterate directly over unsynced IDs found in the attachments table
@@ -97,10 +87,11 @@ export async function backupUnsyncedAudio(
 
       // Construct the source path based on the attachment ID
       const sourceUri = new ExpoFile(
-        new ExpoFile(Paths.document.uri),
+        Paths.document.uri,
         'shared_attachments',
         audioId
       ).uri;
+      console.log(sourceUri, 'sourceUri');
       try {
         const fileInfo = new ExpoFile(sourceUri).info();
         if (!fileInfo.exists) {
@@ -153,23 +144,24 @@ export async function backupUnsyncedAudio(
           console.log(
             `[backupUnsyncedAudio] File ${backupFileName} already exists in backup. Skipping.`
           );
+          alreadyExists++;
           onProgress?.(index + 1, totalFiles);
           continue;
         }
 
-        // Use proper mime type for m4a files
-        const mimeType = extension === 'm4a' ? 'audio/mp4' : 'audio/aac';
+        // Use proper mime type for m4a files (kept for future use if needed)
+        const _mimeType = extension === 'm4a' ? 'audio/m4a' : 'audio/aac';
 
-        const backupFileUri = await StorageAccessFramework.createFileAsync(
-          baseDirectoryUri,
-          backupFileName,
-          mimeType
-        );
-        // Read source file content as Base64 and write it under the new name
-        const fileContentBase64 = new ExpoFile(sourceUri).base64();
-        const decodedBytes = new Uint8Array(decodeBase64(fileContentBase64));
-        new ExpoFile(backupFileUri).write(decodedBytes);
-        count++;
+        // const backupFile = new Directory(baseDirectoryUri).createFile(
+        //   backupFileName,
+        //   mimeType
+        // );
+        const backupFile = new ExpoFile(baseDirectoryUri, backupFileName);
+        backupFile.create();
+        console.log('backupFile', backupFile.uri);
+        const fileBytes = await new ExpoFile(sourceUri).bytes();
+        backupFile.write(fileBytes);
+        copied++;
         onProgress?.(index + 1, totalFiles);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -194,5 +186,5 @@ export async function backupUnsyncedAudio(
     // RE-THROW the critical error to be caught by the caller (handleBackup)
     throw error;
   }
-  return { count, errors };
+  return { copied, alreadyExists, errors };
 }

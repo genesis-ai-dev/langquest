@@ -22,7 +22,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       icon: iconPath,
       scheme: 'langquest',
       userInterfaceStyle: 'automatic',
-      newArchEnabled: true,
       splash: {
         image: './assets/images/icon.png',
         resizeMode: 'contain',
@@ -69,30 +68,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       plugins: [
         'expo-font',
         'expo-router',
-        // migrate existing localization to expo-localization
+        // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        [
-          'expo-screen-orientation',
-          {
-            initialOrientation: 'PORTRAIT_UP'
-          }
-        ],
         [
           'expo-splash-screen',
           {
             image: './assets/images/icon.png',
             resizeMode: 'contain',
             backgroundColor: '#ffffff'
-          }
-        ],
-        [
-          'react-native-edge-to-edge',
-
-          {
-            android: {
-              parentTheme: 'dark',
-              enforceNavigationBarContrast: false
-            }
           }
         ],
         ['testflight-dev-deploy', { enabled: profile === 'development' }]

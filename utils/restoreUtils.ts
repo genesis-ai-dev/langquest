@@ -1,5 +1,5 @@
-import { Directory, Paths } from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
+import { Directory, File as ExpoFile, Paths } from 'expo-file-system';
 import { Alert, Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import { translation } from '@/db/drizzleSchema'; // Removed unused project, quest, quest_asset_link
@@ -68,15 +68,14 @@ export async function selectAndInitiateRestore(
   onFinish?: () => void,
   onProgress?: ProgressCallback
 ) {
-  if (Platform.OS !== 'android') {
-    Alert.alert(t('error'), t('restoreAndroidOnly'));
+  if (Platform.OS === 'web') {
     onFinish?.();
     return;
   }
   // Indicate start
   onStart?.();
   try {
-    // Prompt user to select the backup directory
+    // Get backup directory (async on iOS)
     const directoryUri = await requestBackupDirectory();
     if (!directoryUri) {
       Alert.alert(t('permissionDenied'), t('storagePermissionDenied'));
@@ -137,9 +136,13 @@ async function restoreFromBackup(
   // let backupDb: SQLite.WebSQLDatabase | null = null;
 
   try {
-    // Read available files first
-    const fileUris =
-      await StorageAccessFramework.readDirectoryAsync(backupDirectoryUri);
+    // Read available files first using Directory API
+    const backupDir = new Directory(backupDirectoryUri);
+    const items = backupDir.list();
+    const files = items.filter(
+      (i): i is FileSystem.File => i instanceof FileSystem.File
+    );
+    const fileUris = files.map((f) => f.uri);
     console.log(
       `[restoreFromBackup] Files in backup directory: ${fileUris.join(', ')}`
     );
@@ -297,16 +300,11 @@ async function restoreFromBackup(
           }
           const targetLanguageId = projectRecord.target_language_id;
 
-          const contentBase64 = await StorageAccessFramework.readAsStringAsync(
-            fileUri,
-            {
-              encoding: FileSystem.EncodingType.Base64
-            }
-          );
-          const tempFileUri = (FileSystem.cacheDirectory ?? '') + fileName;
-          await FileSystem.writeAsStringAsync(tempFileUri, contentBase64, {
-            encoding: FileSystem.EncodingType.Base64
-          });
+          const contentBase64 = new ExpoFile(fileUri).base64();
+          const tempFile = new ExpoFile(Paths.cache.uri, fileName);
+          const decodedBytes = atob(contentBase64);
+          tempFile.write(decodedBytes);
+          const tempFileUri = tempFile.uri;
           if (!system.permAttachmentQueue) {
             throw new Error('Permanent attachment queue not initialized');
           }

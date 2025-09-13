@@ -32,6 +32,7 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
             currentView === 'profile') &&
             'bg-background'
         )}
+        edges={['top', 'left', 'right']}
       >
         {children}
       </SafeAreaView>
