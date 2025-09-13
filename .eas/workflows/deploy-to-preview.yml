@@ -58,13 +58,13 @@ jobs:
   #   params:
   #     profile: preview
   #     build_id: ${{ needs.build_android.outputs.build_id }}
-  submit_ios_build:
-    name: Submit iOS Build
-    needs: [build_ios]
-    type: submit
-    params:
-      profile: preview
-      build_id: ${{ needs.build_ios.outputs.build_id }}
+  # submit_ios_build:
+  #   name: Submit iOS Build
+  #   needs: [build_ios]
+  #   type: submit
+  #   params:
+  #     profile: preview
+  #     build_id: ${{ needs.build_ios.outputs.build_id }}
   publish_android_update:
     name: Publish Android update
     needs: [get_android_build]
