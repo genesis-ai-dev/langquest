@@ -129,11 +129,11 @@ export function ProjectListItem({ project }: { project: Project }) {
   return (
     <>
       <Pressable
-        className="w-full"
+        className="flex-1"
         key={project.id}
         onPress={() => goToProject({ id: project.id, name: project.name })}
       >
-        <Card className="w-full">
+        <Card>
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">
