@@ -10,11 +10,13 @@ npm-debug.*
 *.orig.*
 web-build/
 llm_supp_files/
-android/
-ios/
+/android
+/ios
 .env
 .env.*
 !.env.*.example
+
+/modules/**/android/build
 
 # macOS
 **/.DS_Store
