@@ -5,7 +5,7 @@ import PostHog from 'posthog-react-native';
 // Simple initialization without circular dependency
 const createPostHogInstance = (optIn = false) => {
   return new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
-    host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
+    host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/relay-Mx9k`,
     enableSessionReplay: true,
     sessionReplayConfig: {
       maskAllImages: false,
