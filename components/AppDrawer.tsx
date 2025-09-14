@@ -429,20 +429,12 @@ export default function AppDrawer({
       finalAlertTitle = t('backupCompleteTitle');
       console.log('audioResult', audioResult);
       // Reuse restore-style message structure if available
-      const copied = audioResult.copied;
-      const skippedExists = audioResult.alreadyExists;
+      const copied = audioResult.count;
       const skippedErrors = audioResult.errors.length;
       let msg = t('restoreCompleteBase', {
         audioCopied: String(copied),
         audioSkippedDueToError: String(skippedErrors)
       });
-      if (skippedExists > 0) {
-        msg +=
-          ' ' +
-          t('restoreSkippedLocallyPart', {
-            audioSkippedLocally: String(skippedExists)
-          });
-      }
       finalAlertMessage = msg;
     } catch (error: unknown) {
       // Handle errors from any awaited step above
