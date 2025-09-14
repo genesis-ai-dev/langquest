@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
-      userInterfaceStyle: 'automatic',
+      userInterfaceStyle: 'dark',
       splash: {
         image: './assets/images/icon.png',
         resizeMode: 'contain',

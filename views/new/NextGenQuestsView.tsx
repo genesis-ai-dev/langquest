@@ -33,7 +33,12 @@ import {
   UsersIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from 'react-native';
 import { QuestListItem } from './QuestListItem';
 import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
@@ -183,6 +188,8 @@ export default function NextGenQuestsView() {
     });
   }, [data.pages]);
 
+  const dimensions = useWindowDimensions();
+
   // Speed dial items are composed inline below
 
   if (isLoading && !searchQuery) {
@@ -233,12 +240,15 @@ export default function NextGenQuestsView() {
       </View>
 
       <LegendList
-        key={showDownloadedOnly ? 'downloaded' : 'all'}
+        key={`${showDownloadedOnly ? 'downloaded' : 'all'}-${dimensions.width}`}
         data={filteredQuests}
+        numColumns={dimensions.width > 768 && filteredQuests.length > 1 ? 2 : 1}
         columnWrapperStyle={{ gap: 12 }}
         keyExtractor={(item) => item.id}
         recycleItems
-        renderItem={({ item }) => <QuestListItem quest={item} />}
+        renderItem={({ item }) => (
+          <QuestListItem quest={item} className="h-[145px]" />
+        )}
         estimatedItemSize={175}
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) {

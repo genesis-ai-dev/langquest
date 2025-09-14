@@ -1,5 +1,7 @@
 import { system } from '@/db/powersync/system';
-import type { CompilableQuery } from '@powersync/react-native';
+// Import from native SDK - will be empty on web
+import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
+// Import from web SDK - will be empty on native
 import { useQuery } from '@powersync/tanstack-react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { QueryFunctionContext } from '@tanstack/react-query';
@@ -10,6 +12,8 @@ import {
 } from '@tanstack/react-query';
 import React, { useEffect, useRef } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
+// Use the correct type based on platform
+type CompilableQuery<T = unknown> = CompilableQueryNative<T>  ;
 
 /**
  * Base options that are common to both online and offline queries

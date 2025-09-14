@@ -9,14 +9,14 @@ import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
-import { PowerSyncContext } from '@powersync/react-native';
+import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 

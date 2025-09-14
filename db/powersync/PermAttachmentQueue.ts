@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { fileExists, readFile, writeFile } from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -6,7 +7,7 @@ import type {
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { isNotNull } from 'drizzle-orm';
-import { File as ExpoFile } from 'expo-file-system';
+import { Platform } from 'react-native';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
@@ -27,6 +28,15 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   ) {
     super(options);
     // this.db = options.db;
+  }
+
+  getLocalUri(filePath: string): string {
+    if (Platform.OS === 'web') {
+      const { data } = system.supabaseConnector.client.storage
+        .from(AppConfig.supabaseBucket)
+        .getPublicUrl(filePath.replace('shared_attachments/', ''));
+      return data.publicUrl;
+    } else return super.getLocalUri(filePath);
   }
 
   async getCurrentUserId(): Promise<string | null> {
@@ -202,11 +212,11 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
-    new ExpoFile(localUri).write(base64Data);
+    writeFile(localUri, base64Data, { encoding: 'base64' });
 
-    const fileInfo = new ExpoFile(localUri).info();
-    if (fileInfo.exists) {
-      photoAttachment.size = fileInfo.size;
+    if (fileExists(localUri)) {
+      // Note: We can't get file size from fileUtils, so we'll estimate from base64
+      photoAttachment.size = Math.floor((base64Data.length * 3) / 4);
     }
 
     return this.saveToQueue(photoAttachment);
@@ -221,11 +231,14 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       extension
     );
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
-    new ExpoFile(tempUri).move(new ExpoFile(localUri));
 
-    const fileInfo = new ExpoFile(localUri).info();
-    if (fileInfo.exists) {
-      audioAttachment.size = fileInfo.size;
+    // For audio files, we need to copy the file content
+    if (fileExists(tempUri)) {
+      const audioData = await readFile(tempUri, { encoding: 'base64' });
+      writeFile(localUri, audioData, { encoding: 'base64' });
+
+      // Estimate size from base64 data
+      audioAttachment.size = Math.floor((audioData.length * 3) / 4);
     }
 
     return this.saveToQueue(audioAttachment);

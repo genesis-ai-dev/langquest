@@ -3,9 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
     },
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "moduleResolution": "Bundler"
   },
   "include": [
     "**/*.ts",

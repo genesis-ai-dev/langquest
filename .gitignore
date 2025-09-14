@@ -17,6 +17,7 @@ llm_supp_files/
 !.env.*.example
 
 /modules/**/android/build
+/public/@powersync
 
 # macOS
 **/.DS_Store

@@ -149,13 +149,6 @@ export async function backupUnsyncedAudio(
           continue;
         }
 
-        // Use proper mime type for m4a files (kept for future use if needed)
-        const _mimeType = extension === 'm4a' ? 'audio/m4a' : 'audio/aac';
-
-        // const backupFile = new Directory(baseDirectoryUri).createFile(
-        //   backupFileName,
-        //   mimeType
-        // );
         const backupFile = new ExpoFile(baseDirectoryUri, backupFileName);
         backupFile.create();
         console.log('backupFile', backupFile.uri);

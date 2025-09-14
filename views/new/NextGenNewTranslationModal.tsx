@@ -9,7 +9,7 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 // removed: useHybridData lookups and related query helpers
-import { File as ExpoFile } from 'expo-file-system';
+import { deleteIfExists } from '@/utils/fileUtils';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -115,16 +115,7 @@ export default function NextGenNewTranslationModal({
 
   const handleClose = () => {
     // Clean up audio file if exists
-    if (audioUri) {
-      try {
-        const info = new ExpoFile(audioUri).info();
-        if (info.exists) {
-          new ExpoFile(audioUri).delete();
-        }
-      } catch (error) {
-        console.error('Error cleaning up audio file:', error);
-      }
-    }
+    if (audioUri) deleteIfExists(audioUri);
     setAudioUri(null);
     setTranslationText('');
     onClose();

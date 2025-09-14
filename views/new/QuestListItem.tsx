@@ -29,9 +29,13 @@ type QuestClosure = typeof quest_closure.$inferSelect;
 // Define props locally to avoid require cycle
 export interface QuestListItemProps {
   quest: Quest & { source?: string };
+  className?: string;
 }
 
-export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
+export const QuestListItem: React.FC<QuestListItemProps> = ({
+  quest,
+  className
+}) => {
   const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -108,9 +112,17 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({ quest }) => {
   const cardDisabled = needsDownload || !allowEditing;
 
   return (
-    <Pressable className="w-full" onPress={handlePress} disabled={cardDisabled}>
+    <Pressable
+      onPress={handlePress}
+      disabled={cardDisabled}
+      className={className}
+    >
       <Card
-        className={cn(cardDisabled && 'opacity-50', invisible && 'opacity-20')}
+        className={cn(
+          cardDisabled && 'opacity-50',
+          invisible && 'opacity-20',
+          'flex-1'
+        )}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 flex-col">

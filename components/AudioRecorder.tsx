@@ -1,11 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { deleteIfExists } from '@/utils/fileUtils';
 import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
 import type { RecordingOptions } from 'expo-av/build/Audio';
-import { File as ExpoFile } from 'expo-file-system';
 import React, { useEffect, useState } from 'react';
 import {
   Platform,
@@ -72,7 +72,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   useEffect(() => {
     return () => {
       const cleanup = async () => {
-        if (sound) {
+        if (sound?._loaded) {
           await sound.stopAsync();
           await sound.unloadAsync();
           setSound(null);
@@ -157,10 +157,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       });
 
       const uri = recording.getURI();
-      if (recordingUri) {
-        new ExpoFile(recordingUri).delete();
-        console.log('Deleting previous recording attempt', recordingUri);
-      }
+      if (recordingUri) deleteIfExists(recordingUri);
       console.log('Recording stopped and stored at', uri);
       setRecordingUri(uri ?? null);
       setRecording(null);
