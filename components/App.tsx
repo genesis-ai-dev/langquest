@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { openDB, useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import { colors } from '@/styles/theme';
 import AppView from '@/views/AppView';
@@ -42,6 +43,8 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isLoading, isAuthenticated, sessionType, isSystemReady } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+
+  useDrizzleStudio(openDB());
 
   // Initialize network listener on app startup
   useEffect(() => {
