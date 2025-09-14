@@ -9,6 +9,8 @@ export interface SupabaseStorageAdapterOptions {
 }
 
 export class SupabaseStorageAdapter implements StorageAdapter {
+  private readonly encoder = new TextEncoder();
+
   constructor(private options: SupabaseStorageAdapterOptions) {}
 
   async uploadFile(
@@ -128,8 +130,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async stringToArrayBuffer(str: string) {
-    const encoder = new TextEncoder();
-    return encoder.encode(str).buffer as ArrayBuffer;
+    return this.encoder.encode(str).buffer as ArrayBuffer;
   }
 
   /**
