@@ -1,4 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -285,7 +286,18 @@ export default function NextGenProjectsView() {
               <View className="p-4">
                 <ActivityIndicator size="small" className="text-primary" />
               </View>
-            ) : null
+            ) : (
+              <View className="mt-3 rounded-lg bg-card p-2">
+                <Button
+                  variant="outline"
+                  className="border-[1.5px] border-dashed border-accent bg-card"
+                >
+                  <Text className="text-muted-foreground">
+                    {t('createObject')}
+                  </Text>
+                </Button>
+              </View>
+            )
           }
         />
       )}
