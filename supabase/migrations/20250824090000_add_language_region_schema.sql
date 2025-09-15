@@ -9,8 +9,7 @@ CREATE TABLE IF NOT EXISTS public.region (
   name             TEXT NOT NULL,
   path             TEXT,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  updated_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ
+  last_updated     TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.region_property (
@@ -19,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.region_property (
   key              TEXT NOT NULL,
   value            TEXT NOT NULL,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT region_property_unique_active UNIQUE (region_id, key)
 );
 
@@ -28,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.region_alias (
   region_id        TEXT NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
   alias_name       TEXT NOT NULL,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT region_alias_unique_active UNIQUE (region_id, alias_name)
 );
 
@@ -41,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.region_source (
   url              TEXT,
   data             JSONB,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ
+  last_updated     TIMESTAMPTZ DEFAULT now()
 );
 
 -- ---------- Core: language entities (family/language/dialect) ----------
@@ -57,8 +56,7 @@ CREATE TABLE IF NOT EXISTS public.language_entity (
   level            public.language_level NOT NULL,
   path             TEXT,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  updated_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT language_entity_name_parent UNIQUE (parent_id, name)
 );
 
@@ -67,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.language_alias (
   language_entity_id TEXT NOT NULL REFERENCES public.language_entity(id) ON DELETE CASCADE,
   alias_name       TEXT NOT NULL,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT language_alias_unique_active UNIQUE (language_entity_id, alias_name)
 );
 
@@ -80,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.language_entity_source (
   url              TEXT,
   data             JSONB,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT language_entity_source_unique UNIQUE (language_entity_id, source, external_id)
 );
 
@@ -90,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.language_property (
   key              TEXT NOT NULL,
   value            TEXT NOT NULL,
   created_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
+  last_updated     TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT language_property_unique_active UNIQUE (language_entity_id, key)
 );
 
@@ -103,14 +101,13 @@ CREATE TABLE IF NOT EXISTS public.language_entity_region (
   relation         TEXT,
   created_at       TIMESTAMPTZ DEFAULT now(),
   updated_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at       TIMESTAMPTZ,
   CONSTRAINT language_entity_region_unique_active UNIQUE (language_entity_id, region_id)
 );
 
 -- ---------- Helpful indexes ----------
 
-CREATE INDEX IF NOT EXISTS region_active_idx ON public.region(id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS language_entity_active_idx ON public.language_entity(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS region_active_idx ON public.region(id);
+CREATE INDEX IF NOT EXISTS language_entity_active_idx ON public.language_entity(id);
 
 CREATE INDEX IF NOT EXISTS region_path_idx ON public.region (path);
 CREATE INDEX IF NOT EXISTS language_entity_path_idx ON public.language_entity (path);

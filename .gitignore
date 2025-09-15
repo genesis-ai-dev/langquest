@@ -15,6 +15,7 @@ ios/
 .env
 .env.*
 !.env.*.example
+wdqs/dumps/
 
 # macOS
 **/.DS_Store
@@ -38,3 +39,5 @@ langquest types.xlsx
 
 llm_supp_files
 /docs
+/.venv
+/python/.cache
