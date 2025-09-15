@@ -248,6 +248,12 @@ interface LocalState {
   // Rabbit Mode session methods
   createRabbitModeSession: (questId: string, questName: string, projectId: string, assetIds: string[]) => string;
   addRabbitModeSegment: (sessionId: string, assetId: string, segment: Omit<RabbitModeSegment, 'id' | 'order'>) => void;
+  addRabbitModeSegmentAt: (
+    sessionId: string,
+    assetId: string,
+    segment: Omit<RabbitModeSegment, 'id' | 'order'>,
+    insertIndex: number
+  ) => void;
   deleteRabbitModeSegment: (sessionId: string, assetId: string, segmentId: string) => void;
   reorderRabbitModeSegments: (sessionId: string, assetId: string, segmentIds: string[]) => void;
   reorderRabbitModeAssets: (sessionId: string, assetIds: string[]) => void;
@@ -255,6 +261,11 @@ interface LocalState {
   // V2 mixed items model actions
   addRabbitModeMilestone: (
     sessionId: string,
+    milestone?: { label?: string; assetId?: string }
+  ) => void;
+  addRabbitModeMilestoneAt: (
+    sessionId: string,
+    insertIndex: number,
     milestone?: { label?: string; assetId?: string }
   ) => void;
   addRabbitModeItemSegment: (
@@ -590,6 +601,51 @@ export const useLocalStore = create<LocalState>()(
         }));
       },
 
+      addRabbitModeSegmentAt: (sessionId, assetId, segment, insertIndex) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) => {
+            if (session.id !== sessionId) return session;
+
+            const updatedAssets = session.assets.map((asset) =>
+              asset.id === assetId
+                ? {
+                  ...asset,
+                  segments: [
+                    ...asset.segments,
+                    {
+                      ...segment,
+                      id: generateTempId(),
+                      order: asset.segments.length
+                    }
+                  ]
+                }
+                : asset
+            );
+
+            const newItem = {
+              id: generateTempId(),
+              kind: 'segment' as const,
+              audioUri: segment.audioUri,
+              startTime: segment.startTime,
+              endTime: segment.endTime,
+              duration: segment.duration,
+              waveformData: segment.waveformData
+            };
+
+            const items = [...(session.items || [])];
+            const idx = Math.max(0, Math.min(insertIndex, items.length));
+            items.splice(idx, 0, newItem);
+
+            return {
+              ...session,
+              assets: updatedAssets,
+              items,
+              last_updated: new Date()
+            };
+          })
+        }));
+      },
+
       deleteRabbitModeSegment: (sessionId, assetId, segmentId) => {
         set((state) => ({
           rabbitModeSessions: state.rabbitModeSessions.map((session) =>
@@ -681,6 +737,36 @@ export const useLocalStore = create<LocalState>()(
               }
               : session
           )
+        }));
+      },
+
+      addRabbitModeMilestoneAt: (sessionId, insertIndex, milestone) => {
+        set((state) => ({
+          rabbitModeSessions: state.rabbitModeSessions.map((session) => {
+            if (session.id !== sessionId) return session;
+            const newItem = {
+              id: generateTempId(),
+              kind: 'milestone' as const,
+              assetId: milestone?.assetId,
+              label:
+                milestone?.label ||
+                (session.mode === 'unstructured'
+                  ? String(session.nextAutoNumber || 1)
+                  : undefined)
+            };
+            const items = [...(session.items || [])];
+            const idx = Math.max(0, Math.min(insertIndex, items.length));
+            items.splice(idx, 0, newItem);
+            return {
+              ...session,
+              items,
+              nextAutoNumber:
+                session.mode === 'unstructured'
+                  ? (session.nextAutoNumber || 1) + 1
+                  : session.nextAutoNumber,
+              last_updated: new Date()
+            };
+          })
         }));
       },
 

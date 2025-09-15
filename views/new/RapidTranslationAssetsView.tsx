@@ -1,10 +1,7 @@
 import { asset, project, quest, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import {
-  useAppNavigation,
-  useCurrentNavigation
-} from '@/hooks/useAppNavigation';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+// import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useRabbitModeVAD } from '@/hooks/useRabbitModeVAD';
 import { useLocalStore } from '@/store/localStore';
@@ -14,11 +11,12 @@ import { RabbitModeFileManager } from '@/utils/rabbitModeFileManager';
 import { generateWaveformData } from '@/utils/waveformGenerator';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
+import { Audio } from 'expo-av';
 import React from 'react';
 import {
-  Alert,
   FlatList,
   LayoutAnimation,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -45,377 +43,388 @@ if (
 
 type Asset = typeof asset.$inferSelect;
 
-// Sine wave waveform generator for placeholders
-const generateSineWaveform = (
-  length = 40,
-  amplitude = 0.5,
-  frequency = 0.1
-): number[] => {
-  return Array.from({ length }, (_, i) => {
-    const phase = (i / length) * Math.PI * 2 * frequency;
-    return (Math.sin(phase) * amplitude + amplitude) * 0.8; // Normalize to 0-0.8 range
-  });
-};
+// (placeholder waveform generator removed; unused)
 
 // Enhanced VAD Component with adaptive baseline sampling
-const VoiceActivityDetectionPanel = React.memo(() => {
-  const { currentQuestId } = useCurrentNavigation();
+const VoiceActivityDetectionPanel = React.memo(
+  ({ insertionIndex }: { insertionIndex: number }) => {
+    const { currentQuestId } = useCurrentNavigation();
 
-  // Properly subscribe to local store updates using the hook pattern
-  const activeSession = useLocalStore((state) =>
-    currentQuestId
-      ? state.rabbitModeSessions.find(
-          (s) => s.questId === currentQuestId && !s.isCommitted
-        )
-      : undefined
-  );
-  const addRabbitModeSegment = useLocalStore(
-    (state) => state.addRabbitModeSegment
-  );
-
-  // Recording state with proper typing
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [isInitializing, setIsInitializing] = React.useState(false);
-  const [isCalibrating, setIsCalibrating] = React.useState(false);
-  const [adaptiveThreshold, setAdaptiveThreshold] = React.useState(0.7); // 0..1 normalized
-  const recordingStartTimeRef = React.useRef<number | null>(null);
-  const calibrationLevelsRef = React.useRef<number[]>([]);
-
-  // Local UI VAD state that reacts to hook callbacks
-  const [uiVadState, setUiVadState] = React.useState({
-    isListening: false,
-    isSpeaking: false,
-    currentLevel: 0,
-    speechDuration: 0,
-    silenceDuration: 0
-  });
-
-  // Simple CSS-based animated sine wave for initialization only
-  const initializationSineWave = React.useMemo(() => {
-    if (!isInitializing && !isCalibrating) return undefined;
-    return generateSineWaveform(40, 0.3, 1).map(
-      (val, i) => val + 0.1 * Math.sin(Date.now() * 0.01 + i * 0.5)
+    // Properly subscribe to local store updates using the hook pattern
+    const activeSession = useLocalStore((state) =>
+      currentQuestId
+        ? state.rabbitModeSessions.find(
+            (s) => s.questId === currentQuestId && !s.isCommitted
+          )
+        : undefined
     );
-  }, [isInitializing, isCalibrating]);
+    const addRabbitModeSegment = useLocalStore(
+      (state) => state.addRabbitModeSegment
+    );
+    const addRabbitModeSegmentAt = useLocalStore(
+      (state) => state.addRabbitModeSegmentAt
+    );
 
-  // Speech start handler (following original pattern)
-  const handleSpeechStart = React.useCallback(() => {
-    if (isCalibrating) return; // Don't record during calibration
+    // Recording state with proper typing
+    const [isRecording, setIsRecording] = React.useState(false);
+    const [isLocked, setIsLocked] = React.useState(false); // slide-to-lock: enables VAD
+    const [vadThreshold] = React.useState(0.6);
+    // Slide-to-lock responder
+    const [dragDx, setDragDx] = React.useState(0);
+    const lockThreshold = 80; // px to slide to lock
+    const recordingStartTimeRef = React.useRef<number | null>(null);
+    const manualRecordingRef = React.useRef<Audio.Recording | null>(null);
+    const lastAddedItemIdRef = React.useRef<string | null>(null);
 
-    console.log('🎙️ REAL: Starting recording (speech detected)');
-    const startTime = Date.now();
-    setIsRecording(true);
-    setIsInitializing(false);
+    // Local UI VAD state that reacts to hook callbacks
+    const [uiVadState, setUiVadState] = React.useState({
+      isListening: false,
+      isSpeaking: false,
+      currentLevel: 0,
+      speechDuration: 0,
+      silenceDuration: 0
+    });
 
-    recordingStartTimeRef.current = startTime;
-    console.log('📝 Set recording start time:', startTime);
-  }, [isCalibrating]);
+    // No calibration/initialization visuals in locked PTT flow
 
-  // Speech end handler (following original pattern from useRabbitMode.ts)
-  const handleSpeechEnd = React.useCallback(
-    async (recordingUri?: string) => {
-      if (isCalibrating) return; // Don't save during calibration
+    // Speech start handler (following original pattern)
+    const handleSpeechStart = React.useCallback(() => {
+      console.log('🎙️ REAL: Starting recording (speech detected)');
+      const startTime = Date.now();
+      setIsRecording(true);
 
-      console.log('🔇 REAL: Stopping recording (speech ended)');
+      recordingStartTimeRef.current = startTime;
+      console.log('📝 Set recording start time:', startTime);
+    }, []);
 
-      // Get start time from ref
-      const recordingStartTime = recordingStartTimeRef.current;
+    // Speech end handler (following original pattern from useRabbitMode.ts)
+    const handleSpeechEnd = React.useCallback(
+      async (recordingUri?: string) => {
+        console.log('🔇 REAL: Stopping recording (speech ended)');
 
-      // Debug logging to understand what's failing
-      console.log('🔍 Debug state:', {
-        hasRecordingStartTime: !!recordingStartTime,
-        hasRecordingUri: !!recordingUri,
-        hasActiveSession: !!activeSession,
-        currentAssetId: activeSession?.currentAssetId,
-        activeSessionId: activeSession?.id,
-        assetsCount: activeSession?.assets.length || 0
-      });
+        // Get start time from ref
+        const recordingStartTime = recordingStartTimeRef.current;
 
-      if (!recordingUri) {
-        console.warn('❌ No recording URI provided by VAD hook');
+        // Debug logging to understand what's failing
+        console.log('🔍 Debug state:', {
+          hasRecordingStartTime: !!recordingStartTime,
+          hasRecordingUri: !!recordingUri,
+          hasActiveSession: !!activeSession,
+          currentAssetId: activeSession?.currentAssetId,
+          activeSessionId: activeSession?.id,
+          assetsCount: activeSession?.assets.length || 0
+        });
+
+        if (!recordingUri) {
+          console.warn('❌ No recording URI provided by VAD hook');
+          setIsRecording(false);
+          recordingStartTimeRef.current = null;
+          return;
+        }
+
+        if (!recordingStartTime) {
+          console.warn('❌ Missing recording start time');
+          setIsRecording(false);
+          recordingStartTimeRef.current = null;
+          return;
+        }
+
+        if (!activeSession?.currentAssetId) {
+          console.warn('❌ No active session or current asset');
+          setIsRecording(false);
+          recordingStartTimeRef.current = null;
+          return;
+        }
+
+        try {
+          const endTime = Date.now();
+          const duration = endTime - recordingStartTime;
+
+          // Generate waveform from actual recording (like original)
+          const waveformData = await generateWaveformData(recordingUri);
+
+          // Save using proper file manager (following original patterns)
+          const permanentUri = await RabbitModeFileManager.saveAudioSegment(
+            activeSession.id,
+            recordingUri
+          );
+          console.log('💾 Saved to permanent location:', permanentUri);
+
+          // Create new segment with proper file path
+          const newSegment = {
+            assetId: activeSession.currentAssetId,
+            startTime: recordingStartTime,
+            endTime: endTime,
+            duration: duration,
+            audioUri: permanentUri, // Use permanent URI from file manager
+            waveformData: waveformData // Real waveform from actual audio
+          };
+
+          console.log('🎯 About to add segment:', newSegment);
+
+          // Add segment to local store with smooth animation
+          LayoutAnimation.configureNext({
+            duration: 400,
+            create: {
+              type: LayoutAnimation.Types.easeInEaseOut,
+              property: LayoutAnimation.Properties.opacity
+            },
+            update: {
+              type: LayoutAnimation.Types.spring,
+              springDamping: 0.8
+            }
+          });
+
+          // Insert at current insertion point
+          const insertAt = Math.max(
+            0,
+            Math.min(insertionIndex, activeSession.items?.length || 0)
+          );
+          addRabbitModeSegmentAt(
+            activeSession.id,
+            activeSession.currentAssetId,
+            newSegment,
+            insertAt
+          );
+          console.log(`✨ Added new segment: ${duration}ms duration`);
+        } catch (error) {
+          console.error('❌ Error saving audio segment:', error);
+        }
+
         setIsRecording(false);
         recordingStartTimeRef.current = null;
-        return;
-      }
+      },
+      [currentQuestId, activeSession, addRabbitModeSegment]
+    );
 
-      if (!recordingStartTime) {
-        console.warn('❌ Missing recording start time');
-        setIsRecording(false);
-        recordingStartTimeRef.current = null;
-        return;
-      }
-
-      if (!activeSession?.currentAssetId) {
-        console.warn('❌ No active session or current asset');
-        setIsRecording(false);
-        recordingStartTimeRef.current = null;
-        return;
-      }
-
-      try {
-        const endTime = Date.now();
-        const duration = endTime - recordingStartTime;
-
-        // Generate waveform from actual recording (like original)
-        const waveformData = await generateWaveformData(recordingUri);
-
-        // Save using proper file manager (following original patterns)
-        const permanentUri = await RabbitModeFileManager.saveAudioSegment(
-          activeSession.id,
-          recordingUri
-        );
-        console.log('💾 Saved to permanent location:', permanentUri);
-
-        // Create new segment with proper file path
-        const newSegment = {
-          assetId: activeSession.currentAssetId,
-          startTime: recordingStartTime,
-          endTime: endTime,
-          duration: duration,
-          audioUri: permanentUri, // Use permanent URI from file manager
-          waveformData: waveformData // Real waveform from actual audio
-        };
-
-        console.log('🎯 About to add segment:', newSegment);
-
-        // Add segment to local store with smooth animation
-        LayoutAnimation.configureNext({
-          duration: 400,
-          create: {
-            type: LayoutAnimation.Types.easeInEaseOut,
-            property: LayoutAnimation.Properties.opacity
-          },
-          update: {
-            type: LayoutAnimation.Types.spring,
-            springDamping: 0.8
+    // Use RabbitModeVAD with fixed threshold; we enable/disable based on lock
+    const {
+      startListening,
+      stopListening,
+      resetVAD: _resetVAD
+    } = useRabbitModeVAD(
+      {
+        onSpeechStart: handleSpeechStart,
+        onSpeechEnd: (recordingUri?: string) => {
+          void (async () => {
+            await handleSpeechEnd(recordingUri);
+            // Auto advance in structured mode after VAD segment
+            const session = useLocalStore
+              .getState()
+              .getActiveRabbitModeSession(currentQuestId || '');
+            if (session?.mode === 'structured' && session.currentAssetId) {
+              const order = session.assets.map((a) => a.id);
+              const idx = order.indexOf(session.currentAssetId);
+              const nextId =
+                idx >= 0 && idx + 1 < order.length ? order[idx + 1] : undefined;
+              if (nextId) {
+                const setCurrent = useLocalStore.getState().setCurrentAsset;
+                setCurrent(session.id, nextId);
+              }
+            }
+          })();
+        },
+        onLevelChange: (level: number) => {
+          // Minimal logging for level debugging (only when listening)
+          if (uiVadState.isListening && Math.random() < 0.05) {
+            // Reduced to 5%
+            console.log(
+              `🎵 Level(n): ${level.toFixed(3)} thr=${vadThreshold.toFixed(3)} speaking=${uiVadState.isSpeaking}`
+            );
           }
-        });
+        },
+        onStateChange: (state) => {
+          setUiVadState({
+            isListening: state.isListening,
+            isSpeaking: state.isSpeaking,
+            currentLevel: state.currentLevel,
+            speechDuration: state.speechDuration,
+            silenceDuration: state.silenceDuration
+          });
+          // Minimal log
+          if (Math.random() < 0.02) {
+            console.log(
+              `🎯 VAD: listening=${state.isListening}, speaking=${state.isSpeaking}`
+            );
+          }
+        }
+      },
+      {
+        saveRecordings: true,
+        speechThreshold: vadThreshold,
+        minimumSpeechDuration: 200,
+        maximumSilenceDuration: 1000,
+        sampleInterval: 80
+      }
+    );
 
-        addRabbitModeSegment(
-          activeSession.id,
-          activeSession.currentAssetId,
-          newSegment
+    // No special waveform data during initialization in locked PTT flow
+
+    // Toggle VAD based on lock state
+    React.useEffect(() => {
+      const toggle = async () => {
+        try {
+          if (isLocked) {
+            await startListening();
+            console.log('🎧 VAD started (locked)');
+          } else {
+            await stopListening();
+            console.log('🔒 VAD stopped (unlocked)');
+          }
+        } catch (error) {
+          console.error('VAD toggle error:', error);
+        }
+      };
+      void toggle();
+    }, [isLocked, startListening, stopListening]);
+
+    // Manual push-to-talk (when unlocked)
+    const startManualRecording = React.useCallback(async () => {
+      try {
+        if (isLocked || manualRecordingRef.current) return;
+        const startTime = Date.now();
+        recordingStartTimeRef.current = startTime;
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true
+        });
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
-        console.log(`✨ Added new segment: ${duration}ms duration`);
+        manualRecordingRef.current = recording;
+        setIsRecording(true);
       } catch (error) {
-        console.error('❌ Error saving audio segment:', error);
-      }
-
-      setIsRecording(false);
-      recordingStartTimeRef.current = null;
-    },
-    [currentQuestId, activeSession, addRabbitModeSegment, isCalibrating]
-  );
-
-  // Use RabbitModeVAD with dynamic threshold
-  const {
-    startListening,
-    stopListening,
-    resetVAD: _resetVAD
-  } = useRabbitModeVAD(
-    {
-      onSpeechStart: handleSpeechStart,
-      onSpeechEnd: (recordingUri?: string) => {
-        void handleSpeechEnd(recordingUri);
-      },
-      onLevelChange: (level: number) => {
-        // Collect calibration data
-        if (isCalibrating) {
-          calibrationLevelsRef.current.push(level);
-        }
-
-        // Minimal logging for level debugging (only when listening and not calibrating)
-        if (uiVadState.isListening && !isCalibrating && Math.random() < 0.05) {
-          // Reduced to 5%
-          console.log(
-            `🎵 Level(n): ${level.toFixed(3)} thr=${adaptiveThreshold.toFixed(3)} speaking=${uiVadState.isSpeaking}`
-          );
-        }
-      },
-      onStateChange: (state) => {
-        setUiVadState({
-          isListening: state.isListening,
-          isSpeaking: state.isSpeaking,
-          currentLevel: state.currentLevel,
-          speechDuration: state.speechDuration,
-          silenceDuration: state.silenceDuration
-        });
-        // Minimal log
-        if (!isCalibrating && Math.random() < 0.02) {
-          console.log(
-            `🎯 VAD: listening=${state.isListening}, speaking=${state.isSpeaking}`
-          );
-        }
-      }
-    },
-    {
-      saveRecordings: true,
-      speechThreshold: adaptiveThreshold, // Use dynamic threshold
-      minimumSpeechDuration: 200,
-      maximumSilenceDuration: 1000,
-      sampleInterval: 80
-    }
-  );
-
-  // Determine what waveform data to show
-  const displayWaveformData = React.useMemo(() => {
-    if (!uiVadState.isListening) return undefined;
-    if (isInitializing || isCalibrating) return initializationSineWave;
-    return undefined;
-  }, [
-    uiVadState.isListening,
-    isInitializing,
-    isCalibrating,
-    initializationSineWave
-  ]);
-
-  // Adaptive calibration process
-  const performCalibration = React.useCallback(async () => {
-    console.log('🎯 Starting adaptive baseline calibration...');
-    setIsCalibrating(true);
-    calibrationLevelsRef.current = [];
-
-    // Calibrate for 2 seconds of ambient noise
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    if (calibrationLevelsRef.current.length > 0) {
-      // Calculate adaptive threshold
-      const maxLevel = Math.max(...calibrationLevelsRef.current);
-      const avgLevel =
-        calibrationLevelsRef.current.reduce((a, b) => a + b, 0) /
-        calibrationLevelsRef.current.length;
-      // Place threshold above ambient but not too close to 1.0
-      const margin = 0.12;
-      const newThreshold = Math.min(
-        0.95,
-        Math.max(0.05, Math.max(maxLevel + margin, avgLevel + margin * 1.5))
-      );
-
-      setAdaptiveThreshold(newThreshold);
-
-      console.log(
-        `🎯 Calibration complete! Background: avg=${avgLevel.toFixed(3)}, max=${maxLevel.toFixed(3)} → Threshold: ${newThreshold.toFixed(3)}`
-      );
-    } else {
-      console.log('🎯 Calibration failed, using fallback threshold: 0.6');
-      setAdaptiveThreshold(0.6);
-    }
-
-    setIsCalibrating(false);
-  }, []);
-
-  // Enhanced VAD handlers with calibration
-  const handleStartListening = React.useCallback(async () => {
-    try {
-      setIsInitializing(true);
-      await startListening();
-      console.log('🎧 Started listening for voice activity');
-
-      // Perform adaptive calibration first
-      await performCalibration();
-
-      setIsInitializing(false);
-      console.log('✅ Ready for voice detection with adaptive threshold');
-    } catch (error) {
-      console.error('❌ Error starting VAD:', error);
-      setIsInitializing(false);
-      setIsCalibrating(false);
-    }
-  }, [startListening, performCalibration]);
-
-  const handleStopListening = React.useCallback(async () => {
-    try {
-      await stopListening();
-      console.log('🔇 Stopped listening for voice activity');
-
-      // Clean up any ongoing recording
-      if (isRecording) {
+        console.error('Failed to start manual recording:', error);
+        manualRecordingRef.current = null;
         setIsRecording(false);
-        recordingStartTimeRef.current = null;
       }
-      setIsInitializing(false);
-      setIsCalibrating(false);
-    } catch (error) {
-      console.error('❌ Error stopping VAD:', error);
-    }
-  }, [stopListening, isRecording]);
+    }, [isLocked]);
 
-  return (
-    <View style={styles.vadContainer}>
-      <LiveWaveform
-        isListening={uiVadState.isListening}
-        isRecording={isRecording}
-        isSpeaking={uiVadState.isSpeaking}
-        currentLevel={displayWaveformData ? 0 : uiVadState.currentLevel}
-        waveformData={displayWaveformData}
-        onStartListening={handleStartListening}
-        onStopListening={handleStopListening}
-        style={styles.liveWaveform}
-      />
-      <View style={{ alignItems: 'center', marginTop: 6 }}>
-        {isCalibrating ? (
-          <Text style={styles.calibrationText}>
-            🎯 Calibrating background noise…
-          </Text>
-        ) : (
-          <Text style={styles.calibrationText}>
-            Sensitivity: {(1 - adaptiveThreshold).toFixed(2)} (tap to adjust)
-          </Text>
-        )}
-      </View>
+    const stopManualRecording = React.useCallback(async () => {
+      try {
+        if (isLocked) return; // VAD will handle when locked
+        const rec = manualRecordingRef.current;
+        if (!rec) return;
+        await rec.stopAndUnloadAsync();
+        const uri = rec.getURI();
+        manualRecordingRef.current = null;
+        setIsRecording(false);
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        if (uri) {
+          await handleSpeechEnd(uri);
+          // Auto advance in structured mode
+          if (
+            activeSession?.mode === 'structured' &&
+            activeSession.currentAssetId
+          ) {
+            const order = activeSession.assets.map((a) => a.id);
+            const idx = order.indexOf(activeSession.currentAssetId);
+            const nextId =
+              idx >= 0 && idx + 1 < order.length ? order[idx + 1] : undefined;
+            if (nextId) {
+              const setCurrent = useLocalStore.getState().setCurrentAsset;
+              setCurrent(activeSession.id, nextId);
+            }
+          }
+          // Remember last item for Undo (based on current items at insert position)
+          const session = useLocalStore
+            .getState()
+            .getRabbitModeSession(activeSession!.id);
+          const inserted = session?.items?.[insertionIndex];
+          lastAddedItemIdRef.current = inserted?.id || null;
+        }
+      } catch (error) {
+        console.error('Failed to stop manual recording:', error);
+        manualRecordingRef.current = null;
+        setIsRecording(false);
+      }
+    }, [activeSession, handleSpeechEnd, isLocked, insertionIndex]);
 
-      {/* Sensitivity controls: quick presets and fine tuning */}
-      {!isCalibrating && (
-        <View style={styles.sensitivityRow}>
-          <Text style={styles.sensitivityLabel}>Sensitivity</Text>
-          <View style={styles.sensitivityButtons}>
-            <Text
-              style={[
-                styles.sensitivityPill,
-                adaptiveThreshold <= 0.45
-                  ? styles.sensitivityPillActive
-                  : undefined
-              ]}
-              onPress={() => setAdaptiveThreshold(0.45)}
-            >
-              High
-            </Text>
-            <Text
-              style={[
-                styles.sensitivityPill,
-                adaptiveThreshold > 0.45 && adaptiveThreshold < 0.7
-                  ? styles.sensitivityPillActive
-                  : undefined
-              ]}
-              onPress={() => setAdaptiveThreshold(0.6)}
-            >
-              Normal
-            </Text>
-            <Text
-              style={[
-                styles.sensitivityPill,
-                adaptiveThreshold >= 0.7
-                  ? styles.sensitivityPillActive
-                  : undefined
-              ]}
-              onPress={() => setAdaptiveThreshold(0.75)}
-            >
-              Low
-            </Text>
-          </View>
-          <Text
-            style={styles.recalibrateLink}
-            onPress={() => {
-              void performCalibration();
-            }}
-          >
-            Recalibrate
+    const handleUndo = React.useCallback(() => {
+      if (!activeSession || !lastAddedItemIdRef.current) return;
+      const del = useLocalStore.getState().deleteRabbitModeItem;
+      del(activeSession.id, lastAddedItemIdRef.current);
+      lastAddedItemIdRef.current = null;
+    }, [activeSession?.id]);
+
+    const panResponder = React.useMemo(
+      () =>
+        PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onPanResponderGrant: () => {
+            setDragDx(0);
+            void startManualRecording();
+          },
+          onPanResponderMove: (_evt, gestureState) => {
+            setDragDx(gestureState.dx);
+          },
+          onPanResponderRelease: () => {
+            if (dragDx > lockThreshold) {
+              setIsLocked(true);
+            } else {
+              void stopManualRecording();
+            }
+            setDragDx(0);
+          },
+          onPanResponderTerminate: () => {
+            void stopManualRecording();
+            setDragDx(0);
+          }
+        }),
+      [dragDx, lockThreshold, startManualRecording, stopManualRecording]
+    );
+
+    return (
+      <View style={styles.vadContainer}>
+        {/* Waveform indicator removed to unify controls into PTT */}
+
+        <View style={{ alignItems: 'center', marginTop: 6 }}>
+          <Text style={styles.calibrationText}>
+            {isLocked
+              ? 'Locked: hands-free voice detection'
+              : 'Hold to talk · slide to lock'}
           </Text>
         </View>
-      )}
-    </View>
-  );
-});
+
+        <View style={{ alignItems: 'center', marginTop: spacing.small }}>
+          {isLocked ? (
+            <LiveWaveform
+              isListening={uiVadState.isListening}
+              isRecording={isRecording}
+              isSpeaking={uiVadState.isSpeaking}
+              currentLevel={uiVadState.currentLevel}
+              onStartListening={() => setIsLocked(true)}
+              onStopListening={() => setIsLocked(false)}
+              style={styles.liveWaveform}
+            />
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.talkButton,
+                isRecording && styles.talkButtonActive,
+                isLocked && styles.talkButtonLocked
+              ]}
+              activeOpacity={0.85}
+              onPressIn={startManualRecording}
+              onPressOut={stopManualRecording}
+              {...panResponder.panHandlers}
+            >
+              <Text style={styles.talkButtonText}>
+                {isRecording ? 'Recording…' : 'Hold to talk · slide → to lock'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {lastAddedItemIdRef.current && (
+            <TouchableOpacity style={styles.undoPill} onPress={handleUndo}>
+              <Text style={styles.undoPillText}>Undo last</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+);
 
 export default function SimpleAssetsView() {
   const {
@@ -462,6 +471,9 @@ export default function SimpleAssetsView() {
   );
   const setCurrentAsset = useLocalStore((state) => state.setCurrentAsset);
   const addMilestone = useLocalStore((state) => state.addRabbitModeMilestone);
+  const addMilestoneAt = useLocalStore(
+    (state) => state.addRabbitModeMilestoneAt
+  );
   const moveItem = useLocalStore((state) => state.moveRabbitModeItem);
   const deleteItem = useLocalStore((state) => state.deleteRabbitModeItem);
   const createRabbitModeSession = useLocalStore(
@@ -470,16 +482,26 @@ export default function SimpleAssetsView() {
   const deleteRabbitModeSession = useLocalStore(
     (state) => state.deleteRabbitModeSession
   );
-  const currentAssetId = activeSession?.currentAssetId;
+  // const currentAssetId = activeSession?.currentAssetId;
 
   // Rabbit mode state
   const isRabbitMode = !!activeSession;
   const [isEditMode, setIsEditMode] = React.useState(false);
+  const showStructuredFooter = Boolean(
+    activeSession && activeSession.mode === 'structured'
+  );
 
   // Pre-fetch ALL assets for this quest (not paginated)
-  const isBibleTemplate = !!currentProject?.templates?.includes(
-    'every-language-bible'
-  );
+  let isBibleTemplate = false;
+  const templatesUnknown: unknown = currentProject?.templates as unknown;
+  if (Array.isArray(templatesUnknown)) {
+    for (const t of templatesUnknown) {
+      if (typeof t === 'string' && t === 'every-language-bible') {
+        isBibleTemplate = true;
+        break;
+      }
+    }
+  }
   const questNameKey =
     navQuest?.name || (currentQuest ? currentQuest.name : '');
 
@@ -613,6 +635,19 @@ export default function SimpleAssetsView() {
     );
   }, [activeSession?.items, activeSession?.last_updated]);
 
+  // Insertion point index driven by scroll/viewability
+  const [insertionIndex, setInsertionIndex] = React.useState<number>(0);
+  const viewabilityConfig = React.useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+  const onViewableItemsChanged = React.useRef(
+    (info: { viewableItems: { index: number | null }[] }) => {
+      const firstIdx = info.viewableItems[0]?.index;
+      if (typeof firstIdx === 'number' && firstIdx >= 0)
+        setInsertionIndex(firstIdx);
+    }
+  ).current;
+
   // Track consumed and remaining assets for structured flows
   const consumedAssetIds = React.useMemo(() => {
     const set = new Set<string>();
@@ -628,17 +663,17 @@ export default function SimpleAssetsView() {
     return assets.filter((a) => !consumedAssetIds.has(a.id));
   }, [assets, consumedAssetIds]);
 
-  // Watch attachment states
-  const assetIds = React.useMemo(
-    () => assets.map((asset) => asset.id),
-    [assets.length]
-  );
-  const { attachmentStates } = useAttachmentStates(assetIds);
+  // Watch attachment states (temporarily disabled; UI not consuming values)
+  // const assetIds = React.useMemo(() => assets.map((asset) => asset.id), [assets.length]);
+  // const { attachmentStates } = useAttachmentStates(assetIds);
 
   // Handlers for milestone-based model
   const handlePlus = React.useCallback(() => {
     if (!activeSession) return;
-    if (activeSession.mode === 'structured') {
+    const isStructured =
+      activeSession.mode === 'structured' ||
+      (activeSession.assets && activeSession.assets.length > 0);
+    if (isStructured) {
       // Advance to next remaining asset (skip already consumed)
       const idx = assets.findIndex(
         (a) => a.id === activeSession.currentAssetId
@@ -655,7 +690,7 @@ export default function SimpleAssetsView() {
       setCurrentAsset(activeSession.id, nextAsset.id);
     } else {
       // Unstructured: add auto-numbered milestone
-      addMilestone(activeSession.id);
+      addMilestoneAt(activeSession.id, insertionIndex);
     }
   }, [
     activeSession?.id,
@@ -663,32 +698,12 @@ export default function SimpleAssetsView() {
     activeSession?.currentAssetId,
     assets,
     consumedAssetIds,
-    remainingAssets
+    remainingAssets,
+    insertionIndex
   ]);
 
   // Handlers
-  const handleDeleteSegment = React.useCallback(
-    (segmentId: string) => {
-      if (!activeSession?.id || !currentAssetId) return;
-      Alert.alert(
-        'Delete recording',
-        'Are you sure you want to delete this recording?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              const deleteSegment =
-                useLocalStore.getState().deleteRabbitModeSegment;
-              deleteSegment(activeSession.id, currentAssetId, segmentId);
-            }
-          }
-        ]
-      );
-    },
-    [activeSession?.id, currentAssetId]
-  );
+  // (removed unused handleDeleteSegment)
 
   const handleReorderItem = React.useCallback(
     (itemId: string, direction: 'up' | 'down') => {
@@ -698,32 +713,8 @@ export default function SimpleAssetsView() {
     [activeSession?.id]
   );
 
-  const { goToAsset } = useAppNavigation();
-  const handleAssetPress = React.useCallback(
-    (asset: Asset) => {
-      if (activeSession) {
-        // Rabbit Mode on: change current session asset only
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setCurrentAsset(activeSession.id, asset.id);
-        console.log('🎯 Set current asset to:', asset.name);
-      } else {
-        // Rabbit Mode off: navigate to asset detail
-        goToAsset({
-          id: asset.id,
-          name: asset.name,
-          projectId: currentProject?.id,
-          questId: currentQuestId || undefined
-        });
-      }
-    },
-    [
-      activeSession,
-      setCurrentAsset,
-      goToAsset,
-      currentProject?.id,
-      currentQuestId
-    ]
-  );
+  // const { goToAsset } = useAppNavigation();
+  // (removed unused handleAssetPress)
 
   // Rabbit mode toggle handlers
   const handleEnterRabbitMode = React.useCallback(() => {
@@ -802,7 +793,9 @@ export default function SimpleAssetsView() {
       </View>
 
       {/* Voice Activity Detection Interface - only when Rabbit Mode is ON */}
-      {isRabbitMode && <VoiceActivityDetectionPanel />}
+      {isRabbitMode && (
+        <VoiceActivityDetectionPanel insertionIndex={insertionIndex} />
+      )}
 
       {/* Cursor row: shows current insertion point and + button */}
       {isRabbitMode && (
@@ -811,10 +804,11 @@ export default function SimpleAssetsView() {
             <Text style={styles.cursorLabel}>Current</Text>
             <View style={styles.cursorPill}>
               <Text style={styles.cursorPillText}>
-                {activeSession?.mode === 'structured'
-                  ? assets.find((a) => a.id === activeSession?.currentAssetId)
+                {activeSession.mode === 'structured' ||
+                (activeSession.assets && activeSession.assets.length > 0)
+                  ? assets.find((a) => a.id === activeSession.currentAssetId)
                       ?.name || '—'
-                  : `#${activeSession?.nextAutoNumber ?? 1}`}
+                  : `#${activeSession.nextAutoNumber ?? 1}`}
               </Text>
             </View>
           </View>
@@ -839,6 +833,8 @@ export default function SimpleAssetsView() {
               )
         }
         keyExtractor={(item) => `${item.kind}:${item.id}`}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           if (item.kind === 'milestone') {
@@ -893,6 +889,14 @@ export default function SimpleAssetsView() {
                   style={styles.segmentWaveform}
                 />
               </View>
+              {/* Insertion cursor indicator: only show at insertionIndex BEFORE this item */}
+              {(() => {
+                // Find this item's index in listData
+                const idx = listData.findIndex((x) => x.id === item.id);
+                return idx === insertionIndex ? (
+                  <View style={styles.insertionMarker} />
+                ) : null;
+              })()}
               {isEditMode && (
                 <View style={styles.segmentRowControls}>
                   <TouchableOpacity
@@ -937,7 +941,7 @@ export default function SimpleAssetsView() {
           ) : null
         }
         ListFooterComponent={
-          isRabbitMode && activeSession?.mode === 'structured' ? (
+          showStructuredFooter ? (
             <View style={styles.assetPickerContainer}>
               <Text style={styles.assetPickerLabel}>Next asset</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -968,7 +972,7 @@ export default function SimpleAssetsView() {
                 ))}
               </ScrollView>
             </View>
-          ) : assets.length > 0 && !activeSession ? (
+          ) : assets.length > 0 && !isRabbitMode ? (
             <View style={styles.noSessionContainer}>
               <Text style={styles.noSessionText}>
                 Toggle Rabbit Mode above to start recording sessions.
@@ -1102,6 +1106,46 @@ const styles = StyleSheet.create({
     // Let the control define its own size and look; keep layout simple
     alignSelf: 'center',
     paddingVertical: spacing.small
+  },
+  insertionMarker: {
+    width: 2,
+    height: 24,
+    backgroundColor: colors.primary,
+    borderRadius: 1,
+    marginLeft: spacing.xsmall,
+    opacity: 0.2
+  },
+  talkButton: {
+    marginTop: spacing.small,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xlarge,
+    paddingVertical: spacing.medium,
+    borderRadius: 999
+  },
+  talkButtonActive: {
+    backgroundColor: colors.primary
+  },
+  talkButtonLocked: {
+    backgroundColor: colors.primary
+  },
+  talkButtonText: {
+    color: colors.background,
+    fontSize: fontSizes.medium,
+    fontWeight: '700'
+  },
+  undoPill: {
+    marginTop: spacing.xsmall,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 999,
+    paddingHorizontal: spacing.medium,
+    paddingVertical: 6
+  },
+  undoPillText: {
+    color: colors.text,
+    fontSize: fontSizes.small,
+    fontWeight: '600'
   },
   calibrationText: {
     marginTop: spacing.small,
