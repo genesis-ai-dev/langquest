@@ -13,9 +13,9 @@ const inputVariants = cva(
   {
     variants: {
       size: {
-        sm: 'native:h-12 h-8',
-        default: 'native:h-14 h-10',
-        lg: 'native:h-16 h-12'
+        sm: 'h-12',
+        default: 'h-14',
+        lg: 'h-16'
       }
     },
     defaultVariants: {

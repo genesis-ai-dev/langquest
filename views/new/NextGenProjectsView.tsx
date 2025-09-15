@@ -1,5 +1,6 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -14,12 +15,14 @@ import { cn } from '@/utils/styleUtils';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
-import { SearchIcon } from 'lucide-react-native';
+import { PlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 type TabType = 'my' | 'all';
+
+const { db } = system;
 
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
@@ -254,6 +257,9 @@ export default function NextGenProjectsView() {
             prefixStyling={false}
             size="sm"
           />
+          <Button size="icon-lg">
+            <Icon as={PlusIcon} />
+          </Button>
         </View>
       </View>
 
@@ -282,20 +288,9 @@ export default function NextGenProjectsView() {
           }}
           onEndReachedThreshold={0.5}
           ListFooterComponent={() =>
-            isFetchingNextPage ? (
+            isFetchingNextPage && (
               <View className="p-4">
                 <ActivityIndicator size="small" className="text-primary" />
-              </View>
-            ) : (
-              <View className="mt-3 rounded-lg bg-card p-2">
-                <Button
-                  variant="outline"
-                  className="border-[1.5px] border-dashed border-accent bg-card"
-                >
-                  <Text className="text-muted-foreground">
-                    {t('createObject')}
-                  </Text>
-                </Button>
               </View>
             )
           }
