@@ -6,15 +6,16 @@ import { useSyncState } from '@/hooks/useSyncState';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { AttachmentState } from '@powersync/attachments';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
   Easing,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
 
 export default function AppHeader({
   drawerToggleCallback
@@ -58,32 +59,23 @@ export default function AppHeader({
   const isConnected = useNetworkStatus();
 
   // Animation for sync indicator
-  const spinValue = useRef(new Animated.Value(0)).current;
+  const spinValue = useSharedValue(0);
 
   useEffect(() => {
     if (isSyncing) {
-      // Start spinning animation
-      const spinAnimation = Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.linear,
-          useNativeDriver: true
-        })
+      spinValue.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.linear }),
+        -1
       );
-      spinAnimation.start();
-
-      return () => {
-        spinAnimation.stop();
-        spinValue.setValue(0);
-      };
+    } else {
+      cancelAnimation(spinValue);
+      spinValue.value = 0;
     }
-  }, [isSyncing, spinValue]);
+  }, [isSyncing]);
 
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
-  });
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinValue.value * 360}deg` }]
+  }));
 
   return (
     <View style={styles.container}>
@@ -182,12 +174,7 @@ export default function AppHeader({
                 />
               </View>
             ) : isSyncing ? (
-              <Animated.View
-                style={[
-                  styles.syncIndicator,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
+              <Animated.View style={[styles.syncIndicator, spinStyle]}>
                 <Ionicons name="sync-outline" size={10} color="white" />
               </Animated.View>
             ) : null}

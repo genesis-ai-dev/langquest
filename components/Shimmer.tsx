@@ -1,7 +1,15 @@
 import { colors } from '@/styles/theme';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { DimensionValue, ViewStyle } from 'react-native';
-import { Animated, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
 
 interface ShimmerProps {
   width?: DimensionValue;
@@ -22,29 +30,32 @@ export const Shimmer: React.FC<ShimmerProps> = ({
     colors.inputBackground
   ]
 }) => {
-  const shimmerValue = useRef(new Animated.Value(0)).current;
+  const shimmerValue = useSharedValue(0);
   const [containerWidth, setContainerWidth] = useState(100); // Default width
 
   useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.timing(shimmerValue, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: false
-      })
+    shimmerValue.value = withRepeat(
+      withTiming(1, { duration: 1500 }),
+      -1,
+      true
     );
-
-    shimmerAnimation.start();
-
     return () => {
-      shimmerAnimation.stop();
+      cancelAnimation(shimmerValue);
+      shimmerValue.value = 0;
     };
-  }, [shimmerValue]);
+  }, []);
 
-  const translateX = shimmerValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-containerWidth, containerWidth]
-  });
+  const shimmerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          shimmerValue.value,
+          [0, 1],
+          [-containerWidth, containerWidth]
+        )
+      }
+    ]
+  }));
 
   const shimmerStyle: ViewStyle = {
     width,
@@ -63,13 +74,15 @@ export const Shimmer: React.FC<ShimmerProps> = ({
       }}
     >
       <Animated.View
-        style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: shimmerColors[1],
-          opacity: 0.7,
-          transform: [{ translateX }]
-        }}
+        style={[
+          {
+            width: '100%',
+            height: '100%',
+            backgroundColor: shimmerColors[1],
+            opacity: 0.7
+          },
+          shimmerAnimatedStyle
+        ]}
       />
     </View>
   );

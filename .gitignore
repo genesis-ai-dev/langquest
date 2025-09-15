@@ -16,6 +16,9 @@ ios/
 .env.*
 !.env.*.example
 
+/modules/**/android/build
+/public/@powersync
+
 # macOS
 **/.DS_Store
 

@@ -7,7 +7,7 @@ import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
 import type { ButtonProps } from './button';
 import { Button } from './button';
-import { Icon, MotiIcon } from './icon';
+import { Icon } from './icon';
 import * as Slot from './slot';
 
 // Consumers control placement and alignment by composing these parts.
@@ -82,21 +82,13 @@ function SpeedDialTrigger({
       className={className}
       {...props}
     >
-      <MotiIcon
-        as={open ? iconOpen : iconClosed}
-        strokeWidth={2.5}
-        size={20}
-        from={{
-          rotate: '0deg'
-        }}
-        animate={{
-          rotate: open ? '90deg' : '0deg'
-        }}
-        transition={{
-          duration: 150,
-          type: 'timing'
-        }}
-      />
+      <MotiView
+        from={{ rotate: '0deg' }}
+        animate={{ rotate: open ? '90deg' : '0deg' }}
+        transition={{ duration: 150, type: 'timing' }}
+      >
+        <Icon as={open ? iconOpen : iconClosed} strokeWidth={2.5} size={20} />
+      </MotiView>
     </Button>
   );
 }

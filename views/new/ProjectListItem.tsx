@@ -28,7 +28,13 @@ import { CrownIcon, LockIcon, UserIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-export function ProjectListItem({ project }: { project: Project }) {
+export function ProjectListItem({
+  project,
+  className
+}: {
+  project: Project;
+  className?: string;
+}) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { goToProject } = useAppNavigation();
@@ -129,11 +135,11 @@ export function ProjectListItem({ project }: { project: Project }) {
   return (
     <>
       <Pressable
-        className="flex-1"
+        className={className}
         key={project.id}
         onPress={() => goToProject({ id: project.id, name: project.name })}
       >
-        <Card>
+        <Card className={className}>
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">

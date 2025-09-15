@@ -18,13 +18,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { usePostHog } from '@/hooks/usePostHog';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'expo-router';
 import { InfoIcon, MailIcon, UserIcon } from 'lucide-react-native';
-import { usePostHog } from 'posthog-react-native';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert as RNAlert, ScrollView, View } from 'react-native';
@@ -142,7 +142,7 @@ export default function ProfileView() {
 
   return (
     <Form {...form}>
-      <ScrollView className="flex-1 bg-background">
+      <ScrollView className="mb-safe flex-1 bg-background">
         <View className="flex flex-col gap-4 p-6">
           <Text className="text-2xl font-bold text-foreground">
             {t('profile')}

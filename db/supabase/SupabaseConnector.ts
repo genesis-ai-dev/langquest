@@ -1,9 +1,23 @@
+// Import from native SDK - will be empty on web
 import type {
-  AbstractPowerSyncDatabase,
-  CrudEntry,
-  PowerSyncBackendConnector
+  AbstractPowerSyncDatabase as AbstractPowerSyncDatabaseNative,
+  CrudEntry as CrudEntryNative,
+  PowerSyncBackendConnector as PowerSyncBackendConnectorNative
 } from '@powersync/react-native';
-import { UpdateType } from '@powersync/react-native';
+import { UpdateType as UpdateTypeNative } from '@powersync/react-native';
+
+// Import from web SDK - will be empty on native
+import { UpdateType as UpdateTypeWeb } from '@powersync/web';
+
+// Use the correct types based on platform
+
+type AbstractPowerSyncDatabase = AbstractPowerSyncDatabaseNative;
+
+type CrudEntry = CrudEntryNative;
+
+type PowerSyncBackendConnector = PowerSyncBackendConnectorNative;
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const UpdateType = UpdateTypeNative || UpdateTypeWeb;
 
 import type { Profile } from '@/database_services/profileService';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';

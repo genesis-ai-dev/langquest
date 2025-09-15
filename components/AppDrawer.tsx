@@ -23,6 +23,7 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -582,20 +583,23 @@ export default function AppDrawer({
         goToSettings();
         setDrawerIsVisible(false);
       }
-    },
-    {
+    }
+  ] as const;
+
+  if (Platform.OS !== 'web') {
+    drawerItems.push({
       name: isBackingUp ? t('backingUp') : t('backup'),
       icon: isBackingUp ? 'hourglass-outline' : 'save',
       onPress: confirmAndStartBackup,
       disabled: !systemReady || isOperationActive
-    },
-    {
+    });
+    drawerItems.push({
       name: isRestoring ? t('restoring') : t('restoreBackup'),
       icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline',
       onPress: handleRestore,
       disabled: !systemReady || isOperationActive
-    }
-  ] as const;
+    });
+  }
 
   // Add logout for development
   if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || __DEV__) {

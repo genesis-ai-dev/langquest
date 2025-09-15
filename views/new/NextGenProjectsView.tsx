@@ -9,12 +9,13 @@ import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { cn } from '@/utils/styleUtils';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
 import { SearchIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 type TabType = 'my' | 'all';
@@ -221,6 +222,8 @@ export default function NextGenProjectsView() {
 
   const data = projects.pages.flatMap((page) => page.data);
 
+  const dimensions = useWindowDimensions();
+
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-col gap-4">
@@ -257,13 +260,20 @@ export default function NextGenProjectsView() {
         <ProjectListSkeleton />
       ) : (
         <LegendList
+          key={`${activeTab}-${dimensions.width}`}
           data={data}
           columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{ paddingBottom: data.length * 12 }}
+          numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
           keyExtractor={(item) => item.id}
           recycleItems
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => <ProjectListItem project={item} />}
+          estimatedItemSize={175}
+          maintainVisibleContentPosition
+          renderItem={({ item }) => (
+            <ProjectListItem
+              project={item}
+              className={cn(dimensions.width > 768 && 'h-[212px]')}
+            />
+          )}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) {
               fetchNextPage();

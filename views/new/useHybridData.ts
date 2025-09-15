@@ -1,18 +1,23 @@
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { CompilableQuery } from '@powersync/react-native';
+// Import from native SDK - will be empty on web
+import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
+// Import from web SDK - will be empty on native
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
+import type { CompilableQuery as CompilableQueryWeb } from '@powersync/web';
 import type {
-  UseInfiniteQueryOptions,
-  UseQueryOptions
+    UseInfiniteQueryOptions,
+    UseQueryOptions
 } from '@tanstack/react-query';
 import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  useQuery as useTanstackQuery
+    useInfiniteQuery,
+    useMutation,
+    useQueryClient,
+    useQuery as useTanstackQuery
 } from '@tanstack/react-query';
 import React from 'react';
+// Use the correct type based on platform
+type CompilableQuery<T = unknown> = CompilableQueryNative<T> | CompilableQueryWeb<T>;
 
 type QueryKeyParam = string | number | boolean | null | undefined;
 
