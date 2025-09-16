@@ -7,11 +7,15 @@ export async function deleteIfExists(uri: string | null | undefined) {
   await FileSystem.deleteAsync(uri ?? '');
 }
 
+export async function getFileInfo(uri: string | null | undefined) {
+  return await FileSystem.getInfoAsync(uri ?? '');
+}
+
 /**
  * Check if a file exists at the given uri.
  */
 export async function fileExists(uri: string | null | undefined) {
-  const fileInfo = await FileSystem.getInfoAsync(uri ?? '');
+  const fileInfo = await getFileInfo(uri);
   return fileInfo.exists;
 }
 
@@ -32,11 +36,11 @@ export async function writeFile(
   const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
   const dir = fileURI.split('/').slice(0, -1).join('/');
   await ensureDir(dir);
-  if (typeof data !== 'string') {
-    await FileSystem.writeAsStringAsync(fileURI, data);
-    return;
-  }
   await FileSystem.writeAsStringAsync(fileURI, data, { encoding });
+}
+
+export async function moveFile(sourceUri: string, targetUri: string) {
+  await FileSystem.moveAsync({ from: sourceUri, to: targetUri });
 }
 
 export async function readFile(

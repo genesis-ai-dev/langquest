@@ -84,6 +84,7 @@ export function useDrizzleStudio(_db: unknown) {
       } catch {
         // ignore
       }
+      console.error('useDrizzleStudio transactionFn error', error);
       results.push({ error: getErrorMessage(error) });
     }
     client.sendMessage(`transaction-${e.id}`, results);

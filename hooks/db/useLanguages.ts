@@ -1,5 +1,6 @@
 import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
@@ -8,17 +9,26 @@ import { useHybridQuery } from '../useHybridQuery';
 export type Language = InferSelectModel<typeof language>;
 
 export function useUIReadyLanguages() {
-  const { db, supabaseConnector } = system;
-
   // Main query using hybrid realtime query
   const {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['languages'],
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
+  } = useHybridData<Language>({
+    dataType: 'languages',
+    queryKeyParams: ['ui-ready'],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: (languageTable, { eq, and }) =>
+          and(eq(languageTable.active, true), eq(languageTable.ui_ready, true))
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
         .from('language')
         .select('*')
         .eq('active', true)
@@ -26,12 +36,7 @@ export function useUIReadyLanguages() {
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: and(eq(language.active, true), eq(language.ui_ready, true))
-      })
-    )
+    }
   });
 
   return { languages, isLanguagesLoading, ...rest };

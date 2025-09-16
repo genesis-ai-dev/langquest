@@ -11,3 +11,5 @@ export const statusOptions = [
   'withdrawn'
   // 'expired'
 ] as const;
+
+export const templateOptions = ['unstructured', 'bible'] as const;

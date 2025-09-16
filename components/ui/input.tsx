@@ -32,9 +32,9 @@ const inputTextVariants = cva(
   {
     variants: {
       size: {
-        sm: 'native:text-sm native:leading-4 text-sm',
-        default: 'native:text-base native:leading-5 text-base',
-        lg: 'native:text-lg native:leading-5'
+        sm: 'native:leading-4 text-sm',
+        default: 'native:leading-5 text-base',
+        lg: 'native:leading-5 text-lg'
       }
     },
     defaultVariants: {
@@ -126,8 +126,8 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
       placeholderClassName,
       prefix,
       suffix,
-      prefixStyling = true,
-      suffixStyling = true,
+      prefixStyling = false,
+      suffixStyling = false,
       hideEye,
       secureTextEntry,
       mask,

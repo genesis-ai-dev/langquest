@@ -58,7 +58,7 @@ export default function ProfileView() {
 
   const formSchema = z
     .object({
-      selectedLanguageId: z.string().min(1, { message: 'selectLanguage' }),
+      selectedLanguageId: z.string().min(1, { message: t('selectLanguage') }),
       currentPassword: z.string().optional(),
       newPassword: z.string().optional(),
       confirmPassword: z.string().optional(),

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
+import type { Option } from './select';
 import * as Slot from './slot';
 import { Text } from './text';
 
@@ -46,11 +47,39 @@ export const transformInputProps = <
 >(
   props: ControllerRenderProps<TFieldValues, TName>
 ) => {
+  const { disabled, ...rest } = props;
   return {
-    ...props,
+    ...rest,
     onChangeText: props.onChange,
-    editable: !props.disabled
+    editable: !disabled
   };
+};
+
+export const transformSelectProps = <
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+>(
+  props: ControllerRenderProps<TFieldValues, TName>,
+  valueExtractor: (value: TFieldValues[TName]) => Option
+) => {
+  const { value, onChange, ...rest } = props;
+  return {
+    ...rest,
+    onValueChange: (option: Option) => {
+      onChange(option?.value);
+    },
+    value: valueExtractor(value) ?? { value: '', label: '' }
+  };
+};
+
+export const transformSwitchProps = <
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+>(
+  props: ControllerRenderProps<TFieldValues, TName>
+) => {
+  const { value, onChange, ...rest } = props;
+  return { ...rest, onCheckedChange: onChange, checked: !!value };
 };
 
 const useFormField = () => {

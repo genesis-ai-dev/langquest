@@ -91,6 +91,48 @@ export const localizations = {
     tok_pisin: 'Confirm password',
     indonesian: 'Konfirmasi Kata Sandi'
   },
+  createObject: {
+    english: 'Create',
+    spanish: 'Crear',
+    brazilian_portuguese: 'Criar',
+    tok_pisin: 'Create',
+    indonesian: 'Buat'
+  },
+  projectName: {
+    english: 'Project Name',
+    spanish: 'Nombre del Proyecto',
+    brazilian_portuguese: 'Nome do Projeto',
+    tok_pisin: 'Project Name',
+    indonesian: 'Nama Proyek'
+  },
+  newProject: {
+    english: 'New Project',
+    spanish: 'Nuevo Proyecto',
+    brazilian_portuguese: 'Novo Projeto',
+    tok_pisin: 'Nupela Project',
+    indonesian: 'Proyek Baru'
+  },
+  description: {
+    english: 'Description',
+    spanish: 'Descripción',
+    brazilian_portuguese: 'Descrição',
+    tok_pisin: 'Description',
+    indonesian: 'Deskripsi'
+  },
+  visible: {
+    english: 'Visible',
+    spanish: 'Visible',
+    brazilian_portuguese: 'Visible',
+    tok_pisin: 'Visible',
+    indonesian: 'Visible'
+  },
+  private: {
+    english: 'Private',
+    spanish: 'Privado',
+    brazilian_portuguese: 'Privado',
+    tok_pisin: 'Private',
+    indonesian: 'Private'
+  },
   date: {
     english: 'Date',
     spanish: 'Fecha',
@@ -159,6 +201,20 @@ export const localizations = {
     brazilian_portuguese: 'E-mail é obrigatório',
     tok_pisin: 'Email i mas',
     indonesian: 'Email diperlukan'
+  },
+  nameRequired: {
+    english: 'Name is required',
+    spanish: 'Nombre es requerido',
+    brazilian_portuguese: 'Nome é obrigatório',
+    tok_pisin: 'Name i mas',
+    indonesian: 'Nama diperlukan'
+  },
+  descriptionTooLong: {
+    english: 'Description must be less than {max} characters',
+    spanish: 'La descripción debe tener menos de {max} caracteres',
+    brazilian_portuguese: 'A descrição deve ter menos de {max} caracteres',
+    tok_pisin: 'Description i no sem long {max} character',
+    indonesian: 'Deskripsi harus kurang dari {max} karakter'
   },
   enterTranslation: {
     english: 'Enter your translation here',

@@ -111,11 +111,11 @@ export const NewTranslationModal: React.FC<NewTranslationModalProps> = ({
     setAudioUri(uri);
   }
 
-  function handleClose() {
+  async function handleClose() {
     // Stop any playing audio when modal closes
     void stopCurrentSound();
 
-    if (audioUri) deleteIfExists(audioUri);
+    if (audioUri) await deleteIfExists(audioUri);
     onClose();
   }
 

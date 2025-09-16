@@ -1,5 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { fileExists, readFile, writeFile } from '@/utils/fileUtils';
+import { getFileInfo, moveFile } from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -212,13 +212,11 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
-    writeFile(localUri, base64Data, { encoding: 'base64' });
-
-    if (fileExists(localUri)) {
-      // Note: We can't get file size from fileUtils, so we'll estimate from base64
-      photoAttachment.size = Math.floor((base64Data.length * 3) / 4);
+    const fileInfo = await getFileInfo(localUri);
+    if (fileInfo.exists) {
+      await moveFile(localUri, base64Data);
+      photoAttachment.size = fileInfo.size;
     }
-
     return this.saveToQueue(photoAttachment);
   }
 
@@ -232,13 +230,11 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     );
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
 
-    // For audio files, we need to copy the file content
-    if (fileExists(tempUri)) {
-      const audioData = readFile(tempUri, { encoding: 'base64' });
-      writeFile(localUri, audioData, { encoding: 'base64' });
+    const fileInfo = await getFileInfo(tempUri);
 
-      // Estimate size from base64 data
-      audioAttachment.size = Math.floor((audioData.length * 3) / 4);
+    if (fileInfo.exists) {
+      await moveFile(tempUri, localUri);
+      audioAttachment.size = fileInfo.size;
     }
 
     return this.saveToQueue(audioAttachment);

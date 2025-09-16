@@ -68,6 +68,7 @@ export function useDrizzleStudio(db: OPSqlite.DB | null) {
         await db.execute('COMMIT');
       } catch (error: unknown) {
         await db.execute('ROLLBACK').catch(() => undefined);
+        console.error('useDrizzleStudio transactionFn error', error);
         results.push({ error: getErrorMessage(error) });
       }
       client.sendMessage(`transaction-${e.id}`, results);

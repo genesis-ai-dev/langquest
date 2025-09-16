@@ -13,7 +13,7 @@ import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 /**
  * Helper function to replace SQL placeholders (?) with actual parameter values
  */
-function substituteParams(sql: string, params: unknown[]): string {
+export function substituteParams(sql: string, params: unknown[]): string {
   let paramIndex = 0;
   return sql.replace(/\?/g, () => {
     if (paramIndex >= params.length) {

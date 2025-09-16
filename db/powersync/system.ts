@@ -44,7 +44,6 @@ const Column = ColumnNative || ColumnWeb;
 const ColumnType = ColumnTypeNative || ColumnTypeWeb;
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Schema = SchemaNative || SchemaWeb;
-// // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 // const SyncClientImplementation =
 //   SyncClientImplementationNative || SyncClientImplementationWeb;
 
@@ -81,8 +80,20 @@ export class System {
       ...tablesOnly
     } = drizzleSchema;
 
+    // const localOnlyTableSchema = Object.values(
+    //   tablesOnly as Record<string, SQLiteTableWithColumns<any>>
+    // ).map((table) => {
+    //   return {
+    //     tableDefinition: { ...table, name: table._.name + '_local' },
+    //     options: {
+    //       localOnly: true
+    //     }
+    //   } satisfies DrizzleTableWithPowerSyncOptions;
+    // });
+
     const schema = new Schema([
       ...new DrizzleAppSchema(tablesOnly).tables,
+      // ...new DrizzleAppSchema(localOnlyTableSchema).tables,
       new AttachmentTable({
         additionalColumns: [
           new Column({ name: 'storage_type', type: ColumnType.TEXT })

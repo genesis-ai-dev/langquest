@@ -6,7 +6,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { Project } from '@/database_services/projectService';
 import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
@@ -15,12 +14,46 @@ import { cn } from '@/utils/styleUtils';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
-import { PlusIcon, SearchIcon } from 'lucide-react-native';
+import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  useWindowDimensions,
+  View
+} from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
+// New imports for bottom sheet + form
+import { LanguageSelect } from '@/components/language-select';
+import {
+  BottomSheetHandle,
+  BottomSheetModal,
+  BottomSheetModalProvider,
+  BottomSheetView
+} from '@/components/ui/bottom-sheet';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps,
+  transformSwitchProps
+} from '@/components/ui/form';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { templateOptions } from '@/db/constants';
+import { useLocalStore } from '@/store/localStore';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { useSharedValue } from 'react-native-reanimated';
+import { z } from 'zod';
+
 type TabType = 'my' | 'all';
+
+type Project = typeof project.$inferSelect;
 
 const { db } = system;
 
@@ -29,6 +62,66 @@ export default function NextGenProjectsView() {
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
+
+  // Create modal state
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const bottomSheetRef = React.useRef<BottomSheetModal>(null);
+  const animatedIndex = useSharedValue(0);
+  const animatedPosition = useSharedValue(0);
+
+  const currentLanguageId = useLocalStore((state) => state.languageId);
+
+  const formSchema = z.object({
+    name: z.string({ required_error: t('nameRequired') }),
+    target_language_id: z.string({ required_error: t('selectLanguage') }),
+    description: z
+      .string()
+      .max(196, {
+        message: t('descriptionTooLong', {
+          max: 196
+        })
+      })
+      .optional(),
+    private: z.boolean(),
+    visible: z.boolean(),
+    template: z.enum(templateOptions)
+  });
+
+  type FormData = z.infer<typeof formSchema>;
+
+  const { mutateAsync: createProject, isPending: isCreatingProject } =
+    useMutation({
+      mutationFn: async (values: FormData) => {
+        // insert into local storage
+        await system.db.insert(project).values({
+          ...values,
+          name: values.name.trim(),
+          description: values.description?.trim(),
+          creator_id: currentUser?.id
+        });
+      },
+      onSuccess: () => {
+        // Close and refresh
+        form.reset();
+        bottomSheetRef.current?.dismiss();
+        setIsCreateOpen(false);
+        void currentQuery.refetch();
+      },
+      onError: (error) => {
+        console.error('Failed to create project', error);
+      }
+    });
+
+  const form = useForm<FormData>({
+    defaultValues: {
+      private: true,
+      visible: false,
+      template: 'unstructured',
+      target_language_id: currentLanguageId ?? undefined
+    },
+    resolver: zodResolver(formSchema),
+    disabled: isCreatingProject && !currentUser?.id
+  });
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -229,73 +322,249 @@ export default function NextGenProjectsView() {
   const dimensions = useWindowDimensions();
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
-      <View className="flex flex-col gap-4">
-        {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as TabType)}
-        >
-          <TabsList className="w-full">
-            <TabsTrigger value="my">
-              <Text>{t('myProjects')}</Text>
-            </TabsTrigger>
-            <TabsTrigger value="all">
-              <Text>{t('allProjects')}</Text>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <BottomSheetModalProvider>
+      <View className="flex flex-1 flex-col gap-6 p-6">
+        <View className="flex flex-col gap-4">
+          {/* Tabs */}
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as TabType)}
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="my">
+                <Text>{t('myProjects')}</Text>
+              </TabsTrigger>
+              <TabsTrigger value="all">
+                <Text>{t('allProjects')}</Text>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        {/* Search and filter */}
-        <View className="flex flex-row items-center gap-2">
-          <Input
-            className="flex-1"
-            placeholder={t('searchProjects')}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            prefix={SearchIcon}
-            prefixStyling={false}
-            size="sm"
-          />
-          <Button size="icon-lg">
-            <Icon as={PlusIcon} />
-          </Button>
+          {/* Search and filter */}
+          <View className="flex flex-row items-center gap-2">
+            <Input
+              className="flex-1"
+              placeholder={t('searchProjects')}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              prefix={SearchIcon}
+              prefixStyling={false}
+              size="sm"
+            />
+            <Button
+              size="icon-lg"
+              onPress={() => {
+                if (isCreateOpen) {
+                  if (Platform.OS !== 'web') bottomSheetRef.current?.dismiss();
+                  setIsCreateOpen(false);
+                } else {
+                  if (Platform.OS !== 'web') bottomSheetRef.current?.present();
+                  setIsCreateOpen(true);
+                }
+              }}
+            >
+              <Icon as={PlusIcon} />
+            </Button>
+          </View>
         </View>
+
+        {isLoading ? (
+          <ProjectListSkeleton />
+        ) : (
+          <LegendList
+            key={`${activeTab}-${dimensions.width}`}
+            data={data}
+            columnWrapperStyle={{ gap: 12 }}
+            numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
+            keyExtractor={(item) => item.id}
+            recycleItems
+            estimatedItemSize={175}
+            maintainVisibleContentPosition
+            renderItem={({ item }) => (
+              <ProjectListItem
+                project={item}
+                className={cn(dimensions.width > 768 && 'h-[212px]')}
+              />
+            )}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() =>
+              isFetchingNextPage && (
+                <View className="p-4">
+                  <ActivityIndicator size="small" className="text-primary" />
+                </View>
+              )
+            }
+          />
+        )}
       </View>
 
-      {isLoading ? (
-        <ProjectListSkeleton />
-      ) : (
-        <LegendList
-          key={`${activeTab}-${dimensions.width}`}
-          data={data}
-          columnWrapperStyle={{ gap: 12 }}
-          numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
-          keyExtractor={(item) => item.id}
-          recycleItems
-          estimatedItemSize={175}
-          maintainVisibleContentPosition
-          renderItem={({ item }) => (
-            <ProjectListItem
-              project={item}
-              className={cn(dimensions.width > 768 && 'h-[212px]')}
+      {/* Create Project Bottom Sheet */}
+      <BottomSheetModal
+        ref={bottomSheetRef}
+        index={-1}
+        open={isCreateOpen}
+        snapPoints={['70%']}
+        handleComponent={() =>
+          Platform.OS !== 'web' && (
+            <BottomSheetHandle
+              className="mt-2 bg-muted"
+              animatedIndex={animatedIndex}
+              animatedPosition={animatedPosition}
+            />
+          )
+        }
+      >
+        <BottomSheetView className="flex-1 bg-background px-4 pb-8">
+          {Platform.OS === 'web' && (
+            <BottomSheetHandle
+              className="mt-2 bg-muted"
+              animatedIndex={animatedIndex}
+              animatedPosition={animatedPosition}
             />
           )}
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={() =>
-            isFetchingNextPage && (
-              <View className="p-4">
-                <ActivityIndicator size="small" className="text-primary" />
+
+          <Form {...form}>
+            <View className="flex flex-col gap-4">
+              <Text className="mt-2 text-lg font-semibold">
+                {t('newProject')}
+              </Text>
+
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...transformInputProps(field)}
+                        placeholder={t('projectName')}
+                        size="sm"
+                        prefix={FolderPenIcon}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="target_language_id"
+                render={({ field }) => {
+                  return (
+                    <FormItem>
+                      <FormControl>
+                        <LanguageSelect
+                          {...field}
+                          onChange={(value) => field.onChange(value.id)}
+                        />
+                        {/* <Select
+                          {...transformSelectProps(field, (value) =>
+                            getLanguageOption(
+                              languages.find((l) => l.id === value)
+                            )
+                          )}
+                        >
+                          <SelectTrigger>
+                            <View className="flex flex-row items-center justify-start gap-2">
+                              <Icon
+                                as={LanguagesIcon}
+                                className="text-muted-foreground"
+                              />
+                              <SelectValue
+                                className="flex-1 text-base text-foreground"
+                                placeholder={t('selectLanguage')}
+                              />
+                            </View>
+                          </SelectTrigger>
+                          <SelectContent className="w-full">
+                            {languages
+                              .filter(
+                                (l) => (l.native_name || l.english_name) && l.id
+                              )
+                              .map((lang) => (
+                                <SelectItem
+                                  key={lang.id}
+                                  {...getLanguageOption(lang)!}
+                                >
+                                  {getLanguageOption(lang)!.label}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select> */}
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...transformInputProps(field)}
+                        placeholder={t('description')}
+                        size="sm"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <View className="mt-1 flex-row items-center justify-between">
+                <Text>{t('visible') || 'Visible'}</Text>
+                <FormField
+                  control={form.control}
+                  name="visible"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Switch {...transformSwitchProps(field)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </View>
-            )
-          }
-        />
-      )}
-    </View>
+              <View className="flex-row items-center justify-between">
+                <Text>{t('private') || 'Private'}</Text>
+                <FormField
+                  control={form.control}
+                  name="private"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Switch {...transformSwitchProps(field)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </View>
+
+              {/* Submit */}
+              <Button
+                disabled={isCreatingProject}
+                onPress={form.handleSubmit((data) => createProject(data))}
+              >
+                <Text className="text-sm font-medium text-primary-foreground">
+                  {t('createObject')}
+                </Text>
+              </Button>
+            </View>
+          </Form>
+        </BottomSheetView>
+      </BottomSheetModal>
+    </BottomSheetModalProvider>
   );
 }

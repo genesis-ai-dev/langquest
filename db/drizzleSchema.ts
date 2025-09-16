@@ -95,7 +95,8 @@ export const project = sqliteTable(
     creator_id: text().references(() => profile.id),
     private: int({ mode: 'boolean' }).notNull().default(false),
     visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
+    download_profiles: text({ mode: 'json' }).$type<string[]>(),
+    template: text({ enum: ['unstructured', 'bible'] }).default('unstructured')
   },
   (table) => [
     index('name_idx').on(table.name),
