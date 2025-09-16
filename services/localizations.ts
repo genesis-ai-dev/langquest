@@ -112,6 +112,12 @@ export const localizations = {
     tok_pisin: 'Nupela Project',
     indonesian: 'Proyek Baru'
   },
+  newQuest: {
+    english: 'New Quest'
+  },
+  questName: {
+    english: 'Quest Name'
+  },
   description: {
     english: 'Description',
     spanish: 'Descripción',

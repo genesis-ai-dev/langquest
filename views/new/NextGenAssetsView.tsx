@@ -2,6 +2,8 @@ import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -9,7 +11,9 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
+import { eq } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +22,10 @@ import {
   TextInput,
   View
 } from 'react-native';
+import { useHybridData } from './useHybridData';
 
+import AudioSegmentItem from '@/components/AudioSegmentItem';
+import InsertionCursor from '@/components/InsertionCursor';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import {
@@ -27,6 +34,8 @@ import {
   SpeedDialItems,
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
+import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
+import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
@@ -34,10 +43,20 @@ import { FlagIcon, InfoIcon, SettingsIcon } from 'lucide-react-native';
 import { AssetListItem } from './AssetListItem';
 
 type Asset = typeof asset.$inferSelect;
+type Project = typeof project.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
 };
+
+// Audio segment type for templated project creation
+interface AudioSegment {
+  id: string;
+  uri: string;
+  duration: number;
+  waveformData: number[];
+  name: string;
+}
 
 export default function NextGenAssetsView() {
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
@@ -48,7 +67,147 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
 
+  // State for templated project creation mode
+  const [audioSegments, setAudioSegments] = React.useState<AudioSegment[]>([]);
+  const [insertionIndex, setInsertionIndex] = React.useState(0);
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [currentWaveformData, setCurrentWaveformData] = React.useState<
+    number[]
+  >([]);
+  const [playingSegmentId, setPlayingSegmentId] = React.useState<string | null>(
+    null
+  );
+
   const { quest } = useQuestById(currentQuestId);
+
+  // Get project data to check if it's templated
+  const { data: projectData } = useHybridData<Project>({
+    dataType: 'project',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findMany({
+        where: eq(project.id, currentProjectId || ''),
+        limit: 1
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .overrideTypes<Project[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId
+  });
+  const currentProject = projectData[0];
+  const isTemplatedProject = currentProject?.template;
+
+  // Handlers for templated project creation
+  const handleRecordingStart = React.useCallback(() => {
+    setIsRecording(true);
+    setCurrentWaveformData([]);
+  }, []);
+
+  const handleRecordingStop = React.useCallback(() => {
+    setIsRecording(false);
+    setCurrentWaveformData([]);
+  }, []);
+
+  const handleRecordingComplete = React.useCallback(
+    (uri: string, duration: number, waveformData: number[]) => {
+      const newSegment: AudioSegment = {
+        id: `segment_${Date.now()}`,
+        uri,
+        duration,
+        waveformData,
+        name: `Segment ${audioSegments.length + 1}`
+      };
+
+      // TODO: create a record in the asset_local table for local-only temp storage
+      // TODO: save the audio file to the device, then add to attachment queue, etc. like in a regular translation creation
+
+      setAudioSegments((prev) => {
+        const newSegments = [...prev];
+        newSegments.splice(insertionIndex, 0, newSegment);
+        return newSegments;
+      });
+
+      // Move insertion cursor to after the new segment
+      setInsertionIndex((prev) => prev + 1);
+    },
+    [audioSegments.length, insertionIndex]
+  );
+
+  const handleDeleteSegment = React.useCallback(
+    (segmentId: string) => {
+      setAudioSegments((prev) => {
+        const newSegments = prev.filter((segment) => segment.id !== segmentId);
+        // Adjust insertion index if needed
+        const deletedIndex = prev.findIndex(
+          (segment) => segment.id === segmentId
+        );
+        if (deletedIndex < insertionIndex) {
+          setInsertionIndex((prev) => Math.max(0, prev - 1));
+        }
+        return newSegments;
+      });
+    },
+    [insertionIndex]
+  );
+
+  const handleMoveSegmentUp = React.useCallback((segmentId: string) => {
+    setAudioSegments((prev) => {
+      const newSegments = [...prev];
+      const currentIndex = newSegments.findIndex(
+        (segment) => segment.id === segmentId
+      );
+      if (currentIndex > 0) {
+        const currentSegment = newSegments[currentIndex];
+        const previousSegment = newSegments[currentIndex - 1];
+        if (currentSegment && previousSegment) {
+          newSegments[currentIndex] = previousSegment;
+          newSegments[currentIndex - 1] = currentSegment;
+        }
+      }
+      return newSegments;
+    });
+  }, []);
+
+  const handleMoveSegmentDown = React.useCallback((segmentId: string) => {
+    setAudioSegments((prev) => {
+      const newSegments = [...prev];
+      const currentIndex = newSegments.findIndex(
+        (segment) => segment.id === segmentId
+      );
+      if (currentIndex < newSegments.length - 1) {
+        const currentSegment = newSegments[currentIndex];
+        const nextSegment = newSegments[currentIndex + 1];
+        if (currentSegment && nextSegment) {
+          newSegments[currentIndex] = nextSegment;
+          newSegments[currentIndex + 1] = currentSegment;
+        }
+      }
+      return newSegments;
+    });
+  }, []);
+
+  const handlePlaySegment = React.useCallback((uri: string) => {
+    // TODO: Implement audio playback
+    console.log('Playing segment:', uri);
+  }, []);
+
+  // Update insertion index based on scroll position
+  const handleScroll = React.useCallback(
+    (event: any) => {
+      // TODO: Calculate insertion index based on scroll position
+      // For now, just keep it at the end
+      setInsertionIndex(audioSegments.length);
+    },
+    [audioSegments.length]
+  );
 
   // Debounce the search query
   React.useEffect(() => {
@@ -210,6 +369,81 @@ export default function NextGenAssetsView() {
     return (
       <View style={sharedStyles.container}>
         <Text style={sharedStyles.title}>{t('noQuestSelected')}</Text>
+      </View>
+    );
+  }
+
+  // Show templated project creation mode
+  if (isTemplatedProject) {
+    return (
+      <View style={sharedStyles.container}>
+        <Text style={sharedStyles.title}>
+          Create Audio Content - {currentProject?.template}
+        </Text>
+
+        {/* Walkie Talkie Recorder */}
+        <WalkieTalkieRecorder
+          onRecordingComplete={handleRecordingComplete}
+          onRecordingStart={handleRecordingStart}
+          onRecordingStop={handleRecordingStop}
+          isRecording={isRecording}
+        />
+
+        {/* Current recording waveform */}
+        {isRecording && (
+          <View style={styles.recordingContainer}>
+            <Text style={styles.recordingLabel}>Recording...</Text>
+            <WaveformVisualizer
+              waveformData={currentWaveformData}
+              isRecording={true}
+              width={300}
+              height={60}
+            />
+          </View>
+        )}
+
+        {/* Audio Segments List */}
+        <View style={styles.segmentsContainer}>
+          <Text style={styles.segmentsTitle}>
+            Audio Segments ({audioSegments.length})
+          </Text>
+
+          <View style={styles.segmentsList}>
+            {audioSegments.map((segment, index) => (
+              <React.Fragment key={segment.id}>
+                {/* Insertion cursor */}
+                {index === insertionIndex && (
+                  <InsertionCursor visible={true} position={index} />
+                )}
+
+                {/* Audio segment */}
+                <AudioSegmentItem
+                  segment={segment}
+                  onDelete={handleDeleteSegment}
+                  onMoveUp={handleMoveSegmentUp}
+                  onMoveDown={handleMoveSegmentDown}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < audioSegments.length - 1}
+                  onPlay={handlePlaySegment}
+                  isPlaying={playingSegmentId === segment.id}
+                />
+              </React.Fragment>
+            ))}
+
+            {/* Insertion cursor at the end */}
+            {audioSegments.length === 0 ||
+            insertionIndex === audioSegments.length ? (
+              <InsertionCursor visible={true} position={audioSegments.length} />
+            ) : null}
+          </View>
+        </View>
+
+        {/* TODO: Add save/export functionality */}
+        <View style={styles.todoContainer}>
+          <Text style={styles.todoText}>
+            TODO: Save audio segments to device and create assets
+          </Text>
+        </View>
       </View>
     );
   }
@@ -444,6 +678,50 @@ export const styles = StyleSheet.create({
   emptyText: {
     color: colors.textSecondary,
     fontSize: fontSizes.medium
+  },
+  // Templated project creation styles
+  recordingContainer: {
+    alignItems: 'center',
+    marginVertical: spacing.medium,
+    padding: spacing.medium,
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    marginHorizontal: spacing.small
+  },
+  recordingLabel: {
+    fontSize: fontSizes.medium,
+    color: colors.error,
+    fontWeight: 'bold',
+    marginBottom: spacing.small
+  },
+  segmentsContainer: {
+    flex: 1,
+    marginTop: spacing.medium
+  },
+  segmentsTitle: {
+    fontSize: fontSizes.large,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: spacing.medium,
+    paddingHorizontal: spacing.small
+  },
+  segmentsList: {
+    flex: 1
+  },
+  todoContainer: {
+    backgroundColor: colors.inputBackground,
+    borderRadius: 8,
+    padding: spacing.medium,
+    margin: spacing.small,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderStyle: 'dashed'
+  },
+  todoText: {
+    fontSize: fontSizes.small,
+    color: colors.error,
+    textAlign: 'center',
+    fontStyle: 'italic'
   }
   // floatingButton: {
   //   backgroundColor: colors.primary,

@@ -93,11 +93,22 @@ export default function NextGenProjectsView() {
     useMutation({
       mutationFn: async (values: FormData) => {
         // insert into local storage
-        await system.db.insert(project).values({
-          ...values,
-          name: values.name.trim(),
-          description: values.description?.trim(),
-          creator_id: currentUser?.id
+        const newlyCreatedProjectData = await system.db
+          .insert(project)
+          .values({
+            ...values,
+            name: values.name.trim(),
+            description: values.description?.trim(),
+            creator_id: currentUser!.id,
+            download_profiles: [currentUser!.id]
+          })
+          .returning();
+        const projectId = newlyCreatedProjectData[0]!.id.toString();
+        await system.db.insert(profile_project_link).values({
+          id: `${currentUser!.id}_${projectId}`,
+          profile_id: currentUser!.id,
+          project_id: projectId,
+          membership: 'owner'
         });
       },
       onSuccess: () => {
