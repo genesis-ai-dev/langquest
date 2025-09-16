@@ -6,6 +6,7 @@
     "start": "expo start --dev-client",
     "generate-icon-types": "ts-node ./scripts/generate-icon-types.ts",
     "generate-env": "npx tsx ./scripts/generate-env.ts",
+    "generate-local-tables": "npx tsx ./scripts/generate-local-tables.ts",
     "reset-project": "node ./scripts/reset-project.js",
     "rebuild-android": "git clean -xdf node_modules package-lock.json android ios && npm i && npx expo prebuild --platform android && cd android && gradlew clean && cd ..",
     "android": "expo run:android --device",

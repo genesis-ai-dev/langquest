@@ -1,5 +1,8 @@
 import '@azure/core-asynciterator-polyfill';
-import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import type {
+  DrizzleTableWithPowerSyncOptions,
+  PowerSyncSQLiteDatabase
+} from '@powersync/drizzle-driver';
 import {
   DrizzleAppSchema,
   wrapPowerSyncWithDrizzle
@@ -31,6 +34,7 @@ import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
 import Logger from 'js-logger';
 import { Platform } from 'react-native';
 import * as drizzleSchema from '../drizzleSchema';
+import * as drizzleSchemaLocal from '../drizzleSchemaLocal';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
@@ -58,7 +62,7 @@ export class System {
   powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
   tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
-  db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  db: PowerSyncSQLiteDatabase<typeof drizzleSchema & typeof drizzleSchemaLocal>;
 
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
@@ -80,20 +84,29 @@ export class System {
       ...tablesOnly
     } = drizzleSchema;
 
-    // const localOnlyTableSchema = Object.values(
-    //   tablesOnly as Record<string, SQLiteTableWithColumns<any>>
-    // ).map((table) => {
-    //   return {
-    //     tableDefinition: { ...table, name: table._.name + '_local' },
-    //     options: {
-    //       localOnly: true
-    //     }
-    //   } satisfies DrizzleTableWithPowerSyncOptions;
-    // });
+    const {
+      quest_tag_categories_local: _local,
+      asset_tag_categories_local: _local2,
+      ...localTablesOnly
+    } = drizzleSchemaLocal;
+
+    const drizzleSchemaWithOptions = {
+      ...tablesOnly,
+      ...Object.entries(localTablesOnly).reduce(
+        (acc, [key, localTable]) => {
+          console.log('key', key, key.replace('_local', ''));
+          acc[key] = {
+            tableDefinition: localTable,
+            options: { localOnly: true }
+          } as DrizzleTableWithPowerSyncOptions;
+          return acc;
+        },
+        {} as Record<string, DrizzleTableWithPowerSyncOptions>
+      )
+    };
 
     const schema = new Schema([
-      ...new DrizzleAppSchema(tablesOnly).tables,
-      // ...new DrizzleAppSchema(localOnlyTableSchema).tables,
+      ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables,
       new AttachmentTable({
         additionalColumns: [
           new Column({ name: 'storage_type', type: ColumnType.TEXT })
@@ -128,7 +141,7 @@ export class System {
     }
 
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
-      schema: drizzleSchema
+      schema: { ...drizzleSchema, ...drizzleSchemaLocal }
     });
 
     if (AppConfig.supabaseBucket) {

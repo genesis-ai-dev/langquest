@@ -44,6 +44,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
+import {
+  profile_project_link_local,
+  project_local
+} from '@/db/drizzleSchemaLocal';
 import { useLocalStore } from '@/store/localStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -93,22 +97,24 @@ export default function NextGenProjectsView() {
     useMutation({
       mutationFn: async (values: FormData) => {
         // insert into local storage
-        const newlyCreatedProjectData = await system.db
-          .insert(project)
-          .values({
-            ...values,
-            name: values.name.trim(),
-            description: values.description?.trim(),
-            creator_id: currentUser!.id,
-            download_profiles: [currentUser!.id]
-          })
-          .returning();
-        const projectId = newlyCreatedProjectData[0]!.id.toString();
-        await system.db.insert(profile_project_link).values({
-          id: `${currentUser!.id}_${projectId}`,
-          profile_id: currentUser!.id,
-          project_id: projectId,
-          membership: 'owner'
+        await db.transaction(async (tx) => {
+          const [newProject] = await tx
+            .insert(project_local)
+            .values({
+              ...values,
+              name: values.name.trim(),
+              description: values.description?.trim(),
+              creator_id: currentUser!.id,
+              download_profiles: [currentUser!.id]
+            })
+            .returning();
+          if (!newProject) throw new Error('Failed to create project');
+          await tx.insert(profile_project_link_local).values({
+            id: `${currentUser!.id}_${newProject.id}`,
+            project_id: newProject.id,
+            profile_id: currentUser!.id,
+            membership: 'owner'
+          });
         });
       },
       onSuccess: () => {
@@ -229,6 +235,44 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
+    async ({ pageParam, pageSize }) => {
+      if (!userId) return [];
+
+      const offset = pageParam * pageSize;
+
+      // Query projects where user is linked through profile_project_link
+      const projectLinks = await system.db
+        .select()
+        .from(profile_project_link_local)
+        .where(
+          and(
+            eq(profile_project_link_local.profile_id, userId),
+            eq(profile_project_link_local.active, true)
+          )
+        );
+
+      if (projectLinks.length === 0) return [];
+
+      const projectIds = projectLinks.map((link) => link.project_id);
+
+      const conditions = [
+        inArray(project.id, projectIds),
+        !showInvisibleContent && eq(project_local.visible, true),
+        searchQuery &&
+          or(
+            like(project_local.name, `%${searchQuery.trim()}%`),
+            like(project_local.description, `%${searchQuery.trim()}%`)
+          )
+      ];
+
+      const projects = await system.db.query.project_local.findMany({
+        where: and(...conditions.filter(Boolean)),
+        limit: pageSize,
+        offset
+      });
+
+      return projects;
+    },
     20 // pageSize
   );
 
@@ -314,6 +358,47 @@ export default function NextGenProjectsView() {
 
       if (error) throw error;
       return data;
+    },
+    async ({ pageParam, pageSize }) => {
+      const offset = pageParam * pageSize;
+
+      // Get projects where user is a member
+      const userProjectLinks = await system.db
+        .select()
+        .from(profile_project_link_local)
+        .where(
+          and(
+            eq(profile_project_link_local.profile_id, userId!),
+            eq(profile_project_link_local.active, true)
+          )
+        );
+
+      const userProjectIds = userProjectLinks.map((link) => link.project_id);
+
+      const trimmed = searchQuery.trim();
+      const conditions = [
+        eq(project_local.active, true),
+        userProjectIds.length > 0 &&
+          notInArray(project_local.id, userProjectIds),
+        !showInvisibleContent ? eq(project_local.visible, true) : undefined,
+        blockUserIds.length > 0 &&
+          notInArray(project_local.creator_id, blockUserIds),
+        blockContentIds.length > 0 &&
+          notInArray(project_local.id, blockContentIds),
+        trimmed &&
+          or(
+            like(project_local.name, `%${trimmed}%`),
+            like(project_local.description, `%${trimmed}%`)
+          )
+      ];
+
+      const projects = await system.db.query.project_local.findMany({
+        where: and(...conditions.filter(Boolean)),
+        limit: pageSize,
+        offset
+      });
+
+      return projects;
     },
     20 // pageSize
   );
