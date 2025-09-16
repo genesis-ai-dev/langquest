@@ -10,6 +10,7 @@ interface WaveformVisualizerProps {
   height?: number;
   color?: string;
   backgroundColor?: string;
+  barCount?: number; // When provided, render at most this many bars (last N → scrolling)
 }
 
 const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
@@ -18,15 +19,22 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
   width = 300,
   height = 60,
   color = colors.primary,
-  backgroundColor = colors.inputBackground
+  backgroundColor = colors.inputBackground,
+  barCount
 }) => {
-  const barWidth = width / waveformData.length;
+  const displayedData = React.useMemo(() => {
+    if (!barCount || waveformData.length <= barCount) return waveformData;
+    // Side-scroll: show last N samples
+    return waveformData.slice(-barCount);
+  }, [waveformData, barCount]);
+
+  const barWidth = width / Math.max(1, displayedData.length);
   const maxHeight = height - 4; // Leave some padding
 
   return (
     <View style={[styles.container, { width, height, backgroundColor }]}>
       <Svg width={width} height={height}>
-        {waveformData.map((amplitude, index) => {
+        {displayedData.map((amplitude, index) => {
           const barHeight = Math.max(2, amplitude * maxHeight);
           const x = index * barWidth;
           const y = (height - barHeight) / 2;

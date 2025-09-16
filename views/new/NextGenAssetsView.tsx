@@ -1,6 +1,9 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { useAudio } from '@/contexts/AudioContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
 import type { asset } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -15,8 +18,10 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
 import { eq } from 'drizzle-orm';
 import React from 'react';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -28,6 +33,7 @@ import AudioSegmentItem from '@/components/AudioSegmentItem';
 import InsertionCursor from '@/components/InsertionCursor';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import { Button } from '@/components/ui/button';
 import {
   SpeedDial,
   SpeedDialItem,
@@ -79,6 +85,8 @@ export default function NextGenAssetsView() {
   );
 
   const { quest } = useQuestById(currentQuestId);
+  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
+  const { currentUser } = useAuth();
 
   // Get project data to check if it's templated
   const { data: projectData } = useHybridData<Project>({
@@ -108,21 +116,94 @@ export default function NextGenAssetsView() {
   // Handlers for templated project creation
   const handleRecordingStart = React.useCallback(() => {
     setIsRecording(true);
-    setCurrentWaveformData([]);
+    // Initialize with full set of bars at 0 volume for side-scrolling
+    setCurrentWaveformData(new Array(60).fill(0.01));
   }, []);
 
   const handleRecordingStop = React.useCallback(() => {
     setIsRecording(false);
-    setCurrentWaveformData([]);
+    // Reset to full set of bars at 0 volume
+    setCurrentWaveformData(new Array(60).fill(0.01));
+  }, []);
+
+  const handleWaveformUpdate = React.useCallback((waveformData: number[]) => {
+    setCurrentWaveformData(waveformData);
   }, []);
 
   const handleRecordingComplete = React.useCallback(
     (uri: string, duration: number, waveformData: number[]) => {
+      // Fixed number of bars for visual consistency - stretch/compress recorded data to fit
+      const DISPLAY_BARS = 48;
+
+      const interpolateToFixedBars = (
+        samples: number[],
+        targetBars: number
+      ) => {
+        if (!samples || samples.length === 0) {
+          return new Array(targetBars).fill(0.01);
+        }
+
+        const result: number[] = [];
+
+        if (samples.length === targetBars) {
+          // Perfect match, just clamp values
+          return samples.map((v) => Math.max(0.01, Math.min(0.99, v)));
+        } else if (samples.length < targetBars) {
+          // Expand: linear interpolation to stretch recorded data across fixed bars
+          for (let i = 0; i < targetBars; i++) {
+            const sourceIndex = (i / (targetBars - 1)) * (samples.length - 1);
+            const lowerIndex = Math.floor(sourceIndex);
+            const upperIndex = Math.min(
+              samples.length - 1,
+              Math.ceil(sourceIndex)
+            );
+            const fraction = sourceIndex - lowerIndex;
+
+            const lowerValue = samples[lowerIndex] ?? 0.01;
+            const upperValue = samples[upperIndex] ?? 0.01;
+            const interpolatedValue =
+              lowerValue + (upperValue - lowerValue) * fraction;
+            result.push(Math.max(0.01, Math.min(0.99, interpolatedValue)));
+          }
+        } else {
+          // Compress: average bins to fit recorded data into fixed bars
+          const binSize = samples.length / targetBars;
+          for (let i = 0; i < targetBars; i++) {
+            const start = Math.floor(i * binSize);
+            const end = Math.floor((i + 1) * binSize);
+            let sum = 0;
+            let count = 0;
+            for (let j = start; j < end && j < samples.length; j++) {
+              sum += samples[j] ?? 0;
+              count++;
+            }
+            const avgValue = count > 0 ? sum / count : 0.01;
+            result.push(Math.max(0.01, Math.min(0.99, avgValue)));
+          }
+        }
+
+        // Apply light smoothing for better visual appearance
+        const smoothed: number[] = [...result];
+        for (let i = 1; i < smoothed.length - 1; i++) {
+          const prev = result[i - 1] ?? 0.01;
+          const curr = result[i] ?? 0.01;
+          const next = result[i + 1] ?? 0.01;
+          // Light 3-point smoothing (80% original, 20% neighbors)
+          smoothed[i] = curr * 0.8 + (prev + next) * 0.1;
+        }
+
+        return smoothed;
+      };
+
+      const interpolatedWaveform = interpolateToFixedBars(
+        waveformData,
+        DISPLAY_BARS
+      );
       const newSegment: AudioSegment = {
         id: `segment_${Date.now()}`,
         uri,
         duration,
-        waveformData,
+        waveformData: interpolatedWaveform,
         name: `Segment ${audioSegments.length + 1}`
       };
 
@@ -194,20 +275,90 @@ export default function NextGenAssetsView() {
     });
   }, []);
 
-  const handlePlaySegment = React.useCallback((uri: string) => {
-    // TODO: Implement audio playback
-    console.log('Playing segment:', uri);
-  }, []);
+  const handlePlaySegment = React.useCallback(
+    async (uri: string, segmentId: string) => {
+      try {
+        const isThisSegmentPlaying = isPlaying && currentAudioId === segmentId;
+
+        if (isThisSegmentPlaying) {
+          await stopCurrentSound();
+          setPlayingSegmentId(null);
+        } else {
+          await playSound(uri, segmentId);
+          setPlayingSegmentId(segmentId);
+        }
+      } catch (error) {
+        console.error('Failed to play audio segment:', error);
+      }
+    },
+    [isPlaying, currentAudioId, playSound, stopCurrentSound]
+  );
+
+  const handleSaveSegments = React.useCallback(async () => {
+    if (
+      !currentUser ||
+      !currentQuestId ||
+      !currentProject?.target_language_id ||
+      audioSegments.length === 0
+    ) {
+      console.warn('Cannot save segments: missing required data');
+      return;
+    }
+
+    try {
+      console.log('Saving audio segments to device and creating assets...');
+
+      const result = await audioSegmentService.saveAudioSegments(
+        audioSegments,
+        currentQuestId,
+        currentProject.target_language_id,
+        currentUser.id
+      );
+
+      console.log(
+        `Successfully saved ${result.assetIds.length} audio segments as assets`
+      );
+
+      // Clear the segments from memory after successful save
+      setAudioSegments([]);
+      setInsertionIndex(0);
+
+      // TODO: Show success message to user
+      // TODO: Refresh the assets list to show the new assets
+    } catch (error) {
+      console.error('Failed to save audio segments:', error);
+      // TODO: Show error message to user
+    }
+  }, [currentUser, currentQuestId, currentProject, audioSegments]);
 
   // Update insertion index based on scroll position
   const handleScroll = React.useCallback(
-    (event: any) => {
-      // TODO: Calculate insertion index based on scroll position
-      // For now, just keep it at the end
-      setInsertionIndex(audioSegments.length);
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset } = event.nativeEvent;
+      const scrollY = contentOffset.y;
+      const itemHeight = 100; // Approximate height of each audio segment item
+      const headerHeight = 60; // Height of the segments title
+
+      // Calculate which item the scroll position is closest to
+      const adjustedScrollY = Math.max(0, scrollY - headerHeight);
+      const itemIndex = Math.floor(adjustedScrollY / itemHeight);
+
+      // Clamp the insertion index to valid range
+      const newInsertionIndex = Math.max(
+        0,
+        Math.min(audioSegments.length, itemIndex)
+      );
+      setInsertionIndex(newInsertionIndex);
     },
     [audioSegments.length]
   );
+
+  // Clear playing segment when audio stops
+  React.useEffect(() => {
+    if (!isPlaying) {
+      setPlayingSegmentId(null);
+    }
+  }, [isPlaying]);
 
   // Debounce the search query
   React.useEffect(() => {
@@ -378,16 +529,8 @@ export default function NextGenAssetsView() {
     return (
       <View style={sharedStyles.container}>
         <Text style={sharedStyles.title}>
-          Create Audio Content - {currentProject?.template}
+          Create Audio Content - {currentProject.template}
         </Text>
-
-        {/* Walkie Talkie Recorder */}
-        <WalkieTalkieRecorder
-          onRecordingComplete={handleRecordingComplete}
-          onRecordingStart={handleRecordingStart}
-          onRecordingStop={handleRecordingStop}
-          isRecording={isRecording}
-        />
 
         {/* Current recording waveform */}
         {isRecording && (
@@ -398,6 +541,7 @@ export default function NextGenAssetsView() {
               isRecording={true}
               width={300}
               height={60}
+              barCount={60}
             />
           </View>
         )}
@@ -408,7 +552,12 @@ export default function NextGenAssetsView() {
             Audio Segments ({audioSegments.length})
           </Text>
 
-          <View style={styles.segmentsList}>
+          <ScrollView
+            style={styles.segmentsList}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={true}
+          >
             {audioSegments.map((segment, index) => (
               <React.Fragment key={segment.id}>
                 {/* Insertion cursor */}
@@ -424,7 +573,7 @@ export default function NextGenAssetsView() {
                   onMoveDown={handleMoveSegmentDown}
                   canMoveUp={index > 0}
                   canMoveDown={index < audioSegments.length - 1}
-                  onPlay={handlePlaySegment}
+                  onPlay={(uri) => handlePlaySegment(uri, segment.id)}
                   isPlaying={playingSegmentId === segment.id}
                 />
               </React.Fragment>
@@ -435,14 +584,34 @@ export default function NextGenAssetsView() {
             insertionIndex === audioSegments.length ? (
               <InsertionCursor visible={true} position={audioSegments.length} />
             ) : null}
-          </View>
+          </ScrollView>
         </View>
 
-        {/* TODO: Add save/export functionality */}
-        <View style={styles.todoContainer}>
-          <Text style={styles.todoText}>
-            TODO: Save audio segments to device and create assets
-          </Text>
+        {/* Save segments button */}
+        {audioSegments.length > 0 && (
+          <View style={styles.saveContainer}>
+            <Button
+              variant="default"
+              onPress={handleSaveSegments}
+              style={styles.saveButton}
+            >
+              <Text style={styles.saveButtonText}>
+                Save {audioSegments.length} Audio Segment
+                {audioSegments.length !== 1 ? 's' : ''} as Assets
+              </Text>
+            </Button>
+          </View>
+        )}
+
+        {/* Walkie Talkie Recorder - Fixed at bottom */}
+        <View style={styles.recorderContainer}>
+          <WalkieTalkieRecorder
+            onRecordingComplete={handleRecordingComplete}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
+            onWaveformUpdate={handleWaveformUpdate}
+            isRecording={isRecording}
+          />
         </View>
       </View>
     );
@@ -696,7 +865,8 @@ export const styles = StyleSheet.create({
   },
   segmentsContainer: {
     flex: 1,
-    marginTop: spacing.medium
+    marginTop: spacing.medium,
+    paddingBottom: 120 // Space for the fixed recorder at bottom
   },
   segmentsTitle: {
     fontSize: fontSizes.large,
@@ -722,6 +892,34 @@ export const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     fontStyle: 'italic'
+  },
+  recorderContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.inputBorder,
+    paddingTop: spacing.medium,
+    paddingBottom: spacing.large,
+    paddingHorizontal: spacing.medium
+  },
+  saveContainer: {
+    padding: spacing.medium,
+    backgroundColor: colors.inputBackground,
+    margin: spacing.small,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary
+  },
+  saveButton: {
+    // Button component handles most styling
+  },
+  saveButtonText: {
+    fontSize: fontSizes.medium,
+    fontWeight: 'bold',
+    color: colors.background
   }
   // floatingButton: {
   //   backgroundColor: colors.primary,

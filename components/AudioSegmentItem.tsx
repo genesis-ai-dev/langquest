@@ -86,6 +86,8 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
             waveformData={segment.waveformData}
             width={200}
             height={40}
+            // Fixed bar count for consistent visual appearance
+            barCount={48}
           />
         </View>
 
