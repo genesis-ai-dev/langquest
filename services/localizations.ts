@@ -1,5 +1,10 @@
 // Define all supported UI languages
-export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
+export type SupportedLanguage =
+  | 'english'
+  | 'spanish'
+  | 'brazilian_portuguese'
+  | 'tok_pisin'
+  | 'indonesian';
 
 // Define the structure for translations
 export type LocalizationKey = keyof typeof localizations;

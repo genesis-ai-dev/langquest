@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { project, quest } from '@/db/drizzleSchema';
+import { quest_local } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -65,6 +66,7 @@ import {
 import { useSharedValue } from 'react-native-reanimated';
 import { z } from 'zod';
 import { QuestListItem } from './QuestListItem';
+import type { HybridDataSource } from './useHybridData';
 import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
@@ -208,6 +210,34 @@ export default function NextGenQuestsView() {
       if (error) throw error;
       return data;
     },
+    async ({ pageParam, pageSize }) => {
+      if (!currentProjectId) return [];
+
+      const offset = pageParam * pageSize;
+
+      // Build where conditions
+      const baseCondition = eq(quest_local.project_id, currentProjectId);
+
+      const conditions = [
+        baseCondition,
+        debouncedSearchQuery.trim() &&
+          or(
+            like(quest_local.name, `%${debouncedSearchQuery.trim()}%`),
+            like(quest_local.description, `%${debouncedSearchQuery.trim()}%`)
+          ),
+        !showInvisibleContent && eq(quest_local.visible, true)
+      ];
+      // Add search filtering for offline
+      const whereConditions = and(...conditions.filter(Boolean));
+
+      const quests = await system.db.query.quest_local.findMany({
+        where: whereConditions,
+        limit: pageSize,
+        offset
+      });
+
+      return quests;
+    },
     20 // pageSize
   );
 
@@ -215,7 +245,7 @@ export default function NextGenQuestsView() {
     const allQuests = data.pages.flatMap((page) => page.data);
 
     // Deduplicate by ID to prevent duplicate keys in FlashList
-    const questMap = new Map<string, Quest & { source?: string }>();
+    const questMap = new Map<string, Quest & { source?: HybridDataSource }>();
     allQuests.forEach((quest) => {
       // Prioritize offline data over cloud data for duplicates
       const existingQuest = questMap.get(quest.id);

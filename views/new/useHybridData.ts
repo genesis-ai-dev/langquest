@@ -22,6 +22,11 @@ type CompilableQuery<T = unknown> = CompilableQueryNative<T>;
 
 type QueryKeyParam = string | number | boolean | null | undefined;
 
+export type HybridDataSource =
+  | 'localOnlySqlite'
+  | 'localSqlite'
+  | 'cloudSupabase';
+
 export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // Unique key for this data type (e.g., 'assets', 'quests', 'translations')
   dataType: string;
@@ -61,7 +66,7 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
 
 export interface HybridDataResult<T> {
   // Combined data with source tracking
-  data: (T & { source: 'localOnlySqlite' | 'localSqlite' | 'cloudSupabase' })[];
+  data: (T & { source: HybridDataSource })[];
 
   // Loading states
   isOfflineLoading: boolean;
@@ -310,9 +315,7 @@ export interface HybridInfiniteDataOptions<
 export interface HybridInfiniteDataResult<T> {
   // Combined pages with source tracking
   data: {
-    pages: HybridPageData<
-      T & { source: 'localOnlySqlite' | 'localSqlite' | 'cloudSupabase' }
-    >[];
+    pages: HybridPageData<T & { source: HybridDataSource }>[];
     pageParams: number[];
   };
 
@@ -449,7 +452,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     );
     const mergedPages: HybridPageData<
       TOfflineData & {
-        source: 'localOnlySqlite' | 'localSqlite' | 'cloudSupabase';
+        source: HybridDataSource;
       }
     >[] = [];
 

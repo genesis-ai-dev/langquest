@@ -27,6 +27,7 @@ import {
   TextInput,
   View
 } from 'react-native';
+import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
 import AudioSegmentItem from '@/components/AudioSegmentItem';
@@ -442,7 +443,7 @@ export default function NextGenAssetsView() {
   }, [attachmentStates]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: string } }) => (
+    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
       <AssetListItem
         asset={item}
         attachmentState={attachmentStates.get(item.id)}
@@ -453,7 +454,7 @@ export default function NextGenAssetsView() {
   );
 
   const keyExtractor = React.useCallback(
-    (item: Asset & { source?: string }) => item.id,
+    (item: Asset & { source?: HybridDataSource }) => item.id,
     []
   );
 

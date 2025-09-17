@@ -21,6 +21,7 @@ import {
   View
 } from 'react-native';
 import NextGenTranslationModal from './NextGenTranslationModalAlt';
+import type { HybridDataSource } from './useHybridData';
 
 interface NextGenTranslationsListProps {
   assetId: string;
@@ -45,7 +46,7 @@ interface TranslationWithVotes extends Translation {
   upVotes: number;
   downVotes: number;
   netVotes: number;
-  source?: 'localSqlite' | 'cloudSupabase';
+  source?: HybridDataSource;
 }
 
 type SortOption = 'voteCount' | 'dateSubmitted';

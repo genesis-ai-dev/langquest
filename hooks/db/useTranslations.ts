@@ -10,6 +10,7 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
@@ -38,7 +39,7 @@ interface TranslationWithVotes extends Translation {
   upVotes: number;
   downVotes: number;
   netVotes: number;
-  source?: 'localSqlite' | 'cloudSupabase';
+  source?: HybridDataSource;
 }
 
 /**

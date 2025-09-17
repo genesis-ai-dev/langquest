@@ -7,6 +7,7 @@ import {
   quest_asset_link,
   tag
 } from '@/db/drizzleSchema';
+import { asset_local, quest_asset_link_local } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
@@ -1289,6 +1290,83 @@ export function useAssetsByQuest(
     async () => {
       // Assets must be downloaded to be used, so cloud query returns empty
       return [] as AssetQuestLink[];
+    },
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      try {
+        const offset = pageParam * pageSize;
+
+        const conditions = [
+          eq(quest_asset_link_local.quest_id, quest_id),
+          !showHiddenContent ? eq(asset_local.visible, true) : undefined,
+          !showHiddenContent
+            ? eq(quest_asset_link_local.visible, true)
+            : undefined,
+          blockContentIds.length > 0
+            ? notInArray(asset_local.id, blockContentIds)
+            : undefined,
+          blockUserIds.length > 0
+            ? or(
+                isNull(asset_local.creator_id),
+                notInArray(asset_local.creator_id, blockUserIds)
+              )
+            : undefined
+        ];
+
+        // Build base query
+        const baseQuery = system.db
+          .select({
+            id: asset_local.id,
+            name: asset_local.name,
+            images: asset_local.images,
+            creator_id: asset_local.creator_id,
+            visible: asset_local.visible,
+            active: asset_local.active,
+            created_at: asset_local.created_at,
+            last_updated: asset_local.last_updated,
+            download_profiles: asset_local.download_profiles,
+            quest_visible: quest_asset_link_local.visible,
+            quest_active: quest_asset_link_local.active
+          })
+          .from(asset_local)
+          .innerJoin(
+            quest_asset_link_local,
+            eq(asset_local.id, quest_asset_link_local.asset_id)
+          )
+          .where(and(...conditions.filter(Boolean)));
+
+        // Add search filtering if search query exists
+        if (searchQuery.trim()) {
+          // For offline search with joins, we need to fetch all and filter
+          const allAssets = await baseQuery;
+          // Safe filtering with proper null checks
+          const searchTerm = searchQuery.trim().toLowerCase();
+          const filteredAssets = allAssets.filter((a) => {
+            // Ensure name exists and is a string
+            const assetName = a.name;
+            return (
+              assetName &&
+              typeof assetName === 'string' &&
+              assetName.toLowerCase().includes(searchTerm)
+            );
+          });
+
+          // Apply pagination to filtered results
+          return filteredAssets.slice(
+            offset,
+            offset + pageSize
+          ) as AssetQuestLink[];
+        }
+
+        // Normal pagination without search
+        const assets = await baseQuery.limit(pageSize).offset(offset);
+
+        return assets as AssetQuestLink[];
+      } catch (error) {
+        console.error('[ASSETS] Offline query error:', error);
+        return [];
+      }
     },
     20 // pageSize
   );

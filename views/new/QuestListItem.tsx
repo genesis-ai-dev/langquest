@@ -17,6 +17,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import type { HybridDataSource } from './useHybridData';
 import {
   useHybridData,
   useItemDownload,
@@ -28,7 +29,7 @@ type QuestClosure = typeof quest_closure.$inferSelect;
 
 // Define props locally to avoid require cycle
 export interface QuestListItemProps {
-  quest: Quest & { source?: string };
+  quest: Quest & { source?: HybridDataSource };
   className?: string;
 }
 

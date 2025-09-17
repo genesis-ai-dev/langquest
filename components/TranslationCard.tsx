@@ -9,6 +9,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import type { InferSelectModel } from 'drizzle-orm';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -20,7 +21,7 @@ export interface TranslationWithVotes extends Translation {
   upVotes: number;
   downVotes: number;
   netVotes: number;
-  source?: 'localSqlite' | 'cloudSupabase';
+  source?: HybridDataSource;
 }
 
 interface TranslationCardProps {
