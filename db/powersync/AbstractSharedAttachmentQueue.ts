@@ -462,7 +462,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           await this.downloadRecord(record);
           updateProgress(); // Update progress after successful download
         } catch (error) {
-          console.error(`Failed to download attachment ${id}:`, error);
+          console.error(`Failed to download attachment ${id}: `, error);
           updateProgress(); // Count as completed even if failed
         } finally {
           // Start next download if queue not empty

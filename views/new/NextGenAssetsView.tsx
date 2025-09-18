@@ -214,6 +214,10 @@ export default function NextGenAssetsView() {
         throw new Error('Current project is required');
       }
 
+      if (!currentQuestId) {
+        throw new Error('Current quest ID is required');
+      }
+
       // TODO: create a record in the asset_local table for local-only temp storage
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -227,13 +231,26 @@ export default function NextGenAssetsView() {
           })
           .returning();
 
+        if (!newAsset) {
+          throw new Error('Failed to insert asset');
+        }
+
+        await tx
+          .insert(resolveTable('quest_asset_link', { localOverride: true }))
+          .values({
+            id: `${currentQuestId}_${newAsset.id}`,
+            quest_id: currentQuestId,
+            asset_id: newAsset.id,
+            download_profiles: [currentUser!.id]
+          });
+
         // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
         // await system.permAttachmentQueue?.saveAudio(uri);
 
         await tx
           .insert(resolveTable('asset_content_link', { localOverride: true }))
           .values({
-            asset_id: newAsset!.id,
+            asset_id: newAsset.id,
             source_language_id: currentProject.target_language_id,
             text: newSegment.name,
             audio_id: newSegment.id,

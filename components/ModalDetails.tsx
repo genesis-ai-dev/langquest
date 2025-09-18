@@ -6,6 +6,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import type { WithSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -20,7 +21,7 @@ type Language = typeof language.$inferSelect;
 interface ModalDetailsProps {
   isVisible: boolean;
   contentType: 'project' | 'quest';
-  content: Project | Quest;
+  content: WithSource<Project | Quest>;
   onClose: () => void;
 }
 

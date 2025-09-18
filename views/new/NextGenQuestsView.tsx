@@ -37,7 +37,7 @@ import { project, quest } from '@/db/drizzleSchema';
 import { quest_local } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -77,7 +77,7 @@ type Project = typeof project.$inferSelect;
 export default function NextGenQuestsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId } = useAppNavigation();
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);

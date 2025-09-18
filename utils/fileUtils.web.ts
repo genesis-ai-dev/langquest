@@ -3,6 +3,9 @@
  * file URIs directly on the web, so these become safe no-ops.
  */
 
+import { system } from '@/db/powersync/system';
+import { AppConfig } from '@/db/supabase/AppConfig';
+
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function deleteIfExists(
   _uri: string | null | undefined
@@ -43,4 +46,11 @@ export function copyFile(_sourceUri: string, _targetUri: string): void {
 
 export function getDocumentDirectory(): string {
   return '';
+}
+
+export function getLocalUri(filePath: string) {
+  const { data } = system.supabaseConnector.client.storage
+    .from(AppConfig.supabaseBucket)
+    .getPublicUrl(filePath.replace('shared_attachments/', ''));
+  return data.publicUrl;
 }

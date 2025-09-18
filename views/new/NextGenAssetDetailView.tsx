@@ -15,7 +15,7 @@ import {
   project
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
@@ -84,7 +84,7 @@ function useNextGenOfflineAsset(assetId: string) {
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { currentAssetId, currentProjectId, currentQuestId } =
-    useCurrentNavigation();
+    useAppNavigation();
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');

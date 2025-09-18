@@ -1,5 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { getFileInfo, moveFile } from '@/utils/fileUtils';
+import { getFileInfo, getLocalUri, moveFile } from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -7,7 +7,6 @@ import type {
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { isNotNull } from 'drizzle-orm';
-import { Platform } from 'react-native';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
@@ -30,16 +29,11 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     // this.db = options.db;
   }
 
-  getLocalUri(filePath: string): string {
-    if (Platform.OS === 'web') {
-      const { data } = system.supabaseConnector.client.storage
-        .from(AppConfig.supabaseBucket)
-        .getPublicUrl(filePath.replace('shared_attachments/', ''));
-      return data.publicUrl;
-    } else return super.getLocalUri(filePath);
+  getLocalUri(filePath: string) {
+    return getLocalUri(filePath);
   }
 
-  async getCurrentUserId(): Promise<string | null> {
+  async getCurrentUserId() {
     // Get user from Supabase auth session
     const session = await system.supabaseConnector.client.auth.getSession();
     return session.data.session?.user.id || null;

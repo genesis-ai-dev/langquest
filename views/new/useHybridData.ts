@@ -27,6 +27,10 @@ export type HybridDataSource =
   | 'localSqlite'
   | 'cloudSupabase';
 
+export type WithSource<T> = T & {
+  source: HybridDataSource;
+};
+
 export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // Unique key for this data type (e.g., 'assets', 'quests', 'translations')
   dataType: string;

@@ -4,7 +4,7 @@ import {
   useAssetStatuses
 } from '@/database_services/status/asset';
 import { useQuestById } from '@/hooks/db/useQuests';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
@@ -45,7 +45,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   // const [isAssetLoaded, setIsAssetLoaded] = useState(true);
 
-  const { currentProjectId, currentQuestId } = useCurrentNavigation();
+  const { currentProjectId, currentQuestId } = useAppNavigation();
 
   const { quest } = useQuestById(currentQuestId);
   const questId = quest?.id || '';

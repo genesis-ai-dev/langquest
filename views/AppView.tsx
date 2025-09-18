@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /**
  * Main App View - Single route with state-driven navigation
  * Replaces the entire file-based routing structure
@@ -25,10 +24,6 @@ import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import { StatusProvider } from '@/contexts/StatusContext';
-import AssetDetailView from './AssetDetailView';
-import AssetsView from './AssetsView';
-import ProjectsView from './ProjectsView';
-import QuestsView from './QuestsView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -50,33 +45,16 @@ export default function AppView() {
     return () => backHandler.remove();
   }, [canGoBack, goBack]);
 
-  const SHOULD_USE_NEXT_GEN_VIEWS = true;
   const renderCurrentView = () => {
     switch (currentView) {
       case 'projects':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenProjectsView />
-        ) : (
-          <ProjectsView />
-        );
+        return <NextGenProjectsView />;
       case 'quests':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenQuestsView />
-        ) : (
-          <QuestsView />
-        );
+        return <NextGenQuestsView />;
       case 'assets':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetsView />
-        ) : (
-          <AssetsView />
-        );
+        return <NextGenAssetsView />;
       case 'asset-detail':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetDetailView />
-        ) : (
-          <AssetDetailView />
-        );
+        return <NextGenAssetDetailView />;
       case 'profile':
         return <ProfileView />;
       case 'notifications':

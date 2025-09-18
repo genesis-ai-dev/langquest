@@ -38,7 +38,7 @@ export function ProjectListItem({
   project,
   className
 }: {
-  project: Project & { source?: HybridDataSource };
+  project: Project & { source: HybridDataSource };
   className?: string;
 }) {
   const { t } = useLocalization();
@@ -119,10 +119,7 @@ export function ProjectListItem({
       project as LayerStatus,
       project.id
     );
-    goToProject({
-      id: project.id,
-      name: project.name
-    });
+    goToProjectHelper();
   };
 
   const handleBypass = () => {
@@ -132,25 +129,31 @@ export function ProjectListItem({
       project as LayerStatus,
       project.id
     );
+    goToProjectHelper();
+  };
+
+  function goToProjectHelper() {
     goToProject({
       id: project.id,
       name: project.name
     });
-  };
+  }
 
   return (
     <>
       <Pressable
         className={className}
         key={project.id}
-        onPress={() => goToProject({ id: project.id, name: project.name })}
+        onPress={() => goToProjectHelper()}
       >
         <Card className={className}>
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">
                 <View className="flex flex-1 flex-row gap-2">
-                  {(project.private || !!membership) && (
+                  {(project.private ||
+                    !!membership ||
+                    project.source === 'localOnlySqlite') && (
                     <View className="flex flex-row gap-1.5">
                       {project.source === 'localOnlySqlite' && (
                         <Icon

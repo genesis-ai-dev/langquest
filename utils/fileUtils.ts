@@ -85,3 +85,7 @@ export function base64ToArrayBuffer(base64: string) {
   const bytes = encoder.encode(binaryString);
   return bytes.buffer as unknown as ArrayBuffer;
 }
+
+export function getLocalUri(filePath: string) {
+  return `${getDocumentDirectory()}${filePath}`;
+}

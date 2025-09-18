@@ -167,7 +167,7 @@ function DrawerHandle({
       <BSHandle
         className={cn('bg-background pt-4', className)}
         animatedIndex={animatedIndex}
-        indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-accent"
+        indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-secondary-foreground"
         animatedPosition={animatedPosition}
         {...props}
       />

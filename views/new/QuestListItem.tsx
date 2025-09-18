@@ -130,18 +130,19 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 flex-col">
             <View className="flex flex-row">
-              <CardTitle
-                numberOfLines={2}
-                className="flex flex-1 flex-row gap-1.5"
-              >
-                {quest.source === 'localOnlySqlite' && (
-                  <Icon
-                    as={HardDriveIcon}
-                    className="text-secondary-foreground"
-                  />
-                )}
-                {quest.name}
-              </CardTitle>
+              <View className="flex flex-1 flex-row items-center gap-1.5">
+                <View>
+                  {quest.source === 'localOnlySqlite' && (
+                    <Icon
+                      as={HardDriveIcon}
+                      className="text-secondary-foreground"
+                    />
+                  )}
+                </View>
+                <CardTitle numberOfLines={2} className="flex flex-1">
+                  {quest.name}
+                </CardTitle>
+              </View>
               <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}
                 isLoading={isDownloading}

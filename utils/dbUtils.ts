@@ -23,8 +23,8 @@ type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
 export function resolveTable<T extends TablesOnlyKeys>(
   table: T,
   options: { localOverride?: boolean } = {}
-): (typeof drizzleSchema)[T] | (typeof drizzleSchemaLocal)[LocalKeyFor<T>] {
-  const useLocal = LOCAL_MODE || options.localOverride === true;
+) {
+  const useLocal = LOCAL_MODE || !!options.localOverride;
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   return useLocal
     ? (drizzleSchemaLocal[
