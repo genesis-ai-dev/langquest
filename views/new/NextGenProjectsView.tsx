@@ -8,7 +8,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { FlashList } from '@shopify/flash-list';
-import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -159,6 +159,7 @@ export default function NextGenProjectsView() {
         // Get all active projects excluding user's projects
         const projects = await system.db.query.project.findMany({
           where: and(...conditions.filter(Boolean)),
+          orderBy: desc(project.priority),
           limit: pageSize,
           offset
         });
@@ -168,6 +169,7 @@ export default function NextGenProjectsView() {
         // If no user, show all active projects
         const projects = await system.db.query.project.findMany({
           where: eq(project.active, true),
+          orderBy: desc(project.priority),
           limit: pageSize,
           offset
         });
@@ -201,6 +203,8 @@ export default function NextGenProjectsView() {
         if (blockContentIds.length > 0)
           query = query.not('id', 'in', `(${blockContentIds.join(',')})`);
       }
+
+      query = query.order('priority', { ascending: false });
 
       const { data, error } = await query
         .range(from, to)
