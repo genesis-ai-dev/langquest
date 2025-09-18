@@ -4,7 +4,6 @@ import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { Button, buttonVariants } from '@/components/ui/button';
-import type { BottomSheetModal } from '@/components/ui/drawer';
 import {
   Drawer,
   DrawerClose,
@@ -63,12 +62,10 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  Platform,
   TouchableOpacity,
   useWindowDimensions,
   View
 } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { z } from 'zod';
 import { QuestListItem } from './QuestListItem';
 import type { HybridDataSource } from './useHybridData';
@@ -120,9 +117,6 @@ export default function NextGenQuestsView() {
 
   // Create Quest bottom sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const bottomSheetRef = React.useRef<BottomSheetModal>(null);
-  const animatedIndex = useSharedValue(0);
-  const animatedPosition = useSharedValue(0);
 
   // Simple create quest form schema
   const formSchema = z.object({
@@ -293,7 +287,6 @@ export default function NextGenQuestsView() {
     },
     onSuccess: () => {
       form.reset();
-      if (Platform.OS !== 'web') bottomSheetRef.current?.dismiss();
       setIsCreateOpen(false);
       void refetch();
     },
@@ -530,7 +523,7 @@ export default function NextGenQuestsView() {
                   color={getThemeColor('secondary')}
                 />
               )}
-              {t('createObject')}
+              <Text>{t('createObject')}</Text>
             </Button>
             <DrawerClose
               className={buttonVariants({ variant: 'outline' })}
