@@ -6,11 +6,11 @@ import type { TextInputProps } from 'react-native';
 import { Platform, TextInput } from 'react-native';
 
 const textareaVariants = cva(
-  'flex w-full flex-row rounded-md border border-input bg-input text-foreground shadow-sm shadow-black/5',
+  'shadow-black/5 flex w-full flex-row rounded-md border border-border bg-input text-foreground shadow-sm',
   {
     variants: {
       size: {
-        sm: 'min-h-12 px-3 py-2 text-sm',
+        sm: 'min-h-24 px-3 py-2 text-sm',
         default: 'min-h-16 px-3 py-2 text-base md:text-sm'
       }
     },
@@ -25,7 +25,7 @@ interface TextareaProps
     VariantProps<typeof textareaVariants> {}
 
 const Textarea = React.forwardRef<
-  React.ElementRef<typeof TextInput>,
+  React.ComponentRef<typeof TextInput>,
   TextareaProps
 >(
   (
@@ -46,7 +46,7 @@ const Textarea = React.forwardRef<
           textareaVariants({ size }),
           'placeholder:text-muted-foreground',
           Platform.select({
-            web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y border-border outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
+            web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
           }),
           props.editable === false && 'opacity-50',
           className

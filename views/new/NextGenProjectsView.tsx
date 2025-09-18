@@ -1,6 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -10,37 +9,45 @@ import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  useWindowDimensions,
-  View
-} from 'react-native';
+import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
 import { LanguageSelect } from '@/components/language-select';
 import {
-  BottomSheetHandle,
-  BottomSheetModal,
-  BottomSheetModalProvider,
-  BottomSheetView
-} from '@/components/ui/bottom-sheet';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger
+} from '@/components/ui/drawer';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
   transformInputProps,
+  transformSelectProps,
   transformSwitchProps
 } from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
@@ -49,10 +56,10 @@ import {
   project_local
 } from '@/db/drizzleSchemaLocal';
 import { useLocalStore } from '@/store/localStore';
+import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { useSharedValue } from 'react-native-reanimated';
 import { z } from 'zod';
 
 type TabType = 'my' | 'all';
@@ -69,15 +76,12 @@ export default function NextGenProjectsView() {
 
   // Create modal state
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
-  const bottomSheetRef = React.useRef<BottomSheetModal>(null);
-  const animatedIndex = useSharedValue(0);
-  const animatedPosition = useSharedValue(0);
 
   const currentLanguageId = useLocalStore((state) => state.languageId);
 
   const formSchema = z.object({
     name: z.string({ required_error: t('nameRequired') }),
-    target_language_id: z.string({ required_error: t('selectLanguage') }),
+    target_language_id: z.string({ required_error: t('selectLanguage') }), // this is the TARGET language we're translating to
     description: z
       .string()
       .max(196, {
@@ -99,7 +103,7 @@ export default function NextGenProjectsView() {
         // insert into local storage
         await db.transaction(async (tx) => {
           const [newProject] = await tx
-            .insert(project_local)
+            .insert(resolveTable('project', { localOverride: true }))
             .values({
               ...values,
               name: values.name.trim(),
@@ -109,18 +113,22 @@ export default function NextGenProjectsView() {
             })
             .returning();
           if (!newProject) throw new Error('Failed to create project');
-          await tx.insert(profile_project_link_local).values({
-            id: `${currentUser!.id}_${newProject.id}`,
-            project_id: newProject.id,
-            profile_id: currentUser!.id,
-            membership: 'owner'
-          });
+          await tx
+            .insert(
+              resolveTable('profile_project_link', { localOverride: true })
+            )
+            .values({
+              id: `${currentUser!.id}_${newProject.id}`,
+              project_id: newProject.id,
+              profile_id: currentUser!.id,
+              membership: 'owner'
+            });
         });
       },
       onSuccess: () => {
         // Close and refresh
         form.reset();
-        bottomSheetRef.current?.dismiss();
+        // bottomSheetRef.current?.dismiss();
         setIsCreateOpen(false);
         void currentQuery.refetch();
       },
@@ -132,7 +140,7 @@ export default function NextGenProjectsView() {
   const form = useForm<FormData>({
     defaultValues: {
       private: true,
-      visible: false,
+      visible: true,
       template: 'unstructured',
       target_language_id: currentLanguageId ?? undefined
     },
@@ -418,7 +426,11 @@ export default function NextGenProjectsView() {
   const dimensions = useWindowDimensions();
 
   return (
-    <BottomSheetModalProvider>
+    <Drawer
+      open={isCreateOpen}
+      onOpenChange={setIsCreateOpen}
+      dismissible={!isCreatingProject}
+    >
       <View className="flex flex-1 flex-col gap-6 p-6">
         <View className="flex flex-col gap-4">
           {/* Tabs */}
@@ -447,20 +459,9 @@ export default function NextGenProjectsView() {
               prefixStyling={false}
               size="sm"
             />
-            <Button
-              size="icon-lg"
-              onPress={() => {
-                if (isCreateOpen) {
-                  if (Platform.OS !== 'web') bottomSheetRef.current?.dismiss();
-                  setIsCreateOpen(false);
-                } else {
-                  if (Platform.OS !== 'web') bottomSheetRef.current?.present();
-                  setIsCreateOpen(true);
-                }
-              }}
-            >
+            <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
               <Icon as={PlusIcon} />
-            </Button>
+            </DrawerTrigger>
           </View>
         </View>
 
@@ -499,168 +500,153 @@ export default function NextGenProjectsView() {
         )}
       </View>
 
-      {/* Create Project Bottom Sheet */}
-      <BottomSheetModal
-        ref={bottomSheetRef}
-        index={-1}
-        open={isCreateOpen}
-        snapPoints={['70%']}
-        handleComponent={() =>
-          Platform.OS !== 'web' && (
-            <BottomSheetHandle
-              className="mt-2 bg-muted"
-              animatedIndex={animatedIndex}
-              animatedPosition={animatedPosition}
+      <DrawerContent className="pb-8">
+        <DrawerHeader>
+          <DrawerTitle>{t('newProject')}</DrawerTitle>
+        </DrawerHeader>
+        <Form {...form}>
+          <View className="flex flex-col gap-4 px-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      {...transformInputProps(field)}
+                      placeholder={t('projectName')}
+                      size="sm"
+                      prefix={FolderPenIcon}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          )
-        }
-      >
-        <BottomSheetView className="flex-1 bg-background px-4 pb-8">
-          {Platform.OS === 'web' && (
-            <BottomSheetHandle
-              className="mt-2 bg-muted"
-              animatedIndex={animatedIndex}
-              animatedPosition={animatedPosition}
-            />
-          )}
 
-          <Form {...form}>
-            <View className="flex flex-col gap-4">
-              <Text className="mt-2 text-lg font-semibold">
-                {t('newProject')}
-              </Text>
-
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
+            <FormField
+              control={form.control}
+              name="target_language_id"
+              render={({ field }) => {
+                return (
                   <FormItem>
                     <FormControl>
-                      <Input
-                        {...transformInputProps(field)}
-                        placeholder={t('projectName')}
-                        size="sm"
-                        prefix={FolderPenIcon}
+                      <LanguageSelect
+                        {...field}
+                        onChange={(value) => field.onChange(value.id)}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                );
+              }}
+            />
 
-              <FormField
-                control={form.control}
-                name="target_language_id"
-                render={({ field }) => {
-                  return (
-                    <FormItem>
-                      <FormControl>
-                        <LanguageSelect
-                          {...field}
-                          onChange={(value) => field.onChange(value.id)}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      {...transformInputProps(field)}
+                      placeholder={t('description')}
+                      size="sm"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="template"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('template')}</FormLabel>
+                  <FormControl>
+                    <Select {...transformSelectProps(field)}>
+                      <SelectTrigger className="capitalize">
+                        <SelectValue
+                          placeholder={t('selectTemplate')}
+                          className="flex-1 capitalize text-foreground"
                         />
-                        {/* <Select
-                          {...transformSelectProps(field, (value) =>
-                            getLanguageOption(
-                              languages.find((l) => l.id === value)
-                            )
-                          )}
-                        >
-                          <SelectTrigger>
-                            <View className="flex flex-row items-center justify-start gap-2">
-                              <Icon
-                                as={LanguagesIcon}
-                                className="text-muted-foreground"
-                              />
-                              <SelectValue
-                                className="flex-1 text-base text-foreground"
-                                placeholder={t('selectLanguage')}
-                              />
-                            </View>
-                          </SelectTrigger>
-                          <SelectContent className="w-full">
-                            {languages
-                              .filter(
-                                (l) => (l.native_name || l.english_name) && l.id
-                              )
-                              .map((lang) => (
-                                <SelectItem
-                                  key={lang.id}
-                                  {...getLanguageOption(lang)!}
-                                >
-                                  {getLanguageOption(lang)!.label}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select> */}
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="w-full"
+                        insets={{ left: 16, right: 16 }}
+                      >
+                        {templateOptions.map((option) => (
+                          <SelectItem
+                            key={option}
+                            value={option}
+                            label={option}
+                            textClassName="capitalize"
+                          />
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            <View className="mt-1 flex-row items-center justify-between">
+              <Text>{t('visible') || 'Visible'}</Text>
               <FormField
                 control={form.control}
-                name="description"
+                name="visible"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea
-                        {...transformInputProps(field)}
-                        placeholder={t('description')}
-                        size="sm"
-                      />
+                      <Switch {...transformSwitchProps(field)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <View className="mt-1 flex-row items-center justify-between">
-                <Text>{t('visible') || 'Visible'}</Text>
-                <FormField
-                  control={form.control}
-                  name="visible"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Switch {...transformSwitchProps(field)} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </View>
-              <View className="flex-row items-center justify-between">
-                <Text>{t('private') || 'Private'}</Text>
-                <FormField
-                  control={form.control}
-                  name="private"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Switch {...transformSwitchProps(field)} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </View>
-
-              {/* Submit */}
-              <Button
-                disabled={isCreatingProject}
-                onPress={form.handleSubmit((data) => createProject(data))}
-              >
-                <Text className="text-sm font-medium text-primary-foreground">
-                  {t('createObject')}
-                </Text>
-              </Button>
             </View>
-          </Form>
-        </BottomSheetView>
-      </BottomSheetModal>
-    </BottomSheetModalProvider>
+            <View className="flex-row items-center justify-between">
+              <Text>{t('private') || 'Private'}</Text>
+              <FormField
+                control={form.control}
+                name="private"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Switch {...transformSwitchProps(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </View>
+          </View>
+        </Form>
+        <DrawerFooter>
+          <Button
+            onPress={form.handleSubmit((data) => createProject(data))}
+            disabled={isCreatingProject}
+            className="flex-row items-center gap-2"
+          >
+            {isCreatingProject && (
+              <ActivityIndicator
+                size="small"
+                color={getThemeColor('secondary')}
+              />
+            )}
+            <Text>{t('createObject')}</Text>
+          </Button>
+          <DrawerClose
+            className={buttonVariants({ variant: 'outline' })}
+            disabled={isCreatingProject}
+          >
+            <Text>Cancel</Text>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }

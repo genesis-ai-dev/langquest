@@ -573,6 +573,13 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
   },
+  selectTemplate: {
+    english: 'Please select a template',
+    spanish: 'Por favor seleccione una plantilla',
+    brazilian_portuguese: 'Por favor, selecione uma planta',
+    tok_pisin: 'Plis makim wanpela template',
+    indonesian: 'Silakan pilih template'
+  },
   sendResetEmail: {
     english: 'Send Reset Email',
     spanish: 'Enviar correo de restablecimiento',
@@ -3296,6 +3303,13 @@ export const localizations = {
     brazilian_portuguese: 'Idioma',
     tok_pisin: 'Tokples',
     indonesian: 'Bahasa'
+  },
+  template: {
+    english: 'Template',
+    spanish: 'Plantilla',
+    brazilian_portuguese: 'Plantilla',
+    tok_pisin: 'Template',
+    indonesian: 'Template'
   },
   audioTracks: {
     english: 'Audio tracks',

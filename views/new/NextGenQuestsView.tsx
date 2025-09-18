@@ -3,13 +3,17 @@ import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { Button, buttonVariants } from '@/components/ui/button';
+import type { BottomSheetModal } from '@/components/ui/drawer';
 import {
-  BottomSheetHandle,
-  BottomSheetModal,
-  BottomSheetModalProvider,
-  BottomSheetView
-} from '@/components/ui/bottom-sheet';
-import { Button } from '@/components/ui/button';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger
+} from '@/components/ui/drawer';
 import {
   Form,
   FormControl,
@@ -38,7 +42,8 @@ import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { cn } from '@/utils/styleUtils';
+import { resolveTable } from '@/utils/dbUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -47,12 +52,12 @@ import { and, eq, like, or } from 'drizzle-orm';
 import {
   FilterIcon,
   FlagIcon,
+  FolderPenIcon,
   InfoIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
-  UsersIcon,
-  XIcon
+  UsersIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -276,13 +281,15 @@ export default function NextGenQuestsView() {
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!currentProjectId || !currentUser?.id) return;
-      await system.db.insert(quest).values({
-        name: values.name.trim(),
-        description: values.description?.trim(),
-        project_id: currentProjectId,
-        creator_id: currentUser.id,
-        download_profiles: [currentUser.id]
-      });
+      await system.db
+        .insert(resolveTable('quest', { localOverride: true }))
+        .values({
+          name: values.name.trim(),
+          description: values.description?.trim(),
+          project_id: currentProjectId,
+          creator_id: currentUser.id,
+          download_profiles: [currentUser.id]
+        });
     },
     onSuccess: () => {
       form.reset();
@@ -314,7 +321,11 @@ export default function NextGenQuestsView() {
   );
 
   return (
-    <BottomSheetModalProvider>
+    <Drawer
+      open={isCreateOpen}
+      onOpenChange={setIsCreateOpen}
+      dismissible={!isCreatingQuest}
+    >
       <View className="flex flex-1 flex-col gap-6 p-6 pb-0">
         <View className="flex flex-col gap-4">
           <Text className="text-xl font-semibold">{t('quests')}</Text>
@@ -324,6 +335,7 @@ export default function NextGenQuestsView() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               prefix={SearchIcon}
+              className="flex-1"
               suffix={
                 <TouchableOpacity
                   onPress={() => setShowDownloadedOnly(!showDownloadedOnly)}
@@ -342,6 +354,11 @@ export default function NextGenQuestsView() {
               prefixStyling={false}
               size="sm"
             />
+            {canCreateQuestNow && (
+              <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
+                <Icon as={PlusIcon} />
+              </DrawerTrigger>
+            )}
           </View>
         </View>
 
@@ -377,68 +394,24 @@ export default function NextGenQuestsView() {
             ) : null
           }
           ListEmptyComponent={() => (
-            <View className="flex-1 items-center justify-center py-16">
+            <View className="flex-1 flex-col items-center justify-center gap-4 py-16">
               <Text className="text-muted-foreground">
                 {debouncedSearchQuery
                   ? t('noQuestsFound')
                   : t('noQuestsAvailable')}
               </Text>
+              {canCreateQuestNow && (
+                <DrawerTrigger className={buttonVariants({ size: 'lg' })}>
+                  <Text>{t('createObject')}</Text>
+                </DrawerTrigger>
+              )}
             </View>
           )}
         />
 
-        {/* Floating action buttons */}
-        {/* <View style={{ bottom: 0, right: 24 }} className="absolute">
-        <View className="flex flex-row gap-2">
-          {canManageProject && (
-            <Button
-              onPress={() => setShowSettingsModal(true)}
-              size="icon"
-              variant="outline"
-            >
-              <Icon as={SettingsIcon} size={22} strokeWidth={2.5} />
-            </Button>
-          )}
-
-          <Button
-            onPress={() => setShowProjectDetails(true)}
-            // className="h-14 w-14 items-center justify-center rounded-full bg-input shadow"
-            size="icon"
-            variant="outline"
-          >
-            <Icon as={InfoIcon} size={22} strokeWidth={2.5} />
-          </Button>
-
-          <Button
-            onPress={() => setShowMembershipModal(true)}
-            // className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow"
-            size="icon"
-          >
-            <Icon as={UsersIcon} size={22} strokeWidth={2.5} />
-          </Button>
-        </View>
-      </View> */}
-
         <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
           <SpeedDial>
             <SpeedDialItems>
-              {canCreateQuestNow && (
-                <SpeedDialItem
-                  icon={PlusIcon}
-                  variant="outline"
-                  onPress={() => {
-                    if (isCreateOpen) {
-                      if (Platform.OS !== 'web')
-                        bottomSheetRef.current?.dismiss();
-                      setIsCreateOpen(false);
-                    } else {
-                      if (Platform.OS !== 'web')
-                        bottomSheetRef.current?.present();
-                      setIsCreateOpen(true);
-                    }
-                  }}
-                />
-              )}
               {canManageProject ? (
                 <SpeedDialItem
                   icon={SettingsIcon}
@@ -502,8 +475,73 @@ export default function NextGenQuestsView() {
             onReportSubmitted={() => null}
           />
         )}
+
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{t('newQuest')}</DrawerTitle>
+          </DrawerHeader>
+          <Form {...form}>
+            <View className="flex flex-col gap-4 p-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...transformInputProps(field)}
+                        placeholder={t('questName')}
+                        size="sm"
+                        prefix={FolderPenIcon}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...transformInputProps(field)}
+                        placeholder={t('description')}
+                        size="sm"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </View>
+          </Form>
+          <DrawerFooter>
+            <Button
+              onPress={form.handleSubmit((data) => createQuest(data))}
+              disabled={isCreatingQuest}
+              className="flex-row items-center gap-2"
+            >
+              {isCreatingQuest && (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('secondary')}
+                />
+              )}
+              {t('createObject')}
+            </Button>
+            <DrawerClose
+              className={buttonVariants({ variant: 'outline' })}
+              disabled={isCreatingQuest}
+            >
+              <Text>Cancel</Text>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
         {/* Create Quest Bottom Sheet */}
-        <BottomSheetModal
+        {/* <BottomSheetModal
           ref={bottomSheetRef}
           index={-1}
           open={isCreateOpen}
@@ -552,7 +590,7 @@ export default function NextGenQuestsView() {
                           {...transformInputProps(field)}
                           placeholder={t('questName')}
                           size="sm"
-                          prefix={PlusIcon}
+                          prefix={FolderPenIcon}
                         />
                       </FormControl>
                       <FormMessage />
@@ -588,8 +626,8 @@ export default function NextGenQuestsView() {
               </View>
             </Form>
           </BottomSheetView>
-        </BottomSheetModal>
+        </BottomSheetModal> */}
       </View>
-    </BottomSheetModalProvider>
+    </Drawer>
   );
 }

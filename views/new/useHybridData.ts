@@ -1,7 +1,7 @@
 import { system } from '@/db/powersync/system';
 import { substituteParams } from '@/hooks/useHybridSupabaseQuery';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { rewriteSqlToLocal } from '@/utils/sqlLocalize';
+import { unionWithLocal } from '@/utils/sqlLocalize';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -71,17 +71,16 @@ export interface HybridDataResult<T> {
   // Loading states
   isOfflineLoading: boolean;
   isCloudLoading: boolean;
-  isLocalOnlyLoading: boolean;
   isLoading: boolean;
 
   // Error states
   offlineError: Error | null;
-  localOnlyError: Error | null;
   cloudError: Error | null;
 
   // Raw data from each source
-  offlineData: (T & { source: 'localSqlite' })[] | undefined;
-  localOnlyData: (T & { source: 'localOnlySqlite' })[] | undefined;
+  offlineData:
+    | (T & { source: 'localSqlite' | 'localOnlySqlite' })[]
+    | undefined;
   cloudData: (T & { source: 'cloudSupabase' })[] | undefined;
 
   // Network status
@@ -105,28 +104,6 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
 
   const isOnline = useNetworkStatus();
   const shouldFetchCloud = enableCloudQuery ?? isOnline;
-
-  let localOnlyQuery = '';
-
-  if (typeof offlineQuery === 'string') {
-    localOnlyQuery = offlineQuery;
-  } else {
-    const query = offlineQuery.compile();
-    localOnlyQuery = substituteParams(query.sql, Array.from(query.parameters));
-  }
-
-  localOnlyQuery = rewriteSqlToLocal(localOnlyQuery);
-
-  const {
-    data: rawLocalOnlyData,
-    isLoading: isLocalOnlyLoading,
-    error: localOnlyError
-  } = usePowerSyncQuery<TOfflineData>({
-    queryKey: [dataType, 'localOnly', ...queryKeyParams],
-    query: localOnlyQuery,
-    ...offlineQueryOptions
-  });
-
   // Fetch offline data using PowerSync's useQuery
   const {
     data: rawOfflineData,
@@ -134,7 +111,17 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     error: offlineError
   } = usePowerSyncQuery<TOfflineData>({
     queryKey: [dataType, 'offline', ...queryKeyParams],
-    query: offlineQuery,
+    query:
+      typeof offlineQuery === 'string'
+        ? unionWithLocal(offlineQuery)
+        : (() => {
+            const query = offlineQuery.compile();
+            const sql = substituteParams(
+              query.sql,
+              Array.from(query.parameters)
+            );
+            return unionWithLocal(sql);
+          })(),
     ...offlineQueryOptions
   });
 
@@ -150,27 +137,25 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     ...cloudQueryOptions
   });
 
-  const localOnlyData = React.useMemo(() => {
-    if (!rawLocalOnlyData) return undefined;
-    // Ensure we always have an array
-    const dataArray = Array.isArray(rawLocalOnlyData) ? rawLocalOnlyData : [];
-    return dataArray.map((item) => ({
-      ...item,
-      source: 'localOnlySqlite' as const
-    }));
-  }, [rawLocalOnlyData]);
-
-  console.log('localOnlyData', dataType, localOnlyData);
+  // console.log('localOnlyData', dataType, localOnlyData);
 
   // Add source tracking to data
   const offlineData = React.useMemo(() => {
     if (!rawOfflineData) return undefined;
     // Ensure we always have an array
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
-    return dataArray.map((item) => ({
-      ...item,
-      source: 'localSqlite' as const
-    }));
+    return dataArray.map((item) => {
+      const tableSource = (
+        item as unknown as { table_source?: 'main' | 'local' }
+      ).table_source;
+      return {
+        ...item,
+        source:
+          tableSource === 'local'
+            ? ('localOnlySqlite' as const)
+            : ('localSqlite' as const)
+      };
+    });
   }, [rawOfflineData]);
 
   const cloudData = React.useMemo(() => {
@@ -192,43 +177,29 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // TODO: we should leverage the lastUpdated field to allow fresh cloud data to override offline data
   const combinedData = React.useMemo(() => {
     const offlineArray = offlineData || [];
-    const localOnlyArray = localOnlyData || [];
     const cloudArray = cloudData || [];
 
     // Create a map of offline items by ID for quick lookup
     const offlineMap = new Map(
       offlineArray.map((item) => [getItemId(item), item])
     );
-
-    const localOnlyMap = new Map(
-      localOnlyArray.map((item) => [getItemId(item), item])
-    );
-
     // Add cloud items that don't exist in offline
     const uniqueCloudItems = cloudArray.filter(
       (item) => !offlineMap.has(getItemId(item))
     );
 
-    // add offline items that don't exist in local only
-    const uniqueOfflineItems = offlineArray.filter(
-      (item) => !localOnlyMap.has(getItemId(item))
-    );
-
     // Return offline items first, then unique cloud items
-    return [...localOnlyArray, ...uniqueOfflineItems, ...uniqueCloudItems];
+    return [...offlineArray, ...uniqueCloudItems];
   }, [offlineData, cloudData, getItemId]);
 
   return {
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    isLocalOnlyLoading,
-    isLoading: isOfflineLoading || isCloudLoading || isLocalOnlyLoading,
+    isLoading: isOfflineLoading || isCloudLoading,
     offlineError,
-    localOnlyError,
     cloudError,
     offlineData,
-    localOnlyData,
     cloudData,
     isOnline
   };

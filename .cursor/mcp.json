@@ -8,6 +8,10 @@
     "shadcn": {
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
+    },
+    "lucide-icons": {
+      "command": "npx",
+      "args": ["lucide-icons-mcp", "--stdio"]
     }
   }
 }

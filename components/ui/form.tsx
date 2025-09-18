@@ -12,6 +12,7 @@ import { cn } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
 import type { Option } from './select';
+import { getOptionFromValue } from './select';
 import * as Slot from './slot';
 import { Text } from './text';
 
@@ -60,7 +61,7 @@ export const transformSelectProps = <
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 >(
   props: ControllerRenderProps<TFieldValues, TName>,
-  valueExtractor: (value: TFieldValues[TName]) => Option
+  valueExtractor?: (value: TFieldValues[TName]) => Option
 ) => {
   const { value, onChange, ...rest } = props;
   return {
@@ -68,7 +69,9 @@ export const transformSelectProps = <
     onValueChange: (option: Option) => {
       onChange(option?.value);
     },
-    value: valueExtractor(value) ?? { value: '', label: '' }
+    value: valueExtractor
+      ? (valueExtractor(value) ?? { value: '', label: '' })
+      : getOptionFromValue(value)
   };
 };
 

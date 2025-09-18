@@ -46,7 +46,9 @@ import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
+import { resolveTable } from '@/utils/dbUtils';
 import { FlagIcon, InfoIcon, SettingsIcon } from 'lucide-react-native';
+import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
 
 type Asset = typeof asset.$inferSelect;
@@ -132,16 +134,16 @@ export default function NextGenAssetsView() {
   }, []);
 
   const handleRecordingComplete = React.useCallback(
-    (uri: string, duration: number, waveformData: number[]) => {
+    async (uri: string, duration: number, waveformData: number[]) => {
       // Fixed number of bars for visual consistency - stretch/compress recorded data to fit
       const DISPLAY_BARS = 48;
 
       const interpolateToFixedBars = (
         samples: number[],
         targetBars: number
-      ) => {
-        if (!samples || samples.length === 0) {
-          return new Array(targetBars).fill(0.01);
+      ): number[] => {
+        if (samples.length === 0) {
+          return new Array<number>(targetBars).fill(0.01);
         }
 
         const result: number[] = [];
@@ -201,14 +203,44 @@ export default function NextGenAssetsView() {
         DISPLAY_BARS
       );
       const newSegment: AudioSegment = {
-        id: `segment_${Date.now()}`,
+        id: uuid.v4(),
         uri,
         duration,
         waveformData: interpolatedWaveform,
         name: `Segment ${audioSegments.length + 1}`
       };
 
+      if (!currentProject) {
+        throw new Error('Current project is required');
+      }
+
       // TODO: create a record in the asset_local table for local-only temp storage
+      await system.db.transaction(async (tx) => {
+        const [newAsset] = await tx
+          .insert(resolveTable('asset', { localOverride: true }))
+          .values({
+            name: newSegment.name,
+            id: newSegment.id,
+            source_language_id: currentProject.target_language_id, // the target language is the source language for the asset
+            creator_id: currentUser!.id,
+            download_profiles: [currentUser!.id]
+          })
+          .returning();
+
+        // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
+        // await system.permAttachmentQueue?.saveAudio(uri);
+
+        await tx
+          .insert(resolveTable('asset_content_link', { localOverride: true }))
+          .values({
+            asset_id: newAsset!.id,
+            source_language_id: currentProject.target_language_id,
+            text: newSegment.name,
+            audio_id: newSegment.id,
+            download_profiles: [currentUser!.id]
+          });
+      });
+
       // TODO: save the audio file to the device, then add to attachment queue, etc. like in a regular translation creation
 
       setAudioSegments((prev) => {
@@ -224,7 +256,7 @@ export default function NextGenAssetsView() {
   );
 
   const handleDeleteSegment = React.useCallback(
-    (segmentId: string) => {
+    async (segmentId: string) => {
       setAudioSegments((prev) => {
         const newSegments = prev.filter((segment) => segment.id !== segmentId);
         // Adjust insertion index if needed
@@ -236,6 +268,12 @@ export default function NextGenAssetsView() {
         }
         return newSegments;
       });
+
+      const resolvedAsset = resolveTable('asset', { localOverride: true });
+
+      await system.db
+        .delete(resolvedAsset)
+        .where(eq(resolvedAsset.id, segmentId));
     },
     [insertionIndex]
   );

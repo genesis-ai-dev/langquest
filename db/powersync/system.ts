@@ -41,6 +41,22 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
+const {
+  quest_tag_categories: _,
+  asset_tag_categories: _2,
+  ...tablesOnly
+} = drizzleSchema;
+
+export { tablesOnly };
+
+const {
+  quest_tag_categories_local: _local,
+  asset_tag_categories_local: _local2,
+  ...localTablesOnly
+} = drizzleSchemaLocal;
+
+export { localTablesOnly };
+
 // Use the correct imports based on platform
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Column = ColumnNative || ColumnWeb;
@@ -77,18 +93,6 @@ export class System {
     }
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
-
-    const {
-      quest_tag_categories: _,
-      asset_tag_categories: _2,
-      ...tablesOnly
-    } = drizzleSchema;
-
-    const {
-      quest_tag_categories_local: _local,
-      asset_tag_categories_local: _local2,
-      ...localTablesOnly
-    } = drizzleSchemaLocal;
 
     const drizzleSchemaWithOptions = {
       ...tablesOnly,
@@ -139,7 +143,6 @@ export class System {
         }
       });
     }
-
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: { ...drizzleSchema, ...drizzleSchemaLocal }
     });

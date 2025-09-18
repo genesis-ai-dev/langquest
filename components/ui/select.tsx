@@ -6,13 +6,32 @@ import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Icon } from './icon';
 
+export function getOptionFromValue(value?: string | null): Option {
+  if (value) {
+    return {
+      value: value,
+      label: value
+    };
+  }
+}
+
 type Option = SelectPrimitive.Option;
 
 const Select = SelectPrimitive.Root;
 
 const SelectGroup = SelectPrimitive.Group;
 
-const SelectValue = SelectPrimitive.Value;
+const SelectValue = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Value>,
+  React.ComponentProps<typeof SelectPrimitive.Value>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Value
+    ref={ref}
+    className={cn('text-foreground', className)}
+    {...props}
+  />
+));
+SelectValue.displayName = 'SelectValue';
 
 const SelectTrigger = React.forwardRef<
   SelectPrimitive.TriggerRef,
@@ -151,7 +170,7 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   SelectPrimitive.ItemRef,
-  SelectPrimitive.ItemProps
+  SelectPrimitive.ItemProps & { textClassName?: string }
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
@@ -172,7 +191,12 @@ const SelectItem = React.forwardRef<
         />
       </SelectPrimitive.ItemIndicator>
     </View>
-    <SelectPrimitive.ItemText className="native:text-base text-sm text-popover-foreground web:group-focus:text-accent-foreground" />
+    <SelectPrimitive.ItemText
+      className={cn(
+        'native:text-base flex-1 text-sm text-popover-foreground web:group-focus:text-accent-foreground',
+        props.textClassName
+      )}
+    />
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;

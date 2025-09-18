@@ -18,13 +18,19 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { Language } from '@/store/localStore';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
   useHybridData,
   useItemDownloadStatus
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
-import { CrownIcon, LockIcon, UserIcon } from 'lucide-react-native';
+import {
+  CrownIcon,
+  HardDriveIcon,
+  LockIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -32,7 +38,7 @@ export function ProjectListItem({
   project,
   className
 }: {
-  project: Project;
+  project: Project & { source?: HybridDataSource };
   className?: string;
 }) {
   const { t } = useLocalization();
@@ -146,6 +152,12 @@ export function ProjectListItem({
                 <View className="flex flex-1 flex-row gap-2">
                   {(project.private || !!membership) && (
                     <View className="flex flex-row gap-1.5">
+                      {project.source === 'localOnlySqlite' && (
+                        <Icon
+                          as={HardDriveIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
                       {project.private && (
                         <Icon
                           as={LockIcon}
