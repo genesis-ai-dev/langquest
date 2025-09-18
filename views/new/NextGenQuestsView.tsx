@@ -402,7 +402,7 @@ export default function NextGenQuestsView() {
           )}
         />
 
-        <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
+        <View style={{ bottom: 24, right: 24 }} className="absolute">
           <SpeedDial>
             <SpeedDialItems>
               {canManageProject ? (
