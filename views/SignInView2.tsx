@@ -119,6 +119,10 @@ export default function NewSignIn({
               <FormControl>
                 <Input
                   {...transformInputProps(field)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
                   prefix={LockIcon}
                   prefixStyling={false}
                   placeholder={t('enterYourPassword')}
