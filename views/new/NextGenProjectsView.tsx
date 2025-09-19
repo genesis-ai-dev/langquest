@@ -11,18 +11,16 @@ import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { and, desc, eq, inArray, notInArray, or, like } from 'drizzle-orm';
 import { cn } from '@/utils/styleUtils';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
-import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
 import { PlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 type TabType = 'my' | 'all';
-
-const { db } = system;
 
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
@@ -151,7 +149,6 @@ export default function NextGenProjectsView() {
 
       const trimmed = searchQuery.trim();
       const conditions = [
-        eq(project.active, true),
         userProjectIds.length > 0 && notInArray(project.id, userProjectIds),
         !showInvisibleContent ? eq(project.visible, true) : undefined,
         blockUserIds.length > 0 && notInArray(project.creator_id, blockUserIds),
@@ -165,6 +162,7 @@ export default function NextGenProjectsView() {
 
       const projects = await system.db.query.project.findMany({
         where: and(...conditions.filter(Boolean)),
+        orderBy: desc(project.priority),
         limit: pageSize,
         offset
       });
@@ -204,6 +202,8 @@ export default function NextGenProjectsView() {
           `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
         );
 
+      query = query.order('priority', { ascending: false });
+            
       const { data, error } = await query
         .range(from, to)
         .overrideTypes<Project[]>();
