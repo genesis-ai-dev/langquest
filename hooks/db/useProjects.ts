@@ -1,5 +1,6 @@
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import type { SortOrder } from '@/utils/dbUtils';
 import { sortingHelper } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
@@ -54,7 +55,7 @@ export function useProjects() {
 export function useInfiniteProjects(
   pageSize = 10,
   sortField?: keyof (typeof projectTable)['_']['columns'],
-  sortOrder?: 'asc' | 'desc'
+  sortOrder?: SortOrder
 ) {
   const { db, supabaseConnector } = system;
 

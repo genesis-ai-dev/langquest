@@ -4,8 +4,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import type { asset } from '@/db/drizzleSchema';
-import { project } from '@/db/drizzleSchema';
+import type { asset, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -14,9 +13,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import {
@@ -28,7 +25,6 @@ import {
   View
 } from 'react-native';
 import type { HybridDataSource } from './useHybridData';
-import { useHybridData } from './useHybridData';
 
 import AudioSegmentItem from '@/components/AudioSegmentItem';
 import InsertionCursor from '@/components/InsertionCursor';
@@ -44,6 +40,7 @@ import {
 import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
 import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
@@ -92,28 +89,7 @@ export default function NextGenAssetsView() {
   const { currentUser } = useAuth();
 
   // Get project data to check if it's templated
-  const { data: projectData } = useHybridData<Project>({
-    dataType: 'project',
-    queryKeyParams: [currentProjectId || ''],
-    offlineQuery: toCompilableQuery(
-      system.db.query.project.findMany({
-        where: eq(project.id, currentProjectId || ''),
-        limit: 1
-      })
-    ),
-    cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', currentProjectId)
-        .overrideTypes<Project[]>();
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: !!currentProjectId
-  });
-  const currentProject = projectData[0];
+  const { project: currentProject } = useProjectById(currentProjectId);
   const isTemplatedProject = currentProject?.template;
 
   // Handlers for templated project creation
@@ -286,11 +262,7 @@ export default function NextGenAssetsView() {
         return newSegments;
       });
 
-      const resolvedAsset = resolveTable('asset', { localOverride: true });
-
-      await system.db
-        .delete(resolvedAsset)
-        .where(eq(resolvedAsset.id, segmentId));
+      await audioSegmentService.deleteAudioSegment(segmentId);
     },
     [insertionIndex]
   );

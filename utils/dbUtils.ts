@@ -104,10 +104,12 @@ export async function mergeQuery<T extends QueryInput<T>>(query: T) {
   return result.rows?._array as MergeQueryResult<T>[];
 }
 
+export type SortOrder = 'asc' | 'desc';
+
 export function sortingHelper<
   T extends Table,
   K extends keyof T['_']['columns']
->(table: T, sortField: K, sortOrder: 'asc' | 'desc') {
+>(table: T, sortField: K, sortOrder: SortOrder) {
   const orderByOperators = getOrderByOperators();
   const column = table[sortField as keyof T] as unknown as AnyColumn;
   return orderByOperators[sortOrder](column);

@@ -33,8 +33,10 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { project, quest } from '@/db/drizzleSchema';
+import type { project } from '@/db/drizzleSchema';
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -44,7 +46,6 @@ import { mergeQuery, resolveTable } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { and, eq, like, or } from 'drizzle-orm';
 import {
@@ -68,7 +69,7 @@ import {
 import { z } from 'zod';
 import { QuestListItem } from './QuestListItem';
 import type { HybridDataSource } from './useHybridData';
-import { useHybridData, useSimpleHybridInfiniteData } from './useHybridData';
+import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
 type Project = typeof project.$inferSelect;
@@ -91,28 +92,7 @@ export default function NextGenQuestsView() {
     'project_settings_cog'
   );
 
-  const { data: projectData } = useHybridData<Project>({
-    dataType: 'project',
-    queryKeyParams: [currentProjectId || ''],
-    offlineQuery: toCompilableQuery(
-      system.db.query.project.findMany({
-        where: eq(project.id, currentProjectId || ''),
-        limit: 1
-      })
-    ),
-    cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', currentProjectId)
-        .overrideTypes<Project[]>();
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: !!currentProjectId
-  });
-  const currentProject = projectData[0];
+  const { project: currentProject } = useProjectById(currentProjectId);
 
   // Create Quest bottom sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
