@@ -535,7 +535,7 @@ export default function NextGenProjectsView() {
             />
 
             <View className="mt-1 flex-row items-center justify-between">
-              <Text>{t('visible') || 'Visible'}</Text>
+              <Text>{t('visible')}</Text>
               <FormField
                 control={form.control}
                 name="visible"
@@ -550,7 +550,7 @@ export default function NextGenProjectsView() {
               />
             </View>
             <View className="flex-row items-center justify-between">
-              <Text>{t('private') || 'Private'}</Text>
+              <Text>{t('private')}</Text>
               <FormField
                 control={form.control}
                 name="private"

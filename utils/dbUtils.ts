@@ -38,15 +38,15 @@ export function resolveTable<T extends TablesOnlyKeys>(
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   return useLocal
     ? (drizzleSchemaLocal[
-        `${table}_local` as LocalKeyFor<T>
-      ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
+      `${table}_local` as LocalKeyFor<T>
+    ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
     : (drizzleSchema[table] as (typeof drizzleSchema)[T]);
 }
 
 type QueryInput<T> = string | CompilableQuery<T> | { toSQL: () => Query };
 type QueryInputWithoutToSQL<T> = Omit<QueryInput<T>, 'toSQL'>;
 
-export function toMergeSQL<T>(query: QueryInput<T>) {
+export function mergeSQL<T>(query: QueryInput<T>) {
   let sql = '';
   let params: unknown[] = [];
 
@@ -66,7 +66,7 @@ export function toMergeSQL<T>(query: QueryInput<T>) {
   }
 
   if (sql === '') {
-    throw new Error('toMergeSQL: query is empty');
+    throw new Error('mergeSQL: query is empty');
   }
 
   const substituted = substituteParams(sql, params);
@@ -92,15 +92,27 @@ export function toMergeSQL<T>(query: QueryInput<T>) {
   return unionQuery;
 }
 
+export function toMergeCompilableQuery<T extends QueryInputWithoutToSQL<T>>(query: T) {
+  const unionQuery = mergeSQL(query as QueryInput<T>);
+
+  return {
+    execute: async () => (await system.powersync.execute(unionQuery)).rows?._array,
+    compile: () => ({
+      sql: unionQuery,
+      parameters: []
+    })
+  } as CompilableQuery<T>
+}
+
 export type MergeQueryResult<
   T extends QueryInput<T> | QueryInputWithoutToSQL<T>
 > =
   Awaited<T> extends readonly unknown[]
-    ? Awaited<T>[number] & { source: HybridDataSource }
-    : Awaited<T> & { source: HybridDataSource };
+  ? Awaited<T>[number] & { source: HybridDataSource }
+  : Awaited<T> & { source: HybridDataSource };
 
 export async function mergeQuery<T extends QueryInput<T>>(query: T) {
-  const result = await system.powersync.execute(toMergeSQL(query));
+  const result = await system.powersync.execute(mergeSQL(query));
   return result.rows?._array as MergeQueryResult<T>[];
 }
 

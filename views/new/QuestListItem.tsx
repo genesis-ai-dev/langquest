@@ -1,4 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -33,12 +34,34 @@ type QuestClosure = typeof quest_closure.$inferSelect;
 export interface QuestListItemProps {
   quest: Quest & { source?: HybridDataSource };
   className?: string;
+  onAddSubquest?: (quest: Quest) => void;
 }
 
 export const QuestListItem: React.FC<QuestListItemProps> = ({
   quest,
-  className
+  className,
+  onAddSubquest
 }) => {
+  // Fetch child quests (one level) for display
+  const { data: childQuests } = useHybridData<Quest>({
+    dataType: 'quests',
+    queryKeyParams: [quest.project_id, quest.id, 'children'],
+    offlineQuery: `SELECT * FROM quest WHERE project_id = '${quest.project_id}' AND parent_id = '${quest.id}'`,
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('project_id', quest.project_id)
+        .eq('parent_id', quest.id)
+        .overrideTypes<Quest[]>();
+      if (error) {
+        console.warn('Error fetching child quests from cloud:', error);
+        return [];
+      }
+      return data;
+    },
+    getItemId: (item) => item.id
+  });
   const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -165,6 +188,40 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
             <Text numberOfLines={4}>{quest.description}</Text>
           </CardContent>
         )}
+        <CardContent>
+          <View className="mt-2 flex flex-col gap-2">
+            {!!childQuests?.length && (
+              <View className="flex flex-col gap-1">
+                <Text className="text-xs text-muted-foreground">
+                  Sub-quests
+                </Text>
+                {childQuests.map((child) => (
+                  <Pressable
+                    key={child.id}
+                    onPress={() =>
+                      goToQuest({
+                        id: child.id,
+                        project_id: child.project_id,
+                        name: child.name
+                      })
+                    }
+                  >
+                    <Text className="text-sm">• {child.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {onAddSubquest && (
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => onAddSubquest(quest)}
+              >
+                <Text className="text-xs">Add sub-quest</Text>
+              </Button>
+            )}
+          </View>
+        </CardContent>
       </Card>
     </Pressable>
   );

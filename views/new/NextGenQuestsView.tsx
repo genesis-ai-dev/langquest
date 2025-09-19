@@ -1,3 +1,6 @@
+// TODO: user can make a sub-quest with the current quest as parentId
+// todo: need to query/render any quests that have current quest as parentId
+
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
@@ -47,7 +50,7 @@ import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
 import { useMutation } from '@tanstack/react-query';
-import { and, eq, like, or } from 'drizzle-orm';
+import { and, eq, isNull, like, or } from 'drizzle-orm';
 import {
   FilterIcon,
   FlagIcon,
@@ -96,6 +99,9 @@ export default function NextGenQuestsView() {
 
   // Create Quest bottom sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [parentForNewQuest, setParentForNewQuest] = useState<string | null>(
+    null
+  );
 
   // Simple create quest form schema
   const formSchema = z.object({
@@ -137,9 +143,11 @@ export default function NextGenQuestsView() {
 
       // Build where conditions
       const baseCondition = eq(quest.project_id, currentProjectId);
+      const topLevelOnly = isNull(quest.parent_id);
 
       const conditions = [
         baseCondition,
+        topLevelOnly,
         debouncedSearchQuery.trim() &&
           or(
             like(quest.name, `%${debouncedSearchQuery.trim()}%`),
@@ -170,7 +178,8 @@ export default function NextGenQuestsView() {
       let query = system.supabaseConnector.client
         .from('quest')
         .select('*')
-        .eq('project_id', currentProjectId);
+        .eq('project_id', currentProjectId)
+        .is('parent_id', null);
 
       if (!showInvisibleContent) {
         query = query.eq('visible', true);
@@ -227,19 +236,23 @@ export default function NextGenQuestsView() {
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!currentProjectId || !currentUser?.id) return;
+      const insertValues: any = {
+        name: values.name.trim(),
+        description: values.description?.trim(),
+        project_id: currentProjectId,
+        creator_id: currentUser.id,
+        download_profiles: [currentUser.id]
+      };
+      if (parentForNewQuest) insertValues.parent_id = parentForNewQuest;
+
       await system.db
         .insert(resolveTable('quest', { localOverride: true }))
-        .values({
-          name: values.name.trim(),
-          description: values.description?.trim(),
-          project_id: currentProjectId,
-          creator_id: currentUser.id,
-          download_profiles: [currentUser.id]
-        });
+        .values(insertValues);
     },
     onSuccess: () => {
       form.reset();
       setIsCreateOpen(false);
+      setParentForNewQuest(null);
       void refetch();
     },
     onError: (error) => {
@@ -248,10 +261,6 @@ export default function NextGenQuestsView() {
   });
 
   // Speed dial items are composed inline below
-
-  if (isLoading && !searchQuery) {
-    return <ProjectListSkeleton />;
-  }
 
   if (!currentProjectId) {
     return (
@@ -307,52 +316,62 @@ export default function NextGenQuestsView() {
           </View>
         </View>
 
-        <LegendList
-          key={`${showDownloadedOnly ? 'downloaded' : 'all'}-${dimensions.width}`}
-          data={filteredQuests}
-          numColumns={
-            dimensions.width > 768 && filteredQuests.length > 1 ? 2 : 1
-          }
-          columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{ paddingBottom: filteredQuests.length * 12 }}
-          keyExtractor={(item) => item.id}
-          maintainVisibleContentPosition
-          recycleItems
-          renderItem={({ item }) => (
-            <QuestListItem
-              quest={item}
-              className={cn(dimensions.width > 768 && 'h-[145px]')}
-            />
-          )}
-          estimatedItemSize={175}
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
+        {isLoading && !searchQuery ? (
+          <ProjectListSkeleton />
+        ) : (
+          <LegendList
+            key={`${showDownloadedOnly ? 'downloaded' : 'all'}-${dimensions.width}`}
+            data={filteredQuests}
+            numColumns={
+              dimensions.width > 768 && filteredQuests.length > 1 ? 2 : 1
             }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={() =>
-            isFetchingNextPage ? (
-              <View className="items-center py-4">
-                <ActivityIndicator size="small" className="text-primary" />
+            columnWrapperStyle={{ gap: 12 }}
+            contentContainerStyle={{
+              paddingBottom: filteredQuests.length * 12
+            }}
+            keyExtractor={(item) => item.id}
+            maintainVisibleContentPosition
+            recycleItems
+            renderItem={({ item }) => (
+              <QuestListItem
+                quest={item}
+                className={cn(dimensions.width > 768 && 'h-[145px]')}
+                onAddSubquest={(q) => {
+                  setParentForNewQuest(q.id);
+                  setIsCreateOpen(true);
+                }}
+              />
+            )}
+            estimatedItemSize={175}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() =>
+              isFetchingNextPage ? (
+                <View className="items-center py-4">
+                  <ActivityIndicator size="small" className="text-primary" />
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={() => (
+              <View className="flex-1 flex-col items-center justify-center gap-4 py-16">
+                <Text className="text-muted-foreground">
+                  {debouncedSearchQuery
+                    ? t('noQuestsFound')
+                    : t('noQuestsAvailable')}
+                </Text>
+                {canCreateQuestNow && (
+                  <DrawerTrigger className={buttonVariants({ size: 'lg' })}>
+                    <Text>{t('createObject')}</Text>
+                  </DrawerTrigger>
+                )}
               </View>
-            ) : null
-          }
-          ListEmptyComponent={() => (
-            <View className="flex-1 flex-col items-center justify-center gap-4 py-16">
-              <Text className="text-muted-foreground">
-                {debouncedSearchQuery
-                  ? t('noQuestsFound')
-                  : t('noQuestsAvailable')}
-              </Text>
-              {canCreateQuestNow && (
-                <DrawerTrigger className={buttonVariants({ size: 'lg' })}>
-                  <Text>{t('createObject')}</Text>
-                </DrawerTrigger>
-              )}
-            </View>
-          )}
-        />
+            )}
+          />
+        )}
 
         <View style={{ bottom: 24, right: 24 }} className="absolute">
           <SpeedDial>

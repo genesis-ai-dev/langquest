@@ -4,6 +4,7 @@
 
 import { relations, sql } from 'drizzle-orm';
 import {
+  AnySQLiteColumn,
   index,
   int,
   primaryKey,
@@ -131,12 +132,14 @@ export const quest_local = sqliteTable(
     project_id: text()
       .notNull()
       .references(() => project_local.id),
+    parent_id: text().references((): AnySQLiteColumn => quest_local.id),
     creator_id: text().references(() => profile_local.id),
     visible: int({ mode: 'boolean' }).notNull().default(true),
     download_profiles: text({ mode: 'json' }).$type<string[]>()
   },
   (table) => [
     index('project_id_idx').on(table.project_id),
+    index('parent_id_idx').on(table.parent_id),
     index('name_idx').on(table.name)
   ]
 );
@@ -146,13 +149,20 @@ export const quest_localRelations = relations(quest_local, ({ one, many }) => ({
     fields: [quest_local.project_id],
     references: [project_local.id]
   }),
+  parent: one(quest_local, {
+    fields: [quest_local.parent_id],
+    references: [quest_local.id],
+    relationName: 'quest_parent'
+  }),
+  children: many(quest_local, { relationName: 'quest_parent' }),
   tags: many(quest_tag_link_local),
   assets: many(quest_asset_link_local)
 }));
 
 export const tag_local = sqliteTable('tag_local', {
   ...baseColumns,
-  name: text().notNull(),
+  key: text().notNull(),
+  value: text().notNull(),
   download_profiles: text({ mode: 'json' }).$type<string[]>()
 });
 
@@ -190,6 +200,8 @@ export const asset_local = sqliteTable(
     source_language_id: text()
       .notNull()
       .references(() => language_local.id),
+    project_id: text().references(() => project_local.id),
+    parent_id: text().references((): AnySQLiteColumn => asset_local.id),
     images: text({ mode: 'json' }).$type<string[]>(),
     creator_id: text().references(() => profile_local.id),
     visible: int({ mode: 'boolean' }).notNull().default(true),
@@ -197,7 +209,9 @@ export const asset_local = sqliteTable(
   },
   (table) => [
     index('name_idx').on(table.name),
-    index('source_language_id_idx').on(table.source_language_id)
+    index('source_language_id_idx').on(table.source_language_id),
+    index('asset_project_id_idx').on(table.project_id),
+    index('asset_parent_id_idx').on(table.parent_id)
   ]
 );
 
@@ -206,6 +220,16 @@ export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
     fields: [asset_local.source_language_id],
     references: [language_local.id]
   }),
+  project: one(project_local, {
+    fields: [asset_local.project_id],
+    references: [project_local.id]
+  }),
+  parent: one(asset_local, {
+    fields: [asset_local.parent_id],
+    references: [asset_local.id],
+    relationName: 'asset_parent'
+  }),
+  children: many(asset_local, { relationName: 'asset_parent' }),
   tags: many(asset_tag_link_local),
   quests: many(quest_asset_link_local),
   translations: many(translation_local),
@@ -615,13 +639,7 @@ export const asset_tag_categories_local = sqliteView('asset_tag_categories_local
 }).as(sql`
   SELECT
     q.id AS quest_id,
-    GROUP_CONCAT(DISTINCT
-      CASE
-        WHEN INSTR(t.name, ':') > 0
-        THEN SUBSTR(t.name, 1, INSTR(t.name, ':') - 1)
-        ELSE t.name
-      END
-    ) AS tag_categories
+    GROUP_CONCAT(DISTINCT t.key) AS tag_categories
   FROM quest_local q
   JOIN quest_asset_link_local qal ON q.id = qal.quest_id
   JOIN asset_local a ON qal.asset_id = a.id
@@ -638,13 +656,7 @@ export const quest_tag_categories_local = sqliteView('quest_tag_categories_local
 }).as(sql`
   SELECT
     p.id AS project_id,
-    GROUP_CONCAT(DISTINCT
-      CASE
-        WHEN INSTR(t.name, ':') > 0
-        THEN SUBSTR(t.name, 1, INSTR(t.name, ':') - 1)
-        ELSE t.name
-      END
-    ) AS tag_categories
+    GROUP_CONCAT(DISTINCT t.key) AS tag_categories
   FROM project_local p
   JOIN quest_local q ON q.project_id = p.id
   JOIN quest_asset_link_local qal ON q.id = qal.quest_id
