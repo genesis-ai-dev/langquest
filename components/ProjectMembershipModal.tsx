@@ -35,6 +35,8 @@ import {
   View
 } from 'react-native';
 
+const MAX_INVITE_ATTEMPTS = 3;
+
 interface ProjectMembershipModalProps {
   isVisible: boolean;
   onClose: () => void;
@@ -445,8 +447,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const invitation = invitations.find((i) => i.id === inviteId);
       if (!invitation) return;
 
-      const MAX_INVITE_ATTEMPTS = 3;
-
       // Check if we can re-invite
       if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
         // Update existing invitation to pending and increment count
@@ -506,8 +506,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const existingInvite = existingInvites[0];
 
       if (existingInvite) {
-        const MAX_INVITE_ATTEMPTS = 5; // Configure max attempts as needed
-
         // Check if the invitee has an inactive profile_project_link
         let hasInactiveLink = false;
         if (existingInvite.receiver_profile_id) {

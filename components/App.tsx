@@ -2,26 +2,41 @@ import { useAuth } from '@/contexts/AuthContext';
 import { initializePostHogWithStore } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
-import { colors } from '@/styles/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { openDB, useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
+import { colors } from '@/styles/theme';
 import AppView from '@/views/AppView';
 import ResetPasswordView2 from '@/views/ResetPasswordView2';
-import TermsView from '@/views/TermsView';
+import clsx from 'clsx';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StyleSheet } from 'react-native';
 
 // Wrapper component to provide consistent gradient background
 function AppWrapper({ children }: { children: React.ReactNode }) {
+  const { currentView } = useAppNavigation();
   return (
     <LinearGradient
       colors={[colors.gradientStart, colors.gradientEnd]}
       style={styles.gradient}
     >
-      <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
+      <SafeAreaView
+        style={{ flex: 1 }}
+        className={clsx(
+          (currentView === 'projects' ||
+            currentView === 'quests' ||
+            currentView === 'profile') &&
+            'bg-background'
+        )}
+        edges={['top', 'left', 'right']}
+      >
+        {children}
+      </SafeAreaView>
     </LinearGradient>
   );
 }
@@ -29,6 +44,9 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isLoading, isAuthenticated, sessionType, isSystemReady } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const router = useRouter();
+
+  useDrizzleStudio(openDB());
 
   // Initialize network listener on app startup
   useEffect(() => {
@@ -44,20 +62,17 @@ export default function App() {
     };
   }, [isSystemReady]);
 
+  useEffect(() => {
+    if (!isLoading && !dateTermsAccepted) {
+      router.navigate('/terms');
+    }
+  }, [isLoading, dateTermsAccepted]);
+
   // Show loading while checking auth state
   if (isLoading) {
     return (
       <AppWrapper>
         <LoadingView />
-      </AppWrapper>
-    );
-  }
-
-  // Check terms acceptance (before auth)
-  if (!dateTermsAccepted) {
-    return (
-      <AppWrapper>
-        <TermsView />
       </AppWrapper>
     );
   }

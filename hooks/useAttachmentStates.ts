@@ -1,9 +1,14 @@
 // In a new hook file (useAttachmentStates.ts)
 import type { AttachmentRecord } from '@powersync/attachments';
 import { ATTACHMENT_TABLE, AttachmentState } from '@powersync/attachments';
-import type { QueryResult } from '@powersync/react-native';
+// Import from native SDK - will be empty on web
+import type { QueryResult as QueryResultNative } from '@powersync/react-native';
+// Import from web SDK - will be empty on native  
+import type { QueryResult as QueryResultWeb } from '@powersync/web';
 import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
+// Use the correct type based on platform
+type QueryResult = QueryResultNative | QueryResultWeb;
 
 export function useAttachmentStates(attachmentIds: string[] = []) {
   const [attachmentStates, setAttachmentStates] = useState<
@@ -12,7 +17,7 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
   const [isLoading, setIsLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const previousStatesRef = useRef<Map<string, AttachmentRecord>>(new Map());
-  const debounceTimeoutRef = useRef<number | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Abort any previous query

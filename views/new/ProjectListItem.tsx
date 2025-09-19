@@ -1,59 +1,61 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { Project } from '@/database_services/projectService';
 import type { LayerStatus } from '@/database_services/types';
-import type { language, project } from '@/db/drizzleSchema';
-import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, sharedStyles } from '@/styles/theme';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
+import type { Language } from '@/store/localStore';
+import {
+  useHybridData,
+  useItemDownloadStatus
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
+import { CrownIcon, LockIcon, UserIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './NextGenProjectsView';
-import { useHybridData, useItemDownloadStatus } from './useHybridData';
+import { Pressable, View } from 'react-native';
 
-type Project = typeof project.$inferSelect;
-type Language = typeof language.$inferSelect;
-
-// Define props locally to avoid require cycle
-export interface ProjectListItemProps {
-  project: Project & { source?: string };
-}
-
-function renderSourceTag(source: string | undefined) {
-  if (source === 'cloudSupabase') {
-    return <Text style={{ color: 'red' }}>Cloud</Text>;
-  }
-  return <Text style={{ color: 'blue' }}>Offline</Text>;
-}
-
-export const ProjectListItem: React.FC<ProjectListItemProps> = ({
-  project
-}) => {
-  const { goToProject } = useAppNavigation();
-  const { currentUser } = useAuth();
-  const [showPrivateModal, setShowPrivateModal] = useState(false);
+export function ProjectListItem({
+  project,
+  className
+}: {
+  project: Project;
+  className?: string;
+}) {
   const { t } = useLocalization();
-
-  // Check if project is downloaded
+  const { currentUser } = useAuth();
+  const { goToProject } = useAppNavigation();
+  const layerStatus = useStatusContext();
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
-  // Check user permissions for the project
-  const { hasAccess, membership } = useUserPermissions(
+  const [showPrivateModal, setShowPrivateModal] = useState(false);
+
+  const { membership } = useUserPermissions(
     project.id,
     'open_project',
     project.private
   );
 
-  // Fetch language information for source and target languages
-  // Fetch multiple source languages via project_language_link and single target via project
+  const { allowEditing: _allowEditing, invisible: _invisible } =
+    layerStatus.getStatusParams(
+      LayerType.PROJECT,
+      project.id || '',
+      project as LayerStatus
+    );
+
   const { data: sourceLanguages = [] } = useHybridData<Language, Language>({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
@@ -81,7 +83,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
     queryKeyParams: [project.target_language_id],
     offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
-        where: eq(languageTable.id, project.target_language_id)
+        where: (language, { eq }) => eq(language.id, project.target_language_id)
       })
     ),
     cloudQueryFn: async () => {
@@ -97,34 +99,11 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
 
   const targetLanguage = targetLangArr[0];
 
-  // Helper function to get display name for a language
-  const getLanguageDisplayName = (language: Language | undefined) => {
+  const getLanguageDisplayName = (
+    language: Pick<Language, 'native_name' | 'english_name'> | undefined
+  ) => {
     if (!language) return 'Unknown';
     return language.native_name || language.english_name || 'Unknown';
-  };
-
-  const layerStatus = useStatusContext();
-  const { allowEditing, invisible } = layerStatus.getStatusParams(
-    LayerType.PROJECT,
-    project.id || '',
-    project as LayerStatus
-  );
-
-  const handlePress = () => {
-    // If project is private and user doesn't have access, show the modal
-    if (project.private && !hasAccess) {
-      setShowPrivateModal(true);
-    } else {
-      layerStatus.setLayerStatus(
-        LayerType.PROJECT,
-        project as LayerStatus,
-        project.id
-      );
-      goToProject({
-        id: project.id,
-        name: project.name
-      });
-    }
   };
 
   const handleMembershipGranted = () => {
@@ -153,88 +132,68 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
     });
   };
 
-  // TODO: Get actual stats for download confirmation
-  const downloadStats = {
-    totalAssets: 0,
-    totalQuests: 0
-  };
-
   return (
     <>
-      <TouchableOpacity onPress={handlePress}>
-        <View
-          style={[
-            styles.listItem,
-            !allowEditing && sharedStyles.disabled,
-            invisible && sharedStyles.invisible
-          ]}
-        >
-          <View style={styles.listItemHeader}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                flex: 1
-              }}
-            >
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                {project.private && (
-                  <Ionicons
-                    name="lock-closed"
-                    size={16}
-                    color={colors.textSecondary}
+      <Pressable
+        className={className}
+        key={project.id}
+        onPress={() => goToProject({ id: project.id, name: project.name })}
+      >
+        <Card className={className}>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <View className="flex flex-1 gap-1">
+              <View className="flex flex-row items-center">
+                <View className="flex flex-1 flex-row gap-2">
+                  {(project.private || !!membership) && (
+                    <View className="flex flex-row gap-1.5">
+                      {project.private && (
+                        <Icon
+                          as={LockIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
+                      {membership === 'owner' && (
+                        <Icon as={CrownIcon} className="text-primary" />
+                      )}
+                      {membership === 'member' && (
+                        <Icon as={UserIcon} className="text-primary" />
+                      )}
+                    </View>
+                  )}
+                  <CardTitle numberOfLines={2} className="flex flex-1">
+                    {project.name}
+                  </CardTitle>
+                </View>
+                {isDownloaded && (
+                  <DownloadIndicator
+                    isFlaggedForDownload={true}
+                    isLoading={false}
+                    onPress={() => undefined} // Non-interactive
+                    downloadType="project"
+                    stats={{
+                      totalAssets: 0,
+                      totalQuests: 0
+                    }}
                   />
                 )}
-                {membership === 'owner' && (
-                  <Ionicons name="ribbon" size={16} color={colors.primary} />
-                )}
-                {membership === 'member' && (
-                  <Ionicons name="person" size={16} color={colors.primary} />
-                )}
               </View>
-              <Text style={styles.projectName}>{project.name}</Text>
+              <CardDescription>
+                {sourceLanguages.length
+                  ? sourceLanguages
+                      .map((l) => getLanguageDisplayName(l))
+                      .join(', ')
+                  : '—'}{' '}
+                → {getLanguageDisplayName(targetLanguage)}
+              </CardDescription>
             </View>
-
-            {/* Only show download indicator when project is downloaded */}
-            {isDownloaded && (
-              <DownloadIndicator
-                isFlaggedForDownload={true}
-                isLoading={false}
-                onPress={() => undefined} // Non-interactive
-                downloadType="project"
-                stats={downloadStats}
-              />
-            )}
-          </View>
-
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              marginTop: 4
-            }}
-          >
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && renderSourceTag(project.source)}
-          </View>
-
-          <Text style={styles.languagePair}>
-            {sourceLanguages.length
-              ? sourceLanguages.map((l) => getLanguageDisplayName(l)).join(', ')
-              : '—'}{' '}
-            → {getLanguageDisplayName(targetLanguage)}
-          </Text>
+          </CardHeader>
           {project.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {project.description}
-            </Text>
+            <CardContent>
+              <Text numberOfLines={4}>{project.description}</Text>
+            </CardContent>
           )}
-        </View>
-      </TouchableOpacity>
+        </Card>
+      </Pressable>
 
       {/* Private Access Gate Modal */}
       <PrivateAccessGate
@@ -252,4 +211,4 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
       />
     </>
   );
-};
+}

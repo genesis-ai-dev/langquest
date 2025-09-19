@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
+import { getDocumentDirectory } from './fileUtils';
 
 // --- Permission Helper ---
 export async function requestBackupDirectory() {
@@ -95,7 +96,7 @@ export async function backupUnsyncedAudio(
       if (!audioId) continue; // Skip null/empty IDs just in case
 
       // Construct the source path based on the attachment ID
-      const sourceUri = `${FileSystem.documentDirectory}shared_attachments/${audioId}`;
+      const sourceUri = `${getDocumentDirectory()}shared_attachments/${audioId}`;
       try {
         const fileInfo = await FileSystem.getInfoAsync(sourceUri, {
           size: true

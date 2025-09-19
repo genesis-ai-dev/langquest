@@ -101,25 +101,25 @@ export const ResetPassword = ({
       <Preview>{t.preview}</Preview>
       <Tailwind>
         <Body className="bg-white">
-          <Container className="px-3 mx-auto">
-            <Heading className="text-2xl font-bold text-gray-800 my-10">
+          <Container className="mx-auto px-3">
+            <Heading className="my-10 text-2xl font-bold text-gray-800">
               {t.title}
             </Heading>
-            <Text className="text-gray-800 text-sm my-6">{t.greeting}</Text>
-            <Text className="text-gray-800 text-sm my-6">{t.description}</Text>
-            <Text className="text-gray-800 text-sm my-6">{t.instruction}</Text>
+            <Text className="my-6 text-sm text-gray-800">{t.greeting}</Text>
+            <Text className="my-6 text-sm text-gray-800">{t.description}</Text>
+            <Text className="my-6 text-sm text-gray-800">{t.instruction}</Text>
             <Link
               href={confirmation_url}
               target="_blank"
-              className="inline-block bg-green-500 text-white text-sm no-underline text-center py-3.5 px-5 rounded mb-4"
+              className="mb-4 inline-block rounded bg-green-500 px-5 py-3.5 text-center text-sm text-white no-underline"
             >
               {t.button}
             </Link>
-            <Text className="text-gray-800 text-sm mb-3.5">{t.orCopy}</Text>
-            <Text className="inline-block p-4 w-[90.5%] bg-gray-100 rounded border border-gray-200 text-gray-800 break-all font-mono text-sm">
+            <Text className="mb-3.5 text-sm text-gray-800">{t.orCopy}</Text>
+            <Text className="inline-block w-[90.5%] break-all rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm text-gray-800">
               {confirmation_url}
             </Text>
-            <Text className="text-gray-400 text-sm mt-3.5">{t.expiry}</Text>
+            <Text className="mt-3.5 text-sm text-gray-400">{t.expiry}</Text>
           </Container>
         </Body>
       </Tailwind>

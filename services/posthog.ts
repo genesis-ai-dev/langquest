@@ -1,4 +1,5 @@
 import { useLocalStore } from '@/store/localStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHog from 'posthog-react-native';
 
 // Simple initialization without circular dependency
@@ -16,7 +17,8 @@ const createPostHogInstance = (optIn = false) => {
       process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
       __DEV__ ||
       !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
-      !process.env.EXPO_PUBLIC_POSTHOG_KEY
+      !process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    customStorage: AsyncStorage
   });
 };
 

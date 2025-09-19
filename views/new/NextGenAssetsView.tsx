@@ -19,13 +19,18 @@ import {
   View
 } from 'react-native';
 
-import type { FloatingMenuItem } from '@/components/FloatingMenu';
-import { createMenuItem, FloatingMenu } from '@/components/FloatingMenu';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
+import { FlagIcon, InfoIcon, SettingsIcon } from 'lucide-react-native';
 import { AssetListItem } from './AssetListItem';
 
 type Asset = typeof asset.$inferSelect;
@@ -195,27 +200,7 @@ export default function NextGenAssetsView() {
     currentQuestId
   );
 
-  const menuItems = React.useMemo<FloatingMenuItem[]>(() => {
-    const items = [];
-    if (allowSettings && isOwner) {
-      items.push(
-        createMenuItem('settings', 'Settings', () => setShowSettingsModal(true))
-      );
-    } else {
-      if (!hasReported) {
-        items.push(
-          createMenuItem('flag', 'Report', () => setShowReportModal(true))
-        );
-      }
-    }
-
-    return [
-      ...items,
-      createMenuItem('information-circle', 'Info', () =>
-        setShowDetailsModal(true)
-      )
-    ];
-  }, [allowSettings, isOwner, hasReported]);
+  // Speed dial items are composed inline below
 
   if (isLoading && !searchQuery) {
     return <ProjectListSkeleton />;
@@ -308,7 +293,31 @@ export default function NextGenAssetsView() {
         </View>
       )}
 
-      <FloatingMenu items={menuItems} />
+      <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
+        <SpeedDial>
+          <SpeedDialItems>
+            {allowSettings && isOwner ? (
+              <SpeedDialItem
+                icon={SettingsIcon}
+                variant="outline"
+                onPress={() => setShowSettingsModal(true)}
+              />
+            ) : !hasReported ? (
+              <SpeedDialItem
+                icon={FlagIcon}
+                variant="outline"
+                onPress={() => setShowReportModal(true)}
+              />
+            ) : null}
+            <SpeedDialItem
+              icon={InfoIcon}
+              variant="outline"
+              onPress={() => setShowDetailsModal(true)}
+            />
+          </SpeedDialItems>
+          <SpeedDialTrigger />
+        </SpeedDial>
+      </View>
 
       {allowSettings && isOwner && (
         <QuestSettingsModal

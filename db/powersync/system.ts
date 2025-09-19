@@ -6,18 +6,30 @@ import {
 } from '@powersync/drizzle-driver';
 import 'react-native-url-polyfill/auto';
 
+// Import from native SDK - will be empty on web
 import {
-  Column,
-  ColumnType,
-  PowerSyncDatabase,
-  Schema
+  Column as ColumnNative,
+  ColumnType as ColumnTypeNative,
+  PowerSyncDatabase as PowerSyncDatabaseNative,
+  Schema as SchemaNative
 } from '@powersync/react-native';
+
+// Import from web SDK - will be empty on native
+import {
+  ColumnType as ColumnTypeWeb,
+  Column as ColumnWeb,
+  PowerSyncDatabase as PowerSyncDatabaseWeb,
+  Schema as SchemaWeb,
+  WASQLiteOpenFactory
+} from '@powersync/web';
+
 import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
 import type { AttachmentRecord } from '@powersync/attachments';
 import { AttachmentTable } from '@powersync/attachments';
 import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
 import Logger from 'js-logger';
+import { Platform } from 'react-native';
 import * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
@@ -25,14 +37,26 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
+// Use the correct imports based on platform
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const Column = ColumnNative || ColumnWeb;
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const ColumnType = ColumnTypeNative || ColumnTypeWeb;
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const Schema = SchemaNative || SchemaWeb;
+// // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+// const SyncClientImplementation =
+//   SyncClientImplementationNative || SyncClientImplementationWeb;
+
 Logger.useDefaults();
 
 export class System {
   private static instance: System | null = null;
 
+  factory: WASQLiteOpenFactory | OPSqliteOpenFactory;
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
-  powersync: PowerSyncDatabase;
+  powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
   tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
@@ -51,29 +75,46 @@ export class System {
     this.supabaseConnector = new SupabaseConnector(this);
     this.storage = this.supabaseConnector.storage;
 
-    const factory = new OPSqliteOpenFactory({
-      dbFilename: 'sqlite.db',
-      debugMode: false
-    });
-
     const {
       quest_tag_categories: _,
       asset_tag_categories: _2,
       ...tablesOnly
     } = drizzleSchema;
 
-    // When we first make our powersync instance, define the attachment table as an offline-only table
-    this.powersync = new PowerSyncDatabase({
-      schema: new Schema([
-        ...new DrizzleAppSchema(tablesOnly).tables,
-        new AttachmentTable({
-          additionalColumns: [
-            new Column({ name: 'storage_type', type: ColumnType.TEXT })
-          ]
-        })
-      ]),
-      database: factory
-    });
+    const schema = new Schema([
+      ...new DrizzleAppSchema(tablesOnly).tables,
+      new AttachmentTable({
+        additionalColumns: [
+          new Column({ name: 'storage_type', type: ColumnType.TEXT })
+        ]
+      })
+    ]);
+
+    // Check if we're on native or web platform
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (PowerSyncDatabaseNative) {
+      this.factory = new OPSqliteOpenFactory({
+        dbFilename: 'sqlite.db',
+        debugMode: false
+      });
+      this.powersync = new PowerSyncDatabaseNative({
+        schema,
+        database: this.factory
+      });
+    } else {
+      this.factory = new WASQLiteOpenFactory({
+        dbFilename: 'sqlite.db',
+        worker: '/@powersync/worker/WASQLiteDB.umd.js',
+        debugMode: false
+      });
+      this.powersync = new PowerSyncDatabaseWeb({
+        schema,
+        database: this.factory,
+        sync: {
+          worker: '/@powersync/worker/SharedSyncImplementation.umd.js'
+        }
+      });
+    }
 
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: drizzleSchema
@@ -86,6 +127,7 @@ export class System {
         db: this.db,
         attachmentDirectoryName: 'shared_attachments',
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
+        downloadAttachments: Platform.OS !== 'web',
         // eslint-disable-next-line
         onDownloadError: async (
           attachment: AttachmentRecord,
@@ -110,40 +152,42 @@ export class System {
         }
       });
 
-      this.tempAttachmentQueue = new TempAttachmentQueue({
-        powersync: this.powersync,
-        storage: this.storage,
-        db: this.db,
-        attachmentDirectoryName: 'shared_attachments',
-        cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
-        // eslint-disable-next-line
-        onDownloadError: async (
-          attachment: AttachmentRecord,
-          exception: { toString: () => string; status?: number }
-        ) => {
-          console.log(
-            'TempAttachmentQueue onDownloadError',
-            attachment,
-            exception
-          );
-          if (
-            exception.toString() === 'StorageApiError: Object not found' ||
-            exception.status === 400 ||
-            exception.toString().includes('status":400')
-          ) {
-            return { retry: false };
-          }
+      if (Platform.OS !== 'web') {
+        this.tempAttachmentQueue = new TempAttachmentQueue({
+          powersync: this.powersync,
+          storage: this.storage,
+          db: this.db,
+          attachmentDirectoryName: 'shared_attachments',
+          cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
+          // eslint-disable-next-line
+          onDownloadError: async (
+            attachment: AttachmentRecord,
+            exception: { toString: () => string; status?: number }
+          ) => {
+            console.log(
+              'TempAttachmentQueue onDownloadError',
+              attachment,
+              exception
+            );
+            if (
+              exception.toString() === 'StorageApiError: Object not found' ||
+              exception.status === 400 ||
+              exception.toString().includes('status":400')
+            ) {
+              return { retry: false };
+            }
 
-          return { retry: true };
-        },
-        // eslint-disable-next-line
-        onUploadError: async (
-          _attachment: AttachmentRecord,
-          _exception: unknown
-        ) => {
-          return { retry: true };
-        }
-      });
+            return { retry: true };
+          },
+          // eslint-disable-next-line
+          onUploadError: async (
+            _attachment: AttachmentRecord,
+            _exception: unknown
+          ) => {
+            return { retry: true };
+          }
+        });
+      }
     }
   }
 

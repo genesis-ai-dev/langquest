@@ -1,14 +1,25 @@
 import { AppConfig } from '@/db/supabase/AppConfig';
+import {
+  base64ToArrayBuffer,
+  copyFile,
+  deleteIfExists,
+  ensureDir,
+  fileExists,
+  getDocumentDirectory,
+  readFile,
+  stringToArrayBuffer,
+  writeFile
+} from '@/utils/fileUtils';
 import type { StorageAdapter } from '@powersync/attachments';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { decode as decodeBase64 } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
 
 export interface SupabaseStorageAdapterOptions {
   client: SupabaseClient;
 }
 
 export class SupabaseStorageAdapter implements StorageAdapter {
+  private readonly encoder = new TextEncoder();
+
   constructor(private options: SupabaseStorageAdapterOptions) {}
 
   async uploadFile(
@@ -47,44 +58,28 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     return data;
   }
 
-  async writeFile(
+  writeFile(
     fileURI: string,
     base64Data: string,
     options?: {
-      encoding?: FileSystem.EncodingType;
+      encoding?: 'utf8' | 'base64';
     }
   ): Promise<void> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-
-    const dir = fileURI.split('/').slice(0, -1).join('/');
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-
-    await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
+    return writeFile(fileURI, base64Data, options);
   }
 
   async readFile(
     fileURI: string,
-    options?: { encoding?: FileSystem.EncodingType; mediaType?: string }
+    options?: { encoding?: 'utf8' | 'base64'; mediaType?: string }
   ): Promise<ArrayBuffer> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
-    if (!exists) {
-      throw new Error(`File does not exist: ${fileURI}`);
-    }
-    const fileContent = await FileSystem.readAsStringAsync(fileURI, options);
-    if (encoding === FileSystem.EncodingType.Base64) {
-      return this.base64ToArrayBuffer(fileContent);
-    }
-    return this.stringToArrayBuffer(fileContent);
+    return readFile(fileURI, options);
   }
 
   async deleteFile(
     uri: string,
     options?: { filename?: string }
   ): Promise<void> {
-    if (await this.fileExists(uri)) {
-      await FileSystem.deleteAsync(uri);
-    }
+    await deleteIfExists(uri);
 
     const { filename } = options ?? {};
     if (!filename) {
@@ -106,37 +101,31 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     // console.debug('Deleted file from storage', data);
   }
 
-  async fileExists(fileURI: string): Promise<boolean> {
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
-    return exists;
+  fileExists(fileURI: string): Promise<boolean> {
+    return fileExists(fileURI);
   }
 
-  async makeDir(uri: string): Promise<void> {
-    const { exists } = await FileSystem.getInfoAsync(uri);
-    if (!exists) {
-      await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
-    }
+  makeDir(uri: string): Promise<void> {
+    return ensureDir(uri);
   }
 
-  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
-    await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
+  copyFile(sourceUri: string, targetUri: string) {
+    return copyFile(sourceUri, targetUri);
   }
 
   getUserStorageDirectory(): string {
-    return FileSystem.documentDirectory!;
+    return getDocumentDirectory() ?? '';
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async stringToArrayBuffer(str: string) {
-    const encoder = new TextEncoder();
-    return encoder.encode(str).buffer as ArrayBuffer;
+  stringToArrayBuffer(str: string) {
+    return stringToArrayBuffer(str);
   }
 
   /**
    * Converts a base64 string to an ArrayBuffer
    */
   // eslint-disable-next-line @typescript-eslint/require-await
-  async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
-    return decodeBase64(base64);
+  async base64ToArrayBuffer(base64: string) {
+    return base64ToArrayBuffer(base64);
   }
 }

@@ -8,6 +8,8 @@ const iconPath = './assets/images/langquest_icon_v1.png';
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
+const profile = process.env.EAS_BUILD_PROFILE;
+
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod(
     {
@@ -19,8 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
-      userInterfaceStyle: 'automatic',
-      newArchEnabled: true,
+      userInterfaceStyle: 'dark',
       splash: {
         image: './assets/images/icon.png',
         resizeMode: 'contain',
@@ -29,7 +30,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       ios: {
         supportsTablet: true,
         requireFullScreen: true,
-        bundleIdentifier: uniqueIdentifier
+        bundleIdentifier: uniqueIdentifier,
+        config: {
+          usesNonExemptEncryption: false
+        }
       },
       android: {
         edgeToEdgeEnabled: true,
@@ -59,20 +63,13 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       web: {
         bundler: 'metro',
-        output: 'static',
         favicon: iconPath
       },
       plugins: [
         'expo-font',
         'expo-router',
-        // migrate existing localization to expo-localization
+        // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        [
-          'expo-screen-orientation',
-          {
-            initialOrientation: 'PORTRAIT_UP'
-          }
-        ],
         [
           'expo-splash-screen',
           {
@@ -81,16 +78,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             backgroundColor: '#ffffff'
           }
         ],
-        [
-          'react-native-edge-to-edge',
-
-          {
-            android: {
-              parentTheme: 'Default',
-              enforceNavigationBarContrast: false
-            }
-          }
-        ]
+        ['testflight-dev-deploy', { enabled: profile === 'development' }]
       ],
       experiments: {
         typedRoutes: true

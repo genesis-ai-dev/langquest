@@ -1,3 +1,4 @@
 supabase/templates/**
 drizzle/**
 **/*.md
+generated-tokens.ts

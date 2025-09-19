@@ -181,6 +181,13 @@ export const localizations = {
     tok_pisin: 'Putim email bilong yu',
     indonesian: 'Masukkan email Anda'
   },
+  enterYourPassword: {
+    english: 'Enter your password',
+    spanish: 'Ingrese su contraseña',
+    brazilian_portuguese: 'Digite sua senha',
+    tok_pisin: 'Putim password bilong yu',
+    indonesian: 'Masukkan kata sandi Anda'
+  },
   error: {
     english: 'Error',
     spanish: 'Error',
@@ -790,11 +797,11 @@ export const localizations = {
     indonesian: 'Lihat Privasi Lengkap'
   },
   submitFeedback: {
-    english: 'Submit App Feedback',
-    spanish: 'Enviar Feedback de la App',
-    brazilian_portuguese: 'Enviar Feedback do App',
-    tok_pisin: 'Salim App Feedback',
-    indonesian: 'Kirim Umpan Balik Aplikasi'
+    english: 'Submit Feedback',
+    spanish: 'Enviar Feedback',
+    brazilian_portuguese: 'Enviar Feedback',
+    tok_pisin: 'Salim Feedback',
+    indonesian: 'Kirim Umpan Balik'
   },
   reportProject: {
     english: 'Report Project',
@@ -893,14 +900,14 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela reson long report',
     indonesian: 'Silakan pilih alasan untuk laporan'
   },
-  analyticsOptInLabel: {
+  enableAnalytics: {
     english: 'Enable Analytics',
     spanish: 'Habilitar Análisis',
     brazilian_portuguese: 'Habilitar Análise',
     tok_pisin: 'Onim Analytics',
     indonesian: 'Aktifkan Analitik'
   },
-  analyticsOptInDescription: {
+  analyticsDescription: {
     english:
       'When disabled, we will not collect usage data to improve the app.',
     spanish:
@@ -3357,11 +3364,11 @@ export const localizations = {
     indonesian: 'Semua Proyek'
   },
   searchProjects: {
-    english: 'Search projects',
-    spanish: 'Buscar proyectos',
-    brazilian_portuguese: 'Buscar projetos',
-    tok_pisin: 'Painim ol project',
-    indonesian: 'Cari proyek'
+    english: 'Search projects...',
+    spanish: 'Buscar proyectos...',
+    brazilian_portuguese: 'Buscar projetos...',
+    tok_pisin: 'Painim ol project...',
+    indonesian: 'Cari proyek...'
   },
   noProjectSelected: {
     english: 'No Project Selected',
@@ -3474,20 +3481,6 @@ export const localizations = {
     brazilian_portuguese: 'Download requerido',
     tok_pisin: 'Yu mas daunim',
     indonesian: 'Unduhan diperlukan'
-  },
-  searchMyProjects: {
-    english: 'Search my projects',
-    spanish: 'Buscar mis proyectos',
-    brazilian_portuguese: 'Buscar meus projetos',
-    tok_pisin: 'Painim ol project bilong mi',
-    indonesian: 'Cari proyek saya'
-  },
-  searchAllProjects: {
-    english: 'Search all projects',
-    spanish: 'Buscar todos los proyectos',
-    brazilian_portuguese: 'Buscar todos os projetos',
-    tok_pisin: 'Painim olgeta project',
-    indonesian: 'Cari semua proyek'
   },
   myProjects: {
     english: 'My Projects',

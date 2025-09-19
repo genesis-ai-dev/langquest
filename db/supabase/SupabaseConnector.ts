@@ -1,9 +1,23 @@
+// Import from native SDK - will be empty on web
 import type {
-  AbstractPowerSyncDatabase,
-  CrudEntry,
-  PowerSyncBackendConnector
+  AbstractPowerSyncDatabase as AbstractPowerSyncDatabaseNative,
+  CrudEntry as CrudEntryNative,
+  PowerSyncBackendConnector as PowerSyncBackendConnectorNative
 } from '@powersync/react-native';
-import { UpdateType } from '@powersync/react-native';
+import { UpdateType as UpdateTypeNative } from '@powersync/react-native';
+
+// Import from web SDK - will be empty on native
+import { UpdateType as UpdateTypeWeb } from '@powersync/web';
+
+// Use the correct types based on platform
+
+type AbstractPowerSyncDatabase = AbstractPowerSyncDatabaseNative;
+
+type CrudEntry = CrudEntryNative;
+
+type PowerSyncBackendConnector = PowerSyncBackendConnectorNative;
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const UpdateType = UpdateTypeNative || UpdateTypeWeb;
 
 import type { Profile } from '@/database_services/profileService';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
@@ -54,6 +68,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       throw new Error('PowerSync URL is not defined');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.client = createClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
@@ -425,21 +440,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
 
         if (result.error) {
-          console.error(result.error);
           console.debug('Upload data:', result.data, opData);
           result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
             result
           )}`;
+          result.error.stack = undefined;
           throw result.error;
         }
       }
 
       await transaction.complete();
     } catch (ex) {
-      console.debug(ex);
       const error = ex as Error & { code?: string };
+      console.error(`Upload data exception: ${error.message}`);
       // Note: PostHog integration moved to avoid circular dependency
-      console.error('Upload data exception:', error);
       if (
         typeof error.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code!))
