@@ -1,7 +1,7 @@
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { SortOrder } from '@/utils/dbUtils';
-import { mergeSQL, sortingHelper, toMergeCompilableQuery } from '@/utils/dbUtils';
+import { sortingHelper, toMergeCompilableQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
   useHybridData,
@@ -77,8 +77,8 @@ export function useInfiniteProjects(
         offset: offsetValue,
         ...(sortField &&
           sortOrder && {
-          orderBy: sortingHelper(projectTable, sortField, sortOrder)
-        })
+            orderBy: sortingHelper(projectTable, sortField, sortOrder)
+          })
       });
 
       return allProjects;
@@ -122,7 +122,7 @@ export function useProjectById(projectId: string | undefined) {
   const hybrid = useHybridData<Project>({
     dataType: 'project',
     queryKeyParams: [projectId || ''],
-    offlineQuery: mergeSQL(
+    offlineQuery: toMergeCompilableQuery(
       db.query.project.findMany({
         where: (fields, { eq, and }) =>
           and(

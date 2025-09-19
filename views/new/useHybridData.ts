@@ -4,7 +4,6 @@ import type { OfflineQuerySource } from '@/utils/dbUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
-import { toCompilableQuery } from "@powersync/drizzle-driver";
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import type {
   UseInfiniteQueryOptions,
@@ -147,7 +146,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
     return dataArray.map((item) => {
       return {
-        ...item as TOfflineData[],
+        ...(item as TOfflineData[]),
         source: 'synced' as const
       };
     });
@@ -193,7 +192,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    isLoading: isOfflineLoading || isCloudLoading,
+    isLoading: isOfflineLoading && isCloudLoading,
     offlineError,
     cloudError,
     offlineData,
@@ -397,24 +396,24 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       if (offlinePage || cloudPage) {
         const offlineDataWithSource = offlinePage
           ? offlinePage.data.map((item) => {
-            return {
-              ...item,
-              source: (item as unknown as { source: OfflineQuerySource })
-                .source
-            };
-          })
+              return {
+                ...item,
+                source: (item as unknown as { source: OfflineQuerySource })
+                  .source
+              };
+            })
           : [];
 
         const cloudDataTransformed = cloudPage
           ? cloudPage.data.map((item: TCloudData) => {
-            const transformedItem = transformCloudData
-              ? transformCloudData(item)
-              : (item as unknown as TOfflineData);
-            return {
-              ...transformedItem,
-              source: 'cloud' as const
-            };
-          })
+              const transformedItem = transformCloudData
+                ? transformCloudData(item)
+                : (item as unknown as TOfflineData);
+              return {
+                ...transformedItem,
+                source: 'cloud' as const
+              };
+            })
           : [];
 
         const offlineMap = new Map(
@@ -470,7 +469,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
     isLoading:
-      offlineQuery.isLoading || (shouldFetchCloud && cloudQuery.isLoading),
+      offlineQuery.isLoading && shouldFetchCloud && cloudQuery.isLoading,
     isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
     isError: offlineQuery.isError || cloudQuery.isError,
     isSuccess: offlineQuery.isSuccess || cloudQuery.isSuccess,
@@ -629,7 +628,7 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
         cloudLastUpdated &&
         localLastUpdated &&
         new Date(cloudLastUpdated).getTime() >
-        new Date(localLastUpdated).getTime()
+          new Date(localLastUpdated).getTime()
       ) {
         mergedMap.set(id, cloudItem);
       }
