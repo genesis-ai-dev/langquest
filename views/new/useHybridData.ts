@@ -1,6 +1,6 @@
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { OfflineQuerySource } from '@/utils/dbUtils';
+import type { OfflineQuerySource, WithSource } from '@/utils/dbUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -29,10 +29,6 @@ export const hybridDataSourceOptions = {
 } as const;
 export type HybridDataSource = keyof typeof hybridDataSourceOptions;
 
-export type WithSource<T> = T & {
-  source: HybridDataSource;
-};
-
 export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // Unique key for this data type (e.g., 'assets', 'quests', 'translations')
   dataType: string;
@@ -49,10 +45,10 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   cloudQueryFn?: () => Promise<TCloudData[]>;
 
   // Function to get unique ID from an item (defaults to 'id' property)
-  getItemId?: (item: TOfflineData | TCloudData) => string;
+  getItemId?: (item: WithSource<TOfflineData | TCloudData>) => string;
 
   // Transform function to convert cloud data to offline format (if different types)
-  transformCloudData?: (cloudData: TCloudData) => TOfflineData;
+  transformCloudData?: (data: TCloudData) => TOfflineData;
 
   // Additional options for offline query
   offlineQueryOptions?: Omit<
@@ -75,7 +71,7 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
 
 export interface HybridDataResult<T> {
   // Combined data with source tracking
-  data: (T & { source: HybridDataSource })[];
+  data: WithSource<T>[];
 
   // Loading states
   isOfflineLoading: boolean;
@@ -85,10 +81,6 @@ export interface HybridDataResult<T> {
   // Error states
   offlineError: Error | null;
   cloudError: Error | null;
-
-  // Raw data from each source
-  offlineData: (T & { source: OfflineQuerySource })[] | undefined;
-  cloudData: (T & { source: 'cloud' })[] | undefined;
 
   // Network status
   isOnline: boolean;
@@ -102,7 +94,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     queryKeyParams,
     offlineQuery,
     cloudQueryFn,
-    getItemId = (item) => (item as { id: string }).id,
+    getItemId = (item) => (item as unknown as { id: string }).id,
     transformCloudData,
     offlineQueryOptions = {},
     cloudQueryOptions = {},
@@ -141,38 +133,39 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
 
   // Add source tracking to data
   const offlineData = React.useMemo(() => {
-    if (!rawOfflineData) return undefined;
     // Ensure we always have an array
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
     return dataArray.map((item) => {
-      return {
-        ...(item as TOfflineData[]),
-        source: 'synced' as const
+      const typedItem = item as unknown as TOfflineData & {
+        source?: OfflineQuerySource;
       };
-    });
+      return {
+        ...typedItem,
+        source: typedItem.source ?? 'synced' // don't override the source if it comes in from merge query - praise God!
+      } as WithSource<TOfflineData>;
+    }) as WithSource<TOfflineData>[];
   }, [rawOfflineData]);
 
   const cloudData = React.useMemo(() => {
-    if (!rawCloudData) return undefined;
     // Ensure we always have an array
     const dataArray = Array.isArray(rawCloudData) ? rawCloudData : [];
     return dataArray.map((item) => {
       const transformedItem = transformCloudData
         ? transformCloudData(item)
-        : (item as unknown as TOfflineData);
+        : (item as unknown as TCloudData);
+
       return {
         ...transformedItem,
         source: 'cloud' as const
-      };
+      } as WithSource<typeof transformedItem>;
     });
   }, [rawCloudData, transformCloudData]);
 
   // Combine data with offline taking precedence
   // TODO: we should leverage the lastUpdated field to allow fresh cloud data to override offline data
   const combinedData = React.useMemo(() => {
-    const offlineArray = offlineData || [];
-    const cloudArray = cloudData || [];
-
+    const offlineArray = offlineData;
+    const cloudArray = cloudData;
     // Create a map of offline items by ID for quick lookup
     const offlineMap = new Map(
       offlineArray.map((item) => [getItemId(item), item])
@@ -183,9 +176,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     );
 
     // Return offline items first, then unique cloud items
-    return [...offlineArray, ...uniqueCloudItems] as (TOfflineData & {
-      source: HybridDataSource;
-    })[];
+    return [...offlineArray, ...uniqueCloudItems] as WithSource<TOfflineData>[];
   }, [offlineData, cloudData, getItemId]);
 
   return {
@@ -195,8 +186,6 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     isLoading: isOfflineLoading && isCloudLoading,
     offlineError,
     cloudError,
-    offlineData,
-    cloudData,
     isOnline
   };
 }
@@ -249,10 +238,10 @@ export interface HybridInfiniteDataOptions<
   pageSize?: number;
 
   // Function to get unique ID from an item (defaults to 'id' property)
-  getItemId?: (item: TOfflineData | TCloudData) => string | number;
+  getItemId?: (item: WithSource<TOfflineData | TCloudData>) => string | number;
 
   // Transform function to convert cloud data to offline format (if different types)
-  transformCloudData?: (cloudData: TCloudData) => TOfflineData;
+  transformCloudData?: (cloudData: TCloudData) => WithSource<TOfflineData>;
 
   // Additional options for offline query
   offlineQueryOptions?: Omit<
@@ -316,7 +305,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     offlineQueryFn,
     cloudQueryFn,
     pageSize = 10,
-    getItemId = (item) => (item as { id: string }).id,
+    getItemId = (item) => (item as unknown as { id: string }).id,
     transformCloudData,
     offlineQueryOptions: _offlineQueryOptions = {},
     cloudQueryOptions: _cloudQueryOptions = {},
@@ -383,11 +372,8 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
 
     // Merge pages at the same level
     const maxPages = Math.max(offlinePages.length, cloudPages.length);
-    const mergedPages: HybridPageData<
-      TOfflineData & {
-        source: HybridDataSource;
-      }
-    >[] = [];
+    const mergedPages: HybridPageData<WithSource<TOfflineData | TCloudData>>[] =
+      [];
 
     for (let i = 0; i < maxPages; i++) {
       const offlinePage = offlinePages[i];
@@ -398,21 +384,23 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
           ? offlinePage.data.map((item) => {
               return {
                 ...item,
-                source: (item as unknown as { source: OfflineQuerySource })
-                  .source
-              };
+                source:
+                  (item as unknown as { source?: OfflineQuerySource }).source ??
+                  'synced'
+              } as WithSource<TOfflineData>;
             })
           : [];
 
         const cloudDataTransformed = cloudPage
           ? cloudPage.data.map((item: TCloudData) => {
               const transformedItem = transformCloudData
-                ? transformCloudData(item)
-                : (item as unknown as TOfflineData);
+                ? (transformCloudData(item) as TOfflineData)
+                : (item as unknown as TCloudData);
+
               return {
                 ...transformedItem,
                 source: 'cloud' as const
-              };
+              } as WithSource<typeof transformedItem>;
             })
           : [];
 
@@ -426,12 +414,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
         });
 
         mergedPages.push({
-          data: [
-            ...offlineDataWithSource,
-            ...uniqueCloudItems
-          ] as (TOfflineData & {
-            source: HybridDataSource;
-          })[],
+          data: [...offlineDataWithSource, ...uniqueCloudItems],
           nextCursor: offlinePage?.nextCursor || cloudPage?.nextCursor,
           hasMore: Boolean(offlinePage?.hasMore) || Boolean(cloudPage?.hasMore)
         });
@@ -449,7 +432,10 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   }, [offlineQuery.data, cloudQuery.data, getItemId, transformCloudData]);
 
   return {
-    data: mergedData,
+    data: mergedData as unknown as {
+      pages: HybridPageData<WithSource<TOfflineData>>[];
+      pageParams: number[];
+    },
     fetchNextPage: () => {
       void offlineQuery.fetchNextPage();
       if (shouldFetchCloud) void cloudQuery.fetchNextPage();

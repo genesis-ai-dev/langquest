@@ -432,7 +432,7 @@ export default function AppDrawer({
       // Reuse restore-style message structure if available
       const copied = audioResult.count;
       const skippedErrors = audioResult.errors.length;
-      let msg = t('restoreCompleteBase', {
+      const msg = t('restoreCompleteBase', {
         audioCopied: String(copied),
         audioSkippedDueToError: String(skippedErrors)
       });

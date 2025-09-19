@@ -1,5 +1,4 @@
 import { quest, quest as questTable } from '@/db/drizzleSchema';
-import { quest_local } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import {
   useHybridData,
@@ -426,7 +425,7 @@ export function useInfiniteQuestsByProjectId(
     isLoading: isQuestsLoading,
     isOnline,
     isFetching
-  } = useSimpleHybridInfiniteData<Quest>(
+  } = useSimpleHybridInfiniteData(
     'quests',
     [projectId || '', debouncedSearchQuery], // Use debounced search query
     // Offline query function
@@ -506,43 +505,6 @@ export function useInfiniteQuestsByProjectId(
 
       if (error) throw error;
       return data;
-    },
-    async ({ pageParam, pageSize }) => {
-      if (!projectId) return [];
-
-      const offset = pageParam * pageSize;
-
-      // Build where conditions
-      const baseCondition = eq(quest_local.project_id, projectId);
-
-      // Add search filtering for offline
-      const whereConditions = and(
-        baseCondition,
-        debouncedSearchQuery.trim()
-          ? or(
-              like(quest_local.name, `%${debouncedSearchQuery}%`),
-              like(quest_local.description, `%${debouncedSearchQuery}%`)
-            )
-          : undefined,
-        !showHiddenContent ? eq(quest_local.visible, true) : undefined,
-        blockContentIds.length > 0
-          ? notInArray(quest_local.id, blockContentIds)
-          : undefined,
-        blockUserIds.length > 0
-          ? or(
-              isNull(quest_local.creator_id),
-              notInArray(quest_local.creator_id, blockUserIds)
-            )
-          : undefined
-      );
-
-      const quests = await system.db.query.quest_local.findMany({
-        where: whereConditions,
-        limit: pageSize,
-        offset
-      });
-
-      return quests;
     },
     20 // pageSize
   );

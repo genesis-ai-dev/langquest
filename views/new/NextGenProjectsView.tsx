@@ -350,7 +350,6 @@ export default function NextGenProjectsView() {
 
   const data = React.useMemo(() => {
     const allItems = projects.pages.flatMap((page) => page.data);
-    console.log('allItems', allItems);
     const map = new Map<string, Project & { source: HybridDataSource }>();
     allItems.forEach((item) => {
       const existing = map.get(item.id);

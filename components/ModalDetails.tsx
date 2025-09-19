@@ -6,7 +6,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import type { WithSource } from '@/views/new/useHybridData';
+import type { WithSource } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -36,10 +36,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
   // let sourceLanguages: Pick<Language, 'id' | 'native_name' | 'english_name'>[] =
   //   [];
   const { data: sourceLanguages, isLoading: isSourceLangLoading } =
-    useHybridData<
-      Pick<Language, 'id' | 'native_name' | 'english_name'>,
-      Language
-    >({
+    useHybridData({
       dataType: 'project-source-languages',
       queryKeyParams: [content.id],
       offlineQuery:

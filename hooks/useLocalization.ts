@@ -25,7 +25,7 @@ export function useLocalization(languageOverride?: string | null) {
   const uiLanguageId = currentUser?.user_metadata.ui_language_id;
 
   // Use useHybridData directly to fetch the user's language preference
-  const { data: languages } = useHybridData<Language>({
+  const { data } = useHybridData({
     dataType: 'language',
     queryKeyParams: [uiLanguageId || ''],
 
@@ -52,8 +52,7 @@ export function useLocalization(languageOverride?: string | null) {
     enableCloudQuery: !!uiLanguageId
   });
 
-  const profileLanguage = languages[0];
-
+  const profileLanguage = data[0];
   // Get language with priority:
   // 1. Manual override (provided as prop)
   // 2. Authenticated user's profile language

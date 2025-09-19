@@ -5,14 +5,18 @@ import { system } from '@/db/powersync/system';
 import { substituteParams } from '@/hooks/useHybridSupabaseQuery';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { hybridDataSourceOptions } from '@/views/new/useHybridData';
+import { toCompilableQuery as toCompilableQueryPowerSync } from '@powersync/drizzle-driver';
 import type { CompilableQuery } from '@powersync/react-native';
 import type { AnyColumn, Query, Table } from 'drizzle-orm';
 import { getOrderByOperators } from 'drizzle-orm';
 
 // TODO:
-const LOCAL_MODE = true;
+const LOCAL_MODE = false;
 
-export type OfflineQuerySource = Omit<typeof hybridDataSourceOptions, 'cloud'>;
+export type OfflineQuerySource = keyof Omit<
+  typeof hybridDataSourceOptions,
+  'cloud'
+>;
 
 type TablesOnlyKeys = Exclude<keyof typeof tablesOnly, `${string}Relations`>;
 type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
@@ -31,20 +35,16 @@ type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
  */
 export function resolveTable<T extends TablesOnlyKeys>(
   table: T,
-  options: { localOverride?: boolean } = {}
+  options: { localOverride?: boolean } = { localOverride: LOCAL_MODE }
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const useLocal = LOCAL_MODE || Boolean(options.localOverride);
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  return useLocal
+  return options.localOverride
     ? (drizzleSchemaLocal[
-      `${table}_local` as LocalKeyFor<T>
-    ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
+        `${table}_local` as LocalKeyFor<T>
+      ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
     : (drizzleSchema[table] as (typeof drizzleSchema)[T]);
 }
 
 type QueryInput<T> = string | CompilableQuery<T> | { toSQL: () => Query };
-type QueryInputWithoutToSQL<T> = Omit<QueryInput<T>, 'toSQL'>;
 
 export function mergeSQL<T>(query: QueryInput<T>) {
   let sql = '';
@@ -92,28 +92,31 @@ export function mergeSQL<T>(query: QueryInput<T>) {
   return unionQuery;
 }
 
-export function toMergeCompilableQuery<T extends QueryInputWithoutToSQL<T>>(query: T) {
-  const unionQuery = mergeSQL(query as QueryInput<T>);
+export type WithSource<T> = T extends readonly unknown[]
+  ? T[number] & { source: HybridDataSource }
+  : T & { source: HybridDataSource };
 
-  return {
-    execute: async () => (await system.powersync.execute(unionQuery)).rows?._array,
-    compile: () => ({
-      sql: unionQuery,
-      parameters: []
-    })
-  } as CompilableQuery<T>
+export type MergeQueryResult<T extends QueryInput<T>> = WithSource<Awaited<T>>;
+
+export async function mergeQuery<T extends QueryInput<T>>(
+  query: T,
+  mergedSQL?: string
+) {
+  const result = await system.powersync.execute(mergedSQL ?? mergeSQL(query));
+  const rows = result.rows?._array as MergeQueryResult<T>[];
+  return rows;
 }
 
-export type MergeQueryResult<
-  T extends QueryInput<T> | QueryInputWithoutToSQL<T>
-> =
-  Awaited<T> extends readonly unknown[]
-  ? Awaited<T>[number] & { source: HybridDataSource }
-  : Awaited<T> & { source: HybridDataSource };
+export function toMergeCompilableQuery<T extends QueryInput<T>>(query: T) {
+  const unionQuery = mergeSQL(query);
 
-export async function mergeQuery<T extends QueryInput<T>>(query: T) {
-  const result = await system.powersync.execute(mergeSQL(query));
-  return result.rows?._array as MergeQueryResult<T>[];
+  return toCompilableQueryPowerSync<MergeQueryResult<T>[]>({
+    execute: () => mergeQuery(query, unionQuery),
+    toSQL: () => ({
+      sql: unionQuery,
+      params: []
+    })
+  });
 }
 
 export type SortOrder = 'asc' | 'desc';

@@ -8,9 +8,9 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import type { WithSource } from '@/utils/dbUtils';
 import { mergeQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
-import type { WithSource } from '@/views/new/useHybridData';
 import {
   hybridFetch,
   useSimpleHybridInfiniteData

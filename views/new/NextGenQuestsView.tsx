@@ -36,7 +36,6 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { project } from '@/db/drizzleSchema';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -75,7 +74,6 @@ import type { HybridDataSource } from './useHybridData';
 import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
-type Project = typeof project.$inferSelect;
 
 export default function NextGenQuestsView() {
   const { t } = useLocalization();
@@ -132,7 +130,7 @@ export default function NextGenQuestsView() {
     isFetchingNextPage,
     isLoading,
     refetch
-  } = useSimpleHybridInfiniteData<Quest>(
+  } = useSimpleHybridInfiniteData(
     'quests',
     [currentProjectId || '', debouncedSearchQuery],
     // Offline query function
@@ -236,18 +234,17 @@ export default function NextGenQuestsView() {
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!currentProjectId || !currentUser?.id) return;
-      const insertValues: any = {
-        name: values.name.trim(),
-        description: values.description?.trim(),
-        project_id: currentProjectId,
-        creator_id: currentUser.id,
-        download_profiles: [currentUser.id]
-      };
-      if (parentForNewQuest) insertValues.parent_id = parentForNewQuest;
 
       await system.db
         .insert(resolveTable('quest', { localOverride: true }))
-        .values(insertValues);
+        .values({
+          name: values.name.trim(),
+          description: values.description?.trim(),
+          project_id: currentProjectId,
+          creator_id: currentUser.id,
+          download_profiles: [currentUser.id],
+          ...(parentForNewQuest && { parent_id: parentForNewQuest })
+        });
     },
     onSuccess: () => {
       form.reset();

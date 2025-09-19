@@ -119,7 +119,7 @@ export function useInfiniteProjects(
 export function useProjectById(projectId: string | undefined) {
   const { db, supabaseConnector } = system;
 
-  const hybrid = useHybridData<Project>({
+  const hybrid = useHybridData({
     dataType: 'project',
     queryKeyParams: [projectId || ''],
     offlineQuery: toMergeCompilableQuery(
