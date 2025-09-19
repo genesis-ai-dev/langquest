@@ -110,7 +110,5 @@ export function sortingHelper<
 >(table: T, sortField: K, sortOrder: 'asc' | 'desc') {
   const orderByOperators = getOrderByOperators();
   const column = table[sortField as keyof T] as unknown as AnyColumn;
-  return sortOrder === 'asc'
-    ? orderByOperators.asc(column)
-    : orderByOperators.desc(column);
+  return orderByOperators[sortOrder](column);
 }
