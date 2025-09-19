@@ -1,11 +1,12 @@
 import { resolveTable } from '@/utils/dbUtils';
-import { eq } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
 import {
-  asset,
-  asset_content_link,
-  quest_asset_link
-} from '../db/drizzleSchema';
+  deleteFile,
+  ensureDir,
+  getDocumentDirectory,
+  moveFile
+} from '@/utils/fileUtils';
+import { eq } from 'drizzle-orm';
+import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
@@ -34,54 +35,54 @@ export class AudioSegmentService {
       const audioId = `audio_${segment.id}_${timestamp}`;
       const audioFileName = `${audioId}.m4a`;
 
-      // Get the document directory for permanent storage
-      const documentDir = FileSystem.documentDirectory;
-      if (!documentDir) {
-        throw new Error('Document directory not available');
-      }
-
-      const audioDir = `${documentDir}audio/`;
+      const audioDir = `${getDocumentDirectory()}shared_attachments/`;
       const audioUri = `${audioDir}${audioFileName}`;
 
       // Ensure audio directory exists
-      const dirInfo = await FileSystem.getInfoAsync(audioDir);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(audioDir, { intermediates: true });
-      }
+      await ensureDir(audioDir);
 
       // Copy the recorded audio file to permanent storage
-      await FileSystem.copyAsync({
-        from: segment.uri,
-        to: audioUri
-      });
+      await moveFile(segment.uri, audioUri);
 
-      // Create asset record in database
-      const [newAsset] = await db
-        .insert(asset)
-        .values({
-          name: segment.name,
-          source_language_id: sourceLanguageId,
-          creator_id: creatorId,
-          visible: true,
-          download_profiles: [creatorId]
-        })
-        .returning();
+      const newAsset = await system.db.transaction(async (tx) => {
+        const [newAsset] = await tx
+          .insert(resolveTable('asset', { localOverride: true }))
+          .values({
+            name: segment.name,
+            id: segment.id,
+            source_language_id: sourceLanguageId,
+            creator_id: creatorId,
+            download_profiles: [creatorId]
+          })
+          .returning();
 
-      // Create asset content link with audio
-      await db.insert(asset_content_link).values({
-        asset_id: newAsset.id,
-        source_language_id: sourceLanguageId,
-        text: segment.name, // Use segment name as text content
-        audio_id: audioId,
-        download_profiles: [creatorId]
-      });
+        if (!newAsset) {
+          throw new Error('Failed to insert asset');
+        }
 
-      // Link asset to quest
-      await db.insert(quest_asset_link).values({
-        quest_id: questId,
-        asset_id: newAsset.id,
-        visible: true,
-        download_profiles: [creatorId]
+        await tx
+          .insert(resolveTable('quest_asset_link', { localOverride: true }))
+          .values({
+            id: `${questId}_${newAsset.id}`,
+            quest_id: questId,
+            asset_id: newAsset.id,
+            download_profiles: [creatorId]
+          });
+
+        // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
+        // await system.permAttachmentQueue?.saveAudio(uri);
+
+        await tx
+          .insert(resolveTable('asset_content_link', { localOverride: true }))
+          .values({
+            asset_id: newAsset.id,
+            source_language_id: sourceLanguageId,
+            text: segment.name,
+            audio_id: segment.id,
+            download_profiles: [creatorId]
+          });
+
+        return newAsset;
       });
 
       return {
@@ -146,8 +147,8 @@ export class AudioSegmentService {
       for (const content of assetContent) {
         if (content.audio_id) {
           const audioFileName = `${content.audio_id}.m4a`;
-          const audioUri = `${FileSystem.documentDirectory}audio/${audioFileName}`;
-          await FileSystem.deleteAsync(audioUri).catch(() => {
+          const audioUri = `${getDocumentDirectory()}shared_attachments/${audioFileName}`;
+          await deleteFile(audioUri).catch(() => {
             // Ignore errors if file doesn't exist
           });
         }
