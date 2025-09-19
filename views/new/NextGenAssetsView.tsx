@@ -530,12 +530,8 @@ export default function NextGenAssetsView() {
   }, [isFetchingNextPage]);
 
   const statusText = React.useMemo(() => {
-    const offlineCount = assets.filter(
-      (a) => a.source === 'localSqlite'
-    ).length;
-    const cloudCount = assets.filter(
-      (a) => a.source === 'cloudSupabase'
-    ).length;
+    const offlineCount = assets.filter((a) => a.source !== 'cloud').length;
+    const cloudCount = assets.filter((a) => a.source === 'cloud').length;
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
   }, [isOnline, assets]);
 

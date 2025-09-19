@@ -34,14 +34,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { project, quest } from '@/db/drizzleSchema';
-import { quest_local } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { resolveTable } from '@/utils/dbUtils';
+import { mergeQuery, resolveTable } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
@@ -171,11 +170,13 @@ export default function NextGenQuestsView() {
       // Add search filtering for offline
       const whereConditions = and(...conditions.filter(Boolean));
 
-      const quests = await system.db.query.quest.findMany({
-        where: whereConditions,
-        limit: pageSize,
-        offset
-      });
+      const quests = await mergeQuery(
+        system.db.query.quest.findMany({
+          where: whereConditions,
+          limit: pageSize,
+          offset
+        })
+      );
 
       return quests;
     },
@@ -209,34 +210,6 @@ export default function NextGenQuestsView() {
       if (error) throw error;
       return data;
     },
-    async ({ pageParam, pageSize }) => {
-      if (!currentProjectId) return [];
-
-      const offset = pageParam * pageSize;
-
-      // Build where conditions
-      const baseCondition = eq(quest_local.project_id, currentProjectId);
-
-      const conditions = [
-        baseCondition,
-        debouncedSearchQuery.trim() &&
-          or(
-            like(quest_local.name, `%${debouncedSearchQuery.trim()}%`),
-            like(quest_local.description, `%${debouncedSearchQuery.trim()}%`)
-          ),
-        !showInvisibleContent && eq(quest_local.visible, true)
-      ];
-      // Add search filtering for offline
-      const whereConditions = and(...conditions.filter(Boolean));
-
-      const quests = await system.db.query.quest_local.findMany({
-        where: whereConditions,
-        limit: pageSize,
-        offset
-      });
-
-      return quests;
-    },
     20 // pageSize
   );
 
@@ -250,8 +223,7 @@ export default function NextGenQuestsView() {
       const existingQuest = questMap.get(quest.id);
       if (
         !existingQuest ||
-        (quest.source === 'localSqlite' &&
-          existingQuest.source === 'cloudSupabase')
+        (quest.source !== 'cloud' && existingQuest.source === 'cloud')
       ) {
         questMap.set(quest.id, quest);
       }
@@ -310,7 +282,7 @@ export default function NextGenQuestsView() {
   }
 
   const filteredQuests = quests.filter((quest) =>
-    showDownloadedOnly ? quest.source === 'localSqlite' : true
+    showDownloadedOnly ? quest.source !== 'cloud' : true
   );
 
   return (

@@ -28,7 +28,7 @@ export interface AssetListItemProps {
 }
 
 // function renderSourceTag(source: string | undefined) {
-//   if (source === 'cloudSupabase') {
+//   if (source === 'cloud') {
 //     return <Text style={{ color: 'red' }}>Cloud</Text>;
 //   }
 //   return <Text style={{ color: 'blue' }}>Offline</Text>;

@@ -153,9 +153,9 @@ export function ProjectListItem({
                 <View className="flex flex-1 flex-row gap-2">
                   {(project.private ||
                     !!membership ||
-                    project.source === 'localOnlySqlite') && (
+                    project.source === 'local') && (
                     <View className="flex flex-row gap-1.5">
-                      {project.source === 'localOnlySqlite' && (
+                      {project.source === 'local' && (
                         <Icon
                           as={HardDriveIcon}
                           className="text-secondary-foreground"

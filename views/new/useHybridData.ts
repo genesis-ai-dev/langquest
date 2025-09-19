@@ -1,7 +1,7 @@
 import { system } from '@/db/powersync/system';
-import { substituteParams } from '@/hooks/useHybridSupabaseQuery';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { unionWithLocal } from '@/utils/sqlLocalize';
+import type { OfflineQuerySource } from '@/utils/dbUtils';
+import { toMergeSQL } from '@/utils/dbUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -22,10 +22,12 @@ type CompilableQuery<T = unknown> = CompilableQueryNative<T>;
 
 type QueryKeyParam = string | number | boolean | null | undefined;
 
-export type HybridDataSource =
-  | 'localOnlySqlite'
-  | 'localSqlite'
-  | 'cloudSupabase';
+export const hybridDataSourceOptions = {
+  local: 'local',
+  synced: 'synced',
+  cloud: 'cloud'
+} as const;
+export type HybridDataSource = keyof typeof hybridDataSourceOptions;
 
 export type WithSource<T> = T & {
   source: HybridDataSource;
@@ -66,6 +68,9 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
 
   // Whether to fetch cloud data (defaults to isOnline)
   enableCloudQuery?: boolean;
+
+  // Whether to fetch offline data (defaults to true)
+  enableOfflineQuery?: boolean;
 }
 
 export interface HybridDataResult<T> {
@@ -82,10 +87,8 @@ export interface HybridDataResult<T> {
   cloudError: Error | null;
 
   // Raw data from each source
-  offlineData:
-    | (T & { source: 'localSqlite' | 'localOnlySqlite' })[]
-    | undefined;
-  cloudData: (T & { source: 'cloudSupabase' })[] | undefined;
+  offlineData: (T & { source: OfflineQuerySource })[] | undefined;
+  cloudData: (T & { source: 'cloud' })[] | undefined;
 
   // Network status
   isOnline: boolean;
@@ -103,29 +106,22 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     transformCloudData,
     offlineQueryOptions = {},
     cloudQueryOptions = {},
-    enableCloudQuery
+    enableCloudQuery,
+    enableOfflineQuery = true
   } = options;
 
   const isOnline = useNetworkStatus();
   const shouldFetchCloud = enableCloudQuery ?? isOnline;
   // Fetch offline data using PowerSync's useQuery
+
   const {
     data: rawOfflineData,
     isLoading: isOfflineLoading,
     error: offlineError
   } = usePowerSyncQuery<TOfflineData>({
     queryKey: [dataType, 'offline', ...queryKeyParams],
-    query:
-      typeof offlineQuery === 'string'
-        ? unionWithLocal(offlineQuery)
-        : (() => {
-            const query = offlineQuery.compile();
-            const sql = substituteParams(
-              query.sql,
-              Array.from(query.parameters)
-            );
-            return unionWithLocal(sql);
-          })(),
+    query: toMergeSQL(offlineQuery),
+    enabled: enableOfflineQuery,
     ...offlineQueryOptions
   });
 
@@ -149,15 +145,9 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     // Ensure we always have an array
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
     return dataArray.map((item) => {
-      const tableSource = (
-        item as unknown as { table_source?: 'main' | 'local' }
-      ).table_source;
       return {
         ...item,
-        source:
-          tableSource === 'local'
-            ? ('localOnlySqlite' as const)
-            : ('localSqlite' as const)
+        source: (item as unknown as { source: OfflineQuerySource }).source
       };
     });
   }, [rawOfflineData]);
@@ -172,7 +162,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
         : (item as unknown as TOfflineData);
       return {
         ...transformedItem,
-        source: 'cloudSupabase' as const
+        source: 'cloud' as const
       };
     });
   }, [rawCloudData, transformCloudData]);
@@ -193,7 +183,9 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     );
 
     // Return offline items first, then unique cloud items
-    return [...offlineArray, ...uniqueCloudItems];
+    return [...offlineArray, ...uniqueCloudItems] as (TOfflineData & {
+      source: HybridDataSource;
+    })[];
   }, [offlineData, cloudData, getItemId]);
 
   return {
@@ -250,10 +242,6 @@ export interface HybridInfiniteDataOptions<
   // Function to fetch offline data from SQLite
   offlineQueryFn: (context: InfiniteQueryContext) => Promise<TOfflineData[]>;
 
-  // Function to fetch local-only data from SQLite (e.g., *_local tables)
-  // If not provided, falls back to offlineQueryFn
-  localOnlyQueryFn?: (context: InfiniteQueryContext) => Promise<TOfflineData[]>;
-
   // Function to fetch cloud data from Supabase
   cloudQueryFn: (context: InfiniteQueryContext) => Promise<TCloudData[]>;
 
@@ -290,7 +278,7 @@ export interface HybridInfiniteDataOptions<
 export interface HybridInfiniteDataResult<T> {
   // Combined pages with source tracking
   data: {
-    pages: HybridPageData<T & { source: HybridDataSource }>[];
+    pages: HybridPageData<WithSource<T>>[];
     pageParams: number[];
   };
 
@@ -326,7 +314,6 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     dataType,
     queryKeyParams,
     offlineQueryFn,
-    localOnlyQueryFn,
     cloudQueryFn,
     pageSize = 10,
     getItemId = (item) => (item as { id: string }).id,
@@ -341,32 +328,8 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
 
   // Create query keys
   const baseKey = [dataType, 'infinite', ...queryKeyParams];
-  const localOnlyQueryKey = [...baseKey, 'localOnly'];
   const offlineQueryKey = [...baseKey, 'offline'];
   const cloudQueryKey = [...baseKey, 'cloud'];
-
-  // Local-only infinite query
-  const localOnlyQuery = useInfiniteQuery({
-    queryKey: localOnlyQueryKey,
-    initialPageParam: 0,
-    getNextPageParam: (lastPage: HybridPageData<TOfflineData>) =>
-      lastPage.nextCursor,
-    queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const context: InfiniteQueryContext = {
-        pageParam: pageParam,
-        pageSize
-      };
-
-      const results = await localOnlyQueryFn!(context);
-
-      return {
-        data: results,
-        nextCursor: results.length === pageSize ? pageParam + 1 : undefined,
-        hasMore: results.length === pageSize
-      } satisfies HybridPageData<TOfflineData>;
-    },
-    enabled: !!localOnlyQueryFn
-  });
 
   // Offline infinite query
   const offlineQuery = useInfiniteQuery({
@@ -415,16 +378,11 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
 
   // Merge pages with local priority
   const mergedData = React.useMemo(() => {
-    const localOnlyPages = localOnlyQuery.data?.pages || [];
     const offlinePages = offlineQuery.data?.pages || [];
     const cloudPages = cloudQuery.data?.pages || [];
 
     // Merge pages at the same level
-    const maxPages = Math.max(
-      localOnlyPages.length,
-      offlinePages.length,
-      cloudPages.length
-    );
+    const maxPages = Math.max(offlinePages.length, cloudPages.length);
     const mergedPages: HybridPageData<
       TOfflineData & {
         source: HybridDataSource;
@@ -432,23 +390,18 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     >[] = [];
 
     for (let i = 0; i < maxPages; i++) {
-      const localOnlyPage = localOnlyPages[i];
       const offlinePage = offlinePages[i];
       const cloudPage = cloudPages[i];
 
-      if (localOnlyPage || offlinePage || cloudPage) {
-        const localOnlyDataWithSource = localOnlyPage
-          ? localOnlyPage.data.map((item: TOfflineData) => ({
-              ...item,
-              source: 'localOnlySqlite' as const
-            }))
-          : [];
-
+      if (offlinePage || cloudPage) {
         const offlineDataWithSource = offlinePage
-          ? offlinePage.data.map((item: TOfflineData) => ({
-              ...item,
-              source: 'localSqlite' as const
-            }))
+          ? offlinePage.data.map((item) => {
+              return {
+                ...item,
+                source: (item as unknown as { source: OfflineQuerySource })
+                  .source
+              };
+            })
           : [];
 
         const cloudDataTransformed = cloudPage
@@ -458,47 +411,34 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
                 : (item as unknown as TOfflineData);
               return {
                 ...transformedItem,
-                source: 'cloudSupabase' as const
+                source: 'cloud' as const
               };
             })
           : [];
 
-        const localOnlyMap = new Map(
-          localOnlyDataWithSource.map((item) => [getItemId(item), item])
-        );
         const offlineMap = new Map(
           offlineDataWithSource.map((item) => [getItemId(item), item])
         );
 
-        const uniqueOfflineItems = offlineDataWithSource.filter(
-          (item) => !localOnlyMap.has(getItemId(item))
-        );
-
         const uniqueCloudItems = cloudDataTransformed.filter((item) => {
           const id = getItemId(item);
-          return !localOnlyMap.has(id) && !offlineMap.has(id);
+          return !offlineMap.has(id);
         });
 
         mergedPages.push({
           data: [
-            ...localOnlyDataWithSource,
-            ...uniqueOfflineItems,
+            ...offlineDataWithSource,
             ...uniqueCloudItems
-          ],
-          nextCursor:
-            localOnlyPage?.nextCursor ||
-            offlinePage?.nextCursor ||
-            cloudPage?.nextCursor,
-          hasMore:
-            Boolean(localOnlyPage?.hasMore) ||
-            Boolean(offlinePage?.hasMore) ||
-            Boolean(cloudPage?.hasMore)
+          ] as (TOfflineData & {
+            source: HybridDataSource;
+          })[],
+          nextCursor: offlinePage?.nextCursor || cloudPage?.nextCursor,
+          hasMore: Boolean(offlinePage?.hasMore) || Boolean(cloudPage?.hasMore)
         });
       }
     }
 
-    const pageParams = (localOnlyQuery.data?.pageParams ||
-      offlineQuery.data?.pageParams ||
+    const pageParams = (offlineQuery.data?.pageParams ||
       cloudQuery.data?.pageParams ||
       []) as number[];
 
@@ -506,69 +446,39 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       pages: mergedPages,
       pageParams
     };
-  }, [
-    localOnlyQuery.data,
-    offlineQuery.data,
-    cloudQuery.data,
-    getItemId,
-    transformCloudData
-  ]);
+  }, [offlineQuery.data, cloudQuery.data, getItemId, transformCloudData]);
 
   return {
     data: mergedData,
     fetchNextPage: () => {
-      void localOnlyQuery.fetchNextPage();
       void offlineQuery.fetchNextPage();
       if (shouldFetchCloud) void cloudQuery.fetchNextPage();
     },
     fetchPreviousPage: () => {
-      void localOnlyQuery.fetchPreviousPage();
       void offlineQuery.fetchPreviousPage();
       if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
     },
     refetch: () => {
-      void localOnlyQuery.refetch();
       void offlineQuery.refetch();
       if (shouldFetchCloud) void cloudQuery.refetch();
     },
-    hasNextPage:
-      localOnlyQuery.hasNextPage ||
-      offlineQuery.hasNextPage ||
-      cloudQuery.hasNextPage,
-    hasPreviousPage:
-      localOnlyQuery.hasPreviousPage ||
-      offlineQuery.hasPreviousPage ||
-      cloudQuery.hasPreviousPage,
+    hasNextPage: offlineQuery.hasNextPage || cloudQuery.hasNextPage,
+    hasPreviousPage: offlineQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
     isFetchingNextPage:
-      localOnlyQuery.isFetchingNextPage ||
-      offlineQuery.isFetchingNextPage ||
-      cloudQuery.isFetchingNextPage,
+      offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
-      localOnlyQuery.isFetchingPreviousPage ||
-      offlineQuery.isFetchingPreviousPage ||
-      cloudQuery.isFetchingPreviousPage,
+      offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
     isLoading:
-      localOnlyQuery.isLoading ||
-      offlineQuery.isLoading ||
-      (shouldFetchCloud && cloudQuery.isLoading),
-    isFetching:
-      localOnlyQuery.isFetching ||
-      offlineQuery.isFetching ||
-      cloudQuery.isFetching,
-    isError:
-      localOnlyQuery.isError || offlineQuery.isError || cloudQuery.isError,
-    isSuccess:
-      localOnlyQuery.isSuccess ||
-      offlineQuery.isSuccess ||
-      cloudQuery.isSuccess,
-    error: localOnlyQuery.error || offlineQuery.error || cloudQuery.error,
+      offlineQuery.isLoading || (shouldFetchCloud && cloudQuery.isLoading),
+    isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
+    isError: offlineQuery.isError || cloudQuery.isError,
+    isSuccess: offlineQuery.isSuccess || cloudQuery.isSuccess,
+    error: offlineQuery.error || cloudQuery.error,
     isOnline,
     status:
-      localOnlyQuery.isError || offlineQuery.isError || cloudQuery.isError
+      offlineQuery.isError || cloudQuery.isError
         ? 'error'
-        : localOnlyQuery.isLoading ||
-            offlineQuery.isLoading ||
-            cloudQuery.isLoading
+        : offlineQuery.isLoading || cloudQuery.isLoading
           ? 'pending'
           : 'success'
   };
@@ -580,7 +490,6 @@ export function useSimpleHybridInfiniteData<T extends { id: string }>(
   queryKeyParams: QueryKeyParam[],
   offlineQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
   cloudQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
-  localOnlyQueryFn?: (context: InfiniteQueryContext) => Promise<T[]>,
   pageSize?: number
 ): HybridInfiniteDataResult<T> {
   return useHybridInfiniteData({
@@ -588,7 +497,6 @@ export function useSimpleHybridInfiniteData<T extends { id: string }>(
     queryKeyParams,
     offlineQueryFn,
     cloudQueryFn,
-    localOnlyQueryFn,
     pageSize
   });
 }

@@ -10,6 +10,7 @@ import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
@@ -51,12 +52,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
-import {
-  profile_project_link_local,
-  project_local
-} from '@/db/drizzleSchemaLocal';
 import { useLocalStore } from '@/store/localStore';
-import { resolveTable } from '@/utils/dbUtils';
+import { mergeQuery, resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -183,15 +180,17 @@ export default function NextGenProjectsView() {
       const offset = pageParam * pageSize;
 
       // Query projects where user is linked through profile_project_link
-      const projectLinks = await system.db
-        .select()
-        .from(profile_project_link)
-        .where(
-          and(
-            eq(profile_project_link.profile_id, userId),
-            eq(profile_project_link.active, true)
+      const projectLinks = await mergeQuery(
+        system.db
+          .select()
+          .from(profile_project_link)
+          .where(
+            and(
+              eq(profile_project_link.profile_id, userId),
+              eq(profile_project_link.active, true)
+            )
           )
-        );
+      );
 
       if (projectLinks.length === 0) return [];
 
@@ -207,11 +206,14 @@ export default function NextGenProjectsView() {
           )
       ];
 
-      const projects = await system.db.query.project.findMany({
-        where: and(...conditions.filter(Boolean)),
-        limit: pageSize,
-        offset
-      });
+      const projects = await mergeQuery(
+        system.db
+          .select()
+          .from(project)
+          .where(and(...conditions.filter(Boolean)))
+          .limit(pageSize)
+          .offset(offset)
+      );
 
       return projects;
     },
@@ -243,44 +245,6 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
-    async ({ pageParam, pageSize }) => {
-      if (!userId) return [];
-
-      const offset = pageParam * pageSize;
-
-      // Query projects where user is linked through profile_project_link
-      const projectLinks = await system.db
-        .select()
-        .from(profile_project_link_local)
-        .where(
-          and(
-            eq(profile_project_link_local.profile_id, userId),
-            eq(profile_project_link_local.active, true)
-          )
-        );
-
-      if (projectLinks.length === 0) return [];
-
-      const projectIds = projectLinks.map((link) => link.project_id);
-
-      const conditions = [
-        inArray(project.id, projectIds),
-        !showInvisibleContent && eq(project_local.visible, true),
-        searchQuery &&
-          or(
-            like(project_local.name, `%${searchQuery.trim()}%`),
-            like(project_local.description, `%${searchQuery.trim()}%`)
-          )
-      ];
-
-      const projects = await system.db.query.project_local.findMany({
-        where: and(...conditions.filter(Boolean)),
-        limit: pageSize,
-        offset
-      });
-
-      return projects;
-    },
     20 // pageSize
   );
 
@@ -293,15 +257,17 @@ export default function NextGenProjectsView() {
       const offset = pageParam * pageSize;
 
       // Get projects where user is a member
-      const userProjectLinks = await system.db
-        .select()
-        .from(profile_project_link)
-        .where(
-          and(
-            eq(profile_project_link.profile_id, userId!),
-            eq(profile_project_link.active, true)
+      const userProjectLinks = await mergeQuery(
+        system.db
+          .select()
+          .from(profile_project_link)
+          .where(
+            and(
+              eq(profile_project_link.profile_id, userId!),
+              eq(profile_project_link.active, true)
+            )
           )
-        );
+      );
 
       const userProjectIds = userProjectLinks.map((link) => link.project_id);
 
@@ -309,7 +275,7 @@ export default function NextGenProjectsView() {
       const conditions = [
         eq(project.active, true),
         userProjectIds.length > 0 && notInArray(project.id, userProjectIds),
-        !showInvisibleContent ? eq(project.visible, true) : undefined,
+        !showInvisibleContent && eq(project.visible, true),
         blockUserIds.length > 0 && notInArray(project.creator_id, blockUserIds),
         blockContentIds.length > 0 && notInArray(project.id, blockContentIds),
         trimmed &&
@@ -319,11 +285,13 @@ export default function NextGenProjectsView() {
           )
       ];
 
-      const projects = await system.db.query.project.findMany({
-        where: and(...conditions.filter(Boolean)),
-        limit: pageSize,
-        offset
-      });
+      const projects = await mergeQuery(
+        system.db.query.project.findMany({
+          where: and(...conditions.filter(Boolean)),
+          limit: pageSize,
+          offset
+        })
+      );
 
       return projects;
     },
@@ -367,47 +335,6 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
-    async ({ pageParam, pageSize }) => {
-      const offset = pageParam * pageSize;
-
-      // Get projects where user is a member
-      const userProjectLinks = await system.db
-        .select()
-        .from(profile_project_link_local)
-        .where(
-          and(
-            eq(profile_project_link_local.profile_id, userId!),
-            eq(profile_project_link_local.active, true)
-          )
-        );
-
-      const userProjectIds = userProjectLinks.map((link) => link.project_id);
-
-      const trimmed = searchQuery.trim();
-      const conditions = [
-        eq(project_local.active, true),
-        userProjectIds.length > 0 &&
-          notInArray(project_local.id, userProjectIds),
-        !showInvisibleContent ? eq(project_local.visible, true) : undefined,
-        blockUserIds.length > 0 &&
-          notInArray(project_local.creator_id, blockUserIds),
-        blockContentIds.length > 0 &&
-          notInArray(project_local.id, blockContentIds),
-        trimmed &&
-          or(
-            like(project_local.name, `%${trimmed}%`),
-            like(project_local.description, `%${trimmed}%`)
-          )
-      ];
-
-      const projects = await system.db.query.project_local.findMany({
-        where: and(...conditions.filter(Boolean)),
-        limit: pageSize,
-        offset
-      });
-
-      return projects;
-    },
     20 // pageSize
   );
 
@@ -421,7 +348,21 @@ export default function NextGenProjectsView() {
     isLoading
   } = currentQuery;
 
-  const data = projects.pages.flatMap((page) => page.data);
+  const data = React.useMemo(() => {
+    const allItems = projects.pages.flatMap((page) => page.data);
+    console.log('allItems', allItems);
+    const map = new Map<string, Project & { source: HybridDataSource }>();
+    allItems.forEach((item) => {
+      const existing = map.get(item.id);
+      if (
+        !existing ||
+        (item.source !== 'cloud' && existing.source === 'cloud')
+      ) {
+        map.set(item.id, item);
+      }
+    });
+    return Array.from(map.values());
+  }, [projects.pages]);
 
   const dimensions = useWindowDimensions();
 

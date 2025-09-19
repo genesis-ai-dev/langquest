@@ -98,7 +98,6 @@ export class System {
       ...tablesOnly,
       ...Object.entries(localTablesOnly).reduce(
         (acc, [key, localTable]) => {
-          console.log('key', key, key.replace('_local', ''));
           acc[key] = {
             tableDefinition: localTable,
             options: { localOnly: true }

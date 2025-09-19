@@ -89,10 +89,8 @@ export const TranslationCard = ({
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOW_DEV_ELEMENTS && (
             <Text style={styles.sourceTag}>
-              {translation.source === 'cloudSupabase'
-                ? '🌐 Cloud'
-                : '💾 Offline'}{' '}
-              - V: {translation.visible ? '🟢' : '🔴'} | A:{' '}
+              {translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} - V:{' '}
+              {translation.visible ? '🟢' : '🔴'} | A:{' '}
               {translation.active ? '🟢' : '🔴'}
             </Text>
           )}

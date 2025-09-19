@@ -268,7 +268,7 @@ function useNextGenCloudQuests(projectId: string, isOnline: boolean) {
       if (error) throw error;
       return data.map((quest) => ({
         ...quest,
-        source: 'cloudSupabase'
+        source: 'cloud'
       }));
     },
     enabled: !!projectId && isOnline

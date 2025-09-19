@@ -82,7 +82,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
   );
 
   // Determine if this is a cloud quest that needs downloading
-  const isCloudQuest = quest.source === 'cloudSupabase';
+  const isCloudQuest = quest.source === 'cloud';
   const needsDownload = isCloudQuest && !isDownloaded;
 
   const handlePress = () => {
@@ -132,7 +132,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
             <View className="flex flex-row">
               <View className="flex flex-1 flex-row items-center gap-1.5">
                 <View>
-                  {quest.source === 'localOnlySqlite' && (
+                  {quest.source === 'local' && (
                     <Icon
                       as={HardDriveIcon}
                       className="text-secondary-foreground"
