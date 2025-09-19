@@ -8,7 +8,7 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { mergeQuery, toMergeSQL } from '@/utils/dbUtils';
+import { mergeQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import type { WithSource } from '@/views/new/useHybridData';
 import {
@@ -1234,7 +1234,8 @@ export function useAssetsByQuest(
           searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
         ];
 
-        const assetsSQL = toMergeSQL(
+        // Normal pagination without search
+        const assets = await mergeQuery(
           system.db
             .select({
               ...getTableColumns(asset),
@@ -1250,10 +1251,6 @@ export function useAssetsByQuest(
             .limit(pageSize)
             .offset(offset)
         );
-
-        console.log('assetsSQL', assetsSQL);
-        // Normal pagination without search
-        const assets = await mergeQuery(assetsSQL);
 
         return assets;
       } catch (error) {
