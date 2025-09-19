@@ -948,7 +948,7 @@ export const localizations = {
   },
   enterEmailForPasswordReset: {
     english: 'Enter your email to reset your password',
-    spanish: 'Ingrese su correo electrónico para restablecer su contraseña',
+    spanish: 'Ingrese su email para restablecer su contraseña',
     brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha',
     tok_pisin: 'Putim email bilong yu long resetim password',
     indonesian: 'Masukkan email Anda untuk mereset kata sandi'

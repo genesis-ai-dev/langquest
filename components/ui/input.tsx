@@ -43,12 +43,12 @@ const inputTextVariants = cva(
   }
 );
 
-const iconSizeVariants = cva('text-muted-foreground', {
+const iconSizeVariants = cva(undefined, {
   variants: {
     size: {
-      sm: 'size-4',
-      default: 'size-5',
-      lg: 'size-6'
+      sm: 16,
+      default: 20,
+      lg: 24
     }
   },
   defaultVariants: {
@@ -171,7 +171,8 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
             ) : (
               <Icon
                 as={prefix as LucideIcon}
-                className={iconSizeVariants({ size })}
+                className="text-muted-foreground"
+                size={iconSizeVariants({ size })}
               />
             )}
           </View>

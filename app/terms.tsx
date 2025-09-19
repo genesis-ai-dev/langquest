@@ -1,18 +1,17 @@
 import { LanguageSelect } from '@/components/language-select';
+import { Button, buttonTextVariants } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@/components/ui/icon';
+import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { colors, sharedStyles } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { cn } from '@/utils/styleUtils';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { XIcon } from 'lucide-react-native';
 import React, { memo, useCallback, useState } from 'react';
-import {
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
 
 function Terms() {
   const router = useRouter();
@@ -58,79 +57,58 @@ function Terms() {
 
   return (
     <View
-      className="py-safe flex-1 items-center bg-background px-4"
+      className="my-safe flex-1 items-center gap-4 bg-background p-4"
       onLayout={onLayoutView}
     >
-      <View className="mb-4 w-full flex-row items-center justify-between">
-        <Text className="flex-1 text-xl font-bold text-foreground">
-          {t('termsAndPrivacyTitle')}
-        </Text>
+      <View className="w-full flex-row items-center justify-between">
+        <Text variant="h4">{t('termsAndPrivacyTitle')}</Text>
         {!canAcceptTerms && (
-          <TouchableOpacity className="p-2" onPress={handleClosePress}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <Button size="icon" variant="ghost" onPress={handleClosePress}>
+            <Icon as={XIcon} />
+          </Button>
         )}
       </View>
 
       {/* Language Selector */}
-      <View className="mb-4 w-full gap-2.5">
+      <View className="w-full gap-2.5">
         <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} />
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 10 }}>
-        <Text className="mb-4 text-base leading-6 text-foreground">
-          {t('termsContributionInfo')}
-        </Text>
-        <Text className="mb-4 text-base leading-6 text-foreground">
-          {t('termsDataInfo')}
-        </Text>
-        <Text className="mb-4 text-base leading-6 text-foreground">
-          {t('analyticsInfo')}
-        </Text>
-        <TouchableOpacity onPress={handleViewTerms} className="mt-4">
-          <Text style={[sharedStyles.link]} className="text-base">
-            {t('viewFullTerms')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleViewPrivacy} className="mt-4">
-          <Text style={[sharedStyles.link]} className="text-base">
-            {t('viewFullPrivacy')}
-          </Text>
-        </TouchableOpacity>
+      <ScrollView contentContainerClassName="flex flex-col gap-4 flex-1">
+        <Text variant="p">{t('termsContributionInfo')}</Text>
+        <Text variant="p">{t('termsDataInfo')}</Text>
+        <Text variant="p">{t('analyticsInfo')}</Text>
+        <View className="flex flex-col gap-2">
+          <Pressable onPress={handleViewTerms}>
+            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
+              {t('viewFullTerms')}
+            </Text>
+          </Pressable>
+          <Pressable onPress={handleViewPrivacy}>
+            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
+              {t('viewFullPrivacy')}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {canAcceptTerms && (
-        <>
-          <View className="my-5 w-full px-2.5">
-            <TouchableOpacity
-              onPress={handleToggleTerms}
-              className="flex-row items-center"
-            >
-              <Ionicons
-                name={termsAccepted ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={colors.text}
-                className="mr-2.5"
-              />
-              <Text className="flex-1 flex-wrap text-base text-foreground">
-                {t('agreeToTerms')}
-              </Text>
-            </TouchableOpacity>
+        <View className="flex w-full flex-col gap-4">
+          <View className="flex w-full flex-row gap-2.5">
+            <Checkbox
+              checked={termsAccepted}
+              onCheckedChange={handleToggleTerms}
+            />
+            <Label onPress={handleToggleTerms}>{t('agreeToTerms')}</Label>
           </View>
-          <View className="mt-2.5 w-full flex-row justify-between px-2.5 pb-5">
-            <TouchableOpacity
-              style={[
-                sharedStyles.button,
-                { flex: 1 },
-                !termsAccepted && { opacity: 0.5 }
-              ]}
-              onPress={handleAcceptTerms}
-              disabled={!termsAccepted}
-            >
-              <Text style={sharedStyles.buttonText}>{t('accept')}</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+          <Button
+            className="flex-1"
+            onPress={handleAcceptTerms}
+            disabled={!termsAccepted}
+          >
+            <Text>{t('accept')}</Text>
+          </Button>
+        </View>
       )}
     </View>
   );

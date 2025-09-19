@@ -17,12 +17,12 @@ const buttonVariants = cva(
         secondary: 'bg-secondary active:opacity-80 web:hover:opacity-80',
         ghost:
           'active:bg-accent web:hover:bg-accent web:hover:text-accent-foreground',
-        link: 'web:underline-offset-4 web:hover:underline web:focus:underline'
+        link: 'active:scale-100 web:underline-offset-4 web:hover:underline web:focus:underline'
       },
       size: {
         sm: 'h-9 rounded-md px-3',
-        default: 'native:h-12 native:px-5 native:py-3 h-10 px-4 py-2',
-        lg: 'native:h-14 h-11 rounded-md px-8',
+        default: 'native:px-5 native:py-3 h-12 px-4 py-2',
+        lg: 'h-14 rounded-md px-8',
         icon: 'h-10 w-10',
         'icon-lg': 'h-12 w-12',
         'icon-xl': 'h-14 w-14'
@@ -68,7 +68,7 @@ type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
 const Button = React.forwardRef<
-  React.ElementRef<typeof Pressable>,
+  React.ComponentRef<typeof Pressable>,
   ButtonProps
 >(({ className, variant, size, ...props }, ref) => {
   return (
