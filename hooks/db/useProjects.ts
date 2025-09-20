@@ -123,13 +123,12 @@ export function useProjectById(projectId: string | undefined) {
     dataType: 'project',
     queryKeyParams: [projectId || ''],
     offlineQuery: toMergeCompilableQuery(
-      db.query.project.findMany({
+      db.query.project.findFirst({
         where: (fields, { eq, and }) =>
           and(
             eq(fields.id, projectId!)
             // keep visibility/active unconstrained per original comment
-          ),
-        limit: 1
+          )
       })
     ),
     cloudQueryFn: async () => {

@@ -4,7 +4,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import type { asset, project } from '@/db/drizzleSchema';
+import type { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -49,7 +49,6 @@ import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
 
 type Asset = typeof asset.$inferSelect;
-type Project = typeof project.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
@@ -90,6 +89,7 @@ export default function NextGenAssetsView() {
 
   // Get project data to check if it's templated
   const { project: currentProject } = useProjectById(currentProjectId);
+  console.log('currentProjectId', currentProjectId);
   const isTemplatedProject = currentProject?.template;
 
   // Handlers for templated project creation

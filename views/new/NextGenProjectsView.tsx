@@ -13,7 +13,7 @@ import { cn, getThemeColor } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
-import { and, eq, inArray, like, notInArray, or } from 'drizzle-orm';
+import { and, eq, getTableColumns, like, notInArray, or } from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
@@ -180,24 +180,9 @@ export default function NextGenProjectsView() {
       const offset = pageParam * pageSize;
 
       // Query projects where user is linked through profile_project_link
-      const projectLinks = await mergeQuery(
-        system.db
-          .select()
-          .from(profile_project_link)
-          .where(
-            and(
-              eq(profile_project_link.profile_id, userId),
-              eq(profile_project_link.active, true)
-            )
-          )
-      );
-
-      if (projectLinks.length === 0) return [];
-
-      const projectIds = projectLinks.map((link) => link.project_id);
-
       const conditions = [
-        inArray(project.id, projectIds),
+        eq(profile_project_link.profile_id, userId),
+        eq(profile_project_link.active, true),
         !showInvisibleContent && eq(project.visible, true),
         searchQuery &&
           or(
@@ -206,14 +191,19 @@ export default function NextGenProjectsView() {
           )
       ];
 
-      const projects = await mergeQuery(
-        system.db
-          .select()
-          .from(project)
-          .where(and(...conditions.filter(Boolean)))
-          .limit(pageSize)
-          .offset(offset)
-      );
+      const projectsSQL = system.db
+        .select({
+          ...getTableColumns(project)
+        })
+        .from(project)
+        .innerJoin(
+          profile_project_link,
+          eq(project.id, profile_project_link.project_id)
+        )
+        .where(and(...conditions.filter(Boolean)))
+        .limit(pageSize)
+        .offset(offset);
+      const projects = await mergeQuery(projectsSQL);
 
       return projects;
     },
@@ -409,7 +399,7 @@ export default function NextGenProjectsView() {
           <ProjectListSkeleton />
         ) : (
           <LegendList
-            key={`${activeTab}-${dimensions.width}`}
+            key={`${activeTab}-${dimensions.width}-${data.length}`}
             data={data}
             columnWrapperStyle={{ gap: 12 }}
             numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}

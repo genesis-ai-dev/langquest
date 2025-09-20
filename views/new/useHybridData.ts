@@ -124,10 +124,18 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     error: cloudError
   } = useTanstackQuery({
     queryKey: [dataType, 'cloud', ...queryKeyParams],
-    queryFn: cloudQueryFn || (() => Promise.resolve([])),
+    queryFn:
+      cloudQueryFn ||
+      (() => {
+        throw new Error(
+          'No cloud query function provided, please provide a cloud query function or disable the cloud query by setting enableCloudQuery to false.'
+        );
+      }),
     enabled: shouldFetchCloud && !!cloudQueryFn,
     ...cloudQueryOptions
   });
+
+  // [["receiver-profiles","cloud"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function Component Stack:
 
   // console.log('localOnlyData', dataType, localOnlyData);
 

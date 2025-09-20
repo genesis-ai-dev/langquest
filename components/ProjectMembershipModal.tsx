@@ -113,7 +113,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { data: projectData, isLoading: projectLoading } = useHybridData<
     typeof projectTable.$inferSelect
   >({
-    dataType: 'project',
+    dataType: 'project-membership',
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed

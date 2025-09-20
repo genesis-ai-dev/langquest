@@ -44,7 +44,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { mergeQuery, resolveTable } from '@/utils/dbUtils';
+import { mergeQuery, resolveTable, sortingHelper } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
@@ -70,7 +70,6 @@ import {
 } from 'react-native';
 import { z } from 'zod';
 import { QuestListItem } from './QuestListItem';
-import type { HybridDataSource } from './useHybridData';
 import { useSimpleHybridInfiniteData } from './useHybridData';
 
 type Quest = typeof quest.$inferSelect;
@@ -143,23 +142,23 @@ export default function NextGenQuestsView() {
       const baseCondition = eq(quest.project_id, currentProjectId);
       const topLevelOnly = isNull(quest.parent_id);
 
+      const trimmed = debouncedSearchQuery.trim();
       const conditions = [
         baseCondition,
         topLevelOnly,
-        debouncedSearchQuery.trim() &&
+        trimmed &&
           or(
-            like(quest.name, `%${debouncedSearchQuery.trim()}%`),
-            like(quest.description, `%${debouncedSearchQuery.trim()}%`)
+            like(quest.name, `%${trimmed}%`),
+            like(quest.description, `%${trimmed}%`)
           ),
         !showInvisibleContent && eq(quest.visible, true)
       ];
-      // Add search filtering for offline
-      const whereConditions = and(...conditions.filter(Boolean));
 
       const quests = await mergeQuery(
         system.db.query.quest.findMany({
-          where: whereConditions,
+          where: and(...conditions.filter(Boolean)),
           limit: pageSize,
+          orderBy: sortingHelper(quest, 'name', 'asc'),
           offset
         })
       );
@@ -177,16 +176,18 @@ export default function NextGenQuestsView() {
         .from('quest')
         .select('*')
         .eq('project_id', currentProjectId)
-        .is('parent_id', null);
+        .is('parent_id', null)
+        .order('name', { ascending: true });
 
       if (!showInvisibleContent) {
         query = query.eq('visible', true);
       }
 
+      const trimmed = debouncedSearchQuery.trim();
       // Add search filtering
-      if (debouncedSearchQuery.trim()) {
+      if (trimmed) {
         query = query.or(
-          `name.ilike.%${debouncedSearchQuery.trim()}%,description.ilike.%${debouncedSearchQuery.trim()}%`
+          `name.ilike.%${trimmed}%,description.ilike.%${trimmed}%`
         );
       }
 
@@ -200,31 +201,11 @@ export default function NextGenQuestsView() {
     20 // pageSize
   );
 
-  const quests = React.useMemo(() => {
-    const allQuests = data.pages.flatMap((page) => page.data);
+  const quests = data.pages.flatMap((page) => page.data);
 
-    // Deduplicate by ID to prevent duplicate keys in FlashList
-    const questMap = new Map<string, Quest & { source?: HybridDataSource }>();
-    allQuests.forEach((quest) => {
-      // Prioritize offline data over cloud data for duplicates
-      const existingQuest = questMap.get(quest.id);
-      if (
-        !existingQuest ||
-        (quest.source !== 'cloud' && existingQuest.source === 'cloud')
-      ) {
-        questMap.set(quest.id, quest);
-      }
-    });
-
-    // Convert back to array and sort by name in natural alphanumerical order
-    return Array.from(questMap.values()).sort((a, b) => {
-      // Use localeCompare with numeric option for natural sorting
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      });
-    });
-  }, [data.pages]);
+  const filteredQuests = quests.filter((quest) =>
+    showDownloadedOnly ? quest.source !== 'cloud' : true
+  );
 
   const dimensions = useWindowDimensions();
 
@@ -266,10 +247,6 @@ export default function NextGenQuestsView() {
       </View>
     );
   }
-
-  const filteredQuests = quests.filter((quest) =>
-    showDownloadedOnly ? quest.source !== 'cloud' : true
-  );
 
   return (
     <Drawer
@@ -317,7 +294,7 @@ export default function NextGenQuestsView() {
           <ProjectListSkeleton />
         ) : (
           <LegendList
-            key={`${showDownloadedOnly ? 'downloaded' : 'all'}-${dimensions.width}`}
+            key={`${showDownloadedOnly ? 'downloaded' : 'all'}-${dimensions.width}-${filteredQuests.length}`}
             data={filteredQuests}
             numColumns={
               dimensions.width > 768 && filteredQuests.length > 1 ? 2 : 1

@@ -5,7 +5,6 @@ import { system } from '@/db/powersync/system';
 import { substituteParams } from '@/hooks/useHybridSupabaseQuery';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { hybridDataSourceOptions } from '@/views/new/useHybridData';
-import { toCompilableQuery as toCompilableQueryPowerSync } from '@powersync/drizzle-driver';
 import type { CompilableQuery } from '@powersync/react-native';
 import type { AnyColumn, Query, Table } from 'drizzle-orm';
 import { getOrderByOperators } from 'drizzle-orm';
@@ -110,13 +109,17 @@ export async function mergeQuery<T extends QueryInput<T>>(
 export function toMergeCompilableQuery<T extends QueryInput<T>>(query: T) {
   const unionQuery = mergeSQL(query);
 
-  return toCompilableQueryPowerSync<MergeQueryResult<T>[]>({
-    execute: () => mergeQuery(query, unionQuery),
-    toSQL: () => ({
+  return {
+    execute: async () => {
+      const data = await mergeQuery(query, unionQuery);
+      console.log('toMergeCompilableQuery', data);
+      return data;
+    },
+    compile: () => ({
       sql: unionQuery,
-      params: []
+      parameters: []
     })
-  });
+  } as CompilableQuery<MergeQueryResult<T>[]>;
 }
 
 export type SortOrder = 'asc' | 'desc';
