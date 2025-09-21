@@ -256,7 +256,16 @@ export default function NextGenQuestsView() {
     >
       <View className="flex flex-1 flex-col gap-6 p-6 pb-0">
         <View className="flex flex-col gap-4">
-          <Text className="text-xl font-semibold">{t('quests')}</Text>
+          <Text className="text-xl font-semibold">
+            {t('quests')}
+            {currentProject?.template && (
+              <View className="ml-2 rounded-full bg-muted px-2 py-0.5">
+                <Text className="text-sm text-muted-foreground">
+                  {currentProject.template}
+                </Text>
+              </View>
+            )}
+          </Text>
           <View className="flex flex-row items-center gap-2">
             <Input
               placeholder={t('searchQuests')}
@@ -478,93 +487,6 @@ export default function NextGenQuestsView() {
             </DrawerClose>
           </DrawerFooter>
         </DrawerContent>
-        {/* Create Quest Bottom Sheet */}
-        {/* <BottomSheetModal
-          ref={bottomSheetRef}
-          index={-1}
-          open={isCreateOpen}
-          snapPoints={['60%']}
-          handleComponent={() =>
-            Platform.OS !== 'web' && (
-              <BottomSheetHandle
-                className="mt-2 bg-muted"
-                animatedIndex={animatedIndex}
-                animatedPosition={animatedPosition}
-              />
-            )
-          }
-        >
-          <BottomSheetView className="flex-1 bg-background px-4 pb-8">
-            {Platform.OS === 'web' && (
-              <BottomSheetHandle
-                className="mt-2 bg-muted"
-                animatedIndex={animatedIndex}
-                animatedPosition={animatedPosition}
-              />
-            )}
-
-            <Form {...form}>
-              <View className="flex flex-col gap-4">
-                <View className="flex flex-row items-center justify-between">
-                  <Text className="mt-2 text-lg font-semibold">
-                    {t('newQuest')}
-                  </Text>
-
-                  <Button
-                    variant="outline"
-                    onPress={() => setIsCreateOpen(!isCreateOpen)}
-                  >
-                    <Icon as={XIcon} size={22} strokeWidth={2.5} />
-                  </Button>
-                </View>
-
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...transformInputProps(field)}
-                          placeholder={t('questName')}
-                          size="sm"
-                          prefix={FolderPenIcon}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Textarea
-                          {...transformInputProps(field)}
-                          placeholder={t('description')}
-                          size="sm"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  disabled={isCreatingQuest}
-                  onPress={form.handleSubmit((values) => createQuest(values))}
-                >
-                  <Text className="text-sm font-medium text-primary-foreground">
-                    {t('createObject')}
-                  </Text>
-                </Button>
-              </View>
-            </Form>
-          </BottomSheetView>
-        </BottomSheetModal> */}
       </View>
     </Drawer>
   );
