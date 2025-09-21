@@ -20,7 +20,7 @@ import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
-import { LanguageSelect } from '@/components/language-select';
+import { AllLanguagesSelect } from '@/components/AllLanguagesSelect';
 import {
   Drawer,
   DrawerClose,
@@ -461,7 +461,7 @@ export default function NextGenProjectsView() {
                 return (
                   <FormItem>
                     <FormControl>
-                      <LanguageSelect
+                      <AllLanguagesSelect
                         {...field}
                         onChange={(value) => field.onChange(value.id)}
                       />

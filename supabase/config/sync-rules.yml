@@ -3,6 +3,8 @@ bucket_definitions:
     data:
       #   Sync all rows-- Select all data from User table
       - SELECT * FROM "profile"
+      #   Sync all languages globally so they're available for project creation
+      - SELECT * FROM "language" WHERE active = true
 
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
