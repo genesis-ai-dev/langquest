@@ -2,7 +2,7 @@ import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
 import { useAuth } from '@/contexts/AuthContext';
@@ -147,7 +147,7 @@ export function useUserPermissions(
     queryKeyParams: [project_id],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.project.findMany({
         where: eq(project.id, project_id),
         columns: { private: true, creator_id: true },

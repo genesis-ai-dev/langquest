@@ -7,7 +7,7 @@ import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { and, eq } from 'drizzle-orm';
 import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -31,7 +31,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   >({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db
         .select({
           id: languageTable.id,
@@ -73,7 +73,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   >({
     dataType: 'project-target-language',
     queryKeyParams: [project.target_language_id],
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.language.findMany({
         columns: { id: true, native_name: true, english_name: true },
         where: eq(languageTable.id, project.target_language_id)

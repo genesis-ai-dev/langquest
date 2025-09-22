@@ -1,7 +1,7 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
 
@@ -17,12 +17,13 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
 
   const {
     data: questData = [],
-    refetch,
     isLoading,
-    isError
-  } = useHybridQuery({
-    queryKey: ['quest-settings', questId],
-    offlineQuery: toCompilableQuery(
+    isError,
+    refetch,
+  } = useHybridData({
+    dataType: 'quest-settings',
+    queryKeyParams: [questId],
+    offlineQuery: toMergeCompilableQuery(
       db.query.quest.findMany({
         columns: {
           active: true,
@@ -31,16 +32,20 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
         where: eq(quest.id, questId)
       })
     ),
-    onlineFn: async (): Promise<(typeof quest.$inferSelect)[]> => {
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('quest')
         .select('active, visible')
         .eq('id', questId)
-        .limit(1);
+        .limit(1)
+        .overrideTypes<Pick<typeof quest.$inferSelect, 'active' | 'visible'>[]>();
 
       if (error) throw error;
-      return data as (typeof quest.$inferSelect)[];
-    }
+      return data;
+    },
+    enableOfflineQuery: !!questId,
+    enableCloudQuery: !!questId,
+    getItemId: (item) => questId
   });
 
   return {

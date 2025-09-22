@@ -18,7 +18,7 @@ import {
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
@@ -93,7 +93,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.request.findMany({
         where: and(
           eq(request.sender_profile_id, currentUser?.id || ''),
@@ -120,7 +120,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: [projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, currentUser?.id || ''),
@@ -159,7 +159,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: ['project', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.project.findMany({
         where: eq(projectTable.id, projectId),
         columns: {

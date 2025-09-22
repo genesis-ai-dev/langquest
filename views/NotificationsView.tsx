@@ -14,7 +14,7 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
@@ -75,7 +75,7 @@ export default function NotificationsView() {
     queryKeyParams: [currentUser?.email || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
@@ -105,7 +105,7 @@ export default function NotificationsView() {
     queryKeyParams: [...ownerProjectIds],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
@@ -146,7 +146,7 @@ export default function NotificationsView() {
     // PowerSync query using Drizzle
     offlineQuery:
       projectIds.length > 0
-        ? toCompilableQuery(
+        ? toMergeCompilableQuery(
             system.db.query.project.findMany({
               where: inArray(project.id, projectIds)
             })
@@ -192,7 +192,7 @@ export default function NotificationsView() {
     // PowerSync query using Drizzle
     offlineQuery:
       senderProfileIds.length > 0
-        ? toCompilableQuery(
+        ? toMergeCompilableQuery(
             system.db.query.profile.findMany({
               where: inArray(profile.id, senderProfileIds)
             })

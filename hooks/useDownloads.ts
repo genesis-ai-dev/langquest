@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { UseMutationResult, UseQueryOptions } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -335,7 +335,7 @@ export function useQuestDownloadStatus(questId: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.quest_closure.findMany({
         where: (fields, { eq }) => eq(fields.quest_id, questId),
         limit: 1

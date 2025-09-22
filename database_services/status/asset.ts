@@ -1,8 +1,7 @@
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-// import { useQueryClient } from '@tanstack/react-query/build/legacy/QueryClientProvider';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { and, eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
 
@@ -27,16 +26,16 @@ export function useAssetStatuses(
   let full: LayerStatus = { active: true, visible: true };
   let currentQuest: LayerStatus | undefined = undefined;
 
-  const { db, supabaseConnector } = system;
   const {
     data: assetData = [],
     refetch: assetRefetch,
     isLoading: isAssetLoading,
     isError: isAssetError
-  } = useHybridQuery({
-    queryKey: ['asset-settings', assetId],
-    offlineQuery: toCompilableQuery(
-      db.query.asset.findMany({
+  } = useHybridData({
+    dataType: 'asset-settings',
+    queryKeyParams: [assetId],
+    offlineQuery: toMergeCompilableQuery(
+      system.db.query.asset.findMany({
         columns: {
           active: true,
           visible: true
@@ -44,8 +43,8 @@ export function useAssetStatuses(
         where: eq(asset.id, assetId)
       })
     ),
-    onlineFn: async (): Promise<(typeof asset.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
+    cloudQueryFn: async (): Promise<(typeof asset.$inferSelect)[]> => {
+      const { data, error } = await system.supabaseConnector.client
         .from('asset')
         .select('active, visible')
         .eq('id', assetId)
@@ -70,24 +69,26 @@ export function useAssetStatuses(
 
   const {
     data: assetQuestDataArray = [],
-    isLoading,
-    isError,
-    refetch: refetchAQ
-  } = useHybridQuery({
-    queryKey: ['quest-asset-settings', questId, assetId],
-    offlineQuery: toCompilableQuery(
-      db.query.quest_asset_link.findMany({
+    refetch: assetQuestRefetch,
+    isLoading: isAssetQuestLoading,
+    isError: isAssetQuestError
+  } = useHybridData({
+    dataType: 'quest-asset-settings',
+    queryKeyParams: [questId, assetId],
+    offlineQuery: toMergeCompilableQuery(
+      system.db.query.quest_asset_link.findMany({
         columns: {
           active: true,
           visible: true
         },
-        where:
-          (eq(quest_asset_link.quest_id, questId),
-          eq(quest_asset_link.asset_id, assetId))
+        where: and(
+          eq(quest_asset_link.quest_id, questId),
+          eq(quest_asset_link.asset_id, assetId)
+        )
       })
     ),
-    onlineFn: async (): Promise<(typeof quest_asset_link.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
+    cloudQueryFn: async (): Promise<(typeof quest_asset_link.$inferSelect)[]> => {
+      const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select('active, visible')
         .match({ quest_id: questId, asset_id: assetId })
@@ -96,14 +97,12 @@ export function useAssetStatuses(
       return data as (typeof quest_asset_link.$inferSelect)[];
     }
   });
+  
   currentQuest = assetQuestDataArray[0] ?? { active: true, visible: true };
-  const refetchAssetQuest = refetchAQ;
-  const isAssetQuestLoading = isLoading;
-  const isAssetQuestError = isError;
 
   function refetch(type: refetchType) {
     if (type != 'asset_quest') assetRefetch();
-    if (type != 'asset') refetchAssetQuest();
+    if (type != 'asset') assetQuestRefetch();
   }
 
   return {

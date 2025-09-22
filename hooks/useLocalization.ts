@@ -9,7 +9,7 @@ import type {
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { eq } from 'drizzle-orm';
 
 type Language = typeof language.$inferSelect;
@@ -30,7 +30,7 @@ export function useLocalization(languageOverride?: string | null) {
     queryKeyParams: [uiLanguageId || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.language.findMany({
         where: eq(languageTable.id, uiLanguageId || ''),
         limit: 1

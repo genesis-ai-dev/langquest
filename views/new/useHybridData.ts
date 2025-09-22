@@ -77,6 +77,7 @@ export interface HybridDataResult<T> {
   isOfflineLoading: boolean;
   isCloudLoading: boolean;
   isLoading: boolean;
+  isError: boolean;
 
   // Error states
   offlineError: Error | null;
@@ -84,6 +85,8 @@ export interface HybridDataResult<T> {
 
   // Network status
   isOnline: boolean;
+
+  refetch: () => void;
 }
 
 export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
@@ -109,7 +112,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const {
     data: rawOfflineData,
     isLoading: isOfflineLoading,
-    error: offlineError
+    error: offlineError,
+    refetch: offlineRefetch,
   } = usePowerSyncQuery<TOfflineData>({
     queryKey: [dataType, 'offline', ...queryKeyParams],
     query: offlineQuery,
@@ -121,7 +125,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const {
     data: rawCloudData,
     isLoading: isCloudLoading,
-    error: cloudError
+    error: cloudError,
+    refetch: cloudRefetch
   } = useTanstackQuery({
     queryKey: [dataType, 'cloud', ...queryKeyParams],
     queryFn:
@@ -192,9 +197,14 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     isOfflineLoading,
     isCloudLoading,
     isLoading: isOfflineLoading && isCloudLoading,
+    isError: !!offlineError || !!cloudError,
     offlineError,
     cloudError,
-    isOnline
+    isOnline,
+    refetch: () => {
+      void offlineRefetch();
+      if (shouldFetchCloud) void cloudRefetch();
+    }
   };
 }
 
@@ -390,26 +400,26 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       if (offlinePage || cloudPage) {
         const offlineDataWithSource = offlinePage
           ? offlinePage.data.map((item) => {
-              return {
-                ...item,
-                source:
-                  (item as unknown as { source?: OfflineQuerySource }).source ??
-                  'synced'
-              } as WithSource<TOfflineData>;
-            })
+            return {
+              ...item,
+              source:
+                (item as unknown as { source?: OfflineQuerySource }).source ??
+                'synced'
+            } as WithSource<TOfflineData>;
+          })
           : [];
 
         const cloudDataTransformed = cloudPage
           ? cloudPage.data.map((item: TCloudData) => {
-              const transformedItem = transformCloudData
-                ? (transformCloudData(item) as TOfflineData)
-                : (item as unknown as TCloudData);
+            const transformedItem = transformCloudData
+              ? (transformCloudData(item) as TOfflineData)
+              : (item as unknown as TCloudData);
 
-              return {
-                ...transformedItem,
-                source: 'cloud' as const
-              } as WithSource<typeof transformedItem>;
-            })
+            return {
+              ...transformedItem,
+              source: 'cloud' as const
+            } as WithSource<typeof transformedItem>;
+          })
           : [];
 
         const offlineMap = new Map(
@@ -622,7 +632,7 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
         cloudLastUpdated &&
         localLastUpdated &&
         new Date(cloudLastUpdated).getTime() >
-          new Date(localLastUpdated).getTime()
+        new Date(localLastUpdated).getTime()
       ) {
         mergedMap.set(id, cloudItem);
       }

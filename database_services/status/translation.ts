@@ -1,8 +1,7 @@
 import { translation } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-// import { useQueryClient } from '@tanstack/react-query/build/legacy/QueryClientProvider';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { eq } from 'drizzle-orm';
 import type { TranslationStatus } from '../types';
 
@@ -16,17 +15,16 @@ export interface TranslationStatusHook {
 export function useTranslationStatuses(
   translationId: string
 ): TranslationStatusHook {
-  const { db, supabaseConnector } = system;
-
   const {
     data: translationData = [],
     refetch,
     isLoading,
     isError
-  } = useHybridQuery({
-    queryKey: ['translation-settings', translationId],
-    offlineQuery: toCompilableQuery(
-      db.query.translation.findMany({
+  } = useHybridData({
+    dataType: 'translation-settings',
+    queryKeyParams: [translationId],
+    offlineQuery: toMergeCompilableQuery(
+      system.db.query.translation.findMany({
         columns: {
           active: true,
           visible: true,
@@ -35,8 +33,8 @@ export function useTranslationStatuses(
         where: eq(translation.id, translationId)
       })
     ),
-    onlineFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
+    cloudQueryFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
+      const { data, error } = await system.supabaseConnector.client
         .from('translation')
         .select('creator_id, active, visible')
         .eq('id', translationId)

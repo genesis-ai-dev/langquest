@@ -15,7 +15,7 @@ import {
   hybridFetch,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
   and,
@@ -52,7 +52,7 @@ export type Vote = InferSelectModel<typeof vote>;
 
 export async function getAssetById(asset_id: string) {
   const assets = await hybridFetch<Asset>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset.findMany({
         where: eq(asset.id, asset_id)
       })
@@ -96,7 +96,7 @@ export function useAssetById(asset_id: string | undefined) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.asset.findMany({
         where: (fields, { eq }) => eq(fields.id, asset_id!),
         limit: 1
@@ -111,7 +111,7 @@ export function useAssetById(asset_id: string | undefined) {
 
 export function getAssetsById(asset_ids: string[]) {
   return hybridFetch<Asset>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset.findMany({
         where: inArray(asset.id, asset_ids)
       })
@@ -149,7 +149,7 @@ function getAssetContentConfig(asset_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: eq(asset_content_link.asset_id, asset_id)
       })
@@ -160,7 +160,7 @@ function getAssetContentConfig(asset_id: string) {
 
 export function getAssetContent(asset_id: string) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: eq(asset_content_link.asset_id, asset_id)
       })
@@ -199,7 +199,7 @@ function getAssetsContentConfig(asset_ids: string[]) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: inArray(asset_content_link.asset_id, asset_ids)
       })
@@ -210,7 +210,7 @@ function getAssetsContentConfig(asset_ids: string[]) {
 
 export function getAssetsContent(asset_ids: string[]) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: inArray(asset_content_link.asset_id, asset_ids)
       })
@@ -250,7 +250,7 @@ function getAssetAudioContentConfig(asset_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
@@ -264,7 +264,7 @@ function getAssetAudioContentConfig(asset_id: string) {
 
 export function getAssetAudioContent(asset_id: string) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
@@ -308,7 +308,7 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
@@ -322,7 +322,7 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
 
 export function getAssetsAudioContent(asset_ids: string[]) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
@@ -373,7 +373,7 @@ function getAssetsByQuestIdConfig(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db
         .select({
           id: asset.id,
@@ -396,7 +396,7 @@ function getAssetsByQuestIdConfig(quest_id: string) {
 
 export function getAssetsByQuestId(quest_id: string) {
   return hybridFetch<Asset>({
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -481,7 +481,7 @@ export function useAssetsByProjectId(project_id: string) {
 
       return Array.from(uniqueAssets.values());
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db
         .selectDistinct({
           id: asset.id,
@@ -541,7 +541,7 @@ export function useAssetsWithTagsByQuestId(quest_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.quest_asset_link.findMany({
         where: eq(quest_asset_link.quest_id, quest_id),
         columns: {},
@@ -600,7 +600,7 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -667,7 +667,7 @@ export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -751,7 +751,7 @@ export function useAssetsWithTranslationsAndVotesByProjectId(
 
       return Array.from(uniqueAssets.values());
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -1140,7 +1140,7 @@ function getAssetQuestLinkById(
       if (error) throw error;
       return data; // .map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db
         .select({
           visible: quest_asset_link.visible,

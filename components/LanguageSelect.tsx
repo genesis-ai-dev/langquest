@@ -6,7 +6,7 @@ import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { and, eq } from 'drizzle-orm';
 import {
   memo,
@@ -40,7 +40,7 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
       queryKeyParams: ['ui-ready'],
 
       // PowerSync query using Drizzle
-      offlineQuery: toCompilableQuery(
+      offlineQuery: toMergeCompilableQuery(
         system.db.query.language.findMany({
           where: and(
             eq(languageTable.active, true),

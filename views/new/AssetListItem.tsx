@@ -1,16 +1,21 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { colors, sharedStyles } from '@/styles/theme';
+import { useLocalization } from '@/hooks/useLocalization';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
-// import { AttachmentState } from '@powersync/attachments';
-import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { useLocalization } from '@/hooks/useLocalization';
+import { EyeOffIcon, PauseIcon } from 'lucide-react-native';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './NextGenAssetsView';
+import { Pressable, View } from 'react-native';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -26,60 +31,6 @@ export interface AssetListItemProps {
   questId: string;
   attachmentState?: AttachmentRecord;
 }
-
-// function renderSourceTag(source: string | undefined) {
-//   if (source === 'cloud') {
-//     return <Text style={{ color: 'red' }}>Cloud</Text>;
-//   }
-//   return <Text style={{ color: 'blue' }}>Offline</Text>;
-// }
-
-// function renderAttachmentState(attachmentState: AttachmentRecord | undefined) {
-//   if (!attachmentState) {
-//     return (
-//       <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-//         📎 No attachment data
-//       </Text>
-//     );
-//   }
-
-//   const stateEmoji = {
-//     [AttachmentState.QUEUED_SYNC]: '⏳',
-//     [AttachmentState.QUEUED_DOWNLOAD]: '📥',
-//     [AttachmentState.SYNCED]: '✅'
-//   };
-
-//   const stateName = {
-//     [AttachmentState.QUEUED_SYNC]: 'Queued',
-//     [AttachmentState.QUEUED_DOWNLOAD]: 'Downloading',
-//     [AttachmentState.SYNCED]: 'Synced'
-//   };
-
-//   const stateColor = {
-//     [AttachmentState.QUEUED_SYNC]: colors.textSecondary,
-//     [AttachmentState.QUEUED_DOWNLOAD]: colors.primary,
-//     [AttachmentState.SYNCED]: colors.success
-//   };
-
-//   return (
-//     <Text
-//       style={{
-//         color:
-//           stateColor[attachmentState.state as keyof typeof stateColor] ||
-//           colors.textSecondary,
-//         fontSize: 12,
-//         fontWeight:
-//           attachmentState.state === AttachmentState.QUEUED_DOWNLOAD
-//             ? 'bold'
-//             : 'normal'
-//       }}
-//     >
-//       📎 {stateEmoji[attachmentState.state as keyof typeof stateEmoji] || '❓'}{' '}
-//       {stateName[attachmentState.state as keyof typeof stateName] ||
-//         `State ${attachmentState.state}`}
-//     </Text>
-//   );
-// }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
@@ -103,8 +54,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     LayerType.ASSET,
     asset.id || '',
     {
-      visible: asset.visible && asset.quest_visible,
-      active: asset.active && asset.quest_active
+      visible: (asset.visible ?? true) && (asset.quest_visible ?? true),
+      active: (asset.active ?? true) && (asset.quest_active ?? true)
     },
     questId
   );
@@ -113,10 +64,10 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
-        visible: asset.visible,
-        active: asset.active,
-        quest_active: asset.quest_active,
-        quest_visible: asset.quest_visible
+        visible: asset.visible ?? true,
+        active: asset.active ?? true,
+        quest_active: asset.quest_active ?? true,
+        quest_visible: asset.quest_visible ?? true
       },
       asset.id,
       questId
@@ -136,56 +87,54 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   };
 
   return (
-    <TouchableOpacity onPress={handlePress}>
-      <View
-        style={[
-          styles.listItem,
-          !allowEditing && sharedStyles.disabled,
-          invisible && sharedStyles.invisible
-        ]}
+    <Pressable onPress={handlePress}>
+      <Card
+        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''}`}
       >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}
-        >
-          <Text style={styles.assetName}>
-            {asset.name || t('unnamedAsset')}
-          </Text>
-
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
-            onPress={handleDownloadToggle}
-            size={20}
-          />
-        </View>
-
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {SHOW_DEV_ELEMENTS && (
-          <Text style={styles.assetInfo}>
-            ID: {asset.id.substring(0, 8)}...
-          </Text>
-        )}
-
-        {attachmentState && (
-          <View
-            style={{
-              marginTop: 4,
-              padding: 6,
-              backgroundColor: '#f8f9fa',
-              borderRadius: 4
-            }}
-          >
-            <Text style={{ fontSize: 10, color: colors.textSecondary }}>
-              Last Updated:{' '}
-              {new Date(attachmentState.timestamp || 0).toLocaleTimeString()}
-            </Text>
+        <CardHeader className="flex flex-row items-start justify-between">
+          <View className="flex flex-1 gap-1">
+            <View className="flex flex-row items-center">
+              <View className="flex flex-1 flex-row gap-2">
+                {(!allowEditing || invisible) && (
+                  <View className="flex flex-row gap-1.5">
+                    {invisible && (
+                      <Icon
+                        as={EyeOffIcon}
+                        className="text-secondary-foreground"
+                      />
+                    )}
+                    {!allowEditing && (
+                      <Icon
+                        as={PauseIcon}
+                        className="text-secondary-foreground"
+                      />
+                    )}
+                  </View>
+                )}
+                <CardTitle numberOfLines={2} className="flex flex-1">
+                  {asset.name || t('unnamedAsset')}
+                </CardTitle>
+              </View>
+              <DownloadIndicator
+                isFlaggedForDownload={isDownloaded}
+                isLoading={isDownloading}
+                onPress={handleDownloadToggle}
+                size={20}
+              />
+            </View>
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && (
+              <CardDescription>
+                ID: {asset.id.substring(0, 8)}...
+              </CardDescription>
+            )}
           </View>
-        )}
-      </View>
-    </TouchableOpacity>
+        </CardHeader>
+        {/* <CardContent>
+          <Text className="text-xs text-secondary-foreground">
+          </Text>
+        </CardContent> */}
+      </Card>
+    </Pressable>
   );
 };

@@ -1,5 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import {
@@ -65,7 +65,7 @@ type HybridSupabaseQueryConfig<T extends Record<string, unknown>> = (
        * - Online: Converted to SQL and sent via SQLTR
        * - Offline: Compiled to PowerSync query
        */
-      query: Parameters<typeof toCompilableQuery<T>>[0];
+      query: Parameters<typeof toMergeCompilableQuery<T>>[0];
       onlineFn?: never;
       offlineQuery?: never;
       offlineFn?: never;
@@ -78,7 +78,7 @@ type HybridSupabaseQueryConfig<T extends Record<string, unknown>> = (
       /**
        * Offline query using Drizzle query builder
        */
-      offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      offlineQuery: Parameters<typeof toMergeCompilableQuery<T>>[0] | string;
       query?: never;
       offlineFn?: never;
     }
@@ -175,7 +175,7 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
           }
           return rows;
         }
-        return await toCompilableQuery<T>(offlineQuery).execute();
+        return await toMergeCompilableQuery<T>(offlineQuery).execute();
       };
     } else if ('query' in options && options.query) {
       return async () => {
@@ -194,7 +194,7 @@ export function useHybridSupabaseQuery<T extends Record<string, unknown>>(
           }
           return rows;
         }
-        return await toCompilableQuery<T>(query).execute();
+        return await toMergeCompilableQuery<T>(query).execute();
       };
     }
     throw new Error(
@@ -498,14 +498,14 @@ export function useHybridSupabaseRealtimeQuery<
  */
 type HybridSupabaseFetchConfig<T> = (
   | {
-      query: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      query: Parameters<typeof toMergeCompilableQuery<T>>[0] | string;
       onlineFn?: never;
       offlineQuery?: never;
       offlineFn?: never;
     }
   | {
       onlineFn: () => Promise<T[]>;
-      offlineQuery: Parameters<typeof toCompilableQuery<T>>[0] | string;
+      offlineQuery: Parameters<typeof toMergeCompilableQuery<T>>[0] | string;
       query?: never;
       offlineFn?: never;
     }
@@ -565,14 +565,14 @@ export async function hybridSupabaseFetch<
         }
         return rows;
       }
-      return await toCompilableQuery<T>(restConfig.offlineQuery).execute();
+      return await toMergeCompilableQuery<T>(restConfig.offlineQuery).execute();
     } else if ('query' in restConfig && restConfig.query) {
       if (typeof restConfig.query === 'string') {
         return (await system.powersync.execute(
           restConfig.query
         )) as unknown as T[];
       }
-      return await toCompilableQuery<T>(restConfig.query).execute();
+      return await toMergeCompilableQuery<T>(restConfig.query).execute();
     } else {
       throw new Error(
         'Either query, offlineQuery, or offlineFn must be provided'
@@ -712,7 +712,7 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
         onlineFn: (context: InfiniteQueryContext<T>) => Promise<T[]>;
         offlineQuery: (
           context: InfiniteQueryContext<T>
-        ) => Parameters<typeof toCompilableQuery<T>>[0];
+        ) => Parameters<typeof toMergeCompilableQuery<T>>[0];
         query?: never;
         offlineFn?: never;
       }
@@ -725,7 +725,7 @@ type HybridSupabaseInfiniteQueryOptions<T> = Omit<
     | {
         query: (
           context: InfiniteQueryContext<T>
-        ) => Parameters<typeof toCompilableQuery<T>>[0] | string;
+        ) => Parameters<typeof toMergeCompilableQuery<T>>[0] | string;
         onlineFn?: never;
         offlineQuery?: never;
         offlineFn?: never;
@@ -811,7 +811,7 @@ export function useHybridSupabaseInfiniteQuery<T>(
         results = await options.offlineFn(completeContext);
       } else if (options.offlineQuery) {
         const sqlQuery = options.offlineQuery(completeContext);
-        const compiledQuery = toCompilableQuery(sqlQuery);
+        const compiledQuery = toMergeCompilableQuery(sqlQuery);
         results = await compiledQuery.execute();
       } else if ('query' in options) {
         const sqlQuery = options.query(completeContext);
@@ -829,7 +829,7 @@ export function useHybridSupabaseInfiniteQuery<T>(
           }
           results = rows;
         } else {
-          const compiledQuery = toCompilableQuery(sqlQuery);
+          const compiledQuery = toMergeCompilableQuery(sqlQuery);
           results = await compiledQuery.execute();
         }
       } else {

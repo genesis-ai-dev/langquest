@@ -2705,6 +2705,55 @@ export const localizations = {
     tok_pisin: 'Ol Translation',
     indonesian: 'Terjemahan'
   },
+  doRecord: {
+    english: 'Record',
+    spanish: 'Grabar',
+    brazilian_portuguese: 'Gravar',
+    tok_pisin: 'Rekodem',
+    indonesian: 'Rekam'
+  },
+  isRecording: {
+    english: 'Recording...',
+    spanish: 'Grabando...',
+    brazilian_portuguese: 'Gravando...',
+    tok_pisin: 'Recording...',
+    indonesian: 'Merekam...'
+  },
+  audioSegments: {
+    english: 'Audio Segments',
+    spanish: 'Pistas de Audio',
+    brazilian_portuguese: 'Pistas de Áudio',
+    tok_pisin: 'Ol audio track',
+    indonesian: 'Trek audio'
+  },
+  audioSegment: {
+    english: 'Audio Segment',
+    spanish: 'Pista de Audio',
+    brazilian_portuguese: 'Pista de Áudio',
+    tok_pisin: 'Ol audio track',
+    indonesian: 'Trek audio'
+  },
+  asAssets: {
+    english: 'as Assets',
+    spanish: 'como Assets',
+    brazilian_portuguese: 'como Assets',
+    tok_pisin: 'as Assets',
+    indonesian: 'sebagai Assets'
+  },
+  asAsset: {
+    english: 'as Asset',
+    spanish: 'como Asset',
+    brazilian_portuguese: 'como Asset',
+    tok_pisin: 'as Asset',
+    indonesian: 'sebagai Asset'
+  },
+  save: {
+    english: 'Save',
+    spanish: 'Guardar',
+    brazilian_portuguese: 'Salvar',
+    tok_pisin: 'Save',
+    indonesian: 'Simpan'
+  },
   projectDirectory: {
     english: 'Project Directory',
     spanish: 'Directorio de Proyecto',

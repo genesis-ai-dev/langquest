@@ -12,7 +12,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm';
@@ -603,7 +603,7 @@ export function useTranslationsWithVotesByAsset(
     queryKeyParams: [asset_id, translationsRefreshKey || 0, voteRefreshKey],
 
     // PowerSync query using Drizzle
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db
         .select()
         .from(translation)
@@ -672,7 +672,7 @@ export function useTranslationsWithVotesByAsset(
     // PowerSync query for votes
     offlineQuery:
       translationIds.length > 0
-        ? toCompilableQuery(
+        ? toMergeCompilableQuery(
             system.db
               .select()
               .from(vote)

@@ -28,7 +28,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
@@ -220,7 +220,7 @@ export default function NextGenAssetDetailView() {
   const { data: contentLanguages = [] } = useHybridData<Language>({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.language.findMany({
         where: contentLanguageIds.length
           ? inArray(languageTable.id, contentLanguageIds)

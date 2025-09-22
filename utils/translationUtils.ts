@@ -4,7 +4,7 @@ import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { hybridFetch } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { User } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
 
@@ -23,7 +23,7 @@ export class TranslationUtils {
 
       // Use hybridFetch directly
       const languages = await hybridFetch<Language>({
-        offlineQuery: toCompilableQuery(
+        offlineQuery: toMergeCompilableQuery(
           system.db.query.language.findMany({
             where: eq(languageTable.id, uiLanguageId),
             limit: 1

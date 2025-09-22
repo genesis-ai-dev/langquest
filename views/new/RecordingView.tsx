@@ -10,6 +10,7 @@ import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { resolveTable } from '@/utils/dbUtils';
 import { ArrowLeft } from 'lucide-react-native';
@@ -36,6 +37,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const { project: currentProject } = useProjectById(currentProjectId);
   const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
 
+  const { t } = useLocalization();
   const [audioSegments, setAudioSegments] = React.useState<AudioSegment[]>([]);
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const [isRecording, setIsRecording] = React.useState(false);
@@ -311,12 +313,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         <Button variant="ghost" size="icon" onPress={onBack}>
           <Icon as={ArrowLeft} />
         </Button>
-        <Text style={sharedStyles.title}>Record</Text>
+        <Text style={sharedStyles.title}>{t('doRecord')}</Text>
       </View>
 
       {isRecording && (
         <View style={styles.recordingContainer}>
-          <Text style={styles.recordingLabel}>Recording...</Text>
+          <Text style={styles.recordingLabel}>{t('isRecording')}</Text>
           <WaveformVisualizer
             waveformData={currentWaveformData}
             isRecording={true}
@@ -329,7 +331,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
       <View style={styles.segmentsContainer}>
         <Text style={styles.segmentsTitle}>
-          Audio Segments ({audioSegments.length})
+          {t('audioSegments')} ({audioSegments.length})
         </Text>
         <ScrollView
           style={styles.segmentsList}
@@ -369,8 +371,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             style={styles.saveButton}
           >
             <Text style={styles.saveButtonText}>
-              Save {audioSegments.length} Audio Segment
-              {audioSegments.length !== 1 ? 's' : ''} as Assets
+              {t('save')}{' '}
+              {audioSegments.length > 1
+                ? t('audioSegments')
+                : t('audioSegment')}{' '}
+              {audioSegments.length > 1 ? t('asAssets') : t('asAsset')}
             </Text>
           </Button>
         </View>

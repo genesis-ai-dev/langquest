@@ -76,7 +76,6 @@ export default function ProjectDirectoryView() {
       })
     ),
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [] as Quest[];
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('*')

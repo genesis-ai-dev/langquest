@@ -12,9 +12,11 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import { eq } from 'drizzle-orm';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import {
@@ -40,8 +42,7 @@ import {
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
-import { mergeSQL, resolveTable } from '@/utils/dbUtils';
-import { eq } from 'drizzle-orm';
+import { resolveTable } from '@/utils/dbUtils';
 import { FlagIcon, InfoIcon, Mic, SettingsIcon } from 'lucide-react-native';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
@@ -84,25 +85,14 @@ export default function NextGenAssetsView() {
 
   type Quest = typeof questTable.$inferSelect;
 
-  const offlineSQL = React.useMemo(() => {
-    if (!currentQuestId) return null;
-    return mergeSQL(
+  const { data: questData, isLoading: isQuestLoading } = useHybridData<Quest>({
+    dataType: 'quests',
+    queryKeyParams: [currentQuestId],
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.quest.findMany({
         where: eq(questTable.id, currentQuestId)
       })
-    );
-  }, [currentQuestId]);
-
-  const { data: questData, isLoading: isQuestLoading } = useHybridData<Quest>({
-    dataType: 'quests',
-    queryKeyParams: [currentQuestId ?? 'none'],
-    offlineQuery:
-      offlineSQL ??
-      mergeSQL(
-        system.db.query.quest.findMany({
-          where: eq(questTable.id, '__nil__')
-        })
-      ),
+    ),
     enableOfflineQuery: Boolean(currentQuestId),
     cloudQueryFn: async (): Promise<Quest[]> => {
       if (!currentQuestId) return [] as Quest[];
@@ -114,7 +104,8 @@ export default function NextGenAssetsView() {
       if (error) throw error;
       return data ?? [];
     },
-    enableCloudQuery: Boolean(currentQuestId),
+    enableCloudQuery: !!currentQuestId,
+    enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
   const selectedQuest = React.useMemo(() => questData?.[0], [questData]);

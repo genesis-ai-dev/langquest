@@ -4,7 +4,7 @@ import {
   useHybridData,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { keepPreviousData } from '@tanstack/react-query';
 import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
 import { and, asc, desc, eq, isNull, like, notInArray, or } from 'drizzle-orm';
@@ -33,7 +33,7 @@ function getQuestsByProjectIdConfig(project_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       system.db.query.quest.findMany({
         where: eq(questTable.project_id, project_id)
       })
@@ -93,7 +93,7 @@ export function useQuestsWithTagsByProjectId(project_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.quest.findMany({
         where: eq(questTable.project_id, project_id),
         with: {
@@ -121,7 +121,7 @@ export function useQuestById(quest_id: string | undefined) {
   } = useHybridData({
     dataType: 'quest',
     queryKeyParams: ['quest', quest_id],
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.quest.findMany({
         where: (fields, { eq }) => eq(fields.id, quest_id!),
         limit: 1
@@ -369,7 +369,7 @@ export function usePaginatedQuestsWithTagsByProjectId(
 
       return quests;
     },
-    offlineQuery: toCompilableQuery(
+    offlineQuery: toMergeCompilableQuery(
       db.query.quest.findMany({
         where: eq(questTable.project_id, project_id),
         with: {

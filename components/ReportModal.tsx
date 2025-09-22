@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 // Uncomment these imports when implementing duplicate report checking
 // import { useHybridData } from '@/views/new/useHybridData';
-// import { toCompilableQuery } from '@powersync/drizzle-driver';
+// import { toMergeCompilableQuery } from '@/utils/dbUtils';
 // import { reports } from '@/db/drizzleSchema';
 // import { system } from '@/db/powersync/system';
 // import { and, eq } from 'drizzle-orm';
@@ -65,7 +65,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   //   queryKeyParams: [recordId, recordTable, currentUser?.id || ''],
   //
   //   // PowerSync query using Drizzle
-  //   offlineQuery: toCompilableQuery(
+  //   offlineQuery: toMergeCompilableQuery(
   //     db.query.reports.findMany({
   //       where: and(
   //         eq(reports.record_id, recordId),
