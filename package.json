@@ -118,7 +118,7 @@
     "tailwindcss-animate": "^1.0.7",
     "testflight-dev-deploy": "^0.0.8",
     "vaul": "^1.1.2",
-    "zod": "^3.24.4",
+    "zod": "^4.1.11",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

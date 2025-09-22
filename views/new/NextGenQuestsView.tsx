@@ -102,8 +102,8 @@ export default function NextGenQuestsView() {
 
   // Simple create quest form schema
   const formSchema = z.object({
-    name: z.string({ required_error: t('nameRequired') }),
-    description: z.string().max(196).optional()
+    name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+    description: z.string().max(196).trim().optional()
   });
   type FormData = z.infer<typeof formSchema>;
 

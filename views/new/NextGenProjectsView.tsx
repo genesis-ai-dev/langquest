@@ -77,15 +77,13 @@ export default function NextGenProjectsView() {
   const currentLanguageId = useLocalStore((state) => state.languageId);
 
   const formSchema = z.object({
-    name: z.string({ required_error: t('nameRequired') }),
-    target_language_id: z.string({ required_error: t('selectLanguage') }), // this is the TARGET language we're translating to
+    name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+    // this is the TARGET language we're translating to
+    target_language_id: z.uuid(t('selectLanguage')),
     description: z
       .string()
-      .max(196, {
-        message: t('descriptionTooLong', {
-          max: 196
-        })
-      })
+      .max(196, t('descriptionTooLong', { max: 196 }))
+      .trim()
       .optional(),
     private: z.boolean(),
     visible: z.boolean(),
@@ -103,8 +101,6 @@ export default function NextGenProjectsView() {
             .insert(resolveTable('project', { localOverride: true }))
             .values({
               ...values,
-              name: values.name.trim(),
-              description: values.description?.trim(),
               creator_id: currentUser!.id,
               download_profiles: [currentUser!.id]
             })

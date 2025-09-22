@@ -58,10 +58,10 @@ export default function ProfileView() {
 
   const formSchema = z
     .object({
-      selectedLanguageId: z.string().min(1, { message: t('selectLanguage') }),
-      currentPassword: z.string().optional(),
-      newPassword: z.string().optional(),
-      confirmPassword: z.string().optional(),
+      selectedLanguageId: z.uuid(t('selectLanguage')),
+      currentPassword: z.string().nonempty().trim().optional(),
+      newPassword: z.string().nonempty().trim().optional(),
+      confirmPassword: z.string().nonempty().trim().optional(),
       termsAccepted: z.boolean().optional()
     })
     .superRefine((data, ctx) => {

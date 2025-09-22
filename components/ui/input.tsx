@@ -119,7 +119,10 @@ interface InputProps
   mask?: boolean;
 }
 
-const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
+const Input = React.forwardRef<
+  React.ComponentRef<typeof TextInput>,
+  InputProps
+>(
   (
     {
       className,

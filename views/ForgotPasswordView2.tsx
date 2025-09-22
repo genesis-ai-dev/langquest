@@ -36,16 +36,16 @@ export default function ForgotPasswordView2({
 
   const formSchema = z.object({
     email: z
-      .string({ required_error: t('emailRequired') })
-      .email({ message: t('enterValidEmail') })
+      .email(t('enterValidEmail'))
+      .nonempty(t('emailRequired'))
+      .toLowerCase()
+      .trim()
   });
 
   const { mutateAsync: resetPassword, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       const { error } =
-        await supabaseConnector.client.auth.resetPasswordForEmail(
-          data.email.toLowerCase().trim()
-        );
+        await supabaseConnector.client.auth.resetPasswordForEmail(data.email);
       if (error) throw error;
     },
     onSuccess: () => {

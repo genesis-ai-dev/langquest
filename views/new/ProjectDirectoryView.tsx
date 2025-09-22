@@ -4,7 +4,8 @@ import { Text } from '@/components/ui/text';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { mergeSQL, resolveTable, type WithSource } from '@/utils/dbUtils';
+import type { WithSource } from '@/utils/dbUtils';
+import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
 // import { LegendList } from '@legendapp/list';
 import {
   Drawer,
@@ -14,22 +15,37 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormSubmit,
+  transformInputProps
+} from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
   ChevronDown,
   ChevronRight,
   Download,
   Folder,
+  FolderPenIcon,
   Plus,
   Share2
 } from 'lucide-react-native';
 import React from 'react';
+import { useForm } from 'react-hook-form';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
+import z from 'zod';
 import { useHybridData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
@@ -57,26 +73,24 @@ export default function ProjectDirectoryView() {
 
   type Quest = typeof quest.$inferSelect;
 
-  const offlineSQL = React.useMemo(() => {
-    if (!currentProjectId) return null;
-    return mergeSQL(
-      system.db.query.quest.findMany({
-        where: eq(quest.project_id, currentProjectId)
-      })
-    );
-  }, [currentProjectId]);
+  const formSchema = z.object({
+    name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+    description: z.string().max(196).trim().optional()
+  });
+  type FormData = z.infer<typeof formSchema>;
 
-  const { data: rawQuests, isLoading } = useHybridData<Quest>({
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema)
+  });
+
+  const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
-    queryKeyParams: [currentProjectId ?? 'none'],
-    offlineQuery:
-      offlineSQL ??
-      mergeSQL(
-        system.db.query.quest.findMany({
-          where: eq(quest.project_id, '__nil__')
-        })
-      ),
-    enableOfflineQuery: Boolean(currentProjectId),
+    queryKeyParams: [currentProjectId],
+    offlineQuery: toMergeCompilableQuery(
+      system.db.query.quest.findMany({
+        where: eq(quest.project_id, currentProjectId!)
+      })
+    ),
     cloudQueryFn: async () => {
       if (!currentProjectId) return [] as Quest[];
       const { data, error } = await system.supabaseConnector.client
@@ -85,14 +99,15 @@ export default function ProjectDirectoryView() {
         .eq('project_id', currentProjectId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
-      return data ?? [];
+      return data;
     },
-    enableCloudQuery: Boolean(currentProjectId),
+    enableOfflineQuery: !!currentProjectId,
+    enableCloudQuery: !!currentProjectId,
     getItemId: (item) => item.id
   });
 
   const { childrenOf, roots } = React.useMemo(() => {
-    const items = (rawQuests ?? []) as WithSource<Quest>[];
+    const items = rawQuests;
 
     const children = new Map<string | null, WithSource<Quest>[]>();
     for (const q of items) {
@@ -115,7 +130,6 @@ export default function ProjectDirectoryView() {
   const [parentForNewQuest, setParentForNewQuest] = React.useState<
     string | null
   >(null);
-  const [newQuestName, setNewQuestName] = React.useState('');
 
   const toggleExpanded = React.useCallback((id: string) => {
     setExpanded((prev) => {
@@ -128,31 +142,31 @@ export default function ProjectDirectoryView() {
 
   const openCreateForParent = React.useCallback((parentId: string | null) => {
     setParentForNewQuest(parentId);
-    setNewQuestName('');
     setIsCreateOpen(true);
   }, []);
 
-  const handleCreateSubquest = React.useCallback(async () => {
-    if (!currentProjectId || !currentUser?.id || !parentForNewQuest) return;
-    const name = newQuestName.trim();
-    if (!name) return;
-    try {
+  const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
+    mutationFn: async (values: FormData) => {
+      if (!currentProjectId || !currentUser?.id) return;
       await system.db
         .insert(resolveTable('quest', { localOverride: true }))
         .values({
-          name,
+          ...values,
           project_id: currentProjectId,
           parent_id: parentForNewQuest,
           creator_id: currentUser.id,
           download_profiles: [currentUser.id]
         });
+    },
+    onSuccess: () => {
+      form.reset();
       setIsCreateOpen(false);
       setParentForNewQuest(null);
-      setNewQuestName('');
-    } catch (e) {
-      console.warn('Failed to create sub-quest', e);
+    },
+    onError: (error) => {
+      console.error('Failed to create quest', error);
     }
-  }, [currentProjectId, currentUser?.id, newQuestName, parentForNewQuest]);
+  });
 
   const renderTree = React.useCallback(
     (nodes: WithSource<Quest>[], depth: number): React.ReactNode => {
@@ -185,8 +199,22 @@ export default function ProjectDirectoryView() {
                 goToQuest({ id: q.id, project_id: q.project_id, name: q.name })
               }
             >
-              <Text numberOfLines={1}>{q.name}</Text>
-              {!!(q as Quest).parent_id && (
+              <View className="flex flex-row items-center gap-2">
+                <View>
+                  <Text numberOfLines={1}>{q.name}</Text>
+                </View>
+                {q.description && (
+                  <View>
+                    <Text
+                      className="text-sm text-muted-foreground"
+                      numberOfLines={1}
+                    >
+                      {q.description}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {!!q.parent_id && (
                 <Text
                   className="text-xs text-muted-foreground"
                   numberOfLines={1}
@@ -256,57 +284,89 @@ export default function ProjectDirectoryView() {
   }
 
   return (
-    <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen} dismissible>
-      <View className="flex-1 p-4">
-        <View>
-          <Text variant="h4" className="mb-4">
-            {t('projectDirectory')}
-          </Text>
-        </View>
-        <ScrollView>
-          {roots.length === 0 ? (
-            <Text className="text-center text-muted-foreground">
-              {t('noQuestsFound')}
+    <Drawer
+      open={isCreateOpen}
+      onOpenChange={setIsCreateOpen}
+      dismissible={!isCreatingQuest}
+    >
+      <Form {...form}>
+        <View className="flex-1 p-4">
+          <View className="flex flex-row items-center gap-2">
+            <Text variant="h4" className="mb-4">
+              {t('projectDirectory')}
             </Text>
-          ) : (
-            <>
-              <View className="gap-1">{renderTree(roots, 0)}</View>
-              <Button
-                onPress={() => openCreateForParent(null)}
-                variant="outline"
-                size="sm"
-              >
-                <Text>{t('createObject')}</Text>
-              </Button>
-            </>
-          )}
-        </ScrollView>
-      </View>
-
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>{t('newQuest')}</DrawerTitle>
-        </DrawerHeader>
-        <View className="gap-3 p-4">
-          <Input
-            value={newQuestName}
-            onChangeText={setNewQuestName}
-            placeholder={t('questName')}
-            size="sm"
-          />
+          </View>
+          <ScrollView>
+            {roots.length === 0 ? (
+              <Text className="text-center text-muted-foreground">
+                {t('noQuestsFound')}
+              </Text>
+            ) : (
+              <>
+                <View className="gap-1">{renderTree(roots, 0)}</View>
+                <Button
+                  onPress={() => openCreateForParent(null)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Text>{t('createObject')}</Text>
+                </Button>
+              </>
+            )}
+          </ScrollView>
         </View>
-        <DrawerFooter>
-          <Button
-            onPress={handleCreateSubquest}
-            disabled={!newQuestName.trim()}
-          >
-            <Text>{t('createObject')}</Text>
-          </Button>
-          <DrawerClose>
-            <Text>{t('cancel')}</Text>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
+
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{t('newQuest')}</DrawerTitle>
+          </DrawerHeader>
+          <View className="flex flex-col gap-4 p-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      {...transformInputProps(field)}
+                      placeholder={t('questName')}
+                      size="sm"
+                      prefix={FolderPenIcon}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      {...transformInputProps(field)}
+                      placeholder={t('description')}
+                      size="sm"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </View>
+          <DrawerFooter>
+            <FormSubmit
+              onPress={form.handleSubmit((data) => createQuest(data))}
+            >
+              <Text>{t('createObject')}</Text>
+            </FormSubmit>
+            <DrawerClose>
+              <Text>{t('cancel')}</Text>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Form>
     </Drawer>
   );
 }
