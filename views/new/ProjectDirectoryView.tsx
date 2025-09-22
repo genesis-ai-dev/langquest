@@ -40,7 +40,7 @@ import {
   Folder,
   FolderPenIcon,
   Plus,
-  Share2
+  Share2Icon
 } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -220,7 +220,7 @@ export default function ProjectDirectoryView() {
                     )
                   }
                 >
-                  <Icon as={Share2} />
+                  <Icon as={Share2Icon} />
                 </Button>
               </View>
             ) : q.source === 'cloud' ? (
@@ -268,19 +268,19 @@ export default function ProjectDirectoryView() {
   }
 
   return (
-    <Drawer
-      open={isCreateOpen}
-      onOpenChange={setIsCreateOpen}
-      dismissible={!isCreatingQuest}
-    >
-      <Form {...form}>
+    <Form {...form}>
+      <Drawer
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        dismissible={!isCreatingQuest}
+      >
         <View className="flex-1 p-4">
           <View className="flex flex-row items-center gap-2">
             <Text variant="h4" className="mb-4">
               {t('projectDirectory')}
             </Text>
           </View>
-          <View className="flex flex-1 flex-col gap-2">
+          <View className="flex flex-col gap-2">
             {roots.length === 0 ? (
               <View>
                 <Text className="text-center text-muted-foreground">
@@ -350,7 +350,7 @@ export default function ProjectDirectoryView() {
             </DrawerClose>
           </DrawerFooter>
         </DrawerContent>
-      </Form>
-    </Drawer>
+      </Drawer>
+    </Form>
   );
 }
