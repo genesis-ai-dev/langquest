@@ -53,23 +53,6 @@ export default function ProjectDirectoryView() {
   const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  //   const { data: quests, isLoading } = useHybridData<Quest>({
-  //     dataType: 'quests',
-  //     queryKeyParams: [currentProjectId],
-  //     offlineQuery: `SELECT * FROM ${resolveTable('quest', { localOverride: true })} WHERE project_id = '${currentProjectId}'`,
-  //     cloudQueryFn: async () => {
-  //       const { data, error } = await system.supabaseConnector.client
-  //         .from('quest')
-  //         .select('*')
-  //         .eq('project_id', currentProjectId);
-
-  //       if (error) {
-  //         throw error;
-  //       }
-
-  //       return data || [];
-  //     }
-  //   });
 
   type Quest = typeof quest.$inferSelect;
 
@@ -199,14 +182,14 @@ export default function ProjectDirectoryView() {
                 goToQuest({ id: q.id, project_id: q.project_id, name: q.name })
               }
             >
-              <View className="flex flex-row items-center gap-2">
+              <View className="flex flex-1 flex-row items-center gap-2">
                 <View>
                   <Text numberOfLines={1}>{q.name}</Text>
                 </View>
                 {q.description && (
-                  <View>
+                  <View className="flex-1">
                     <Text
-                      className="text-sm text-muted-foreground"
+                      className="truncate text-sm text-muted-foreground"
                       numberOfLines={1}
                     >
                       {q.description}
