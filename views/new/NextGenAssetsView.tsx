@@ -1,5 +1,15 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
+import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -7,43 +17,32 @@ import { audioSegmentService } from '@/database_services/audioSegmentService';
 import type { asset } from '@/db/drizzleSchema';
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
-import { eq } from 'drizzle-orm';
-import React from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { LegendList } from '@legendapp/list';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from 'react-native';
+  FlagIcon,
+  InfoIcon,
+  Mic,
+  SearchIcon,
+  SettingsIcon
+} from 'lucide-react-native';
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { useHybridData, type HybridDataSource } from './useHybridData';
 
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import {
-  SpeedDial,
-  SpeedDialItem,
-  SpeedDialItems,
-  SpeedDialTrigger
-} from '@/components/ui/speed-dial';
 // Recording UI moved into RecordingView component
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { FlagIcon, InfoIcon, Mic, SettingsIcon } from 'lucide-react-native';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
 import RecordingView from './RecordingView';
@@ -65,8 +64,10 @@ interface AudioSegment {
 
 export default function NextGenAssetsView() {
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
+    '',
+    300
+  );
   const { t } = useLocalization();
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
@@ -85,14 +86,12 @@ export default function NextGenAssetsView() {
 
   type Quest = typeof questTable.$inferSelect;
 
-  const { data: questData, isLoading: isQuestLoading } = useHybridData<Quest>({
+  const { data: questData } = useHybridData<Quest>({
     dataType: 'quests',
     queryKeyParams: [currentQuestId],
-    offlineQuery: toMergeCompilableQuery(
-      system.db.query.quest.findMany({
-        where: eq(questTable.id, currentQuestId)
-      })
-    ),
+    offlineQuery: currentQuestId
+      ? `SELECT * FROM quest WHERE id = '${currentQuestId}'`
+      : 'SELECT * FROM quest WHERE 1 = 0',
     enableOfflineQuery: Boolean(currentQuestId),
     cloudQueryFn: async (): Promise<Quest[]> => {
       if (!currentQuestId) return [] as Quest[];
@@ -105,7 +104,6 @@ export default function NextGenAssetsView() {
       return data ?? [];
     },
     enableCloudQuery: !!currentQuestId,
-    enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
   const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
@@ -384,27 +382,7 @@ export default function NextGenAssetsView() {
     }
   }, [currentUser, currentQuestId, currentProject, audioSegments]);
 
-  // Update insertion index based on scroll position
-  const handleScroll = React.useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset } = event.nativeEvent;
-      const scrollY = contentOffset.y;
-      const itemHeight = 100; // Approximate height of each audio segment item
-      const headerHeight = 60; // Height of the segments title
-
-      // Calculate which item the scroll position is closest to
-      const adjustedScrollY = Math.max(0, scrollY - headerHeight);
-      const itemIndex = Math.floor(adjustedScrollY / itemHeight);
-
-      // Clamp the insertion index to valid range
-      const newInsertionIndex = Math.max(
-        0,
-        Math.min(audioSegments.length, itemIndex)
-      );
-      setInsertionIndex(newInsertionIndex);
-    },
-    [audioSegments.length]
-  );
+  // Update via UI interactions; scroll handler removed in new UI
 
   // Clear playing segment when audio stops
   React.useEffect(() => {
@@ -413,14 +391,7 @@ export default function NextGenAssetsView() {
     }
   }, [isPlaying]);
 
-  // Debounce the search query
-  React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  // debounced search handled by useDebouncedState
 
   const { membership } = useUserPermissions(
     currentProjectId || '',
@@ -432,8 +403,8 @@ export default function NextGenAssetsView() {
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
-  currentStatus.layerStatus(LayerType.QUEST);
-  const { showInvisibleContent } = currentStatus;
+  currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
+  const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
 
   const {
     data,
@@ -497,6 +468,7 @@ export default function NextGenAssetsView() {
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
       <AssetListItem
+        key={item.id}
         asset={item}
         attachmentState={attachmentStates.get(item.id)}
         questId={currentQuestId || ''}
@@ -516,15 +488,7 @@ export default function NextGenAssetsView() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const renderFooter = React.useCallback(() => {
-    if (!isFetchingNextPage) return null;
-
-    return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }, [isFetchingNextPage]);
+  // footer handled inline in ListFooterComponent
 
   const statusText = React.useMemo(() => {
     const offlineCount = assets.filter((a) => a.source !== 'cloud').length;
@@ -559,16 +523,10 @@ export default function NextGenAssetsView() {
     currentQuestId
   );
 
-  // Speed dial items are composed inline below
-
-  if (isLoading && !searchQuery) {
-    return <ProjectListSkeleton />;
-  }
-
   if (!currentQuestId) {
     return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>{t('noQuestSelected')}</Text>
+      <View className="flex-1 items-center justify-center p-6">
+        <Text>{t('noQuestSelected')}</Text>
       </View>
     );
   }
@@ -579,98 +537,82 @@ export default function NextGenAssetsView() {
   }
 
   return (
-    <View style={sharedStyles.container}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}
-      >
-        <Text style={sharedStyles.title}>{t('assets')}</Text>
+    <View className="flex flex-1 flex-col gap-6 p-6">
+      <View className="flex flex-row items-center justify-between">
+        <Text className="text-xl font-semibold">{t('assets')}</Text>
         <Button
           variant="outline"
           size="icon"
           className="border-primary"
           onPress={() => setShowRecording(true)}
         >
-          <Icon as={Mic} className="muted" />
+          <Icon as={Mic} className="text-muted-foreground" />
         </Button>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('searchAssets')}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor={colors.textSecondary}
-        />
-        <View style={styles.searchIconContainer}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-        </View>
-        {/* Show loading indicator in search bar when searching */}
-        {isFetching && searchQuery && (
-          <View style={styles.searchLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        )}
-      </View>
+      <Input
+        placeholder={t('searchAssets')}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        prefix={SearchIcon}
+        prefixStyling={false}
+        size="sm"
+        suffix={
+          isFetching && searchQuery ? (
+            <ActivityIndicator size="small" className="text-primary" />
+          ) : undefined
+        }
+        suffixStyling={false}
+      />
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS && (
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: fontSizes.small,
-            marginBottom: spacing.small
-          }}
-        >
-          {statusText}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS &&
         !isAttachmentStatesLoading &&
         attachmentStates.size > 0 && (
-          <View style={styles.attachmentSummary}>
-            <Text style={styles.attachmentSummaryTitle}>
+          <View className="rounded-md bg-muted p-3">
+            <Text className="mb-1 font-semibold">
               📎 {t('liveAttachmentStates')}:
             </Text>
-            <Text style={styles.attachmentSummaryText}>
+            <Text className="text-muted-foreground">
               {attachmentSummaryText}
             </Text>
           </View>
         )}
 
-      {/* Show skeleton only on initial load, not during search */}
-      {isLoading && searchQuery ? (
-        <View style={styles.searchingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.searchingText}>{t('searching')}</Text>
-        </View>
+      {isLoading ? (
+          searchQuery ? <View className="flex-1 items-center justify-center pt-8">
+          <ActivityIndicator size="large" className="text-primary" />
+          <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
+          </View> : <ProjectListSkeleton />
       ) : (
-        <View style={[{ flex: 1, marginBottom: spacing.xlarge }]}>
-          <FlashList
-            data={assets}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {searchQuery ? 'No assets found' : 'No assets available'}
-                </Text>
+        <LegendList
+          data={assets}
+          key={assets.length}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderItem({ item })}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          estimatedItemSize={120}
+          recycleItems
+          contentContainerStyle={{ gap: 8 }}
+          ListFooterComponent={() =>
+            isFetchingNextPage ? (
+              <View className="items-center py-4">
+                <ActivityIndicator size="small" className="text-primary" />
               </View>
-            }
-          />
-        </View>
+            ) : null
+          }
+          ListEmptyComponent={() => (
+            <View className="flex-1 items-center justify-center py-16">
+              <Text className="text-muted-foreground">
+                {searchQuery ? 'No assets found' : 'No assets available'}
+              </Text>
+            </View>
+          )}
+        />
       )}
 
       <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
@@ -729,209 +671,3 @@ export default function NextGenAssetsView() {
     </View>
   );
 }
-
-export const styles = StyleSheet.create({
-  listContainer: {
-    paddingVertical: spacing.small
-  },
-  listItem: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginBottom: spacing.small,
-    gap: spacing.xsmall
-  },
-  assetName: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold'
-  },
-  assetInfo: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  attachmentSummary: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.small,
-    marginTop: spacing.small,
-    marginBottom: spacing.small
-  },
-  attachmentSummaryTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    marginBottom: spacing.xsmall
-  },
-  attachmentSummaryText: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  loadingFooter: {
-    paddingVertical: spacing.medium,
-    alignItems: 'center'
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.medium,
-    position: 'relative'
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    paddingLeft: 40, // Make room for search icon
-    color: colors.text,
-    fontSize: fontSizes.medium
-  },
-  searchIconContainer: {
-    position: 'absolute',
-    left: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  searchLoadingContainer: {
-    position: 'absolute',
-    right: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  searchingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: spacing.xlarge
-  },
-  searchingText: {
-    marginTop: spacing.medium,
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xlarge
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  },
-  // Templated project creation styles
-  recordingContainer: {
-    alignItems: 'center',
-    marginVertical: spacing.medium,
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    marginHorizontal: spacing.small
-  },
-  recordingLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.error,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
-  },
-  segmentsContainer: {
-    flex: 1,
-    marginTop: spacing.medium,
-    paddingBottom: 120 // Space for the fixed recorder at bottom
-  },
-  segmentsTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium,
-    paddingHorizontal: spacing.small
-  },
-  segmentsList: {
-    flex: 1
-  },
-  todoContainer: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    margin: spacing.small,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderStyle: 'dashed'
-  },
-  todoText: {
-    fontSize: fontSizes.small,
-    color: colors.error,
-    textAlign: 'center',
-    fontStyle: 'italic'
-  },
-  recorderContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.inputBorder,
-    paddingTop: spacing.medium,
-    paddingBottom: spacing.large,
-    paddingHorizontal: spacing.medium
-  },
-  saveContainer: {
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    margin: spacing.small,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary
-  },
-  saveButton: {
-    // Button component handles most styling
-  },
-  saveButtonText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    color: colors.background
-  }
-  // floatingButton: {
-  //   backgroundColor: colors.primary,
-  //   borderRadius: 28,
-  //   width: 56,
-  //   height: 56,
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  //   shadowColor: '#000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.25,
-  //   shadowRadius: 3.84,
-  //   elevation: 5
-  // },
-  // floatingButtonContainer: {
-  //   width: '100%',
-  //   position: 'absolute',
-  //   bottom: spacing.large,
-  //   right: spacing.large,
-  //   gap: spacing.small,
-  //   display: 'flex',
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'center'
-  // },
-  // floatingButtonRow: {
-  //   flexDirection: 'row',
-  //   gap: spacing.small
-  // },
-  // secondaryFloatingButton: {
-  //   backgroundColor: colors.inputBackground
-  // },
-  // settingsFloatingButton: {
-  //   backgroundColor: colors.backgroundSecondary,
-  //   borderWidth: 1,
-  //   borderColor: colors.inputBorder
-  // }
-});

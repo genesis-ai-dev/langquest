@@ -2,6 +2,7 @@ import AudioSegmentItem from '@/components/AudioSegmentItem';
 import InsertionCursor from '@/components/InsertionCursor';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
 import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useAudio } from '@/contexts/AudioContext';
@@ -11,12 +12,11 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { resolveTable } from '@/utils/dbUtils';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import uuid from 'react-native-uuid';
 
 interface AudioSegment {
@@ -302,23 +302,19 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }, [isPlaying]);
 
   return (
-    <View style={sharedStyles.container}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.small
-        }}
-      >
+    <View className="flex-1 bg-background">
+      <View className="flex-row items-center gap-3 p-4">
         <Button variant="ghost" size="icon" onPress={onBack}>
           <Icon as={ArrowLeft} />
         </Button>
-        <Text style={sharedStyles.title}>{t('doRecord')}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('doRecord')}</Text>
       </View>
 
       {isRecording && (
-        <View style={styles.recordingContainer}>
-          <Text style={styles.recordingLabel}>{t('isRecording')}</Text>
+        <View className="mx-4 mb-4 rounded-lg bg-muted p-4 items-center">
+          <Text className="text-lg font-bold text-destructive mb-2">
+            {t('isRecording')}
+          </Text>
           <WaveformVisualizer
             waveformData={currentWaveformData}
             isRecording={true}
@@ -329,12 +325,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </View>
       )}
 
-      <View style={styles.segmentsContainer}>
-        <Text style={styles.segmentsTitle}>
+      <View className="flex-1 mt-4 pb-32">
+        <Text className="text-xl font-bold text-foreground mb-4 px-4">
           {t('audioSegments')} ({audioSegments.length})
         </Text>
         <ScrollView
-          style={styles.segmentsList}
+          className="flex-1"
           onScroll={handleScroll}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={true}
@@ -364,13 +360,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       </View>
 
       {audioSegments.length > 0 && (
-        <View style={styles.saveContainer}>
+        <View className="mx-4 mb-4 p-4 bg-muted rounded-lg border border-primary">
           <Button
             variant="default"
             onPress={handleSaveSegments}
-            style={styles.saveButton}
+            className="w-full"
           >
-            <Text style={styles.saveButtonText}>
+            <Text className="text-lg font-bold text-primary-foreground">
               {t('save')}{' '}
               {audioSegments.length > 1
                 ? t('audioSegments')
@@ -381,7 +377,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </View>
       )}
 
-      <View style={styles.recorderContainer}>
+      <View className="absolute bottom-0 left-0 right-0 bg-background border-t border-border pt-4 pb-8 px-4">
         <WalkieTalkieRecorder
           onRecordingComplete={handleRecordingComplete}
           onRecordingStart={handleRecordingStart}
@@ -393,61 +389,3 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  recordingContainer: {
-    alignItems: 'center',
-    marginVertical: spacing.medium,
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    marginHorizontal: spacing.small
-  },
-  recordingLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.error,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
-  },
-  segmentsContainer: {
-    flex: 1,
-    marginTop: spacing.medium,
-    paddingBottom: 120
-  },
-  segmentsTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.medium,
-    paddingHorizontal: spacing.small
-  },
-  segmentsList: {
-    flex: 1
-  },
-  recorderContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.inputBorder,
-    paddingTop: spacing.medium,
-    paddingBottom: spacing.large,
-    paddingHorizontal: spacing.medium
-  },
-  saveContainer: {
-    padding: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    margin: spacing.small,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary
-  },
-  saveButton: {},
-  saveButtonText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    color: colors.background
-  }
-});

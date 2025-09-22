@@ -31,7 +31,8 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
           (currentView === 'projects' ||
             currentView === 'quests' ||
             currentView === 'profile' ||
-            currentView === 'settings') &&
+            currentView === 'settings' ||
+            currentView === 'assets') &&
             'bg-background'
         )}
         edges={['top', 'left', 'right']}
