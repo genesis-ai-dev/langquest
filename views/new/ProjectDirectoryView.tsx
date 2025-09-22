@@ -4,15 +4,23 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { mergeSQL, type WithSource } from '@/utils/dbUtils';
-import { LegendList } from '@legendapp/list';
+// import { LegendList } from '@legendapp/list';
+import { Icon } from '@/components/ui/icon';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { eq } from 'drizzle-orm';
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder
+} from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
-import { QuestListItem } from './QuestListItem';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useHybridData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
   const { currentProjectId } = useCurrentNavigation();
+  const { goToQuest } = useAppNavigation();
 
   //   const { data: quests, isLoading } = useHybridData<Quest>({
   //     dataType: 'quests',
@@ -68,46 +76,96 @@ export default function ProjectDirectoryView() {
     getItemId: (item) => item.id
   });
 
-  const quests = React.useMemo(() => {
+  const { childrenOf, roots } = React.useMemo(() => {
     const items = (rawQuests ?? []) as WithSource<Quest>[];
 
-    // Build adjacency list by parent_id
-    const childrenOf = new Map<string | null, WithSource<Quest>[]>();
-
+    const children = new Map<string | null, WithSource<Quest>[]>();
     for (const q of items) {
       const key = (q as Quest).parent_id ?? null;
-      if (!childrenOf.has(key)) childrenOf.set(key, []);
-      childrenOf.get(key)!.push(q);
+      if (!children.has(key)) children.set(key, []);
+      children.get(key)!.push(q);
     }
 
     const sortByName = (a: WithSource<Quest>, b: WithSource<Quest>) =>
       (a.name || '').localeCompare(b.name || '', undefined, {
         sensitivity: 'base'
       });
+    for (const arr of children.values()) arr.sort(sortByName);
 
-    for (const arr of childrenOf.values()) {
-      arr.sort(sortByName);
-    }
-
-    const roots = childrenOf.get(null) || [];
-
-    const result: WithSource<Quest>[] = [];
-    const visit = (node: WithSource<Quest>) => {
-      result.push(node);
-      const kids = childrenOf.get((node as Quest).id) || [];
-      for (const child of kids) visit(child);
-    };
-
-    for (const r of roots) visit(r);
-
-    // Handle items whose parent_id exists but parent not in list
-    const attached = new Set(result.map((q) => q.id));
-    const orphans = items.filter((q) => !attached.has(q.id));
-    orphans.sort(sortByName);
-    result.push(...orphans);
-
-    return result;
+    return { childrenOf: children, roots: children.get(null) || [] };
   }, [rawQuests]);
+
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+
+  const toggleExpanded = React.useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const renderTree = React.useCallback(
+    (nodes: WithSource<Quest>[], depth: number): React.ReactNode => {
+      const rows: React.ReactNode[] = [];
+      for (const q of nodes) {
+        const id = q.id;
+        const hasChildren = (childrenOf.get(id) || []).length > 0;
+        const isOpen = expanded.has(id);
+        rows.push(
+          <View
+            key={id}
+            className="flex flex-row items-center py-1"
+            style={{ paddingLeft: depth * 12 }}
+          >
+            {hasChildren ? (
+              <Pressable
+                onPress={() => toggleExpanded(id)}
+                className="mr-1 p-1"
+              >
+                <Icon
+                  as={isOpen ? ChevronDown : ChevronRight}
+                  className="text-muted-foreground"
+                />
+              </Pressable>
+            ) : (
+              <View className="mr-1 p-1" />
+            )}
+            <Icon
+              as={hasChildren ? Folder : FileText}
+              className="mr-2 text-muted-foreground"
+            />
+            <Pressable
+              className="flex-1"
+              onPress={() =>
+                goToQuest({ id: q.id, project_id: q.project_id, name: q.name })
+              }
+            >
+              <Text numberOfLines={1}>{q.name}</Text>
+              {!!(q as Quest).parent_id && (
+                <Text
+                  className="text-xs text-muted-foreground"
+                  numberOfLines={1}
+                >
+                  Parent: {(q as Quest).parent_id}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        );
+        if (hasChildren && isOpen) {
+          rows.push(
+            <View key={`${id}-children`}>
+              {renderTree(childrenOf.get(id) || [], depth + 1)}
+            </View>
+          );
+        }
+      }
+      return rows;
+    },
+    [childrenOf, expanded, goToQuest, toggleExpanded]
+  );
 
   if (isLoading) {
     return <ProjectListSkeleton />;
@@ -120,18 +178,15 @@ export default function ProjectDirectoryView() {
           Project Directory
         </Text>
       </View>
-      <LegendList
-        data={quests}
-        keyExtractor={(quest) => quest.id}
-        renderItem={({ item: quest }) => (
-          <QuestListItem quest={quest} className="mb-4" />
-        )}
-        ListEmptyComponent={
+      <ScrollView>
+        {roots.length === 0 ? (
           <Text className="text-center text-muted-foreground">
             No quests found
           </Text>
-        }
-      />
+        ) : (
+          <View className="gap-1">{renderTree(roots, 0)}</View>
+        )}
+      </ScrollView>
     </View>
   );
 }
