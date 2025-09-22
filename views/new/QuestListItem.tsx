@@ -180,6 +180,11 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                   {t('downloadRequired')}
                 </Text>
               )}
+              {!!quest.parent_id && (
+                <Text className="text-xs text-muted-foreground">
+                  Parent: {quest.parent_id}
+                </Text>
+              )}
             </CardDescription>
           </View>
         </CardHeader>

@@ -17,7 +17,8 @@ import SettingsView from '@/views/SettingsView';
 import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
 import NextGenAssetsView from '@/views/new/NextGenAssetsView';
 import NextGenProjectsView from '@/views/new/NextGenProjectsView';
-import NextGenFoldersView from '@/views/new/NextGenQuestsView';
+// import NextGenQuestsView from '@/views/new/NextGenQuestsView';
+import ProjectDirectoryView from '@/views/new/ProjectDirectoryView';
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
@@ -50,7 +51,8 @@ export default function AppView() {
       case 'projects':
         return <NextGenProjectsView />;
       case 'quests':
-        return <NextGenFoldersView />;
+        // return <NextGenQuestsView />;
+        return <ProjectDirectoryView />;
       case 'assets':
         return <NextGenAssetsView />;
       case 'asset-detail':
