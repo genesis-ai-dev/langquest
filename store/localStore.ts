@@ -51,7 +51,7 @@ export interface RecentAsset {
   visitedAt: Date;
 }
 
-interface LocalState {
+export interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
   languageId: string | null;
@@ -61,6 +61,18 @@ interface LocalState {
   analyticsOptOut: boolean;
   projectSourceFilter: string;
   projectTargetFilter: string;
+
+  // App settings
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  downloadOnWifiOnly: boolean;
+  setDownloadOnWifiOnly: (wifiOnly: boolean) => void;
+  autoBackup: boolean;
+  setAutoBackup: (enabled: boolean) => void;
+  debugMode: boolean;
+  setDebugMode: (enabled: boolean) => void;
+  showHiddenContent: boolean;
+  setShowHiddenContent: (show: boolean) => void;
 
   // Authentication view state
   authView:
@@ -139,6 +151,13 @@ export const useLocalStore = create<LocalState>()(
       analyticsOptOut: false,
       theme: 'dark',
 
+      // App settings (defaults)
+      notificationsEnabled: true,
+      downloadOnWifiOnly: true,
+      autoBackup: false,
+      debugMode: false,
+      showHiddenContent: false,
+
       // Authentication view state
       authView: null,
       setAuthView: (view) => set({ authView: view }),
@@ -178,6 +197,15 @@ export const useLocalStore = create<LocalState>()(
       projectTargetFilter: 'All',
       setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
       setProjectTargetFilter: (filter) => set({ projectTargetFilter: filter }),
+
+      // Settings setters
+      setNotificationsEnabled: (enabled) =>
+        set({ notificationsEnabled: enabled }),
+      setDownloadOnWifiOnly: (wifiOnly) =>
+        set({ downloadOnWifiOnly: wifiOnly }),
+      setAutoBackup: (enabled) => set({ autoBackup: enabled }),
+      setDebugMode: (enabled) => set({ debugMode: enabled }),
+      setShowHiddenContent: (show) => set({ showHiddenContent: show }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>

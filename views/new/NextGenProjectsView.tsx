@@ -152,7 +152,10 @@ export default function NextGenProjectsView() {
     { active: true, visible: true },
     ''
   );
-  const showInvisibleContent = currentContext.showInvisibleContent;
+
+  const showInvisibleContent = useLocalStore(
+    (state) => state.showHiddenContent
+  );
 
   const {
     data: restrictions
