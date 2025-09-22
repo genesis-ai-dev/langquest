@@ -1,9 +1,7 @@
 import { resolveTable } from '@/utils/dbUtils';
 import {
   deleteFile,
-  ensureDir,
-  getDocumentDirectory,
-  moveFile
+  getDocumentDirectory
 } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import { asset_content_link } from '../db/drizzleSchema';
@@ -30,19 +28,14 @@ export class AudioSegmentService {
     creatorId: string
   ): Promise<{ assetId: string; audioUri: string }> {
     try {
-      // Generate unique filename for the audio file
-      const timestamp = Date.now();
-      const audioId = `audio_${segment.id}_${timestamp}`;
-      const audioFileName = `${audioId}.m4a`;
+      // Save the recorded audio via the permanent attachment queue
+      if (!system.permAttachmentQueue) {
+        throw new Error('Permanent attachment queue not initialized');
+      }
 
-      const audioDir = `${getDocumentDirectory()}shared_attachments/`;
-      const audioUri = `${audioDir}${audioFileName}`;
-
-      // Ensure audio directory exists
-      await ensureDir(audioDir);
-
-      // Copy the recorded audio file to permanent storage
-      await moveFile(segment.uri, audioUri);
+      const attachment = await system.permAttachmentQueue.saveAudio(
+        segment.uri
+      );
 
       const newAsset = await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -78,17 +71,19 @@ export class AudioSegmentService {
             asset_id: newAsset.id,
             source_language_id: sourceLanguageId,
             text: segment.name,
-            audio_id: segment.id,
+            // Link to the created attachment record so the UI can resolve URIs and states
+            audio_id: attachment.id,
             download_profiles: [creatorId]
           });
 
         return newAsset;
       });
 
-      return {
-        assetId: newAsset.id,
-        audioUri
-      };
+      const audioUri = system.permAttachmentQueue.getLocalUri(
+        attachment.local_uri!
+      );
+
+      return { assetId: newAsset.id, audioUri };
     } catch (error) {
       console.error('Failed to save audio segment:', error);
       throw error;

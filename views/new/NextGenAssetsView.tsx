@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import type { asset } from '@/db/drizzleSchema';
+import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -18,35 +19,33 @@ import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View
 } from 'react-native';
-import type { HybridDataSource } from './useHybridData';
+import { useHybridData, type HybridDataSource } from './useHybridData';
 
-import AudioSegmentItem from '@/components/AudioSegmentItem';
-import InsertionCursor from '@/components/InsertionCursor';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import {
   SpeedDial,
   SpeedDialItem,
   SpeedDialItems,
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
-import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
-import WaveformVisualizer from '@/components/WaveformVisualizer';
+// Recording UI moved into RecordingView component
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
-import { resolveTable } from '@/utils/dbUtils';
-import { FlagIcon, InfoIcon, SettingsIcon } from 'lucide-react-native';
+import { mergeSQL, resolveTable } from '@/utils/dbUtils';
+import { eq } from 'drizzle-orm';
+import { FlagIcon, InfoIcon, Mic, SettingsIcon } from 'lucide-react-native';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
+import RecordingView from './RecordingView';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -83,14 +82,49 @@ export default function NextGenAssetsView() {
     null
   );
 
-  const { quest } = useQuestById(currentQuestId);
+  type Quest = typeof questTable.$inferSelect;
+
+  const offlineSQL = React.useMemo(() => {
+    if (!currentQuestId) return null;
+    return mergeSQL(
+      system.db.query.quest.findMany({
+        where: eq(questTable.id, currentQuestId)
+      })
+    );
+  }, [currentQuestId]);
+
+  const { data: questData, isLoading: isQuestLoading } = useHybridData<Quest>({
+    dataType: 'quests',
+    queryKeyParams: [currentQuestId ?? 'none'],
+    offlineQuery:
+      offlineSQL ??
+      mergeSQL(
+        system.db.query.quest.findMany({
+          where: eq(questTable.id, '__nil__')
+        })
+      ),
+    enableOfflineQuery: Boolean(currentQuestId),
+    cloudQueryFn: async (): Promise<Quest[]> => {
+      if (!currentQuestId) return [] as Quest[];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('id', currentQuestId)
+        .overrideTypes<Quest[]>();
+      if (error) throw error;
+      return data ?? [];
+    },
+    enableCloudQuery: Boolean(currentQuestId),
+    getItemId: (item) => item.id
+  });
+  const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
   const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
   const { currentUser } = useAuth();
 
   // Get project data to check if it's templated
   const { project: currentProject } = useProjectById(currentProjectId);
   console.log('currentProjectId', currentProjectId);
-  const isTemplatedProject = currentProject?.template;
+  const [showRecording, setShowRecording] = React.useState(false);
 
   // Handlers for templated project creation
   const handleRecordingStart = React.useCallback(() => {
@@ -548,102 +582,30 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Show templated project creation mode
-  if (isTemplatedProject) {
-    return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>
-          Create Audio Content - {currentProject.template}
-        </Text>
-
-        {/* Current recording waveform */}
-        {isRecording && (
-          <View style={styles.recordingContainer}>
-            <Text style={styles.recordingLabel}>Recording...</Text>
-            <WaveformVisualizer
-              waveformData={currentWaveformData}
-              isRecording={true}
-              width={300}
-              height={60}
-              barCount={60}
-            />
-          </View>
-        )}
-
-        {/* Audio Segments List */}
-        <View style={styles.segmentsContainer}>
-          <Text style={styles.segmentsTitle}>
-            Audio Segments ({audioSegments.length})
-          </Text>
-
-          <ScrollView
-            style={styles.segmentsList}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={true}
-          >
-            {audioSegments.map((segment, index) => (
-              <React.Fragment key={segment.id}>
-                {/* Insertion cursor */}
-                {index === insertionIndex && (
-                  <InsertionCursor visible={true} position={index} />
-                )}
-
-                {/* Audio segment */}
-                <AudioSegmentItem
-                  segment={segment}
-                  onDelete={handleDeleteSegment}
-                  onMoveUp={handleMoveSegmentUp}
-                  onMoveDown={handleMoveSegmentDown}
-                  canMoveUp={index > 0}
-                  canMoveDown={index < audioSegments.length - 1}
-                  onPlay={(uri) => handlePlaySegment(uri, segment.id)}
-                  isPlaying={playingSegmentId === segment.id}
-                />
-              </React.Fragment>
-            ))}
-
-            {/* Insertion cursor at the end */}
-            {audioSegments.length === 0 ||
-            insertionIndex === audioSegments.length ? (
-              <InsertionCursor visible={true} position={audioSegments.length} />
-            ) : null}
-          </ScrollView>
-        </View>
-
-        {/* Save segments button */}
-        {audioSegments.length > 0 && (
-          <View style={styles.saveContainer}>
-            <Button
-              variant="default"
-              onPress={handleSaveSegments}
-              style={styles.saveButton}
-            >
-              <Text style={styles.saveButtonText}>
-                Save {audioSegments.length} Audio Segment
-                {audioSegments.length !== 1 ? 's' : ''} as Assets
-              </Text>
-            </Button>
-          </View>
-        )}
-
-        {/* Walkie Talkie Recorder - Fixed at bottom */}
-        <View style={styles.recorderContainer}>
-          <WalkieTalkieRecorder
-            onRecordingComplete={handleRecordingComplete}
-            onRecordingStart={handleRecordingStart}
-            onRecordingStop={handleRecordingStop}
-            onWaveformUpdate={handleWaveformUpdate}
-            isRecording={isRecording}
-          />
-        </View>
-      </View>
-    );
+  // Recording mode UI
+  if (showRecording) {
+    return <RecordingView onBack={() => setShowRecording(false)} />;
   }
 
   return (
     <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>{t('assets')}</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <Text style={sharedStyles.title}>{t('assets')}</Text>
+        <Button
+          variant="outline"
+          size="icon"
+          className="border-primary"
+          onPress={() => setShowRecording(true)}
+        >
+          <Icon as={Mic} className="muted" />
+        </Button>
+      </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -754,11 +716,11 @@ export default function NextGenAssetsView() {
           projectId={currentProjectId || ''}
         />
       )}
-      {showDetailsModal && quest && (
+      {showDetailsModal && selectedQuest && (
         <ModalDetails
           isVisible={showDetailsModal}
           contentType="quest"
-          content={quest}
+          content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
         />
       )}
@@ -769,7 +731,7 @@ export default function NextGenAssetsView() {
           recordId={currentQuestId}
           recordTable="quests"
           hasAlreadyReported={hasReported}
-          creatorId={quest?.creator_id ?? undefined}
+          creatorId={selectedQuest?.creator_id ?? undefined}
           onReportSubmitted={() => refetchReport()}
         />
       )}

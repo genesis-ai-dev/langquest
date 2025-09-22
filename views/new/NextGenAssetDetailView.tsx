@@ -9,11 +9,16 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { language } from '@/db/drizzleSchema';
 import {
-  asset,
-  asset_content_link,
+  asset as assetCloud,
+  asset_content_link as assetContentCloud,
   language as languageTable,
-  project
+  project as projectCloud
 } from '@/db/drizzleSchema';
+import {
+  asset_content_link_local as assetContentLocal,
+  asset_local as assetLocal,
+  project_local as projectLocal
+} from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -40,12 +45,14 @@ import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
 
-interface AssetWithContent extends Asset {
-  content?: AssetContent[];
-}
+type CloudAsset = typeof assetCloud.$inferSelect;
+type LocalAsset = typeof assetLocal.$inferSelect;
+type DbAsset = CloudAsset | LocalAsset;
+type CloudAssetContent = typeof assetContentCloud.$inferSelect;
+type LocalAssetContent = typeof assetContentLocal.$inferSelect;
+type DbAssetContent = CloudAssetContent | LocalAssetContent;
 
-type Asset = typeof asset.$inferSelect;
-type AssetContent = typeof asset_content_link.$inferSelect;
+type AssetWithContent = DbAsset & { content?: DbAssetContent[] };
 
 const ASSET_VIEWER_PROPORTION = 0.35;
 
@@ -56,21 +63,39 @@ function useNextGenOfflineAsset(assetId: string) {
     queryKey: ['asset', 'offline', assetId],
     queryFn: async () => {
       // Get asset with content
-      const assetResult = await system.db
+      // Try local first
+      let assetResult = await system.db
         .select()
-        .from(asset)
-        .where(eq(asset.id, assetId))
+        .from(assetLocal)
+        .where(eq(assetLocal.id, assetId))
         .limit(1);
+
+      if (!assetResult.length) {
+        // Fallback to cloud table
+        assetResult = await system.db
+          .select()
+          .from(assetCloud)
+          .where(eq(assetCloud.id, assetId))
+          .limit(1);
+      }
 
       if (!assetResult.length) return null;
 
       const assetData = assetResult[0];
 
       // Get asset content
-      const contentResult = await system.db
+      // Prefer local content, fallback to cloud
+      let contentResult = await system.db
         .select()
-        .from(asset_content_link)
-        .where(eq(asset_content_link.asset_id, assetId));
+        .from(assetContentLocal)
+        .where(eq(assetContentLocal.asset_id, assetId));
+
+      if (!contentResult.length) {
+        contentResult = await system.db
+          .select()
+          .from(assetContentCloud)
+          .where(eq(assetContentCloud.asset_id, assetId));
+      }
 
       return {
         ...assetData,
@@ -113,11 +138,19 @@ export default function NextGenAssetDetailView() {
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
-      const result = await system.db
+      // Try local first then cloud
+      let result = await system.db
         .select()
-        .from(project)
-        .where(eq(project.id, currentProjectId))
+        .from(projectLocal)
+        .where(eq(projectLocal.id, currentProjectId))
         .limit(1);
+      if (!result[0]) {
+        result = await system.db
+          .select()
+          .from(projectCloud)
+          .where(eq(projectCloud.id, currentProjectId))
+          .limit(1);
+      }
       return result[0] || null;
     },
     enabled: !!currentProjectId
@@ -143,13 +176,17 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const { allowEditing, allowSettings, invisible } =
-    currentStatus.getStatusParams(
+  const { allowEditing, allowSettings, invisible } = React.useMemo(() => {
+    if (!activeAsset) {
+      return { allowEditing: false, allowSettings: false, invisible: false };
+    }
+    return currentStatus.getStatusParams(
       LayerType.ASSET,
-      activeAsset?.id || '',
+      activeAsset.id || '',
       activeAsset as LayerStatus,
       currentQuestId
     );
+  }, [activeAsset, currentQuestId, currentStatus]);
 
   // Collect attachment IDs for audio support
   const allAttachmentIds = React.useMemo(() => {
@@ -325,7 +362,7 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
-        {SHOW_DEV_ELEMENTS && (
+        {SHOW_DEV_ELEMENTS && offlineAsset && (
           <Text style={[{ color: colors.text }]}>
             V: {offlineAsset.visible ? '🟢' : '🔴'} A:{' '}
             {offlineAsset.active ? '🟢' : '🔴'}
