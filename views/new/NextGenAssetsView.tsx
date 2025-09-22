@@ -583,10 +583,14 @@ export default function NextGenAssetsView() {
         )}
 
       {isLoading ? (
-          searchQuery ? <View className="flex-1 items-center justify-center pt-8">
-          <ActivityIndicator size="large" className="text-primary" />
-          <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
-          </View> : <ProjectListSkeleton />
+        searchQuery ? (
+          <View className="flex-1 items-center justify-center pt-8">
+            <ActivityIndicator size="large" className="text-primary" />
+            <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
+          </View>
+        ) : (
+          <ProjectListSkeleton />
+        )
       ) : (
         <LegendList
           data={assets}

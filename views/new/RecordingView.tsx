@@ -1,4 +1,3 @@
-import AudioSegmentItem from '@/components/AudioSegmentItem';
 import InsertionCursor from '@/components/InsertionCursor';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -9,14 +8,22 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { system } from '@/db/powersync/system';
+import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
-import { ArrowLeft } from 'lucide-react-native';
+import { eq } from 'drizzle-orm';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  GitMerge,
+  Trash2
+} from 'lucide-react-native';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import uuid from 'react-native-uuid';
 
 interface AudioSegment {
@@ -38,7 +45,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
 
   const { t } = useLocalization();
-  const [audioSegments, setAudioSegments] = React.useState<AudioSegment[]>([]);
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const [isRecording, setIsRecording] = React.useState(false);
   const [currentWaveformData, setCurrentWaveformData] = React.useState<
@@ -47,6 +53,23 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [playingSegmentId, setPlayingSegmentId] = React.useState<string | null>(
     null
   );
+  const [waveformByAssetId, setWaveformByAssetId] = React.useState<
+    Map<string, number[]>
+  >(new Map());
+
+  // Load existing assets for the quest (local + cloud)
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useAssetsByQuest(currentQuestId || '', '', false);
+  const assets = React.useMemo(() => {
+    const all = data?.pages.flatMap((p) => p.data) ?? [];
+    const valid = all.filter((a) => a.id && a.name);
+    return valid.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    );
+  }, [data?.pages]);
 
   const handleRecordingStart = React.useCallback(() => {
     setIsRecording(true);
@@ -119,12 +142,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         waveformData,
         DISPLAY_BARS
       );
+      const newId = uuid.v4() as string;
       const newSegment: AudioSegment = {
-        id: uuid.v4() as string,
+        id: newId,
         uri,
         duration,
         waveformData: interpolatedWaveform,
-        name: `Segment ${audioSegments.length + 1}`
+        name: `Segment ${(assets?.length ?? 0) + 1}`
       };
 
       if (!currentProjectId || !currentQuestId || !currentProject) return;
@@ -169,16 +193,17 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           });
       });
 
-      setAudioSegments((prev) => {
-        const newSegments = [...prev];
-        newSegments.splice(insertionIndex, 0, newSegment);
-        return newSegments;
+      // Cache waveform for this newly created asset so we can visualize it in the list
+      setWaveformByAssetId((prev) => {
+        const next = new Map(prev);
+        next.set(newSegment.id, interpolatedWaveform);
+        return next;
       });
 
       setInsertionIndex((prev) => prev + 1);
     },
     [
-      audioSegments.length,
+      assets?.length,
       insertionIndex,
       currentProjectId,
       currentQuestId,
@@ -187,54 +212,66 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     ]
   );
 
-  const handleDeleteSegment = React.useCallback(
-    async (segmentId: string) => {
-      setAudioSegments((prev) => {
-        const newSegments = prev.filter((segment) => segment.id !== segmentId);
-        const deletedIndex = prev.findIndex(
-          (segment) => segment.id === segmentId
-        );
-        if (deletedIndex < insertionIndex) {
+  const handleDeleteLocalAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        await audioSegmentService.deleteAudioSegment(assetId);
+        // Adjust cursor if needed
+        const idx = assets.findIndex((a) => a.id === assetId);
+        if (idx >= 0 && idx < insertionIndex) {
           setInsertionIndex((prev) => Math.max(0, prev - 1));
         }
-        return newSegments;
-      });
-      await audioSegmentService.deleteAudioSegment(segmentId);
+      } catch (e) {
+        console.error('Failed to delete local asset', e);
+      }
     },
-    [insertionIndex]
+    [assets, insertionIndex]
   );
 
-  const handleMoveSegmentUp = React.useCallback((segmentId: string) => {
-    setAudioSegments((prev) => {
-      const newSegments = [...prev];
-      const currentIndex = newSegments.findIndex((s) => s.id === segmentId);
-      if (currentIndex > 0) {
-        const currentSegment = newSegments[currentIndex];
-        const previousSegment = newSegments[currentIndex - 1];
-        if (currentSegment && previousSegment) {
-          newSegments[currentIndex] = previousSegment;
-          newSegments[currentIndex - 1] = currentSegment;
-        }
-      }
-      return newSegments;
-    });
+  const moveCursorUp = React.useCallback(() => {
+    setInsertionIndex((prev) => Math.max(0, prev - 1));
   }, []);
+  const moveCursorDown = React.useCallback(() => {
+    setInsertionIndex((prev) => Math.min(assets?.length ?? 0, prev + 1));
+  }, [assets?.length]);
 
-  const handleMoveSegmentDown = React.useCallback((segmentId: string) => {
-    setAudioSegments((prev) => {
-      const newSegments = [...prev];
-      const currentIndex = newSegments.findIndex((s) => s.id === segmentId);
-      if (currentIndex < newSegments.length - 1) {
-        const currentSegment = newSegments[currentIndex];
-        const nextSegment = newSegments[currentIndex + 1];
-        if (currentSegment && nextSegment) {
-          newSegments[currentIndex] = nextSegment;
-          newSegments[currentIndex + 1] = currentSegment;
+  const handleMergeDownLocal = React.useCallback(
+    async (index: number) => {
+      try {
+        const first = assets[index];
+        const second = assets[index + 1];
+        if (!first || !second) return;
+        if (first.source === 'cloud' || second.source === 'cloud') return;
+
+        // Load second's content (local)
+        const contentLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const secondContent = await system.db
+          .select()
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, second.id));
+
+        // Copy audio content rows to the first asset
+        for (const c of secondContent) {
+          if (!c.audio_id) continue;
+          await system.db.insert(contentLocal).values({
+            asset_id: first.id,
+            source_language_id: c.source_language_id,
+            text: c.text ?? '',
+            audio_id: c.audio_id,
+            download_profiles: [currentUser!.id]
+          });
         }
+
+        // Delete the second asset entirely
+        await audioSegmentService.deleteAudioSegment(second.id);
+      } catch (e) {
+        console.error('Failed to merge local assets', e);
       }
-      return newSegments;
-    });
-  }, []);
+    },
+    [assets, currentUser]
+  );
 
   const handlePlaySegment = React.useCallback(
     async (uri: string, segmentId: string) => {
@@ -254,29 +291,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     [isPlaying, currentAudioId, playSound, stopCurrentSound]
   );
 
-  const handleSaveSegments = React.useCallback(async () => {
-    if (
-      !currentUser ||
-      !currentQuestId ||
-      !currentProject?.target_language_id ||
-      audioSegments.length === 0
-    ) {
-      console.warn('Cannot save segments: missing required data');
-      return;
-    }
-    try {
-      const result = await audioSegmentService.saveAudioSegments(
-        audioSegments,
-        currentQuestId,
-        currentProject.target_language_id,
-        currentUser.id
-      );
-      setAudioSegments([]);
-      setInsertionIndex(0);
-    } catch (error) {
-      console.error('Failed to save audio segments:', error);
-    }
-  }, [currentUser, currentQuestId, currentProject, audioSegments]);
+  // No batch save needed: we save to DB immediately on recording complete
 
   const handleScroll = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -286,13 +301,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       const headerHeight = 60;
       const adjustedScrollY = Math.max(0, scrollY - headerHeight);
       const itemIndex = Math.floor(adjustedScrollY / itemHeight);
-      const newInsertionIndex = Math.max(
-        0,
-        Math.min(audioSegments.length, itemIndex)
-      );
+      const newInsertionIndex = Math.max(0, Math.min(assets.length, itemIndex));
       setInsertionIndex(newInsertionIndex);
     },
-    [audioSegments.length]
+    [assets.length]
   );
 
   React.useEffect(() => {
@@ -303,16 +315,28 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-row items-center gap-3 p-4">
-        <Button variant="ghost" size="icon" onPress={onBack}>
-          <Icon as={ArrowLeft} />
-        </Button>
-        <Text className="text-2xl font-bold text-foreground">{t('doRecord')}</Text>
+      <View className="flex-row items-center justify-between p-4">
+        <View className="flex-row items-center gap-3">
+          <Button variant="ghost" size="icon" onPress={onBack}>
+            <Icon as={ArrowLeft} />
+          </Button>
+          <Text className="text-2xl font-bold text-foreground">
+            {t('doRecord')}
+          </Text>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Button variant="outline" size="icon" onPress={moveCursorUp}>
+            <Icon as={ArrowUp} />
+          </Button>
+          <Button variant="outline" size="icon" onPress={moveCursorDown}>
+            <Icon as={ArrowDown} />
+          </Button>
+        </View>
       </View>
 
       {isRecording && (
-        <View className="mx-4 mb-4 rounded-lg bg-muted p-4 items-center">
-          <Text className="text-lg font-bold text-destructive mb-2">
+        <View className="mx-4 mb-4 items-center rounded-lg bg-muted p-4">
+          <Text className="mb-2 text-lg font-bold text-destructive">
             {t('isRecording')}
           </Text>
           <WaveformVisualizer
@@ -325,9 +349,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </View>
       )}
 
-      <View className="flex-1 mt-4 pb-32">
-        <Text className="text-xl font-bold text-foreground mb-4 px-4">
-          {t('audioSegments')} ({audioSegments.length})
+      <View className="mt-4 flex-1 pb-32">
+        <Text className="mb-4 px-4 text-xl font-bold text-foreground">
+          {t('assets')} ({assets.length})
         </Text>
         <ScrollView
           className="flex-1"
@@ -335,49 +359,69 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={true}
         >
-          {audioSegments.map((segment, index) => (
-            <React.Fragment key={segment.id}>
+          {assets.map((asset, index) => (
+            <React.Fragment key={asset.id}>
               {index === insertionIndex && (
                 <InsertionCursor visible={true} position={index} />
               )}
-              <AudioSegmentItem
-                segment={segment}
-                onDelete={handleDeleteSegment}
-                onMoveUp={handleMoveSegmentUp}
-                onMoveDown={handleMoveSegmentDown}
-                canMoveUp={index > 0}
-                canMoveDown={index < audioSegments.length - 1}
-                onPlay={(uri) => handlePlaySegment(uri, segment.id)}
-                isPlaying={playingSegmentId === segment.id}
-              />
+              <TouchableOpacity
+                className="mx-4 mb-3 rounded-lg border border-border bg-card p-3"
+                onPress={() => setInsertionIndex(index)}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="flex-1">
+                    <Text className="text-base font-bold text-foreground">
+                      {asset.name}
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {asset.source === 'cloud' ? 'Cloud' : 'Local'}
+                    </Text>
+                    {/* Waveform for local items if known */}
+                    {waveformByAssetId.get(asset.id) && (
+                      <View className="mt-2">
+                        <WaveformVisualizer
+                          waveformData={waveformByAssetId.get(asset.id) ?? []}
+                          isRecording={false}
+                          width={300}
+                          height={40}
+                          barCount={48}
+                        />
+                      </View>
+                    )}
+                  </View>
+                  {asset.source !== 'cloud' && (
+                    <View className="flex-row gap-2">
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onPress={() => handleDeleteLocalAsset(asset.id)}
+                      >
+                        <Icon as={Trash2} />
+                      </Button>
+                      {index < assets.length - 1 &&
+                        assets[index + 1]?.source !== 'cloud' && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onPress={() => handleMergeDownLocal(index)}
+                          >
+                            <Icon as={GitMerge} />
+                          </Button>
+                        )}
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             </React.Fragment>
           ))}
-          {audioSegments.length === 0 ||
-          insertionIndex === audioSegments.length ? (
-            <InsertionCursor visible={true} position={audioSegments.length} />
+          {insertionIndex === assets.length ? (
+            <InsertionCursor visible={true} position={assets.length} />
           ) : null}
         </ScrollView>
       </View>
 
-      {audioSegments.length > 0 && (
-        <View className="mx-4 mb-4 p-4 bg-muted rounded-lg border border-primary">
-          <Button
-            variant="default"
-            onPress={handleSaveSegments}
-            className="w-full"
-          >
-            <Text className="text-lg font-bold text-primary-foreground">
-              {t('save')}{' '}
-              {audioSegments.length > 1
-                ? t('audioSegments')
-                : t('audioSegment')}{' '}
-              {audioSegments.length > 1 ? t('asAssets') : t('asAsset')}
-            </Text>
-          </Button>
-        </View>
-      )}
-
-      <View className="absolute bottom-0 left-0 right-0 bg-background border-t border-border pt-4 pb-8 px-4">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-4 pb-8 pt-4">
         <WalkieTalkieRecorder
           onRecordingComplete={handleRecordingComplete}
           onRecordingStart={handleRecordingStart}
