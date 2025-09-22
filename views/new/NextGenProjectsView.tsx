@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -9,18 +9,18 @@ import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, getTableColumns, like, notInArray, or } from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
-import { AllLanguagesSelect } from '@/components/AllLanguagesSelect';
+import { LanguageSelect } from '@/components/language-select';
 import {
   Drawer,
   DrawerClose,
@@ -37,6 +37,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSubmit,
   transformInputProps,
   transformSelectProps,
   transformSwitchProps
@@ -65,6 +66,8 @@ type Project = typeof project.$inferSelect;
 
 const { db } = system;
 
+const templateOptionsWithNone = [...templateOptions, 'none'] as const;
+
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
@@ -73,8 +76,6 @@ export default function NextGenProjectsView() {
 
   // Create modal state
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
-
-  const currentLanguageId = useLocalStore((state) => state.languageId);
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
@@ -87,7 +88,7 @@ export default function NextGenProjectsView() {
       .optional(),
     private: z.boolean(),
     visible: z.boolean(),
-    template: z.enum(templateOptions)
+    template: z.enum(templateOptionsWithNone)
   });
 
   type FormData = z.infer<typeof formSchema>;
@@ -101,6 +102,7 @@ export default function NextGenProjectsView() {
             .insert(resolveTable('project', { localOverride: true }))
             .values({
               ...values,
+              template: values.template === 'none' ? null : values.template,
               creator_id: currentUser!.id,
               download_profiles: [currentUser!.id]
             })
@@ -119,9 +121,7 @@ export default function NextGenProjectsView() {
         });
       },
       onSuccess: () => {
-        // Close and refresh
-        form.reset();
-        // bottomSheetRef.current?.dismiss();
+        // reset form onOpenChange
         setIsCreateOpen(false);
         void currentQuery.refetch();
       },
@@ -130,15 +130,29 @@ export default function NextGenProjectsView() {
       }
     });
 
+  const savedLanguage = useLocalStore((state) => state.savedLanguage);
+
+  useEffect(() => {
+    if (savedLanguage && !form.getValues('target_language_id')) {
+      form.setValue('target_language_id', savedLanguage.id);
+    }
+  }, [savedLanguage]);
+
+  const resetForm = () => {
+    form.reset(defaultValues);
+    if (savedLanguage) form.setValue('target_language_id', savedLanguage.id);
+  };
+
+  const defaultValues = {
+    private: true,
+    visible: true,
+    template: 'unstructured'
+  } as const;
+
   const form = useForm<FormData>({
-    defaultValues: {
-      private: true,
-      visible: true,
-      template: 'unstructured',
-      target_language_id: currentLanguageId ?? undefined
-    },
+    defaultValues,
     resolver: zodResolver(formSchema),
-    disabled: isCreatingProject && !currentUser?.id
+    disabled: !currentUser?.id
   });
 
   //   // Clean Status Navigation
@@ -357,7 +371,10 @@ export default function NextGenProjectsView() {
   return (
     <Drawer
       open={isCreateOpen}
-      onOpenChange={setIsCreateOpen}
+      onOpenChange={(open) => {
+        setIsCreateOpen(open);
+        resetForm();
+      }}
       dismissible={!isCreatingProject}
     >
       <View className="flex flex-1 flex-col gap-6 p-6">
@@ -430,10 +447,10 @@ export default function NextGenProjectsView() {
       </View>
 
       <DrawerContent className="pb-8">
-        <DrawerHeader>
-          <DrawerTitle>{t('newProject')}</DrawerTitle>
-        </DrawerHeader>
         <Form {...form}>
+          <DrawerHeader>
+            <DrawerTitle>{t('newProject')}</DrawerTitle>
+          </DrawerHeader>
           <View className="flex flex-col gap-4 px-4">
             <FormField
               control={form.control}
@@ -460,9 +477,9 @@ export default function NextGenProjectsView() {
                 return (
                   <FormItem>
                     <FormControl>
-                      <AllLanguagesSelect
+                      <LanguageSelect
                         {...field}
-                        onChange={(value) => field.onChange(value.id)}
+                        onChange={(lang) => field.onChange(lang.id)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -506,7 +523,7 @@ export default function NextGenProjectsView() {
                         className="w-full"
                         insets={{ left: 16, right: 16 }}
                       >
-                        {templateOptions.map((option) => (
+                        {templateOptionsWithNone.map((option) => (
                           <SelectItem
                             key={option}
                             value={option}
@@ -553,28 +570,21 @@ export default function NextGenProjectsView() {
               />
             </View>
           </View>
+          <DrawerFooter>
+            <FormSubmit
+              onPress={form.handleSubmit((data) => createProject(data))}
+              className="flex-row items-center gap-2"
+            >
+              <Text>{t('createObject')}</Text>
+            </FormSubmit>
+            <DrawerClose
+              className={buttonVariants({ variant: 'outline' })}
+              disabled={isCreatingProject}
+            >
+              <Text>Cancel</Text>
+            </DrawerClose>
+          </DrawerFooter>
         </Form>
-        <DrawerFooter>
-          <Button
-            onPress={form.handleSubmit((data) => createProject(data))}
-            disabled={isCreatingProject}
-            className="flex-row items-center gap-2"
-          >
-            {isCreatingProject && (
-              <ActivityIndicator
-                size="small"
-                color={getThemeColor('secondary')}
-              />
-            )}
-            <Text>{t('createObject')}</Text>
-          </Button>
-          <DrawerClose
-            className={buttonVariants({ variant: 'outline' })}
-            disabled={isCreatingProject}
-          >
-            <Text>Cancel</Text>
-          </DrawerClose>
-        </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );

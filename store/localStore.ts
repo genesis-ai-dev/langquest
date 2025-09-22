@@ -54,9 +54,8 @@ export interface RecentAsset {
 export interface LocalState {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
-  languageId: string | null;
-  language: Language | null;
-  isLanguageLoading: boolean;
+  uiLanguage: Language | null;
+  savedLanguage: Language | null;
   dateTermsAccepted: Date | null;
   analyticsOptOut: boolean;
   projectSourceFilter: string;
@@ -113,7 +112,8 @@ export interface LocalState {
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
   acceptTerms: () => void;
-  setLanguage: (lang: Language) => void;
+  setUILanguage: (lang: Language) => void;
+  setSavedLanguage: (lang: Language) => void;
 
   // Navigation context setters
   setCurrentContext: (
@@ -134,7 +134,6 @@ export interface LocalState {
   ) => void;
   resetAttachmentSyncProgress: () => void;
 
-  initialize: () => Promise<void>;
   theme: Theme;
   setTheme: (theme: Theme) => void;
 }
@@ -144,9 +143,8 @@ export const useLocalStore = create<LocalState>()(
     (set, _get) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
-      languageId: null,
-      language: null,
-      isLanguageLoading: true,
+      uiLanguage: null,
+      savedLanguage: null,
       dateTermsAccepted: null,
       analyticsOptOut: false,
       theme: 'dark',
@@ -191,7 +189,8 @@ export const useLocalStore = create<LocalState>()(
         set({ theme });
         colorScheme.set(theme);
       },
-      setLanguage: (lang) => set({ language: lang, languageId: lang.id }),
+      setUILanguage: (lang) => set({ uiLanguage: lang }),
+      setSavedLanguage: (lang) => set({ savedLanguage: lang }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
       projectSourceFilter: 'All',
       projectTargetFilter: 'All',
@@ -258,30 +257,7 @@ export const useLocalStore = create<LocalState>()(
             uploadCurrent: 0,
             uploadTotal: 0
           }
-        }),
-
-      initialize: () => {
-        const state = useLocalStore.getState();
-        if (!state.languageId) {
-          // Default to English if no language is set
-          const englishLang: Language = {
-            id: 'english-id',
-            active: true,
-            created_at: new Date().toISOString(),
-            last_updated: new Date().toISOString(),
-            native_name: 'English',
-            english_name: 'English',
-            iso639_3: 'eng',
-            locale: 'en-US',
-            ui_ready: true,
-            creator_id: null,
-            download_profiles: null
-          };
-          set({ language: englishLang, languageId: englishLang.id });
-        }
-        set({ isLanguageLoading: false });
-        return Promise.resolve();
-      }
+        })
     }),
     {
       name: 'local-store',
@@ -296,7 +272,6 @@ export const useLocalStore = create<LocalState>()(
           Object.entries(state).filter(
             ([key]) =>
               ![
-                'language',
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
@@ -308,6 +283,3 @@ export const useLocalStore = create<LocalState>()(
     }
   )
 );
-
-// Initialize the language store at app startup
-export const initializeLanguage = useLocalStore.getState().initialize;

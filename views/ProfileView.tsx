@@ -59,9 +59,9 @@ export default function ProfileView() {
   const formSchema = z
     .object({
       selectedLanguageId: z.uuid(t('selectLanguage')),
-      currentPassword: z.string().nonempty().trim().optional(),
-      newPassword: z.string().nonempty().trim().optional(),
-      confirmPassword: z.string().nonempty().trim().optional(),
+      currentPassword: z.string().trim().optional(),
+      newPassword: z.string().trim().optional(),
+      confirmPassword: z.string().trim().optional(),
       termsAccepted: z.boolean().optional()
     })
     .superRefine((data, ctx) => {
@@ -266,11 +266,12 @@ export default function ProfileView() {
           <FormField
             control={form.control}
             name="selectedLanguageId"
-            render={({ field: { onChange, value } }) => (
+            render={({ field }) => (
               <FormItem>
                 <LanguageSelect
-                  value={value}
-                  onChange={(lang) => onChange(lang.id)}
+                  {...field}
+                  uiReadyOnly
+                  onChange={(lang) => field.onChange(lang.id)}
                 />
                 <FormMessage />
               </FormItem>

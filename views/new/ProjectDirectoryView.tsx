@@ -44,7 +44,8 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
 import { useHybridData } from './useHybridData';
 
@@ -279,24 +280,24 @@ export default function ProjectDirectoryView() {
               {t('projectDirectory')}
             </Text>
           </View>
-          <ScrollView>
+          <View className="flex flex-1 flex-col gap-2">
             {roots.length === 0 ? (
-              <Text className="text-center text-muted-foreground">
-                {t('noQuestsFound')}
-              </Text>
+              <View>
+                <Text className="text-center text-muted-foreground">
+                  {t('noQuestsFound')}
+                </Text>
+              </View>
             ) : (
-              <>
-                <View className="gap-1">{renderTree(roots, 0)}</View>
-                <Button
-                  onPress={() => openCreateForParent(null)}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Text>{t('createObject')}</Text>
-                </Button>
-              </>
+              <ScrollView className="gap-1">{renderTree(roots, 0)}</ScrollView>
             )}
-          </ScrollView>
+            <Button
+              onPress={() => openCreateForParent(null)}
+              variant="outline"
+              size="sm"
+            >
+              <Text>{t('createObject')}</Text>
+            </Button>
+          </View>
         </View>
 
         <DrawerContent>
