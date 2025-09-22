@@ -2705,6 +2705,13 @@ export const localizations = {
     tok_pisin: 'Ol Translation',
     indonesian: 'Terjemahan'
   },
+  projectDirectory: {
+    english: 'Project Directory',
+    spanish: 'Directorio de Proyecto',
+    brazilian_portuguese: 'Diretório de Projeto',
+    tok_pisin: 'Project Directory',
+    indonesian: 'Direktori Proyek'
+  },
   projectMadePublic: {
     english: 'The project has been made public',
     spanish: 'El proyecto se ha hecho público',
