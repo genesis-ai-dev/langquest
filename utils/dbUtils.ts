@@ -112,7 +112,6 @@ export function toMergeCompilableQuery<T extends QueryInput<T>>(query: T) {
   return {
     execute: async () => {
       const data = await mergeQuery(query, unionQuery);
-      console.log('toMergeCompilableQuery', data);
       return data;
     },
     compile: () => ({

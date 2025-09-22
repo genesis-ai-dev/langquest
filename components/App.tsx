@@ -30,7 +30,8 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
         className={clsx(
           (currentView === 'projects' ||
             currentView === 'quests' ||
-            currentView === 'profile') &&
+            currentView === 'profile' ||
+            currentView === 'settings') &&
             'bg-background'
         )}
         edges={['top', 'left', 'right']}

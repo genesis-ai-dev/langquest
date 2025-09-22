@@ -28,11 +28,10 @@ export default function ResetPasswordView2() {
   const formSchema = z
     .object({
       password: z
-        .string({ required_error: t('passwordRequired') })
-        .min(6, { message: t('passwordMinLength') }),
-      confirmPassword: z.string({
-        required_error: t('confirmPassword')
-      })
+        .string(t('passwordRequired'))
+        .min(6, t('passwordMinLength'))
+        .trim(),
+      confirmPassword: z.string(t('confirmPassword')).trim()
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t('passwordsNoMatch'),

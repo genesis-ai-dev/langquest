@@ -35,7 +35,7 @@ const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 export default function RegisterView() {
   const { supabaseConnector } = system;
   const { t } = useLocalization();
-  const currentLanguage = useLocalStore((state) => state.language);
+  const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const [isRegistering, setIsRegistering] = useState(false);

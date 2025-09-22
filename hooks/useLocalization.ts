@@ -20,7 +20,7 @@ export type InterpolationValues = Record<string, string | number>;
 
 export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
-  const currentLanguage = useLocalStore((state) => state.language);
+  const currentLanguage = useLocalStore((state) => state.uiLanguage);
 
   const uiLanguageId = currentUser?.user_metadata.ui_language_id;
 

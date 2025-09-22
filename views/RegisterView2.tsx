@@ -44,7 +44,7 @@ export default function RegisterView2({
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
   const { t } = useLocalization();
-  const currentLanguage = useLocalStore((state) => state.language);
+  const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
   useEffect(() => {

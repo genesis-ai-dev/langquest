@@ -8,9 +8,10 @@ import type {
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 
 import { Label } from '@/components/ui/label';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
-import { View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { buttonVariants } from './button';
 import type { Option } from './select';
 import { getOptionFromValue } from './select';
 import * as Slot from './slot';
@@ -135,7 +136,7 @@ const FormItem = React.forwardRef<View, ViewProps>(
 FormItem.displayName = 'FormItem';
 
 const FormLabel = React.forwardRef<
-  React.ElementRef<typeof Label>,
+  React.ComponentRef<typeof Label>,
   React.ComponentPropsWithoutRef<typeof Label>
 >(({ className, ...props }, ref) => {
   const { error, formItemId } = useFormField();
@@ -152,7 +153,7 @@ const FormLabel = React.forwardRef<
 FormLabel.displayName = 'FormLabel';
 
 const FormControl = React.forwardRef<
-  React.ElementRef<typeof Slot.Input>,
+  React.ComponentRef<typeof Slot.Input>,
   React.ComponentPropsWithoutRef<typeof Slot.Input>
 >(({ ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } =
@@ -175,7 +176,7 @@ const FormControl = React.forwardRef<
 FormControl.displayName = 'FormControl';
 
 const FormDescription = React.forwardRef<
-  React.ElementRef<typeof Text>,
+  React.ComponentRef<typeof Text>,
   React.ComponentPropsWithoutRef<typeof Text>
 >(({ className, ...props }, ref) => {
   const { formDescriptionId } = useFormField();
@@ -192,7 +193,7 @@ const FormDescription = React.forwardRef<
 FormDescription.displayName = 'FormDescription';
 
 const FormMessage = React.forwardRef<
-  React.ElementRef<typeof Text>,
+  React.ComponentRef<typeof Text>,
   React.ComponentPropsWithoutRef<typeof Text>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
@@ -215,6 +216,59 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = 'FormMessage';
 
+const FormSubmit = React.forwardRef<
+  React.ComponentRef<typeof Slot.Pressable>,
+  React.ComponentPropsWithoutRef<typeof Slot.Pressable> & {
+    asChild?: boolean;
+    activityIndicatorClassName?: string;
+    activityIndicatorColor?: string;
+  }
+>(
+  (
+    {
+      children,
+      asChild,
+      className,
+      activityIndicatorClassName,
+      activityIndicatorColor,
+      ...props
+    },
+    ref
+  ) => {
+    const { formState } = useFormContext();
+    const isDisabled =
+      !formState.isValid || formState.isSubmitting || props.disabled;
+
+    const Component = asChild ? Slot.Pressable : Pressable;
+
+    return (
+      <Component
+        ref={ref}
+        disabled={isDisabled}
+        {...props}
+        className={cn(
+          'flex-row items-center gap-2',
+          isDisabled &&
+            'opacity-50 hover:opacity-50 web:pointer-events-none web:cursor-default',
+          buttonVariants({ className })
+        )}
+      >
+        <>
+          {formState.isSubmitting && (
+            <ActivityIndicator
+              size="small"
+              color={activityIndicatorColor || getThemeColor('secondary')}
+              className={activityIndicatorClassName}
+            />
+          )}
+          {children}
+        </>
+      </Component>
+    );
+  }
+);
+FormSubmit.displayName = 'FormSubmit';
+
 export {
   Form,
   FormControl,
@@ -223,5 +277,6 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSubmit,
   useFormField
 };

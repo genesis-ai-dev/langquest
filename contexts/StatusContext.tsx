@@ -1,6 +1,5 @@
 import type { AssetStatus, LayerStatus } from '@/database_services/types';
-import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 
 export const defaultStatus: LayerStatus = { visible: true, active: true };
 
@@ -33,8 +32,6 @@ interface StatusContextType {
     currentLayer?: LayerStatus,
     secondId?: string
   ) => StatusParams;
-  showInvisibleContent: boolean;
-  setShowInvisibleContent: (value: boolean) => void;
 }
 
 interface StatusParams {
@@ -50,11 +47,7 @@ export const StatusContext = createContext<StatusContextType>({
     allowEditing: false,
     allowSettings: false,
     invisible: false
-  }),
-  showInvisibleContent: false,
-  setShowInvisibleContent: () => {
-    return false;
-  }
+  })
 });
 
 export const useStatusContext = () => useContext(StatusContext);
@@ -63,7 +56,6 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
   children
 }) => {
   // Keep a layer chain to apply to deeper layers
-  const [showInvisibleContent, setShowInvisibleContent] = useState(false);
   const navLayersStatus = React.useRef<LayerStatus[]>([
     { visible: true, active: true }, // 0 Project
     { visible: true, active: true }, // 1 Quest
@@ -77,14 +69,6 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     3: new Map(),
     combined: new Map()
   });
-
-  useEffect(() => {
-    const fetchShowHiddenContent = async () => {
-      const showHidden = await getOptionShowHiddenContent();
-      setShowInvisibleContent(showHidden);
-    };
-    void fetchShowHiddenContent();
-  }, []);
 
   const layerStatus = (layerType: LayerType, id?: string) => {
     const status = defaultStatus;
@@ -229,9 +213,7 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         layerStatus,
         setLayerStatus,
-        getStatusParams,
-        showInvisibleContent,
-        setShowInvisibleContent
+        getStatusParams
       }}
     >
       {children}

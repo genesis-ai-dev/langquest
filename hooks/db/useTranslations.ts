@@ -9,7 +9,7 @@ import {
   vote
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
+import { useLocalStore } from '@/store/localStore';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -826,6 +826,8 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
     };
   }, [asset_id, currentUser?.id, db]);
 
+  const showInvisible = useLocalStore((state) => state.showHiddenContent);
+
   const {
     data: translationsWithVotesAndLanguage,
     isLoading: isTranslationsWithVotesAndLanguageLoading,
@@ -895,7 +897,6 @@ export function useTranslationsWithVotesAndLanguageByAssetId(asset_id: string) {
         `
         )
         .eq('asset_id', asset_id);
-      const showInvisible = await getOptionShowHiddenContent();
       if (!showInvisible) {
         query = query.eq('visible', true);
       }

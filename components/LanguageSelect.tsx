@@ -30,8 +30,8 @@ interface LanguageSelectProps {
 const LanguageSelect: React.FC<LanguageSelectProps> = memo(
   ({ value, onChange, setLanguagesLoaded }) => {
     const [showLanguages, setShowLanguages] = useState(false);
-    const setLanguage = useLocalStore((state) => state.setLanguage);
-    const savedLanguage = useLocalStore((state) => state.language);
+    const setLanguage = useLocalStore((state) => state.setUILanguage);
+    const savedLanguage = useLocalStore((state) => state.uiLanguage);
     const { t } = useLocalization();
 
     // Use useHybridData directly

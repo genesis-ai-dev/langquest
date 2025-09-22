@@ -1,5 +1,12 @@
 ---
 description: Guidelines for writing new UI components
-globs:
 alwaysApply: false
 ---
+
+## Methodology
+
+Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/composition).
+
+## Icons
+
+When looking for a suitable icon use the lucide-icons MCP.
