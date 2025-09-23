@@ -446,7 +446,7 @@ export default function NextGenProjectsView() {
         )}
       </View>
 
-      <DrawerContent className="pb-8">
+      <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>
             <DrawerTitle>{t('newProject')}</DrawerTitle>

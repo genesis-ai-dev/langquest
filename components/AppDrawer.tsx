@@ -38,7 +38,6 @@ import {
   Platform,
   View
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
@@ -535,242 +534,232 @@ export default function AppDrawer({
       onOpenChange={setDrawerIsVisible}
       dismissible={!isOperationActive}
     >
-      <DrawerContent className="max-h-[90%]">
-        <ScrollView className="flex-1 p-4 py-6">
-          <View className="flex flex-col gap-4">
-            {/* System status and progress indicators */}
-            {!systemReady && (
-              <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
-                {isConnected ? (
-                  <>
-                    <ActivityIndicator
-                      size="small"
-                      className="text-foreground"
-                    />
-                    <Text className="text-sm text-foreground">
-                      {t('initializing')}...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Icon
-                      as={CloudUploadIcon}
-                      size={16}
-                      className="text-foreground"
-                    />
-                    <Text className="text-sm text-foreground">
-                      {t('offline')}
-                    </Text>
-                  </>
-                )}
-              </View>
-            )}
-
-            {/* File sync progress indicator */}
-            {syncOperation && (
-              <View className="rounded-md bg-muted p-3">
-                <Text className="text-center text-sm font-medium text-foreground">
-                  {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
-                </Text>
-                <View className="flex flex-col gap-2">
-                  <Progress value={progressPercentage} className="h-2" />
-                  <Text className="text-center text-sm text-foreground">
-                    {getProgressText()}
+      <DrawerContent className="native:pb-safe p-2">
+        <View className="flex flex-col gap-4">
+          {/* System status and progress indicators */}
+          {!systemReady && (
+            <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
+              {isConnected ? (
+                <>
+                  <ActivityIndicator size="small" className="text-foreground" />
+                  <Text className="text-sm text-foreground">
+                    {t('initializing')}...
                   </Text>
-                </View>
+                </>
+              ) : (
+                <>
+                  <Icon
+                    as={CloudUploadIcon}
+                    size={16}
+                    className="text-foreground"
+                  />
+                  <Text className="text-sm text-foreground">
+                    {t('offline')}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
+
+          {/* File sync progress indicator */}
+          {syncOperation && (
+            <View className="rounded-md bg-muted p-3">
+              <Text className="text-center text-sm font-medium text-foreground">
+                {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
+              </Text>
+              <View className="flex flex-col gap-2">
+                <Progress value={progressPercentage} className="h-2" />
+                <Text className="text-center text-sm text-foreground">
+                  {getProgressText()}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* PowerSync status section */}
+          <Button
+            variant="ghost"
+            className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
+            onPress={logPowerSyncStatus}
+          >
+            <Text className="text-center text-sm font-medium text-foreground">
+              {!isConnected
+                ? `${attachmentProgress.synced} ${t('filesDownloaded')}`
+                : attachmentProgress.hasActivity
+                  ? `${t('downloading')} ${attachmentProgress.downloading + attachmentProgress.queued} ${t('files')}...`
+                  : powersyncStatus?.connected
+                    ? powersyncStatus.dataFlowStatus.downloading
+                      ? t('syncingDatabase')
+                      : powersyncStatus.hasSynced
+                        ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
+                        : t('notSynced')
+                    : powersyncStatus?.connecting
+                      ? t('connecting')
+                      : t('disconnected')}
+            </Text>
+
+            {/* Progress bar for download progress */}
+            {(powersyncStatus?.downloadProgress ||
+              attachmentProgress.hasActivity) && (
+              <View className="flex flex-col gap-2">
+                <Progress
+                  value={
+                    attachmentProgress.hasActivity
+                      ? attachmentProgress.total > 0
+                        ? (attachmentProgress.synced /
+                            attachmentProgress.total) *
+                          100
+                        : 0
+                      : undefined
+                  }
+                  className="h-1 w-full"
+                />
               </View>
             )}
+          </Button>
 
-            {/* PowerSync status section */}
-            <Button
-              variant="ghost"
-              className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
-              onPress={logPowerSyncStatus}
+          {/* Attachment sync progress section */}
+          {(showAttachmentProgress ||
+            attachmentProgress.hasActivity ||
+            attachmentProgress.total > 0) && (
+            <Animated.View
+              style={{
+                opacity: showAttachmentProgress ? fadeAnim : 1
+              }}
             >
-              <Text className="text-center text-sm font-medium text-foreground">
-                {!isConnected
-                  ? `${attachmentProgress.synced} ${t('filesDownloaded')}`
-                  : attachmentProgress.hasActivity
-                    ? `${t('downloading')} ${attachmentProgress.downloading + attachmentProgress.queued} ${t('files')}...`
-                    : powersyncStatus?.connected
-                      ? powersyncStatus.dataFlowStatus.downloading
-                        ? t('syncingDatabase')
-                        : powersyncStatus.hasSynced
-                          ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
-                          : t('notSynced')
-                      : powersyncStatus?.connecting
-                        ? t('connecting')
-                        : t('disconnected')}
-              </Text>
-
-              {/* Progress bar for download progress */}
-              {(powersyncStatus?.downloadProgress ||
-                attachmentProgress.hasActivity) && (
+              <View
+                className={cn(
+                  'rounded-md p-3',
+                  attachmentProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
+                )}
+              >
                 <View className="flex flex-col gap-2">
-                  <Progress
-                    value={
+                  <Text
+                    className={cn(
+                      'text-sm text-foreground',
                       attachmentProgress.hasActivity
-                        ? attachmentProgress.total > 0
+                        ? 'font-semibold'
+                        : 'font-medium'
+                    )}
+                  >
+                    {isInGracePeriod ? (
+                      <>
+                        <Text className="font-semibold text-primary">
+                          {t('downloadComplete')}
+                        </Text>
+                        <Text className="text-sm text-foreground">
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} {t('files')})
+                        </Text>
+                      </>
+                    ) : attachmentProgress.downloading > 0 &&
+                      attachmentProgress.queued > 0 ? (
+                      <>
+                        <Text className="text-sm text-foreground">
+                          {t('downloading')}: {attachmentProgress.downloading}
+                        </Text>
+                        <Text className="text-sm text-foreground">, </Text>
+                        <Text className="text-sm text-foreground">
+                          {t('queued')}: {attachmentProgress.queued}
+                        </Text>
+                        <Text className="text-sm text-foreground">
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} {t('complete')})
+                        </Text>
+                      </>
+                    ) : attachmentProgress.downloading > 0 ? (
+                      <>
+                        <Text className="text-sm text-foreground">
+                          {t('downloading')}: {attachmentProgress.downloading}{' '}
+                          {t('files')}
+                        </Text>
+                        <Text className="text-sm text-foreground">
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} {t('complete')})
+                        </Text>
+                      </>
+                    ) : attachmentProgress.queued > 0 ? (
+                      <>
+                        <Text className="text-sm text-foreground">
+                          {t('queuedForDownload')}: {attachmentProgress.queued}{' '}
+                          {t('files')}
+                        </Text>
+                        <Text className="text-sm text-foreground">
+                          {' '}
+                          ({attachmentProgress.synced}/
+                          {attachmentProgress.total} {t('complete')})
+                        </Text>
+                      </>
+                    ) : (
+                      <Text className="text-foreground">
+                        {attachmentProgress.synced}/{attachmentProgress.total}{' '}
+                        {t('filesDownloaded')}
+                      </Text>
+                    )}
+                  </Text>
+                  {isInGracePeriod ? (
+                    <ShimmerBar />
+                  ) : (
+                    <Progress
+                      value={
+                        attachmentProgress.total > 0
                           ? (attachmentProgress.synced /
                               attachmentProgress.total) *
                             100
                           : 0
-                        : undefined
-                    }
-                    className="h-1 w-full"
-                  />
-                </View>
-              )}
-            </Button>
-
-            {/* Attachment sync progress section */}
-            {(showAttachmentProgress ||
-              attachmentProgress.hasActivity ||
-              attachmentProgress.total > 0) && (
-              <Animated.View
-                style={{
-                  opacity: showAttachmentProgress ? fadeAnim : 1
-                }}
-              >
-                <View
-                  className={cn(
-                    'rounded-md p-3',
-                    attachmentProgress.hasActivity
-                      ? 'bg-primary/20'
-                      : 'bg-muted'
+                      }
+                      className="h-1"
+                    />
                   )}
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Main drawer items */}
+          <View className="flex flex-col gap-2">
+            {drawerItems.map((item, index) => {
+              const isActive = currentView === item.view;
+
+              return (
+                <Button
+                  key={index}
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'h-auto justify-start p-4',
+                    item.disabled && 'opacity-50'
+                  )}
+                  onPress={item.onPress}
+                  disabled={item.disabled}
                 >
-                  <View className="flex flex-col gap-2">
-                    <Text
-                      className={cn(
-                        'text-sm text-foreground',
-                        attachmentProgress.hasActivity
-                          ? 'font-semibold'
-                          : 'font-medium'
-                      )}
-                    >
-                      {isInGracePeriod ? (
-                        <>
-                          <Text className="font-semibold text-primary">
-                            {t('downloadComplete')}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({attachmentProgress.synced}/
-                            {attachmentProgress.total} {t('files')})
-                          </Text>
-                        </>
-                      ) : attachmentProgress.downloading > 0 &&
-                        attachmentProgress.queued > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('downloading')}: {attachmentProgress.downloading}
-                          </Text>
-                          <Text className="text-sm text-foreground">, </Text>
-                          <Text className="text-sm text-foreground">
-                            {t('queued')}: {attachmentProgress.queued}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({attachmentProgress.synced}/
-                            {attachmentProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : attachmentProgress.downloading > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('downloading')}: {attachmentProgress.downloading}{' '}
-                            {t('files')}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({attachmentProgress.synced}/
-                            {attachmentProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : attachmentProgress.queued > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('queuedForDownload')}:{' '}
-                            {attachmentProgress.queued} {t('files')}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({attachmentProgress.synced}/
-                            {attachmentProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : (
-                        <Text className="text-foreground">
-                          {attachmentProgress.synced}/{attachmentProgress.total}{' '}
-                          {t('filesDownloaded')}
+                  <View className="w-full flex-row items-center gap-4">
+                    <Icon
+                      as={item.icon}
+                      size={20}
+                      className="text-foreground"
+                    />
+                    <Text className="flex-1 text-foreground">{item.name}</Text>
+                    {!!item.notificationCount && item.notificationCount > 0 && (
+                      <Badge
+                        className="min-w-5 rounded-full px-1"
+                        variant={isActive ? 'secondary' : 'destructive'}
+                      >
+                        <Text>
+                          {item.notificationCount > 99
+                            ? '99+'
+                            : item.notificationCount}
                         </Text>
-                      )}
-                    </Text>
-                    {isInGracePeriod ? (
-                      <ShimmerBar />
-                    ) : (
-                      <Progress
-                        value={
-                          attachmentProgress.total > 0
-                            ? (attachmentProgress.synced /
-                                attachmentProgress.total) *
-                              100
-                            : 0
-                        }
-                        className="h-1"
-                      />
+                      </Badge>
                     )}
                   </View>
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Main drawer items */}
-            <View className="flex flex-col gap-2">
-              {drawerItems.map((item, index) => {
-                const isActive = currentView === item.view;
-
-                return (
-                  <Button
-                    key={index}
-                    variant={isActive ? 'secondary' : 'ghost'}
-                    className={cn(
-                      'h-auto justify-start p-4',
-                      item.disabled && 'opacity-50'
-                    )}
-                    onPress={item.onPress}
-                    disabled={item.disabled}
-                  >
-                    <View className="w-full flex-row items-center gap-4">
-                      <Icon
-                        as={item.icon}
-                        size={20}
-                        className="text-foreground"
-                      />
-                      <Text className="flex-1 text-foreground">
-                        {item.name}
-                      </Text>
-                      {!!item.notificationCount &&
-                        item.notificationCount > 0 && (
-                          <Badge
-                            className="min-w-5 rounded-full px-1"
-                            variant={isActive ? 'secondary' : 'destructive'}
-                          >
-                            <Text>
-                              {item.notificationCount > 99
-                                ? '99+'
-                                : item.notificationCount}
-                            </Text>
-                          </Badge>
-                        )}
-                    </View>
-                  </Button>
-                );
-              })}
-            </View>
+                </Button>
+              );
+            })}
           </View>
-        </ScrollView>
+        </View>
       </DrawerContent>
     </Drawer>
   );

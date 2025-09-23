@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -299,7 +299,7 @@ export default function ProjectDirectoryView() {
           </View>
         </View>
 
-        <DrawerContent>
+        <DrawerContent className="pb-safe">
           <DrawerHeader>
             <DrawerTitle>{t('newQuest')}</DrawerTitle>
           </DrawerHeader>
@@ -344,7 +344,7 @@ export default function ProjectDirectoryView() {
             >
               <Text>{t('createObject')}</Text>
             </FormSubmit>
-            <DrawerClose>
+            <DrawerClose className={buttonVariants({ variant: 'outline' })}>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>
