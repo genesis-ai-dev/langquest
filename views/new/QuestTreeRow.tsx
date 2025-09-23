@@ -46,20 +46,17 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
 
   return (
     <View
-      className="flex flex-row items-center py-1"
+      className="flex flex-row items-center gap-1 py-1"
       style={{ paddingLeft: depth * 12 }}
     >
-      <Pressable
-        onPress={hasChildren ? onToggleExpand : undefined}
-        className="mr-1 w-8 p-1"
-      >
-        {hasChildren && (
+      {hasChildren && (
+        <Pressable onPress={onToggleExpand} className="w-8 p-1">
           <Icon
             as={isOpen ? ChevronDown : ChevronRight}
             className="text-muted-foreground"
           />
-        )}
-      </Pressable>
+        </Pressable>
+      )}
       <Icon as={Folder} className="mr-2 text-muted-foreground" />
       <Pressable
         className="flex-1"

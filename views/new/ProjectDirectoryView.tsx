@@ -183,13 +183,9 @@ export default function ProjectDirectoryView() {
         onOpenChange={setIsCreateOpen}
         dismissible={!isCreatingQuest}
       >
-        <View className="flex-1 p-4">
-          <View className="flex flex-row items-center gap-2">
-            <Text variant="h4" className="mb-4">
-              {t('projectDirectory')}
-            </Text>
-          </View>
-          <View className="flex flex-col gap-2">
+        <View className="flex-1 flex-col gap-4 p-4">
+          <Text variant="h4">{t('projectDirectory')}</Text>
+          <View className="pb-safe flex flex-1 flex-col gap-2">
             {roots.length === 0 ? (
               <View>
                 <Text className="text-center text-muted-foreground">
