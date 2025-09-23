@@ -80,7 +80,7 @@ export default function AppHeader({
   }));
 
   return (
-    <View className="bg-transparent px-4 py-4">
+    <View className="bg-transparent p-4">
       <View className="flex-row items-center">
         {/* Breadcrumbs */}
         <View className="flex-1 flex-row items-center overflow-hidden">

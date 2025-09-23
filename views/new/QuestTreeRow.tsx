@@ -59,7 +59,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       )}
       <Icon as={Folder} className="mr-2 text-muted-foreground" />
       <Pressable
-        className="flex-1"
+        className="flex-1 overflow-hidden"
         onPress={() =>
           goToQuest({
             id: quest.id,
@@ -73,11 +73,8 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
             <Text numberOfLines={1}>{quest.name}</Text>
           </View>
           {quest.description && (
-            <View className="flex-1">
-              <Text
-                className="truncate text-sm text-muted-foreground"
-                numberOfLines={1}
-              >
+            <View className="flex-1 truncate">
+              <Text className="text-sm text-muted-foreground" numberOfLines={1}>
                 {quest.description}
               </Text>
             </View>
@@ -94,7 +91,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7"
+            className="size-7"
             onPress={() =>
               Alert.alert(
                 'Mock Publish',
@@ -110,7 +107,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7"
+            className="size-7"
             disabled={isDownloading || !currentUser?.id}
             onPress={() => {
               if (!currentUser?.id) return;
@@ -124,7 +121,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       <Button
         size="icon"
         variant="outline"
-        className="ml-2 h-7 w-7"
+        className="ml-2 size-7"
         onPress={() => onAddChild(quest.id)}
       >
         <Icon as={Plus} />

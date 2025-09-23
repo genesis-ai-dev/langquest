@@ -10,12 +10,21 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
-import type { HybridDataSource } from '@/views/new/useHybridData';
-import { useHybridData } from '@/views/new/useHybridData';
+import type { SortOrder } from '@/utils/dbUtils';
 import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { useHybridData } from '@/views/new/useHybridData';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getOrderByOperators,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  notInArray,
+  sql
+} from 'drizzle-orm';
 import { useEffect } from 'react';
 import {
   convertToSupabaseFetchConfig,
@@ -35,12 +44,11 @@ export type Quest = InferSelectModel<typeof quest>;
 export type Project = InferSelectModel<typeof project>;
 export type BlockedContent = InferSelectModel<typeof blocked_content>;
 
-interface TranslationWithVotes extends Translation {
-  upVotes: number;
-  downVotes: number;
-  netVotes: number;
-  source?: HybridDataSource;
-}
+export type TranslationWithVoteCount = Translation & {
+  up_votes: number;
+  down_votes: number;
+  net_votes: number;
+};
 
 /**
  * Returns { translations, isLoading, error }
@@ -581,16 +589,39 @@ export function useTranslationsWithVotesByAssetId(asset_id: string) {
   return { translationsWithVotes, isTranslationsWithVotesLoading, ...rest };
 }
 
-export function useTranslationsWithVotesByAsset(
+export function useTranslationsWithVoteCountByAssetId(
   asset_id: string,
   retrieveHiddenContent: boolean,
   translationsRefreshKey: string,
   voteRefreshKey: string,
-  useOfflineData: boolean
+  useOfflineData: boolean,
+  sort: 'voteCount' | 'dateSubmitted',
+  sortOrder: SortOrder = 'desc'
 ) {
+  const {
+    data: restrictions,
+    isRestrictionsLoading,
+    hasError: hasRestrictionsError
+  } = useUserRestrictions('translations', true, true, useOfflineData);
+
+  const { sql: _, ...operators } = getOrderByOperators();
+
+  const blockContentIds = Array.from(
+    new Set(
+      restrictions.blockedContentIds?.map((c) => c.content_id).filter(Boolean)
+    )
+  );
+  const blockUserIds = Array.from(
+    new Set(
+      restrictions.blockedUserIds?.map((c) => c.blocked_id).filter(Boolean)
+    )
+  );
+
   const conditions = [
     eq(translation.asset_id, asset_id),
-    !retrieveHiddenContent ? eq(translation.visible, true) : undefined
+    !retrieveHiddenContent && eq(translation.visible, true),
+    blockContentIds.length > 0 && notInArray(translation.id, blockContentIds),
+    blockUserIds.length > 0 && notInArray(translation.creator_id, blockUserIds)
   ];
 
   const {
@@ -598,126 +629,87 @@ export function useTranslationsWithVotesByAsset(
     isLoading: isTranslationsLoading,
     offlineError: translationsOfflineError,
     cloudError: translationsCloudError
-  } = useHybridData<Translation>({
+  } = useHybridData({
     dataType: 'translations',
-    queryKeyParams: [asset_id, translationsRefreshKey || 0, voteRefreshKey],
+    queryKeyParams: [
+      asset_id,
+      translationsRefreshKey || 0,
+      voteRefreshKey,
+      sort,
+      sortOrder
+    ],
 
     // PowerSync query using Drizzle
     offlineQuery: toMergeCompilableQuery(
       system.db
-        .select()
+        .select({
+          ...getTableColumns(translation),
+          up_votes: sql<number>`SUM(
+            CASE
+              WHEN ${vote.polarity} = 'up'
+              AND ${vote.active} = 1 THEN 1
+              ELSE 0
+            END
+          )`.as('up_votes'),
+          down_votes: sql<number>`SUM(
+            CASE
+              WHEN ${vote.polarity} = 'down'
+              AND ${vote.active} = 1 THEN 1
+              ELSE 0
+            END
+          )`.as('down_votes'),
+          net_votes: sql<number>`SUM(
+            CASE
+              WHEN ${vote.polarity} = 'up' AND ${vote.active} = 1 THEN 1
+              WHEN ${vote.polarity} = 'down' AND ${vote.active} = 1 THEN -1
+              ELSE 0
+            END
+          )`.as('net_votes')
+        })
         .from(translation)
+        .leftJoin(vote, eq(vote.translation_id, translation.id))
         .where(and(...conditions.filter(Boolean)))
+        .groupBy(vote.translation_id)
+        .orderBy(
+          sort === 'dateSubmitted'
+            ? operators[sortOrder](translation.created_at)
+            : operators[sortOrder](sql`net_votes`)
+        )
     ),
 
     // Cloud query function
     cloudQueryFn: async () => {
-      let query = system.supabaseConnector.client
-        .from('translation')
-        .select('*')
-        .eq('asset_id', asset_id);
-      if (!retrieveHiddenContent) query = query.eq('visible', true);
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as Translation[];
-    },
-
-    // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
-  });
-
-  const {
-    data: restrictions,
-    isRestrictionsLoading,
-    hasError: hasRestrictionsError
-  } = useUserRestrictions('translations', true, true, useOfflineData);
-
-  const blockContentIds = new Set(
-    restrictions.blockedContentIds?.map((c) => c.content_id)
-  );
-  const blockUserIds = new Set(
-    restrictions.blockedUserIds?.map((c) => c.blocked_id)
-  );
-
-  // Unify translations + votes
-  const translationIds: string[] = [];
-  const translationsMap = new Map<string, number>();
-  const translationWithVotes: TranslationWithVotes[] = [];
-
-  let idx = 0;
-  translations.map((trans) => {
-    if (!blockContentIds.has(trans.id) && !blockUserIds.has(trans.creator_id)) {
-      translationIds.push(trans.id);
-      translationsMap.set(trans.id, idx);
-      translationWithVotes.push({
-        ...trans,
-        upVotes: 0,
-        downVotes: 0,
-        netVotes: 0
-      });
-      idx++;
-    }
-  });
-
-  const {
-    data: votes,
-    isLoading: isVotesLoading,
-    cloudError: votesCloudError,
-    offlineError: votesOfflineError
-  } = useHybridData<Vote>({
-    dataType: 'votes',
-    queryKeyParams: [...translationIds, voteRefreshKey],
-
-    // PowerSync query for votes
-    offlineQuery:
-      translationIds.length > 0
-        ? toMergeCompilableQuery(
-            system.db
-              .select()
-              .from(vote)
-              .where(
-                and(
-                  inArray(vote.translation_id, translationIds),
-                  eq(vote.active, true)
-                )
-              )
-          )
-        : 'SELECT * FROM vote WHERE 1=0', // Empty query when no translations
-
-    // Cloud query for votes
-    cloudQueryFn: async () => {
-      if (translationIds.length === 0) return [];
       const { data, error } = await system.supabaseConnector.client
-        .from('vote')
-        .select('*')
-        .in('translation_id', translationIds)
-        .eq('active', true);
+        .from('translation')
+        .select(
+          `
+          *,
+          up_votes:vote(count).eq(polarity,up).eq(active,true),
+          down_votes:vote(count).eq(polarity,down).eq(active,true),
+          net_votes:vote(count).eq(active,true),
+        `
+        )
+        .eq('asset_id', asset_id)
+        .eq('visible', retrieveHiddenContent ? undefined : true)
+        .order(sort === 'dateSubmitted' ? 'created_at' : 'net_votes', {
+          ascending: sortOrder === 'asc'
+        })
+        .overrideTypes<TranslationWithVoteCount[]>();
 
       if (error) throw error;
-      return data as Vote[];
+      return data;
     },
 
     // Disable cloud query when user explicitly wants offline data
     enableCloudQuery: !useOfflineData
-  });
-
-  votes.forEach((v) => {
-    const idx = translationsMap.get(v.translation_id);
-    if (typeof idx === 'number' && translationWithVotes[idx]) {
-      if (v.polarity === 'up') translationWithVotes[idx].upVotes++;
-      else translationWithVotes[idx].downVotes++;
-      translationWithVotes[idx].netVotes =
-        translationWithVotes[idx].upVotes - translationWithVotes[idx].downVotes;
-    }
   });
 
   return {
-    data: translationWithVotes,
-    isLoading: isTranslationsLoading || isVotesLoading || isRestrictionsLoading,
+    data: translations,
+    isLoading: isTranslationsLoading || isRestrictionsLoading,
     hasError: useOfflineData
-      ? translationsOfflineError || votesOfflineError || hasRestrictionsError
-      : translationsCloudError || votesCloudError || hasRestrictionsError
+      ? translationsOfflineError || hasRestrictionsError
+      : translationsCloudError || hasRestrictionsError
   };
 }
 

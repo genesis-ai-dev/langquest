@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.3.2",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "npm run generate-local-tables && expo start --dev-client",
     "generate-icon-types": "ts-node ./scripts/generate-icon-types.ts",
     "generate-env": "npx tsx ./scripts/generate-env.ts",
     "generate-local-tables": "npx tsx ./scripts/generate-local-tables.ts",

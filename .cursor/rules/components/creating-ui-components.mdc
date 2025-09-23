@@ -10,3 +10,7 @@ Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/co
 ## Icons
 
 When looking for a suitable icon use the lucide-icons MCP.
+
+## Implementation Notes
+
+- Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.

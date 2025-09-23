@@ -5,42 +5,50 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type { language } from '@/db/drizzleSchema';
-import {
+import type {
   asset as assetCloud,
-  asset_content_link as assetContentCloud,
+  asset_content_link as assetContentCloud
+} from '@/db/drizzleSchema';
+import {
+  asset,
   language as languageTable,
   project as projectCloud
 } from '@/db/drizzleSchema';
-import {
+import type {
   asset_content_link_local as assetContentLocal,
-  asset_local as assetLocal,
-  project_local as projectLocal
+  asset_local as assetLocal
 } from '@/db/drizzleSchemaLocal';
+import { project_local as projectLocal } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
 import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { cn } from '@/utils/styleUtils';
 import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  CrownIcon,
+  FileTextIcon,
+  FlagIcon,
+  ImageIcon,
+  LockIcon,
+  PlusIcon,
+  SettingsIcon,
+  UserIcon,
+  Volume2Icon,
+  VolumeXIcon
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, ScrollView, Text, View } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -59,50 +67,21 @@ const ASSET_VIEWER_PROPORTION = 0.35;
 type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
-  return useQuery({
-    queryKey: ['asset', 'offline', assetId],
-    queryFn: async () => {
-      // Get asset with content
-      // Try local first
-      let assetResult = await system.db
-        .select()
-        .from(assetLocal)
-        .where(eq(assetLocal.id, assetId))
-        .limit(1);
-
-      if (!assetResult.length) {
-        // Fallback to cloud table
-        assetResult = await system.db
-          .select()
-          .from(assetCloud)
-          .where(eq(assetCloud.id, assetId))
-          .limit(1);
+  const mergedAssetQuery = toMergeCompilableQuery(
+    system.db.query.asset.findFirst({
+      where: eq(asset.id, assetId),
+      with: {
+        content: true
       }
+    })
+  );
 
-      if (!assetResult.length) return null;
-
-      const assetData = assetResult[0];
-
-      // Get asset content
-      // Prefer local content, fallback to cloud
-      let contentResult = await system.db
-        .select()
-        .from(assetContentLocal)
-        .where(eq(assetContentLocal.asset_id, assetId));
-
-      if (!contentResult.length) {
-        contentResult = await system.db
-          .select()
-          .from(assetContentCloud)
-          .where(eq(assetContentCloud.asset_id, assetId));
-      }
-
-      return {
-        ...assetData,
-        content: contentResult
-      } as AssetWithContent;
-    },
-    enabled: !!assetId
+  return useHybridData({
+    dataType: 'asset',
+    queryKeyParams: [assetId],
+    offlineQuery: mergedAssetQuery,
+    enableCloudQuery: false,
+    enableOfflineQuery: !!assetId
   });
 }
 
@@ -171,7 +150,8 @@ export default function NextGenAssetDetailView() {
   }, [projectData]);
 
   // Determine which asset to display
-  const activeAsset = offlineAsset;
+  const activeAsset = offlineAsset?.[0];
+
   const isLoading = isOfflineLoading;
 
   const currentStatus = useStatusContext();
@@ -205,8 +185,6 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  type Language = typeof language.$inferSelect;
-
   // Collect content-level language IDs for this asset
   const contentLanguageIds = React.useMemo(() => {
     const ids = new Set<string>();
@@ -217,7 +195,7 @@ export default function NextGenAssetDetailView() {
   }, [activeAsset?.content]);
 
   // Fetch all languages used by content items
-  const { data: contentLanguages = [] } = useHybridData<Language>({
+  const { data: contentLanguages = [] } = useHybridData({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
     offlineQuery: toMergeCompilableQuery(
@@ -253,14 +231,6 @@ export default function NextGenAssetDetailView() {
   const debugInfo = React.useMemo(
     () => ({
       assetId: currentAssetId,
-      offlineAsset: offlineAsset
-        ? {
-            id: offlineAsset.id,
-            name: offlineAsset.name,
-            contentCount: offlineAsset.content?.length ?? 0,
-            hasAudio: offlineAsset.content?.some((c) => c.audio_id) ?? false
-          }
-        : null,
       activeAsset: activeAsset
         ? {
             id: activeAsset.id,
@@ -278,13 +248,7 @@ export default function NextGenAssetDetailView() {
           hasLocalUri: !!state.local_uri
         }))
     }),
-    [
-      currentAssetId,
-      offlineAsset,
-      activeAsset,
-      attachmentStates,
-      allAttachmentIds
-    ]
+    [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
   );
 
   React.useEffect(() => {
@@ -298,8 +262,12 @@ export default function NextGenAssetDetailView() {
 
   if (!currentAssetId) {
     return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>{t('noAssetSelected')}</Text>
+      <View className="flex-1">
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-center text-xl font-bold text-foreground">
+            {t('noAssetSelected')}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -307,16 +275,21 @@ export default function NextGenAssetDetailView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  if (isLoading) {
+  if (isLoading || isOfflineLoading) {
     return <AssetSkeleton />;
   }
 
   if (!activeAsset) {
     return (
-      <View style={sharedStyles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t('assetNotAvailableOffline')}</Text>
-          <Text style={styles.errorHint}>{t('assetMayNotBeSynchronized')}</Text>
+      <View className="flex-1 bg-background">
+        <View className="flex-1 items-center justify-center p-4">
+          <Text className="text-center text-lg text-destructive">
+            {t('assetNotAvailableOffline')}
+          </Text>
+          <View className="h-2" />
+          <Text className="text-center text-sm italic text-muted-foreground">
+            {t('assetMayNotBeSynchronized')}
+          </Text>
         </View>
       </View>
     );
@@ -336,124 +309,99 @@ export default function NextGenAssetDetailView() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View className="mb-safe flex-1 px-4">
       {/* Header */}
-      <View
-        style={[
-          styles.headerBar
-          // !allowSettings && sharedStyles.disabled
-        ]}
-      >
-        <View style={styles.titleContainer}>
-          <Text style={styles.assetName}>{activeAsset.name}</Text>
+      <View className="flex-row items-center justify-between gap-1">
+        <View className="flex-1 flex-row items-center gap-4">
+          <Text className="flex-1 text-xl font-bold text-foreground">
+            {activeAsset.name}
+          </Text>
           {projectData?.private && (
-            <View style={styles.projectIndicators}>
-              <Ionicons
-                name="lock-closed"
-                size={16}
-                color={colors.textSecondary}
-              />
+            <View className="flex-row items-center gap-1">
+              <Icon as={LockIcon} className="text-muted-foreground" />
               {translateMembership === 'owner' && (
-                <Ionicons name="ribbon" size={16} color={colors.primary} />
+                <Icon as={CrownIcon} className="text-primary" />
               )}
               {translateMembership === 'member' && (
-                <Ionicons name="person" size={16} color={colors.primary} />
+                <Icon as={UserIcon} className="text-primary" />
               )}
             </View>
           )}
         </View>
         {SHOW_DEV_ELEMENTS && offlineAsset && (
-          <Text style={[{ color: colors.text }]}>
-            V: {offlineAsset.visible ? '🟢' : '🔴'} A:{' '}
-            {offlineAsset.active ? '🟢' : '🔴'}
+          <Text className="text-sm text-foreground">
+            V: {activeAsset.visible ? '🟢' : '🔴'} A:{' '}
+            {activeAsset.active ? '🟢' : '🔴'}
           </Text>
         )}
 
         {allowSettings &&
           (translateMembership === 'owner' ? (
-            <TouchableOpacity
+            <Button
               onPress={() => setShowAssetSettingsModal(true)}
-              style={styles.statsButton}
+              variant="ghost"
+              size="icon"
+              className="p-2"
             >
-              <Ionicons name="settings" size={22} color={colors.text} />
-            </TouchableOpacity>
+              <Icon as={SettingsIcon} size={22} className="text-foreground" />
+            </Button>
           ) : (
             !hasReported &&
             !isReportLoading && (
-              <TouchableOpacity
+              <Button
                 onPress={() => setShowReportModal(true)}
-                style={styles.statsButton}
+                variant="ghost"
+                size="icon"
+                className="p-2"
               >
-                <Ionicons name="flag" size={20} color={colors.text} />
-              </TouchableOpacity>
+                <Icon as={FlagIcon} size={20} className="text-foreground" />
+              </Button>
             )
           ))}
       </View>
 
       {/* Tab Bar */}
-      <View style={[styles.tabBar]}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'text' && styles.activeTab,
-            (!activeAsset.content || activeAsset.content.length === 0) &&
-              styles.disabledTab
-          ]}
-          onPress={() => setActiveTab('text')}
-          disabled={!activeAsset.content || activeAsset.content.length === 0}
-        >
-          <Ionicons
-            name="text"
-            size={24}
-            color={
-              activeAsset.content && activeAsset.content.length > 0
-                ? colors.text
-                : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'image' && styles.activeTab,
-            (!activeAsset.images || activeAsset.images.length === 0) &&
-              styles.disabledTab
-          ]}
-          onPress={() => setActiveTab('image')}
-          disabled={!activeAsset.images || activeAsset.images.length === 0}
-        >
-          <Ionicons
-            name="image"
-            size={24}
-            color={
-              activeAsset.images && activeAsset.images.length > 0
-                ? colors.text
-                : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Asset Content Viewer */}
-      <View
-        style={[
-          styles.assetViewer,
-          !allowEditing && sharedStyles.disabled,
-          invisible && sharedStyles.invisible,
-          { height: assetViewerHeight }
-        ]}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as TabType)}
       >
-        <ScrollView
-          style={[styles.contentScrollView]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentScrollViewContent}
+        <TabsList className="w-full flex-row">
+          <TabsTrigger
+            value="text"
+            className="flex-1 items-center py-2"
+            disabled={!activeAsset.content || activeAsset.content.length === 0}
+          >
+            <Icon as={FileTextIcon} size={24} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="image"
+            className="flex-1 items-center py-2"
+            disabled={!activeAsset.images || activeAsset.images.length === 0}
+          >
+            <Icon as={ImageIcon} size={24} />
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Asset Content Viewer */}
+        <View
+          className={cn(!allowEditing && 'opacity-50')}
+          style={{ height: assetViewerHeight }}
         >
-          {/* Text Content Tab */}
-          {activeTab === 'text' && (
-            <>
+          <ScrollView
+            className="flex-1"
+            showsVerticalScrollIndicator={false}
+            // contentContainerStyle={{ padding: 16 }}
+          >
+            <TabsContent value="text">
               {activeAsset.content && activeAsset.content.length > 0 ? (
                 activeAsset.content.map((content, index) => (
-                  <View key={index} style={styles.contentItem}>
+                  <View
+                    key={index}
+                    style={{
+                      marginBottom:
+                        index < activeAsset.content.length - 1 ? 8 : 0
+                    }}
+                  >
                     <SourceContent
                       content={content}
                       sourceLanguage={
@@ -493,19 +441,21 @@ export default function NextGenAssetDetailView() {
                     />
 
                     {/* Audio status indicator */}
-                    {}
                     {SHOW_DEV_ELEMENTS && content.audio_id && (
-                      <View style={styles.audioStatusContainer}>
-                        <Ionicons
-                          name={
+                      <View
+                        className="flex-row items-center gap-1"
+                        style={{ marginTop: 8 }}
+                      >
+                        <Icon
+                          as={
                             attachmentStates.get(content.audio_id)?.local_uri
-                              ? 'volume-high'
-                              : 'volume-mute'
+                              ? Volume2Icon
+                              : VolumeXIcon
                           }
                           size={16}
-                          color={colors.textSecondary}
+                          className="text-muted-foreground"
                         />
-                        <Text style={styles.audioStatusText}>
+                        <Text className="text-sm text-muted-foreground">
                           {attachmentStates.get(content.audio_id)?.local_uri
                             ? t('audioReady')
                             : t('audioNotAvailable')}
@@ -515,18 +465,15 @@ export default function NextGenAssetDetailView() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noContentText}>
+                <Text className="p-8 text-center text-base italic text-muted-foreground">
                   {t('noContentAvailable')}
                 </Text>
               )}
-            </>
-          )}
+            </TabsContent>
 
-          {/* Image Content Tab */}
-          {activeTab === 'image' && (
-            <>
+            <TabsContent value="image">
               {activeAsset.images && activeAsset.images.length > 0 ? (
-                <View style={styles.imageCarouselWrapper}>
+                <View className="h-48 overflow-hidden rounded-lg">
                   <ImageCarousel
                     uris={activeAsset.images
                       .map((imageId) => {
@@ -550,35 +497,17 @@ export default function NextGenAssetDetailView() {
                   />
                 </View>
               ) : (
-                <Text style={[styles.noContentText]}>
+                <Text className="p-8 text-center text-base italic text-muted-foreground">
                   {t('noContentAvailable')}
                 </Text>
               )}
-            </>
-          )}
-
-          {/* Asset Info - Always visible 
-          <View style={styles.assetInfo}>
-            <Text style={styles.assetInfoText}>
-              {t('language')}:{' '}
-              {sourceLanguage?.native_name ??
-                sourceLanguage?.english_name ??
-                t('unknown')}
-            </Text>
-            {activeAsset.content?.some((c) => c.audio_id) && (
-              <Text style={styles.assetInfoText}>
-                🔊{' '}
-                {t('audioTracks', {
-                  count: activeAsset.content.filter((c) => c.audio_id).length
-                })}
-              </Text>
-            )}
-          </View>*/}
-        </ScrollView>
-      </View>
+            </TabsContent>
+          </ScrollView>
+        </View>
+      </Tabs>
 
       {/* Translations List - Pass project data to avoid re-querying */}
-      <View style={{ flex: 1 }}>
+      <View className="flex-1">
         <NextGenTranslationsList
           assetId={currentAssetId}
           assetName={activeAsset.name}
@@ -597,36 +526,36 @@ export default function NextGenAssetDetailView() {
           isPrivate={true}
           action="translate"
           renderTrigger={({ onPress }) => (
-            <TouchableOpacity
-              style={styles.newTranslationButton}
+            <Button
+              className="flex-row items-center justify-center gap-2 px-6 py-4"
               onPress={onPress}
             >
-              <Ionicons
-                name="lock-closed"
+              <Icon
+                as={LockIcon}
                 size={20}
-                color={colors.buttonText}
+                className="text-primary-foreground"
               />
-              <Ionicons name="add" size={24} color={colors.buttonText} />
-              <Text style={styles.newTranslationButtonText}>
+              <Icon
+                as={PlusIcon}
+                size={24}
+                className="text-primary-foreground"
+              />
+              <Text className="text-base font-bold text-primary-foreground">
                 {t('membersOnly')}
               </Text>
-            </TouchableOpacity>
+            </Button>
           )}
           onAccessGranted={() => setShowNewTranslationModal(true)}
         />
       ) : (
-        <TouchableOpacity
-          style={[
-            styles.newTranslationButton,
-            !allowEditing && sharedStyles.disabled
-          ]}
-          onPress={() => (allowEditing ? handleNewTranslationPress() : null)}
+        <Button
+          className="-mx-2 flex-row items-center justify-center gap-2 px-6 py-4"
+          disabled={!allowEditing}
+          onPress={() => allowEditing && handleNewTranslationPress()}
         >
-          <Ionicons name="add" size={24} color={colors.buttonText} />
-          <Text style={styles.newTranslationButtonText}>
-            {t('newTranslation')}
-          </Text>
-        </TouchableOpacity>
+          <Icon as={PlusIcon} size={24} />
+          <Text className="text-base font-bold">{t('newTranslation')}</Text>
+        </Button>
       )}
 
       {/* New Translation Modal */}
@@ -657,144 +586,6 @@ export default function NextGenAssetDetailView() {
         hasAlreadyReported={hasReported}
         onReportSubmitted={() => refetchOfflineAsset()}
       />
-    </SafeAreaView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background
-  },
-  headerBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  titleContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small,
-    marginRight: spacing.medium
-  },
-  assetName: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    flex: 1
-  },
-  projectIndicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.backgroundSecondary,
-    paddingVertical: spacing.small,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.small
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary
-  },
-  disabledTab: {
-    opacity: 0.5
-  },
-  assetViewer: {
-    backgroundColor: colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  contentScrollView: {
-    flex: 1
-  },
-  contentScrollViewContent: {
-    padding: spacing.medium
-  },
-  contentItem: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginBottom: spacing.small
-  },
-  noContentText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    padding: spacing.large
-  },
-  assetInfo: {
-    marginTop: spacing.medium,
-    gap: spacing.xsmall
-  },
-  assetInfoText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  errorContainer: {
-    padding: spacing.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.large
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    marginTop: spacing.medium
-  },
-  errorHint: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small,
-    textAlign: 'center',
-    marginTop: spacing.small,
-    fontStyle: 'italic'
-  },
-  newTranslationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.medium,
-    paddingHorizontal: spacing.large,
-    gap: spacing.small
-  },
-  newTranslationButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  audioStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    marginTop: spacing.small
-  },
-  audioStatusText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  imageCarouselWrapper: {
-    height: 200, // Fixed height for the carousel
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 8,
-    overflow: 'hidden'
-  },
-  statsButton: {
-    marginLeft: spacing.medium
-  }
-});
