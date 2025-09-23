@@ -49,6 +49,7 @@ export default function NextGenTranslationsList({
 }: NextGenTranslationsListProps) {
   const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
+  const [open, setOpen] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [selectedTranslationId, setSelectedTranslationId] = useState<
@@ -104,6 +105,7 @@ export default function NextGenTranslationsList({
   const handleTranslationPress = (translationId: string) => {
     // Always allow opening modal - voting restrictions are handled inside the modal
     setSelectedTranslationId(translationId);
+    setOpen(true);
   };
 
   const handleVoteSuccess = () => {
@@ -217,6 +219,7 @@ export default function NextGenTranslationsList({
           recycleItems
           estimatedItemSize={120}
           maintainVisibleContentPosition
+          contentContainerStyle={{ gap: 12 }}
           renderItem={({ item }) => (
             <TranslationCard
               translation={item}
@@ -238,8 +241,8 @@ export default function NextGenTranslationsList({
       {/* Translation Modal */}
       {selectedTranslationId && (
         <NextGenTranslationModal
-          visible={!!selectedTranslationId}
-          onClose={() => setSelectedTranslationId(null)}
+          open={open}
+          onOpenChange={setOpen}
           translationId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
           canVote={canVote}

@@ -21,14 +21,9 @@ interface TranslationCardProps {
 export const TranslationCard = ({
   translation,
   audioUri = undefined,
-  handleTranslationPress
+  handleTranslationPress,
+  previewText
 }: TranslationCardProps) => {
-  const getPreviewText = (fullText: string, maxLength = 50) => {
-    if (!fullText) return '(Empty translation)';
-    if (fullText.length <= maxLength) return fullText;
-    return fullText.substring(0, maxLength).trim() + '...';
-  };
-
   const currentLayer = useStatusContext();
   const { allowEditing, invisible } = currentLayer.getStatusParams(
     LayerType.ASSET,
@@ -37,74 +32,77 @@ export const TranslationCard = ({
   );
 
   return (
-    <Pressable
-      key={translation.id}
-      onPress={() => handleTranslationPress(translation.id)}
-      disabled={!allowEditing}
-    >
-      <Card
-        className={cn(
-          !allowEditing && 'opacity-50',
-          invisible && 'opacity-20',
-          'mb-4'
-        )}
+    <View className="flex flex-col gap-4">
+      <Pressable
+        key={translation.id}
+        onPress={() => handleTranslationPress(translation.id)}
+        disabled={!allowEditing}
       >
-        <CardHeader className="flex flex-row items-start justify-between">
-          <View className="flex flex-1 flex-col">
-            <View className="flex flex-row items-start gap-2">
-              <Text numberOfLines={2} className="flex flex-1">
-                {getPreviewText(translation.text || '')}
-              </Text>
+        <Card
+          className={cn(
+            !allowEditing && 'opacity-50',
+            invisible && 'opacity-20'
+          )}
+        >
+          <CardHeader className="flex flex-row items-start justify-between">
+            <View className="flex flex-1 flex-col gap-2">
+              <View className="flex flex-row items-start gap-2">
+                <Text numberOfLines={2} className="flex flex-1">
+                  {previewText}
+                </Text>
+              </View>
+
+              {/* Audio Player */}
+              {translation.audio && audioUri && (
+                <View className="rounded-sm bg-background p-2">
+                  <AudioPlayer
+                    audioUri={audioUri}
+                    useCarousel={false}
+                    mini={true}
+                  />
+                </View>
+              )}
+
+              {SHOW_DEV_ELEMENTS && (
+                <Text className="text-xs text-muted-foreground">
+                  {translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} -
+                  V: {translation.visible ? '🟢' : '🔴'} | A:{' '}
+                  {translation.active ? '🟢' : '🔴'}
+                </Text>
+              )}
             </View>
 
-            {/* Audio Player */}
-            {translation.audio && audioUri && (
-              <View className="mt-2 rounded-sm bg-background p-2">
-                <AudioPlayer
-                  audioUri={audioUri}
-                  useCarousel={false}
-                  mini={true}
+            <View className="flex flex-col items-end gap-1">
+              <View className="flex flex-row items-center gap-2">
+                <Icon
+                  as={ThumbsUpIcon}
+                  size={16}
+                  className={cn(
+                    'text-foreground',
+                    translation.up_votes > 0 ? 'opacity-100' : 'opacity-30'
+                  )}
+                />
+                <Text className="text-sm font-bold">
+                  {translation.net_votes}
+                </Text>
+                <Icon
+                  as={ThumbsDownIcon}
+                  size={16}
+                  className={cn(
+                    'text-foreground',
+                    translation.down_votes > 0 ? 'opacity-100' : 'opacity-30'
+                  )}
                 />
               </View>
-            )}
-
-            {SHOW_DEV_ELEMENTS && (
-              <Text className="mt-1 text-xs text-muted-foreground">
-                {translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} -
-                V: {translation.visible ? '🟢' : '🔴'} | A:{' '}
-                {translation.active ? '🟢' : '🔴'}
-              </Text>
-            )}
-          </View>
-
-          <View className="flex flex-col items-end gap-1">
-            <View className="flex flex-row items-center gap-2">
-              <Icon
-                as={ThumbsUpIcon}
-                size={16}
-                className={cn(
-                  'text-foreground',
-                  translation.up_votes > 0 ? 'opacity-100' : 'opacity-30'
-                )}
-              />
-              <Text className="text-sm font-bold">{translation.net_votes}</Text>
-              <Icon
-                as={ThumbsDownIcon}
-                size={16}
-                className={cn(
-                  'text-foreground',
-                  translation.down_votes > 0 ? 'opacity-100' : 'opacity-30'
-                )}
-              />
+              {SHOW_DEV_ELEMENTS && (
+                <Text className="text-xs text-muted-foreground">
+                  {translation.up_votes} ↑ {translation.down_votes} ↓
+                </Text>
+              )}
             </View>
-            {SHOW_DEV_ELEMENTS && (
-              <Text className="text-xs text-muted-foreground">
-                {translation.up_votes} ↑ {translation.down_votes} ↓
-              </Text>
-            )}
-          </View>
-        </CardHeader>
-      </Card>
-    </Pressable>
+          </CardHeader>
+        </Card>
+      </Pressable>
+    </View>
   );
 };

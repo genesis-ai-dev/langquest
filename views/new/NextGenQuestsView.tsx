@@ -6,7 +6,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import {
   Drawer,
   DrawerClose,
@@ -22,6 +22,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -45,7 +46,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { mergeQuery, resolveTable, sortingHelper } from '@/utils/dbUtils';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
 import { useMutation } from '@tanstack/react-query';
@@ -466,23 +467,14 @@ export default function NextGenQuestsView() {
             </View>
           </Form>
           <DrawerFooter>
-            <Button
+            <FormSubmit
               onPress={form.handleSubmit((data) => createQuest(data))}
               disabled={isCreatingQuest}
               className="flex-row items-center gap-2"
             >
-              {isCreatingQuest && (
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('secondary')}
-                />
-              )}
               <Text>{t('createObject')}</Text>
-            </Button>
-            <DrawerClose
-              className={buttonVariants({ variant: 'outline' })}
-              disabled={isCreatingQuest}
-            >
+            </FormSubmit>
+            <DrawerClose disabled={isCreatingQuest}>
               <Text>Cancel</Text>
             </DrawerClose>
           </DrawerFooter>

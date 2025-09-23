@@ -18,6 +18,7 @@ import { Portal, PortalHost } from '@rn-primitives/portal';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
+import { buttonVariants } from '../button';
 import { Text } from '../text';
 interface DrawerContextValue extends DrawerProps {
   ref: React.RefObject<BSModalType | null> | null;
@@ -111,6 +112,7 @@ function DrawerTrigger({
 function DrawerClose({
   children,
   asChild,
+  className,
   ...props
 }: {
   children: React.ReactNode;
@@ -125,7 +127,11 @@ function DrawerClose({
   const Component = asChild ? Slot.Pressable : Pressable;
 
   return (
-    <Component onPress={handlePress} {...props}>
+    <Component
+      onPress={handlePress}
+      {...props}
+      className={cn(buttonVariants({ variant: 'outline', className }))}
+    >
       {children}
     </Component>
   );

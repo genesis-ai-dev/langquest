@@ -6,12 +6,12 @@ import type { TextInputProps } from 'react-native';
 import { Platform, TextInput } from 'react-native';
 
 const textareaVariants = cva(
-  'shadow-black/5 flex w-full flex-row rounded-md border border-border bg-input text-foreground shadow-sm',
+  'flex w-full flex-row rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5',
   {
     variants: {
       size: {
         sm: 'min-h-24 px-3 py-2 text-sm',
-        default: 'min-h-16 px-3 py-2 text-base md:text-sm'
+        default: 'min-h-32 px-3 py-2 text-base md:text-sm'
       }
     },
     defaultVariants: {

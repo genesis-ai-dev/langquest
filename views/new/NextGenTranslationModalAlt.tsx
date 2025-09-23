@@ -2,9 +2,18 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { TranslationSettingsModal } from '@/components/TranslationSettingsModal';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { translationService } from '@/database_services/translationService';
@@ -17,6 +26,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
@@ -32,16 +42,14 @@ import {
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Modal,
+  Alert as RNAlert,
   ScrollView,
-  TextInput,
   View
 } from 'react-native';
 
 interface NextGenTranslationModalProps {
-  visible: boolean;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   translationId: string;
   onVoteSuccess?: () => void;
   canVote?: boolean;
@@ -99,8 +107,8 @@ function useNextGenTranslation(translationId: string) {
 }
 
 export default function NextGenTranslationModal({
-  visible,
-  onClose,
+  open,
+  onOpenChange,
   translationId,
   onVoteSuccess,
   canVote: _canVote = true,
@@ -141,7 +149,7 @@ export default function NextGenTranslationModal({
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
       if (!currentUser || !translationData) {
-        Alert.alert(t('error'), t('pleaseLogInToVote'));
+        RNAlert.alert(t('error'), t('pleaseLogInToVote'));
         return;
       }
       setPendingVoteType(voteType);
@@ -222,14 +230,14 @@ export default function NextGenTranslationModal({
         });
       },
       onSuccess: () => {
-        Alert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
+        RNAlert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
-        onClose();
+        onOpenChange(false);
       },
       onError: (error) => {
         console.error('Error creating transcription:', error);
-        Alert.alert(t('error'), t('failedToCreateTranscription'));
+        RNAlert.alert(t('error'), t('failedToCreateTranscription'));
       }
     });
 
@@ -255,27 +263,25 @@ export default function NextGenTranslationModal({
     translationData as LayerStatus
   );
 
-  if (!visible) return null;
-
+  const { stopCurrentSound, isPlaying } = useAudio();
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
+    <Drawer
+      open={open}
+      onOpenChange={async (open) => {
+        onOpenChange(open);
+        if (!open) {
+          setShowReportModal(false);
+          setShowSettingsModal(false);
+          if (isPlaying) {
+            await stopCurrentSound();
+          }
+        }
+      }}
     >
-      <View className="flex-1 items-center justify-center bg-black/50">
-        <Button
-          variant="ghost"
-          className="absolute bottom-0 left-0 right-0 top-0"
-          onPress={onClose}
-        />
-        <View className="max-h-[80%] w-[90%] rounded-lg bg-background p-6">
-          {/* Header */}
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-foreground">
-              {t('translation')}
-            </Text>
+      <DrawerContent className="mb-safe py-4">
+        <DrawerHeader>
+          <View className="flex-row items-center justify-between">
+            <DrawerTitle>{t('translation')}</DrawerTitle>
             <View className="flex-row gap-2">
               {/* Edit/Transcription button */}
               {allowEditing && (
@@ -299,7 +305,6 @@ export default function NextGenTranslationModal({
                               : PencilIcon
                             : LockIcon
                         }
-                        size={20}
                         className={
                           hasAccess ? 'text-primary' : 'text-muted-foreground'
                         }
@@ -334,93 +339,94 @@ export default function NextGenTranslationModal({
                   />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={onClose}
-                className="p-1.5"
-              >
-                <Icon as={XIcon} size={24} className="text-foreground" />
-              </Button>
             </View>
           </View>
+        </DrawerHeader>
 
-          <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
-            {isLoading ? (
+        <ScrollView
+          className="max-h-96 px-4"
+          showsVerticalScrollIndicator={false}
+        >
+          {isLoading ? (
+            <View className="py-8">
               <ActivityIndicator
                 size="large"
-                color="#007AFF"
-                className="my-8"
+                color={getThemeColor('primary')}
               />
-            ) : translationData ? (
-              <>
-                {/* Translation Text */}
-                <View className="mb-4 rounded-md bg-muted p-4">
-                  {isEditing ? (
-                    <TextInput
-                      className="min-h-24 rounded-md border border-border bg-muted p-2 text-lg leading-6 text-foreground"
-                      multiline
-                      placeholder={t('enterYourTranscription')}
-                      placeholderTextColor="#6B7280"
-                      value={editedText}
-                      onChangeText={setEditedText}
-                      autoFocus
+            </View>
+          ) : translationData ? (
+            <View className="flex-col gap-4">
+              {/* Translation Text */}
+              {isEditing ? (
+                <Textarea
+                  placeholder={t('enterYourTranscription')}
+                  value={editedText}
+                  onChangeText={setEditedText}
+                  autoFocus
+                  size="sm"
+                />
+              ) : (
+                <Text
+                  className={cn(
+                    'text-lg leading-6 text-foreground',
+                    !translationData.text && 'italic text-muted-foreground'
+                  )}
+                >
+                  {translationData.text || '(No text)'}
+                </Text>
+              )}
+
+              {/* Audio Player */}
+              {translationData.audio && getAudioUri() && !isEditing && (
+                <View>
+                  <AudioPlayer
+                    audioUri={getAudioUri()}
+                    useCarousel={false}
+                    mini={false}
+                  />
+                </View>
+              )}
+
+              {/* Submit button for transcription */}
+              {isEditing && (
+                <Button
+                  variant="default"
+                  onPress={handleSubmitTranscription}
+                  disabled={!editedText.trim() || isTranscribing}
+                >
+                  {isTranscribing ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary-foreground')}
                     />
                   ) : (
-                    <Text className="text-lg leading-6 text-foreground">
-                      {translationData.text || '(No text)'}
+                    <Text className="font-bold text-primary-foreground">
+                      {t('submitTranscription')}
                     </Text>
                   )}
-                </View>
+                </Button>
+              )}
 
-                {/* Audio Player */}
-                {translationData.audio && getAudioUri() && !isEditing && (
-                  <View className="mb-4 rounded-md bg-muted p-4">
-                    <AudioPlayer
-                      audioUri={getAudioUri()}
-                      useCarousel={false}
-                      mini={false}
-                    />
-                  </View>
-                )}
-
-                {/* Submit button for transcription */}
-                {isEditing && (
-                  <Button
-                    variant="default"
-                    onPress={handleSubmitTranscription}
-                    disabled={!editedText.trim() || isTranscribing}
-                    className="mt-4"
+              {/* Voting Section with PrivateAccessGate */}
+              {!isOwnTranslation &&
+                currentUser &&
+                !isEditing &&
+                !hasReported &&
+                allowEditing && (
+                  <PrivateAccessGate
+                    projectId={projectId || ''}
+                    projectName={projectName || ''}
+                    isPrivate={isPrivateProject}
+                    action="vote"
+                    inline={true}
                   >
-                    {isTranscribing ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text className="font-bold text-primary-foreground">
-                        {t('submitTranscription')}
-                      </Text>
-                    )}
-                  </Button>
-                )}
-
-                {/* Voting Section with PrivateAccessGate */}
-                {!isOwnTranslation &&
-                  currentUser &&
-                  !isEditing &&
-                  !hasReported &&
-                  allowEditing && (
-                    <PrivateAccessGate
-                      projectId={projectId || ''}
-                      projectName={projectName || ''}
-                      isPrivate={isPrivateProject}
-                      action="vote"
-                      inline={true}
-                    >
-                      <View className="mb-2.5 border-b border-foreground">
+                    <View className="flex-col gap-2.5">
+                      <View className="border-b border-foreground">
                         <Text className="text-center text-base font-bold text-foreground">
                           {t('voting')}
                         </Text>
                       </View>
-                      <View className="mb-0 w-full flex-row items-center justify-around">
+                      <View className="w-full flex-row items-center justify-around">
                         <Button
                           variant={
                             userVote?.polarity === 'up'
@@ -479,58 +485,55 @@ export default function NextGenTranslationModal({
                           )}
                         </Button>
                       </View>
-                    </PrivateAccessGate>
-                  )}
+                    </View>
+                  </PrivateAccessGate>
+                )}
 
-                {/* Show login prompt if not logged in */}
-                {!currentUser && !isEditing && (
-                  <View className="mb-4 flex-row items-center justify-center gap-2 rounded-md bg-muted p-4">
-                    <Icon
-                      as={UserCircleIcon}
-                      size={20}
-                      className="text-muted-foreground"
-                    />
-                    <Text className="text-center text-base text-muted-foreground">
-                      {t('pleaseLogInToVoteOnTranslations')}
-                    </Text>
-                  </View>
-                )}
-                {isOwnTranslation ? (
-                  <TranslationSettingsModal
-                    isVisible={showSettingsModal}
-                    onClose={() => setShowSettingsModal(false)}
-                    translationId={translationId}
-                  />
-                ) : (
-                  <ReportModal
-                    isVisible={showReportModal}
-                    onClose={() => setShowReportModal(false)}
-                    recordId={translationId}
-                    recordTable="translations"
-                    creatorId={translationData.creator_id}
-                    hasAlreadyReported={hasReported}
-                    onReportSubmitted={() => refetch()}
-                  />
-                )}
-                {/* Debug Info */}
-                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                {SHOW_DEV_ELEMENTS && (
-                  <View className="mt-4 items-center">
-                    <Text className="text-sm text-muted-foreground">
-                      {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
-                      {translationData.id.substring(0, 8)}...
-                    </Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text className="my-8 text-center text-base text-destructive">
+              {/* Show login prompt if not logged in */}
+              {!currentUser && !isEditing && (
+                <Alert icon={UserCircleIcon}>
+                  <AlertTitle>
+                    {t('pleaseLogInToVoteOnTranslations')}
+                  </AlertTitle>
+                </Alert>
+              )}
+              {isOwnTranslation ? (
+                <TranslationSettingsModal
+                  isVisible={showSettingsModal}
+                  onClose={() => setShowSettingsModal(false)}
+                  translationId={translationId}
+                />
+              ) : (
+                <ReportModal
+                  isVisible={showReportModal}
+                  onClose={() => setShowReportModal(false)}
+                  recordId={translationId}
+                  recordTable="translations"
+                  creatorId={translationData.creator_id}
+                  hasAlreadyReported={hasReported}
+                  onReportSubmitted={() => refetch()}
+                />
+              )}
+              {/* Debug Info */}
+              {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+              {SHOW_DEV_ELEMENTS && (
+                <View className="items-center">
+                  <Text className="text-sm text-muted-foreground">
+                    {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
+                    {translationData.id.substring(0, 8)}...
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="py-8">
+              <Text className="text-center text-base text-destructive">
                 {t('translationNotFound')}
               </Text>
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+            </View>
+          )}
+        </ScrollView>
+      </DrawerContent>
+    </Drawer>
   );
 }

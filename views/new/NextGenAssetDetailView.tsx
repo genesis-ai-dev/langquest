@@ -48,7 +48,7 @@ import {
   VolumeXIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, ScrollView, Text, View } from 'react-native';
+import { Dimensions, Text, View } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -387,122 +387,112 @@ export default function NextGenAssetDetailView() {
           className={cn(!allowEditing && 'opacity-50')}
           style={{ height: assetViewerHeight }}
         >
-          <ScrollView
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-            // contentContainerStyle={{ padding: 16 }}
-          >
-            <TabsContent value="text">
-              {activeAsset.content && activeAsset.content.length > 0 ? (
-                activeAsset.content.map((content, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      marginBottom:
-                        index < activeAsset.content.length - 1 ? 8 : 0
-                    }}
-                  >
-                    <SourceContent
-                      content={content}
-                      sourceLanguage={
-                        content.source_language_id
-                          ? (languageById.get(content.source_language_id) ??
-                            null)
-                          : null
-                      }
-                      audioUri={
-                        content.audio_id
-                          ? (() => {
-                              const attachment = attachmentStates.get(
-                                content.audio_id
-                              );
-                              const localUri = attachment?.local_uri;
+          <TabsContent value="text">
+            {activeAsset.content && activeAsset.content.length > 0 ? (
+              activeAsset.content.map((content, index) => (
+                <View
+                  key={index}
+                  style={{
+                    marginBottom: index < activeAsset.content.length - 1 ? 8 : 0
+                  }}
+                >
+                  <SourceContent
+                    content={content}
+                    sourceLanguage={
+                      content.source_language_id
+                        ? (languageById.get(content.source_language_id) ?? null)
+                        : null
+                    }
+                    audioUri={
+                      content.audio_id
+                        ? (() => {
+                            const attachment = attachmentStates.get(
+                              content.audio_id
+                            );
+                            const localUri = attachment?.local_uri;
 
-                              if (!localUri) {
-                                console.log(
-                                  `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                                  attachment?.state
-                                );
-                                return null;
-                              }
-
-                              const fullUri =
-                                system.permAttachmentQueue?.getLocalUri(
-                                  localUri
-                                );
+                            if (!localUri) {
                               console.log(
-                                `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                                `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                                attachment?.state
                               );
-                              return fullUri;
-                            })()
-                          : null
-                      }
-                      isLoading={isLoadingAttachments}
-                    />
+                              return null;
+                            }
 
-                    {/* Audio status indicator */}
-                    {SHOW_DEV_ELEMENTS && content.audio_id && (
-                      <View
-                        className="flex-row items-center gap-1"
-                        style={{ marginTop: 8 }}
-                      >
-                        <Icon
-                          as={
-                            attachmentStates.get(content.audio_id)?.local_uri
-                              ? Volume2Icon
-                              : VolumeXIcon
-                          }
-                          size={16}
-                          className="text-muted-foreground"
-                        />
-                        <Text className="text-sm text-muted-foreground">
-                          {attachmentStates.get(content.audio_id)?.local_uri
-                            ? t('audioReady')
-                            : t('audioNotAvailable')}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <Text className="p-8 text-center text-base italic text-muted-foreground">
-                  {t('noContentAvailable')}
-                </Text>
-              )}
-            </TabsContent>
-
-            <TabsContent value="image">
-              {activeAsset.images && activeAsset.images.length > 0 ? (
-                <View className="h-48 overflow-hidden rounded-lg">
-                  <ImageCarousel
-                    uris={activeAsset.images
-                      .map((imageId) => {
-                        const attachment = attachmentStates.get(imageId);
-                        const localUri = attachment?.local_uri;
-
-                        if (!localUri) {
-                          console.log(
-                            `[IMAGE] No local URI for image ${imageId}, state:`,
-                            attachment?.state
-                          );
-                          return null;
-                        }
-
-                        const fullUri =
-                          system.permAttachmentQueue?.getLocalUri(localUri);
-                        console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
-                        return fullUri;
-                      })
-                      .filter((uri): uri is string => uri !== null)}
+                            const fullUri =
+                              system.permAttachmentQueue?.getLocalUri(localUri);
+                            console.log(
+                              `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                            );
+                            return fullUri;
+                          })()
+                        : null
+                    }
+                    isLoading={isLoadingAttachments}
                   />
+
+                  {/* Audio status indicator */}
+                  {SHOW_DEV_ELEMENTS && content.audio_id && (
+                    <View
+                      className="flex-row items-center gap-1"
+                      style={{ marginTop: 8 }}
+                    >
+                      <Icon
+                        as={
+                          attachmentStates.get(content.audio_id)?.local_uri
+                            ? Volume2Icon
+                            : VolumeXIcon
+                        }
+                        size={16}
+                        className="text-muted-foreground"
+                      />
+                      <Text className="text-sm text-muted-foreground">
+                        {attachmentStates.get(content.audio_id)?.local_uri
+                          ? t('audioReady')
+                          : t('audioNotAvailable')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              ) : (
-                <Text className="p-8 text-center text-base italic text-muted-foreground">
-                  {t('noContentAvailable')}
-                </Text>
-              )}
-            </TabsContent>
-          </ScrollView>
+              ))
+            ) : (
+              <Text className="p-8 text-center text-base italic text-muted-foreground">
+                {t('noContentAvailable')}
+              </Text>
+            )}
+          </TabsContent>
+
+          <TabsContent value="image">
+            {activeAsset.images && activeAsset.images.length > 0 ? (
+              <View className="h-48 overflow-hidden rounded-lg">
+                <ImageCarousel
+                  uris={activeAsset.images
+                    .map((imageId) => {
+                      const attachment = attachmentStates.get(imageId);
+                      const localUri = attachment?.local_uri;
+
+                      if (!localUri) {
+                        console.log(
+                          `[IMAGE] No local URI for image ${imageId}, state:`,
+                          attachment?.state
+                        );
+                        return null;
+                      }
+
+                      const fullUri =
+                        system.permAttachmentQueue?.getLocalUri(localUri);
+                      console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
+                      return fullUri;
+                    })
+                    .filter((uri): uri is string => uri !== null)}
+                />
+              </View>
+            ) : (
+              <Text className="p-8 text-center text-base italic text-muted-foreground">
+                {t('noContentAvailable')}
+              </Text>
+            )}
+          </TabsContent>
         </View>
       </Tabs>
 

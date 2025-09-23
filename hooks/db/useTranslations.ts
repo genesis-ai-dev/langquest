@@ -627,8 +627,8 @@ export function useTranslationsWithVoteCountByAssetId(
   const {
     data: translations,
     isLoading: isTranslationsLoading,
-    offlineError: translationsOfflineError,
-    cloudError: translationsCloudError
+    offlineError: translationsOfflineError
+    // cloudError: translationsCloudError
   } = useHybridData({
     dataType: 'translations',
     queryKeyParams: [
@@ -678,38 +678,40 @@ export function useTranslationsWithVoteCountByAssetId(
     ),
 
     // Cloud query function
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('translation')
-        .select(
-          `
-          *,
-          up_votes:vote(count).eq(polarity,up).eq(active,true),
-          down_votes:vote(count).eq(polarity,down).eq(active,true),
-          net_votes:vote(count).eq(active,true),
-        `
-        )
-        .eq('asset_id', asset_id)
-        .eq('visible', retrieveHiddenContent ? undefined : true)
-        .order(sort === 'dateSubmitted' ? 'created_at' : 'net_votes', {
-          ascending: sortOrder === 'asc'
-        })
-        .overrideTypes<TranslationWithVoteCount[]>();
+    // cloudQueryFn: async () => {
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('translation')
+    //     .select(
+    //       `
+    //       *,
+    //       up_votes:vote(count).eq(polarity,up).eq(active,true),
+    //       down_votes:vote(count).eq(polarity,down).eq(active,true),
+    //       net_votes:vote(count).eq(active,true)
+    //     `
+    //     )
+    //     .eq('asset_id', asset_id)
+    //     .eq('visible', retrieveHiddenContent ? undefined : true)
+    //     .order(sort === 'dateSubmitted' ? 'created_at' : 'net_votes', {
+    //       ascending: sortOrder === 'asc'
+    //     })
+    //     .overrideTypes<TranslationWithVoteCount[]>();
 
-      if (error) throw error;
-      return data;
-    },
+    //   if (error) throw error;
+    //   return data;
+    // },
 
     // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
+    // enableCloudQuery: !useOfflineData
+    enableCloudQuery: false
   });
 
   return {
     data: translations,
     isLoading: isTranslationsLoading || isRestrictionsLoading,
-    hasError: useOfflineData
-      ? translationsOfflineError || hasRestrictionsError
-      : translationsCloudError || hasRestrictionsError
+    // hasError: useOfflineData
+    //   ? translationsOfflineError || hasRestrictionsError
+    //   : translationsCloudError || hasRestrictionsError
+    hasError: !!translationsOfflineError || !!hasRestrictionsError
   };
 }
 
