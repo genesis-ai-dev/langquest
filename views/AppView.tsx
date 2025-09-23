@@ -71,12 +71,6 @@ export default function AppView() {
   return (
     <StatusProvider>
       <View style={styles.appContainer}>
-        {/* Drawer Navigation */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
-
         {/* Main Content Area */}
         <View style={styles.contentContainer}>
           {/* App Header */}
@@ -87,6 +81,11 @@ export default function AppView() {
           {/* Current View */}
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
         </View>
+        {/* Drawer Navigation */}
+        <AppDrawer
+          drawerIsVisible={drawerIsVisible}
+          setDrawerIsVisible={setDrawerIsVisible}
+        />
       </View>
     </StatusProvider>
   );

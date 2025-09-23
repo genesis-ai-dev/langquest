@@ -195,7 +195,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
         )}
         <CardContent>
           <View className="mt-2 flex flex-col gap-2">
-            {!!childQuests?.length && (
+            {!!childQuests.length && (
               <View className="flex flex-col gap-1">
                 <Text className="text-xs text-muted-foreground">
                   Sub-quests

@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -24,34 +24,24 @@ import {
   FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import {
-  ChevronDown,
-  ChevronRight,
-  Download,
-  Folder,
-  FolderPenIcon,
-  Plus,
-  Share2Icon
-} from 'lucide-react-native';
+import { FolderPenIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
+import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
   const { currentProjectId } = useCurrentNavigation();
-  const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
@@ -159,95 +149,15 @@ export default function ProjectDirectoryView() {
         const hasChildren = (childrenOf.get(id) || []).length > 0;
         const isOpen = expanded.has(id);
         rows.push(
-          <View
+          <QuestTreeRow
             key={id}
-            className="flex flex-row items-center py-1"
-            style={{ paddingLeft: depth * 12 }}
-          >
-            <Pressable
-              onPress={hasChildren ? () => toggleExpanded(id) : undefined}
-              className="mr-1 w-8 p-1"
-            >
-              {hasChildren && (
-                <Icon
-                  as={isOpen ? ChevronDown : ChevronRight}
-                  className="text-muted-foreground"
-                />
-              )}
-            </Pressable>
-            <Icon as={Folder} className="mr-2 text-muted-foreground" />
-            <Pressable
-              className="flex-1"
-              onPress={() =>
-                goToQuest({ id: q.id, project_id: q.project_id, name: q.name })
-              }
-            >
-              <View className="flex flex-1 flex-row items-center gap-2">
-                <View>
-                  <Text numberOfLines={1}>{q.name}</Text>
-                </View>
-                {q.description && (
-                  <View className="flex-1">
-                    <Text
-                      className="truncate text-sm text-muted-foreground"
-                      numberOfLines={1}
-                    >
-                      {q.description}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              {!!q.parent_id && (
-                <Text
-                  className="text-xs text-muted-foreground"
-                  numberOfLines={1}
-                >
-                  Parent: {(q as Quest).parent_id}
-                </Text>
-              )}
-            </Pressable>
-            {q.source === 'local' ? (
-              <View className="ml-2 flex flex-row items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onPress={() =>
-                    Alert.alert(
-                      'Mock Publish',
-                      'This is a mock public publish function.'
-                    )
-                  }
-                >
-                  <Icon as={Share2Icon} />
-                </Button>
-              </View>
-            ) : q.source === 'cloud' ? (
-              <View className="ml-2 flex flex-row items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onPress={() =>
-                    Alert.alert(
-                      'Mock Download',
-                      'This is a mock download function.'
-                    )
-                  }
-                >
-                  <Icon as={Download} />
-                </Button>
-              </View>
-            ) : null}
-            <Button
-              size="icon"
-              variant="outline"
-              className="ml-2 h-7 w-7"
-              onPress={() => openCreateForParent(id)}
-            >
-              <Icon as={Plus} />
-            </Button>
-          </View>
+            quest={q}
+            depth={depth}
+            hasChildren={hasChildren}
+            isOpen={isOpen}
+            onToggleExpand={() => toggleExpanded(id)}
+            onAddChild={(parentId) => openCreateForParent(parentId)}
+          />
         );
         if (hasChildren && isOpen) {
           rows.push(
@@ -259,7 +169,7 @@ export default function ProjectDirectoryView() {
       }
       return rows;
     },
-    [childrenOf, expanded, goToQuest, toggleExpanded]
+    [childrenOf, expanded, toggleExpanded, openCreateForParent]
   );
 
   if (isLoading) {
@@ -273,13 +183,9 @@ export default function ProjectDirectoryView() {
         onOpenChange={setIsCreateOpen}
         dismissible={!isCreatingQuest}
       >
-        <View className="flex-1 p-4">
-          <View className="flex flex-row items-center gap-2">
-            <Text variant="h4" className="mb-4">
-              {t('projectDirectory')}
-            </Text>
-          </View>
-          <View className="flex flex-col gap-2">
+        <View className="flex-1 flex-col gap-4 p-4">
+          <Text variant="h4">{t('projectDirectory')}</Text>
+          <View className="pb-safe flex flex-1 flex-col gap-2">
             {roots.length === 0 ? (
               <View>
                 <Text className="text-center text-muted-foreground">
@@ -299,7 +205,7 @@ export default function ProjectDirectoryView() {
           </View>
         </View>
 
-        <DrawerContent>
+        <DrawerContent className="pb-safe">
           <DrawerHeader>
             <DrawerTitle>{t('newQuest')}</DrawerTitle>
           </DrawerHeader>
@@ -344,7 +250,7 @@ export default function ProjectDirectoryView() {
             >
               <Text>{t('createObject')}</Text>
             </FormSubmit>
-            <DrawerClose>
+            <DrawerClose className={buttonVariants({ variant: 'outline' })}>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>
