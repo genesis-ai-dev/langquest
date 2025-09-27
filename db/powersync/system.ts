@@ -28,6 +28,7 @@ import {
 
 import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
+import { localTablesOnly, tablesOnly } from '@/utils/dbUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import { AttachmentTable } from '@powersync/attachments';
 import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
@@ -40,22 +41,6 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
-
-const {
-  quest_tag_categories: _,
-  asset_tag_categories: _2,
-  ...tablesOnly
-} = drizzleSchema;
-
-export { tablesOnly };
-
-const {
-  quest_tag_categories_local: _local,
-  asset_tag_categories_local: _local2,
-  ...localTablesOnly
-} = drizzleSchemaLocal;
-
-export { localTablesOnly };
 
 // Use the correct imports based on platform
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition

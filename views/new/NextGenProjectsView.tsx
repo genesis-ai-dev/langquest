@@ -577,10 +577,7 @@ export default function NextGenProjectsView() {
             >
               <Text>{t('createObject')}</Text>
             </FormSubmit>
-            <DrawerClose
-              className={buttonVariants({ variant: 'outline' })}
-              disabled={isCreatingProject}
-            >
+            <DrawerClose disabled={isCreatingProject}>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>
