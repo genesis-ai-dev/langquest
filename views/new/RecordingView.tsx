@@ -1,3 +1,4 @@
+import type { ArrayInsertionListHandle } from '@/components/ArrayInsertionList';
 import ArrayInsertionList from '@/components/ArrayInsertionList';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -43,11 +44,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const navigation = useCurrentNavigation();
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(
-    navigation?.currentProjectId
+    navigation.currentProjectId
   );
 
   // Early return if navigation context isn't ready
-  if (!navigation?.currentQuestId || !navigation?.currentProjectId) {
+  if (!navigation.currentQuestId || !navigation.currentProjectId) {
     return (
       <View className="flex-1 bg-background">
         <Text className="p-4 text-center text-muted-foreground">
@@ -65,15 +66,19 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [currentWaveformData, setCurrentWaveformData] = React.useState<
     number[]
   >([]);
-  const [playingSegmentId, setPlayingSegmentId] = React.useState<string | null>(
-    null
-  );
+  const [_playingSegmentId, setPlayingSegmentId] = React.useState<
+    string | null
+  >(null);
   const [waveformByAssetId, setWaveformByAssetId] = React.useState<
     Map<string, number[]>
   >(new Map());
 
-  // Simple insertion index tracking
+  // Simple insertion index tracking (controlled for wheel picker)
   const [insertionIndex, setInsertionIndex] = React.useState(0);
+  const listRef = React.useRef<ArrayInsertionListHandle>(null);
+  const [footerHeight, setFooterHeight] = React.useState(0);
+  const ROW_HEIGHT = 84; // fixed height to align with wheel snapping
+  const didInitScrollRef = React.useRef(false);
 
   type PendingStatus = 'recording' | 'saving' | 'ready' | 'error';
   interface PendingSegment {
@@ -82,6 +87,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     name: string;
     status: PendingStatus;
     waveformLive: number[];
+    placementIndex: number; // insertion boundary at creation
     duration?: number;
     uri?: string;
     createdAt: number;
@@ -89,6 +95,31 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [pendingSegments, setPendingSegments] = React.useState<
     PendingSegment[]
   >([]);
+
+  // Animated spacer for insertion point (height + pulsing dot)
+  const spacerHeight = React.useRef(new Animated.Value(6)).current;
+  const spacerPulse = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(spacerPulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true
+        }),
+        Animated.timing(spacerPulse, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true
+        })
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [spacerPulse]);
 
   // Animation refs for pending slide-in
   const pendingAnimsRef = React.useRef(
@@ -118,10 +149,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }, []);
 
   // Load existing assets for the quest (local + cloud)
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useAssetsByQuest(currentQuestId || '', '', false);
+  const { data } = useAssetsByQuest(currentQuestId, '', false);
   const assets = React.useMemo(() => {
-    const all = data?.pages.flatMap((p) => p.data) ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    const all = data?.pages?.flatMap((p) => p.data) ?? [];
     const valid = all.filter((a) => a.id && a.name);
     return valid.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, {
@@ -129,30 +160,40 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         sensitivity: 'base'
       })
     );
-  }, [data?.pages]);
+  }, [data]);
 
   // Handle insertion index changes from the scroll view
   const handleInsertionChange = React.useCallback((newIndex: number) => {
     setInsertionIndex(newIndex);
   }, []);
 
+  // On first load, start at bottom (insert after last item)
+  React.useEffect(() => {
+    if (didInitScrollRef.current) return;
+    didInitScrollRef.current = true;
+    const last = Math.max(0, assets.length);
+    setInsertionIndex(last);
+    listRef.current?.scrollToInsertionIndex(last, false);
+  }, [assets.length]);
+
   const handleRecordingStart = React.useCallback(() => {
     setIsRecording(true);
     setCurrentWaveformData(new Array(60).fill(0.01));
     // Create optimistic pending card immediately
     const tempId = uuid.v4() + '_temp';
-    const nextIndex =
-      (assets?.length ?? 0) + (pendingSegments?.length ?? 0) + 1;
+    const nextIndex = insertionIndex + 1;
 
+    // Insert pending, capturing intended placement index
     setPendingSegments((prev) => [
+      ...prev,
       {
         tempId,
         name: `Segment ${nextIndex}`,
-        status: 'recording',
-        waveformLive: new Array(48).fill(0.05),
+        status: 'recording' as const,
+        waveformLive: new Array(48).fill(0.05) as number[],
+        placementIndex: insertionIndex,
         createdAt: Date.now()
-      },
-      ...prev
+      }
     ]);
 
     // Slide-in animation for the new pending card
@@ -178,8 +219,34 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           })
         ]).start();
       }
-    } catch {}
-  }, [assets?.length, pendingSegments?.length]);
+    } catch {
+      // Animation setup failed, continue without animation
+    }
+
+    // Advance insertion boundary and scroll the pre-insertion item to top
+    const nextInsertion = insertionIndex + 1;
+    setInsertionIndex(nextInsertion);
+    const activeIndex = Math.max(0, nextInsertion - 1);
+    listRef.current?.scrollItemToTop(activeIndex, true);
+
+    // Briefly expand spacer to emphasize insertion point
+    try {
+      Animated.sequence([
+        Animated.timing(spacerHeight, {
+          toValue: 12,
+          duration: 120,
+          useNativeDriver: false
+        }),
+        Animated.timing(spacerHeight, {
+          toValue: 6,
+          duration: 160,
+          useNativeDriver: false
+        })
+      ]).start();
+    } catch {
+      // ignore animation errors
+    }
+  }, [insertionIndex]);
 
   const handleRecordingStop = React.useCallback(() => {
     setIsRecording(false);
@@ -359,7 +426,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
       // Invalidate asset queries to immediately reflect local DB changes
       void queryClient.invalidateQueries({
-        queryKey: ['assets', 'infinite', currentQuestId || '', ''],
+        queryKey: ['assets', 'infinite', currentQuestId, ''],
         exact: false
       });
     },
@@ -404,7 +471,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
             source_language_id: c.source_language_id,
-            text: c.text ?? '',
+            text: c.text || '',
             audio_id: c.audio_id,
             download_profiles: [currentUser!.id]
           });
@@ -419,7 +486,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     [assets, currentUser]
   );
 
-  const handlePlaySegment = React.useCallback(
+  const _handlePlaySegment = React.useCallback(
     async (uri: string, segmentId: string) => {
       try {
         const isThisSegmentPlaying = isPlaying && currentAudioId === segmentId;
@@ -485,7 +552,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           await system.db.insert(contentLocal).values({
             asset_id: target.id,
             source_language_id: c.source_language_id,
-            text: c.text ?? '',
+            text: c.text || '',
             audio_id: c.audio_id,
             download_profiles: [currentUser!.id]
           });
@@ -504,56 +571,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
   }, [assets, selectedAssetIds, currentUser, cancelSelection, queryClient]);
 
-  // Prepare content for InsertionScrollView
+  // Prepare unified content; interleave pending by placementIndex
   const scrollViewContent = React.useMemo(() => {
     const content: React.ReactNode[] = [];
 
-    // Add pending segments at the beginning
-    pendingSegments.forEach((p) => {
-      const anim = pendingAnimsRef.current.get(p.tempId);
-      content.push(
-        <Animated.View
-          key={p.tempId}
-          className={`rounded-lg border p-3 ${
-            p.status === 'recording' || p.status === 'saving'
-              ? 'border-primary bg-primary/10'
-              : 'border-border bg-card'
-          }`}
-          style={{
-            opacity: anim?.opacity || 1,
-            transform: [
-              { translateY: anim?.translateY || (0 as unknown as any) }
-            ]
-          }}
-        >
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1">
-              <Text className="text-base font-bold text-primary">{p.name}</Text>
-              <Text className="text-sm text-muted-foreground">
-                {p.status === 'recording'
-                  ? 'Recording…'
-                  : p.status === 'saving'
-                    ? 'Saving…'
-                    : p.status === 'ready'
-                      ? 'Finalizing…'
-                      : 'Error'}
-              </Text>
-              <View className="mt-2">
-                <WaveformVisualizer
-                  waveformData={p.waveformLive}
-                  isRecording={p.status === 'recording'}
-                  width={200}
-                  height={24}
-                  barCount={32}
-                />
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-      );
-    });
-
-    // Add existing assets
     if (assets.length === 0 && pendingSegments.length === 0) {
       content.push(
         <View key="empty" className="items-center justify-center py-16">
@@ -562,8 +583,105 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           </Text>
         </View>
       );
-    } else {
-      assets.forEach((asset, index) => {
+      return content;
+    }
+
+    const pendingByIndex = new Map<number, typeof pendingSegments>();
+    const sortedPending = [...pendingSegments].sort((a, b) => {
+      if (a.placementIndex !== b.placementIndex) {
+        return a.placementIndex - b.placementIndex;
+      }
+      return a.createdAt - b.createdAt;
+    });
+    for (const p of sortedPending) {
+      const arr = pendingByIndex.get(p.placementIndex) ?? [];
+      arr.push(p);
+      pendingByIndex.set(p.placementIndex, arr);
+    }
+
+    const renderSpacer = (key: string) => {
+      const scale = spacerPulse.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 1.3]
+      });
+      const opacity = spacerPulse.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.6, 1]
+      });
+      return (
+        <View key={key} className="items-center justify-center">
+          <Animated.View
+            style={{ height: spacerHeight, width: '100%' }}
+            className="items-center justify-center"
+          >
+            <Animated.View
+              style={{ transform: [{ scale }], opacity }}
+              className="h-1.5 w-1.5 rounded-full bg-primary"
+            />
+          </Animated.View>
+        </View>
+      );
+    };
+
+    const renderPending = (group: typeof pendingSegments | undefined) => {
+      if (!group) return;
+      for (const p of group) {
+        const anim = pendingAnimsRef.current.get(p.tempId);
+        content.push(
+          <Animated.View
+            key={p.tempId}
+            className={`rounded-lg border p-3 ${
+              p.status === 'recording' || p.status === 'saving'
+                ? 'border-primary bg-primary/10'
+                : 'border-border bg-card'
+            }`}
+            style={{
+              opacity: anim?.opacity || 1,
+              transform: [{ translateY: anim?.translateY || 0 }]
+            }}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="flex-1">
+                <Text className="text-base font-bold text-primary">
+                  {p.name}
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  {p.status === 'recording'
+                    ? 'Recording…'
+                    : p.status === 'saving'
+                      ? 'Saving…'
+                      : p.status === 'ready'
+                        ? 'Finalizing…'
+                        : 'Error'}
+                </Text>
+                <View className="mt-2">
+                  <WaveformVisualizer
+                    waveformData={p.waveformLive}
+                    isRecording={p.status === 'recording'}
+                    width={200}
+                    height={24}
+                    barCount={32}
+                  />
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        );
+      }
+    };
+
+    // Leading spacer when inserting before the first item
+    if (assets.length > 0 && insertionIndex === 0) {
+      content.push(renderSpacer('spacer-leading'));
+    }
+
+    for (let i = 0; i <= assets.length; i++) {
+      // Pending intended before asset i
+      renderPending(pendingByIndex.get(i));
+
+      // Asset at i
+      if (i < assets.length) {
+        const asset = assets[i]!;
         const isSelected = selectedAssetIds.has(asset.id);
         content.push(
           <TouchableOpacity
@@ -584,12 +702,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                 </Text>
                 <Text className="text-sm text-muted-foreground">
                   {asset.source === 'cloud' ? 'Cloud' : 'Local'} • Position{' '}
-                  {index + 1}
+                  {i + 1}
                 </Text>
                 {waveformByAssetId.get(asset.id) && (
                   <View className="mt-1">
                     <WaveformVisualizer
-                      waveformData={waveformByAssetId.get(asset.id) ?? []}
+                      waveformData={waveformByAssetId.get(asset.id)!}
                       isRecording={false}
                       width={200}
                       height={20}
@@ -607,12 +725,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   >
                     <Icon as={Trash2} size={16} />
                   </Button>
-                  {index < assets.length - 1 &&
-                    assets[index + 1]?.source !== 'cloud' && (
+                  {i < assets.length - 1 &&
+                    assets[i + 1]?.source !== 'cloud' && (
                       <Button
                         variant="outline"
                         size="icon"
-                        onPress={() => handleMergeDownLocal(index)}
+                        onPress={() => handleMergeDownLocal(i)}
                       >
                         <Icon as={GitMerge} size={16} />
                       </Button>
@@ -633,7 +751,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             </View>
           </TouchableOpacity>
         );
-      });
+
+        // Derived spacer: show a slim gap after the active pre-insertion item
+        if (i === Math.max(0, insertionIndex - 1)) {
+          content.push(renderSpacer(`spacer-${asset.id}`));
+        }
+      }
     }
 
     return content;
@@ -647,16 +770,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     enterSelection,
     handleDeleteLocalAsset,
     handleMergeDownLocal,
-    pendingAnimsRef
+    pendingAnimsRef,
+    insertionIndex,
+    spacerHeight,
+    spacerPulse
   ]);
-
-  const mockContent = React.useMemo(() => {
-    return Array.from({ length: 100 }, (_, index) => (
-      <View key={index} className="h-10 bg-red-500">
-        <Text>{index}</Text>
-      </View>
-    ));
-  }, []);
 
   return (
     <View className="flex-1 bg-background">
@@ -678,19 +796,23 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </Text>
       </View>
 
-      {/* Simple Array-based Insertion List */}
-      <View>
-        <ArrayInsertionList
-          className="flex-1 pb-32"
-          onInsertionChange={handleInsertionChange}
-        >
-          {scrollViewContent}
-          {/* {mockContent} */}
-        </ArrayInsertionList>
-      </View>
+      {/* Wheel Picker List */}
+      <ArrayInsertionList
+        ref={listRef}
+        className="flex-1"
+        value={insertionIndex}
+        onChange={handleInsertionChange}
+        rowHeight={ROW_HEIGHT}
+        bottomInset={footerHeight}
+      >
+        {scrollViewContent}
+      </ArrayInsertionList>
 
       {/* Bottom Controls */}
-      <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-4 pb-8 pt-4">
+      <View
+        className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-4 pb-8 pt-4"
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+      >
         {isSelectionMode && (
           <View className="mb-3 flex-row items-center justify-between rounded-lg border border-border bg-card p-3">
             <Text className="text-sm text-muted-foreground">

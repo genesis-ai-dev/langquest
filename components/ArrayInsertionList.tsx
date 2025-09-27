@@ -1,192 +1,155 @@
-import { colors } from '@/styles/theme';
+// theme colors no longer needed after removing overlay
 import React from 'react';
-import {
-  Animated,
-  FlatList,
-  LayoutAnimation,
-  Platform,
-  TouchableOpacity,
-  UIManager,
-  View
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent
 } from 'react-native';
-import { Text } from './ui/text';
+import { FlatList, Platform, TouchableOpacity, View } from 'react-native';
+// Text no longer needed after removing overlay
 
-// Enable LayoutAnimation on Android
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+export interface ArrayInsertionListHandle {
+  scrollToInsertionIndex: (index: number, animated?: boolean) => void;
+  getInsertionIndex: () => number;
+  scrollItemToTop: (index: number, animated?: boolean) => void;
 }
 
 interface ArrayInsertionListProps {
   children: React.ReactNode[];
-  onInsertionChange?: (index: number) => void;
+  value: number; // controlled insertion index (0..N)
+  onChange?: (index: number) => void;
+  rowHeight: number; // fixed row height for wheel behavior
   className?: string;
+  topInset?: number;
+  bottomInset?: number;
 }
 
-type ListItem =
-  | { type: 'content'; key: string; content: React.ReactNode }
-  | { type: 'divider'; key: string };
+function ArrayInsertionListInternal(
+  {
+    children,
+    value,
+    onChange,
+    rowHeight,
+    className,
+    topInset = 0,
+    bottomInset = 0
+  }: ArrayInsertionListProps,
+  ref: React.Ref<ArrayInsertionListHandle>
+) {
+  const flatListRef = React.useRef<FlatList>(null);
+  const controlledInsertionIndex = Math.max(
+    0,
+    Math.min(children.length, value)
+  );
+  const scrollPositionRef = React.useRef(0);
+  const containerHeightRef = React.useRef<number>(0);
+  const [containerHeight, setContainerHeight] = React.useState(0);
+  // No programmatic snapping
+  // Simplify: rely on FlatList snapping; avoid programmatic snap loops
 
-export default function ArrayInsertionList({
-  children,
-  onInsertionChange,
-  className
-}: ArrayInsertionListProps) {
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const dividerOpacity = React.useRef(new Animated.Value(1)).current;
-  const dividerScale = React.useRef(new Animated.Value(1)).current;
+  // Controlled insertion index (0..N)
+  const insertionIndex = controlledInsertionIndex;
 
-  // Convert children to list items with the divider inserted
-  const listItems = React.useMemo((): ListItem[] => {
-    const items: ListItem[] = [];
+  // Data indices for rendering only content
+  const dataIndices = React.useMemo(() => {
+    return children.map((_, idx) => idx);
+  }, [children]);
 
-    // Convert each child to a content item
-    const contentItems = children.map((child, index) => ({
-      type: 'content' as const,
-      key: `content-${index}`,
-      content: child
-    }));
+  // Compute dynamic padding so the centered indicator aligns with insertion boundary 0
+  const getIndicatorY = React.useCallback(() => {
+    const ch = containerHeightRef.current || 0;
+    const top = Math.max(0, topInset);
+    const bottom = Math.max(0, bottomInset);
+    const usable = Math.max(0, ch - top - bottom);
+    return top + usable / 2;
+  }, [topInset, bottomInset]);
 
-    // Insert the divider at the current insertion index
-    contentItems.forEach((item, index) => {
-      if (index === insertionIndex) {
-        items.push({ type: 'divider', key: 'divider' });
-      }
-      items.push(item);
-    });
+  const getPaddingTop = React.useCallback(() => {
+    return getIndicatorY();
+  }, [getIndicatorY]);
 
-    // Add divider at the end if needed
-    if (insertionIndex === children.length) {
-      items.push({ type: 'divider', key: 'divider' });
-    }
+  const getPaddingBottom = getPaddingTop;
 
-    return items;
-  }, [children, insertionIndex]);
-
-  // Handle moving the insertion point
-  const moveInsertionPoint = React.useCallback(
-    (newIndex: number) => {
-      // Animate the divider briefly to show movement
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(dividerOpacity, {
-            toValue: 0.5,
-            duration: 100,
-            useNativeDriver: true
-          }),
-          Animated.timing(dividerScale, {
-            toValue: 0.95,
-            duration: 100,
-            useNativeDriver: true
-          })
-        ]),
-        Animated.parallel([
-          Animated.timing(dividerOpacity, {
-            toValue: 1,
-            duration: 150,
-            useNativeDriver: true
-          }),
-          Animated.timing(dividerScale, {
-            toValue: 1,
-            duration: 150,
-            useNativeDriver: true
-          })
-        ])
-      ]).start();
-
-      // Use LayoutAnimation for smooth item repositioning
-      LayoutAnimation.configureNext(
-        LayoutAnimation.create(
-          200,
-          LayoutAnimation.Types.easeInEaseOut,
-          LayoutAnimation.Properties.opacity
-        )
-      );
-
-      setInsertionIndex(newIndex);
-      onInsertionChange?.(newIndex);
+  // With fixed row height and paddingTop=indicatorY, offset to align boundary k
+  const getOffsetToAlignInsertionIndex = React.useCallback(
+    (k: number) => {
+      return Math.max(0, k * rowHeight);
     },
-    [dividerOpacity, dividerScale, onInsertionChange]
+    [rowHeight]
   );
 
-  // Render a list item
+  // Handle scroll: choose nearest insertion boundary from content offset
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const scrollY = event.nativeEvent.contentOffset.y;
+      scrollPositionRef.current = scrollY;
+
+      // Derive insertion index purely from offset; no programmatic snapping here
+      const k = Math.round(scrollY / rowHeight);
+      const clamped = Math.max(0, Math.min(children.length, k));
+      if (clamped !== insertionIndex) onChange?.(clamped);
+    },
+    [children.length, insertionIndex, onChange, rowHeight]
+  );
+
+  // Handle programmatic scroll to insertion boundary
+  const scrollToInsertionIndex = React.useCallback(
+    (newInsertionIndex: number, animated = true) => {
+      const clamped = Math.max(0, Math.min(children.length, newInsertionIndex));
+      const targetOffset = getOffsetToAlignInsertionIndex(clamped);
+      flatListRef.current?.scrollToOffset({ offset: targetOffset, animated });
+    },
+    [children.length, getOffsetToAlignInsertionIndex]
+  );
+
+  const scrollItemToTop = React.useCallback(
+    (itemIndex: number, animated = true) => {
+      const clamped = Math.max(0, Math.min(children.length - 1, itemIndex));
+      const targetOffset = clamped * rowHeight + getPaddingTop();
+      flatListRef.current?.scrollToOffset({ offset: targetOffset, animated });
+    },
+    [children.length, rowHeight, getPaddingTop]
+  );
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      scrollToInsertionIndex: (index: number, animated = true) =>
+        scrollToInsertionIndex(index, animated),
+      getInsertionIndex: () => insertionIndex,
+      scrollItemToTop: (index: number, animated = true) =>
+        scrollItemToTop(index, animated)
+    }),
+    [scrollToInsertionIndex, scrollItemToTop, insertionIndex]
+  );
+
+  // Render a list item (fixed height)
   const renderItem = React.useCallback(
-    ({ item, index }: { item: ListItem; index: number }) => {
-      if (item.type === 'divider') {
-        return (
-          <Animated.View
-            style={{
-              opacity: dividerOpacity,
-              transform: [{ scale: dividerScale }]
-            }}
-            className="my-3 px-4"
-            key={`divider-${index}`}
-          >
-            <View className="relative">
-              {/* Main divider line */}
-              <View
-                className="h-0.5 rounded-full"
-                style={{ backgroundColor: colors.primary }}
-              />
-
-              {/* Center indicator */}
-              <View className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex-row items-center gap-2">
-                <View
-                  className="h-3 w-3 rounded-full shadow-sm"
-                  style={{ backgroundColor: colors.primary }}
-                />
-                <View
-                  className="rounded-full px-3 py-1 shadow-sm"
-                  style={{ backgroundColor: colors.primary }}
-                >
-                  <Text className="text-xs font-medium text-white">
-                    Insert here (Position {insertionIndex + 1})
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
-        );
-      }
-
-      // Content item with tap-to-move-divider functionality
-      const contentIndex = children.findIndex(
-        (_, i) => `content-${i}` === item.key
-      );
-
+    ({ item: index }: { item: number }) => {
       return (
-        <View className="px-4">
-          {/* Invisible tap target above item to move divider here */}
+        <View
+          className="px-4"
+          style={{ height: rowHeight, justifyContent: 'center' }}
+        >
           <TouchableOpacity
-            className="-mb-4 h-8"
-            onPress={() => moveInsertionPoint(contentIndex)}
-            activeOpacity={1}
-          />
-
-          {/* The actual content */}
-          <View className="mb-3">{item.content}</View>
-
-          {/* Invisible tap target below item to move divider here */}
-          <TouchableOpacity
-            className="-mt-4 h-8"
-            onPress={() => moveInsertionPoint(contentIndex + 1)}
-            activeOpacity={1}
-          />
+            onPress={() => onChange?.(index + 1)}
+            activeOpacity={0.9}
+          >
+            <View>{children[index]}</View>
+          </TouchableOpacity>
         </View>
       );
     },
-    [children, insertionIndex, dividerOpacity, dividerScale, moveInsertionPoint]
+    [children, onChange, rowHeight]
   );
 
   // Handle keyboard navigation
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' && insertionIndex > 0) {
-        moveInsertionPoint(insertionIndex - 1);
-      } else if (e.key === 'ArrowDown' && insertionIndex < children.length) {
-        moveInsertionPoint(insertionIndex + 1);
+      if (e.key === 'ArrowUp') {
+        scrollToInsertionIndex(insertionIndex - 1);
+      } else if (e.key === 'ArrowDown') {
+        scrollToInsertionIndex(insertionIndex + 1);
       }
     };
 
@@ -194,29 +157,81 @@ export default function ArrayInsertionList({
       window.addEventListener('keydown', handleKeyPress);
       return () => window.removeEventListener('keydown', handleKeyPress);
     }
-  }, [insertionIndex, children.length, moveInsertionPoint]);
+  }, [insertionIndex, scrollToInsertionIndex]);
+
+  // Measure container height for dynamic centering paddings
+  const onContainerLayout = React.useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    containerHeightRef.current = h;
+    setContainerHeight(h);
+  }, []);
+
+  // Snap once on mount and when container ready
+  React.useEffect(() => {
+    if (children.length > 0 && containerHeight > 0) {
+      const offset = getOffsetToAlignInsertionIndex(insertionIndex);
+      flatListRef.current?.scrollToOffset({ offset, animated: false });
+    }
+  }, [children.length, containerHeight]);
+
+  // Stop forcing scroll alignment on external value changes to avoid tug of war
+
+  // Remove custom drag/momentum snapping; rely on FlatList snapToInterval
+  const handleScrollBeginDrag = undefined as unknown as () => void;
+  const handleScrollEndDrag = undefined as unknown as (
+    e: NativeSyntheticEvent<NativeScrollEvent>
+  ) => void;
+  const handleMomentumScrollBegin = undefined as unknown as () => void;
+  const handleMomentumScrollEnd = undefined as unknown as () => void;
+
+  // No timers to cleanup
 
   return (
-    <FlatList
-      className={className}
-      data={listItems}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.key}
-      showsVerticalScrollIndicator={false}
-      // contentContainerStyle={{
-      //   paddingVertical: 2
-      // }}
-      // Optimize performance
-      removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      windowSize={10}
-      initialNumToRender={10}
-      // Enable smooth scrolling
-      decelerationRate="normal"
-      // Maintain scroll position when items change
-      maintainVisibleContentPosition={{
-        minIndexForVisible: 0
-      }}
-    />
+    <View className={className} onLayout={onContainerLayout}>
+      <FlatList
+        ref={flatListRef}
+        data={dataIndices}
+        renderItem={renderItem}
+        keyExtractor={(index) => `content-${index}`}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollBegin={handleMomentumScrollBegin}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        scrollEventThrottle={16}
+        snapToInterval={rowHeight}
+        disableIntervalMomentum
+        getItemLayout={(_, index) => ({
+          length: rowHeight,
+          offset: rowHeight * index + getPaddingTop(),
+          index
+        })}
+        contentContainerStyle={{
+          paddingTop: getPaddingTop(),
+          paddingBottom: getPaddingBottom()
+        }}
+        // Optimize performance
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={10}
+        // Picker feel
+        decelerationRate="fast"
+      />
+
+      {/* No overlay; styling of active index handled by parent content */}
+    </View>
   );
 }
+
+export default React.forwardRef<
+  ArrayInsertionListHandle,
+  ArrayInsertionListProps
+>(
+  ArrayInsertionListInternal as unknown as (
+    props: ArrayInsertionListProps & {
+      ref?: React.Ref<ArrayInsertionListHandle>;
+    }
+  ) => React.ReactElement
+);

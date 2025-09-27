@@ -1,4 +1,3 @@
-import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
 import type { TextRef, ViewRef } from '@rn-primitives/types';
 import * as React from 'react';
@@ -59,9 +58,7 @@ CardDescription.displayName = 'CardDescription';
 
 const CardContent = React.forwardRef<ViewRef, ViewProps>(
   ({ className, ...props }, ref) => (
-    <TextClassContext.Provider value="text-card-foreground">
-      <View ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-    </TextClassContext.Provider>
+    <View ref={ref} className={cn('p-6 pt-0', className)} {...props} />
   )
 );
 CardContent.displayName = 'CardContent';
