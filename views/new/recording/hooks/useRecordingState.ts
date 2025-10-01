@@ -32,7 +32,7 @@ interface UseRecordingStateReturn {
     >;
     startRecording: (insertionIndex: number) => string;
     stopRecording: () => void;
-    removePending: (tempId: string) => void;
+    removePending: (tempId?: string | null) => void;
 }
 
 export function useRecordingState(): UseRecordingStateReturn {
@@ -108,10 +108,11 @@ export function useRecordingState(): UseRecordingStateReturn {
         });
     }, []);
 
-    const removePending = React.useCallback((tempId?: string) => {
+    const removePending = React.useCallback((tempId?: string | null) => {
         setPendingSegments((prev) =>
             prev.filter((p) => {
                 if (tempId) return p.tempId !== tempId;
+                // If no tempId provided, remove all recording/saving cards
                 return p.status !== 'recording' && p.status !== 'saving';
             })
         );

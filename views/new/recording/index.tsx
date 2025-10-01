@@ -46,6 +46,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const { project: currentProject } = useProjectById(
     navigation.currentProjectId
   );
+  const audioContext = useAudio();
   const {
     playSound,
     playSoundSequence,
@@ -54,7 +55,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     currentAudioId,
     position,
     duration
-  } = useAudio();
+  } = audioContext;
   const { t } = useLocalization();
 
   // Early return if navigation context isn't ready
@@ -141,6 +142,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   // Insertion tracking
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const currentRecordingOrderRef = React.useRef<number>(0);
+  const currentRecordingTempIdRef = React.useRef<string | null>(null);
 
   type InsertionHandle = ArrayInsertionListHandle | ArrayInsertionWheelHandle;
   const listRef = React.useRef<InsertionHandle>(null);
@@ -200,13 +202,58 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     setInsertionIndex(newIndex);
   }, []);
 
+  // Cleanup stuck pending cards after timeout
+  React.useEffect(() => {
+    if (pendingSegments.length === 0) return;
+
+    // If a pending card has been in 'saving' state for >10 seconds, clean it up
+    const STUCK_TIMEOUT = 10000;
+    const now = Date.now();
+
+    const timer = setTimeout(() => {
+      pendingSegments.forEach((p) => {
+        const age = now - p.createdAt;
+        if (p.status === 'saving' && age > STUCK_TIMEOUT) {
+          console.warn(
+            '⚠️ Cleaning up stuck pending card:',
+            p.tempId,
+            'age:',
+            age
+          );
+          removePending(p.tempId);
+        }
+      });
+    }, STUCK_TIMEOUT);
+
+    return () => clearTimeout(timer);
+  }, [pendingSegments, removePending]);
+
   // Recording lifecycle
   const handleRecordingStart = React.useCallback(() => {
+    console.log('🎬 handleRecordingStart - insertionIndex:', insertionIndex);
+
+    // Clean up any stuck pending cards from previous recordings
+    if (currentRecordingTempIdRef.current) {
+      console.log(
+        '🧹 Cleaning up previous pending card:',
+        currentRecordingTempIdRef.current
+      );
+      removePending(currentRecordingTempIdRef.current);
+    }
+
     const tempId = startRecording(insertionIndex);
     const targetOrder = insertionIndex + 1;
 
+    console.log(
+      '📝 Created pending card:',
+      tempId,
+      'at placementIndex:',
+      targetOrder
+    );
+
     // Store for use in handleRecordingComplete
     currentRecordingOrderRef.current = targetOrder;
+    currentRecordingTempIdRef.current = tempId;
 
     // Advance insertion boundary
     setInsertionIndex(targetOrder);
@@ -231,7 +278,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
 
     return tempId;
-  }, [insertionIndex, startRecording]);
+  }, [insertionIndex, startRecording, removePending]);
 
   const handleRecordingStop = React.useCallback(() => {
     stopRecording();
@@ -239,11 +286,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
+      const newId = uuid.v4();
+      const targetOrder = currentRecordingOrderRef.current;
+
       try {
         console.log('💾 Starting to save recording...');
-
-        const newId = uuid.v4();
-        const targetOrder = currentRecordingOrderRef.current;
 
         console.log(
           `📍 Inserting at position ${targetOrder} (after item at ${targetOrder - 1})`
@@ -256,6 +303,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           !currentUser
         ) {
           console.error('❌ Missing required data');
+
+          // Clean up pending card on error
+          const pendingTempId = currentRecordingTempIdRef.current;
+          if (pendingTempId) {
+            removePending(pendingTempId);
+            currentRecordingTempIdRef.current = null;
+          }
           return;
         }
 
@@ -272,8 +326,21 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         addOptimistic(optimisticAsset);
 
-        // 2. Remove pending card
-        removePending(tempId);
+        // 2. Remove pending card after a small delay to ensure it was visible
+        // This gives React time to render the pending card before removing it
+        const pendingTempId = currentRecordingTempIdRef.current;
+        setTimeout(() => {
+          if (pendingTempId) {
+            console.log('🧹 Removing pending card:', pendingTempId);
+            removePending(pendingTempId);
+            currentRecordingTempIdRef.current = null; // Clear it
+          } else {
+            console.warn(
+              '⚠️ No pending tempId found, cleaning all pending cards'
+            );
+            removePending(null); // Fallback: remove all recording/saving cards
+          }
+        }, 100); // Small delay ensures UI renders the pending card
 
         // 3. Advance insertion index
         setInsertionIndex(targetOrder);
@@ -349,6 +416,16 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         console.log('✅ Queries invalidated, asset should appear now');
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
+
+        // On error: remove optimistic asset, keep pending card with error state
+        removeOptimistic(newId);
+
+        // Clean up stuck pending card if it exists
+        const pendingTempId = currentRecordingTempIdRef.current;
+        if (pendingTempId) {
+          removePending(pendingTempId);
+          currentRecordingTempIdRef.current = null;
+        }
       }
     },
     [
@@ -426,9 +503,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
           if (uris.length === 1 && uris[0]) {
             await playSound(uris[0], assetId);
-          } else {
+          } else if (uris.length > 1) {
             // Play all audio segments in sequence for merged assets
-            await playSoundSequence(uris, assetId);
+            await audioContext.playSoundSequence(uris, assetId);
           }
         }
       } catch (error) {
@@ -467,7 +544,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       }
 
       // Play all in sequence with a special ID
-      await playSoundSequence(allUris, 'play-all');
+      await audioContext.playSoundSequence(allUris, 'play-all');
     } catch (error) {
       console.error('Failed to play all:', error);
     }
@@ -613,6 +690,18 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       pendingByIndex.set(p.placementIndex, arr);
     }
 
+    // Debug: log pending state
+    if (pendingSegments.length > 0) {
+      console.log(
+        '🔍 Pending segments:',
+        pendingSegments
+          .map(
+            (p) => `${p.name} at index ${p.placementIndex}, status: ${p.status}`
+          )
+          .join(', ')
+      );
+    }
+
     // Render spacer
     const renderSpacer = (key: string) => {
       if (isWheel) return null;
@@ -689,6 +778,15 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         if (!isWheel && i === Math.max(0, insertionIndex - 1)) {
           content.push(renderSpacer(`spacer-${asset.id}`));
         }
+      }
+    }
+
+    // Render any pending cards beyond the last asset (e.g., "insert at end")
+    // Check for pending cards at indices beyond assets.length
+    for (let i = assets.length + 1; i <= assets.length + 10; i++) {
+      const pending = pendingByIndex.get(i);
+      if (pending) {
+        renderPending(pending);
       }
     }
 
