@@ -10,7 +10,7 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { GitMerge } from 'lucide-react-native';
+import { GitMerge, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -31,8 +31,8 @@ export const SelectionControls = React.memo(function SelectionControls({
         {selectedCount} selected
       </Text>
       <View className="flex-row gap-2">
-        <Button variant="outline" onPress={onCancel}>
-          <Text>Cancel</Text>
+        <Button variant="outline" size="icon" onPress={onCancel}>
+          <Icon as={X} size={20} />
         </Button>
         <Button
           variant="default"

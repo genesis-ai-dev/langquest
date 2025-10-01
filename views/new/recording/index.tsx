@@ -46,7 +46,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const { project: currentProject } = useProjectById(
     navigation.currentProjectId
   );
-  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
+  const {
+    playSound,
+    playSoundSequence,
+    stopCurrentSound,
+    isPlaying,
+    currentAudioId
+  } = useAudio();
   const { t } = useLocalization();
 
   // Early return if navigation context isn't ready
@@ -230,7 +236,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }, [stopRecording]);
 
   const handleRecordingComplete = React.useCallback(
-    async (uri: string, duration: number, _waveformData: number[]) => {
+    async (uri: string, _duration: number, _waveformData: number[]) => {
       try {
         console.log('💾 Starting to save recording...');
 
@@ -265,7 +271,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         addOptimistic(optimisticAsset);
 
         // 2. Remove pending card
-        removePending();
+        removePending(tempId);
 
         // 3. Advance insertion index
         setInsertionIndex(targetOrder);
@@ -356,35 +362,47 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   );
 
   // Audio playback
-  const getAssetAudioUri = React.useCallback(
-    async (assetId: string): Promise<string | null> => {
+  const getAssetAudioUris = React.useCallback(
+    async (assetId: string): Promise<string[]> => {
       try {
         const contentLocal = resolveTable('asset_content_link', {
           localOverride: true
         });
-        const content = await system.db
+        const contents = await system.db
           .select()
           .from(contentLocal)
-          .where(eq(contentLocal.asset_id, assetId))
-          .limit(1);
+          .where(eq(contentLocal.asset_id, assetId));
 
-        if (content[0]?.audio_id && system.permAttachmentQueue) {
-          const attachment = await system.powersync.getOptional<{
-            id: string;
-            local_uri: string | null;
-            filename: string | null;
-          }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
-            content[0].audio_id
-          ]);
+        const uris: string[] = [];
 
-          if (attachment?.local_uri) {
-            return system.permAttachmentQueue.getLocalUri(attachment.local_uri);
+        if (system.permAttachmentQueue) {
+          for (const content of contents) {
+            if (content.audio_id) {
+              const attachment = await system.powersync.getOptional<{
+                id: string;
+                local_uri: string | null;
+                filename: string | null;
+              }>(
+                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
+                [content.audio_id]
+              );
+
+              if (attachment?.local_uri) {
+                const uri = system.permAttachmentQueue.getLocalUri(
+                  attachment.local_uri
+                );
+                if (uri) {
+                  uris.push(uri);
+                }
+              }
+            }
           }
         }
-        return null;
+
+        return uris;
       } catch (e) {
-        console.error('Failed to get audio URI for asset', e);
-        return null;
+        console.error('Failed to get audio URIs for asset', e);
+        return [];
       }
     },
     []
@@ -398,18 +416,31 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         if (isThisAssetPlaying) {
           await stopCurrentSound();
         } else {
-          const uri = await getAssetAudioUri(assetId);
-          if (uri) {
-            await playSound(uri, assetId);
+          const uris = await getAssetAudioUris(assetId);
+          if (uris.length === 0) {
+            console.error('No audio URIs found for asset:', assetId);
+            return;
+          }
+
+          if (uris.length === 1 && uris[0]) {
+            await playSound(uris[0], assetId);
           } else {
-            console.error('No audio URI found for asset:', assetId);
+            // Play all audio segments in sequence for merged assets
+            await playSoundSequence(uris, assetId);
           }
         }
       } catch (error) {
         console.error('Failed to play audio:', error);
       }
     },
-    [isPlaying, currentAudioId, playSound, stopCurrentSound, getAssetAudioUri]
+    [
+      isPlaying,
+      currentAudioId,
+      playSound,
+      playSoundSequence,
+      stopCurrentSound,
+      getAssetAudioUris
+    ]
   );
 
   // Asset operations
@@ -686,7 +717,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
       {/* Bottom controls */}
       <View className="absolute bottom-0 left-0 right-0">
-        {isSelectionMode && (
+        {isSelectionMode ? (
           <View className="px-4">
             <SelectionControls
               selectedCount={selectedAssetIds.size}
@@ -694,14 +725,15 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               onMerge={handleBatchMergeSelected}
             />
           </View>
+        ) : (
+          <RecordingControls
+            isRecording={isRecording}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
+            onRecordingComplete={handleRecordingComplete}
+            onLayout={setFooterHeight}
+          />
         )}
-        <RecordingControls
-          isRecording={isRecording}
-          onRecordingStart={handleRecordingStart}
-          onRecordingStop={handleRecordingStop}
-          onRecordingComplete={handleRecordingComplete}
-          onLayout={setFooterHeight}
-        />
       </View>
     </View>
   );

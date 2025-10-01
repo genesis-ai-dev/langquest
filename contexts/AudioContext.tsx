@@ -3,6 +3,7 @@ import React, { createContext, useContext, useRef, useState } from 'react';
 
 interface AudioContextType {
   playSound: (uri: string, audioId?: string) => Promise<void>;
+  playSoundSequence: (uris: string[], audioId?: string) => Promise<void>;
   stopCurrentSound: () => Promise<void>;
   isPlaying: boolean;
   currentAudioId: string | null;
@@ -22,6 +23,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
+  const sequenceQueue = useRef<string[]>([]);
+  const currentSequenceIndex = useRef<number>(0);
 
   // Clear the position update interval
   const clearPositionInterval = () => {
@@ -49,6 +52,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const stopCurrentSound = async () => {
     clearPositionInterval();
 
+    // Reset sequence state
+    sequenceQueue.current = [];
+    currentSequenceIndex.current = 0;
+
     if (soundRef.current) {
       await soundRef.current.stopAsync();
       await soundRef.current.unloadAsync();
@@ -66,9 +73,28 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const playNextInSequence = async () => {
+    currentSequenceIndex.current++;
+    if (currentSequenceIndex.current < sequenceQueue.current.length) {
+      const nextUri = sequenceQueue.current[currentSequenceIndex.current];
+      if (nextUri) {
+        await playSound(nextUri, currentAudioId || undefined);
+      }
+    } else {
+      // Sequence finished
+      sequenceQueue.current = [];
+      currentSequenceIndex.current = 0;
+    }
+  };
+
   const playSound = async (uri: string, audioId?: string) => {
-    // Stop current sound if any is playing
-    await stopCurrentSound();
+    // Stop current sound if any is playing (but preserve sequence state)
+    if (soundRef.current) {
+      clearPositionInterval();
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
 
     // Set up audio mode
     await Audio.setAudioModeAsync({
@@ -107,16 +133,39 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         if (status.didJustFinish) {
           clearPositionInterval();
-          setIsPlaying(false);
-          setCurrentAudioId(null);
-          setPositionState(0);
           void sound.unloadAsync();
           soundRef.current = null;
+
+          // Check if there are more sounds in the sequence
+          if (sequenceQueue.current.length > 0) {
+            void playNextInSequence();
+          } else {
+            // No more sounds in sequence
+            setIsPlaying(false);
+            setCurrentAudioId(null);
+            setPositionState(0);
+          }
         }
       });
     } catch (error) {
       console.error('Error playing sound:', error);
+      setIsPlaying(false);
+      setCurrentAudioId(null);
     }
+  };
+
+  const playSoundSequence = async (uris: string[], audioId?: string) => {
+    if (uris.length === 0) return;
+
+    // Stop any current playback
+    await stopCurrentSound();
+
+    // Set up sequence
+    sequenceQueue.current = uris;
+    currentSequenceIndex.current = 0;
+
+    // Play first sound
+    await playSound(uris[0]!, audioId);
   };
 
   // Ensure cleanup when the component unmounts
@@ -133,6 +182,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     <AudioContext.Provider
       value={{
         playSound,
+        playSoundSequence,
         stopCurrentSound,
         isPlaying,
         currentAudioId,
