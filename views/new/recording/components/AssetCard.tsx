@@ -35,6 +35,7 @@ interface AssetCardProps {
   isPlaying: boolean;
   canMergeDown: boolean;
   progress?: number; // 0-100 percentage
+  segmentCount?: number; // Number of audio segments in this asset
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
@@ -50,6 +51,7 @@ export const AssetCard = React.memo(function AssetCard({
   isPlaying,
   canMergeDown,
   progress,
+  segmentCount,
   onPress,
   onLongPress,
   onPlay,
@@ -81,9 +83,18 @@ export const AssetCard = React.memo(function AssetCard({
 
       <View className="flex-row items-center gap-3">
         <View className="flex-1">
-          <Text className="text-base font-medium text-foreground">
-            {asset.name}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-base font-medium text-foreground">
+              {asset.name}
+            </Text>
+            {segmentCount && segmentCount > 1 && (
+              <View className="rounded bg-primary/20 px-1.5 py-0.5">
+                <Text className="text-xs font-medium text-primary">
+                  {segmentCount} clips
+                </Text>
+              </View>
+            )}
+          </View>
           <Text className="text-sm text-muted-foreground">
             {isCloud ? 'Cloud' : isOptimistic ? 'Saving…' : 'Local'} • Position{' '}
             {index + 1}

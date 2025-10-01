@@ -164,7 +164,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 84;
   const didInitScrollRef = React.useRef(false);
-  const isWheel = process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
+  const isWheel = true; //process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
 
   // Animated spacer for insertion point
   const spacerHeight = React.useRef(new Animated.Value(6)).current;
@@ -189,6 +189,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     return () => loop.stop();
   }, [spacerPulse]);
 
+  // Reset audio playback on mount
+  React.useEffect(() => {
+    void stopCurrentSound();
+  }, [stopCurrentSound]);
+
   // On first load, start at bottom
   React.useEffect(() => {
     if (didInitScrollRef.current) return;
@@ -201,6 +206,32 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const handleInsertionChange = React.useCallback((newIndex: number) => {
     setInsertionIndex(newIndex);
   }, []);
+
+  // Auto-scroll to currently playing asset (only once per asset)
+  const lastScrolledAssetRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    // Reset tracking when audio ID changes or stops completely
+    if (!currentAudioId) {
+      lastScrolledAssetRef.current = null;
+      return;
+    }
+
+    // Don't scroll if not playing (but don't reset - allows multi-segment assets)
+    if (!isPlaying) {
+      return;
+    }
+
+    // Only scroll if the asset has changed
+    if (lastScrolledAssetRef.current === currentAudioId) return;
+
+    const assetIndex = assets.findIndex((a) => a.id === currentAudioId);
+    if (assetIndex >= 0) {
+      console.log('📜 Auto-scrolling to asset at index:', assetIndex);
+      listRef.current?.scrollItemToTop(assetIndex, true);
+      lastScrolledAssetRef.current = currentAudioId;
+    }
+  }, [currentAudioId, assets, isPlaying]);
 
   // Cleanup stuck pending cards after timeout
   React.useEffect(() => {
@@ -529,22 +560,70 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         return;
       }
 
-      // Collect all audio URIs from all assets
-      const allUris: string[] = [];
+      console.log('🔊 Starting Play All...');
 
-      for (const asset of assets) {
-        if (asset.source === 'optimistic') continue;
-        const uris = await getAssetAudioUris(asset.id);
-        allUris.push(...uris);
-      }
+      const playableAssets = assets.filter((a) => a.source !== 'optimistic');
 
-      if (allUris.length === 0) {
+      if (playableAssets.length === 0) {
         console.error('No audio found to play');
         return;
       }
 
-      // Play all in sequence with a special ID
-      await audioContext.playSoundSequence(allUris, 'play-all');
+      // Collect all clips with asset IDs
+      const playlist: { uri: string; assetId: string }[] = [];
+
+      for (const asset of playableAssets) {
+        const uris = await getAssetAudioUris(asset.id);
+        for (const uri of uris) {
+          playlist.push({ uri, assetId: asset.id });
+        }
+      }
+
+      console.log(
+        `🔊 Playing ${playlist.length} clips from ${playableAssets.length} assets`
+      );
+
+      // Play each clip, waiting for completion
+      for (let i = 0; i < playlist.length; i++) {
+        const { uri, assetId } = playlist[i]!;
+
+        try {
+          console.log(`🔊 [${i + 1}/${playlist.length}] Starting clip`);
+
+          // Step 1: Start playback
+          await playSound(uri, assetId);
+
+          // Step 2: Wait for sound to load and begin playing
+          await new Promise((r) => setTimeout(r, 200));
+
+          // Step 3: Wait for playback to complete
+          await new Promise<void>((resolve) => {
+            const checkInterval = setInterval(() => {
+              if (!audioContext.isPlaying) {
+                clearInterval(checkInterval);
+                console.log(`✅ [${i + 1}/${playlist.length}] Done`);
+                resolve();
+              }
+            }, 100);
+
+            // Safety timeout
+            setTimeout(() => {
+              clearInterval(checkInterval);
+              resolve();
+            }, 120000);
+          });
+
+          // Step 4: Pause before next clip
+          await new Promise((r) => setTimeout(r, 300));
+        } catch (err) {
+          console.error(`❌ Error playing clip ${i + 1}:`, err);
+          // Continue to next clip even on error
+          await stopCurrentSound();
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+
+      console.log('✅ All playback complete');
     } catch (error) {
       console.error('Failed to play all:', error);
     }
@@ -553,13 +632,49 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     assets,
     stopCurrentSound,
     getAssetAudioUris,
-    playSoundSequence
+    playSound,
+    audioContext
   ]);
+
+  // Track segment counts for each asset (for display)
+  const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
+    Map<string, number>
+  >(new Map());
+
+  // Load segment counts for visible assets
+  React.useEffect(() => {
+    const loadSegmentCounts = async () => {
+      const counts = new Map<string, number>();
+
+      for (const asset of assets) {
+        if (asset.source === 'optimistic') {
+          counts.set(asset.id, 1); // Optimistic assets always have 1 segment
+        } else {
+          const uris = await getAssetAudioUris(asset.id);
+          counts.set(asset.id, uris.length);
+        }
+      }
+
+      setAssetSegmentCounts(counts);
+    };
+
+    if (assets.length > 0) {
+      void loadSegmentCounts();
+    }
+  }, [assets, getAssetAudioUris]);
 
   // Calculate progress percentage for current playing asset
   const playbackProgress = React.useMemo(() => {
-    if (!isPlaying || !currentAudioId || duration === 0) return 0;
-    return Math.min(100, Math.max(0, (position / duration) * 100));
+    if (!isPlaying || !currentAudioId) return 0;
+    if (duration === 0) return 0;
+
+    // Calculate and ensure it reaches 100% at the end
+    const raw = (position / duration) * 100;
+
+    // If we're within 50ms of the end, snap to 100%
+    if (duration - position < 50) return 100;
+
+    return Math.min(100, Math.max(0, raw));
   }, [isPlaying, currentAudioId, position, duration]);
 
   // Asset operations
@@ -756,6 +871,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         const canMergeDown =
           i < assets.length - 1 && assets[i + 1]?.source !== 'cloud';
 
+        const segmentCount = assetSegmentCounts.get(asset.id);
+
         content.push(
           <AssetCard
             key={asset.id}
@@ -766,6 +883,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             isPlaying={isThisPlaying}
             canMergeDown={canMergeDown}
             progress={isThisPlaying ? playbackProgress : undefined}
+            segmentCount={segmentCount}
             onPress={() => (isSelectionMode ? toggleSelect(asset.id) : {})}
             onLongPress={() => enterSelection(asset.id)}
             onPlay={handlePlayAsset}
@@ -804,6 +922,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     spacerPulse,
     pendingAnimsRef,
     playbackProgress,
+    assetSegmentCounts,
     toggleSelect,
     enterSelection,
     handlePlayAsset,
@@ -837,15 +956,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             onPress={handlePlayAll}
             className="flex-row gap-2"
           >
-            <Icon
-              as={isPlaying && currentAudioId === 'play-all' ? Pause : Play}
-              size={16}
-            />
-            <Text className="text-sm">
-              {isPlaying && currentAudioId === 'play-all'
-                ? 'Stop All'
-                : 'Play All'}
-            </Text>
+            <Icon as={isPlaying ? Pause : Play} size={16} />
+            <Text className="text-sm">{isPlaying ? 'Stop' : 'Play All'}</Text>
           </Button>
         )}
       </View>
