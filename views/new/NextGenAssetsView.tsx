@@ -45,7 +45,7 @@ import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
-import RecordingView from './RecordingView';
+import RecordingView from './recording';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -611,7 +611,7 @@ export default function NextGenAssetsView() {
           }
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center py-16">
-              <View className="flex-col items-center gap-4">
+              <View className="flex-col items-center gap-2">
                 <Text className="text-muted-foreground">
                   {searchQuery ? 'No assets found' : 'No assets available'}
                 </Text>
