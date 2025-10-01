@@ -239,10 +239,36 @@ const FormSubmit = React.forwardRef<
     const isDisabled =
       !formState.isValid || formState.isSubmitting || props.disabled;
 
-    const Component = asChild ? Slot.Pressable : Pressable;
+    // Render directly as Pressable to avoid Slot navigation context issues during transitions
+    if (!asChild) {
+      return (
+        <Pressable
+          ref={ref}
+          disabled={isDisabled}
+          {...props}
+          className={cn(
+            'flex-row items-center gap-2',
+            isDisabled &&
+              'opacity-50 hover:opacity-50 web:pointer-events-none web:cursor-default',
+            buttonVariants({ className })
+          )}
+        >
+          <>
+            {formState.isSubmitting && (
+              <ActivityIndicator
+                size="small"
+                color={activityIndicatorColor || getThemeColor('secondary')}
+                className={activityIndicatorClassName}
+              />
+            )}
+            {children}
+          </>
+        </Pressable>
+      );
+    }
 
     return (
-      <Component
+      <Slot.Pressable
         ref={ref}
         disabled={isDisabled}
         {...props}
@@ -263,7 +289,7 @@ const FormSubmit = React.forwardRef<
           )}
           {children}
         </>
-      </Component>
+      </Slot.Pressable>
     );
   }
 );

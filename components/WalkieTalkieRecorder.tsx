@@ -4,6 +4,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
@@ -66,6 +67,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     });
   };
 
+  // Cleanup recording on unmount
   useEffect(() => {
     return () => {
       const cleanup = async () => {
@@ -103,6 +105,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   const startRecording = async () => {
     try {
+      const startTime = performance.now();
       console.log('🎙️ Starting recording process...');
 
       // Reset recorded samples for new recording
@@ -119,14 +122,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         console.log('✅ Permission granted');
       }
 
-      console.log('🎵 Setting audio mode...');
+      // Set audio mode (fast, ~50ms)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true
       });
 
-      console.log('🎤 Creating recording...');
-      // Enable metering for real-time amplitude on both iOS and Android
+      console.log('🎤 Creating fresh recording...');
+      // Create recording fresh every time - don't reuse stale recordings
       const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
       const options = {
         ...highQuality,
@@ -140,10 +143,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         }
       } as typeof highQuality;
 
-      const activeRecording = (await Audio.Recording.createAsync(options))
-        .recording;
+      const { recording: activeRecording } =
+        await Audio.Recording.createAsync(options);
 
-      console.log('✅ Recording created, setting up...');
+      const duration = performance.now() - startTime;
+      console.log(`✅ Recording started in ${duration.toFixed(0)}ms`);
+
       setRecording(activeRecording);
       setRecordingDuration(0);
       onRecordingStart();
@@ -211,18 +216,26 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   const handlePressIn = async () => {
     console.log('🎙️ Press in detected, starting recording...');
-    setIsPressed(true);
-    await startRecording();
 
-    // Scale down animation
+    // Immediate haptic feedback for tactile response
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    setIsPressed(true);
+
+    // Start animation and recording simultaneously
     Animated.spring(scaleAnim, {
       toValue: 0.9,
       useNativeDriver: true
     }).start();
+
+    await startRecording();
   };
 
   const handlePressOut = async () => {
     if (!isPressed) return;
+
+    // Light haptic feedback on release
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     setIsPressed(false);
     await stopRecording();

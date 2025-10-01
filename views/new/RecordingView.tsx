@@ -1,10 +1,8 @@
-import type { ArrayInsertionListHandle } from '@/components/ArrayInsertionList';
-import ArrayInsertionList from '@/components/ArrayInsertionList';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
-import WaveformVisualizer from '@/components/WaveformVisualizer';
+// WaveformVisualizer removed for now
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
@@ -15,17 +13,24 @@ import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   ArrowLeft,
   CheckCircle,
   Circle,
   GitMerge,
+  Loader2,
+  Pause,
+  Play,
   Trash2
 } from 'lucide-react-native';
 import React from 'react';
 import { Animated, Easing, TouchableOpacity, View } from 'react-native';
 import uuid from 'react-native-uuid';
+import type { ArrayInsertionListHandle } from '../../components/ArrayInsertionList';
+import ArrayInsertionList from '../../components/ArrayInsertionList';
+import type { ArrayInsertionWheelHandle } from '../../components/ArrayInsertionWheel';
+import ArrayInsertionWheel from '../../components/ArrayInsertionWheel';
 
 interface AudioSegment {
   id: string;
@@ -63,22 +68,32 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const { t } = useLocalization();
   const [isRecording, setIsRecording] = React.useState(false);
-  const [currentWaveformData, setCurrentWaveformData] = React.useState<
-    number[]
-  >([]);
+  // Waveform state removed
   const [_playingSegmentId, setPlayingSegmentId] = React.useState<
     string | null
   >(null);
-  const [waveformByAssetId, setWaveformByAssetId] = React.useState<
-    Map<string, number[]>
-  >(new Map());
+  // Removed waveform cache
 
   // Simple insertion index tracking (controlled for wheel picker)
   const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const listRef = React.useRef<ArrayInsertionListHandle>(null);
+  type InsertionHandle = ArrayInsertionListHandle | ArrayInsertionWheelHandle;
+  const listRef = React.useRef<InsertionHandle>(null);
+  const setWheelRef = React.useCallback(
+    (inst: ArrayInsertionWheelHandle | null) => {
+      listRef.current = inst || null;
+    },
+    []
+  );
+  const setListRef = React.useCallback(
+    (inst: ArrayInsertionListHandle | null) => {
+      listRef.current = inst || null;
+    },
+    []
+  );
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 84; // fixed height to align with wheel snapping
   const didInitScrollRef = React.useRef(false);
+  const isWheel = process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
 
   type PendingStatus = 'recording' | 'saving' | 'ready' | 'error';
   interface PendingSegment {
@@ -86,7 +101,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     id?: string; // final asset id when known
     name: string;
     status: PendingStatus;
-    waveformLive: number[];
+    // waveform removed
     placementIndex: number; // insertion boundary at creation
     duration?: number;
     uri?: string;
@@ -94,6 +109,19 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }
   const [pendingSegments, setPendingSegments] = React.useState<
     PendingSegment[]
+  >([]);
+
+  // Optimistic assets: assets that appear instantly while saving in background
+  interface OptimisticAsset {
+    id: string;
+    name: string;
+    order_index: number;
+    source: 'optimistic';
+    created_at: string;
+    tempId: string; // Link back to pending segment
+  }
+  const [optimisticAssets, setOptimisticAssets] = React.useState<
+    OptimisticAsset[]
   >([]);
 
   // Animated spacer for insertion point (height + pulsing dot)
@@ -151,16 +179,52 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   // Load existing assets for the quest (local + cloud)
   const { data } = useAssetsByQuest(currentQuestId, '', false);
   const assets = React.useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const all = data?.pages?.flatMap((p) => p.data) ?? [];
-    const valid = all.filter((a) => a.id && a.name);
-    return valid.sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, {
+    interface UIAsset {
+      id: string;
+      name: string;
+      created_at?: string;
+      order_index?: number;
+      source?: string;
+    }
+    const pages = Array.isArray(
+      (data as { pages?: { data: unknown[] }[] } | undefined)?.pages
+    )
+      ? (data as { pages: { data: unknown[] }[] }).pages
+      : [];
+    const all = pages.flatMap((p) => p.data);
+    const valid = all.filter((a) => {
+      const obj = a as { id?: string; name?: string } | null | undefined;
+      if (!obj) return false;
+      return !!obj.id && !!obj.name;
+    }) as UIAsset[];
+
+    // Merge optimistic assets with real assets
+    // Remove any optimistic assets that now exist in real data
+    const realIds = new Set(valid.map((a) => a.id));
+    const activeOptimistic = optimisticAssets.filter(
+      (opt) => !realIds.has(opt.id)
+    );
+
+    // Combine and sort by order_index
+    const combined = [...valid, ...activeOptimistic];
+
+    return combined.sort((a, b) => {
+      if (
+        typeof a.order_index === 'number' &&
+        typeof b.order_index === 'number' &&
+        a.order_index !== b.order_index
+      ) {
+        return a.order_index - b.order_index;
+      }
+      const ad = a.created_at ? String(a.created_at) : '';
+      const bd = b.created_at ? String(b.created_at) : '';
+      if (ad !== bd) return ad.localeCompare(bd);
+      return a.name.localeCompare(b.name, undefined, {
         numeric: true,
         sensitivity: 'base'
-      })
-    );
-  }, [data]);
+      });
+    });
+  }, [data, optimisticAssets]);
 
   // Handle insertion index changes from the scroll view
   const handleInsertionChange = React.useCallback((newIndex: number) => {
@@ -176,22 +240,28 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     listRef.current?.scrollToInsertionIndex(last, false);
   }, [assets.length]);
 
+  // Track the actual order index for the current recording
+  const currentRecordingOrderRef = React.useRef<number>(0);
+
   const handleRecordingStart = React.useCallback(() => {
     setIsRecording(true);
-    setCurrentWaveformData(new Array(60).fill(0.01));
+    // waveform reset removed
     // Create optimistic pending card immediately
     const tempId = uuid.v4() + '_temp';
-    const nextIndex = insertionIndex + 1;
+    // In wheel mode the overlay highlights an item; insert AFTER that item
+    const targetOrder = insertionIndex + 1;
+
+    // Store the target order for use in handleRecordingComplete
+    currentRecordingOrderRef.current = targetOrder;
 
     // Insert pending, capturing intended placement index
     setPendingSegments((prev) => [
       ...prev,
       {
         tempId,
-        name: `Segment ${nextIndex}`,
+        name: `Segment ${targetOrder}`,
         status: 'recording' as const,
-        waveformLive: new Array(48).fill(0.05) as number[],
-        placementIndex: insertionIndex,
+        placementIndex: targetOrder,
         createdAt: Date.now()
       }
     ]);
@@ -223,11 +293,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       // Animation setup failed, continue without animation
     }
 
-    // Advance insertion boundary and scroll the pre-insertion item to top
-    const nextInsertion = insertionIndex + 1;
+    // Advance insertion boundary to AFTER the new recording
+    // This way the next recording goes after this one, not in the same spot
+    const nextInsertion = targetOrder;
     setInsertionIndex(nextInsertion);
-    const activeIndex = Math.max(0, nextInsertion - 1);
-    listRef.current?.scrollItemToTop(activeIndex, true);
+
+    // Scroll to show the new recording position
+    listRef.current?.scrollToInsertionIndex(nextInsertion, true);
 
     // Briefly expand spacer to emphasize insertion point
     try {
@@ -250,7 +322,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const handleRecordingStop = React.useCallback(() => {
     setIsRecording(false);
-    setCurrentWaveformData(new Array(60).fill(0.01));
+    // waveform reset removed
     // Freeze most recent recording card into saving state
     setPendingSegments((prev) => {
       const next = [...prev];
@@ -264,171 +336,167 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     });
   }, []);
 
-  const handleWaveformUpdate = React.useCallback((waveformData: number[]) => {
-    setCurrentWaveformData(waveformData);
-    // Update live waveform on the most recent recording pending card
-    setPendingSegments((prev) => {
-      const next = [...prev];
-      const idx = next.findIndex((p) => p.status === 'recording');
-      if (idx !== -1) {
-        const existing = next[idx];
-        if (!existing) return next;
-        next[idx] = { ...existing, waveformLive: waveformData };
-      }
-      return next;
-    });
-  }, []);
+  // Waveform updates disabled
+  const _handleWaveformUpdate = undefined;
 
   const handleRecordingComplete = React.useCallback(
-    async (uri: string, duration: number, waveformData: number[]) => {
-      const DISPLAY_BARS = 48;
-      const interpolateToFixedBars = (
-        samples: number[],
-        targetBars: number
-      ): number[] => {
-        if (samples.length === 0) {
-          return new Array<number>(targetBars).fill(0.01);
+    async (uri: string, duration: number, _waveformData: number[]) => {
+      try {
+        console.log('💾 Starting to save recording...');
+
+        // waveform processing removed
+
+        const newId = uuid.v4();
+        // Use the order that was captured at recording start time
+        const targetOrder = currentRecordingOrderRef.current;
+        console.log(
+          `📍 Inserting at position ${targetOrder} (after item at ${targetOrder - 1})`
+        );
+
+        const newSegment: AudioSegment = {
+          id: newId,
+          uri,
+          duration,
+          waveformData: [],
+          name: `Segment ${targetOrder}`
+        };
+
+        if (!currentProjectId || !currentQuestId || !currentProject) {
+          console.error('❌ Missing required IDs:', {
+            currentProjectId,
+            currentQuestId,
+            hasProject: !!currentProject
+          });
+          return;
         }
-        const result: number[] = [];
-        if (samples.length === targetBars) {
-          return samples.map((v) => Math.max(0.01, Math.min(0.99, v)));
-        } else if (samples.length < targetBars) {
-          for (let i = 0; i < targetBars; i++) {
-            const sourceIndex = (i / (targetBars - 1)) * (samples.length - 1);
-            const lowerIndex = Math.floor(sourceIndex);
-            const upperIndex = Math.min(
-              samples.length - 1,
-              Math.ceil(sourceIndex)
-            );
-            const fraction = sourceIndex - lowerIndex;
-            const lowerValue = samples[lowerIndex] ?? 0.01;
-            const upperValue = samples[upperIndex] ?? 0.01;
-            const interpolatedValue =
-              lowerValue + (upperValue - lowerValue) * fraction;
-            result.push(Math.max(0.01, Math.min(0.99, interpolatedValue)));
+
+        // 1. IMMEDIATELY add optimistic asset to UI (appears instantly!)
+        const tempId = uuid.v4() + '_optimistic';
+        const optimisticAsset: OptimisticAsset = {
+          id: newId,
+          name: newSegment.name,
+          order_index: targetOrder,
+          source: 'optimistic',
+          created_at: new Date().toISOString(),
+          tempId
+        };
+
+        setOptimisticAssets((prev) => [...prev, optimisticAsset]);
+        console.log('✨ Optimistic asset added - appears in UI immediately!');
+
+        // 2. Remove pending card (recording is done)
+        setPendingSegments((prev) =>
+          prev.filter((p) => p.status !== 'recording' && p.status !== 'saving')
+        );
+
+        // 3. Advance insertion index so next recording goes AFTER this one
+        setInsertionIndex(targetOrder);
+        console.log(
+          `📍 Advanced insertion index to ${targetOrder} (ready for next recording)`
+        );
+
+        // 4. NOW save to database in background (doesn't block UI)
+        const attachmentRecord =
+          await system.permAttachmentQueue?.saveAudio(uri);
+
+        await system.db.transaction(async (tx) => {
+          // Shift order_index for existing assets in this quest at/after targetOrder
+          const linkLocal = resolveTable('quest_asset_link', {
+            localOverride: true
+          });
+          const assetLocal = resolveTable('asset', { localOverride: true });
+          const idsInQuest = tx
+            .select({ asset_id: linkLocal.asset_id })
+            .from(linkLocal)
+            .where(eq(linkLocal.quest_id, currentQuestId));
+          await tx.run(
+            sql`UPDATE ${assetLocal} SET order_index = order_index + 1 WHERE ${assetLocal.id} IN (${idsInQuest}) AND ${assetLocal.order_index} >= ${targetOrder}`
+          );
+
+          const [newAsset] = await tx
+            .insert(resolveTable('asset', { localOverride: true }))
+            .values({
+              name: newSegment.name,
+              id: newSegment.id,
+              order_index: targetOrder,
+              source_language_id: currentProject.target_language_id,
+              creator_id: currentUser!.id,
+              download_profiles: [currentUser!.id]
+            })
+            .returning();
+
+          if (!newAsset) {
+            throw new Error('Failed to insert asset');
           }
-        } else {
-          const binSize = samples.length / targetBars;
-          for (let i = 0; i < targetBars; i++) {
-            const start = Math.floor(i * binSize);
-            const end = Math.floor((i + 1) * binSize);
-            let sum = 0;
-            let count = 0;
-            for (let j = start; j < end && j < samples.length; j++) {
-              sum += samples[j] ?? 0;
-              count++;
-            }
-            const avgValue = count > 0 ? sum / count : 0.01;
-            result.push(Math.max(0.01, Math.min(0.99, avgValue)));
-          }
-        }
-        const smoothed: number[] = [...result];
-        for (let i = 1; i < smoothed.length - 1; i++) {
-          const prev = result[i - 1] ?? 0.01;
-          const curr = result[i] ?? 0.01;
-          const next = result[i + 1] ?? 0.01;
-          smoothed[i] = curr * 0.8 + (prev + next) * 0.1;
-        }
-        return smoothed;
-      };
 
-      const interpolatedWaveform = interpolateToFixedBars(
-        waveformData,
-        DISPLAY_BARS
-      );
+          await tx
+            .insert(resolveTable('quest_asset_link', { localOverride: true }))
+            .values({
+              id: `${currentQuestId}_${newAsset.id}`,
+              quest_id: currentQuestId,
+              asset_id: newAsset.id,
+              download_profiles: [currentUser!.id]
+            });
 
-      const newId = uuid.v4();
-      const newSegment: AudioSegment = {
-        id: newId,
-        uri,
-        duration,
-        waveformData: interpolatedWaveform,
-        name: `Segment ${insertionIndex + 1}`
-      };
+          await tx
+            .insert(resolveTable('asset_content_link', { localOverride: true }))
+            .values({
+              asset_id: newAsset.id,
+              source_language_id: currentProject.target_language_id,
+              text: newSegment.name,
+              audio_id: attachmentRecord?.id ?? newSegment.id,
+              download_profiles: [currentUser!.id]
+            });
+        });
 
-      if (!currentProjectId || !currentQuestId || !currentProject) return;
+        console.log(
+          '✅ Asset saved to database:',
+          newSegment.id,
+          'at order_index:',
+          targetOrder
+        );
 
-      // Attach details to the top-most pending card (now saving)
-      setPendingSegments((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((p) => p.status === 'saving' && !p.id);
-        if (idx !== -1) {
-          const existing = next[idx];
-          if (!existing) return next;
-          next[idx] = {
-            ...existing,
-            id: newId,
-            uri,
-            duration,
-            waveformLive: interpolatedWaveform
-          };
-        }
-        return next;
-      });
+        // 5. Remove optimistic asset now that real one exists
+        setOptimisticAssets((prev) => prev.filter((opt) => opt.id !== newId));
+        console.log(
+          '🔄 Optimistic asset removed, real asset will show from DB'
+        );
 
-      // Create a permanent attachment record for this audio and move the file
-      const attachmentRecord = await system.permAttachmentQueue?.saveAudio(uri);
-
-      await system.db.transaction(async (tx) => {
-        const [newAsset] = await tx
-          .insert(resolveTable('asset', { localOverride: true }))
-          .values({
-            name: newSegment.name,
-            id: newSegment.id,
-            source_language_id: currentProject.target_language_id,
-            creator_id: currentUser!.id,
-            download_profiles: [currentUser!.id]
+        // Debug: Check what order_index values exist in the database
+        const debugAssetLocal = resolveTable('asset', { localOverride: true });
+        const debugLinkLocal = resolveTable('quest_asset_link', {
+          localOverride: true
+        });
+        const allAssets = await system.db
+          .select({
+            id: debugAssetLocal.id,
+            name: debugAssetLocal.name,
+            order_index: debugAssetLocal.order_index
           })
-          .returning();
+          .from(debugAssetLocal)
+          .innerJoin(
+            debugLinkLocal,
+            eq(debugLinkLocal.asset_id, debugAssetLocal.id)
+          )
+          .where(eq(debugLinkLocal.quest_id, currentQuestId))
+          .orderBy(debugAssetLocal.order_index);
 
-        if (!newAsset) {
-          throw new Error('Failed to insert asset');
-        }
+        console.log(
+          '📊 All assets order_index values after save:',
+          allAssets.map((a) => `${a.name}: ${a.order_index}`).join(', ')
+        );
 
-        await tx
-          .insert(resolveTable('quest_asset_link', { localOverride: true }))
-          .values({
-            id: `${currentQuestId}_${newAsset.id}`,
-            quest_id: currentQuestId,
-            asset_id: newAsset.id,
-            download_profiles: [currentUser!.id]
-          });
+        // Invalidate asset queries to immediately reflect local DB changes
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'infinite', currentQuestId, ''],
+          exact: false
+        });
 
-        await tx
-          .insert(resolveTable('asset_content_link', { localOverride: true }))
-          .values({
-            asset_id: newAsset.id,
-            source_language_id: currentProject.target_language_id,
-            text: newSegment.name,
-            audio_id: attachmentRecord?.id ?? newSegment.id,
-            download_profiles: [currentUser!.id]
-          });
-      });
-
-      // Cache waveform for this newly created asset
-      setWaveformByAssetId((prev) => {
-        const next = new Map(prev);
-        next.set(newSegment.id, interpolatedWaveform);
-        return next;
-      });
-
-      // Mark pending as ready and trigger data refresh
-      setPendingSegments((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((p) => p.id === newId);
-        if (idx !== -1) {
-          const existing = next[idx];
-          if (!existing) return next;
-          next[idx] = { ...existing, status: 'ready' };
-        }
-        return next;
-      });
-
-      // Invalidate asset queries to immediately reflect local DB changes
-      void queryClient.invalidateQueries({
-        queryKey: ['assets', 'infinite', currentQuestId, ''],
-        exact: false
-      });
+        console.log('✅ Queries invalidated, asset should appear now');
+      } catch (error) {
+        console.error('❌ Failed to save recording:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+      }
     },
     [
       insertionIndex,
@@ -514,9 +582,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   React.useEffect(() => {
     if (!pendingSegments.length) return;
     const assetIds = new Set(assets.map((a) => a.id));
-    setPendingSegments((prev) =>
-      prev.filter((p) => !(p.id && assetIds.has(p.id)))
-    );
+    setPendingSegments((prev) => {
+      const next = prev.filter((p) => !(p.id && assetIds.has(p.id)));
+      // Avoid infinite render loop by only updating when something actually changes
+      return next.length === prev.length ? prev : next;
+    });
   }, [assets, pendingSegments.length]);
 
   // Cleanup animations for removed pending IDs
@@ -526,6 +596,36 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       if (!ids.has(key)) pendingAnimsRef.current.delete(key);
     }
   }, [pendingSegments]);
+
+  // Cleanup optimistic assets when real data arrives
+  React.useEffect(() => {
+    // Skip if no optimistic assets to clean up
+    if (optimisticAssets.length === 0) return;
+    
+    const pages = Array.isArray(
+      (data as { pages?: { data: unknown[] }[] } | undefined)?.pages
+    )
+      ? (data as { pages: { data: unknown[] }[] }).pages
+      : [];
+    const all = pages.flatMap((p) => p.data);
+    const realIds = new Set(
+      all
+        .map((a) => (a as { id?: string }).id)
+        .filter((id): id is string => Boolean(id))
+    );
+
+    // Remove any optimistic assets that now exist in real data
+    setOptimisticAssets((prev) => {
+      const filtered = prev.filter((opt) => !realIds.has(opt.id));
+      // Only update if something actually changed (prevent loops)
+      if (filtered.length === prev.length) return prev;
+      
+      console.log(
+        `🧹 Cleaned up ${prev.length - filtered.length} optimistic assets (now in DB)`
+      );
+      return filtered;
+    });
+  }, [data, optimisticAssets.length]); // Use length instead of full array
 
   const handleBatchMergeSelected = React.useCallback(async () => {
     try {
@@ -600,6 +700,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
 
     const renderSpacer = (key: string) => {
+      if (isWheel) return null; // do not render spacers in wheel mode
       const scale = spacerPulse.interpolate({
         inputRange: [0, 1],
         outputRange: [1, 1.3]
@@ -633,7 +734,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             className={`rounded-lg border p-3 ${
               p.status === 'recording' || p.status === 'saving'
                 ? 'border-primary bg-primary/10'
-                : 'border-border bg-card'
+                : p.status === 'error'
+                  ? 'border-destructive bg-destructive/10'
+                  : 'border-border bg-card'
             }`}
             style={{
               opacity: anim?.opacity || 1,
@@ -641,28 +744,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             }}
           >
             <View className="flex-row items-center gap-3">
+              {/* Loading spinner for active states */}
+              {(p.status === 'recording' || p.status === 'saving') && (
+                <View className="h-8 w-8 items-center justify-center">
+                  <Icon
+                    as={Loader2}
+                    size={20}
+                    className="animate-spin text-primary"
+                  />
+                </View>
+              )}
               <View className="flex-1">
                 <Text className="text-base font-bold text-primary">
                   {p.name}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
                   {p.status === 'recording'
-                    ? 'Recording…'
+                    ? 'Recording… Hold to continue'
                     : p.status === 'saving'
-                      ? 'Saving…'
+                      ? 'Saving to library…'
                       : p.status === 'ready'
                         ? 'Finalizing…'
-                        : 'Error'}
+                        : 'Error - Tap to retry'}
                 </Text>
-                <View className="mt-2">
-                  <WaveformVisualizer
-                    waveformData={p.waveformLive}
-                    isRecording={p.status === 'recording'}
-                    width={200}
-                    height={24}
-                    barCount={32}
-                  />
-                </View>
+                {/* waveform removed */}
               </View>
             </View>
           </Animated.View>
@@ -671,7 +776,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     };
 
     // Leading spacer when inserting before the first item
-    if (assets.length > 0 && insertionIndex === 0) {
+    if (!isWheel && assets.length > 0 && insertionIndex === 0) {
       content.push(renderSpacer('spacer-leading'));
     }
 
@@ -704,17 +809,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   {asset.source === 'cloud' ? 'Cloud' : 'Local'} • Position{' '}
                   {i + 1}
                 </Text>
-                {waveformByAssetId.get(asset.id) && (
-                  <View className="mt-1">
-                    <WaveformVisualizer
-                      waveformData={waveformByAssetId.get(asset.id)!}
-                      isRecording={false}
-                      width={200}
-                      height={20}
-                      barCount={32}
-                    />
-                  </View>
-                )}
+                {/* waveform removed */}
               </View>
               {!isSelectionMode && asset.source !== 'cloud' && (
                 <View className="flex-row gap-1">
@@ -753,7 +848,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         );
 
         // Derived spacer: show a slim gap after the active pre-insertion item
-        if (i === Math.max(0, insertionIndex - 1)) {
+        if (!isWheel && i === Math.max(0, insertionIndex - 1)) {
           content.push(renderSpacer(`spacer-${asset.id}`));
         }
       }
@@ -765,7 +860,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     assets,
     selectedAssetIds,
     isSelectionMode,
-    waveformByAssetId,
     toggleSelect,
     enterSelection,
     handleDeleteLocalAsset,
@@ -773,7 +867,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     pendingAnimsRef,
     insertionIndex,
     spacerHeight,
-    spacerPulse
+    spacerPulse,
+    isWheel
   ]);
 
   return (
@@ -796,17 +891,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </Text>
       </View>
 
-      {/* Wheel Picker List */}
-      <ArrayInsertionList
-        ref={listRef}
-        className="flex-1"
-        value={insertionIndex}
-        onChange={handleInsertionChange}
-        rowHeight={ROW_HEIGHT}
-        bottomInset={footerHeight}
-      >
-        {scrollViewContent}
-      </ArrayInsertionList>
+      {/* Wheel/List Picker (toggle via EXPO_PUBLIC_USE_NATIVE_WHEEL='1') */}
+      {process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1' ? (
+        <ArrayInsertionWheel
+          ref={setWheelRef}
+          className="flex-1"
+          value={insertionIndex}
+          onChange={handleInsertionChange}
+          rowHeight={ROW_HEIGHT}
+          bottomInset={footerHeight}
+        >
+          {scrollViewContent}
+        </ArrayInsertionWheel>
+      ) : (
+        <ArrayInsertionList
+          ref={setListRef}
+          className="flex-1"
+          value={insertionIndex}
+          onChange={handleInsertionChange}
+          rowHeight={ROW_HEIGHT}
+          bottomInset={footerHeight}
+        >
+          {scrollViewContent}
+        </ArrayInsertionList>
+      )}
 
       {/* Bottom Controls */}
       <View
@@ -833,25 +941,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             </View>
           </View>
         )}
-        {isRecording && (
-          <View className="mb-3 items-center justify-center rounded-lg bg-muted p-3">
-            <Text className="mb-1 text-sm font-medium text-destructive">
-              {t('isRecording')}
-            </Text>
-            <WaveformVisualizer
-              waveformData={currentWaveformData}
-              isRecording={true}
-              width={300}
-              height={50}
-              barCount={60}
-            />
-          </View>
-        )}
+        {/* recording waveform removed */}
         <WalkieTalkieRecorder
           onRecordingComplete={handleRecordingComplete}
           onRecordingStart={handleRecordingStart}
           onRecordingStop={handleRecordingStop}
-          onWaveformUpdate={handleWaveformUpdate}
+          onWaveformUpdate={undefined}
           isRecording={isRecording}
         />
       </View>

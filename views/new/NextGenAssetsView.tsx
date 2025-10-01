@@ -14,8 +14,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import type { asset } from '@/db/drizzleSchema';
-import { quest as questTable } from '@/db/drizzleSchema';
+import type { asset, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -34,7 +33,8 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useHybridData, type HybridDataSource } from './useHybridData';
+import type { HybridDataSource } from './useHybridData';
+import { useHybridData } from './useHybridData';
 
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
@@ -611,9 +611,17 @@ export default function NextGenAssetsView() {
           }
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center py-16">
-              <Text className="text-muted-foreground">
-                {searchQuery ? 'No assets found' : 'No assets available'}
-              </Text>
+              <View className="flex-col items-center gap-4">
+                <Text className="text-muted-foreground">
+                  {searchQuery ? 'No assets found' : 'No assets available'}
+                </Text>
+                <Button
+                  variant="default"
+                  onPress={() => setShowRecording(true)}
+                >
+                  <Text>{t('doRecord')}</Text>
+                </Button>
+              </View>
             </View>
           )}
         />

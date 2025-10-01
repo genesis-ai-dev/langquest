@@ -1,6 +1,8 @@
 import { relations, sql } from 'drizzle-orm';
+import type {
+  AnySQLiteColumn
+} from 'drizzle-orm/sqlite-core';
 import {
-  AnySQLiteColumn,
   index,
   int,
   primaryKey,
@@ -193,6 +195,8 @@ export const asset = sqliteTable(
   {
     ...baseColumns,
     name: text().notNull(),
+    // Local ordering within a quest prior to publication
+    order_index: int().notNull().default(0),
     source_language_id: text()
       .notNull()
       .references(() => language.id),
@@ -206,6 +210,7 @@ export const asset = sqliteTable(
   (table) => [
     index('name_idx').on(table.name),
     index('source_language_id_idx').on(table.source_language_id),
+    index('asset_order_index_idx').on(table.order_index),
     index('asset_project_id_idx').on(table.project_id),
     index('asset_parent_id_idx').on(table.parent_id)
   ]

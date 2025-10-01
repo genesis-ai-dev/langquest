@@ -1,4 +1,5 @@
 // theme colors no longer needed after removing overlay
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import type {
   LayoutChangeEvent,
@@ -37,18 +38,16 @@ function ArrayInsertionListInternal(
   ref: React.Ref<ArrayInsertionListHandle>
 ) {
   const flatListRef = React.useRef<FlatList>(null);
-  const controlledInsertionIndex = Math.max(
-    0,
-    Math.min(children.length, value)
-  );
-  const scrollPositionRef = React.useRef(0);
+  const currentIndexRef = React.useRef(value);
+  const isUserScrollingRef = React.useRef(false);
+  const scrollTimeoutRef = React.useRef<number | null>(null);
   const containerHeightRef = React.useRef<number>(0);
   const [containerHeight, setContainerHeight] = React.useState(0);
-  // No programmatic snapping
-  // Simplify: rely on FlatList snapping; avoid programmatic snap loops
 
-  // Controlled insertion index (0..N)
-  const insertionIndex = controlledInsertionIndex;
+  // Update ref when prop changes (but don't force scroll immediately)
+  React.useEffect(() => {
+    currentIndexRef.current = value;
+  }, [value]);
 
   // Data indices for rendering only content
   const dataIndices = React.useMemo(() => {
@@ -78,25 +77,50 @@ function ArrayInsertionListInternal(
     [rowHeight]
   );
 
-  // Handle scroll: choose nearest insertion boundary from content offset
-  const handleScroll = React.useCallback(
+  // Detect when user starts scrolling - don't interrupt their gesture
+  const handleScrollBeginDrag = React.useCallback(() => {
+    isUserScrollingRef.current = true;
+    if (scrollTimeoutRef.current !== null) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Only read final position when momentum ends - let FlatList handle snapping
+  const handleMomentumScrollEnd = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const scrollY = event.nativeEvent.contentOffset.y;
-      scrollPositionRef.current = scrollY;
+      const newIndex = Math.round(scrollY / rowHeight);
+      const clamped = Math.max(0, Math.min(children.length, newIndex));
 
-      // Derive insertion index purely from offset; no programmatic snapping here
-      const k = Math.round(scrollY / rowHeight);
-      const clamped = Math.max(0, Math.min(children.length, k));
-      if (clamped !== insertionIndex) onChange?.(clamped);
+      // Haptic feedback on snap (native platforms only)
+      if (Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+
+      currentIndexRef.current = clamped;
+      isUserScrollingRef.current = false;
+
+      // Notify parent of final position
+      if (clamped !== value) {
+        onChange?.(clamped);
+      }
     },
-    [children.length, insertionIndex, onChange, rowHeight]
+    [children.length, onChange, rowHeight, value]
   );
 
-  // Handle programmatic scroll to insertion boundary
+  // Programmatic scroll - only when not user-scrolling to avoid conflicts
   const scrollToInsertionIndex = React.useCallback(
     (newInsertionIndex: number, animated = true) => {
+      // Don't interrupt user gesture!
+      if (isUserScrollingRef.current) {
+        return;
+      }
+
       const clamped = Math.max(0, Math.min(children.length, newInsertionIndex));
       const targetOffset = getOffsetToAlignInsertionIndex(clamped);
+
+      currentIndexRef.current = clamped;
       flatListRef.current?.scrollToOffset({ offset: targetOffset, animated });
     },
     [children.length, getOffsetToAlignInsertionIndex]
@@ -104,8 +128,14 @@ function ArrayInsertionListInternal(
 
   const scrollItemToTop = React.useCallback(
     (itemIndex: number, animated = true) => {
+      // Don't interrupt user gesture!
+      if (isUserScrollingRef.current) {
+        return;
+      }
+
       const clamped = Math.max(0, Math.min(children.length - 1, itemIndex));
       const targetOffset = clamped * rowHeight + getPaddingTop();
+
       flatListRef.current?.scrollToOffset({ offset: targetOffset, animated });
     },
     [children.length, rowHeight, getPaddingTop]
@@ -116,11 +146,11 @@ function ArrayInsertionListInternal(
     () => ({
       scrollToInsertionIndex: (index: number, animated = true) =>
         scrollToInsertionIndex(index, animated),
-      getInsertionIndex: () => insertionIndex,
+      getInsertionIndex: () => currentIndexRef.current,
       scrollItemToTop: (index: number, animated = true) =>
         scrollItemToTop(index, animated)
     }),
-    [scrollToInsertionIndex, scrollItemToTop, insertionIndex]
+    [scrollToInsertionIndex, scrollItemToTop]
   );
 
   // Render a list item (fixed height)
@@ -132,7 +162,11 @@ function ArrayInsertionListInternal(
           style={{ height: rowHeight, justifyContent: 'center' }}
         >
           <TouchableOpacity
-            onPress={() => onChange?.(index + 1)}
+            onPress={() => {
+              const nextIndex = index + 1;
+              scrollToInsertionIndex(nextIndex, true);
+              onChange?.(nextIndex);
+            }}
             activeOpacity={0.9}
           >
             <View>{children[index]}</View>
@@ -140,16 +174,16 @@ function ArrayInsertionListInternal(
         </View>
       );
     },
-    [children, onChange, rowHeight]
+    [children, onChange, rowHeight, scrollToInsertionIndex]
   );
 
   // Handle keyboard navigation
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
-        scrollToInsertionIndex(insertionIndex - 1);
+        scrollToInsertionIndex(currentIndexRef.current - 1);
       } else if (e.key === 'ArrowDown') {
-        scrollToInsertionIndex(insertionIndex + 1);
+        scrollToInsertionIndex(currentIndexRef.current + 1);
       }
     };
 
@@ -157,7 +191,7 @@ function ArrayInsertionListInternal(
       window.addEventListener('keydown', handleKeyPress);
       return () => window.removeEventListener('keydown', handleKeyPress);
     }
-  }, [insertionIndex, scrollToInsertionIndex]);
+  }, [scrollToInsertionIndex]);
 
   // Measure container height for dynamic centering paddings
   const onContainerLayout = React.useCallback((e: LayoutChangeEvent) => {
@@ -166,25 +200,37 @@ function ArrayInsertionListInternal(
     setContainerHeight(h);
   }, []);
 
-  // Snap once on mount and when container ready
+  // Snap to position on mount
   React.useEffect(() => {
     if (children.length > 0 && containerHeight > 0) {
-      const offset = getOffsetToAlignInsertionIndex(insertionIndex);
+      const offset = getOffsetToAlignInsertionIndex(value);
       flatListRef.current?.scrollToOffset({ offset, animated: false });
     }
-  }, [children.length, containerHeight]);
+  }, [children.length, containerHeight, getOffsetToAlignInsertionIndex, value]);
 
-  // Stop forcing scroll alignment on external value changes to avoid tug of war
+  // Only sync prop changes when not user-scrolling, with debounce
+  React.useEffect(() => {
+    if (!isUserScrollingRef.current && value !== currentIndexRef.current) {
+      // Debounce to avoid rapid re-scrolls
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
 
-  // Remove custom drag/momentum snapping; rely on FlatList snapToInterval
-  const handleScrollBeginDrag = undefined as unknown as () => void;
-  const handleScrollEndDrag = undefined as unknown as (
-    e: NativeSyntheticEvent<NativeScrollEvent>
-  ) => void;
-  const handleMomentumScrollBegin = undefined as unknown as () => void;
-  const handleMomentumScrollEnd = undefined as unknown as () => void;
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToInsertionIndex(value, false);
+      }, 100) as unknown as number;
+    }
+  }, [value, scrollToInsertionIndex]);
 
-  // No timers to cleanup
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <View className={className} onLayout={onContainerLayout}>
@@ -194,13 +240,11 @@ function ArrayInsertionListInternal(
         renderItem={renderItem}
         keyExtractor={(index) => `content-${index}`}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        // Let FlatList handle ALL snapping - no mid-scroll updates
         onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDrag}
-        onMomentumScrollBegin={handleMomentumScrollBegin}
         onMomentumScrollEnd={handleMomentumScrollEnd}
-        scrollEventThrottle={16}
         snapToInterval={rowHeight}
+        decelerationRate="fast"
         disableIntervalMomentum
         getItemLayout={(_, index) => ({
           length: rowHeight,
@@ -216,8 +260,6 @@ function ArrayInsertionListInternal(
         maxToRenderPerBatch={10}
         windowSize={10}
         initialNumToRender={10}
-        // Picker feel
-        decelerationRate="fast"
       />
 
       {/* No overlay; styling of active index handled by parent content */}

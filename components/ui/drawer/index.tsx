@@ -99,12 +99,19 @@ function DrawerTrigger({
 } & React.ComponentProps<typeof Pressable>) {
   const context = React.useContext(DrawerContext);
 
-  const Component = asChild ? Slot.Pressable : Pressable;
+  // Render directly as Pressable to avoid Slot navigation context issues during transitions
+  if (!asChild) {
+    return (
+      <Pressable onPress={() => context?.setOpen(true)} {...props}>
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
-    <Component onPress={() => context?.setOpen(true)} {...props}>
+    <Slot.Pressable onPress={() => context?.setOpen(true)} {...props}>
       {children}
-    </Component>
+    </Slot.Pressable>
   );
 }
 
@@ -124,16 +131,27 @@ function DrawerClose({
     context?.setOpen(false);
   };
 
-  const Component = asChild ? Slot.Pressable : Pressable;
+  // Render directly as Pressable to avoid Slot navigation context issues during transitions
+  if (!asChild) {
+    return (
+      <Pressable
+        onPress={handlePress}
+        {...props}
+        className={cn(buttonVariants({ variant: 'outline', className }))}
+      >
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
-    <Component
+    <Slot.Pressable
       onPress={handlePress}
       {...props}
       className={cn(buttonVariants({ variant: 'outline', className }))}
     >
       {children}
-    </Component>
+    </Slot.Pressable>
   );
 }
 

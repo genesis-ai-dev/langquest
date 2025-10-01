@@ -83,9 +83,22 @@ function Text({
     asChild?: boolean;
   }) {
   const textClass = React.useContext(TextClassContext);
-  const Component = asChild ? Slot.Text : RNText;
+
+  // Render directly as RNText to avoid Slot navigation context issues during transitions
+  // Only use Slot.Text when explicitly using asChild pattern
+  if (!asChild) {
+    return (
+      <RNText
+        className={cn(textVariants({ variant }), textClass, className)}
+        role={variant ? ROLE[variant] : undefined}
+        aria-level={variant ? ARIA_LEVEL[variant] : undefined}
+        {...props}
+      />
+    );
+  }
+
   return (
-    <Component
+    <Slot.Text
       className={cn(textVariants({ variant }), textClass, className)}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
