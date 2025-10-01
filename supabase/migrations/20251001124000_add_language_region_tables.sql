@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.languoid (
   level        languoid_level NOT NULL,
   ui_ready     BOOLEAN NOT NULL DEFAULT FALSE,
   active       BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.languoid_alias (
   alias_type          alias_type NOT NULL,
   source_names        TEXT[] NOT NULL DEFAULT '{}',
   active              BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS public.languoid_source (
   unique_identifier TEXT,
   url               TEXT,
   active            BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_languoid_source UNIQUE (languoid_id, unique_identifier)
@@ -71,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.languoid_property (
   key          TEXT NOT NULL,
   value        TEXT NOT NULL,
   active       BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_languoid_property UNIQUE (languoid_id, key)
@@ -116,6 +120,7 @@ CREATE TABLE IF NOT EXISTS public.region (
   level        region_level NOT NULL,
   geometry     BOOLEAN NOT NULL DEFAULT FALSE,
   active       BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -125,6 +130,7 @@ CREATE TABLE IF NOT EXISTS public.region_alias (
   subject_region_id  TEXT NOT NULL REFERENCES public.region(id) ON DELETE CASCADE,
   label_languoid_id  TEXT NOT NULL REFERENCES public.languoid(id) ON DELETE RESTRICT,
   active             BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_region_alias UNIQUE (subject_region_id, label_languoid_id)
@@ -138,6 +144,7 @@ CREATE TABLE IF NOT EXISTS public.region_source (
   unique_identifier TEXT,
   url               TEXT,
   active            BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_region_source UNIQUE (region_id, unique_identifier)
@@ -149,6 +156,7 @@ CREATE TABLE IF NOT EXISTS public.region_property (
   key          TEXT NOT NULL,
   value        TEXT NOT NULL,
   active       BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_region_property UNIQUE (region_id, key)
@@ -162,6 +170,7 @@ CREATE TABLE IF NOT EXISTS public.languoid_region (
   official     BOOLEAN DEFAULT NULL,
   native       BOOLEAN DEFAULT NULL,
   active       BOOLEAN NOT NULL DEFAULT TRUE,
+  download_profiles uuid[] null,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_languoid_region UNIQUE (languoid_id, region_id)
@@ -173,6 +182,10 @@ CREATE INDEX IF NOT EXISTS idx_region_source_rid    ON public.region_source(regi
 CREATE INDEX IF NOT EXISTS idx_region_prop_rid      ON public.region_property(region_id);
 CREATE INDEX IF NOT EXISTS idx_lreg_languoid        ON public.languoid_region(languoid_id);
 CREATE INDEX IF NOT EXISTS idx_lreg_region          ON public.languoid_region(region_id);
+
+-- Make self-referential foreign keys deferrable
+ALTER TABLE public.languoid ALTER CONSTRAINT languoid_parent_id_fkey DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE public.region ALTER CONSTRAINT region_parent_id_fkey DEFERRABLE INITIALLY IMMEDIATE;
 
 -- COMMIT;
 
