@@ -508,6 +508,64 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     ]
   );
 
+  // Get audio URI for an asset
+  const getAssetAudioUri = React.useCallback(
+    async (assetId: string): Promise<string | null> => {
+      try {
+        const contentLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const content = await system.db
+          .select()
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, assetId))
+          .limit(1);
+
+        if (content[0]?.audio_id && system.permAttachmentQueue) {
+          // Query the attachments table directly
+          const attachment = await system.powersync.getOptional<{
+            id: string;
+            local_uri: string | null;
+            filename: string | null;
+          }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
+            content[0].audio_id
+          ]);
+
+          if (attachment?.local_uri) {
+            return system.permAttachmentQueue.getLocalUri(attachment.local_uri);
+          }
+        }
+        return null;
+      } catch (e) {
+        console.error('Failed to get audio URI for asset', e);
+        return null;
+      }
+    },
+    []
+  );
+
+  const handlePlayAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        const isThisAssetPlaying = isPlaying && currentAudioId === assetId;
+
+        if (isThisAssetPlaying) {
+          await stopCurrentSound();
+        } else {
+          const uri = await getAssetAudioUri(assetId);
+          if (uri) {
+            await playSound(uri, assetId);
+          } else {
+            console.error('No audio URI found for asset:', assetId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to play audio:', error);
+      }
+    },
+    [isPlaying, currentAudioId, playSound, stopCurrentSound, getAssetAudioUri]
+  );
+
   const handleDeleteLocalAsset = React.useCallback(async (assetId: string) => {
     try {
       await audioSegmentService.deleteAudioSegment(assetId);
@@ -601,7 +659,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   React.useEffect(() => {
     // Skip if no optimistic assets to clean up
     if (optimisticAssets.length === 0) return;
-    
+
     const pages = Array.isArray(
       (data as { pages?: { data: unknown[] }[] } | undefined)?.pages
     )
@@ -619,7 +677,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       const filtered = prev.filter((opt) => !realIds.has(opt.id));
       // Only update if something actually changed (prevent loops)
       if (filtered.length === prev.length) return prev;
-      
+
       console.log(
         `🧹 Cleaned up ${prev.length - filtered.length} optimistic assets (now in DB)`
       );
@@ -806,17 +864,41 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   {asset.name}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
-                  {asset.source === 'cloud' ? 'Cloud' : 'Local'} • Position{' '}
-                  {i + 1}
+                  {asset.source === 'cloud'
+                    ? 'Cloud'
+                    : asset.source === 'optimistic'
+                      ? 'Saving…'
+                      : 'Local'}{' '}
+                  • Position {i + 1}
                 </Text>
                 {/* waveform removed */}
               </View>
               {!isSelectionMode && asset.source !== 'cloud' && (
                 <View className="flex-row gap-1">
+                  {/* Play button for all assets (optimistic ones will have URI soon) */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onPress={() => handlePlayAsset(asset.id)}
+                    disabled={asset.source === 'optimistic'}
+                  >
+                    <Icon
+                      as={
+                        isPlaying && currentAudioId === asset.id ? Pause : Play
+                      }
+                      size={16}
+                      className={
+                        isPlaying && currentAudioId === asset.id
+                          ? 'text-primary'
+                          : ''
+                      }
+                    />
+                  </Button>
                   <Button
                     variant="destructive"
                     size="icon"
                     onPress={() => handleDeleteLocalAsset(asset.id)}
+                    disabled={asset.source === 'optimistic'}
                   >
                     <Icon as={Trash2} size={16} />
                   </Button>
@@ -826,6 +908,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                         variant="outline"
                         size="icon"
                         onPress={() => handleMergeDownLocal(i)}
+                        disabled={asset.source === 'optimistic'}
                       >
                         <Icon as={GitMerge} size={16} />
                       </Button>
@@ -862,8 +945,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isSelectionMode,
     toggleSelect,
     enterSelection,
+    handlePlayAsset,
     handleDeleteLocalAsset,
     handleMergeDownLocal,
+    isPlaying,
+    currentAudioId,
     pendingAnimsRef,
     insertionIndex,
     spacerHeight,
