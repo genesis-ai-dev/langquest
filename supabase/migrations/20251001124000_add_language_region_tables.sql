@@ -295,3 +295,142 @@ grant execute on function public.list_nation_names() to anon, authenticated;
 -- COMMIT;
 
 
+-- RLS: enable and policies for language and region tables
+-- Everyone can read; only authenticated can insert; no updates/deletes
+
+ALTER TABLE public.languoid ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.languoid TO anon;
+GRANT SELECT ON TABLE public.languoid TO authenticated;
+GRANT INSERT ON TABLE public.languoid TO authenticated;
+CREATE POLICY "languoid_select_policy"
+ON public.languoid
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "languoid_insert_policy"
+ON public.languoid
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.languoid_alias ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.languoid_alias TO anon;
+GRANT SELECT ON TABLE public.languoid_alias TO authenticated;
+GRANT INSERT ON TABLE public.languoid_alias TO authenticated;
+CREATE POLICY "languoid_alias_select_policy"
+ON public.languoid_alias
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "languoid_alias_insert_policy"
+ON public.languoid_alias
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.languoid_source ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.languoid_source TO anon;
+GRANT SELECT ON TABLE public.languoid_source TO authenticated;
+GRANT INSERT ON TABLE public.languoid_source TO authenticated;
+CREATE POLICY "languoid_source_select_policy"
+ON public.languoid_source
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "languoid_source_insert_policy"
+ON public.languoid_source
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.languoid_property ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.languoid_property TO anon;
+GRANT SELECT ON TABLE public.languoid_property TO authenticated;
+GRANT INSERT ON TABLE public.languoid_property TO authenticated;
+CREATE POLICY "languoid_property_select_policy"
+ON public.languoid_property
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "languoid_property_insert_policy"
+ON public.languoid_property
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.region ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.region TO anon;
+GRANT SELECT ON TABLE public.region TO authenticated;
+GRANT INSERT ON TABLE public.region TO authenticated;
+CREATE POLICY "region_select_policy"
+ON public.region
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "region_insert_policy"
+ON public.region
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.region_alias ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.region_alias TO anon;
+GRANT SELECT ON TABLE public.region_alias TO authenticated;
+GRANT INSERT ON TABLE public.region_alias TO authenticated;
+CREATE POLICY "region_alias_select_policy"
+ON public.region_alias
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "region_alias_insert_policy"
+ON public.region_alias
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.region_source ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.region_source TO anon;
+GRANT SELECT ON TABLE public.region_source TO authenticated;
+GRANT INSERT ON TABLE public.region_source TO authenticated;
+CREATE POLICY "region_source_select_policy"
+ON public.region_source
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "region_source_insert_policy"
+ON public.region_source
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.region_property ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.region_property TO anon;
+GRANT SELECT ON TABLE public.region_property TO authenticated;
+GRANT INSERT ON TABLE public.region_property TO authenticated;
+CREATE POLICY "region_property_select_policy"
+ON public.region_property
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "region_property_insert_policy"
+ON public.region_property
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+ALTER TABLE public.languoid_region ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON TABLE public.languoid_region TO anon;
+GRANT SELECT ON TABLE public.languoid_region TO authenticated;
+GRANT INSERT ON TABLE public.languoid_region TO authenticated;
+CREATE POLICY "languoid_region_select_policy"
+ON public.languoid_region
+FOR SELECT
+TO public
+USING (true);
+CREATE POLICY "languoid_region_insert_policy"
+ON public.languoid_region
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+
