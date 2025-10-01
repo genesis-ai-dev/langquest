@@ -22,7 +22,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { eq, sql } from 'drizzle-orm';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Pause, Play } from 'lucide-react-native';
 import React from 'react';
 import { Animated, View } from 'react-native';
 import uuid from 'react-native-uuid';
@@ -51,7 +51,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     playSoundSequence,
     stopCurrentSound,
     isPlaying,
-    currentAudioId
+    currentAudioId,
+    position,
+    duration
   } = useAudio();
   const { t } = useLocalization();
 
@@ -443,6 +445,46 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     ]
   );
 
+  const handlePlayAll = React.useCallback(async () => {
+    try {
+      if (isPlaying) {
+        await stopCurrentSound();
+        return;
+      }
+
+      // Collect all audio URIs from all assets
+      const allUris: string[] = [];
+
+      for (const asset of assets) {
+        if (asset.source === 'optimistic') continue;
+        const uris = await getAssetAudioUris(asset.id);
+        allUris.push(...uris);
+      }
+
+      if (allUris.length === 0) {
+        console.error('No audio found to play');
+        return;
+      }
+
+      // Play all in sequence with a special ID
+      await playSoundSequence(allUris, 'play-all');
+    } catch (error) {
+      console.error('Failed to play all:', error);
+    }
+  }, [
+    isPlaying,
+    assets,
+    stopCurrentSound,
+    getAssetAudioUris,
+    playSoundSequence
+  ]);
+
+  // Calculate progress percentage for current playing asset
+  const playbackProgress = React.useMemo(() => {
+    if (!isPlaying || !currentAudioId || duration === 0) return 0;
+    return Math.min(100, Math.max(0, (position / duration) * 100));
+  }, [isPlaying, currentAudioId, position, duration]);
+
   // Asset operations
   const handleDeleteLocalAsset = React.useCallback(
     async (assetId: string) => {
@@ -634,6 +676,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             isSelectionMode={isSelectionMode}
             isPlaying={isThisPlaying}
             canMergeDown={canMergeDown}
+            progress={isThisPlaying ? playbackProgress : undefined}
             onPress={() => (isSelectionMode ? toggleSelect(asset.id) : {})}
             onLongPress={() => enterSelection(asset.id)}
             onPlay={handlePlayAsset}
@@ -662,6 +705,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     spacerHeight,
     spacerPulse,
     pendingAnimsRef,
+    playbackProgress,
     toggleSelect,
     enterSelection,
     handlePlayAsset,
@@ -683,11 +727,29 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </View>
       </View>
 
-      {/* Asset count */}
-      <View className="px-4 pb-2">
+      {/* Asset count and controls */}
+      <View className="flex-row items-center justify-between px-4 pb-2">
         <Text className="text-xl font-bold text-foreground">
           {t('assets')} ({assets.length})
         </Text>
+        {assets.length > 0 && !isSelectionMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            onPress={handlePlayAll}
+            className="flex-row gap-2"
+          >
+            <Icon
+              as={isPlaying && currentAudioId === 'play-all' ? Pause : Play}
+              size={16}
+            />
+            <Text className="text-sm">
+              {isPlaying && currentAudioId === 'play-all'
+                ? 'Stop All'
+                : 'Play All'}
+            </Text>
+          </Button>
+        )}
       </View>
 
       {/* Scrollable list */}

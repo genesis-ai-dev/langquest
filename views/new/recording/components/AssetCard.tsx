@@ -34,6 +34,7 @@ interface AssetCardProps {
   isSelectionMode: boolean;
   isPlaying: boolean;
   canMergeDown: boolean;
+  progress?: number; // 0-100 percentage
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
@@ -48,6 +49,7 @@ export const AssetCard = React.memo(function AssetCard({
   isSelectionMode,
   isPlaying,
   canMergeDown,
+  progress,
   onPress,
   onLongPress,
   onPlay,
@@ -60,13 +62,23 @@ export const AssetCard = React.memo(function AssetCard({
 
   return (
     <TouchableOpacity
-      className={`rounded-lg border p-3 ${
+      className={`overflow-hidden rounded-lg border p-3 ${
         isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
       }`}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
+      {/* Progress bar overlay */}
+      {isPlaying && progress !== undefined && (
+        <View className="pointer-events-none absolute inset-0">
+          <View
+            className="h-full bg-primary/20"
+            style={{ width: `${progress}%` }}
+          />
+        </View>
+      )}
+
       <View className="flex-row items-center gap-3">
         <View className="flex-1">
           <Text className="text-base font-medium text-foreground">
