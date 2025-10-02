@@ -18,12 +18,12 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { Language } from '@/store/localStore';
+import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
   useHybridData,
   useItemDownloadStatus
 } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { eq } from 'drizzle-orm';
 import {
   CrownIcon,
@@ -193,12 +193,13 @@ export function ProjectListItem({
                 )}
               </View>
               <CardDescription>
-                {sourceLanguages.length
-                  ? sourceLanguages
-                      .map((l) => getLanguageDisplayName(l))
-                      .join(', ')
-                  : '—'}{' '}
-                → {getLanguageDisplayName(targetLanguage)}
+                {`${
+                  sourceLanguages.length
+                    ? sourceLanguages
+                        .map((l) => getLanguageDisplayName(l))
+                        .join(', ')
+                    : '—'
+                } → ${getLanguageDisplayName(targetLanguage)}`}
               </CardDescription>
             </View>
           </CardHeader>
