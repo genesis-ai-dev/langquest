@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import uuid from 'react-native-uuid';
 
 interface CreateChapterParams {
     projectId: string;
@@ -39,7 +38,7 @@ export function useBibleChapterCreation() {
             );
 
             return await system.db.transaction(async (tx) => {
-                // 1. Create the chapter quest
+                // Create just the chapter quest - assets will be created during recording
                 const [chapterQuest] = await tx
                     .insert(resolveTable('quest', { localOverride: true }))
                     .values({
@@ -56,51 +55,12 @@ export function useBibleChapterCreation() {
                     throw new Error('Failed to create chapter quest');
                 }
 
-                console.log(`✅ Created quest: ${chapterQuest.id}`);
-
-                // 2. Batch create all verse assets
-                const assetValues = [];
-                const questAssetLinks = [];
-
-                for (let verse = 1; verse <= verseCount; verse++) {
-                    const assetId = uuid.v4() as string;
-
-                    assetValues.push({
-                        id: assetId,
-                        name: `${book.name} ${chapter}:${verse}`,
-                        order_index: verse,
-                        source_language_id: targetLanguageId,
-                        project_id: projectId,
-                        creator_id: currentUser.id,
-                        download_profiles: [currentUser.id]
-                    });
-
-                    questAssetLinks.push({
-                        id: `${chapterQuest.id}_${assetId}`,
-                        quest_id: chapterQuest.id,
-                        asset_id: assetId,
-                        download_profiles: [currentUser.id]
-                    });
-                }
-
-                // Batch insert all assets
-                await tx
-                    .insert(resolveTable('asset', { localOverride: true }))
-                    .values(assetValues);
-
-                // Batch insert all quest-asset links
-                await tx
-                    .insert(resolveTable('quest_asset_link', { localOverride: true }))
-                    .values(questAssetLinks);
-
-                console.log(
-                    `✅ Created ${verseCount} verse assets for ${book.name} ${chapter}`
-                );
+                console.log(`✅ Created chapter quest: ${chapterQuest.id}`);
 
                 return {
                     questId: chapterQuest.id,
                     questName: chapterQuest.name,
-                    assetCount: verseCount,
+                    assetCount: 0, // No pre-created assets
                     projectId,
                     bookName: book.name
                 };

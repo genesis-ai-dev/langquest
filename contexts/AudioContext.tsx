@@ -88,8 +88,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const playSound = async (uri: string, audioId?: string) => {
+    console.log('🎵 AudioContext.playSound - URI:', uri.slice(0, 80));
+    console.log('🎵 AudioContext.playSound - audioId:', audioId?.slice(0, 12));
+
     // Stop current sound if any is playing (but preserve sequence state)
     if (soundRef.current) {
+      console.log('🛑 Stopping previous sound');
       clearPositionInterval();
       await soundRef.current.stopAsync();
       await soundRef.current.unloadAsync();
@@ -97,6 +101,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Set up audio mode
+    console.log('🔊 Setting audio mode...');
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
@@ -105,10 +110,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     // Load and play new sound
     try {
+      console.log('📂 Creating Audio.Sound from URI...');
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: true }
       );
+      console.log('✅ Sound created successfully');
 
       soundRef.current = sound;
       setIsPlaying(true);
@@ -120,8 +127,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       // Get initial status to set the duration
       const status = await sound.getStatusAsync();
+      console.log(
+        '📊 Sound status:',
+        status.isLoaded ? 'loaded' : 'not loaded'
+      );
       if (status.isLoaded) {
-        setDuration(status.durationMillis ?? 0);
+        const durationMs = status.durationMillis ?? 0;
+        setDuration(durationMs);
+        console.log(
+          '⏱️ Duration:',
+          durationMs,
+          'ms (',
+          (durationMs / 1000).toFixed(1),
+          's)'
+        );
+        console.log('▶️ Is playing:', status.isPlaying);
       }
 
       // Start tracking position
@@ -129,18 +149,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       // Set up listener for when sound finishes playing
       sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) return;
+        if (!status.isLoaded) {
+          console.warn('⚠️ Status update - sound not loaded');
+          return;
+        }
 
         if (status.didJustFinish) {
+          console.log('🏁 Sound finished playing');
           clearPositionInterval();
           void sound.unloadAsync();
           soundRef.current = null;
 
           // Check if there are more sounds in the sequence
           if (sequenceQueue.current.length > 0) {
+            console.log('▶️ Next in sequence...');
             void playNextInSequence();
           } else {
             // No more sounds in sequence
+            console.log('✅ Playback complete');
             setIsPlaying(false);
             setCurrentAudioId(null);
             setPositionState(0);
@@ -148,7 +174,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         }
       });
     } catch (error) {
-      console.error('Error playing sound:', error);
+      console.error('❌ Error in AudioContext.playSound:', error);
+      console.error('❌ Error details:', JSON.stringify(error));
       setIsPlaying(false);
       setCurrentAudioId(null);
     }

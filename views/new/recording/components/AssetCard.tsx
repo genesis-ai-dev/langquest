@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/text';
 import {
   CheckCircle,
   Circle,
+  Edit,
   GitMerge,
   Pause,
   Play,
@@ -36,11 +37,13 @@ interface AssetCardProps {
   canMergeDown: boolean;
   progress?: number; // 0-100 percentage
   segmentCount?: number; // Number of audio segments in this asset
+  isBibleMode?: boolean; // Bible mode shows edit button
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
   onDelete: (assetId: string) => void;
   onMerge: (index: number) => void;
+  onEdit?: (assetId: string, assetName: string) => void; // Bible mode: edit segments
 }
 
 export const AssetCard = React.memo(function AssetCard({
@@ -52,11 +55,13 @@ export const AssetCard = React.memo(function AssetCard({
   canMergeDown,
   progress,
   segmentCount,
+  isBibleMode = false,
   onPress,
   onLongPress,
   onPlay,
   onDelete,
-  onMerge
+  onMerge,
+  onEdit
 }: AssetCardProps) {
   const isOptimistic = asset.source === 'optimistic';
   const isCloud = asset.source === 'cloud';
@@ -103,29 +108,47 @@ export const AssetCard = React.memo(function AssetCard({
 
         {!isSelectionMode && isLocal && (
           <View className="flex-row gap-1">
-            {/* Play button */}
+            {/* Play button - wider in Bible mode */}
             <Button
               variant="outline"
-              size="icon"
+              size={isBibleMode ? 'sm' : 'icon'}
               onPress={() => onPlay(asset.id)}
               disabled={isOptimistic}
+              className={isBibleMode ? 'px-4' : ''}
             >
               <Icon
                 as={isPlaying ? Pause : Play}
                 size={16}
                 className={isPlaying ? 'text-primary' : ''}
               />
+              {isBibleMode && (
+                <Text className="ml-1 text-xs">
+                  {isPlaying ? 'Stop' : 'Play'}
+                </Text>
+              )}
             </Button>
 
-            {/* Delete button */}
-            <Button
-              variant="destructive"
-              size="icon"
-              onPress={() => onDelete(asset.id)}
-              disabled={isOptimistic}
-            >
-              <Icon as={Trash2} size={16} />
-            </Button>
+            {/* Bible mode: Edit button instead of delete */}
+            {isBibleMode && onEdit ? (
+              <Button
+                variant="outline"
+                size="icon"
+                onPress={() => onEdit(asset.id, asset.name)}
+                disabled={isOptimistic}
+              >
+                <Icon as={Edit} size={16} />
+              </Button>
+            ) : (
+              /* Unstructured mode: Delete button */
+              <Button
+                variant="destructive"
+                size="icon"
+                onPress={() => onDelete(asset.id)}
+                disabled={isOptimistic}
+              >
+                <Icon as={Trash2} size={16} />
+              </Button>
+            )}
 
             {/* Merge down button */}
             {canMergeDown && (

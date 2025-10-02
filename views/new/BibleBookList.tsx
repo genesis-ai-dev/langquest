@@ -11,7 +11,46 @@ interface BibleBookListProps {
   onBookSelect: (bookId: string) => void;
 }
 
-export function BibleBookList({ projectId, onBookSelect }: BibleBookListProps) {
+interface BookButtonProps {
+  book: {
+    id: string;
+    chapters: number;
+  };
+  onPress: (bookId: string) => void;
+  variant?: 'ot' | 'nt';
+}
+
+const BookButton: React.FC<BookButtonProps> = ({ book, onPress }) => {
+  const emoji = BOOK_EMOJIS[book.id] || '📖';
+
+  return (
+    <Button
+      key={book.id}
+      variant="outline"
+      className="mb-3 flex w-[180px] flex-row items-center gap-3 px-5 py-4"
+      onPress={() => onPress(book.id)}
+      style={{
+        justifyContent: 'flex-start'
+      }}
+    >
+      <Text className="text-2xl">{emoji}</Text>
+      <Text
+        className="text-base font-semibold uppercase"
+        style={{ letterSpacing: 1 }}
+      >
+        {book.id}
+      </Text>
+      <Text className="ml-auto text-xs text-muted-foreground">
+        {book.chapters} ch
+      </Text>
+    </Button>
+  );
+};
+
+export function BibleBookList({
+  _projectId,
+  onBookSelect
+}: BibleBookListProps) {
   // Split into Old and New Testament
   const oldTestament = BIBLE_BOOKS.slice(0, 39);
   const newTestament = BIBLE_BOOKS.slice(39);
@@ -34,41 +73,14 @@ export function BibleBookList({ projectId, onBookSelect }: BibleBookListProps) {
               justifyContent: 'flex-start'
             }}
           >
-            {oldTestament.map((book, idx) => {
-              const emoji = BOOK_EMOJIS[book.id] || '📖';
-              return (
-                <View
-                  key={book.id}
-                  style={{
-                    width: 104,
-                    marginBottom: 12,
-                    alignItems: 'center'
-                  }}
-                >
-                  <Button
-                    variant="outline"
-                    className="h-content w-full flex-col items-center justify-center gap-1 p-6"
-                    onPress={() => handleBookPress(book.id)}
-                  >
-                    <Text
-                      className="text-center text-2xl"
-                      style={{ marginBottom: 4 }}
-                    >
-                      {emoji}
-                    </Text>
-                    <Text
-                      className="text-center text-xs font-semibold uppercase"
-                      style={{ letterSpacing: 1, marginBottom: 1 }}
-                    >
-                      {book.id}{' '}
-                      <Text className="text-xs text-muted-foreground">
-                        ({book.chapters})
-                      </Text>
-                    </Text>
-                  </Button>
-                </View>
-              );
-            })}
+            {oldTestament.map((book) => (
+              <BookButton
+                key={book.id}
+                book={book}
+                onPress={handleBookPress}
+                variant="ot"
+              />
+            ))}
           </View>
         </View>
 
@@ -76,25 +88,14 @@ export function BibleBookList({ projectId, onBookSelect }: BibleBookListProps) {
         <View className="flex-col gap-3">
           <Text variant="h4">New Testament</Text>
           <View className="flex-row flex-wrap gap-2">
-            {newTestament.map((book) => {
-              const emoji = BOOK_EMOJIS[book.id] || '📖';
-              return (
-                <Button
-                  key={book.id}
-                  variant="outline"
-                  className="w-[110px] flex-col gap-1 py-3"
-                  onPress={() => handleBookPress(book.id)}
-                >
-                  <Text className="text-2xl">{emoji}</Text>
-                  <Text className="text-xs font-semibold uppercase">
-                    {book.id}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {book.chapters} ch
-                  </Text>
-                </Button>
-              );
-            })}
+            {newTestament.map((book) => (
+              <BookButton
+                key={book.id}
+                book={book}
+                onPress={handleBookPress}
+                variant="nt"
+              />
+            ))}
           </View>
         </View>
       </View>
