@@ -5,7 +5,8 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
-import { BOOK_EMOJIS } from '@/utils/BOOK_EMOJIS';
+import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
+import { useThemeColor } from '@/utils/styleUtils';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -20,7 +21,8 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const book = getBibleBook(bookId);
-  const emoji = BOOK_EMOJIS[bookId] || '📖';
+  const IconComponent = BOOK_GRAPHICS[bookId];
+  const primaryColor = useThemeColor('primary');
 
   // Query existing chapters
   const { existingChapterNumbers, chapters: existingChapters } =
@@ -105,7 +107,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       <View className="flex-col gap-4 p-4">
         {/* Header */}
         <View className="flex-row items-center gap-3">
-          <Text className="text-4xl">{emoji}</Text>
+          {IconComponent ? (
+            <IconComponent width={48} height={48} color={primaryColor} />
+          ) : (
+            <Text className="text-4xl">📖</Text>
+          )}
           <View className="flex-col">
             <Text variant="h3">{book.name}</Text>
             <Text className="text-sm text-muted-foreground">
