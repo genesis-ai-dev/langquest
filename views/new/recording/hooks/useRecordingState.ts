@@ -48,16 +48,16 @@ export function useRecordingState(): UseRecordingStateReturn {
         setIsRecording(true);
 
         const tempId = uuid.v4() + '_temp';
-        const targetOrder = insertionIndex + 1;
 
-        // Insert pending segment
+        // The pending card appears at the insertion boundary
+        // When saved, it will become a real item with order_index = insertionIndex
         setPendingSegments((prev) => [
             ...prev,
             {
                 tempId,
-                name: `Segment ${targetOrder}`,
+                name: 'Recording...',
                 status: 'recording' as const,
-                placementIndex: targetOrder,
+                placementIndex: insertionIndex, // Shows at this visual position
                 createdAt: Date.now()
             }
         ]);

@@ -176,7 +176,7 @@ export function ProjectListItem({
                     </View>
                   )}
                   <CardTitle numberOfLines={2} className="flex flex-1">
-                    {project.name}
+                    <Text>{project.name}</Text>
                   </CardTitle>
                 </View>
                 {isDownloaded && (
@@ -193,13 +193,15 @@ export function ProjectListItem({
                 )}
               </View>
               <CardDescription>
-                {`${
-                  sourceLanguages.length
-                    ? sourceLanguages
-                        .map((l) => getLanguageDisplayName(l))
-                        .join(', ')
-                    : '—'
-                } → ${getLanguageDisplayName(targetLanguage)}`}
+                <Text>
+                  {`${
+                    sourceLanguages.length
+                      ? sourceLanguages
+                          .map((l) => getLanguageDisplayName(l))
+                          .join(', ')
+                      : '—'
+                  } → ${getLanguageDisplayName(targetLanguage)}`}
+                </Text>
               </CardDescription>
             </View>
           </CardHeader>

@@ -65,9 +65,7 @@ export const TranslationCard = ({
 
               {SHOW_DEV_ELEMENTS && (
                 <Text className="text-xs text-muted-foreground">
-                  {translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} -
-                  V: {translation.visible ? '🟢' : '🔴'} | A:{' '}
-                  {translation.active ? '🟢' : '🔴'}
+                  {`${translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} - V: ${translation.visible ? '🟢' : '🔴'} | A: ${translation.active ? '🟢' : '🔴'}`}
                 </Text>
               )}
             </View>

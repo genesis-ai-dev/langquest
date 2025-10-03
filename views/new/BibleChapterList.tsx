@@ -25,8 +25,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const primaryColor = useThemeColor('primary');
 
   // Query existing chapters
-  const { existingChapterNumbers, chapters: existingChapters } =
-    useBibleChapters(projectId, book?.name || '');
+  const {
+    existingChapterNumbers,
+    chapters: existingChapters,
+    isLoading: isLoadingChapters
+  } = useBibleChapters(projectId, book?.name || '');
 
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
@@ -50,7 +53,10 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   }
 
   const handleChapterPress = async (chapterNum: number) => {
-    if (isCreating) return; // Prevent double-clicks
+    // Prevent any action while loading or creating
+    if (isLoadingChapters || isCreating || creatingChapter === chapterNum) {
+      return;
+    }
 
     // Check if chapter already exists
     const existingChapter = existingChapters.find(
@@ -122,39 +128,54 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
 
         {/* Chapter Grid */}
         <View className="flex-row flex-wrap gap-2">
-          {chapters.map((chapterNum) => {
-            const verseCount = book.verses[chapterNum - 1] || 0;
-            const exists = existingChapterNumbers.has(chapterNum);
-            const isCreatingThis = creatingChapter === chapterNum;
+          {isLoadingChapters ? (
+            // Show loading skeleton
+            <View className="flex-row flex-wrap gap-2">
+              {chapters.slice(0, 6).map((chapterNum) => (
+                <View
+                  key={chapterNum}
+                  className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
+                >
+                  <ActivityIndicator size="small" />
+                </View>
+              ))}
+            </View>
+          ) : (
+            chapters.map((chapterNum) => {
+              const verseCount = book.verses[chapterNum - 1] || 0;
+              const exists = existingChapterNumbers.has(chapterNum);
+              const isCreatingThis = creatingChapter === chapterNum;
 
-            return (
-              <Button
-                key={chapterNum}
-                variant="outline"
-                className={`w-[90px] flex-col gap-1 py-3 ${
-                  exists ? 'border-solid' : 'border-dashed'
-                }`}
-                onPress={() => handleChapterPress(chapterNum)}
-                disabled={isCreating}
-              >
-                {isCreatingThis ? (
-                  <>
+              return (
+                <Button
+                  key={chapterNum}
+                  variant={exists ? 'default' : 'outline'}
+                  className={`w-[90px] flex-col gap-1 py-3 ${
+                    !exists ? 'border-dashed' : ''
+                  }`}
+                  onPress={() => handleChapterPress(chapterNum)}
+                  disabled={isCreating || isLoadingChapters}
+                >
+                  {isCreatingThis ? (
                     <ActivityIndicator size="small" />
-                    <Text className="text-xs text-muted-foreground">
-                      Creating...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text className="text-lg font-bold">{chapterNum}</Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {verseCount} verses
-                    </Text>
-                  </>
-                )}
-              </Button>
-            );
-          })}
+                  ) : (
+                    <>
+                      <Text className="text-lg font-bold">{chapterNum}</Text>
+                      <Text
+                        className={`text-xs ${
+                          exists
+                            ? 'text-primary-foreground/70'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {verseCount} verses
+                      </Text>
+                    </>
+                  )}
+                </Button>
+              );
+            })
+          )}
         </View>
       </View>
     </ScrollView>

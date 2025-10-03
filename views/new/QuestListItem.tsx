@@ -182,7 +182,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
               )}
               {!!quest.parent_id && (
                 <Text className="text-xs text-muted-foreground">
-                  Parent: {quest.parent_id}
+                  {`Parent: ${quest.parent_id}`}
                 </Text>
               )}
             </CardDescription>

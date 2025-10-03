@@ -79,6 +79,8 @@ function ArrayInsertionWheelInternal(
   const renderItem = React.useCallback(
     ({ item }: { item: PickerItem<number> }) => {
       const i = item.value;
+
+      // Render actual items (not the final boundary)
       if (i < children.length) {
         return (
           <View style={{ height: rowHeight, justifyContent: 'center' }}>
@@ -86,10 +88,16 @@ function ArrayInsertionWheelInternal(
           </View>
         );
       }
+
+      // Final boundary (i === children.length)
+      // When empty (0 items), this is position 0 - the only insertion point
+      // When non-empty, this is position N - insert after all items
       return (
-        <View style={{ height: rowHeight }} className="justify-center">
-          <Text className="text-center text-muted-foreground">
-            Insert at end
+        <View style={{ height: rowHeight }} className="justify-center px-4">
+          <Text className="text-center text-sm text-muted-foreground">
+            {children.length === 0
+              ? '⬇ Tap record button to start'
+              : '⬇ Insert at end'}
           </Text>
         </View>
       );

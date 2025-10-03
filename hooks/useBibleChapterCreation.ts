@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { and, eq } from 'drizzle-orm';
 
 interface CreateChapterParams {
     projectId: string;
@@ -38,11 +39,36 @@ export function useBibleChapterCreation() {
             );
 
             return await system.db.transaction(async (tx) => {
+                const questName = `${book.name} ${chapter}`;
+
+                // Check if quest already exists (race condition safeguard)
+                const existingQuest = await tx
+                    .select()
+                    .from(resolveTable('quest', { localOverride: true }))
+                    .where(
+                        and(
+                            eq(resolveTable('quest', { localOverride: true }).project_id, projectId),
+                            eq(resolveTable('quest', { localOverride: true }).name, questName)
+                        )
+                    )
+                    .limit(1);
+
+                if (existingQuest.length > 0) {
+                    console.log(`⚠️ Chapter already exists, returning existing quest: ${existingQuest[0].id}`);
+                    return {
+                        questId: existingQuest[0].id,
+                        questName: existingQuest[0].name,
+                        assetCount: 0,
+                        projectId,
+                        bookName: book.name
+                    };
+                }
+
                 // Create just the chapter quest - assets will be created during recording
                 const [chapterQuest] = await tx
                     .insert(resolveTable('quest', { localOverride: true }))
                     .values({
-                        name: `${book.name} ${chapter}`,
+                        name: questName,
                         description: `${verseCount} verses`,
                         project_id: projectId,
                         parent_id: null, // For now, no book-level parent

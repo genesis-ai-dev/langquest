@@ -40,7 +40,7 @@ const BookButton: React.FC<BookButtonProps> = React.memo(
         onPress={handlePress}
       >
         {useSvgIcons && IconComponent ? (
-          <IconComponent width={60} height={60} color={iconColor} />
+          <IconComponent width={80} height={80} color={iconColor} />
         ) : (
           <Text className="text-4xl">{emoji}</Text>
         )}
