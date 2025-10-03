@@ -1,46 +1,67 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
-import { BOOK_EMOJIS, BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
+import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { Dimensions, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { Dimensions, Image, View, ScrollView } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
   onBookSelect: (bookId: string) => void;
 }
 
-interface BookButtonProps {
-  book: {
-    id: string;
-    chapters: number;
-  };
-  onPress: (bookId: string) => void;
-  variant?: 'ot' | 'nt';
-  iconColor: string;
-  useSvgIcons?: boolean;
-}
+export function BibleBookList({
+  projectId: _projectId,
+  onBookSelect
+}: BibleBookListProps) {
+  const primaryColor = useThemeColor('primary');
 
-const BookButton: React.FC<BookButtonProps> = React.memo(
-  ({ book, onPress, iconColor, useSvgIcons = false }) => {
-    const IconComponent = BOOK_GRAPHICS[book.id];
+  // Responsive: calculate how many fit per row
+  const screenWidth = Dimensions.get('window').width;
+  const buttonWidth = 110;
+  const gap = 12;
+  const padding = 16;
+  const availableWidth = screenWidth - padding * 2;
+  const buttonsPerRow = Math.max(
+    2,
+    Math.floor((availableWidth + gap) / (buttonWidth + gap))
+  );
+
+  // Split books
+  const oldTestament = BIBLE_BOOKS.slice(0, 39);
+  const newTestament = BIBLE_BOOKS.slice(39);
+
+  // Helper to chunk books into rows
+  function chunkBooks(books: typeof BIBLE_BOOKS, size: number) {
+    const rows = [];
+    for (let i = 0; i < books.length; i += size) {
+      rows.push(books.slice(i, i + size));
+    }
+    return rows;
+  }
+
+  const renderBookButton = (book: { id: string; chapters: number }) => {
     const emoji = BOOK_EMOJIS[book.id] || '📖';
-    const handlePress = React.useCallback(
-      () => onPress(book.id),
-      [book.id, onPress]
-    );
+    const iconSource = BOOK_ICON_MAP[book.id];
 
     return (
       <Button
         key={book.id}
         variant="outline"
         className="flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 p-3"
-        onPress={handlePress}
+        onPress={() => onBookSelect(book.id)}
       >
-        {useSvgIcons && IconComponent ? (
-          <IconComponent width={80} height={80} color={iconColor} />
+        {iconSource ? (
+          <Image
+            source={iconSource}
+            style={{
+              width: 80,
+              height: 80,
+              tintColor: primaryColor
+            }}
+            resizeMode="contain"
+          />
         ) : (
           <Text className="text-4xl">{emoji}</Text>
         )}
@@ -57,95 +78,46 @@ const BookButton: React.FC<BookButtonProps> = React.memo(
         </View>
       </Button>
     );
-  }
-);
-
-export function BibleBookList({
-  projectId: _projectId,
-  onBookSelect
-}: BibleBookListProps) {
-  const primaryColor = useThemeColor('primary');
-
-  // Split into Old and New Testament
-  const oldTestament = BIBLE_BOOKS.slice(0, 39);
-  const newTestament = BIBLE_BOOKS.slice(39);
-
-  // Use emojis by default for performance (set to true to enable SVG icons)
-  const USE_SVG_ICONS = true;
-
-  const handleBookPress = (bookId: string) => {
-    console.log('Selected book:', bookId);
-    onBookSelect(bookId);
   };
 
-  // Calculate screen width for responsive centering
-  const screenWidth = Dimensions.get('window').width;
-  const buttonWidth = 110;
-  const gap = 8;
-  const padding = 16;
-  const availableWidth = screenWidth - padding * 2;
-  const buttonsPerRow = Math.floor(
-    (availableWidth + gap) / (buttonWidth + gap)
-  );
-  const totalButtonWidth =
-    buttonsPerRow * buttonWidth + (buttonsPerRow - 1) * gap;
-  const leftPadding = (availableWidth - totalButtonWidth) / 2;
+  const renderBookRows = (books: typeof BIBLE_BOOKS) => {
+    const rows = chunkBooks(books, buttonsPerRow);
+    return rows.map((row, idx) => (
+      <View
+        key={idx}
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          gap: gap,
+          marginBottom: gap
+        }}
+      >
+        {row.map(renderBookButton)}
+      </View>
+    ));
+  };
 
   return (
-    <ScrollView className="flex-1">
-      <View className="flex-col gap-6 p-4">
-        {/* Old Testament */}
-        <View className="flex-col gap-3">
-          <Text variant="h4" className="mb-1">
-            Old Testament
-          </Text>
-          <View
-            className="flex-row flex-wrap"
-            style={{
-              gap: 8,
-              justifyContent: 'flex-start',
-              paddingLeft: leftPadding
-            }}
-          >
-            {oldTestament.map((book) => (
-              <BookButton
-                key={book.id}
-                book={book}
-                onPress={handleBookPress}
-                variant="ot"
-                iconColor={primaryColor}
-                useSvgIcons={USE_SVG_ICONS}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* New Testament */}
-        <View className="flex-col gap-3">
-          <Text variant="h4" className="mb-1">
-            New Testament
-          </Text>
-          <View
-            className="flex-row flex-wrap"
-            style={{
-              gap: 8,
-              justifyContent: 'flex-start',
-              paddingLeft: leftPadding
-            }}
-          >
-            {newTestament.map((book) => (
-              <BookButton
-                key={book.id}
-                book={book}
-                onPress={handleBookPress}
-                variant="nt"
-                iconColor={primaryColor}
-                useSvgIcons={USE_SVG_ICONS}
-              />
-            ))}
-          </View>
-        </View>
+    <ScrollView
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: padding,
+        paddingBottom: 24
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ width: availableWidth, paddingVertical: 16 }}>
+        <Text variant="h4" className="text-center">
+          Old Testament
+        </Text>
       </View>
+      {renderBookRows(oldTestament)}
+      <View style={{ width: availableWidth, paddingVertical: 32 }}>
+        <Text variant="h4" className="text-center">
+          New Testament
+        </Text>
+      </View>
+      {renderBookRows(newTestament)}
     </ScrollView>
   );
 }
