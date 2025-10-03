@@ -20,9 +20,11 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { generateAssetName } from '@/utils/assetNaming';
+import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Animated, View } from 'react-native';
@@ -153,7 +155,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       id: string;
       name: string;
       created_at?: string;
-      order_index?: number;
+      order_index?: number | null;
       source?: string;
     }
 
@@ -164,22 +166,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     const combined = [...valid, ...optimisticAssets];
 
-    return combined.sort((a, b) => {
-      if (
-        typeof a.order_index === 'number' &&
-        typeof b.order_index === 'number' &&
-        a.order_index !== b.order_index
-      ) {
-        return a.order_index - b.order_index;
+    // First sort to get initial order
+    const sorted = sortAssets(combined);
+
+    // Initialize order_index for assets that don't have it set (0, null, or undefined)
+    // This ensures proper insertion behavior when mixing old and new assets
+    const withOrderIndex = sorted.map((asset, index) => {
+      const needsInit =
+        asset.order_index === null ||
+        asset.order_index === undefined ||
+        asset.order_index === 0;
+
+      if (needsInit && asset.source !== 'optimistic') {
+        // For assets without explicit ordering, assign based on current position
+        // This only happens in-memory; database update will happen on next insertion
+        return { ...asset, order_index: index } as UIAsset;
       }
-      const ad = a.created_at ? String(a.created_at) : '';
-      const bd = b.created_at ? String(b.created_at) : '';
-      if (ad !== bd) return ad.localeCompare(bd);
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      });
+      // Normalize null to undefined for type consistency
+      if (asset.order_index === null) {
+        return { ...asset, order_index: undefined } as UIAsset;
+      }
+      return asset;
     });
+
+    return withOrderIndex;
   }, [rawAssets, optimisticAssets]);
 
   // Insertion tracking - start at end of list by default
@@ -304,6 +314,18 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     return () => clearTimeout(timer);
   }, [pendingSegments, removePending]);
+
+  // Helper to add duration for newly recorded asset
+  const addAssetDuration = React.useCallback(
+    (assetId: string, duration: number) => {
+      setAssetDurations((prev) => {
+        const next = new Map(prev);
+        next.set(assetId, duration);
+        return next;
+      });
+    },
+    []
+  );
 
   // Recording lifecycle
   const handleRecordingStart = React.useCallback(() => {
@@ -431,14 +453,32 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           });
           const assetLocal = resolveTable('asset', { localOverride: true });
 
-          const idsInQuest = tx
-            .select({ asset_id: linkLocal.asset_id })
-            .from(linkLocal)
-            .where(eq(linkLocal.quest_id, currentQuestId));
+          // Get IDs of assets that need to be shifted (those at or after insertion point)
+          // Use in-memory order_index values since they may have been initialized
+          const assetsToShift = assets
+            .filter((a) => {
+              const aOrder =
+                typeof a.order_index === 'number' ? a.order_index : 0;
+              return aOrder >= targetOrder && a.source !== 'optimistic';
+            })
+            .map((a) => a.id);
 
-          await tx.run(
-            sql`UPDATE ${assetLocal} SET order_index = order_index + 1 WHERE ${assetLocal.id} IN (${idsInQuest}) AND ${assetLocal.order_index} >= ${targetOrder}`
-          );
+          // Shift those assets up by 1 in the database
+          if (assetsToShift.length > 0) {
+            for (const assetId of assetsToShift) {
+              // Get current order_index from memory (it may have been initialized)
+              const asset = assets.find((a) => a.id === assetId);
+              const currentOrder =
+                asset && typeof asset.order_index === 'number'
+                  ? asset.order_index
+                  : 0;
+
+              await tx
+                .update(assetLocal)
+                .set({ order_index: currentOrder + 1 })
+                .where(eq(assetLocal.id, assetId));
+            }
+          }
 
           const [newAsset] = await tx
             .insert(assetLocal)
@@ -479,15 +519,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           targetOrder
         );
 
-        // 5. Remove optimistic asset
+        // 5. Add duration to cache (from recording metadata)
+        if (_duration > 0) {
+          addAssetDuration(newId, _duration);
+        }
+
+        // 6. Remove optimistic asset
         removeOptimistic(newId);
 
-        // 6. Advance insertion index (now that save is successful)
+        // 7. Advance insertion index (now that save is successful)
         const newInsertionIndex = targetOrder + 1;
         setInsertionIndex(newInsertionIndex);
         console.log(`📍 Advanced insertion index to ${newInsertionIndex}`);
 
-        // 7. Invalidate queries
+        // 8. Invalidate queries
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'infinite', currentQuestId, ''],
           exact: false
@@ -515,9 +560,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       currentQuestId,
       currentProject,
       currentUser,
+      assets,
       addOptimistic,
       removePending,
       removeOptimistic,
+      addAssetDuration,
       queryClient
     ]
   );
@@ -719,6 +766,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     Map<string, { id: string; audio_id: string | null }[]>
   >(new Map());
 
+  // Track durations for each asset (in milliseconds) - loaded lazily in background
+  const [assetDurations, setAssetDurations] = React.useState<
+    Map<string, number>
+  >(new Map());
+
   // Load segments for all assets (from both local and synced tables)
   React.useEffect(() => {
     const loadSegments = async () => {
@@ -800,6 +852,62 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       void loadSegments();
     }
   }, [assets]);
+
+  // Load durations lazily in background - non-blocking, no infinite loops
+  React.useEffect(() => {
+    const controller = new AbortController();
+
+    (async () => {
+      const newDurations = new Map<string, number>();
+
+      // Get current snapshot of assets to load
+      const assetsToLoad = assets.filter(
+        (asset) => asset.source !== 'optimistic'
+      );
+
+      // Load in background without blocking render
+      for (const asset of assetsToLoad) {
+        if (controller.signal.aborted) break;
+
+        try {
+          const uris = await getAssetAudioUris(asset.id);
+          if (uris.length === 0) continue;
+
+          // Calculate total duration for all segments
+          let totalDuration = 0;
+          for (const uri of uris) {
+            if (controller.signal.aborted) break;
+
+            try {
+              const { sound } = await Audio.Sound.createAsync({ uri });
+              const status = await sound.getStatusAsync();
+              await sound.unloadAsync();
+
+              if (status.isLoaded && status.durationMillis) {
+                totalDuration += status.durationMillis;
+              }
+            } catch (err) {
+              console.error(`Failed to load duration for URI ${uri}:`, err);
+            }
+          }
+
+          if (totalDuration > 0 && !controller.signal.aborted) {
+            newDurations.set(asset.id, totalDuration);
+          }
+        } catch (err) {
+          console.error(`Failed to load durations for asset ${asset.id}:`, err);
+        }
+      }
+
+      // Only update state if not aborted
+      if (!controller.signal.aborted) {
+        setAssetDurations(newDurations);
+      }
+    })();
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Calculate progress percentage for current playing asset
   const playbackProgress = React.useMemo(() => {
@@ -1228,6 +1336,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           i < assets.length - 1 && assets[i + 1]?.source !== 'cloud';
 
         const segmentCount = assetSegmentCounts.get(asset.id);
+        const duration = assetDurations.get(asset.id);
 
         content.push(
           <AssetCard
@@ -1239,6 +1348,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             isPlaying={isThisPlaying}
             canMergeDown={canMergeDown}
             progress={isThisPlaying ? playbackProgress : undefined}
+            duration={duration}
             segmentCount={segmentCount}
             onPress={() => (isSelectionMode ? toggleSelect(asset.id) : {})}
             onLongPress={() => enterSelection(asset.id)}

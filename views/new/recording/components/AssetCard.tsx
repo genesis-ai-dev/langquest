@@ -4,6 +4,7 @@
  * Features:
  * - Tap card to play/pause audio (except when tapping label to rename)
  * - Visual progress bar during playback
+ * - Duration display (monospace, muted) next to label
  * - Delete and merge actions
  * - Selection mode (WhatsApp-style long-press)
  *
@@ -31,6 +32,7 @@ interface AssetCardProps {
   isSelectionMode: boolean;
   isPlaying: boolean;
   progress?: number; // 0-100 percentage
+  duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
   onPress: () => void;
   onLongPress: () => void;
@@ -45,6 +47,14 @@ interface AssetCardProps {
 
 const PROGRESS_STEPS = 500; // Number of steps for smooth animation
 
+// Format duration in milliseconds to MM:SS
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export function AssetCard({
   asset,
   index,
@@ -52,6 +62,7 @@ export function AssetCard({
   isSelectionMode,
   isPlaying,
   progress,
+  duration,
   segmentCount,
   onPress,
   onLongPress,
@@ -188,6 +199,14 @@ export function AssetCard({
             {`${isCloud ? 'Cloud' : isOptimistic ? 'Saving…' : 'Local'} • Position ${index + 1}`}
           </Text>
         </View>
+        {duration !== undefined && (
+          <Text
+            className="font-mono text-sm text-muted-foreground"
+            style={{ letterSpacing: 0.5 }}
+          >
+            {formatDuration(duration)}
+          </Text>
+        )}
 
         {/* Selection checkbox - only show for local assets in selection mode */}
         {isSelectionMode && isLocal && (

@@ -21,6 +21,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { sortAssets } from '@/utils/assetSorting';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
@@ -296,14 +297,8 @@ export default function NextGenAssetsView() {
       return asset.id && asset.name;
     });
 
-    // Sort assets by name in natural alphanumerical order
-    return validAssets.sort((a, b) => {
-      // Use localeCompare with numeric option for natural sorting
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      });
-    });
+    // Sort assets using unified sorting logic (order_index -> created_at -> name)
+    return sortAssets(validAssets);
   }, [data.pages]);
 
   // Watch attachment states for all assets

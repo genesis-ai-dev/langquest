@@ -59,6 +59,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const activationProgress = useRef(new Animated.Value(0)).current;
   const activationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Timer for delayed stop after release (to capture audio tail)
+  const releaseDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Background color animation (0 = transparent, 1 = red)
   const bgColorAnim = useRef(new Animated.Value(0)).current;
 
@@ -67,6 +70,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   // Time to hold before recording starts (WhatsApp-style)
   const ACTIVATION_TIME = 500;
+
+  // Delay after release before stopping recording (to capture audio tail)
+  const RELEASE_DELAY = 300; // 300ms to capture the end of speech
 
   // Append a live sample with side-scrolling window (shift left, add right)
   const appendLiveSample = (amplitude01: number) => {
@@ -83,12 +89,15 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     });
   };
 
-  // Cleanup recording and activation timer on unmount
+  // Cleanup recording and timers on unmount
   useEffect(() => {
     return () => {
       const cleanup = async () => {
         if (activationTimer.current) {
           clearTimeout(activationTimer.current);
+        }
+        if (releaseDelayTimer.current) {
+          clearTimeout(releaseDelayTimer.current);
         }
         if (recording && !recording._isDoneRecording) {
           await recording.stopAndUnloadAsync();
@@ -306,9 +315,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       return;
     }
 
-    // If recording, stop it
+    // If recording, stop it after a delay to capture audio tail
     if (isRecording) {
-      await stopRecording();
+      console.log(
+        `⏳ Release detected, will stop recording in ${RELEASE_DELAY}ms to capture audio tail`
+      );
+
+      // Clear any existing release delay timer
+      if (releaseDelayTimer.current) {
+        clearTimeout(releaseDelayTimer.current);
+      }
+
+      // Delay the stop to capture the end of speech
+      releaseDelayTimer.current = setTimeout(() => {
+        console.log('🛑 Stopping recording after delay');
+        void stopRecording();
+        releaseDelayTimer.current = null;
+      }, RELEASE_DELAY);
     }
 
     // Reset progress for next time
