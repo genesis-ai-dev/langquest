@@ -77,9 +77,9 @@ export const BIBLE_BOOKS: BibleBook[] = [
     { id: 'jas', name: 'James', chapters: 5, verses: [27, 26, 18, 17, 20] },
     { id: '1pe', name: '1 Peter', chapters: 5, verses: [25, 25, 22, 19, 14] },
     { id: '2pe', name: '2 Peter', chapters: 3, verses: [21, 22, 18] },
-    { id: '1jo', name: '1 John', chapters: 5, verses: [10, 29, 24, 21, 21] },
-    { id: '2jo', name: '2 John', chapters: 1, verses: [13] },
-    { id: '3jo', name: '3 John', chapters: 1, verses: [14] },
+    { id: '1jn', name: '1 John', chapters: 5, verses: [10, 29, 24, 21, 21] },
+    { id: '2jn', name: '2 John', chapters: 1, verses: [13] },
+    { id: '3jn', name: '3 John', chapters: 1, verses: [14] },
     { id: 'jud', name: 'Jude', chapters: 1, verses: [25] },
     { id: 'rev', name: 'Revelation', chapters: 22, verses: [20, 29, 22, 11, 14, 17, 17, 13, 21, 11, 19, 17, 18, 20, 8, 21, 18, 24, 21, 15, 27, 21] }
 ];

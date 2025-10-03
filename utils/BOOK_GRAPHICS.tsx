@@ -71,8 +71,10 @@ import type React from 'react';
 import type { SvgProps } from 'react-native-svg';
 
 // Book SVG icons mapping
-export const BOOK_GRAPHICS: Record<string, React.FC<SvgProps>> = {
-  // Old Testament
+import { BIBLE_BOOKS } from '../constants/bibleStructure';
+
+// Map of USFM book codes to their corresponding SVG components
+const BOOK_SVG_COMPONENTS: Record<string, React.FC<SvgProps>> = {
   gen: Genesis,
   exo: Exodus,
   lev: Leviticus,
@@ -112,8 +114,6 @@ export const BOOK_GRAPHICS: Record<string, React.FC<SvgProps>> = {
   hag: Haggai,
   zec: Zechariah,
   mal: Malachi,
-
-  // New Testament
   mat: Matthew,
   mar: Mark,
   luk: Luke,
@@ -124,7 +124,7 @@ export const BOOK_GRAPHICS: Record<string, React.FC<SvgProps>> = {
   '2co': Corinthians2,
   gal: Galatians,
   eph: Ephesians,
-  php: Philippians,
+  phi: Philippians,
   col: Colossians,
   '1th': Thessalonians1,
   '2th': Thessalonians2,
@@ -136,12 +136,22 @@ export const BOOK_GRAPHICS: Record<string, React.FC<SvgProps>> = {
   jas: James,
   '1pe': Peter1,
   '2pe': Peter2,
-  '1jo': John1,
-  '2jo': John2,
-  '3jo': John3,
+  '1jn': John1,
+  '2jn': John2,
+  '3jn': John3,
   jud: Jude,
   rev: Revelation
 };
+
+// Build the BOOK_GRAPHICS map using the book IDs from bibleStructure.ts
+export const BOOK_GRAPHICS: Record<
+  string,
+  React.FC<SvgProps>
+> = Object.fromEntries(
+  BIBLE_BOOKS.map((book) => [book.id, BOOK_SVG_COMPONENTS[book.id]]).filter(
+    (entry): entry is [string, React.FC<SvgProps>] => entry[1] !== undefined
+  )
+);
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
 export const BOOK_ICON_MAP: Record<string, ImageSourcePropType> = {
@@ -173,28 +183,28 @@ export const BOOK_ICON_MAP: Record<string, ImageSourcePropType> = {
   ezk: require('../assets/book-icons/ezk.png'),
   dan: require('../assets/book-icons/dan.png'),
   hos: require('../assets/book-icons/hos.png'),
-  jol: require('../assets/book-icons/jol.png'),
+  joe: require('../assets/book-icons/jol.png'),
   amo: require('../assets/book-icons/amo.png'),
   oba: require('../assets/book-icons/oba.png'),
   jon: require('../assets/book-icons/jon.png'),
   mic: require('../assets/book-icons/mic.png'),
-  nam: require('../assets/book-icons/nam.png'),
+  nah: require('../assets/book-icons/nam.png'),
   hab: require('../assets/book-icons/hab.png'),
   zep: require('../assets/book-icons/zep.png'),
   hag: require('../assets/book-icons/hag.png'),
   zec: require('../assets/book-icons/zec.png'),
   mal: require('../assets/book-icons/mal.png'),
   mat: require('../assets/book-icons/mat.png'),
-  mrk: require('../assets/book-icons/mrk.png'),
+  mar: require('../assets/book-icons/mrk.png'),
   luk: require('../assets/book-icons/luk.png'),
-  jhn: require('../assets/book-icons/jhn.png'),
+  joh: require('../assets/book-icons/jhn.png'),
   act: require('../assets/book-icons/act.png'),
   rom: require('../assets/book-icons/rom.png'),
   '1co': require('../assets/book-icons/1co.png'),
   '2co': require('../assets/book-icons/2co.png'),
   gal: require('../assets/book-icons/gal.png'),
   eph: require('../assets/book-icons/eph.png'),
-  php: require('../assets/book-icons/php.png'),
+  phi: require('../assets/book-icons/php.png'),
   col: require('../assets/book-icons/col.png'),
   '1th': require('../assets/book-icons/1th.png'),
   '2th': require('../assets/book-icons/2th.png'),
@@ -268,7 +278,7 @@ export const BOOK_EMOJIS: Record<string, string> = {
   '2co': '🪖',
   gal: '🗽',
   eph: '⚔️',
-  php: '😊',
+  phi: '😊',
   col: '👑',
   '1th': '🎺',
   '2th': '⏰',
@@ -280,9 +290,9 @@ export const BOOK_EMOJIS: Record<string, string> = {
   jas: '⚖️',
   '1pe': '🪨',
   '2pe': '🔥',
-  '1jo': '📝',
-  '2jo': '✉️',
-  '3jo': '✍️',
+  '1jn': '📝',
+  '2jn': '✉️',
+  '3jn': '✍️',
   jud: '⚡',
   rev: '👁️'
 };
