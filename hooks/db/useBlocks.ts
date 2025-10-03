@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { blocked_content, blocked_users } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import { useHybridQuery } from '../useHybridQuery';
@@ -34,7 +34,7 @@ export function useUserBlockedUsers(profile_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.blocked_users.findMany({
         where: eq(blocked_users.blocker_id, profile_id)
       })
@@ -67,7 +67,7 @@ export function useUserBlockedContent(profile_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.blocked_content.findMany({
         where: eq(blocked_content.profile_id, profile_id)
       })
@@ -106,7 +106,7 @@ export function useUserRestrictions(
 
     // PowerSync query for votes
     offlineQuery: includeBlockedContent
-      ? toMergeCompilableQuery(
+      ? toCompilableQuery(
           db
             .select({ content_id: blocked_content.content_id })
             .from(blocked_content)
@@ -147,7 +147,7 @@ export function useUserRestrictions(
 
     // PowerSync query for votes
     offlineQuery: includeBlockedUsers
-      ? toMergeCompilableQuery(
+      ? toCompilableQuery(
           db
             .select({ blocked_id: blocked_users.blocked_id })
             .from(blocked_users)

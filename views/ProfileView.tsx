@@ -16,6 +16,8 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
+import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
+import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
@@ -23,11 +25,12 @@ import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { reset } from 'drizzle-seed';
 import { Link } from 'expo-router';
 import { InfoIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert as RNAlert, ScrollView, View } from 'react-native';
+import { Platform, Alert as RNAlert, ScrollView, View } from 'react-native';
 import { z } from 'zod';
 
 // Validation schema
@@ -140,6 +143,21 @@ export default function ProfileView() {
     }
   });
 
+  const { mutateAsync: seedDatabase, isPending: seedDatabasePending } =
+    useMutation({
+      mutationFn: async () => {
+        await system.seed();
+      }
+    });
+
+  const { mutateAsync: deleteDatabase, isPending: deleteDatabasePending } =
+    useMutation({
+      mutationFn: async () => {
+        // @ts-expect-error abc
+        await reset(system.db, drizzleSchemaLocal);
+      }
+    });
+
   return (
     <Form {...form}>
       <ScrollView className="mb-safe flex-1 bg-background">
@@ -147,6 +165,62 @@ export default function ProfileView() {
           <Text className="text-2xl font-bold text-foreground">
             {t('profile')}
           </Text>
+          {__DEV__ && (
+            <>
+              <Button
+                variant="destructive"
+                loading={seedDatabasePending}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    void seedDatabase();
+                  } else {
+                    RNAlert.alert(
+                      'Seed data',
+                      'This will reset local development data and seed the database. Continue?',
+                      [
+                        { text: t('cancel'), style: 'cancel' },
+                        {
+                          text: t('confirm'),
+                          style: 'destructive',
+                          onPress: () => {
+                            void seedDatabase();
+                          }
+                        }
+                      ]
+                    );
+                  }
+                }}
+              >
+                <Text>Seed data</Text>
+              </Button>
+              <Button
+                variant="destructive"
+                loading={deleteDatabasePending}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    void deleteDatabase();
+                  } else {
+                    RNAlert.alert(
+                      'Delete data',
+                      'This will reset local development data. Continue?',
+                      [
+                        { text: t('cancel'), style: 'cancel' },
+                        {
+                          text: t('confirm'),
+                          style: 'destructive',
+                          onPress: () => {
+                            void deleteDatabase();
+                          }
+                        }
+                      ]
+                    );
+                  }
+                }}
+              >
+                <Text>Delete local data</Text>
+              </Button>
+            </>
+          )}
           {!posthog.isDisabled && (
             <Button
               onPress={async () => {

@@ -1,14 +1,13 @@
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { hybridFetch } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { User } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 export class TranslationUtils {
   static currentLanguage: SupportedLanguage = 'english';
@@ -23,7 +22,7 @@ export class TranslationUtils {
 
       // Use hybridFetch directly
       const languages = await hybridFetch<Language>({
-        offlineQuery: toMergeCompilableQuery(
+        offlineQuery: toCompilableQuery(
           system.db.query.language.findMany({
             where: eq(languageTable.id, uiLanguageId),
             limit: 1

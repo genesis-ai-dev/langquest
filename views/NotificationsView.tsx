@@ -17,9 +17,10 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   BellIcon,
@@ -83,7 +84,7 @@ export default function NotificationsView() {
     queryKeyParams: [currentUser?.email || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
@@ -113,7 +114,7 @@ export default function NotificationsView() {
     queryKeyParams: [...ownerProjectIds],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
@@ -152,7 +153,7 @@ export default function NotificationsView() {
     queryKeyParams: [...projectIds],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.project.findMany({
         where: inArray(project.id, projectIds)
       })
@@ -196,7 +197,7 @@ export default function NotificationsView() {
     queryKeyParams: [...senderProfileIds],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.profile.findMany({
         where: inArray(profile.id, senderProfileIds)
       })
@@ -466,13 +467,15 @@ export default function NotificationsView() {
               );
           } else {
             // Create new link
-            await system.db.insert(profile_project_link).values({
-              id: `${senderProfileId}_${projectId}`,
-              profile_id: senderProfileId,
-              project_id: projectId,
-              membership: asOwner ? 'owner' : 'member',
-              active: true
-            });
+            await system.db
+              .insert(resolveTable('profile_project_link'))
+              .values({
+                id: `${senderProfileId}_${projectId}`,
+                profile_id: senderProfileId,
+                project_id: projectId,
+                membership: asOwner ? 'owner' : 'member',
+                active: true
+              });
           }
         }
       }

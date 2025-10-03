@@ -4,7 +4,7 @@ import {
   blocked_content,
   blocked_users,
   translation
-} from '../db/drizzleSchema';
+} from '@/db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;

@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type {
@@ -9,10 +8,10 @@ import type {
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 // Define a type for interpolation values
 // Use a Record as preferred by linter
@@ -30,7 +29,7 @@ export function useLocalization(languageOverride?: string | null) {
     queryKeyParams: [uiLanguageId || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: eq(languageTable.id, uiLanguageId || ''),
         limit: 1

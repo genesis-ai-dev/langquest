@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,8 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useHybridData, type HybridDataSource } from './useHybridData';
+import type { HybridDataSource } from './useHybridData';
+import { useHybridData } from './useHybridData';
 
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
@@ -43,6 +45,8 @@ import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
 import RecordingView from './RecordingView';
@@ -86,24 +90,25 @@ export default function NextGenAssetsView() {
 
   type Quest = typeof questTable.$inferSelect;
 
-  const { data: questData } = useHybridData<Quest>({
-    dataType: 'quests',
+  const { data: questData } = useHybridData({
+    dataType: 'current-quest',
     queryKeyParams: [currentQuestId],
-    offlineQuery: currentQuestId
-      ? `SELECT * FROM quest WHERE id = '${currentQuestId}'`
-      : 'SELECT * FROM quest WHERE 1 = 0',
-    enableOfflineQuery: Boolean(currentQuestId),
-    cloudQueryFn: async (): Promise<Quest[]> => {
-      if (!currentQuestId) return [] as Quest[];
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest.findFirst({
+        where: eq(questTable.id, currentQuestId!)
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('*')
         .eq('id', currentQuestId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
-      return data ?? [];
+      return data;
     },
     enableCloudQuery: !!currentQuestId,
+    enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
   const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
@@ -252,7 +257,7 @@ export default function NextGenAssetsView() {
             asset_id: newAsset.id,
             source_language_id: currentProject.target_language_id,
             text: newSegment.name,
-            audio_id: newSegment.id,
+            audio: [newSegment.id],
             download_profiles: [currentUser!.id]
           });
       });

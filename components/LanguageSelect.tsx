@@ -1,4 +1,3 @@
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -6,7 +5,7 @@ import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
   memo,
@@ -17,7 +16,7 @@ import {
 } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -40,7 +39,7 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
       queryKeyParams: ['ui-ready'],
 
       // PowerSync query using Drizzle
-      offlineQuery: toMergeCompilableQuery(
+      offlineQuery: toCompilableQuery(
         system.db.query.language.findMany({
           where: and(
             eq(languageTable.active, true),

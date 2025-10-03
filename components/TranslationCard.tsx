@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { Card, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type { TranslationWithVoteCount } from '@/hooks/db/useTranslations';
+import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { cn } from '@/utils/styleUtils';
@@ -12,30 +13,30 @@ import { Pressable, View } from 'react-native';
 import AudioPlayer from './AudioPlayer';
 
 interface TranslationCardProps {
-  translation: WithSource<TranslationWithVoteCount>;
+  asset: WithSource<AssetWithVoteCount>;
   previewText: string;
-  audioUri: string | undefined;
+  audioSegments: string[] | undefined;
   handleTranslationPress: (id: string) => void;
 }
 
 export const TranslationCard = ({
-  translation,
-  audioUri = undefined,
+  asset,
+  audioSegments = [],
   handleTranslationPress,
   previewText
 }: TranslationCardProps) => {
   const currentLayer = useStatusContext();
   const { allowEditing, invisible } = currentLayer.getStatusParams(
     LayerType.ASSET,
-    translation.id || '',
-    translation as LayerStatus
+    asset.id || '',
+    asset as LayerStatus
   );
 
   return (
     <View className="flex flex-col gap-4">
       <Pressable
-        key={translation.id}
-        onPress={() => handleTranslationPress(translation.id)}
+        key={asset.id}
+        onPress={() => handleTranslationPress(asset.id)}
         disabled={!allowEditing}
       >
         <Card
@@ -53,21 +54,23 @@ export const TranslationCard = ({
               </View>
 
               {/* Audio Player */}
-              {translation.audio && audioUri && (
-                <View className="rounded-sm bg-background p-2">
-                  <AudioPlayer
-                    audioUri={audioUri}
-                    useCarousel={false}
-                    mini={true}
-                  />
-                </View>
-              )}
+              {asset.audio &&
+                asset.audio.length > 0 &&
+                audioSegments.length > 0 && (
+                  <View className="rounded-sm bg-background p-2">
+                    <AudioPlayer
+                      audioSegments={audioSegments}
+                      useCarousel={false}
+                      mini={true}
+                    />
+                  </View>
+                )}
 
               {SHOW_DEV_ELEMENTS && (
                 <Text className="text-xs text-muted-foreground">
-                  {translation.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} -
-                  V: {translation.visible ? '🟢' : '🔴'} | A:{' '}
-                  {translation.active ? '🟢' : '🔴'}
+                  {asset.source === 'cloud' ? '🌐 Cloud' : '💾 Offline'} - V:{' '}
+                  {asset.visible ? '🟢' : '🔴'} | A:{' '}
+                  {asset.active ? '🟢' : '🔴'}
                 </Text>
               )}
             </View>
@@ -79,24 +82,22 @@ export const TranslationCard = ({
                   size={16}
                   className={cn(
                     'text-foreground',
-                    translation.up_votes > 0 ? 'opacity-100' : 'opacity-30'
+                    asset.up_votes > 0 ? 'opacity-100' : 'opacity-30'
                   )}
                 />
-                <Text className="text-sm font-bold">
-                  {translation.net_votes}
-                </Text>
+                <Text className="text-sm font-bold">{asset.net_votes}</Text>
                 <Icon
                   as={ThumbsDownIcon}
                   size={16}
                   className={cn(
                     'text-foreground',
-                    translation.down_votes > 0 ? 'opacity-100' : 'opacity-30'
+                    asset.down_votes > 0 ? 'opacity-100' : 'opacity-30'
                   )}
                 />
               </View>
               {SHOW_DEV_ELEMENTS && (
                 <Text className="text-xs text-muted-foreground">
-                  {translation.up_votes} ↑ {translation.down_votes} ↓
+                  {asset.up_votes} ↑ {asset.down_votes} ↓
                 </Text>
               )}
             </View>

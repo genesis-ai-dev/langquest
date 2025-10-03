@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
 import React from 'react';
 
@@ -15,7 +15,7 @@ export const useNotifications = () => {
     queryKeyParams: [currentUser?.email || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
           eq(invite.email, currentUser?.email || ''),
@@ -44,7 +44,7 @@ export const useNotifications = () => {
     queryKeyParams: [currentUser?.id || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, currentUser?.id || ''),
@@ -83,7 +83,7 @@ export const useNotifications = () => {
     // PowerSync query using Drizzle
     offlineQuery:
       ownerProjectIds.length > 0
-        ? toMergeCompilableQuery(
+        ? toCompilableQuery(
             system.db.query.request.findMany({
               where: and(
                 eq(request.status, 'pending'),

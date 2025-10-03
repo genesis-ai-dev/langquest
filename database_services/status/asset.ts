@@ -1,7 +1,7 @@
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
 
@@ -34,11 +34,12 @@ export function useAssetStatuses(
   } = useHybridData({
     dataType: 'asset-settings',
     queryKeyParams: [assetId],
-    offlineQuery: toMergeCompilableQuery(
-      system.db.query.asset.findMany({
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findFirst({
         columns: {
           active: true,
-          visible: true
+          visible: true,
+          source: true
         },
         where: eq(asset.id, assetId)
       })
@@ -75,7 +76,7 @@ export function useAssetStatuses(
   } = useHybridData({
     dataType: 'quest-asset-settings',
     queryKeyParams: [questId, assetId],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.quest_asset_link.findMany({
         columns: {
           active: true,
@@ -87,7 +88,9 @@ export function useAssetStatuses(
         )
       })
     ),
-    cloudQueryFn: async (): Promise<(typeof quest_asset_link.$inferSelect)[]> => {
+    cloudQueryFn: async (): Promise<
+      (typeof quest_asset_link.$inferSelect)[]
+    > => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select('active, visible')
@@ -95,9 +98,10 @@ export function useAssetStatuses(
         .limit(1);
       if (error) throw error;
       return data as (typeof quest_asset_link.$inferSelect)[];
-    }
+    },
+    enableCloudQuery: assetData[0] && assetData[0].source !== 'local' // Only fetch cloud data if the asset is not local
   });
-  
+
   currentQuest = assetQuestDataArray[0] ?? { active: true, visible: true };
 
   function refetch(type: refetchType) {

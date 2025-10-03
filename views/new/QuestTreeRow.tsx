@@ -9,7 +9,8 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  Folder,
+  FolderIcon,
+  HardDriveIcon,
   Plus,
   Share2Icon
 } from 'lucide-react-native';
@@ -36,7 +37,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   onToggleExpand,
   onAddChild
 }) => {
-  const { goToQuest } = useAppNavigation();
+  const { goToQuest, currentProjectId } = useAppNavigation();
   const { currentUser } = useAuth();
 
   const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
@@ -44,26 +45,37 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
     quest.id
   );
 
+  const Component = hasChildren ? Pressable : View;
   return (
     <View
       className="flex flex-row items-center gap-1 py-1"
       style={{ paddingLeft: depth * 12 }}
     >
-      {hasChildren && (
-        <Pressable onPress={onToggleExpand} className="w-8 p-1">
-          <Icon
-            as={isOpen ? ChevronDown : ChevronRight}
-            className="text-muted-foreground"
-          />
-        </Pressable>
+      {(depth > 0 || hasChildren) && (
+        <Component
+          {...(hasChildren && { onPress: onToggleExpand })}
+          className="w-8 p-1"
+        >
+          {hasChildren && (
+            <Icon
+              as={isOpen ? ChevronDown : ChevronRight}
+              className="text-muted-foreground"
+            />
+          )}
+        </Component>
       )}
-      <Icon as={Folder} className="mr-2 text-muted-foreground" />
+      <View className="flex flex-row items-center gap-2">
+        {quest.source === 'local' && (
+          <Icon as={HardDriveIcon} className="text-muted-foreground" />
+        )}
+        <Icon as={FolderIcon} className="mr-2 text-muted-foreground" />
+      </View>
       <Pressable
         className="flex-1 overflow-hidden"
         onPress={() =>
           goToQuest({
             id: quest.id,
-            project_id: quest.project_id,
+            project_id: currentProjectId!,
             name: quest.name
           })
         }

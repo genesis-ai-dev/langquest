@@ -8,14 +8,14 @@ import MiniAudioPlayer from './MiniAudioPlayer';
 interface SourceContentProps {
   content: typeof asset_content_link.$inferSelect;
   sourceLanguage: typeof language.$inferSelect | null;
-  audioUri?: string | null;
+  audioSegments?: string[] | null;
   isLoading?: boolean;
 }
 
 export const SourceContent: React.FC<SourceContentProps> = ({
   content,
   sourceLanguage,
-  audioUri,
+  audioSegments,
   isLoading = false
 }) => {
   const { t } = useLocalization();
@@ -30,15 +30,13 @@ export const SourceContent: React.FC<SourceContentProps> = ({
           <Text className="text-base">{content.text}</Text>
         </View>
       </ScrollView>
-      {content.audio_id && audioUri ? (
+      {content.audio && audioSegments ? (
         <MiniAudioPlayer
-          audioFile={{
-            id: content.id,
-            title: content.text,
-            uri: audioUri
-          }}
+          audioSegments={audioSegments}
+          id={content.id}
+          title={content.text}
         />
-      ) : content.audio_id && isLoading ? (
+      ) : content.audio && isLoading ? (
         <View className="flex flex-row items-center justify-center gap-2">
           <ActivityIndicator size="small" color={getThemeColor('primary')} />
           <Text className="text-muted-foreground">{t('loadingAudio')}</Text>

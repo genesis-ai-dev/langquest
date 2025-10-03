@@ -16,9 +16,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
@@ -93,7 +94,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.request.findMany({
         where: and(
           eq(request.sender_profile_id, currentUser?.id || ''),
@@ -120,7 +121,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: [projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, currentUser?.id || ''),
@@ -157,7 +158,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     queryKeyParams: ['project', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(projectTable.id, projectId),
         columns: {
@@ -228,7 +229,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           .where(eq(request.id, existingRequest.id));
       } else {
         // Create new request
-        await db.insert(request).values({
+        await db.insert(resolveTable('request')).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',

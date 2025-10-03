@@ -5,8 +5,8 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useStatusContext } from '@/contexts/StatusContext';
 import { system } from '@/db/powersync/system';
-import type { TranslationWithVoteCount } from '@/hooks/db/useTranslations';
-import { useTranslationsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
+import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
+import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
@@ -18,6 +18,7 @@ import {
   ArrowDownWideNarrowIcon,
   ArrowUpNarrowWideIcon,
   CalendarIcon,
+  LockIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -60,10 +61,10 @@ export default function NextGenTranslationsList({
   const _currentLayer = useStatusContext();
 
   const {
-    data: translations,
+    data: assets,
     isLoading,
     hasError: _hasError
-  } = useTranslationsWithVoteCountByAssetId(
+  } = useTargetAssetsWithVoteCountByAssetId(
     assetId,
     false, // showInvisibleContent - using false as default since property doesn't exist
     String(refreshKey),
@@ -79,11 +80,8 @@ export default function NextGenTranslationsList({
 
   // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
-    return translations
-      .filter((trans) => trans.audio)
-      .map((trans) => trans.audio!)
-      .filter(Boolean);
-  }, [translations]);
+    return assets.flatMap((trans) => trans.audio).filter(Boolean);
+  }, [assets]);
 
   const { attachmentStates, isLoading: _isLoadingAttachments } =
     useAttachmentStates(audioIds);
@@ -94,12 +92,15 @@ export default function NextGenTranslationsList({
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
-  const getAudioUri = (translation: WithSource<TranslationWithVoteCount>) => {
-    if (!translation.audio) return undefined;
-    const localUri = attachmentStates.get(translation.audio)?.local_uri;
-    return localUri
-      ? system.permAttachmentQueue?.getLocalUri(localUri)
-      : undefined;
+  const getAudioSegments = (asset: WithSource<AssetWithVoteCount>) => {
+    if (!asset.audio) return undefined;
+    const localUris = asset.audio.map(
+      (c) =>
+        system.permAttachmentQueue?.getLocalUri(
+          attachmentStates.get(c)?.local_uri ?? ''
+        ) ?? ''
+    );
+    return localUris;
   };
 
   const handleTranslationPress = (translationId: string) => {
@@ -127,7 +128,9 @@ export default function NextGenTranslationsList({
           <Text variant="h4">
             {t('translations')}
             {isPrivateProject && !canVote && (
-              <Text className="text-base"> 🔒</Text>
+              <Text className="text-base">
+                <Icon as={LockIcon} />
+              </Text>
             )}
           </Text>
 
@@ -213,8 +216,8 @@ export default function NextGenTranslationsList({
         </View>
       ) : (
         <LegendList
-          data={translations}
-          key={`${translations.length}-${sortOption}-${sortOrder}`}
+          data={assets}
+          key={`${assets.length}-${sortOption}-${sortOrder}`}
           keyExtractor={(item) => item.id}
           recycleItems
           estimatedItemSize={120}
@@ -222,10 +225,10 @@ export default function NextGenTranslationsList({
           contentContainerStyle={{ gap: 12 }}
           renderItem={({ item }) => (
             <TranslationCard
-              translation={item}
+              asset={item}
               previewText={getPreviewText(item.text || '')}
               handleTranslationPress={handleTranslationPress}
-              audioUri={getAudioUri(item)}
+              audioSegments={getAudioSegments(item)}
             />
           )}
           ListEmptyComponent={() => (
@@ -243,7 +246,7 @@ export default function NextGenTranslationsList({
         <NextGenTranslationModal
           open={open}
           onOpenChange={setOpen}
-          translationId={selectedTranslationId}
+          assetId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
           canVote={canVote}
           isPrivateProject={isPrivateProject}

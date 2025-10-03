@@ -6,14 +6,13 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { cn } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
@@ -21,7 +20,7 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -78,7 +77,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     queryKeyParams: [uiReadyOnly],
 
     // PowerSync query using Drizzle - get all active languages
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: and(...conditions.filter(Boolean))
       })
@@ -139,7 +138,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         {languages
           .filter((l) => l.native_name)
           .map((lang) => (
-            <SelectItem key={lang.id} value={lang.id} label={lang.native_name!}>
+            <SelectItem key={lang.id} {...getAllLanguageOption(lang)!}>
               {lang.native_name}
             </SelectItem>
           ))}

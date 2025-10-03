@@ -12,11 +12,14 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type { quest, quest_closure } from '@/db/drizzleSchema';
+import type { quest_closure } from '@/db/drizzleSchema';
+import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq } from 'drizzle-orm';
 import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
@@ -27,7 +30,7 @@ import {
   useItemDownloadStatus
 } from './useHybridData';
 
-type Quest = typeof quest.$inferSelect;
+type Quest = typeof questTable.$inferSelect;
 type QuestClosure = typeof quest_closure.$inferSelect;
 
 // Define props locally to avoid require cycle
@@ -44,9 +47,16 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
 }) => {
   // Fetch child quests (one level) for display
   const { data: childQuests } = useHybridData<Quest>({
-    dataType: 'quests',
+    dataType: 'child-quests',
     queryKeyParams: [quest.project_id, quest.id, 'children'],
-    offlineQuery: `SELECT * FROM quest WHERE project_id = '${quest.project_id}' AND parent_id = '${quest.id}'`,
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest.findMany({
+        where: and(
+          eq(questTable.project_id, quest.project_id),
+          eq(questTable.parent_id, quest.id)
+        )
+      })
+    ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
@@ -188,12 +198,8 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
             </CardDescription>
           </View>
         </CardHeader>
-        {quest.description && (
-          <CardContent>
-            <Text numberOfLines={4}>{quest.description}</Text>
-          </CardContent>
-        )}
         <CardContent>
+          <Text numberOfLines={4}>{quest.description}</Text>
           <View className="mt-2 flex flex-col gap-2">
             {!!childQuests.length && (
               <View className="flex flex-col gap-1">

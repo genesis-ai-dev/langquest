@@ -3,146 +3,103 @@
 // Creates _local table variants for offline sync
 
 import { relations, sql } from 'drizzle-orm';
+import { sqliteView, text } from 'drizzle-orm/sqlite-core';
 import {
-  AnySQLiteColumn,
-  index,
-  int,
-  primaryKey,
-  sqliteTable,
-  sqliteView,
-  text
-} from 'drizzle-orm/sqlite-core';
-import { reasonOptions, statusOptions } from './constants';
+  createAssetContentLinkTable,
+  createAssetTable,
+  createAssetTagLinkTable,
+  createBlockedContentTable,
+  createBlockedUsersTable,
+  createInviteTable,
+  createLanguageTable,
+  createNotificationTable,
+  createProfileProjectLinkTable,
+  createProfileTable,
+  createProjectClosureTable,
+  createProjectLanguageLinkTable,
+  createProjectTable,
+  createQuestAssetLinkTable,
+  createQuestClosureTable,
+  createQuestTable,
+  createQuestTagLinkTable,
+  createReportsTable,
+  createRequestTable,
+  createSubscriptionTable,
+  createTagTable,
+  createVoteTable
+} from './drizzleSchemaColumns';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
 // see the official PowerSync documentation for the correct column types:
 // https://docs.powersync.com/usage/sync-rules/types#types
 
-const uuidDefault = sql`(lower(hex(randomblob(16))))`;
-const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
+// columns moved to ./drizzleSchemaColumns
 
-const linkColumns = {
-  id: text().notNull(),
-  active: int({ mode: 'boolean' }).notNull().default(true),
-  created_at: text().notNull().default(timestampDefault),
-  last_updated: text()
-    .notNull()
-    .default(timestampDefault)
-    .$onUpdate(() => timestampDefault)
-};
+export const profile_local = createProfileTable('local');
 
-// Base columns that most tables will have
-const baseColumns = {
-  ...linkColumns,
-  id: text()
-    .primaryKey()
-    .$defaultFn(() => uuidDefault)
-};
+export const user_localRelations = relations(
+  profile_local,
+  ({ many, one }) => ({
+    created_languages: many(language_local, { relationName: 'creator' }),
+    ui_language: one(language_local, {
+      fields: [profile_local.ui_language_id],
+      references: [language_local.id],
+      relationName: 'uiLanguage'
+    }),
+    sent_invites: many(invite_local, { relationName: 'invite_sender' }),
+    received_invites: many(invite_local, { relationName: 'invite_receiver' }),
+    sent_requests: many(request_local, { relationName: 'request_sender' })
+  })
+);
 
-export const profile_local = sqliteTable('profile_local', {
-  ...baseColumns,
-  email: text(),
-  username: text(),
-  password: text(),
-  avatar: text(),
-  ui_language_id: text(),
-  terms_accepted: int({ mode: 'boolean' }),
-  terms_accepted_at: text()
+export const language_local = createLanguageTable('local', {
+  profile: profile_local
 });
 
-export const user_localRelations = relations(profile_local, ({ many, one }) => ({
-  created_languages: many(language_local, { relationName: 'creator' }),
-  ui_language: one(language_local, {
-    fields: [profile_local.ui_language_id],
-    references: [language_local.id],
-    relationName: 'uiLanguage'
-  }),
-  sent_invites: many(invite_local, { relationName: 'invite_sender' }),
-  received_invites: many(invite_local, { relationName: 'invite_receiver' }),
-  sent_requests: many(request_local, { relationName: 'request_sender' })
-}));
-
-export const language_local = sqliteTable(
-  'language_local',
-  {
-    ...baseColumns,
-    // Enforce the existence of either native_name or english_name in the app
-    native_name: text(), // Enforce uniqueness across chains in the app
-    english_name: text(), // Enforce uniqueness across chains in the app
-    iso639_3: text(), // Enforce uniqueness across chains in the app
-    locale: text(),
-    ui_ready: int({ mode: 'boolean' }).notNull(),
-    creator_id: text().references(() => profile_local.id),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (table) => [index('ui_ready_idx').on(table.ui_ready)]
+export const language_localRelations = relations(
+  language_local,
+  ({ one, many }) => ({
+    creator: one(profile_local, {
+      fields: [language_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    }),
+    uiUsers: many(profile_local, { relationName: 'uiLanguage' }),
+    sourceLanguageProjects: many(project_local, {
+      relationName: 'sourceLanguage'
+    }),
+    targetLanguageProjects: many(project_local, {
+      relationName: 'targetLanguage'
+    })
+  })
 );
 
-export const language_localRelations = relations(language_local, ({ one, many }) => ({
-  creator: one(profile_local, {
-    fields: [language_local.creator_id],
-    references: [profile_local.id],
-    relationName: 'creator'
-  }),
-  uiUsers: many(profile_local, { relationName: 'uiLanguage' }),
-  sourceLanguageProjects: many(project_local, { relationName: 'sourceLanguage' }),
-  targetLanguageProjects: many(project_local, { relationName: 'targetLanguage' })
-}));
-export const project_local = sqliteTable(
-  'project_local',
-  {
-    ...baseColumns,
-    name: text().notNull(),
-    description: text(),
-    target_language_id: text()
-      .notNull()
-      .references(() => language_local.id),
-    creator_id: text().references(() => profile_local.id),
-    private: int({ mode: 'boolean' }).notNull().default(false),
-    visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>(),
-    template: text({ enum: ['unstructured', 'bible'] }).default('unstructured')
-  },
-  (table) => [
-    index('name_idx').on(table.name),
-    index('target_language_id_idx').on(table.target_language_id)
-  ]
-);
+export const project_local = createProjectTable('local', {
+  language: language_local,
+  profile: profile_local
+});
 
-export const project_localRelations = relations(project_local, ({ one, many }) => ({
-  target_language: one(language_local, {
-    fields: [project_local.target_language_id],
-    references: [language_local.id],
-    relationName: 'targetLanguage'
-  }),
-  quests: many(quest_local),
-  profile_project_links: many(profile_project_link_local),
-  source_languages: many(project_language_link_local),
-  invites: many(invite_local),
-  requests: many(request_local)
-}));
+export const project_localRelations = relations(
+  project_local,
+  ({ one, many }) => ({
+    target_language: one(language_local, {
+      fields: [project_local.target_language_id],
+      references: [language_local.id],
+      relationName: 'targetLanguage'
+    }),
+    quests: many(quest_local),
+    profile_project_links: many(profile_project_link_local),
+    source_languages: many(project_language_link_local),
+    invites: many(invite_local),
+    requests: many(request_local)
+  })
+);
 
 // (removed duplicate early definition of project_language_link)
-export const quest_local = sqliteTable(
-  'quest_local',
-  {
-    ...baseColumns,
-    name: text().notNull(),
-    description: text(),
-    project_id: text()
-      .notNull()
-      .references(() => project_local.id),
-    parent_id: text().references((): AnySQLiteColumn => quest_local.id),
-    creator_id: text().references(() => profile_local.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (table) => [
-    index('project_id_idx').on(table.project_id),
-    index('parent_id_idx').on(table.parent_id),
-    index('name_idx').on(table.name)
-  ]
-);
+export const quest_local = createQuestTable('local', {
+  project: project_local,
+  profile: profile_local
+});
 
 export const quest_localRelations = relations(quest_local, ({ one, many }) => ({
   project: one(project_local, {
@@ -159,61 +116,37 @@ export const quest_localRelations = relations(quest_local, ({ one, many }) => ({
   assets: many(quest_asset_link_local)
 }));
 
-export const tag_local = sqliteTable('tag_local', {
-  ...baseColumns,
-  key: text().notNull(),
-  value: text().notNull(),
-  download_profiles: text({ mode: 'json' }).$type<string[]>()
-});
+export const tag_local = createTagTable('local');
 
 export const tag_localRelations = relations(tag_local, ({ many }) => ({
   quests: many(quest_tag_link_local),
   assets: many(asset_tag_link_local)
 }));
 
-export const quest_tag_link_local = sqliteTable(
-  'quest_tag_link_local',
-  {
-    ...linkColumns,
-    quest_id: text().notNull(),
-    tag_id: text().notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [primaryKey({ columns: [t.quest_id, t.tag_id] })]
+export const quest_tag_link_local = createQuestTagLinkTable('local', {
+  quest: quest_local,
+  tag: tag_local
+});
+
+export const quest_tag_link_localRelations = relations(
+  quest_tag_link_local,
+  ({ one }) => ({
+    quest: one(quest_local, {
+      fields: [quest_tag_link_local.quest_id],
+      references: [quest_local.id]
+    }),
+    tag: one(tag_local, {
+      fields: [quest_tag_link_local.tag_id],
+      references: [tag_local.id]
+    })
+  })
 );
 
-export const quest_tag_link_localRelations = relations(quest_tag_link_local, ({ one }) => ({
-  quest: one(quest_local, {
-    fields: [quest_tag_link_local.quest_id],
-    references: [quest_local.id]
-  }),
-  tag: one(tag_local, {
-    fields: [quest_tag_link_local.tag_id],
-    references: [tag_local.id]
-  })
-}));
-export const asset_local = sqliteTable(
-  'asset_local',
-  {
-    ...baseColumns,
-    name: text().notNull(),
-    source_language_id: text()
-      .notNull()
-      .references(() => language_local.id),
-    project_id: text().references(() => project_local.id),
-    parent_id: text().references((): AnySQLiteColumn => asset_local.id),
-    images: text({ mode: 'json' }).$type<string[]>(),
-    creator_id: text().references(() => profile_local.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (table) => [
-    index('name_idx').on(table.name),
-    index('source_language_id_idx').on(table.source_language_id),
-    index('asset_project_id_idx').on(table.project_id),
-    index('asset_parent_id_idx').on(table.parent_id)
-  ]
-);
+export const asset_local = createAssetTable('local', {
+  language: language_local,
+  project: project_local,
+  profile: profile_local
+});
 
 export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
   source_language: one(language_local, {
@@ -224,53 +157,44 @@ export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
     fields: [asset_local.project_id],
     references: [project_local.id]
   }),
-  parent: one(asset_local, {
-    fields: [asset_local.parent_id],
+  source_asset: one(asset_local, {
+    fields: [asset_local.source_asset_id],
     references: [asset_local.id],
-    relationName: 'asset_parent'
+    relationName: 'asset_source'
   }),
   children: many(asset_local, { relationName: 'asset_parent' }),
   tags: many(asset_tag_link_local),
   quests: many(quest_asset_link_local),
-  translations: many(translation_local),
-  content: many(asset_content_link_local)
+  content: many(asset_content_link_local),
+  votes: many(vote_local)
 }));
 
-export const asset_tag_link_local = sqliteTable(
-  'asset_tag_link_local',
-  {
-    ...linkColumns,
-    asset_id: text().notNull(),
-    tag_id: text().notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [primaryKey({ columns: [t.asset_id, t.tag_id] })]
-);
+export const asset_tag_link_local = createAssetTagLinkTable('local', {
+  asset: asset_local,
+  tag: tag_local
+});
 
-export const asset_tag_link_localRelations = relations(asset_tag_link_local, ({ one }) => ({
-  asset: one(asset_local, {
-    fields: [asset_tag_link_local.asset_id],
-    references: [asset_local.id]
-  }),
-  tag: one(tag_local, {
-    fields: [asset_tag_link_local.tag_id],
-    references: [tag_local.id]
+export const asset_tag_link_localRelations = relations(
+  asset_tag_link_local,
+  ({ one }) => ({
+    asset: one(asset_local, {
+      fields: [asset_tag_link_local.asset_id],
+      references: [asset_local.id]
+    }),
+    tag: one(tag_local, {
+      fields: [asset_tag_link_local.tag_id],
+      references: [tag_local.id]
+    })
   })
-}));
-
-export const quest_asset_link_local = sqliteTable(
-  'quest_asset_link_local',
-  {
-    ...linkColumns,
-    quest_id: text().notNull(),
-    asset_id: text().notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>(),
-    visible: int({ mode: 'boolean' }).notNull().default(true)
-  },
-  (t) => [primaryKey({ columns: [t.quest_id, t.asset_id] })]
 );
 
-export const quest_asset_link_localRelations = relations(quest_asset_link_local,
+export const quest_asset_link_local = createQuestAssetLinkTable('local', {
+  quest: quest_local,
+  asset: asset_local
+});
+
+export const quest_asset_link_localRelations = relations(
+  quest_asset_link_local,
   ({ one }) => ({
     quest: one(quest_local, {
       fields: [quest_asset_link_local.quest_id],
@@ -284,27 +208,16 @@ export const quest_asset_link_localRelations = relations(quest_asset_link_local,
 );
 
 // Project-language link with explicit type separation (source/target)
-export const project_language_link_local = sqliteTable(
-  'project_language_link_local',
+export const project_language_link_local = createProjectLanguageLinkTable(
+  'local',
   {
-    ...linkColumns,
-    project_id: text()
-      .notNull()
-      .references(() => project_local.id),
-    language_id: text()
-      .notNull()
-      .references(() => language_local.id),
-    language_type: text({ enum: ['source', 'target'] }).notNull(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [
-    primaryKey({ columns: [t.project_id, t.language_id, t.language_type] }),
-    index('pll_project_id_idx').on(t.project_id),
-    index('pll_language_type_idx').on(t.language_type)
-  ]
+    project: project_local,
+    language: language_local
+  }
 );
 
-export const project_language_link_localRelations = relations(project_language_link_local,
+export const project_language_link_localRelations = relations(
+  project_language_link_local,
   ({ one }) => ({
     project: one(project_local, {
       fields: [project_language_link_local.project_id],
@@ -316,109 +229,37 @@ export const project_language_link_localRelations = relations(project_language_l
     })
   })
 );
-export const translation_local = sqliteTable(
-  'translation_local',
-  {
-    ...baseColumns,
-    asset_id: text()
-      .notNull()
-      .references(() => asset_local.id),
-    target_language_id: text()
-      .notNull()
-      .references(() => language_local.id),
-    text: text(),
-    audio: text(),
-    creator_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    visible: int({ mode: 'boolean' }).notNull().default(true),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [
-    index('asset_id_idx').on(t.asset_id),
-    index('creator_id_idx').on(t.creator_id)
-  ]
-);
 
-export const translation_localRelations = relations(translation_local, ({ one, many }) => ({
-  asset: one(asset_local, {
-    fields: [translation_local.asset_id],
-    references: [asset_local.id]
-  }),
-  target_language: one(language_local, {
-    fields: [translation_local.target_language_id],
-    references: [language_local.id]
-  }),
-  creator: one(profile_local, {
-    fields: [translation_local.creator_id],
-    references: [profile_local.id]
-  }),
-  votes: many(vote_local),
-  reports: many(reports_local, { relationName: 'translation_reports' })
-}));
+export const reports_local = createReportsTable('local', {
+  profile: profile_local
+});
 
-export const reports_local = sqliteTable(
-  'reports_local',
-  {
-    ...baseColumns,
-    record_id: text().notNull(),
-    record_table: text().notNull(),
-    reporter_id: text().references(() => profile_local.id),
-    reason: text({
-      enum: reasonOptions
-    }).notNull(),
-    details: text()
-  },
-  (table) => [
-    index('record_id_record_table_idx').on(table.record_id, table.record_table),
-    index('reporter_id_idx').on(table.reporter_id)
-  ]
-);
+export const blocked_users_local = createBlockedUsersTable('local', {
+  profile: profile_local
+});
 
-export const blocked_users_local = sqliteTable(
-  'blocked_users_local',
-  {
-    ...linkColumns,
-    blocker_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    blocked_id: text()
-      .notNull()
-      .references(() => profile_local.id)
-  },
-  (t) => [primaryKey({ columns: [t.blocker_id, t.blocked_id] })]
-);
-
-export const blocked_users_localRelations = relations(blocked_users_local, ({ one }) => ({
-  blocker: one(profile_local, {
-    fields: [blocked_users_local.blocker_id],
-    references: [profile_local.id],
-    relationName: 'blocker'
-  }),
-  blocked: one(profile_local, {
-    fields: [blocked_users_local.blocked_id],
-    references: [profile_local.id],
-    relationName: 'blocked'
+export const blocked_users_localRelations = relations(
+  blocked_users_local,
+  ({ one }) => ({
+    blocker: one(profile_local, {
+      fields: [blocked_users_local.blocker_id],
+      references: [profile_local.id],
+      relationName: 'blocker'
+    }),
+    blocked: one(profile_local, {
+      fields: [blocked_users_local.blocked_id],
+      references: [profile_local.id],
+      relationName: 'blocked'
+    })
   })
-}));
-
-export const blocked_content_local = sqliteTable(
-  'blocked_content_local',
-  {
-    ...baseColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    content_id: text().notNull(),
-    content_table: text().notNull()
-  },
-  (t) => [
-    index('profile_id_idx').on(t.profile_id),
-    index('content_id_content_table_idx').on(t.content_id, t.content_table)
-  ]
 );
 
-export const blocked_content_localRelations = relations(blocked_content_local,
+export const blocked_content_local = createBlockedContentTable('local', {
+  profile: profile_local
+});
+
+export const blocked_content_localRelations = relations(
+  blocked_content_local,
   ({ one }) => ({
     profile: one(profile_local, {
       fields: [blocked_content_local.profile_id],
@@ -432,38 +273,22 @@ export const report_localRelations = relations(reports_local, ({ one }) => ({
     fields: [reports_local.reporter_id],
     references: [profile_local.id]
   }),
-  translation: one(translation_local, {
+  translation: one(asset_local, {
     fields: [reports_local.record_id],
-    references: [translation_local.id],
-    relationName: 'translation_reports'
+    references: [asset_local.id],
+    relationName: 'asset_reports'
   })
 }));
 
-export const vote_local = sqliteTable(
-  'vote_local',
-  {
-    ...baseColumns,
-    translation_id: text()
-      .notNull()
-      .references(() => translation_local.id),
-    polarity: text({ enum: ['up', 'down'] }).notNull(),
-    comment: text(),
-    creator_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [
-    index('translation_id_idx').on(t.translation_id),
-    index('creator_id_idx').on(t.creator_id),
-    index('translation_id_creator_id_idx').on(t.translation_id, t.creator_id)
-  ]
-);
+export const vote_local = createVoteTable('local', {
+  asset: asset_local,
+  profile: profile_local
+});
 
 export const vote_localRelations = relations(vote_local, ({ one }) => ({
-  translation: one(translation_local, {
-    fields: [vote_local.translation_id],
-    references: [translation_local.id]
+  asset: one(asset_local, {
+    fields: [vote_local.asset_id],
+    references: [asset_local.id]
   }),
   creator: one(profile_local, {
     fields: [vote_local.creator_id],
@@ -471,25 +296,13 @@ export const vote_localRelations = relations(vote_local, ({ one }) => ({
   })
 }));
 
-export const asset_content_link_local = sqliteTable(
-  'asset_content_link_local',
-  {
-    ...baseColumns,
-    asset_id: text()
-      .notNull()
-      .references(() => asset_local.id),
-    source_language_id: text().references(() => language_local.id),
-    text: text().notNull(),
-    audio_id: text(),
-    download_profiles: text({ mode: 'json' }).$type<string[]>()
-  },
-  (t) => [
-    index('asset_id_idx').on(t.asset_id),
-    index('asset_content_link_source_language_id_idx').on(t.source_language_id)
-  ]
-);
+export const asset_content_link_local = createAssetContentLinkTable('local', {
+  asset: asset_local,
+  language: language_local
+});
 
-export const asset_content_link_localRelations = relations(asset_content_link_local,
+export const asset_content_link_localRelations = relations(
+  asset_content_link_local,
   ({ one }) => ({
     asset: one(asset_local, {
       fields: [asset_content_link_local.asset_id],
@@ -502,29 +315,11 @@ export const asset_content_link_localRelations = relations(asset_content_link_lo
   })
 );
 
-export const flag_local = sqliteTable('flag_local', {
-  ...baseColumns,
-  name: text().notNull().unique()
+export const invite_local = createInviteTable('local', {
+  senderProfile: profile_local,
+  receiverProfile: profile_local,
+  project: project_local
 });
-
-export const invite_local = sqliteTable(
-  'invite_local',
-  {
-    ...baseColumns,
-    sender_profile_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    receiver_profile_id: text().references(() => profile_local.id),
-    project_id: text()
-      .notNull()
-      .references(() => project_local.id),
-    status: text({ enum: statusOptions }).notNull(),
-    as_owner: int({ mode: 'boolean' }).notNull().default(false),
-    email: text().notNull(),
-    count: int().notNull()
-  },
-  (table) => [index('idx_invite_request_receiver_email').on(table.email)]
-);
 
 export const invite_localRelations = relations(invite_local, ({ one }) => ({
   sender: one(profile_local, {
@@ -543,16 +338,9 @@ export const invite_localRelations = relations(invite_local, ({ one }) => ({
   })
 }));
 
-export const request_local = sqliteTable('request_local', {
-  ...baseColumns,
-  sender_profile_id: text()
-    .notNull()
-    .references(() => profile_local.id),
-  project_id: text()
-    .notNull()
-    .references(() => project_local.id),
-  status: text({ enum: statusOptions }).notNull(),
-  count: int().notNull()
+export const request_local = createRequestTable('local', {
+  senderProfile: profile_local,
+  project: project_local
 });
 
 export const request_localRelations = relations(request_local, ({ one }) => ({
@@ -567,39 +355,30 @@ export const request_localRelations = relations(request_local, ({ one }) => ({
   })
 }));
 
-export const notification_local = sqliteTable('notification_local', {
-  ...baseColumns,
-  profile_id: text()
-    .notNull()
-    .references(() => profile_local.id),
-  viewed: int({ mode: 'boolean' }).notNull().default(false),
-  target_table_name: text().notNull(),
-  target_record_id: text().notNull()
+export const notification_local = createNotificationTable('local', {
+  profile: profile_local
 });
 
-export const notification_localRelations = relations(notification_local, ({ one }) => ({
-  profile: one(profile_local, {
-    fields: [notification_local.profile_id],
-    references: [profile_local.id]
+export const notification_localRelations = relations(
+  notification_local,
+  ({ one }) => ({
+    profile: one(profile_local, {
+      fields: [notification_local.profile_id],
+      references: [profile_local.id]
+    })
   })
-}));
-
-export const profile_project_link_local = sqliteTable(
-  'profile_project_link_local',
-  {
-    ...linkColumns,
-    profile_id: text()
-      .notNull()
-      .references(() => profile_local.id),
-    project_id: text()
-      .notNull()
-      .references(() => project_local.id),
-    membership: text()
-  },
-  (t) => [primaryKey({ columns: [t.profile_id, t.project_id] })]
 );
 
-export const profileProjectLink_localRelations = relations(profile_project_link_local,
+export const profile_project_link_local = createProfileProjectLinkTable(
+  'local',
+  {
+    profile: profile_local,
+    project: project_local
+  }
+);
+
+export const profileProjectLink_localRelations = relations(
+  profile_project_link_local,
   ({ one }) => ({
     profile: one(profile_local, {
       fields: [profile_project_link_local.profile_id],
@@ -612,28 +391,26 @@ export const profileProjectLink_localRelations = relations(profile_project_link_
   })
 );
 
-export const subscription_local = sqliteTable('subscription_local', {
-  ...baseColumns,
-  profile_id: text()
-    .notNull()
-    .references(() => profile_local.id),
-  target_record_id: text().notNull(),
-  target_table_name: text().notNull()
+export const subscription_local = createSubscriptionTable('local', {
+  profile: profile_local
 });
 
-export const subscription_localRelations = relations(subscription_local, ({ one }) => ({
-  profile: one(profile_local, {
-    fields: [subscription_local.profile_id],
-    references: [profile_local.id]
+export const subscription_localRelations = relations(
+  subscription_local,
+  ({ one }) => ({
+    profile: one(profile_local, {
+      fields: [subscription_local.profile_id],
+      references: [profile_local.id]
+    })
   })
-}));
+);
 
 // ====================================
 // VIEWS
 // ====================================
 
 // Asset tag categories view - extracts distinct tag categories (part before ':') for each quest via asset tags
-export const asset_tag_categories_local = sqliteView('asset_tag_categories_local', {
+export const asset_tag_categories_local = sqliteView('asset_tag_categories', {
   quest_id: text('quest_id').notNull(),
   tag_categories: text('tag_categories', { mode: 'json' }).$type<string[]>() // SQLite stores as comma-separated string
 }).as(sql`
@@ -650,7 +427,7 @@ export const asset_tag_categories_local = sqliteView('asset_tag_categories_local
 `);
 
 // Quest tag categories view - extracts distinct tag categories for all quests in each project
-export const quest_tag_categories_local = sqliteView('quest_tag_categories_local', {
+export const quest_tag_categories_local = sqliteView('quest_tag_categories', {
   project_id: text('project_id').notNull(),
   tag_categories: text('tag_categories', { mode: 'json' }).$type<string[]>() // SQLite stores as comma-separated string
 }).as(sql`
@@ -671,92 +448,31 @@ export const quest_tag_categories_local = sqliteView('quest_tag_categories_local
 // CLOSURE AND AGGREGATE TABLES
 // ====================================
 
-export const quest_closure_local = sqliteTable(
-  'quest_closure_local',
-  {
-    quest_id: text()
-      .primaryKey()
-      .references(() => quest_local.id),
-    project_id: text()
-      .notNull()
-      .references(() => project_local.id),
+export const quest_closure_local = createQuestClosureTable('local', {
+  quest: quest_local,
+  project: project_local
+});
 
-    // ID Arrays (for bulk downloads)
-    asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    asset_content_link_ids: text({ mode: 'json' })
-      .$type<string[]>()
-      .default([]),
-    quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-
-    // Computed Aggregates (for progress display)
-    total_assets: int().notNull().default(0),
-    total_translations: int().notNull().default(0),
-    approved_translations: int().notNull().default(0),
-
-    // Download tracking
-    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
-
-    last_updated: text().notNull().default(timestampDefault)
-  },
-  (table) => [
-    index('quest_closure_project_id_idx').on(table.project_id),
-    index('quest_closure_last_updated_idx').on(table.last_updated)
-  ]
-);
-
-export const quest_closure_localRelations = relations(quest_closure_local, ({ one }) => ({
-  quest: one(quest_local, {
-    fields: [quest_closure_local.quest_id],
-    references: [quest_local.id]
-  }),
-  project: one(project_local, {
-    fields: [quest_closure_local.project_id],
-    references: [project_local.id]
+export const quest_closure_localRelations = relations(
+  quest_closure_local,
+  ({ one }) => ({
+    quest: one(quest_local, {
+      fields: [quest_closure_local.quest_id],
+      references: [quest_local.id]
+    }),
+    project: one(project_local, {
+      fields: [quest_closure_local.project_id],
+      references: [project_local.id]
+    })
   })
-}));
-
-export const project_closure_local = sqliteTable(
-  'project_closure_local',
-  {
-    project_id: text()
-      .primaryKey()
-      .references(() => project_local.id),
-
-    // ID Arrays (for bulk downloads - aggregated from all quest closures)
-    asset_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    translation_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    vote_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    tag_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    language_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    quest_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    quest_asset_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    asset_content_link_ids: text({ mode: 'json' })
-      .$type<string[]>()
-      .default([]),
-    quest_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-    asset_tag_link_ids: text({ mode: 'json' }).$type<string[]>().default([]),
-
-    // Computed Aggregates (for progress display)
-    total_quests: int().notNull().default(0),
-    total_assets: int().notNull().default(0),
-    total_translations: int().notNull().default(0),
-    approved_translations: int().notNull().default(0),
-
-    // Download tracking
-    download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
-
-    last_updated: text().notNull().default(timestampDefault)
-  },
-  (table) => [index('project_closure_last_updated_idx').on(table.last_updated)]
 );
 
-export const project_closure_localRelations = relations(project_closure_local,
+export const project_closure_local = createProjectClosureTable('local', {
+  project: project_local
+});
+
+export const project_closure_localRelations = relations(
+  project_closure_local,
   ({ one }) => ({
     project: one(project_local, {
       fields: [project_closure_local.project_id],

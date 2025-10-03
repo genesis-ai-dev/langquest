@@ -51,13 +51,7 @@ export function useTagsByQuestId(quest_id: string) {
   } = useHybridSupabaseQuery({
     queryKey: ['tags', 'by-quest', quest_id],
     query: db
-      .select({
-        id: tag.id,
-        name: tag.name,
-        active: tag.active,
-        created_at: tag.created_at,
-        last_updated: tag.last_updated
-      })
+      .select()
       .from(tag)
       .innerJoin(quest_tag_link, eq(tag.id, quest_tag_link.tag_id))
       .where(eq(quest_tag_link.quest_id, quest_id)),
@@ -81,13 +75,7 @@ export function useTagsByAssetId(asset_id: string) {
   } = useHybridSupabaseQuery({
     queryKey: ['tags', 'by-asset', asset_id],
     query: db
-      .select({
-        id: tag.id,
-        name: tag.name,
-        active: tag.active,
-        created_at: tag.created_at,
-        last_updated: tag.last_updated
-      })
+      .select()
       .from(tag)
       .innerJoin(asset_tag_link, eq(tag.id, asset_tag_link.tag_id))
       .where(eq(asset_tag_link.asset_id, asset_id)),
@@ -307,7 +295,7 @@ export function useInfiniteTagsByProjectId(project_id: string) {
         .where(eq(quest.project_id, project_id))
         .limit(pageSize)
         .offset(pageParam * pageSize)
-        .orderBy(tag.name);
+        .orderBy(tag.key, tag.value);
     },
     enabled: !!project_id,
     pageSize: 10
@@ -360,7 +348,7 @@ export function useInfiniteTagsByQuestId(quest_id: string) {
         .where(eq(quest_tag_link.quest_id, quest_id))
         .limit(pageSize)
         .offset(pageParam * pageSize)
-        .orderBy(tag.name);
+        .orderBy(tag.key, tag.value);
     },
     enabled: !!quest_id,
     pageSize: 50
@@ -415,14 +403,11 @@ export function useInfiniteTagsByQuestIdAndCategory(
         .from(tag)
         .innerJoin(quest_tag_link, eq(tag.id, quest_tag_link.tag_id))
         .where(
-          and(
-            eq(quest_tag_link.quest_id, quest_id),
-            like(tag.name, `${category}:%`)
-          )
+          and(eq(quest_tag_link.quest_id, quest_id), like(tag.key, category))
         )
         .limit(pageSize)
         .offset(pageParam * pageSize)
-        .orderBy(tag.name);
+        .orderBy(tag.key, tag.value);
 
       console.log('data', data);
       return data;
@@ -482,12 +467,10 @@ export function useInfiniteTagsByProjectIdAndCategory(
         .from(tag)
         .innerJoin(quest_tag_link, eq(tag.id, quest_tag_link.tag_id))
         .innerJoin(quest, eq(quest_tag_link.quest_id, quest.id))
-        .where(
-          and(eq(quest.project_id, project_id), like(tag.name, `${category}:%`))
-        )
+        .where(and(eq(quest.project_id, project_id), like(tag.key, category)))
         .limit(pageSize)
         .offset(pageParam * pageSize)
-        .orderBy(tag.name);
+        .orderBy(tag.key, tag.value);
     },
     enabled: !!project_id && !!category,
     pageSize: 20

@@ -1,7 +1,7 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { ProjectStatus } from '../types';
 
@@ -22,7 +22,7 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
     isError
   } = useHybridQuery({
     queryKey: ['project-settings', projectId],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         columns: {
           private: true,

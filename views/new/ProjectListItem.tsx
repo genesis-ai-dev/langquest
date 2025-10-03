@@ -23,7 +23,7 @@ import {
   useHybridData,
   useItemDownloadStatus
 } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import {
   CrownIcon,
@@ -65,7 +65,7 @@ export function ProjectListItem({
   const { data: sourceLanguages = [] } = useHybridData<Language, Language>({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: (language) => eq(language.id, language.id),
         // Placeholder; PowerSync offline query requires a compilable query; we will not use offline here
@@ -87,7 +87,7 @@ export function ProjectListItem({
   const { data: targetLangArr = [] } = useHybridData<Language>({
     dataType: 'project-target-language',
     queryKeyParams: [project.target_language_id],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: (language, { eq }) => eq(language.id, project.target_language_id)
       })
@@ -202,11 +202,9 @@ export function ProjectListItem({
               </CardDescription>
             </View>
           </CardHeader>
-          {project.description && (
-            <CardContent>
-              <Text numberOfLines={4}>{project.description}</Text>
-            </CardContent>
-          )}
+          <CardContent>
+            <Text numberOfLines={4}>{project.description}</Text>
+          </CardContent>
         </Card>
       </Pressable>
 

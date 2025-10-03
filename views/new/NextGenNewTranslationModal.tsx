@@ -21,14 +21,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { translationService } from '@/database_services/translationService';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { MicIcon, TextIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -50,12 +51,6 @@ interface NextGenNewTranslationModalProps {
 
 type TranslationType = 'text' | 'audio';
 
-const translationSchema = z.object({
-  text: z.string().min(1, 'Translation text is required')
-});
-
-type TranslationFormData = z.infer<typeof translationSchema>;
-
 export default function NextGenNewTranslationModal({
   visible,
   onClose,
@@ -69,85 +64,76 @@ export default function NextGenNewTranslationModal({
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
-  const [_isSubmitting, setIsSubmitting] = useState(false);
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
-  const [audioUri, setAudioUri] = useState<string | null>(null);
+
+  const translationSchema = z
+    .object({
+      text: z.string().nonempty().trim().optional(),
+      audioUri: z.string().nonempty().optional()
+    })
+    .refine(
+      (data) =>
+        (translationType === 'text' && data.text) ||
+        (translationType === 'audio' && data.audioUri),
+      {
+        message: t('fillFields'),
+        path: translationType === 'text' ? ['text'] : ['audioUri']
+      }
+    );
+
+  type TranslationFormData = z.infer<typeof translationSchema>;
 
   const form = useForm<TranslationFormData>({
     resolver: zodResolver(translationSchema),
-    defaultValues: {
-      text: ''
-    }
+    disabled: !currentUser?.id
   });
 
   // Note: source language options restriction will be handled by parent; modal displays the selected sourceLanguage if provided
 
-  const handleSubmit = async (data: TranslationFormData) => {
-    if (!currentUser) {
-      Alert.alert(t('error'), t('logInToTranslate'));
-      return;
-    }
-
-    if (translationType === 'text' && !data.text.trim()) {
-      Alert.alert(t('error'), t('fillFields'));
-      return;
-    }
-
-    if (translationType === 'audio' && !audioUri) {
-      Alert.alert(t('error'), t('fillFields'));
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
+  const { mutateAsync: createTranslation } = useMutation({
+    mutationFn: async (data: TranslationFormData) => {
       let audioAttachment: string | null = null;
-      if (audioUri && system.permAttachmentQueue) {
-        const attachment = await system.permAttachmentQueue.saveAudio(audioUri);
+      if (data.audioUri && system.permAttachmentQueue) {
+        const attachment = await system.permAttachmentQueue.saveAudio(
+          data.audioUri
+        );
         audioAttachment = attachment.filename;
       }
 
-      // Use translationService to create the translation
-      await translationService.createTranslation({
-        text: translationType === 'text' ? data.text.trim() : '',
+      await system.db.insert(resolveTable('asset')).values({
+        ...(translationType === 'text' && { text: data.text }),
+        ...(translationType === 'audio' && { audio: audioAttachment }),
+        source_asset_id: assetId,
+        source_language_id: sourceLanguage!.id,
         target_language_id: targetLanguageId,
-        asset_id: assetId,
-        creator_id: currentUser.id,
-        audio: audioAttachment
+        creator_id: currentUser!.id,
+        name: data.text,
+        download_profiles: [currentUser!.id]
       });
-
+    },
+    onSuccess: () => {
       form.reset();
-      setAudioUri(null);
       Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
       onSuccess?.();
       onClose();
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error creating translation:', error);
       Alert.alert(t('error'), t('failedCreateTranslation'));
-    } finally {
-      setIsSubmitting(false);
     }
-  };
-
-  const handleRecordingComplete = (uri: string) => {
-    setAudioUri(uri);
-  };
+  });
 
   const handleClose = () => {
     // Clean up audio file if exists
+    const audioUri = form.getValues('audioUri');
     if (audioUri) void deleteIfExists(audioUri);
-    setAudioUri(null);
     form.reset();
     onClose();
   };
 
   // Get first content text as preview
   const contentPreview = assetContent?.[0]?.text || '';
-
-  const canSubmit =
-    (translationType === 'text' && form.watch('text').trim()) ||
-    (translationType === 'audio' && audioUri);
 
   return (
     <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
@@ -244,9 +230,20 @@ export default function NextGenNewTranslationModal({
                   </TabsContent>
 
                   <TabsContent value="audio" className="min-h-36">
-                    <AudioRecorder
-                      onRecordingComplete={handleRecordingComplete}
-                      resetRecording={() => setAudioUri(null)}
+                    <FormField
+                      control={form.control}
+                      name="audioUri"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <AudioRecorder
+                              onRecordingComplete={field.onChange}
+                              resetRecording={() => field.onChange(null)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </TabsContent>
                 </View>
@@ -267,13 +264,12 @@ export default function NextGenNewTranslationModal({
 
           <DrawerFooter>
             <FormSubmit
-              onPress={form.handleSubmit(handleSubmit)}
-              disabled={!canSubmit}
+              onPress={form.handleSubmit((data) => createTranslation(data))}
               className="w-full"
             >
               <Text className="text-base font-bold">{t('submit')}</Text>
             </FormSubmit>
-            <DrawerClose className="w-full">
+            <DrawerClose>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>

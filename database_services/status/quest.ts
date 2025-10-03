@@ -1,7 +1,7 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
 
@@ -19,11 +19,11 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
     data: questData = [],
     isLoading,
     isError,
-    refetch,
+    refetch
   } = useHybridData({
     dataType: 'quest-settings',
     queryKeyParams: [questId],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.quest.findMany({
         columns: {
           active: true,
@@ -38,14 +38,16 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
         .select('active, visible')
         .eq('id', questId)
         .limit(1)
-        .overrideTypes<Pick<typeof quest.$inferSelect, 'active' | 'visible'>[]>();
+        .overrideTypes<
+          Pick<typeof quest.$inferSelect, 'active' | 'visible'>[]
+        >();
 
       if (error) throw error;
       return data;
     },
     enableOfflineQuery: !!questId,
     enableCloudQuery: !!questId,
-    getItemId: (item) => questId
+    getItemId: () => questId
   });
 
   return {

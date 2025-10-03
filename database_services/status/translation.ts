@@ -1,7 +1,7 @@
-import { translation } from '@/db/drizzleSchema';
+import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { TranslationStatus } from '../types';
 
@@ -12,9 +12,7 @@ export interface TranslationStatusHook {
   refetch: () => void;
 }
 
-export function useTranslationStatuses(
-  translationId: string
-): TranslationStatusHook {
+export function useTranslationStatuses(assetId: string): TranslationStatusHook {
   const {
     data: translationData = [],
     refetch,
@@ -22,31 +20,36 @@ export function useTranslationStatuses(
     isError
   } = useHybridData({
     dataType: 'translation-settings',
-    queryKeyParams: [translationId],
-    offlineQuery: toMergeCompilableQuery(
-      system.db.query.translation.findMany({
+    queryKeyParams: [assetId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findMany({
         columns: {
           active: true,
           visible: true,
           creator_id: true
         },
-        where: eq(translation.id, translationId)
+        where: eq(asset.id, assetId)
       })
     ),
-    cloudQueryFn: async (): Promise<(typeof translation.$inferSelect)[]> => {
+    cloudQueryFn: async (): Promise<(typeof asset.$inferSelect)[]> => {
       const { data, error } = await system.supabaseConnector.client
-        .from('translation')
+        .from('asset')
         .select('creator_id, active, visible')
-        .eq('id', translationId)
+        .eq('id', assetId)
         .limit(1);
 
       if (error) throw error;
-      return data as (typeof translation.$inferSelect)[];
+      return data as (typeof asset.$inferSelect)[];
     }
   });
 
   return {
-    data: translationData[0] || undefined,
+    data: translationData[0]
+      ? {
+          ...translationData[0],
+          creator_id: translationData[0].creator_id!
+        }
+      : undefined,
     isLoading,
     isError,
     refetch
@@ -54,13 +57,13 @@ export function useTranslationStatuses(
 }
 
 export async function updateTranslationStatus(
-  translationId: string,
+  assetId: string,
   status: Partial<Pick<TranslationStatus, 'active' | 'visible'>>
 ) {
   const { db } = system;
 
   return await db
-    .update(translation)
+    .update(asset)
     .set({ ...status, last_updated: new Date().toISOString() })
-    .where(eq(translation.id, translationId));
+    .where(eq(asset.id, assetId));
 }

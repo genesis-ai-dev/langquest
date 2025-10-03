@@ -7,7 +7,12 @@ import {
   DrizzleAppSchema,
   wrapPowerSyncWithDrizzle
 } from '@powersync/drizzle-driver';
+import type { Table } from 'drizzle-orm';
+import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import 'react-native-url-polyfill/auto';
+import uuid from 'react-native-uuid';
+
+import { reset } from 'drizzle-seed';
 
 // Import from native SDK - will be empty on web
 import {
@@ -26,22 +31,34 @@ import {
   WASQLiteOpenFactory
 } from '@powersync/web';
 
-import type { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
+import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
-import { localTablesOnly, tablesOnly } from '@/utils/dbUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import { AttachmentTable } from '@powersync/attachments';
 import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
+import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import Logger from 'js-logger';
-import { Platform } from 'react-native';
 import * as drizzleSchema from '../drizzleSchema';
 import * as drizzleSchemaLocal from '../drizzleSchemaLocal';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
+import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
+import { useLocalStore } from '@/store/localStore';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type InsertQuest = InferInsertModel<typeof drizzleSchema.quest>;
+type InsertAsset = InferInsertModel<typeof drizzleSchema.asset>;
+type InsertQuestAssetLink = InferInsertModel<
+  typeof drizzleSchema.quest_asset_link
+>;
+type InsertAssetContentLink = InferInsertModel<
+  typeof drizzleSchema.asset_content_link
+>;
+type InsertVote = InferInsertModel<typeof drizzleSchema.vote>;
 // Use the correct imports based on platform
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Column = ColumnNative || ColumnWeb;
@@ -63,7 +80,7 @@ export class System {
   powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
   tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
-  db: PowerSyncSQLiteDatabase<typeof drizzleSchema & typeof drizzleSchemaLocal>;
+  db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
@@ -77,16 +94,97 @@ export class System {
       );
     }
     this.supabaseConnector = new SupabaseConnector(this);
-    this.storage = this.supabaseConnector.storage;
+    this.storage = new SupabaseStorageAdapter({
+      client: this.supabaseConnector.client
+    });
 
     const drizzleSchemaWithOptions = {
-      ...tablesOnly,
-      ...Object.entries(localTablesOnly).reduce(
+      ...Object.entries(drizzleSchema).reduce(
+        (acc, [key, table]) => {
+          if (is(table, SQLiteTable)) {
+            // const tableWithoutSource = {
+            //   ...table
+            // };
+
+            // delete (tableWithoutSource as unknown as { source?: unknown })
+            //   .source;
+
+            // // Delete drizzle symbols that contain source
+            // const drizzleSymbols =
+            //   Object.getOwnPropertySymbols(tableWithoutSource);
+            // for (const symbol of drizzleSymbols) {
+            //   const symbolStr = symbol.toString();
+            //   if (
+            //     symbolStr.includes('drizzle:Columns') ||
+            //     symbolStr.includes('drizzle:ExtraConfigColumns')
+            //   ) {
+            //     const symbolValue = (
+            //       tableWithoutSource as Record<symbol, Record<string, unknown>>
+            //     )[symbol];
+            //     if (
+            //       symbolValue &&
+            //       typeof symbolValue === 'object' &&
+            //       'source' in symbolValue
+            //     ) {
+            //       delete symbolValue.source;
+            //     }
+            //   }
+            // }
+
+            acc[key] = {
+              tableDefinition: table,
+              options: {
+                viewName: `${key}_synced`
+              }
+            } as DrizzleTableWithPowerSyncOptions;
+            return acc;
+          }
+          return acc;
+        },
+        {} as Record<string, DrizzleTableWithPowerSyncOptions>
+      ),
+      ...Object.entries(drizzleSchemaLocal).reduce(
         (acc, [key, localTable]) => {
-          acc[key] = {
-            tableDefinition: localTable,
-            options: { localOnly: true }
-          } as DrizzleTableWithPowerSyncOptions;
+          if (is(localTable, SQLiteTable)) {
+            // const localTableWithoutSource = {
+            //   ...localTable
+            // };
+            // delete (localTableWithoutSource as unknown as { source?: unknown })
+            //   .source;
+
+            // // Delete drizzle symbols that contain source
+            // const drizzleSymbols = Object.getOwnPropertySymbols(
+            //   localTableWithoutSource
+            // );
+            // for (const symbol of drizzleSymbols) {
+            //   const symbolStr = symbol.toString();
+            //   if (
+            //     symbolStr.includes('drizzle:Columns') ||
+            //     symbolStr.includes('drizzle:ExtraConfigColumns')
+            //   ) {
+            //     const symbolValue = (
+            //       localTableWithoutSource as Record<
+            //         symbol,
+            //         Record<string, unknown>
+            //       >
+            //     )[symbol];
+            //     if (
+            //       symbolValue &&
+            //       typeof symbolValue === 'object' &&
+            //       'source' in symbolValue
+            //     ) {
+            //       delete symbolValue.source;
+            //     }
+            //   }
+            // }
+
+            acc[key] = {
+              tableDefinition: localTable,
+              options: {
+                localOnly: true
+              }
+            } as DrizzleTableWithPowerSyncOptions;
+          }
           return acc;
         },
         {} as Record<string, DrizzleTableWithPowerSyncOptions>
@@ -107,28 +205,31 @@ export class System {
     if (PowerSyncDatabaseNative) {
       this.factory = new OPSqliteOpenFactory({
         dbFilename: 'sqlite.db',
-        debugMode: false
+        debugMode: true
       });
       this.powersync = new PowerSyncDatabaseNative({
         schema,
-        database: this.factory
+        database: this.factory,
+        logger: Logger
       });
     } else {
       this.factory = new WASQLiteOpenFactory({
         dbFilename: 'sqlite.db',
         worker: '/@powersync/worker/WASQLiteDB.umd.js',
-        debugMode: false
+        debugMode: true,
+        logger: Logger
       });
       this.powersync = new PowerSyncDatabaseWeb({
         schema,
         database: this.factory,
         sync: {
           worker: '/@powersync/worker/SharedSyncImplementation.umd.js'
-        }
+        },
+        logger: Logger
       });
     }
     this.db = wrapPowerSyncWithDrizzle(this.powersync, {
-      schema: { ...drizzleSchema, ...drizzleSchemaLocal }
+      schema: drizzleSchema
     });
 
     if (AppConfig.supabaseBucket) {
@@ -136,9 +237,8 @@ export class System {
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
-        attachmentDirectoryName: 'shared_attachments',
+        attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
-        downloadAttachments: Platform.OS !== 'web',
         // eslint-disable-next-line
         onDownloadError: async (
           attachment: AttachmentRecord,
@@ -163,42 +263,40 @@ export class System {
         }
       });
 
-      if (Platform.OS !== 'web') {
-        this.tempAttachmentQueue = new TempAttachmentQueue({
-          powersync: this.powersync,
-          storage: this.storage,
-          db: this.db,
-          attachmentDirectoryName: 'shared_attachments',
-          cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
-          // eslint-disable-next-line
-          onDownloadError: async (
-            attachment: AttachmentRecord,
-            exception: { toString: () => string; status?: number }
-          ) => {
-            console.log(
-              'TempAttachmentQueue onDownloadError',
-              attachment,
-              exception
-            );
-            if (
-              exception.toString() === 'StorageApiError: Object not found' ||
-              exception.status === 400 ||
-              exception.toString().includes('status":400')
-            ) {
-              return { retry: false };
-            }
-
-            return { retry: true };
-          },
-          // eslint-disable-next-line
-          onUploadError: async (
-            _attachment: AttachmentRecord,
-            _exception: unknown
-          ) => {
-            return { retry: true };
+      this.tempAttachmentQueue = new TempAttachmentQueue({
+        powersync: this.powersync,
+        storage: this.storage,
+        db: this.db,
+        attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
+        cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
+        // eslint-disable-next-line
+        onDownloadError: async (
+          attachment: AttachmentRecord,
+          exception: { toString: () => string; status?: number }
+        ) => {
+          console.log(
+            'TempAttachmentQueue onDownloadError',
+            attachment,
+            exception
+          );
+          if (
+            exception.toString() === 'StorageApiError: Object not found' ||
+            exception.status === 400 ||
+            exception.toString().includes('status":400')
+          ) {
+            return { retry: false };
           }
-        });
-      }
+
+          return { retry: true };
+        },
+        // eslint-disable-next-line
+        onUploadError: async (
+          _attachment: AttachmentRecord,
+          _exception: unknown
+        ) => {
+          return { retry: true };
+        }
+      });
     }
   }
 
@@ -245,6 +343,9 @@ export class System {
         await this.powersync.init();
         // Freeze the object to prevent further modifications
         // Object.freeze(this);
+        // After initializing the DB schema, create union views on top of
+        // <table>_synced and <table>_local for all app tables
+        await this.createUnionViews();
       }
 
       // If we're already connected, check if we need to reconnect
@@ -295,6 +396,7 @@ export class System {
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
+      useLocalStore.getState().setSystemReady(true);
       console.log('PowerSync marked as initialized');
 
       // Initialize attachment queues and wait for completion
@@ -310,6 +412,459 @@ export class System {
     } finally {
       this.connecting = false;
     }
+  }
+
+  private async createUnionViews() {
+    console.log('Creating union views...');
+    try {
+      // Build CREATE VIEW statements for each app table (exclude relations/views)
+      const tableNames = Object.entries(drizzleSchema)
+        .filter(([_name, obj]) => is(obj as unknown, SQLiteTable))
+        .map(([name]) => name);
+
+      if (tableNames.length === 0) return;
+
+      // Normalize spacing for comparison
+      const normalize = (s: string) =>
+        s
+          .replace(/\s+/g, ' ')
+          .replace(/\s*,\s*/g, ', ')
+          .trim()
+          .toLowerCase();
+
+      // Precompute expected SQL for all views
+      const plannedStatements: {
+        view: string;
+        dropSql: string;
+        createSql: string;
+      }[] = [];
+      for (const [name, table] of Object.entries(drizzleSchema)) {
+        if (!is(table, SQLiteTable)) continue;
+
+        const synced = `${name}_synced`;
+        const local = `${name}_local`;
+        const view = name;
+        const remoteColumns = getTableColumns(table);
+        const localTable = drizzleSchemaLocal[
+          local as keyof typeof drizzleSchemaLocal
+        ] as unknown as Table;
+        const localColumns = getTableColumns(localTable);
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        const remoteColumnNames = (Object.keys(remoteColumns) ?? []).filter(
+          (col) => col !== 'source'
+        );
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        const localColumnNames = (Object.keys(localColumns) ?? []).filter(
+          (col) => col !== 'source'
+        );
+
+        const fallback =
+          remoteColumnNames.length === 0 && localColumnNames.length === 0;
+
+        let createSql: string;
+        if (fallback) {
+          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, * FROM "${synced}" UNION ALL SELECT 'local' AS source, * FROM "${local}"`;
+        } else {
+          const remoteSet = new Set(remoteColumnNames);
+          const localSet = new Set(localColumnNames);
+          const unified = [...remoteColumnNames];
+          for (const col of localColumnNames) {
+            if (!remoteSet.has(col)) unified.push(col);
+          }
+          const syncedSelect = unified
+            .map((col) =>
+              remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`
+            )
+            .filter((col) => col !== 'source')
+            .join(', ');
+          const localSelect = unified
+            .map((col) => (localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`))
+            .filter((col) => col !== 'source')
+            .join(', ');
+
+          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, ${syncedSelect} FROM "${synced}" UNION ALL SELECT 'local' AS source, ${localSelect} FROM "${local}"`;
+        }
+
+        plannedStatements.push({
+          view,
+          dropSql: `DROP VIEW IF EXISTS "${view}"`,
+          createSql: normalize(createSql)
+        });
+      }
+
+      // Fetch existing view SQL for all planned views in one query
+      const viewNames = plannedStatements.map((p) => p.view);
+      const existingByName = new Map<string, string>();
+      if (viewNames.length > 0) {
+        const placeholders = viewNames.map(() => '?').join(', ');
+        const existingRows = await this.powersync.getAll<{
+          name: string;
+          sql: string;
+        }>(
+          `SELECT name, sql FROM sqlite_master WHERE type = 'view' AND name IN (${placeholders})`,
+          viewNames
+        );
+        for (const row of existingRows) {
+          if (row.name) existingByName.set(row.name, normalize(row.sql));
+        }
+      }
+      await this.powersync.writeTransaction(async (tx) => {
+        // Compare with existing view SQL and apply only when different
+        for (const { view, dropSql, createSql } of plannedStatements) {
+          try {
+            const existing = existingByName.get(view);
+            const expected = createSql;
+
+            const viewExists = !!existing;
+
+            if (existing === expected) {
+              console.log(`Union view for ${view} is up to date.`);
+              continue; // no change
+            } else if (viewExists) {
+              console.log(
+                `Union view for ${view} is not up to date. Updating...`
+              );
+            }
+
+            if (viewExists) await tx.execute(dropSql);
+            const insertId = (await tx.execute(createSql)).insertId;
+
+            if (!viewExists) {
+              console.log(
+                `Union view created for ${view}. Insert ID: ${insertId}`
+              );
+            }
+          } catch (e) {
+            console.warn(`Failed to ensure union view for ${view}:`, e);
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('createUnionViews encountered an error:', error);
+    }
+  }
+
+  async seed() {
+    if (!__DEV__) return; // Only seed in development
+    console.log('Resetting database...');
+    // @ts-expect-error abc
+    await reset(this.db, drizzleSchemaLocal);
+    console.log('Database reset successfully.');
+    console.log('Seeding database...');
+    const time = performance.now();
+    // Create a profile first
+    const PROFILE_ID = 'c111d43b-5983-4342-9d9e-5fc8d09d77b9';
+    const ENGLISH_LANGUAGE_ID = uuid.v4();
+
+    // Insert language
+    await this.db.insert(drizzleSchemaLocal.language_local).values({
+      id: ENGLISH_LANGUAGE_ID,
+      draft: false,
+      creator_id: PROFILE_ID,
+      native_name: 'Generated English',
+      english_name: 'Generated English',
+      iso639_3: 'gen-eng',
+      locale: 'gen-en',
+      ui_ready: false,
+      download_profiles: [PROFILE_ID]
+    });
+
+    async function createProject(
+      i: number,
+      db: PowerSyncSQLiteDatabase<typeof drizzleSchemaLocal>
+    ) {
+      const project = {
+        id: uuid.v4(),
+        draft: false,
+        creator_id: PROFILE_ID,
+        name: `Project ${i + 1}`,
+        description: `Description for project ${i + 1}`,
+        download_profiles: [PROFILE_ID],
+        target_language_id: ENGLISH_LANGUAGE_ID
+      };
+
+      const profile_project_link = {
+        id: `${PROFILE_ID}_${project.id}`,
+        project_id: project.id,
+        profile_id: PROFILE_ID,
+        membership: 'owner' as const,
+        download_profiles: [PROFILE_ID]
+      };
+
+      const quests: InsertQuest[] = Array.from({ length: 5 }, (_, i) => {
+        return {
+          id: uuid.v4(),
+          draft: false,
+          creator_id: PROFILE_ID,
+          name: `Quest ${i + 1}`,
+          description: `Description for quest ${i + 1}`,
+          project_id: project.id,
+          parent_id: null
+        };
+      });
+
+      // Helper function to create quest layers recursively
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const createLayers = <T extends Record<string, any>>(
+        builder: (
+          parent: T,
+          childIndex: number,
+          parentIndex: number,
+          depth: number
+        ) => T,
+        parents: T[],
+        maxDepth: number,
+        questsPerParent = 5,
+        depth = 1
+      ): T[] => {
+        if (depth > maxDepth) {
+          return [];
+        }
+
+        const currentLayer = parents.flatMap((parentQuest, parentIndex) =>
+          Array.from({ length: questsPerParent }, (_, childIndex) => {
+            return builder(parentQuest, childIndex, parentIndex, depth);
+          })
+        );
+
+        // Recursively create deeper layers
+        const deeperQuests = createLayers(
+          builder,
+          currentLayer,
+          maxDepth,
+          questsPerParent,
+          depth + 1
+        );
+
+        return [...currentLayer, ...deeperQuests];
+      };
+      // Helper function to insert quests in batches
+
+      const insertInBatches = async <T extends unknown[]>(
+        items: T,
+        table: Table
+      ) => {
+        const tableName = getTableName(table);
+        const batchSize = Math.floor(
+          32766 / Object.keys(getTableColumns(table)).length
+        );
+        console.log(
+          `Batch size: ${batchSize}, Total ${tableName}: ${items.length}`
+        );
+        const startTime = performance.now();
+
+        for (let i = 0; i < items.length; i += batchSize) {
+          const batch = items.slice(i, i + batchSize);
+          const batchStartTime = performance.now();
+          await db.insert(table).values(batch);
+          const batchEndTime = performance.now();
+
+          const progress = Math.min(i + batchSize, items.length);
+          const percentage = ((progress / items.length) * 100).toFixed(1);
+          console.log(
+            `Inserted batch ${Math.floor(i / batchSize) + 1}: ${progress}/${items.length} ${tableName} (${percentage}%) - ${(batchEndTime - batchStartTime).toFixed(2)}ms`
+          );
+        }
+
+        const totalTime = performance.now() - startTime;
+        console.log(
+          `Completed inserting ${items.length} ${tableName} in ${totalTime.toFixed(2)}ms`
+        );
+      };
+
+      await db.insert(drizzleSchemaLocal.project_local).values(project);
+      await db
+        .insert(drizzleSchemaLocal.profile_project_link_local)
+        .values(profile_project_link);
+
+      const allQuests = [
+        ...quests,
+        ...createLayers(
+          (parent, childIndex, parentIndex, depth) => ({
+            id: uuid.v4(),
+            parent_id: parent.id,
+            name: `Layer ${depth} Quest ${childIndex + 1} (Parent ${parentIndex + 1})`,
+            description: `Description for layer ${depth} quest ${childIndex + 1}`,
+            project_id: project.id,
+            creator_id: PROFILE_ID,
+            download_profiles: [PROFILE_ID]
+          }),
+          quests,
+          4
+        )
+      ];
+      // Insert all quests in batches to avoid SQL variable limits
+      await insertInBatches(allQuests, drizzleSchemaLocal.quest_local);
+
+      const assets: InsertAsset[] = [];
+      const questAssetLinks: InsertQuestAssetLink[] = [];
+      const assetContentLinks: InsertAssetContentLink[] = [];
+      const votes: InsertVote[] = [];
+      const leafQuests = allQuests.filter((quest) =>
+        quest.name.includes('Layer 4')
+      );
+      console.log('Leaf quests:', leafQuests.length);
+      leafQuests.forEach((quest) => {
+        Array.from({ length: 3 }, (_, i) => {
+          const asset: InsertAsset = {
+            id: uuid.v4(),
+            creator_id: PROFILE_ID,
+            name: `Asset ${i + 1}`,
+            images: [],
+            download_profiles: [PROFILE_ID],
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            project_id: project.id,
+            source_asset_id: null
+          };
+          // const assetContentLink: InsertAssetContentLink = {
+          //   id: uuid.v4(),
+          //   asset_id: asset.id,
+          //   source_language_id: ENGLISH_LANGUAGE_ID,
+          //   text: 'Test',
+          //   download_profiles: [PROFILE_ID]
+          // };
+          const translationAsset: InsertAsset = {
+            id: uuid.v4(),
+            source_asset_id: asset.id,
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            name: 'Test',
+            download_profiles: [PROFILE_ID],
+            creator_id: PROFILE_ID,
+            project_id: project.id
+          };
+          const newVotes = Array.from(
+            { length: Math.round(Math.random() * 5) + 2 },
+            (_, i) => {
+              return {
+                id: uuid.v4(),
+                asset_id: translationAsset.id!,
+                creator_id: PROFILE_ID,
+                polarity: i % 2 === 1 ? 'up' : 'down',
+                active: true,
+                download_profiles: [PROFILE_ID]
+              } satisfies InsertVote;
+            }
+          );
+          votes.push(...newVotes);
+          assets.push(asset);
+          questAssetLinks.push({
+            id: `${quest.id}_${asset.id}`,
+            quest_id: quest.id!,
+            asset_id: asset.id!,
+            download_profiles: [PROFILE_ID]
+          });
+          const contentCreatedAt = new Date();
+          assetContentLinks.push({
+            id: uuid.v4(),
+            asset_id: asset.id!,
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            text: 'Source text',
+            download_profiles: [PROFILE_ID],
+            created_at: contentCreatedAt.toISOString()
+          });
+          contentCreatedAt.setDate(contentCreatedAt.getDate() + 1);
+          assetContentLinks.push({
+            id: uuid.v4(),
+            asset_id: asset.id!,
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            text: 'Second source text',
+            download_profiles: [PROFILE_ID],
+            // audio: [uuid.v4()],
+            created_at: contentCreatedAt.toISOString()
+          });
+
+          assets.push(translationAsset);
+          questAssetLinks.push({
+            id: `${quest.id}_${translationAsset.id}`,
+            quest_id: quest.id!,
+            asset_id: translationAsset.id!,
+            download_profiles: [PROFILE_ID]
+          });
+          assetContentLinks.push({
+            id: uuid.v4(),
+            asset_id: translationAsset.id!,
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            text: 'Translation text',
+            download_profiles: [PROFILE_ID]
+            // audio: [uuid.v4()]
+          });
+          assetContentLinks.push({
+            id: uuid.v4(),
+            asset_id: translationAsset.id!,
+            source_language_id: ENGLISH_LANGUAGE_ID,
+            text: 'Second translation text',
+            download_profiles: [PROFILE_ID]
+          });
+        });
+      });
+
+      await insertInBatches(assets, drizzleSchemaLocal.asset_local);
+      await insertInBatches(
+        questAssetLinks,
+        drizzleSchemaLocal.quest_asset_link_local
+      );
+      await insertInBatches(
+        assetContentLinks,
+        drizzleSchemaLocal.asset_content_link_local
+      );
+      await insertInBatches(votes, drizzleSchemaLocal.vote_local);
+    }
+
+    for (let i = 0; i < 3; i++) {
+      // @ts-expect-error abc
+      await createProject(i, this.db);
+    }
+    console.log(`Seeding time: ${performance.now() - time}ms`);
+    // await this.db
+    //   .insert(drizzleSchemaLocal.quest_local)
+    //   .values(layerFourQuests);
+
+    // Insert assets
+    // const assets = [];
+    // for (let i = 0; i < 10; i++) {
+    //   assets.push({
+    //     id: uuid.v4(),
+    //     draft: false,
+    //     creator_id: PROFILE_ID,
+    //     name: `Asset ${i + 1}`,
+    //     images: [],
+    //     download_profiles: [PROFILE_ID],
+    //     source_language_id: ENGLISH_LANGUAGE_ID,
+    //     project_id: projects[i % projects.length]?.id,
+    //     source_asset_id: null,
+    //     target_asset_id: null
+    //   });
+    // }
+    // await this.db.insert(drizzleSchemaLocal.asset_local).values(assets);
+
+    // Insert quests
+    // const quests = [];
+    // for (let i = 0; i < 10; i++) {
+    //   quests.push({
+    //     id: crypto.randomUUID(),
+    //     source: 'local' as const,
+    //     active: true,
+    //     visible: true,
+    //     private: true,
+    //     draft: false,
+    //     creator_id: PROFILE_ID,
+    //     created_at: new Date(),
+    //     last_updated: new Date(),
+    //     name: `Quest ${i + 1}`,
+    //     description: `Description for quest ${i + 1}`,
+    //     download_profiles: [PROFILE_ID],
+    //     project_id: projects[i % projects.length].id,
+    //     parent_id: null
+    //   });
+    // }
+    // await this.db.insert(drizzleSchemaLocal.quest_local).values(quests);
+    console.log('Database seeded successfully.');
+    console.log('Vacuuming database...');
+    const vacuumTime = performance.now();
+    await this.powersync.executeRaw('VACUUM;');
+    console.log('Database vacuumed successfully. ');
+    console.log(`Vacuum time: ${performance.now() - vacuumTime}ms`);
   }
 
   // New method to properly initialize attachment queues

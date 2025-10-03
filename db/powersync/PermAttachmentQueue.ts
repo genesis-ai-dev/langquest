@@ -6,8 +6,9 @@ import type {
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
+import { asset, asset_content_link } from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
@@ -66,137 +67,60 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
         return;
       }
 
-      let isRefreshing = false;
-      let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+      const query = this.db
+        .select({
+          images: asset.images,
+          audio: asset_content_link.audio
+        })
+        .from(asset)
+        .leftJoin(asset_content_link, eq(asset.id, asset_content_link.asset_id))
+        .where(
+          and(
+            eq(asset.draft, false),
+            eq(asset_content_link.draft, false),
+            or(isNotNull(asset_content_link.audio), isNotNull(asset.images))
+          )
+        );
 
-      // Unified function to query all tables and update PowerSync with complete list
-      const refreshAllAttachments = async () => {
-        if (isRefreshing) {
-          console.log('Refresh already in progress, skipping...');
-          return;
-        }
-        isRefreshing = true;
+      function refreshAllAttachments(data: Awaited<typeof query>) {
+        const assetImages = data
+          .flatMap((asset) => asset.images)
+          .filter(Boolean);
+        const contentLinkAudioIds = data
+          .flatMap((link) => link.audio)
+          .filter(Boolean);
+        const allAttachments = [...assetImages, ...contentLinkAudioIds];
+        const uniqueAttachments = [...new Set(allAttachments)];
 
-        console.log('Refreshing all attachments from all tables');
-
-        try {
-          // Query all three tables fresh to get current state
-          const [assets, assetContentLinks, translations] = await Promise.all([
-            this.db.query.asset.findMany({
-              columns: { images: true },
-              where: (asset) => isNotNull(asset.images)
-            }),
-            this.db.query.asset_content_link.findMany({
-              columns: { audio_id: true },
-              where: (asset_content_link) =>
-                isNotNull(asset_content_link.audio_id)
-            }),
-            this.db.query.translation.findMany({
-              columns: { audio: true },
-              where: (translation) => isNotNull(translation.audio)
-            })
-          ]);
-
-          // Collect all attachment IDs
-          const assetImages = assets.flatMap((asset) => asset.images!);
-          const contentLinkAudioIds = assetContentLinks.map(
-            (link) => link.audio_id!
-          );
-          const translationAudioIds = translations.map(
-            (translation) => translation.audio!
-          );
-
-          // Merge and deduplicate
-          const allAttachments = [
-            ...assetImages,
-            ...contentLinkAudioIds,
-            ...translationAudioIds
-          ];
-          const uniqueAttachments = [...new Set(allAttachments)];
-
-          console.log(
-            `Total unique attachments to sync: ${uniqueAttachments.length}`,
-            {
-              assetImages: assetImages.length,
-              contentLinkAudioIds: contentLinkAudioIds.length,
-              translationAudioIds: translationAudioIds.length
-            }
-          );
-
-          console.log(
-            'RYDER: about to call onUpdate with ',
-            uniqueAttachments.length,
-            'attachments'
-          );
-          // Tell PowerSync which attachments to keep synced
-          onUpdate(uniqueAttachments);
-        } catch (error) {
-          console.error('Error refreshing attachments:', error);
-        } finally {
-          isRefreshing = false;
-        }
-      };
-
-      // Debounced refresh function
-      const debouncedRefresh = () => {
-        if (debounceTimeout) {
-          clearTimeout(debounceTimeout);
-        }
-        debounceTimeout = setTimeout(() => {
-          void refreshAllAttachments();
-        }, 500);
-      };
-
-      // Watch for changes in asset images - trigger debounced refresh
-      this.db.watch(
-        this.db.query.asset.findMany({
-          columns: { images: true },
-          where: (asset) => isNotNull(asset.images)
-        }),
-        {
-          onResult: () => {
-            console.log('Asset images changed - triggering debounced refresh');
-            debouncedRefresh();
+        console.log(
+          `Total unique attachments to sync: ${uniqueAttachments.length}`,
+          {
+            assetImages: assetImages.length,
+            contentLinkAudioIds: contentLinkAudioIds.length
           }
-        }
-      );
+        );
+
+        console.log(
+          'RYDER: about to call onUpdate with ',
+          uniqueAttachments.length,
+          'attachments'
+        );
+        // Tell PowerSync which attachments to keep synced
+        onUpdate(uniqueAttachments);
+      }
 
       // Watch for changes in asset content link audio - trigger debounced refresh
-      this.db.watch(
-        this.db.query.asset_content_link.findMany({
-          columns: { audio_id: true },
-          where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
-        }),
-        {
-          onResult: () => {
-            console.log(
-              'Asset content links changed - triggering debounced refresh'
-            );
-            debouncedRefresh();
-          }
-        }
-      );
-
-      // Watch for changes in translation audio - trigger debounced refresh
-      this.db.watch(
-        this.db.query.translation.findMany({
-          columns: { audio: true },
-          where: (translation) => isNotNull(translation.audio)
-        }),
-        {
-          onResult: () => {
-            console.log('Translations changed - triggering debounced refresh');
-            debouncedRefresh();
-          }
-        }
-      );
+      this.db.watch(query, {
+        onResult: (data) => refreshAllAttachments(data)
+      });
 
       // Initial load
-      void refreshAllAttachments();
+      void query.then((data) => refreshAllAttachments(data));
     });
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
+    console.log('deleteFromQueue in PermAttachmentQueue', attachmentId);
     const record = await this.record(attachmentId);
     if (record) {
       await this.delete(record);
@@ -215,15 +139,13 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async saveAudio(tempUri: string): Promise<AttachmentRecord> {
-    const extension = tempUri.split('.').pop();
-    const audioAttachment = await this.newAttachmentRecord(
-      {
-        media_type: 'audio/mpeg'
-      },
-      extension
-    );
-    const localUri = this.getLocalUri(audioAttachment.local_uri!);
+    const audioAttachment = await this.newAttachmentRecord({
+      media_type: 'audio/mpeg'
+    });
 
+    console.log('saveAudio', audioAttachment);
+    const localUri = this.getLocalUri(audioAttachment.local_uri!);
+    // Native environment - use file system operations
     const fileInfo = await getFileInfo(tempUri);
 
     if (fileInfo.exists) {

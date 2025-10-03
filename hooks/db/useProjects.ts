@@ -1,12 +1,13 @@
-import { project as projectTable } from '@/db/drizzleSchema';
+import { project_synced as projectTable } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { SortOrder } from '@/utils/dbUtils';
-import { sortingHelper, toMergeCompilableQuery } from '@/utils/dbUtils';
+import { sortingHelper } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
   useHybridData,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { useMemo } from 'react';
 
@@ -27,7 +28,7 @@ export function useProjects() {
   } = useHybridData({
     dataType: 'projects',
     queryKeyParams: [],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: (fields, { eq, and }) => and(eq(fields.active, true))
       })
@@ -122,7 +123,7 @@ export function useProjectById(projectId: string | undefined) {
   const hybrid = useHybridData({
     dataType: 'project',
     queryKeyParams: [projectId || ''],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findFirst({
         where: (fields, { eq, and }) =>
           and(

@@ -4,10 +4,6 @@ import {
   getAssetsById,
   getAssetsContent
 } from '@/hooks/db/useAssets';
-import {
-  getTranslationsByAssetIds,
-  getTranslationsWithAudioByAssetId
-} from '@/hooks/db/useTranslations';
 import { AttachmentState } from '@powersync/attachments';
 import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
@@ -54,25 +50,10 @@ export async function calculateTotalAttachments(assetIds: string[]) {
       const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        ?.filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
+        .filter((content) => content.audio)
+        .flatMap((content) => content.audio!);
 
-      if (contentAudioIds) {
-        totalAttachments += contentAudioIds.length;
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await getTranslationsWithAudioByAssetId(assetId);
-
-      const translationAudioIds = translations
-        ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds) {
-        totalAttachments += translationAudioIds.length;
-      }
+      totalAttachments += contentAudioIds.length;
     }
 
     return totalAttachments;
@@ -90,19 +71,16 @@ export async function getAssetAttachmentIds(
     const attachmentIds: string[] = [];
 
     // Execute all queries in parallel using Promise.allSettled
-    const [assetResult, contentResult, translationResult] =
-      await Promise.allSettled([
-        // 1. Get the assets for images
-        await getAssetsById(assetIds),
-        // 2. Get asset_content_link entries for audio
-        await getAssetsContent(assetIds),
-        // 3. Get translations for the assets and their audio
-        await getTranslationsByAssetIds(assetIds)
-      ]);
+    const [assetResult, contentResult] = await Promise.allSettled([
+      // 1. Get the assets for images
+      await getAssetsById(assetIds),
+      // 2. Get asset_content_link entries for audio
+      await getAssetsContent(assetIds)
+    ]);
 
     // Process asset images if successful
     if (assetResult.status === 'fulfilled') {
-      assetResult.value?.forEach((asset) => {
+      assetResult.value.forEach((asset) => {
         if (asset.images) {
           attachmentIds.push(...asset.images);
         }
@@ -112,23 +90,10 @@ export async function getAssetAttachmentIds(
     // Process content audio IDs if successful
     if (contentResult.status === 'fulfilled') {
       const contentAudioIds = contentResult.value
-        ?.filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-      if (contentAudioIds) {
-        attachmentIds.push(...contentAudioIds);
-      }
-    }
+        .filter((content) => content.audio)
+        .flatMap((content) => content.audio!);
 
-    // Process translation audio IDs if successful
-    if (translationResult.status === 'fulfilled') {
-      const translationAudioIds = translationResult.value
-        ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-      if (translationAudioIds) {
-        attachmentIds.push(...translationAudioIds);
-      }
+      attachmentIds.push(...contentAudioIds);
     }
 
     // Return unique attachment IDs

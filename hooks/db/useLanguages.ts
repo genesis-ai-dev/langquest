@@ -1,7 +1,7 @@
 import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
 
@@ -18,7 +18,7 @@ export function useUIReadyLanguages() {
     queryKeyParams: ['ui-ready'],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: (languageTable, { eq, and }) =>
           and(eq(languageTable.active, true), eq(languageTable.ui_ready, true))
@@ -57,7 +57,7 @@ export function useLanguages() {
   } = useHybridData({
     dataType: 'languages',
     queryKeyParams: [],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         where: eq(language.active, true)
       })
@@ -91,7 +91,7 @@ export function useLanguageNames(languageIds: string[] | string) {
   } = useHybridData({
     dataType: 'language-names',
     queryKeyParams: [languageIdsArray.join(',')],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         columns: { id: true, native_name: true, english_name: true },
         where: (fields, { eq, inArray, and }) =>
@@ -129,7 +129,7 @@ export function useLanguageById(language_id?: string) {
   } = useHybridData({
     dataType: 'language-by-id',
     queryKeyParams: [language_id || ''],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         where: eq(language.id, language_id!)
       })

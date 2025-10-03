@@ -5,7 +5,7 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import type { WithSource } from '@/utils/dbUtils';
-import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
 // import { LegendList } from '@legendapp/list';
 import {
   Drawer,
@@ -27,15 +27,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useLocalization } from '@/hooks/useLocalization';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { FolderPenIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { ScrollView, View } from 'react-native';
 import z from 'zod';
 import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
@@ -57,25 +58,30 @@ export default function ProjectDirectoryView() {
     resolver: zodResolver(formSchema)
   });
 
+  console.log('currentProjectId', currentProjectId);
+  const { project } = useProjectById(currentProjectId);
   const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
-    queryKeyParams: [currentProjectId],
-    offlineQuery: toMergeCompilableQuery(
+    queryKeyParams: ['for-project', currentProjectId],
+    offlineQuery: toCompilableQuery(
       system.db.query.quest.findMany({
-        where: eq(quest.project_id, currentProjectId!)
+        columns: { id: true, name: true, description: true, parent_id: true },
+        where: and(eq(quest.project_id, currentProjectId!))
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
-        .select('*')
+        .select('id, name, description')
         .eq('project_id', currentProjectId)
-        .overrideTypes<Quest[]>();
+        .overrideTypes<
+          { id: string; name: string; description: string; parent_id: string }[]
+        >();
       if (error) throw error;
       return data;
     },
-    enableOfflineQuery: !!currentProjectId,
-    enableCloudQuery: !!currentProjectId,
+    enabled: !!currentProjectId,
+    enableCloudQuery: project?.source !== 'local',
     getItemId: (item) => item.id
   });
 
@@ -84,8 +90,9 @@ export default function ProjectDirectoryView() {
 
     const children = new Map<string | null, WithSource<Quest>[]>();
     for (const q of items) {
-      const key = (q as Quest).parent_id ?? null;
+      const key = q.parent_id ?? null;
       if (!children.has(key)) children.set(key, []);
+      // @ts-expect-error - expected type mismatch
       children.get(key)!.push(q);
     }
 

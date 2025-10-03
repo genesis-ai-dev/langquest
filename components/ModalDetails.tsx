@@ -7,9 +7,9 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import type { WithSource } from '@/utils/dbUtils';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import { default as React } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -41,7 +41,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       queryKeyParams: [content.id],
       offlineQuery:
         contentType === 'project' && content.id
-          ? toMergeCompilableQuery(
+          ? toCompilableQuery(
               system.db
                 .select({
                   id: languageTable.id,
@@ -87,7 +87,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
           ? (content as Project).target_language_id
           : null
       ],
-      offlineQuery: toMergeCompilableQuery(
+      offlineQuery: toCompilableQuery(
         system.db.query.language.findMany({
           columns: { id: true, native_name: true, english_name: true },
           where: eq(languageTable.id, (content as Project).target_language_id)

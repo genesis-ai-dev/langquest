@@ -54,7 +54,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { useLocalStore } from '@/store/localStore';
-import { mergeQuery, resolveTable } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -204,7 +204,7 @@ export default function NextGenProjectsView() {
           )
       ];
 
-      const projectsSQL = system.db
+      const projects = await system.db
         .select({
           ...getTableColumns(project)
         })
@@ -216,7 +216,6 @@ export default function NextGenProjectsView() {
         .where(and(...conditions.filter(Boolean)))
         .limit(pageSize)
         .offset(offset);
-      const projects = await mergeQuery(projectsSQL);
 
       return projects;
     },
@@ -260,17 +259,15 @@ export default function NextGenProjectsView() {
       const offset = pageParam * pageSize;
 
       // Get projects where user is a member
-      const userProjectLinks = await mergeQuery(
-        system.db
-          .select()
-          .from(profile_project_link)
-          .where(
-            and(
-              eq(profile_project_link.profile_id, userId!),
-              eq(profile_project_link.active, true)
-            )
+      const userProjectLinks = await system.db
+        .select()
+        .from(profile_project_link)
+        .where(
+          and(
+            eq(profile_project_link.profile_id, userId!),
+            eq(profile_project_link.active, true)
           )
-      );
+        );
 
       const userProjectIds = userProjectLinks.map((link) => link.project_id);
 
@@ -288,13 +285,11 @@ export default function NextGenProjectsView() {
           )
       ];
 
-      const projects = await mergeQuery(
-        system.db.query.project.findMany({
-          where: and(...conditions.filter(Boolean)),
-          limit: pageSize,
-          offset
-        })
-      );
+      const projects = await system.db.query.project.findMany({
+        where: and(...conditions.filter(Boolean)),
+        limit: pageSize,
+        offset
+      });
 
       return projects;
     },

@@ -1,9 +1,9 @@
 import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
-import { Pressable } from 'react-native';
+import { ActivityIndicator, Pressable } from 'react-native';
 
 const buttonVariants = cva(
   'group flex items-center justify-center rounded-md active:scale-95 web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
@@ -64,13 +64,31 @@ const buttonTextVariants = cva(
   }
 );
 
+const activityIndicatorColorVariants = cva('', {
+  variants: {
+    variant: {
+      default: getThemeColor('primary-foreground'),
+      destructive: getThemeColor('destructive-foreground'),
+      outline: getThemeColor('accent-foreground'),
+      secondary: getThemeColor('secondary-foreground'),
+      ghost: getThemeColor('accent-foreground'),
+      link: getThemeColor('primary-foreground')
+    }
+  },
+  defaultVariants: {
+    variant: 'default'
+  }
+});
+
 type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
-  VariantProps<typeof buttonVariants>;
+  VariantProps<typeof buttonVariants> & {
+    loading?: boolean;
+  };
 
 const Button = React.forwardRef<
   React.ComponentRef<typeof Pressable>,
   ButtonProps
->(({ className, variant, size, ...props }, ref) => {
+>(({ children, className, variant, size, ...props }, ref) => {
   return (
     <TextClassContext.Provider
       value={buttonTextVariants({
@@ -81,13 +99,25 @@ const Button = React.forwardRef<
     >
       <Pressable
         className={cn(
-          props.disabled && 'opacity-50 web:pointer-events-none',
+          'flex-row items-center gap-2',
+          props.disabled ||
+            (props.loading && 'opacity-50 web:pointer-events-none'),
           buttonVariants({ variant, size, className })
         )}
         ref={ref}
         role="button"
         {...props}
-      />
+      >
+        <>
+          {props.loading && (
+            <ActivityIndicator
+              size="small"
+              color={activityIndicatorColorVariants({ variant })}
+            />
+          )}
+          {children}
+        </>
+      </Pressable>
     </TextClassContext.Provider>
   );
 });

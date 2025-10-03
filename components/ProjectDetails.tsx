@@ -1,4 +1,4 @@
-import type { language, project } from '@/db/drizzleSchema';
+import type { project } from '@/db/drizzleSchema';
 import {
   language as languageTable,
   project_language_link
@@ -7,13 +7,13 @@ import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Project = typeof project.$inferSelect;
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface ProjectDetailsProps {
   project: Project;
@@ -31,7 +31,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   >({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db
         .select({
           id: languageTable.id,
@@ -73,7 +73,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   >({
     dataType: 'project-target-language',
     queryKeyParams: [project.target_language_id],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         columns: { id: true, native_name: true, english_name: true },
         where: eq(languageTable.id, project.target_language_id)

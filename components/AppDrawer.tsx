@@ -1,5 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
@@ -18,7 +23,7 @@ import {
 } from '@/utils/backupUtils';
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { selectAndInitiateRestore } from '@/utils/restoreUtils';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
 import type { LucideIcon } from 'lucide-react-native';
 import {
@@ -119,7 +124,8 @@ export default function AppDrawer({
   // Add performance tracking
   useRenderCounter('AppDrawer');
 
-  const systemReady = system.isInitialized();
+  const systemReady = useLocalStore((state) => state.systemReady);
+
   const isConnected = useNetworkStatus();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -534,14 +540,20 @@ export default function AppDrawer({
       onOpenChange={setDrawerIsVisible}
       dismissible={!isOperationActive}
     >
-      <DrawerContent className="native:pb-safe p-2">
+      <DrawerContent className="native:pb-safe p-2 py-4">
+        <DrawerHeader className="hidden">
+          <DrawerTitle>{t('menu')}</DrawerTitle>
+        </DrawerHeader>
         <View className="flex flex-col gap-4">
           {/* System status and progress indicators */}
           {!systemReady && (
             <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
               {isConnected ? (
                 <>
-                  <ActivityIndicator size="small" className="text-foreground" />
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
                   <Text className="text-sm text-foreground">
                     {t('initializing')}...
                   </Text>

@@ -1,6 +1,6 @@
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -30,7 +30,7 @@ function getHasUserReportedConfig(
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.reports.findMany({
         where: and(
           eq(reports.record_id, record_id),
@@ -53,7 +53,7 @@ export async function hasUserReported(
       getHasUserReportedConfig(record_id, record_table, reporter_id)
     )
   );
-  return (reportArray?.length || 0) > 0;
+  return (reportArray.length || 0) > 0;
 }
 
 /**
@@ -101,7 +101,7 @@ export function useReportsByRecord(record_id: string, record_table: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.reports.findMany({
         where: and(
           eq(reports.record_id, record_id),

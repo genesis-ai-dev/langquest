@@ -52,6 +52,8 @@ export interface RecentAsset {
 }
 
 export interface LocalState {
+  systemReady: boolean;
+  setSystemReady: (ready: boolean) => void;
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
   uiLanguage: Language | null;
@@ -141,6 +143,9 @@ export interface LocalState {
 export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
+      systemReady: false,
+      setSystemReady: (ready) => set({ systemReady: ready }),
+
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       uiLanguage: null,
@@ -272,6 +277,7 @@ export const useLocalStore = create<LocalState>()(
           Object.entries(state).filter(
             ([key]) =>
               ![
+                'systemReady',
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',

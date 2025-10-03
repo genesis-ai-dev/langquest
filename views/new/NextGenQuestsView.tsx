@@ -45,7 +45,8 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { mergeQuery, resolveTable, sortingHelper } from '@/utils/dbUtils';
+import { useLocalStore } from '@/store/localStore';
+import { resolveTable, sortingHelper } from '@/utils/dbUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
@@ -115,7 +116,8 @@ export default function NextGenQuestsView() {
 
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.PROJECT, currentProjectId || '');
-  const { showInvisibleContent } = currentStatus;
+
+  const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
   const {
     hasReported,
@@ -152,17 +154,15 @@ export default function NextGenQuestsView() {
             like(quest.name, `%${trimmed}%`),
             like(quest.description, `%${trimmed}%`)
           ),
-        !showInvisibleContent && eq(quest.visible, true)
+        !showHiddenContent && eq(quest.visible, true)
       ];
 
-      const quests = await mergeQuery(
-        system.db.query.quest.findMany({
-          where: and(...conditions.filter(Boolean)),
-          limit: pageSize,
-          orderBy: sortingHelper(quest, 'name', 'asc'),
-          offset
-        })
-      );
+      const quests = await system.db.query.quest.findMany({
+        where: and(...conditions.filter(Boolean)),
+        limit: pageSize,
+        orderBy: sortingHelper(quest, 'name', 'asc'),
+        offset
+      });
 
       return quests;
     },
@@ -180,7 +180,7 @@ export default function NextGenQuestsView() {
         .is('parent_id', null)
         .order('name', { ascending: true });
 
-      if (!showInvisibleContent) {
+      if (!showHiddenContent) {
         query = query.eq('visible', true);
       }
 

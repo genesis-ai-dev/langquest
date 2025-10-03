@@ -54,8 +54,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     LayerType.ASSET,
     asset.id || '',
     {
-      visible: (asset.visible ?? true) && (asset.quest_visible ?? true),
-      active: (asset.active ?? true) && (asset.quest_active ?? true)
+      visible: asset.visible && asset.quest_visible,
+      active: asset.active && asset.quest_active
     },
     questId
   );
@@ -64,10 +64,10 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
-        visible: asset.visible ?? true,
-        active: asset.active ?? true,
-        quest_active: asset.quest_active ?? true,
-        quest_visible: asset.quest_visible ?? true
+        visible: asset.visible,
+        active: asset.active,
+        quest_active: asset.quest_active,
+        quest_visible: asset.quest_visible
       },
       asset.id,
       questId
@@ -75,7 +75,9 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
 
     goToAsset({
       id: asset.id,
-      name: asset.name || t('unnamedAsset')
+      name: asset.name || t('unnamedAsset'),
+      questId: questId,
+      projectId: asset.project_id!
     });
   };
 

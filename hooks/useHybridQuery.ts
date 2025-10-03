@@ -56,7 +56,7 @@ type HybridQueryConfig<T> = (
  *     .eq('visible', true)
  *     .eq('active', true)
  *     .overrideTypes<Project[]>(),
- *   offlineQuery: toMergeCompilableQuery(system.db.query.project.findMany({
+ *   offlineQuery: toCompilableQuery(system.db.query.project.findMany({
  *     where: (fields, { eq, and }) =>
  *       and(eq(fields.visible, true), eq(fields.active, true))
  *   })),

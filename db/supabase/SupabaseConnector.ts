@@ -33,7 +33,6 @@ import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
-import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -55,7 +54,6 @@ interface CompositeKeyConfig {
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
-  storage: SupabaseStorageAdapter;
   private currentSession: Session | null = null;
 
   constructor(protected system: System) {
@@ -78,8 +76,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
       }
     );
-
-    this.storage = new SupabaseStorageAdapter({ client: this.client });
 
     // console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {

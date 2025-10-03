@@ -17,9 +17,10 @@ import {
   spacing
 } from '@/styles/theme';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
@@ -117,7 +118,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(projectTable.id, projectId),
         limit: 1
@@ -135,7 +136,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
@@ -158,7 +159,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     // Only offline query - no cloud query needed
     offlineQuery:
       profileIds.length > 0
-        ? toMergeCompilableQuery(
+        ? toCompilableQuery(
             db.query.profile.findMany({
               where: (profile, { inArray }) => inArray(profile.id, profileIds)
             })
@@ -217,7 +218,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.invite.findMany({
         where: eq(invite.project_id, projectId)
       })
@@ -244,7 +245,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       // Only offline query - no cloud query needed
       offlineQuery:
         receiverProfileIds.length > 0
-          ? toMergeCompilableQuery(
+          ? toCompilableQuery(
               db.query.profile.findMany({
                 where: (profile, { inArray }) =>
                   inArray(profile.id, receiverProfileIds)
@@ -569,7 +570,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(invite).values({
+      await db.insert(resolveTable('invite')).values({
         sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,

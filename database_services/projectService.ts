@@ -1,5 +1,5 @@
+import { project } from '@/db/drizzleSchema';
 import { eq } from 'drizzle-orm';
-import { project } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 export type Project = typeof project.$inferSelect;

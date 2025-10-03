@@ -5,7 +5,7 @@ import type { reasonOptions } from '@/db/constants';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 
@@ -31,7 +31,7 @@ export const useHasUserReported = (
     refetch
   } = useHybridQuery({
     queryKey: ['reports', 'hasReported', recordId, recordTable, currentUser.id],
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.reports.findMany({
         where: and(
           eq(reports.record_id, recordId),

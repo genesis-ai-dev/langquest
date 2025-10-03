@@ -1,4 +1,5 @@
-import type { translation, vote } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
+import type { vote } from '@/db/drizzleSchema';
 import {
   asset,
   asset_content_link,
@@ -9,13 +10,13 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { WithSource } from '@/utils/dbUtils';
-import { mergeQuery } from '@/utils/dbUtils';
+import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
   hybridFetch,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
   and,
@@ -28,8 +29,7 @@ import {
   isNull,
   like,
   notInArray,
-  or,
-  sql
+  or
 } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
@@ -37,7 +37,6 @@ import {
   useHybridInfiniteQuery,
   useHybridQuery
 } from '../useHybridQuery';
-import { useUserRestrictions } from './useBlocks';
 import type { Tag } from './useTags';
 
 export type Asset = InferSelectModel<typeof asset>;
@@ -52,7 +51,7 @@ export type Vote = InferSelectModel<typeof vote>;
 
 export async function getAssetById(asset_id: string) {
   const assets = await hybridFetch<Asset>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset.findMany({
         where: eq(asset.id, asset_id)
       })
@@ -96,7 +95,7 @@ export function useAssetById(asset_id: string | undefined) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.asset.findMany({
         where: (fields, { eq }) => eq(fields.id, asset_id!),
         limit: 1
@@ -111,7 +110,7 @@ export function useAssetById(asset_id: string | undefined) {
 
 export function getAssetsById(asset_ids: string[]) {
   return hybridFetch<Asset>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset.findMany({
         where: inArray(asset.id, asset_ids)
       })
@@ -149,7 +148,7 @@ function getAssetContentConfig(asset_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: eq(asset_content_link.asset_id, asset_id)
       })
@@ -160,7 +159,7 @@ function getAssetContentConfig(asset_id: string) {
 
 export function getAssetContent(asset_id: string) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: eq(asset_content_link.asset_id, asset_id)
       })
@@ -199,7 +198,7 @@ function getAssetsContentConfig(asset_ids: string[]) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: inArray(asset_content_link.asset_id, asset_ids)
       })
@@ -210,7 +209,7 @@ function getAssetsContentConfig(asset_ids: string[]) {
 
 export function getAssetsContent(asset_ids: string[]) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: inArray(asset_content_link.asset_id, asset_ids)
       })
@@ -245,16 +244,16 @@ function getAssetAudioContentConfig(asset_id: string) {
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -264,11 +263,11 @@ function getAssetAudioContentConfig(asset_id: string) {
 
 export function getAssetAudioContent(asset_id: string) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -277,7 +276,7 @@ export function getAssetAudioContent(asset_id: string) {
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -303,16 +302,16 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -322,11 +321,11 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
 
 export function getAssetsAudioContent(asset_ids: string[]) {
   return hybridFetch<AssetContent>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -335,7 +334,7 @@ export function getAssetsAudioContent(asset_ids: string[]) {
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -373,7 +372,7 @@ function getAssetsByQuestIdConfig(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db
         .select({
           id: asset.id,
@@ -396,7 +395,7 @@ function getAssetsByQuestIdConfig(quest_id: string) {
 
 export function getAssetsByQuestId(quest_id: string) {
   return hybridFetch<Asset>({
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -481,7 +480,7 @@ export function useAssetsByProjectId(project_id: string) {
 
       return Array.from(uniqueAssets.values());
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db
         .selectDistinct({
           id: asset.id,
@@ -541,7 +540,7 @@ export function useAssetsWithTagsByQuestId(quest_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.quest_asset_link.findMany({
         where: eq(quest_asset_link.quest_id, quest_id),
         columns: {},
@@ -600,7 +599,7 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
       if (error) throw error;
       return data.map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.asset.findMany({
         where: inArray(
           asset.id,
@@ -620,157 +619,6 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
       })
     ),
     enabled: !!quest_id
-  });
-
-  return { assets, isAssetsLoading, ...rest };
-}
-
-/**
- * Returns { assets, isLoading, error }
- * Fetches assets with translations and votes by quest ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = system;
-
-  const {
-    data: assets,
-    isLoading: isAssetsLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['assets', 'by-quest', 'with-translations-votes', quest_id],
-    onlineFn: async () => {
-      // Get assets through junction table with translations and votes
-      const { data, error } = await supabaseConnector.client
-        .from('quest_asset_link')
-        .select(
-          `
-          asset:asset_id (
-            *,
-            translations:translation (
-              *,
-              votes:vote (
-                *
-              )
-            )
-          )
-        `
-        )
-        .eq('quest_id', quest_id)
-        .overrideTypes<
-          {
-            asset: Asset & {
-              translations: (Translation & { votes: Vote[] })[];
-            };
-          }[]
-        >();
-
-      if (error) throw error;
-      return data.map((item) => item.asset).filter(Boolean);
-    },
-    offlineQuery: toMergeCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(
-          asset.id,
-          db
-            .select({ asset_id: quest_asset_link.asset_id })
-            .from(quest_asset_link)
-            .where(eq(quest_asset_link.quest_id, quest_id))
-        ),
-        with: {
-          translations: {
-            with: {
-              votes: true
-            }
-          }
-        }
-      })
-    ),
-    enabled: !!quest_id
-  });
-
-  return { assets, isAssetsLoading, ...rest };
-}
-
-/**
- * Returns { assets, isLoading, error }
- * Fetches assets with translations and votes by project ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useAssetsWithTranslationsAndVotesByProjectId(
-  project_id: string
-) {
-  const { db, supabaseConnector } = system;
-
-  const {
-    data: assets,
-    isLoading: isAssetsLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['assets', 'by-project', 'with-translations-votes', project_id],
-    onlineFn: async () => {
-      // Get assets through quest -> quest_asset_link -> asset with translations and votes
-      const { data, error } = await supabaseConnector.client
-        .from('quest')
-        .select(
-          `
-          quest_asset_link!inner (
-            asset:asset_id (
-              *,
-              translations:translation (
-                *,
-                votes:vote (
-                  *
-                )
-              )
-            )
-          )
-        `
-        )
-        .eq('project_id', project_id)
-        .overrideTypes<
-          {
-            quest_asset_link: {
-              asset: Asset & {
-                translations: (Translation & { votes: Vote[] })[];
-              };
-            }[];
-          }[]
-        >();
-
-      if (error) throw error;
-
-      // Flatten and deduplicate assets
-      const uniqueAssets = new Map<
-        string,
-        Asset & { translations: (Translation & { votes: Vote[] })[] }
-      >();
-      data.forEach((questData) => {
-        questData.quest_asset_link.forEach((link) => {
-          uniqueAssets.set(link.asset.id, link.asset);
-        });
-      });
-
-      return Array.from(uniqueAssets.values());
-    },
-    offlineQuery: toMergeCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(
-          asset.id,
-          db
-            .selectDistinct({ asset_id: quest_asset_link.asset_id })
-            .from(quest_asset_link)
-            .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
-            .where(eq(quest.project_id, project_id))
-        ),
-        with: {
-          translations: {
-            with: {
-              votes: true
-            }
-          }
-        }
-      })
-    ),
-    enabled: !!project_id
   });
 
   return { assets, isAssetsLoading, ...rest };
@@ -997,8 +845,11 @@ export function useInfiniteAssetsWithTagsByQuestId(
                 // Create OR conditions for each value in this category
                 const categoryConditions = selectedValues.map((fullValue) => {
                   const valuePart = fullValue.split(':')[1] || fullValue;
-                  // Use SQL template for case-insensitive matching
-                  return sql`${tag.name} LIKE ${`${category}:${valuePart}`}`;
+                  // Use like for case-insensitive matching
+                  return and(
+                    like(tag.key, category),
+                    like(tag.value, valuePart)
+                  );
                 });
 
                 if (categoryConditions.length > 0) {
@@ -1140,7 +991,7 @@ function getAssetQuestLinkById(
       if (error) throw error;
       return data; // .map((item) => item.asset).filter(Boolean);
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db
         .select({
           visible: quest_asset_link.visible,
@@ -1189,26 +1040,14 @@ export function useAssetsByQuest(
   searchQuery: string,
   showHiddenContent: boolean
 ) {
-  const { data: restrictions, isRestrictionsLoading } = useUserRestrictions(
-    'assets',
-    true,
-    true,
-    false
-  );
-
-  const blockContentIds = (restrictions.blockedContentIds ?? []).map(
-    (c) => c.content_id
-  );
-  const blockUserIds = (restrictions.blockedUserIds ?? []).map(
-    (c) => c.blocked_id
-  );
+  const { currentUser } = useAuth();
 
   const {
     data,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading: isAssetsLoading,
+    isLoading,
     isOnline,
     isFetching
   } = useSimpleHybridInfiniteData<AssetQuestLink>(
@@ -1222,35 +1061,28 @@ export function useAssetsByQuest(
         const offset = pageParam * pageSize;
 
         const conditions = [
+          isNull(asset.source_asset_id),
           eq(quest_asset_link.quest_id, quest_id),
           !showHiddenContent && eq(asset.visible, true),
           !showHiddenContent && eq(quest_asset_link.visible, true),
-          blockContentIds.length > 0 && notInArray(asset.id, blockContentIds),
-          blockUserIds.length > 0 &&
-            or(
-              isNull(asset.creator_id),
-              notInArray(asset.creator_id, blockUserIds)
-            ),
+          notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
+          notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
           searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
         ];
 
         // Normal pagination without search
-        const assets = await mergeQuery(
-          system.db
-            .select({
-              ...getTableColumns(asset),
-              quest_visible: quest_asset_link.visible,
-              quest_active: quest_asset_link.active
-            })
-            .from(asset)
-            .innerJoin(
-              quest_asset_link,
-              eq(asset.id, quest_asset_link.asset_id)
-            )
-            .where(and(...conditions.filter(Boolean)))
-            .limit(pageSize)
-            .offset(offset)
-        );
+        const assets = await system.db
+          .select({
+            ...getTableColumns(asset),
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active
+          })
+          .from(asset)
+          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+          .where(and(...conditions.filter(Boolean)))
+          .orderBy(asc(asset.name))
+          .limit(pageSize)
+          .offset(offset);
 
         return assets;
       } catch (error) {
@@ -1272,7 +1104,7 @@ export function useAssetsByQuest(
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading: isAssetsLoading || isRestrictionsLoading,
+    isLoading,
     isOnline,
     isFetching
   };

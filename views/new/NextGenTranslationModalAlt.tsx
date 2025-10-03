@@ -16,18 +16,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { translationService } from '@/database_services/translationService';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { translation, vote } from '@/db/drizzleSchema';
+import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
+import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
   FlagIcon,
@@ -46,11 +48,12 @@ import {
   ScrollView,
   View
 } from 'react-native';
+import { useHybridData } from './useHybridData';
 
 interface NextGenTranslationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  translationId: string;
+  assetId: string;
   onVoteSuccess?: () => void;
   canVote?: boolean;
   isPrivateProject?: boolean;
@@ -58,64 +61,35 @@ interface NextGenTranslationModalProps {
   projectName?: string;
 }
 
-interface TranslationWithVotes {
-  id: string;
-  text: string | null;
-  audio: string | null;
-  creator_id: string;
-  created_at: string;
-  target_language_id: string;
-  asset_id: string;
-  active: boolean;
-  visible: boolean;
-  votes: {
-    id: string;
-    polarity: 'up' | 'down';
-    creator_id: string;
-    active: boolean;
-  }[];
-}
-
-function useNextGenTranslation(translationId: string) {
-  return useQuery({
-    queryKey: ['translation', 'nextgen', translationId],
-    queryFn: async () => {
-      // Get translation
-      const translationResult = await system.db
-        .select()
-        .from(translation)
-        .where(eq(translation.id, translationId))
-        .limit(1);
-
-      if (!translationResult.length) return null;
-
-      const translationData = translationResult[0];
-
-      // Get votes
-      const votesResult = await system.db
-        .select()
-        .from(vote)
-        .where(eq(vote.translation_id, translationId));
-
-      return {
-        ...translationData,
-        votes: votesResult
-      } as TranslationWithVotes;
-    },
-    enabled: !!translationId
+function useNextGenTranslation(assetId: string) {
+  return useHybridData({
+    dataType: 'translation',
+    queryKeyParams: [assetId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findFirst({
+        where: eq(asset.id, assetId),
+        with: {
+          content: true,
+          votes: true
+        }
+      })
+    ),
+    enabled: !!assetId,
+    enableCloudQuery: false
   });
 }
 
 export default function NextGenTranslationModal({
   open,
   onOpenChange,
-  translationId,
+  assetId,
   onVoteSuccess,
   canVote: _canVote = true,
   isPrivateProject = false,
   projectId,
   projectName
 }: NextGenTranslationModalProps) {
+  const { project } = useProjectById(projectId);
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -128,27 +102,26 @@ export default function NextGenTranslationModal({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const { data: translationData, isLoading } =
-    useNextGenTranslation(translationId);
+  const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
   // Get audio attachment states
-  const audioIds = translationData?.audio ? [translationData.audio] : [];
+  const audioIds = translationData.flatMap((t) =>
+    t.content.flatMap((c) => c.audio ?? [])
+  );
   const { attachmentStates } = useAttachmentStates(audioIds);
 
+  const asset = translationData[0];
+  const assetText = asset?.content[0]?.text;
   // Calculate vote counts
   const upVotes =
-    translationData?.votes.filter((v) => v.active && v.polarity === 'up')
-      .length ?? 0;
+    asset?.votes.filter((v) => v.active && v.polarity === 'up').length ?? 0;
   const downVotes =
-    translationData?.votes.filter((v) => v.active && v.polarity === 'down')
-      .length ?? 0;
-  const userVote = translationData?.votes.find(
-    (v) => v.creator_id === currentUser?.id
-  );
+    asset?.votes.filter((v) => v.active && v.polarity === 'down').length ?? 0;
+  const userVote = asset?.votes.find((v) => v.creator_id === currentUser?.id);
 
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
-      if (!currentUser || !translationData) {
+      if (!currentUser || !asset) {
         RNAlert.alert(t('error'), t('pleaseLogInToVote'));
         return;
       }
@@ -157,7 +130,7 @@ export default function NextGenTranslationModal({
       // If user already voted with the same polarity, deactivate the vote
       if (userVote?.polarity === voteType) {
         await voteService.addVote({
-          translation_id: translationId,
+          asset_id: assetId,
           creator_id: currentUser.id,
           vote_id: userVote.id,
           polarity: voteType,
@@ -166,7 +139,7 @@ export default function NextGenTranslationModal({
       } else {
         // Otherwise, add/update the vote
         await voteService.addVote({
-          translation_id: translationId,
+          asset_id: assetId,
           creator_id: currentUser.id,
           vote_id: userVote?.id,
           polarity: voteType
@@ -174,7 +147,7 @@ export default function NextGenTranslationModal({
       }
 
       await queryClient.invalidateQueries({
-        queryKey: ['translation', 'nextgen', translationId]
+        queryKey: ['translation', 'nextgen', assetId]
       });
     },
     onSuccess: () => {
@@ -186,33 +159,40 @@ export default function NextGenTranslationModal({
     }
   });
 
-  const getAudioUri = () => {
-    if (!translationData?.audio) return undefined;
-    const localUri = attachmentStates.get(translationData.audio)?.local_uri;
-    return localUri
-      ? system.permAttachmentQueue?.getLocalUri(localUri)
-      : undefined;
+  const getAudioSegments = () => {
+    if (!asset?.content.flatMap((c) => c.audio).length) return [];
+    return asset.content
+      .flatMap((c) => c.audio)
+      .filter(Boolean)
+      .map((audio) =>
+        system.permAttachmentQueue?.getLocalUri(
+          attachmentStates.get(audio)?.local_uri ?? ''
+        )
+      )
+      .filter(Boolean);
   };
 
-  const isOwnTranslation = currentUser?.id === translationData?.creator_id;
+  const audioSegments = getAudioSegments();
+
+  const isOwnTranslation = currentUser?.id === asset?.creator_id;
 
   const {
     hasReported,
     isLoading: isReportLoading,
     refetch
-  } = useHasUserReported(translationData?.id || '', 'translations');
+  } = useHasUserReported(asset?.id || '', 'translations');
 
   // Initialize edited text when translation data loads
   React.useEffect(() => {
-    if (translationData?.text) {
-      setEditedText(translationData.text);
+    if (assetText) {
+      setEditedText(assetText);
     }
-  }, [translationData?.text]);
+  }, [assetText]);
 
   const { mutate: createTranscription, isPending: isTranscribing } =
     useMutation({
       mutationFn: async () => {
-        if (!currentUser || !translationData) {
+        if (!currentUser || !asset) {
           throw new Error('Missing required data');
         }
 
@@ -220,13 +200,40 @@ export default function NextGenTranslationModal({
           throw new Error('Please enter a transcription');
         }
 
-        // Create a new translation with the same audio but new text
-        return translationService.createTranslation({
-          text: editedText.trim(),
-          target_language_id: translationData.target_language_id,
-          asset_id: translationData.asset_id,
-          creator_id: currentUser.id,
-          audio: translationData.audio || ''
+        const translationAudio = asset.content
+          .flatMap((c) => c.audio)
+          .filter(Boolean);
+        await system.db.transaction(async (tx) => {
+          const [newAsset] = await tx
+            .insert(
+              resolveTable('asset', {
+                localOverride: project?.source === 'local'
+              })
+            )
+            .values({
+              name: asset.name,
+              source_language_id: asset.source_language_id,
+              source_asset_id: asset.id,
+              creator_id: currentUser.id
+            })
+            .returning();
+          if (!newAsset) {
+            throw new Error('Failed to insert asset');
+          }
+          await tx
+            .insert(
+              resolveTable('asset_content_link', {
+                localOverride: project?.source === 'local'
+              })
+            )
+            .values({
+              text: editedText.trim(),
+              asset_id: newAsset.id,
+              source_language_id: asset.source_language_id,
+              ...(translationAudio.length > 0
+                ? { audio: translationAudio }
+                : {})
+            });
         });
       },
       onSuccess: () => {
@@ -245,7 +252,7 @@ export default function NextGenTranslationModal({
     if (isEditing) {
       // Cancel editing
       setIsEditing(false);
-      setEditedText(translationData?.text || '');
+      setEditedText(assetText ?? '');
     } else {
       // Start editing
       setIsEditing(true);
@@ -259,8 +266,8 @@ export default function NextGenTranslationModal({
   const layerStatus = useStatusContext();
   const { allowEditing, allowSettings } = layerStatus.getStatusParams(
     LayerType.TRANSLATION,
-    translationData?.id || '',
-    translationData as LayerStatus
+    asset?.id || '',
+    asset as LayerStatus
   );
 
   const { stopCurrentSound, isPlaying } = useAudio();
@@ -272,6 +279,7 @@ export default function NextGenTranslationModal({
         if (!open) {
           setShowReportModal(false);
           setShowSettingsModal(false);
+          setIsEditing(false);
           if (isPlaying) {
             await stopCurrentSound();
           }
@@ -354,7 +362,7 @@ export default function NextGenTranslationModal({
                 color={getThemeColor('primary')}
               />
             </View>
-          ) : translationData ? (
+          ) : asset ? (
             <View className="flex-col gap-4">
               {/* Translation Text */}
               {isEditing ? (
@@ -369,18 +377,18 @@ export default function NextGenTranslationModal({
                 <Text
                   className={cn(
                     'text-lg leading-6 text-foreground',
-                    !translationData.text && 'italic text-muted-foreground'
+                    !assetText && 'italic text-muted-foreground'
                   )}
                 >
-                  {translationData.text || '(No text)'}
+                  {assetText || '(No text)'}
                 </Text>
               )}
 
               {/* Audio Player */}
-              {translationData.audio && getAudioUri() && !isEditing && (
+              {audioSegments.length > 0 && !isEditing && (
                 <View>
                   <AudioPlayer
-                    audioUri={getAudioUri()}
+                    audioSegments={audioSegments}
                     useCarousel={false}
                     mini={false}
                   />
@@ -501,15 +509,15 @@ export default function NextGenTranslationModal({
                 <TranslationSettingsModal
                   isVisible={showSettingsModal}
                   onClose={() => setShowSettingsModal(false)}
-                  translationId={translationId}
+                  translationId={assetId}
                 />
               ) : (
                 <ReportModal
                   isVisible={showReportModal}
                   onClose={() => setShowReportModal(false)}
-                  recordId={translationId}
+                  recordId={assetId}
                   recordTable="translations"
-                  creatorId={translationData.creator_id}
+                  creatorId={asset.creator_id ?? undefined}
                   hasAlreadyReported={hasReported}
                   onReportSubmitted={() => refetch()}
                 />
@@ -520,7 +528,7 @@ export default function NextGenTranslationModal({
                 <View className="items-center">
                   <Text className="text-sm text-muted-foreground">
                     {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
-                    {translationData.id.substring(0, 8)}...
+                    {asset.id.substring(0, 8)}...
                   </Text>
                 </View>
               )}

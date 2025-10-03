@@ -86,9 +86,9 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       return;
     }
 
-    if (!AppConfig.supabaseBucket) {
-      throw new Error('Supabase bucket not configured in AppConfig.ts');
-    }
+    // if (!AppConfig.supabaseBucket) {
+    //   throw new Error('Supabase bucket not configured in AppConfig.ts');
+    // }
 
     // const { data, error } = await this.options.client.storage
     //   .from(AppConfig.supabaseBucket)

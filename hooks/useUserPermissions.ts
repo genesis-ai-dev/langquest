@@ -1,11 +1,11 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
-import { useAuth } from '@/contexts/AuthContext';
 
 // Type definition
 type Project = InferSelectModel<typeof project>;
@@ -147,7 +147,7 @@ export function useUserPermissions(
     queryKeyParams: [project_id],
 
     // PowerSync query using Drizzle
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       db.query.project.findMany({
         where: eq(project.id, project_id),
         columns: { private: true, creator_id: true },

@@ -1,5 +1,4 @@
 import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
-import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalStore } from '@/store/localStore';
 import type {
   AttachmentQueueOptions,
@@ -46,28 +45,34 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // eslint-disable-next-line
   async newAttachmentRecord(
-    record?: Partial<AttachmentRecord>,
-    extension?: string
+    record?: Partial<AttachmentRecord>
   ): Promise<AttachmentRecord> {
     // When downloading existing attachments, use the provided ID directly
-    if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
-      // Validate that the ID is not empty
-      if (!record.id.trim()) {
-        throw new Error('Attachment ID cannot be empty');
-      }
-      const localUri = this.getLocalFilePathSuffix(record.id);
-      return {
-        ...record,
-        filename: record.id,
-        local_uri: localUri,
-        timestamp: new Date().getTime()
-      } as AttachmentRecord;
-    }
+    // if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
+    //   console.log('downloading attachment', record);
+    //   // Validate that the ID is not empty
+    //   if (!record.id.trim()) {
+    //     throw new Error('Attachment ID cannot be empty');
+    //   }
+    //   const localUri = this.getLocalFilePathSuffix(record.id);
+    //   return {
+    //     ...record,
+    //     filename: record.id,
+    //     local_uri: localUri,
+    //     timestamp: new Date().getTime()
+    //   } as AttachmentRecord;
+    // }
+
+    const mediaType = record?.media_type
+      ? record.media_type
+      : this.getMediaTypeFromExtension(record?.id?.split('.').pop());
+    const extension = this.getExtensionFromMediaType(mediaType);
 
     // For new uploads, generate a new ID
-    const photoId = record?.id ?? uuid.v4();
-    const filename =
-      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
+    const recordId = record?.id ?? uuid.v4();
+    const filename = recordId.endsWith(extension)
+      ? recordId
+      : `${recordId}.${extension}`;
     const localUri = this.getLocalFilePathSuffix(filename);
 
     return {
@@ -76,6 +81,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       id: filename,
       filename: filename,
       local_uri: localUri,
+      media_type: mediaType,
       timestamp: new Date().getTime()
     } as AttachmentRecord;
   }
@@ -362,30 +368,14 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const assetContents = await getAssetAudioContent(assetId);
 
       const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
+        .filter((content) => content.audio)
+        .map((content) => content.audio![0]!);
 
       if (contentAudioIds.length) {
         // console.log(
         //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
         // );
         attachmentIds.push(...contentAudioIds);
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await getTranslationsByAssetId(assetId);
-
-      const translationAudioIds = translations
-        .filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
-        // );
-        attachmentIds.push(...translationAudioIds);
       }
 
       // Log all found attachments
@@ -581,5 +571,27 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         void this.uploadRecordsWithProgress();
       }
     });
+  }
+
+  getExtensionFromMediaType(mediaType: string) {
+    switch (mediaType) {
+      case 'audio/mpeg':
+        return 'm4a';
+      case 'audio/webm':
+        return 'webm';
+      default:
+        return 'm4a';
+    }
+  }
+
+  getMediaTypeFromExtension(extension?: string) {
+    switch (extension) {
+      case 'm4a':
+        return 'audio/mpeg';
+      case 'webm':
+        return 'audio/webm';
+      default:
+        return 'audio/mpeg';
+    }
   }
 }

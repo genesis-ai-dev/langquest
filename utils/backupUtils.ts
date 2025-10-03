@@ -1,3 +1,4 @@
+import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { System } from '@/db/powersync/system'; // Import System type
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
 import { eq } from 'drizzle-orm';
@@ -96,7 +97,7 @@ export async function backupUnsyncedAudio(
       if (!audioId) continue; // Skip null/empty IDs just in case
 
       // Construct the source path based on the attachment ID
-      const sourceUri = `${getDocumentDirectory()}shared_attachments/${audioId}`;
+      const sourceUri = `${getDocumentDirectory()}${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${audioId}`;
       try {
         const fileInfo = await FileSystem.getInfoAsync(sourceUri, {
           size: true
@@ -113,7 +114,7 @@ export async function backupUnsyncedAudio(
         let assetId: string | undefined;
         // First, check asset_content_link (for source audio)
         const contentLink = await system.db.query.asset_content_link.findFirst({
-          where: (acl) => eq(acl.audio_id, audioId)
+          where: (acl) => eq(acl.audio, audioId)
         });
         if (contentLink) {
           assetId = contentLink.asset_id;

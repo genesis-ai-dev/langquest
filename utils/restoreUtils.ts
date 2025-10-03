@@ -2,14 +2,16 @@ import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Alert, Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
-import { translation } from '@/db/drizzleSchema'; // Removed unused project, quest, quest_asset_link
 import type { System } from '@/db/powersync/system'; // actual System instance type
 import type { ProgressCallback } from '@/utils/backupUtils';
 import { requestBackupDirectory } from '@/utils/backupUtils';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
+import { asset, asset_content_link } from '@/db/drizzleSchema';
+import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { LocalizationKey } from '@/services/localizations';
+import { resolveTable } from './dbUtils';
 // Removed InterpolationOptions as node-polyglot is not a direct/typed dependency here or its types are missing
 
 // Removed Drizzle schema imports
@@ -162,7 +164,8 @@ async function restoreFromBackup(
       // This will always be true now
       console.log('[restoreFromBackup] Starting audio file restore');
       const localAttachmentsDir =
-        (FileSystem.documentDirectory ?? '') + 'shared_attachments/'; // Target shared_attachments
+        (FileSystem.documentDirectory ?? '') +
+        `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/`; // Target shared_attachments
       try {
         await FileSystem.makeDirectoryAsync(localAttachmentsDir, {
           intermediates: true
@@ -241,17 +244,27 @@ async function restoreFromBackup(
 
         // Check if this audio is already logically linked as a translation for this asset
         const originalAudioFullId = `${originalBaseAudioId}.${originalExtension}`;
-        const existingTranslation = await system.db.query.translation.findFirst(
-          {
-            where: (tr) =>
-              and(
-                eq(tr.asset_id, assetIdFromFile),
-                eq(tr.audio, originalAudioFullId)
-              )
-          }
-        );
 
-        if (existingTranslation) {
+        const [existingAsset] = await system.db
+          .select({
+            id: asset.id,
+            audio: asset_content_link.audio
+          })
+          .from(asset)
+          .where(
+            and(
+              eq(asset.id, assetIdFromFile),
+              isNotNull(asset_content_link.audio),
+              eq(asset_content_link.audio, [originalAudioFullId])
+            )
+          )
+          .leftJoin(
+            asset_content_link,
+            eq(asset.id, asset_content_link.asset_id)
+          )
+          .limit(1);
+
+        if (existingAsset) {
           console.log(
             `[restoreFromBackup] Translation with audio ID ${originalAudioFullId} already exists for asset ${assetIdFromFile}. Skipping restore.`
           );
@@ -310,13 +323,12 @@ async function restoreFromBackup(
           const attachmentRecord =
             await system.permAttachmentQueue.saveAudio(tempFileUri);
 
-          // Insert into translation table instead of asset_content_link
-          await system.db.insert(translation).values({
+          // Insert into asset_content_link table instead of translation
+          await system.db.insert(resolveTable('asset_content_link')).values({
             asset_id: assetIdFromFile,
-            audio: attachmentRecord.id, // Use the new audio ID
-            creator_id: creatorId,
-            target_language_id: targetLanguageId
-            // text: '[Restored Audio]' // Removed placeholder text
+            audio: [attachmentRecord.id], // Use the new audio ID
+            source_language_id: targetLanguageId,
+            download_profiles: [creatorId]
           });
           audioCopied++;
         } catch (err: unknown) {

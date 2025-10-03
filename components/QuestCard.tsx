@@ -39,8 +39,8 @@ export const QuestCard: React.FC<{
   const displayTags = useMemo(() => {
     if (!quest.tags.length) return [];
     return quest.tags.slice(0, 3).map((tag) => ({
-      id: tag?.tag?.id,
-      displayName: tag?.tag?.name.split(':')[1] || tag?.tag?.name
+      id: tag.tag.id,
+      displayName: tag.tag.value
     }));
   }, [quest.tags]);
 

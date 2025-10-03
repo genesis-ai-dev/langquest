@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profile, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import { useCallback } from 'react';
@@ -28,7 +28,7 @@ function getProfileByUserIdConfig(user_id: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.profile.findMany({
         where: eq(profile.id, user_id)
       })
@@ -72,7 +72,7 @@ export function useUserMemberships(userId?: string) {
     queryKeyParams: [user_id || ''],
 
     // PowerSync query using Drizzle - this will be reactive!
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.profile_id, user_id || ''),
@@ -143,7 +143,7 @@ export function useUserProjects(userId?: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.project.findMany({
         with: {
           profile_project_links: {

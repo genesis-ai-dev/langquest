@@ -7,19 +7,21 @@ import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
+import { saveAudioFileLocally } from '@/utils/fileUtils.web';
 import { eq } from 'drizzle-orm';
 import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
   GitMerge,
-  Trash2
+  Trash2Icon
 } from 'lucide-react-native';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
@@ -60,16 +62,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   // Load existing assets for the quest (local + cloud)
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useAssetsByQuest(currentQuestId || '', '', false);
-  const assets = React.useMemo(() => {
-    const all = data?.pages.flatMap((p) => p.data) ?? [];
-    const valid = all.filter((a) => a.id && a.name);
-    return valid.sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      })
-    );
-  }, [data?.pages]);
+
+  const assets = data.pages.flatMap((p) => p.data);
 
   const handleRecordingStart = React.useCallback(() => {
     setIsRecording(true);
@@ -142,19 +136,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         waveformData,
         DISPLAY_BARS
       );
-      const newId = uuid.v4() as string;
+      const newId = uuid.v4();
       const newSegment: AudioSegment = {
         id: newId,
         uri,
         duration,
         waveformData: interpolatedWaveform,
-        name: `Segment ${(assets?.length ?? 0) + 1}`
+        name: `Segment ${assets.length + 1}`
       };
 
       if (!currentProjectId || !currentQuestId || !currentProject) return;
 
+      const localUri = await saveAudioFileLocally(uri);
       // Create a permanent attachment record for this audio and move the file
-      const attachmentRecord = await system.permAttachmentQueue?.saveAudio(uri);
+      // const attachmentRecord = await system.permAttachmentQueue?.saveAudio(uri);
 
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -188,7 +183,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             source_language_id: currentProject.target_language_id,
             text: newSegment.name,
             // Link the recorded audio via attachment ID so attachment state/URIs are tracked
-            audio_id: attachmentRecord?.id ?? newSegment.id,
+            audio: [localUri],
             download_profiles: [currentUser!.id]
           });
       });
@@ -203,7 +198,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       setInsertionIndex((prev) => prev + 1);
     },
     [
-      assets?.length,
+      assets.length,
       insertionIndex,
       currentProjectId,
       currentQuestId,
@@ -232,8 +227,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     setInsertionIndex((prev) => Math.max(0, prev - 1));
   }, []);
   const moveCursorDown = React.useCallback(() => {
-    setInsertionIndex((prev) => Math.min(assets?.length ?? 0, prev + 1));
-  }, [assets?.length]);
+    setInsertionIndex((prev) => Math.min(assets.length, prev + 1));
+  }, [assets.length]);
 
   const handleMergeDownLocal = React.useCallback(
     async (index: number) => {
@@ -249,17 +244,17 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         });
         const secondContent = await system.db
           .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id));
+          .from(asset_content_link)
+          .where(eq(asset_content_link.asset_id, second.id));
 
         // Copy audio content rows to the first asset
         for (const c of secondContent) {
-          if (!c.audio_id) continue;
+          if (!c.audio) continue;
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
             source_language_id: c.source_language_id,
-            text: c.text ?? '',
-            audio_id: c.audio_id,
+            text: c.text,
+            audio: c.audio,
             download_profiles: [currentUser!.id]
           });
         }
@@ -397,7 +392,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                         size="icon"
                         onPress={() => handleDeleteLocalAsset(asset.id)}
                       >
-                        <Icon as={Trash2} />
+                        <Icon as={Trash2Icon} />
                       </Button>
                       {index < assets.length - 1 &&
                         assets[index + 1]?.source !== 'cloud' && (

@@ -1,8 +1,4 @@
 import { resolveTable } from '@/utils/dbUtils';
-import {
-  deleteFile,
-  getDocumentDirectory
-} from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
@@ -63,7 +59,6 @@ export class AudioSegmentService {
           });
 
         // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
-        // await system.permAttachmentQueue?.saveAudio(uri);
 
         await tx
           .insert(resolveTable('asset_content_link', { localOverride: true }))
@@ -72,7 +67,7 @@ export class AudioSegmentService {
             source_language_id: sourceLanguageId,
             text: segment.name,
             // Link to the created attachment record so the UI can resolve URIs and states
-            audio_id: attachment.id,
+            audio: [attachment.id],
             download_profiles: [creatorId]
           });
 
@@ -140,12 +135,10 @@ export class AudioSegmentService {
 
       // Delete audio files
       for (const content of assetContent) {
-        if (content.audio_id) {
-          const audioFileName = `${content.audio_id}.m4a`;
-          const audioUri = `${getDocumentDirectory()}shared_attachments/${audioFileName}`;
-          await deleteFile(audioUri).catch(() => {
-            // Ignore errors if file doesn't exist
-          });
+        if (content.audio) {
+          for (const audio of content.audio) {
+            await system.permAttachmentQueue?.deleteFromQueue(audio);
+          }
         }
       }
 

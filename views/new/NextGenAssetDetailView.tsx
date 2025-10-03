@@ -10,29 +10,23 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type {
-  asset as assetCloud,
-  asset_content_link as assetContentCloud
-} from '@/db/drizzleSchema';
 import {
   asset,
   language as languageTable,
+  project,
   project as projectCloud
 } from '@/db/drizzleSchema';
-import type {
-  asset_content_link_local as assetContentLocal,
-  asset_local as assetLocal
-} from '@/db/drizzleSchemaLocal';
-import { project_local as projectLocal } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { toMergeCompilableQuery } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { getLocalUri } from '@/utils/fileUtils';
+import { opfsFileToBlobUrl } from '@/utils/opfsUtils.web';
 import { cn } from '@/utils/styleUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -48,38 +42,27 @@ import {
   VolumeXIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Text, View } from 'react-native';
+import { Dimensions, Platform, Text, View } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
-
-type CloudAsset = typeof assetCloud.$inferSelect;
-type LocalAsset = typeof assetLocal.$inferSelect;
-type DbAsset = CloudAsset | LocalAsset;
-type CloudAssetContent = typeof assetContentCloud.$inferSelect;
-type LocalAssetContent = typeof assetContentLocal.$inferSelect;
-type DbAssetContent = CloudAssetContent | LocalAssetContent;
-
-type AssetWithContent = DbAsset & { content?: DbAssetContent[] };
 
 const ASSET_VIEWER_PROPORTION = 0.35;
 
 type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
-  const mergedAssetQuery = toMergeCompilableQuery(
-    system.db.query.asset.findFirst({
-      where: eq(asset.id, assetId),
-      with: {
-        content: true
-      }
-    })
-  );
-
   return useHybridData({
     dataType: 'asset',
     queryKeyParams: [assetId],
-    offlineQuery: mergedAssetQuery,
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findFirst({
+        where: eq(asset.id, assetId),
+        with: {
+          content: true
+        }
+      })
+    ),
     enableCloudQuery: false,
     enableOfflineQuery: !!assetId
   });
@@ -120,8 +103,8 @@ export default function NextGenAssetDetailView() {
       // Try local first then cloud
       let result = await system.db
         .select()
-        .from(projectLocal)
-        .where(eq(projectLocal.id, currentProjectId))
+        .from(project)
+        .where(eq(project.id, currentProjectId))
         .limit(1);
       if (!result[0]) {
         result = await system.db
@@ -173,8 +156,8 @@ export default function NextGenAssetDetailView() {
     if (!activeAsset?.content) return [];
 
     const contentAudioIds = activeAsset.content
-      .filter((content) => content.audio_id)
-      .map((content) => content.audio_id!)
+      .filter((content) => content.audio)
+      .flatMap((content) => content.audio!)
       .filter(Boolean);
 
     const imageIds = activeAsset.images ?? [];
@@ -198,7 +181,7 @@ export default function NextGenAssetDetailView() {
   const { data: contentLanguages = [] } = useHybridData({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
-    offlineQuery: toMergeCompilableQuery(
+    offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
         where: contentLanguageIds.length
           ? inArray(languageTable.id, contentLanguageIds)
@@ -236,7 +219,7 @@ export default function NextGenAssetDetailView() {
             id: activeAsset.id,
             name: activeAsset.name,
             contentCount: activeAsset.content?.length ?? 0,
-            hasAudio: activeAsset.content?.some((c) => c.audio_id) ?? false
+            hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
           }
         : null,
       attachmentStatesCount: attachmentStates.size,
@@ -250,6 +233,41 @@ export default function NextGenAssetDetailView() {
     }),
     [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
   );
+
+  const { data: audioSegments, isLoading: isLoadingAudioSegments } = useQuery({
+    queryKey: ['audioSegments', currentAssetId],
+    queryFn: async () => {
+      return await Promise.all(
+        activeAsset!.content
+          .flatMap((content) => content.audio)
+          .filter(Boolean)
+          .map(async (audio) => {
+            let localUri = getLocalUri(
+              system.permAttachmentQueue!.getLocalFilePathSuffix(audio)
+            );
+            console.log('[AUDIO SEGMENT] Local URI', localUri);
+            if (Platform.OS === 'web') {
+              localUri = await opfsFileToBlobUrl(localUri);
+            }
+            return localUri;
+          })
+      );
+    },
+    enabled: !!activeAsset && !!system.permAttachmentQueue
+  });
+
+  useEffect(() => {
+    if (!audioSegments) return;
+
+    return () => {
+      if (Platform.OS === 'web') {
+        audioSegments?.forEach((segment) => {
+          console.log('[AUDIO SEGMENT] Revoking object URL', segment);
+          URL.revokeObjectURL(segment);
+        });
+      }
+    };
+  }, [audioSegments]);
 
   React.useEffect(() => {
     console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
@@ -403,43 +421,19 @@ export default function NextGenAssetDetailView() {
                         ? (languageById.get(content.source_language_id) ?? null)
                         : null
                     }
-                    audioUri={
-                      content.audio_id
-                        ? (() => {
-                            const attachment = attachmentStates.get(
-                              content.audio_id
-                            );
-                            const localUri = attachment?.local_uri;
-
-                            if (!localUri) {
-                              console.log(
-                                `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                                attachment?.state
-                              );
-                              return null;
-                            }
-
-                            const fullUri =
-                              system.permAttachmentQueue?.getLocalUri(localUri);
-                            console.log(
-                              `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                            );
-                            return fullUri;
-                          })()
-                        : null
-                    }
-                    isLoading={isLoadingAttachments}
+                    audioSegments={audioSegments}
+                    isLoading={isLoadingAttachments || isLoadingAudioSegments}
                   />
 
                   {/* Audio status indicator */}
-                  {SHOW_DEV_ELEMENTS && content.audio_id && (
+                  {SHOW_DEV_ELEMENTS && content.audio && (
                     <View
                       className="flex-row items-center gap-1"
                       style={{ marginTop: 8 }}
                     >
                       <Icon
                         as={
-                          attachmentStates.get(content.audio_id)?.local_uri
+                          attachmentStates.get(content.audio[0]!)?.local_uri
                             ? Volume2Icon
                             : VolumeXIcon
                         }
@@ -447,7 +441,7 @@ export default function NextGenAssetDetailView() {
                         className="text-muted-foreground"
                       />
                       <Text className="text-sm text-muted-foreground">
-                        {attachmentStates.get(content.audio_id)?.local_uri
+                        {attachmentStates.get(content.audio[0]!)?.local_uri
                           ? t('audioReady')
                           : t('audioNotAvailable')}
                       </Text>
@@ -539,7 +533,7 @@ export default function NextGenAssetDetailView() {
         />
       ) : (
         <Button
-          className="-mx-2 flex-row items-center justify-center gap-2 px-6 py-4"
+          className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           disabled={!allowEditing}
           onPress={() => allowEditing && handleNewTranslationPress()}
         >
