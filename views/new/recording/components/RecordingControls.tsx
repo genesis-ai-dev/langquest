@@ -29,7 +29,7 @@ export const RecordingControls = React.memo(function RecordingControls({
 }: RecordingControlsProps) {
   return (
     <View
-      className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-4 pb-8 pt-4"
+      className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
       onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
     >
       <WalkieTalkieRecorder

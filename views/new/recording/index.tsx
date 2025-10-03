@@ -32,6 +32,7 @@ import { RecordingControls } from './components/RecordingControls';
 import { SegmentCard } from './components/SegmentCard';
 import { SelectionControls } from './components/SelectionControls';
 import { VerseSegmentModal } from './components/VerseSegmentModal';
+import type { OptimisticAsset } from './hooks/useOptimisticAssets';
 import { useOptimisticAssets } from './hooks/useOptimisticAssets';
 import { useRecordingState } from './hooks/useRecordingState';
 import { useSelectionMode } from './hooks/useSelectionMode';
@@ -179,23 +180,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   );
   const currentRecordingOrderRef = React.useRef<number>(0);
   const currentRecordingTempIdRef = React.useRef<string | null>(null);
-  const segmentCounterRef = React.useRef<number>(1);
-
-  // Initialize segment counter based on existing assets
-  React.useEffect(() => {
-    // Parse all asset names to find the highest segment number
-    let maxSegmentNum = 0;
-    for (const asset of assets) {
-      const segmentRegex = /^Segment (\d+)$/;
-      const match = segmentRegex.exec(asset.name);
-      if (match?.[1]) {
-        const num = parseInt(match[1], 10);
-        if (num > maxSegmentNum) maxSegmentNum = num;
-      }
-    }
-    // Start counter at max + 1, or 1 if no segments exist
-    segmentCounterRef.current = maxSegmentNum + 1;
-  }, [assets]);
 
   type InsertionHandle = ArrayInsertionListHandle | ArrayInsertionWheelHandle;
   const listRef = React.useRef<InsertionHandle>(null);
@@ -373,13 +357,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     async (uri: string, _duration: number, _waveformData: number[]) => {
       const newId = uuid.v4();
       const targetOrder = currentRecordingOrderRef.current;
-      const segmentNumber = segmentCounterRef.current;
 
       try {
         console.log('💾 Starting to save recording...');
-        console.log(
-          `📍 Inserting at order_index ${targetOrder} as Segment ${segmentNumber}`
-        );
+        console.log(`📍 Inserting at order_index ${targetOrder}`);
 
         if (
           !currentProjectId ||
@@ -398,7 +379,36 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           return;
         }
 
-        // 1. Save to database in background (no optimistic UI - pending card handles that)
+        // 1. Add optimistic asset immediately
+        const tempId = uuid.v4() + '_optimistic';
+        const optimisticAsset: OptimisticAsset = {
+          id: newId,
+          name: `Segment ${targetOrder}`,
+          order_index: targetOrder,
+          source: 'optimistic',
+          created_at: new Date().toISOString(),
+          tempId
+        };
+
+        addOptimistic(optimisticAsset);
+
+        // 2. Remove pending card after a small delay to ensure it was visible
+        // This gives React time to render the pending card before removing it
+        const pendingTempId = currentRecordingTempIdRef.current;
+        setTimeout(() => {
+          if (pendingTempId) {
+            console.log('🧹 Removing pending card:', pendingTempId);
+            removePending(pendingTempId);
+            currentRecordingTempIdRef.current = null; // Clear it
+          } else {
+            console.warn(
+              '⚠️ No pending tempId found, cleaning all pending cards'
+            );
+            removePending(null); // Fallback: remove all recording/saving cards
+          }
+        }, 100); // Small delay ensures UI renders the pending card
+
+        // 3. Save to database in background
         if (!newId) {
           console.error('❌ newId is null in unstructured mode');
           return;
@@ -425,7 +435,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           const [newAsset] = await tx
             .insert(assetLocal)
             .values({
-              name: `Segment ${segmentNumber}`,
+              name: optimisticAsset.name,
               id: newId,
               order_index: targetOrder,
               source_language_id: currentProject.target_language_id,
@@ -448,7 +458,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             .values({
               asset_id: newAsset.id,
               source_language_id: currentProject.target_language_id,
-              text: `Segment ${segmentNumber}`,
+              text: optimisticAsset.name,
               audio_id: attachmentRecord?.id ?? newId,
               download_profiles: [currentUser.id]
             });
@@ -461,34 +471,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           targetOrder
         );
 
-        // 2. Remove pending card now that save is complete
-        const pendingTempId = currentRecordingTempIdRef.current;
-        if (pendingTempId) {
-          console.log('🧹 Removing pending card:', pendingTempId);
-          removePending(pendingTempId);
-          currentRecordingTempIdRef.current = null;
-        }
+        // 5. Remove optimistic asset
+        removeOptimistic(newId);
 
-        // 3. Increment segment counter for next recording
-        segmentCounterRef.current += 1;
-
-        // 4. Advance insertion index (now that save is successful)
+        // 6. Advance insertion index (now that save is successful)
         const newInsertionIndex = targetOrder + 1;
         setInsertionIndex(newInsertionIndex);
         console.log(`📍 Advanced insertion index to ${newInsertionIndex}`);
 
-        // 5. Invalidate queries to show the newly saved asset
-        // Match the query key format from useHybridData
+        // 7. Invalidate queries
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'offline', currentQuestId],
-          exact: true
+          queryKey: ['assets', 'infinite', currentQuestId, ''],
+          exact: false
         });
 
         console.log('✅ Queries invalidated, asset should appear now');
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
 
-        // On error: clean up pending card
+        // On error: remove optimistic asset (only in unstructured mode)
+        if (newId) {
+          removeOptimistic(newId);
+        }
+
+        // Clean up stuck pending card if it exists
         const pendingTempId = currentRecordingTempIdRef.current;
         if (pendingTempId) {
           removePending(pendingTempId);
@@ -501,7 +507,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       currentQuestId,
       currentProject,
       currentUser,
+      addOptimistic,
       removePending,
+      removeOptimistic,
       queryClient
     ]
   );
@@ -826,14 +834,14 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         // Invalidate queries
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'offline', currentQuestId],
-          exact: true
+          queryKey: ['assets'],
+          exact: false
         });
       } catch (error) {
         console.error('Failed to delete segment:', error);
       }
     },
-    [queryClient, currentQuestId]
+    [queryClient]
   );
 
   // Get segment URI from attachment queue (checks both local and synced)
@@ -911,14 +919,14 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       try {
         await audioSegmentService.deleteAudioSegment(assetId);
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'offline', currentQuestId],
-          exact: true
+          queryKey: ['assets'],
+          exact: false
         });
       } catch (e) {
         console.error('Failed to delete local asset', e);
       }
     },
-    [queryClient, currentQuestId]
+    [queryClient]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -950,14 +958,14 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         await audioSegmentService.deleteAudioSegment(second.id);
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'offline', currentQuestId],
-          exact: true
+          queryKey: ['assets'],
+          exact: false
         });
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, currentQuestId]
+    [assets, currentUser, queryClient]
   );
 
   const handleBatchMergeSelected = React.useCallback(async () => {
@@ -995,20 +1003,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
       cancelSelection();
       await queryClient.invalidateQueries({
-        queryKey: ['assets', 'offline', currentQuestId],
-        exact: true
+        queryKey: ['assets'],
+        exact: false
       });
     } catch (e) {
       console.error('Failed to batch merge local assets', e);
     }
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    cancelSelection,
-    queryClient,
-    currentQuestId
-  ]);
+  }, [assets, selectedAssetIds, currentUser, cancelSelection, queryClient]);
 
   // Render content
   const scrollViewContent = React.useMemo(() => {
@@ -1108,10 +1109,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         const segmentCount = assetSegmentCounts.get(asset.id);
 
-        // Only allow selection for local assets (cloud assets can't be merged)
-        const isLocalAsset =
-          asset.source !== 'cloud' && asset.source !== 'optimistic';
-
         content.push(
           <AssetCard
             key={asset.id}
@@ -1123,16 +1120,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             canMergeDown={canMergeDown}
             progress={isThisPlaying ? playbackProgress : undefined}
             segmentCount={segmentCount}
-            onPress={() => {
-              if (isSelectionMode && isLocalAsset) {
-                toggleSelect(asset.id);
-              }
-            }}
-            onLongPress={() => {
-              if (isLocalAsset) {
-                enterSelection(asset.id);
-              }
-            }}
+            onPress={() => (isSelectionMode ? toggleSelect(asset.id) : {})}
+            onLongPress={() => enterSelection(asset.id)}
             onPlay={handlePlayAsset}
             onDelete={handleDeleteLocalAsset}
             onMerge={handleMergeDownLocal}
