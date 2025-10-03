@@ -297,6 +297,7 @@ export function createAssetTable<T extends TableSource>(
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
+      order_index: int().notNull().default(0),
       ...params[0]
     },
     (table) => {
