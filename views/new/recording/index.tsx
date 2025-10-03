@@ -19,7 +19,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { generateAssetName } from '@/utils/assetNaming';
+import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -340,23 +340,47 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       removePending(currentRecordingTempIdRef.current);
     }
 
-    // The new item will get order_index = insertionIndex (not +1)
-    const targetOrder = insertionIndex;
-    const tempId = startRecording(insertionIndex);
+    // Determine target order_index for the new asset
+    // When hovering over an asset, insert AFTER it (not at its position)
+    let targetOrder: number;
+    if (insertionIndex < assets.length) {
+      // Hovering over an asset - insert after it
+      const hoveredAsset = assets[insertionIndex];
+      const hoveredOrder =
+        hoveredAsset && typeof hoveredAsset.order_index === 'number'
+          ? hoveredAsset.order_index
+          : insertionIndex;
+      targetOrder = hoveredOrder + 1;
+      console.log(
+        `📍 Hovering over asset at position ${insertionIndex} (order_index: ${hoveredOrder})`
+      );
+      console.log(`   → Will insert AFTER it at order_index: ${targetOrder}`);
+    } else {
+      // At "insert at end" position
+      targetOrder = assets.length;
+      console.log(
+        `📍 At end position, inserting at order_index: ${targetOrder}`
+      );
+    }
+
+    // Visual insertion happens at insertionIndex + 1 (after the hovered asset)
+    const visualInsertionPos =
+      insertionIndex < assets.length ? insertionIndex + 1 : insertionIndex;
+    const tempId = startRecording(visualInsertionPos);
 
     console.log(
       '📝 Created pending card:',
       tempId,
-      'will insert at order_index:',
-      targetOrder
+      'visual position:',
+      visualInsertionPos
     );
 
     // Store for use in handleRecordingComplete
     currentRecordingOrderRef.current = targetOrder;
     currentRecordingTempIdRef.current = tempId;
 
-    // Scroll to show the pending card (but don't advance insertionIndex yet)
-    listRef.current?.scrollToInsertionIndex(insertionIndex, true);
+    // Scroll to show the pending card after the hovered asset
+    listRef.current?.scrollToInsertionIndex(visualInsertionPos, true);
 
     // Briefly expand spacer
     try {
@@ -377,7 +401,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
 
     return tempId;
-  }, [insertionIndex, startRecording, removePending, spacerHeight]);
+  }, [insertionIndex, assets, startRecording, removePending, spacerHeight]);
 
   const handleRecordingStop = React.useCallback(() => {
     stopRecording();
@@ -411,9 +435,16 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         // 1. Add optimistic asset immediately
         const tempId = uuid.v4() + '_optimistic';
+
+        // Generate name based on highest existing asset number, not position
+        const assetName = getNextAssetName(assets);
+        console.log(
+          `🏷️  Generated name: ${assetName} (from ${assets.length} existing assets)`
+        );
+
         const optimisticAsset: OptimisticAsset = {
           id: newId,
-          name: generateAssetName(targetOrder + 1),
+          name: assetName,
           order_index: targetOrder,
           source: 'optimistic',
           created_at: new Date().toISOString(),
@@ -1442,16 +1473,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           <Text className="text-2xl font-bold text-foreground">
             {t('doRecord')}
           </Text>
-        </View>
-      </View>
-
-      {/* Asset count */}
-      <View className="flex-row items-center justify-between px-4 pb-2">
-        <Text className="text-xl font-bold text-foreground">
-          {t('assets')} ({assets.length})
-        </Text>
-        {/* Play All temporarily disabled */}
-        {/* {assets.length > 0 && !isSelectionMode && (
+          <Text className="text-xl font-bold text-foreground">
+            {t('assets')} ({assets.length})
+          </Text>
+          {/* Play All temporarily disabled */}
+          {/* {assets.length > 0 && !isSelectionMode && (
           <Button
             variant="outline"
             size="sm"
@@ -1462,6 +1488,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             <Text className="text-sm">{isPlaying ? 'Stop' : 'Play All'}</Text>
           </Button>
         )} */}
+        </View>
       </View>
 
       {/* Scrollable list */}
