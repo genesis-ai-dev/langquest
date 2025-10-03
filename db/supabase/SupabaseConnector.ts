@@ -29,7 +29,7 @@ import type {
 } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
-import * as schema from '../drizzleSchema';
+// import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
@@ -98,34 +98,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   private initCompositeKeyTables() {
     console.log('Initializing composite key tables');
 
-    const tables = Object.entries(schema)
-      .filter(
-        ([_, value]) =>
-          typeof value === 'object' &&
-          Symbol.for('drizzle:IsDrizzleTable') in value
-      )
-      // eslint-disable-next-line
-      .map(([_, table]: [string, any]) => table);
-
     // Let's examine the full structure of one composite key table
-    // eslint-disable-next-line
-    const assetDownload = tables.find(
-      // eslint-disable-next-line
-      (t) => t[Symbol.for('drizzle:Name')] === 'asset_download'
-    );
-    if (assetDownload) {
-      console.log('Asset Download table full structure:', {
-        // eslint-disable-next-line
-        name: assetDownload[Symbol.for('drizzle:Name')],
-        allSymbols: Object.getOwnPropertySymbols(assetDownload),
-        // eslint-disable-next-line
-        allProperties: Object.keys(assetDownload),
-        // eslint-disable-next-line
-        config: assetDownload.config,
-        // eslint-disable-next-line
-        extraConfig: assetDownload[Symbol.for('drizzle:ExtraConfigBuilder')]
-      });
-    }
 
     // For now, let's hardcode the composite key tables since we know them from the schema
     this.compositeKeyTables = [
