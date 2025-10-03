@@ -42,6 +42,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
+import { generateAssetName } from '@/utils/assetNaming';
 import { resolveTable } from '@/utils/dbUtils';
 import uuid from 'react-native-uuid';
 import { AssetListItem } from './AssetListItem';
@@ -206,7 +207,7 @@ export default function NextGenAssetsView() {
         uri,
         duration,
         waveformData: interpolatedWaveform,
-        name: `Segment ${audioSegments.length + 1}`
+        name: generateAssetName(audioSegments.length + 1)
       };
 
       if (!currentProject) {

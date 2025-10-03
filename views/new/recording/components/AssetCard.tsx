@@ -43,6 +43,7 @@ interface AssetCardProps {
   onDelete: (assetId: string) => void;
   onMerge: (index: number) => void;
   onEdit?: (assetId: string, assetName: string) => void;
+  onRename?: (assetId: string, currentName: string) => void;
 }
 
 const PROGRESS_STEPS = 500; // Number of steps for smooth animation
@@ -61,11 +62,15 @@ export function AssetCard({
   onPlay,
   onDelete,
   onMerge,
-  onEdit
+  onEdit,
+  onRename
 }: AssetCardProps) {
   const isOptimistic = asset.source === 'optimistic';
   const isCloud = asset.source === 'cloud';
-  const isLocal = !isCloud && !isOptimistic;
+  // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
+  const isLocal = asset.source === 'local';
+  // Renameable = local and not currently saving
+  const isRenameable = isLocal;
 
   // Animated value for smooth progress transitions
   const animatedProgress = React.useRef(new Animated.Value(0)).current;
@@ -153,9 +158,21 @@ export function AssetCard({
       <View className="flex-row items-center gap-3" style={{ zIndex: 1 }}>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="text-base font-medium text-foreground">
-              {asset.name}
-            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (!isSelectionMode && isRenameable && onRename) {
+                  onRename(asset.id, asset.name);
+                }
+              }}
+              disabled={isSelectionMode || !isRenameable || !onRename}
+              activeOpacity={0.7}
+            >
+              <Text
+                className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+              >
+                {asset.name}
+              </Text>
+            </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
               <View className="rounded bg-primary/20 px-1.5 py-0.5">
                 <Text className="text-xs font-medium text-primary">

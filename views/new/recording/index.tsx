@@ -13,11 +13,13 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { generateAssetName } from '@/utils/assetNaming';
 import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { eq, sql } from 'drizzle-orm';
@@ -29,6 +31,7 @@ import { useHybridData } from '../useHybridData';
 import { AssetCard } from './components/AssetCard';
 import { PendingCard } from './components/PendingCard';
 import { RecordingControls } from './components/RecordingControls';
+import { RenameAssetModal } from './components/RenameAssetModal';
 import { SegmentCard } from './components/SegmentCard';
 import { SelectionControls } from './components/SelectionControls';
 import { VerseSegmentModal } from './components/VerseSegmentModal';
@@ -54,6 +57,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [showSegmentModal, setShowSegmentModal] = React.useState(false);
   const [modalAssetId, setModalAssetId] = React.useState<string | null>(null);
   const [modalAssetName, setModalAssetName] = React.useState<string>('');
+
+  // Rename modal
+  const [showRenameModal, setShowRenameModal] = React.useState(false);
+  const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
+  const [renameAssetName, setRenameAssetName] = React.useState<string>('');
   const {
     playSound,
     playSoundSequence,
@@ -383,7 +391,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         const tempId = uuid.v4() + '_optimistic';
         const optimisticAsset: OptimisticAsset = {
           id: newId,
-          name: `Segment ${targetOrder}`,
+          name: generateAssetName(targetOrder + 1),
           order_index: targetOrder,
           source: 'optimistic',
           created_at: new Date().toISOString(),
@@ -817,6 +825,45 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     []
   );
 
+  // Handle rename button - opens rename modal
+  const handleRenameAsset = React.useCallback(
+    (assetId: string, currentName: string) => {
+      setRenameAssetId(assetId);
+      setRenameAssetName(currentName);
+      setShowRenameModal(true);
+    },
+    []
+  );
+
+  // Save renamed asset
+  const handleSaveRename = React.useCallback(
+    async (newName: string) => {
+      if (!renameAssetId) return;
+
+      try {
+        // renameAsset will validate that this is a local-only asset
+        // and throw if it's synced (immutable)
+        await renameAsset(renameAssetId, newName);
+
+        // Invalidate queries to refresh the list
+        await queryClient.invalidateQueries({
+          queryKey: ['assets'],
+          exact: false
+        });
+
+        console.log('✅ Asset renamed successfully');
+      } catch (error) {
+        console.error('❌ Failed to rename asset:', error);
+        // TODO: Show error toast to user
+        // For now, log the error - it will prevent renaming synced assets
+        if (error instanceof Error) {
+          console.warn('⚠️ Rename blocked:', error.message);
+        }
+      }
+    },
+    [renameAssetId, queryClient]
+  );
+
   // Delete segment
   const handleDeleteSegment = React.useCallback(
     async (segmentId: string) => {
@@ -1126,6 +1173,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             onDelete={handleDeleteLocalAsset}
             onMerge={handleMergeDownLocal}
             onEdit={handleEditSegments}
+            onRename={handleRenameAsset}
           />
         );
 
@@ -1294,6 +1342,14 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           currentAudioId={currentAudioId}
         />
       )}
+
+      {/* Rename modal */}
+      <RenameAssetModal
+        isVisible={showRenameModal}
+        currentName={renameAssetName}
+        onClose={() => setShowRenameModal(false)}
+        onSave={handleSaveRename}
+      />
     </View>
   );
 }
