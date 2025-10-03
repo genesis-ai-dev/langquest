@@ -4,7 +4,7 @@ import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { Dimensions, Image, View, ScrollView } from 'react-native';
+import { Dimensions, Image, ScrollView, View } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
@@ -16,6 +16,7 @@ export function BibleBookList({
   onBookSelect
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
+  const secondaryColor = useThemeColor('chart-2');
 
   // Responsive: calculate how many fit per row
   const screenWidth = Dimensions.get('window').width;
@@ -41,7 +42,10 @@ export function BibleBookList({
     return rows;
   }
 
-  const renderBookButton = (book: { id: string; chapters: number }) => {
+  const renderBookButton = (
+    book: { id: string; chapters: number },
+    testament: 'old' | 'new'
+  ) => {
     const emoji = BOOK_EMOJIS[book.id] || '📖';
     const iconSource = BOOK_ICON_MAP[book.id];
 
@@ -58,7 +62,7 @@ export function BibleBookList({
             style={{
               width: 80,
               height: 80,
-              tintColor: primaryColor
+              tintColor: testament === 'old' ? primaryColor : secondaryColor
             }}
             resizeMode="contain"
           />
@@ -80,7 +84,10 @@ export function BibleBookList({
     );
   };
 
-  const renderBookRows = (books: typeof BIBLE_BOOKS) => {
+  const renderBookRows = (
+    books: typeof BIBLE_BOOKS,
+    testament: 'old' | 'new'
+  ) => {
     const rows = chunkBooks(books, buttonsPerRow);
     return rows.map((row, idx) => (
       <View
@@ -92,7 +99,7 @@ export function BibleBookList({
           marginBottom: gap
         }}
       >
-        {row.map(renderBookButton)}
+        {row.map((book) => renderBookButton(book, testament))}
       </View>
     ));
   };
@@ -111,13 +118,13 @@ export function BibleBookList({
           Old Testament
         </Text>
       </View>
-      {renderBookRows(oldTestament)}
+      {renderBookRows(oldTestament, 'old')}
       <View style={{ width: availableWidth, paddingVertical: 32 }}>
         <Text variant="h4" className="text-center">
           New Testament
         </Text>
       </View>
-      {renderBookRows(newTestament)}
+      {renderBookRows(newTestament, 'new')}
     </ScrollView>
   );
 }
