@@ -3,6 +3,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import type { WithSource } from '@/utils/dbUtils';
 import { resolveTable } from '@/utils/dbUtils';
@@ -38,6 +39,8 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import z from 'zod';
+import { BibleBookList } from './BibleBookList';
+import { BibleChapterList } from './BibleChapterList';
 import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
 
@@ -45,6 +48,12 @@ export default function ProjectDirectoryView() {
   const { currentProjectId } = useCurrentNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
+
+  // Check if this is a Bible project
+  const { project } = useProjectById(currentProjectId);
+
+  // Bible navigation state
+  const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
 
   type Quest = typeof quest.$inferSelect;
 
@@ -183,6 +192,41 @@ export default function ProjectDirectoryView() {
     return <ProjectListSkeleton />;
   }
 
+  // Bible project routing
+  if (project?.template === 'bible') {
+    // Show book list if no book selected
+    if (!selectedBook) {
+      return (
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between p-4">
+            <Text variant="h4">📖 {project.name}</Text>
+          </View>
+          <BibleBookList
+            projectId={currentProjectId!}
+            onBookSelect={setSelectedBook}
+          />
+        </View>
+      );
+    }
+
+    // Show chapter list if book selected
+    return (
+      <View className="flex-1">
+        <View className="flex-row items-center gap-2 p-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={() => setSelectedBook(null)}
+          >
+            <Text>← Back</Text>
+          </Button>
+        </View>
+        <BibleChapterList projectId={currentProjectId!} bookId={selectedBook} />
+      </View>
+    );
+  }
+
+  // Default unstructured project view
   return (
     <Form {...form}>
       <Drawer

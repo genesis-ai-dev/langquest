@@ -113,25 +113,25 @@ export default function RootLayout() {
   console.log('[RootLayout] scheme:', scheme);
 
   return (
-    <ThemeProvider value={NAV_THEME[scheme]}>
-      <StatusBar style={systemBarsStyle} />
-      <PowerSyncContext.Provider value={system.powersync}>
-        <PostHogProvider>
-          <AuthProvider>
-            <QueryProvider>
-              <AudioProvider>
-                <SafeAreaProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
+    <PowerSyncContext.Provider value={system.powersync}>
+      <PostHogProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <AudioProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <StatusBar style={systemBarsStyle} />
+                  <ThemeProvider value={NAV_THEME[scheme]}>
                     <Stack screenOptions={{ headerShown: false }} />
                     <PortalHost />
-                  </GestureHandlerRootView>
-                </SafeAreaProvider>
-              </AudioProvider>
-            </QueryProvider>
-          </AuthProvider>
-        </PostHogProvider>
-      </PowerSyncContext.Provider>
-    </ThemeProvider>
+                  </ThemeProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </AudioProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </PostHogProvider>
+    </PowerSyncContext.Provider>
   );
 }
 

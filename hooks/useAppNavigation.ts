@@ -27,15 +27,17 @@ export function useAppNavigation() {
   } = useLocalStore();
 
   // Current navigation state
-  const currentState = useMemo(
-    () =>
-      navigationStack[navigationStack.length - 1] || {
-        // ** length of undefined error
-        view: 'projects' as AppView,
-        timestamp: Date.now()
-      },
-    [navigationStack]
-  );
+  const currentState = useMemo(() => {
+    // Ensure navigationStack is always an array
+    const stack = Array.isArray(navigationStack) && navigationStack.length > 0
+      ? navigationStack
+      : [{ view: 'projects' as AppView, timestamp: Date.now() }];
+
+    return stack[stack.length - 1] || {
+      view: 'projects' as AppView,
+      timestamp: Date.now()
+    };
+  }, [navigationStack]);
 
   // Navigation functions with instant state transitions
   const navigate = useCallback(
@@ -68,20 +70,59 @@ export function useAppNavigation() {
     setNavigationStack([{ view: 'projects', timestamp: Date.now() }]);
   }, [setNavigationStack]);
 
+  // Navigate back to a specific view by removing newer entries from the stack
+  const goBackToView = useCallback(
+    (targetView: AppView) => {
+      // Find the last occurrence of the target view in the stack
+      let targetIndex = -1;
+      for (let i = navigationStack.length - 1; i >= 0; i--) {
+        if (navigationStack[i]?.view === targetView) {
+          targetIndex = i;
+          break;
+        }
+      }
+
+      if (targetIndex >= 0) {
+        // Remove all items after the target
+        setNavigationStack(navigationStack.slice(0, targetIndex + 1));
+      } else {
+        // If not found in stack, navigate fresh
+        navigate({ view: targetView });
+      }
+    },
+    [navigationStack, setNavigationStack, navigate]
+  );
+
   // Specific navigation functions
   const goToProjects = useCallback(() => {
-    navigate({ view: 'projects' });
-  }, [navigate]);
+    // Check if we're already at a deeper level - if so, go back
+    if (currentState.view !== 'projects') {
+      goBackToView('projects');
+    }
+  }, [currentState.view, goBackToView]);
 
   const goToProject = useCallback(
     (projectData: { id: string; name?: string }) => {
-      navigate({
-        view: 'quests',
-        projectId: projectData.id,
-        projectName: projectData.name
-      });
+      // Check if we're already at this project or deeper
+      if (currentState.projectId === projectData.id && currentState.view === 'quests') {
+        // Already here, do nothing
+        return;
+      }
+
+      // If we're at a deeper level (assets or asset-detail) with the same project, go back
+      if (currentState.projectId === projectData.id &&
+        (currentState.view === 'assets' || currentState.view === 'asset-detail')) {
+        goBackToView('quests');
+      } else {
+        // Navigate fresh
+        navigate({
+          view: 'quests',
+          projectId: projectData.id,
+          projectName: projectData.name
+        });
+      }
     },
-    [navigate]
+    [currentState, navigate, goBackToView]
   );
 
   const goToQuest = useCallback(
@@ -94,14 +135,26 @@ export function useAppNavigation() {
         visitedAt: new Date()
       });
 
-      navigate({
-        view: 'assets',
-        questId: questData.id,
-        questName: questData.name,
-        projectId: questData.project_id
-      });
+      // Check if we're already at this quest
+      if (currentState.questId === questData.id && currentState.view === 'assets') {
+        // Already here, do nothing
+        return;
+      }
+
+      // If we're at asset-detail for this quest, go back
+      if (currentState.questId === questData.id && currentState.view === 'asset-detail') {
+        goBackToView('assets');
+      } else {
+        // Navigate fresh
+        navigate({
+          view: 'assets',
+          questId: questData.id,
+          questName: questData.name,
+          projectId: questData.project_id
+        });
+      }
     },
-    [navigate, addRecentQuest]
+    [currentState, navigate, addRecentQuest, goBackToView]
   );
 
   const goToAsset = useCallback(

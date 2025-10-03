@@ -6,32 +6,34 @@ import { Platform, View, ViewProps } from 'react-native';
 
 const badgeVariants = cva(
   cn(
-    'border-border group shrink-0 flex-row items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5',
+    'group shrink-0 flex-row items-center justify-center gap-1 overflow-hidden rounded-md border border-border px-2 py-0.5',
     Platform.select({
-      web: 'focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-fit whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] [&>svg]:pointer-events-none [&>svg]:size-3',
+      web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-fit whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3'
     })
   ),
   {
     variants: {
       variant: {
         default: cn(
-          'bg-primary border-transparent',
+          'border-transparent bg-primary',
           Platform.select({ web: '[a&]:hover:bg-primary/90' })
         ),
         secondary: cn(
-          'bg-secondary border-transparent',
+          'border-transparent bg-secondary',
           Platform.select({ web: '[a&]:hover:bg-secondary/90' })
         ),
         destructive: cn(
-          'bg-destructive border-transparent',
+          'border-transparent bg-destructive',
           Platform.select({ web: '[a&]:hover:bg-destructive/90' })
         ),
-        outline: Platform.select({ web: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground' }),
-      },
+        outline: Platform.select({
+          web: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground'
+        })
+      }
     },
     defaultVariants: {
-      variant: 'default',
-    },
+      variant: 'default'
+    }
   }
 );
 
@@ -41,12 +43,12 @@ const badgeTextVariants = cva('text-xs font-medium', {
       default: 'text-primary-foreground',
       secondary: 'text-secondary-foreground',
       destructive: 'text-white',
-      outline: 'text-foreground',
-    },
+      outline: 'text-foreground'
+    }
   },
   defaultVariants: {
-    variant: 'default',
-  },
+    variant: 'default'
+  }
 });
 
 type BadgeProps = ViewProps &
@@ -55,10 +57,25 @@ type BadgeProps = ViewProps &
   } & VariantProps<typeof badgeVariants>;
 
 function Badge({ className, variant, asChild, ...props }: BadgeProps) {
-  const Component = asChild ? Slot.View : View;
+  // Render directly as View to avoid Slot navigation context issues during transitions
+  // Only use Slot.View when explicitly using asChild pattern
+  if (!asChild) {
+    return (
+      <TextClassContext.Provider value={badgeTextVariants({ variant })}>
+        <View
+          className={cn(badgeVariants({ variant }), className)}
+          {...props}
+        />
+      </TextClassContext.Provider>
+    );
+  }
+
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
-      <Component className={cn(badgeVariants({ variant }), className)} {...props} />
+      <Slot.View
+        className={cn(badgeVariants({ variant }), className)}
+        {...props}
+      />
     </TextClassContext.Provider>
   );
 }

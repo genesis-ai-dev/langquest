@@ -4,8 +4,13 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+
+// Create animated SVG components
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface WalkieTalkieRecorderProps {
   onRecordingComplete: (
@@ -33,6 +38,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isPressed, setIsPressed] = useState(false);
   const [canRecord, setCanRecord] = useState(false);
+  const [isActivating, setIsActivating] = useState(false); // Holding to activate
+
   // Live waveform display capacity (side-scrolling window)
   const LIVE_BAR_CAPACITY = 60;
 
@@ -48,8 +55,24 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Activation progress (0 to 1) - fills over ACTIVATION_TIME
+  const activationProgress = useRef(new Animated.Value(0)).current;
+  const activationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Timer for delayed stop after release (to capture audio tail)
+  const releaseDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Background color animation (0 = transparent, 1 = red)
+  const bgColorAnim = useRef(new Animated.Value(0)).current;
+
   // Minimum recording duration (1 second)
-  const MIN_RECORDING_DURATION = 1000;
+  const MIN_RECORDING_DURATION = 1000; // Updated to 1 second as requested
+
+  // Time to hold before recording starts (WhatsApp-style)
+  const ACTIVATION_TIME = 500;
+
+  // Delay after release before stopping recording (to capture audio tail)
+  const RELEASE_DELAY = 300; // 300ms to capture the end of speech
 
   // Append a live sample with side-scrolling window (shift left, add right)
   const appendLiveSample = (amplitude01: number) => {
@@ -66,9 +89,16 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     });
   };
 
+  // Cleanup recording and timers on unmount
   useEffect(() => {
     return () => {
       const cleanup = async () => {
+        if (activationTimer.current) {
+          clearTimeout(activationTimer.current);
+        }
+        if (releaseDelayTimer.current) {
+          clearTimeout(releaseDelayTimer.current);
+        }
         if (recording && !recording._isDoneRecording) {
           await recording.stopAndUnloadAsync();
         }
@@ -101,8 +131,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
   }, [isRecording, pulseAnim]);
 
+  // Background color animation when recording starts/stops
+  useEffect(() => {
+    Animated.timing(bgColorAnim, {
+      toValue: isRecording ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false
+    }).start();
+  }, [isRecording, bgColorAnim]);
+
   const startRecording = async () => {
     try {
+      const startTime = performance.now();
       console.log('🎙️ Starting recording process...');
 
       // Reset recorded samples for new recording
@@ -119,14 +159,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         console.log('✅ Permission granted');
       }
 
-      console.log('🎵 Setting audio mode...');
+      // Set audio mode (fast, ~50ms)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true
       });
 
-      console.log('🎤 Creating recording...');
-      // Enable metering for real-time amplitude on both iOS and Android
+      console.log('🎤 Creating fresh recording...');
+      // Create recording fresh every time - don't reuse stale recordings
       const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
       const options = {
         ...highQuality,
@@ -140,10 +180,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         }
       } as typeof highQuality;
 
-      const activeRecording = (await Audio.Recording.createAsync(options))
-        .recording;
+      const { recording: activeRecording } =
+        await Audio.Recording.createAsync(options);
 
-      console.log('✅ Recording created, setting up...');
+      const duration = performance.now() - startTime;
+      console.log(`✅ Recording started in ${duration.toFixed(0)}ms`);
+
       setRecording(activeRecording);
       setRecordingDuration(0);
       onRecordingStart();
@@ -209,23 +251,91 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
   };
 
-  const handlePressIn = async () => {
-    console.log('🎙️ Press in detected, starting recording...');
-    setIsPressed(true);
-    await startRecording();
+  const handlePressIn = () => {
+    console.log('🎙️ Press in detected, starting activation timer...');
 
-    // Scale down animation
+    // Immediate haptic feedback for tactile response
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    setIsPressed(true);
+    setIsActivating(true);
+
+    // Start button press animation
     Animated.spring(scaleAnim, {
       toValue: 0.9,
       useNativeDriver: true
     }).start();
+
+    // Start progress animation
+    Animated.timing(activationProgress, {
+      toValue: 1,
+      duration: ACTIVATION_TIME,
+      useNativeDriver: false
+    }).start();
+
+    // Start recording after ACTIVATION_TIME
+    activationTimer.current = setTimeout(() => {
+      console.log('✅ Activation complete, starting recording...');
+      setIsActivating(false);
+
+      // Stronger haptic when recording actually starts
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      void startRecording();
+    }, ACTIVATION_TIME);
   };
 
   const handlePressOut = async () => {
     if (!isPressed) return;
 
+    // Light haptic feedback on release
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     setIsPressed(false);
-    await stopRecording();
+
+    // If still activating, cancel activation
+    if (isActivating) {
+      console.log('❌ Released before activation complete, canceling...');
+      setIsActivating(false);
+
+      if (activationTimer.current) {
+        clearTimeout(activationTimer.current);
+        activationTimer.current = null;
+      }
+
+      // Reset progress animation
+      activationProgress.setValue(0);
+
+      // Scale back up animation
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true
+      }).start();
+
+      return;
+    }
+
+    // If recording, stop it after a delay to capture audio tail
+    if (isRecording) {
+      console.log(
+        `⏳ Release detected, will stop recording in ${RELEASE_DELAY}ms to capture audio tail`
+      );
+
+      // Clear any existing release delay timer
+      if (releaseDelayTimer.current) {
+        clearTimeout(releaseDelayTimer.current);
+      }
+
+      // Delay the stop to capture the end of speech
+      releaseDelayTimer.current = setTimeout(() => {
+        console.log('🛑 Stopping recording after delay');
+        void stopRecording();
+        releaseDelayTimer.current = null;
+      }, RELEASE_DELAY);
+    }
+
+    // Reset progress for next time
+    activationProgress.setValue(0);
 
     // Scale back up animation
     Animated.spring(scaleAnim, {
@@ -241,20 +351,35 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     setCanRecord(permissionResponse?.status === Audio.PermissionStatus.GRANTED);
   }, [permissionResponse]);
 
-  const formatDuration = (milliseconds: number) => {
+  const _formatDuration = (milliseconds: number) => {
     const seconds = Math.floor(milliseconds / 1000);
     const ms = Math.floor((milliseconds % 1000) / 100);
     return `${seconds}.${ms}`;
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.instructionText}>
-        {isRecording
-          ? `Recording... ${formatDuration(recordingDuration)}s`
-          : 'Hold to record (min 1.5s)'}
-      </Text>
+  // Interpolate progress to stroke-dashoffset for circular progress
+  const progressCircumference = 2 * Math.PI * 38; // radius = 38 (button radius + stroke padding)
+  const progressStrokeDashoffset = activationProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [progressCircumference, 0]
+  });
 
+  // Interpolate ring color from blue to red
+  const ringColor = activationProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#3b82f6', '#ef4444'] // blue-500 to red-500
+  });
+
+  // Container background color - animated from transparent to red
+  const containerBgColor = bgColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(239, 68, 68, 0)', 'rgba(239, 68, 68, 0.15)'] // transparent to red with 15% opacity
+  });
+
+  return (
+    <Animated.View
+      style={[styles.container, { backgroundColor: containerBgColor }]}
+    >
       <View style={styles.buttonContainer}>
         <Animated.View
           style={[
@@ -263,6 +388,40 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             }
           ]}
         >
+          {/* Circular progress indicator - always rendered but only visible when activating */}
+          <View style={styles.progressRing}>
+            <Svg width="84" height="84" viewBox="0 0 84 84">
+              {/* Background track (subtle) */}
+              {(isActivating || isRecording) && (
+                <Circle
+                  cx="42"
+                  cy="42"
+                  r="38"
+                  stroke={isRecording ? '#fca5a5' : '#e5e7eb'}
+                  strokeWidth="6"
+                  fill="none"
+                  opacity={0.3}
+                />
+              )}
+              {/* Progress arc */}
+              {(isActivating || isRecording) && (
+                <AnimatedCircle
+                  cx="42"
+                  cy="42"
+                  r="38"
+                  stroke={ringColor}
+                  strokeWidth="6"
+                  fill="none"
+                  strokeDasharray={progressCircumference}
+                  strokeDashoffset={progressStrokeDashoffset}
+                  strokeLinecap="round"
+                  rotation="-90"
+                  origin="42, 42"
+                />
+              )}
+            </Svg>
+          </View>
+
           <Button
             variant={isRecording ? 'destructive' : 'default'}
             size="icon-xl"
@@ -276,7 +435,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             <Ionicons
               name={isRecording ? 'mic' : 'mic-outline'}
               size={32}
-              color={isRecording ? colors.background : colors.background}
+              color={colors.background}
             />
           </Button>
         </Animated.View>
@@ -293,27 +452,42 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           </Text>
         </Button>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: spacing.large
-  },
-  instructionText: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary,
-    marginBottom: spacing.medium,
-    textAlign: 'center'
+    paddingVertical: spacing.large,
+    borderRadius: 24
   },
   buttonContainer: {
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    position: 'relative',
+    width: 84,
+    height: 84
+  },
+  progressRing: {
+    position: 'absolute',
+    top: '50%',
+    left: '38.5%',
+    marginTop: -42,
+    marginLeft: -42,
+    width: 84,
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none'
   },
   recorderButton: {
-    // Button component handles most styling, just add custom overrides if needed
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden'
   },
   recordingButton: {
     // Button component handles destructive variant styling

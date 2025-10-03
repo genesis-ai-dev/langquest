@@ -2754,6 +2754,13 @@ export const localizations = {
     tok_pisin: 'Save',
     indonesian: 'Simpan'
   },
+  merge: {
+    english: 'Merge',
+    spanish: 'Fusionar',
+    brazilian_portuguese: 'Mesclar',
+    tok_pisin: 'Merge',
+    indonesian: 'Menggabungkan'
+  },
   projectDirectory: {
     english: 'Project Directory',
     spanish: 'Directorio de Proyecto',

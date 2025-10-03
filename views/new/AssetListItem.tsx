@@ -127,7 +127,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
-                ID: {asset.id.substring(0, 8)}...
+                {`ID: ${asset.id.substring(0, 8)}...`}
               </CardDescription>
             )}
           </View>
