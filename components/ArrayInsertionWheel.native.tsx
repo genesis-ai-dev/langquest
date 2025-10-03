@@ -1,7 +1,9 @@
 import type { PickerItem } from '@quidone/react-native-wheel-picker';
 import WheelPicker from '@quidone/react-native-wheel-picker';
+import { ArrowDownNarrowWide, Mic } from 'lucide-react-native';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Icon } from './ui/icon';
 
 export interface ArrayInsertionWheelHandle {
   scrollToInsertionIndex: (index: number, animated?: boolean) => void;
@@ -93,12 +95,30 @@ function ArrayInsertionWheelInternal(
       // When empty (0 items), this is position 0 - the only insertion point
       // When non-empty, this is position N - insert after all items
       return (
-        <View style={{ height: rowHeight }} className="justify-center px-4">
-          <Text className="text-center text-sm text-muted-foreground">
-            {children.length === 0
-              ? '⬇ Tap record button to start'
-              : '⬇ Insert at end'}
-          </Text>
+        <View
+          style={{ height: rowHeight }}
+          className="flex-row items-center justify-center px-4"
+        >
+          <View
+            className="flex-row items-center gap-2"
+            style={{ flex: 1, justifyContent: 'center' }}
+          >
+            {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
+            <View
+              className="flex-row items-center justify-center rounded-full bg-primary/10 p-2"
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Icon as={Mic} size={20} />
+              <Icon
+                as={ArrowDownNarrowWide}
+                size={20}
+                style={{ marginLeft: 4 }}
+              />
+            </View>
+          </View>
         </View>
       );
     },

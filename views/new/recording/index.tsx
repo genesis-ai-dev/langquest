@@ -179,7 +179,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
       if (needsInit && asset.source !== 'optimistic') {
         // For assets without explicit ordering, assign based on current position
-        // This only happens in-memory; database update will happen on next insertion
         return { ...asset, order_index: index } as UIAsset;
       }
       // Normalize null to undefined for type consistency
@@ -191,6 +190,66 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     return withOrderIndex;
   }, [rawAssets, optimisticAssets]);
+
+  // Normalize order_index values in database once when assets need initialization
+  const hasNormalizedOrderIndexRef = React.useRef(false);
+  React.useEffect(() => {
+    if (hasNormalizedOrderIndexRef.current) return;
+    if (!currentQuestId) return;
+
+    const assetsNeedingInit = assets.filter((a) => {
+      // Check if in-memory order_index differs from what was in DB (likely 0)
+      const rawAsset = rawAssets.find(
+        (r) => (r as { id?: string })?.id === a.id
+      );
+      const rawOrder = rawAsset
+        ? (rawAsset as { order_index?: number }).order_index
+        : null;
+
+      return (
+        a.source !== 'optimistic' &&
+        typeof a.order_index === 'number' &&
+        (rawOrder === 0 || rawOrder === null || rawOrder === undefined) &&
+        a.order_index !== rawOrder
+      );
+    });
+
+    if (assetsNeedingInit.length === 0) {
+      hasNormalizedOrderIndexRef.current = true;
+      return;
+    }
+
+    console.log(
+      `🔄 Normalizing order_index for ${assetsNeedingInit.length} assets...`
+    );
+
+    void (async () => {
+      try {
+        const assetLocal = resolveTable('asset', { localOverride: true });
+
+        await system.db.transaction(async (tx) => {
+          for (const asset of assetsNeedingInit) {
+            // TypeScript guard: order_index is guaranteed to be a number here
+            // due to the filter condition above
+            const orderIndex = asset.order_index;
+            if (typeof orderIndex === 'number') {
+              await tx
+                .update(assetLocal)
+                .set({ order_index: orderIndex })
+                .where(eq(assetLocal.id, asset.id));
+            }
+          }
+        });
+
+        console.log(
+          `✅ Normalized order_index for ${assetsNeedingInit.length} assets`
+        );
+        hasNormalizedOrderIndexRef.current = true;
+      } catch (error) {
+        console.error('❌ Failed to normalize order_index:', error);
+      }
+    })();
+  }, [assets, rawAssets, currentQuestId]);
 
   // Insertion tracking - start at end of list by default
   const [insertionIndex, setInsertionIndex] = React.useState(() =>
@@ -484,31 +543,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           });
           const assetLocal = resolveTable('asset', { localOverride: true });
 
-          // Get IDs of assets that need to be shifted (those at or after insertion point)
-          // Use in-memory order_index values since they may have been initialized
-          const assetsToShift = assets
-            .filter((a) => {
-              const aOrder =
-                typeof a.order_index === 'number' ? a.order_index : 0;
-              return aOrder >= targetOrder && a.source !== 'optimistic';
-            })
-            .map((a) => a.id);
+          // Shift assets at or after insertion point up by 1
+          // Since order_index is now normalized, we can trust the database values
+          const assetsToShift = assets.filter((a) => {
+            const aOrder =
+              typeof a.order_index === 'number' ? a.order_index : 0;
+            return aOrder >= targetOrder && a.source !== 'optimistic';
+          });
 
-          // Shift those assets up by 1 in the database
-          if (assetsToShift.length > 0) {
-            for (const assetId of assetsToShift) {
-              // Get current order_index from memory (it may have been initialized)
-              const asset = assets.find((a) => a.id === assetId);
-              const currentOrder =
-                asset && typeof asset.order_index === 'number'
-                  ? asset.order_index
-                  : 0;
-
-              await tx
-                .update(assetLocal)
-                .set({ order_index: currentOrder + 1 })
-                .where(eq(assetLocal.id, assetId));
-            }
+          for (const asset of assetsToShift) {
+            const newOrder = (asset.order_index ?? 0) + 1;
+            await tx
+              .update(assetLocal)
+              .set({ order_index: newOrder })
+              .where(eq(assetLocal.id, asset.id));
           }
 
           const [newAsset] = await tx
@@ -1491,30 +1539,32 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         </View>
       </View>
 
-      {/* Scrollable list */}
-      {isWheel ? (
-        <ArrayInsertionWheel
-          ref={setWheelRef}
-          className="flex-1"
-          value={insertionIndex}
-          onChange={handleInsertionChange}
-          rowHeight={ROW_HEIGHT}
-          bottomInset={footerHeight}
-        >
-          {scrollViewContent}
-        </ArrayInsertionWheel>
-      ) : (
-        <ArrayInsertionList
-          ref={setListRef}
-          className="flex-1"
-          value={insertionIndex}
-          onChange={handleInsertionChange}
-          rowHeight={ROW_HEIGHT}
-          bottomInset={footerHeight}
-        >
-          {scrollViewContent}
-        </ArrayInsertionList>
-      )}
+      <View className="h-full flex-1 p-2">
+        {/* Scrollable list */}
+        {isWheel ? (
+          <ArrayInsertionWheel
+            ref={setWheelRef}
+            className="h-full flex-1"
+            value={insertionIndex}
+            onChange={handleInsertionChange}
+            rowHeight={ROW_HEIGHT}
+            bottomInset={footerHeight}
+          >
+            {scrollViewContent}
+          </ArrayInsertionWheel>
+        ) : (
+          <ArrayInsertionList
+            ref={setListRef}
+            className="flex-1"
+            value={insertionIndex}
+            onChange={handleInsertionChange}
+            rowHeight={ROW_HEIGHT}
+            bottomInset={footerHeight}
+          >
+            {scrollViewContent}
+          </ArrayInsertionList>
+        )}
+      </View>
 
       {/* Bottom controls */}
       <View className="absolute bottom-0 left-0 right-0">
