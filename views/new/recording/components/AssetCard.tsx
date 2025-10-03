@@ -21,7 +21,7 @@ import {
   Trash2
 } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface AssetCardProps {
   asset: {
@@ -45,6 +45,8 @@ interface AssetCardProps {
   onEdit?: (assetId: string, assetName: string) => void;
 }
 
+const PROGRESS_STEPS = 500; // Number of steps for smooth animation
+
 export function AssetCard({
   asset,
   index,
@@ -65,6 +67,66 @@ export function AssetCard({
   const isCloud = asset.source === 'cloud';
   const isLocal = !isCloud && !isOptimistic;
 
+  // Animated value for smooth progress transitions
+  const animatedProgress = React.useRef(new Animated.Value(0)).current;
+  const previousProgressRef = React.useRef(0);
+  const currentValueRef = React.useRef(0);
+
+  // Smooth progress animation with clamping
+  React.useEffect(() => {
+    if (!isPlaying || progress === undefined) {
+      // Reset animation when not playing
+      Animated.timing(animatedProgress, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false
+      }).start(() => {
+        currentValueRef.current = 0;
+      });
+      previousProgressRef.current = 0;
+      return;
+    }
+
+    // Clamp progress to discrete steps for smoother animation
+    const clampedProgress =
+      (Math.round((progress / 100) * PROGRESS_STEPS) / PROGRESS_STEPS) * 100;
+
+    // Only animate if progress actually changed
+    if (clampedProgress !== previousProgressRef.current) {
+      const progressDelta = clampedProgress - previousProgressRef.current;
+
+      // For multi-segment assets, ensure smooth transitions between segments
+      // If progress jumped backwards (new segment started), animate from previous position
+      const fromValue =
+        progressDelta < 0
+          ? previousProgressRef.current
+          : currentValueRef.current;
+
+      // Calculate animation duration based on segment count
+      // Multi-segment assets get slightly faster animations to stay ahead
+      const baseSpeed = segmentCount && segmentCount > 1 ? 400 : 500;
+      const duration = Math.min(baseSpeed, Math.abs(progressDelta) * 10);
+
+      animatedProgress.setValue(fromValue);
+      Animated.timing(animatedProgress, {
+        toValue: clampedProgress,
+        duration,
+        useNativeDriver: false
+      }).start(() => {
+        currentValueRef.current = clampedProgress;
+      });
+
+      previousProgressRef.current = clampedProgress;
+    }
+  }, [progress, isPlaying, animatedProgress, segmentCount]);
+
+  // Interpolate to slightly lead the actual progress for smoother finish
+  const displayProgress = animatedProgress.interpolate({
+    inputRange: [0, 95, 100],
+    outputRange: ['0%', '97%', '100%'], // Slightly ahead at the end
+    extrapolate: 'clamp'
+  });
+
   return (
     <TouchableOpacity
       className={`relative overflow-hidden rounded-lg border p-3 ${
@@ -80,9 +142,9 @@ export function AssetCard({
           style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
           pointerEvents="none"
         >
-          <View
+          <Animated.View
             className="h-full bg-primary/20"
-            style={{ width: `${progress}%` }}
+            style={{ width: displayProgress }}
           />
         </View>
       )}
