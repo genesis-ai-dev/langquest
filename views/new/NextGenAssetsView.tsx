@@ -113,7 +113,6 @@ export default function NextGenAssetsView() {
 
   // Get project data to check if it's templated
   const { project: currentProject } = useProjectById(currentProjectId);
-  console.log('currentProjectId', currentProjectId);
   const [showRecording, setShowRecording] = React.useState(false);
 
   // Handlers for templated project creation

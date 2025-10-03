@@ -25,7 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { eq, sql } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { Animated, View } from 'react-native';
+import { Alert, Animated, View } from 'react-native';
 import uuid from 'react-native-uuid';
 import { useHybridData } from '../useHybridData';
 import { AssetCard } from './components/AssetCard';
@@ -1015,48 +1015,121 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     [assets, currentUser, queryClient]
   );
 
-  const handleBatchMergeSelected = React.useCallback(async () => {
-    try {
-      const selectedOrdered = assets.filter(
-        (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-      );
-      if (selectedOrdered.length < 2 || !currentUser) return;
+  const handleBatchMergeSelected = React.useCallback(() => {
+    const selectedOrdered = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (selectedOrdered.length < 2) return;
 
-      const target = selectedOrdered[0]!;
-      const rest = selectedOrdered.slice(1);
-      const contentLocal = resolveTable('asset_content_link', {
-        localOverride: true
-      });
+    Alert.alert(
+      'Merge Assets',
+      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Merge',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                if (!currentUser) return;
 
-      for (const src of rest) {
-        const srcContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, src.id));
+                const target = selectedOrdered[0]!;
+                const rest = selectedOrdered.slice(1);
+                const contentLocal = resolveTable('asset_content_link', {
+                  localOverride: true
+                });
 
-        for (const c of srcContent) {
-          if (!c.audio_id) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: target.id,
-            source_language_id: c.source_language_id,
-            text: c.text || '',
-            audio_id: c.audio_id,
-            download_profiles: [currentUser.id]
-          });
+                for (const src of rest) {
+                  const srcContent = await system.db
+                    .select()
+                    .from(contentLocal)
+                    .where(eq(contentLocal.asset_id, src.id));
+
+                  for (const c of srcContent) {
+                    if (!c.audio_id) continue;
+                    await system.db.insert(contentLocal).values({
+                      asset_id: target.id,
+                      source_language_id: c.source_language_id,
+                      text: c.text || '',
+                      audio_id: c.audio_id,
+                      download_profiles: [currentUser.id]
+                    });
+                  }
+
+                  await audioSegmentService.deleteAudioSegment(src.id);
+                }
+
+                cancelSelection();
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets'],
+                  exact: false
+                });
+
+                console.log('✅ Batch merge completed');
+              } catch (e) {
+                console.error('Failed to batch merge local assets', e);
+                Alert.alert(
+                  'Error',
+                  'Failed to merge assets. Please try again.'
+                );
+              }
+            })();
+          }
         }
-
-        await audioSegmentService.deleteAudioSegment(src.id);
-      }
-
-      cancelSelection();
-      await queryClient.invalidateQueries({
-        queryKey: ['assets'],
-        exact: false
-      });
-    } catch (e) {
-      console.error('Failed to batch merge local assets', e);
-    }
+      ]
+    );
   }, [assets, selectedAssetIds, currentUser, cancelSelection, queryClient]);
+
+  const handleBatchDeleteSelected = React.useCallback(() => {
+    const selectedOrdered = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (selectedOrdered.length < 1) return;
+
+    Alert.alert(
+      'Delete Assets',
+      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const asset of selectedOrdered) {
+                  await audioSegmentService.deleteAudioSegment(asset.id);
+                }
+
+                cancelSelection();
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets'],
+                  exact: false
+                });
+
+                console.log(
+                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to batch delete local assets', e);
+                Alert.alert(
+                  'Error',
+                  'Failed to delete assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, cancelSelection, queryClient]);
 
   // Render content
   const scrollViewContent = React.useMemo(() => {
@@ -1314,6 +1387,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
             />
           </View>
         ) : (

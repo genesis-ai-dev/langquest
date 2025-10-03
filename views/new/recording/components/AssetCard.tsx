@@ -2,24 +2,20 @@
  * AssetCard - Individual asset display with actions
  *
  * Features:
- * - Play/pause audio with visual progress
- * - Delete
- * - Merge with next
+ * - Tap card to play/pause audio (except when tapping label to rename)
+ * - Visual progress bar during playback
+ * - Delete and merge actions
  * - Selection mode (WhatsApp-style long-press)
+ *
+ * Interaction:
+ * - Tap card → play/pause audio (or toggle selection if in selection mode)
+ * - Tap label → rename asset (when renameable)
+ * - Long press → enter selection mode
  */
 
-import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import {
-  CheckCircle,
-  Circle,
-  Edit,
-  GitMerge,
-  Pause,
-  Play,
-  Trash2
-} from 'lucide-react-native';
+import { CheckCircle, Circle } from 'lucide-react-native';
 import React from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -34,16 +30,17 @@ interface AssetCardProps {
   isSelected: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
-  canMergeDown: boolean;
   progress?: number; // 0-100 percentage
   segmentCount?: number; // Number of audio segments in this asset
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
-  onDelete: (assetId: string) => void;
-  onMerge: (index: number) => void;
-  onEdit?: (assetId: string, assetName: string) => void;
   onRename?: (assetId: string, currentName: string) => void;
+  // Note: These callbacks are still passed but no longer used (batch operations only)
+  onDelete?: (assetId: string) => void;
+  onMerge?: (index: number) => void;
+  onEdit?: (assetId: string, assetName: string) => void;
+  canMergeDown?: boolean;
 }
 
 const PROGRESS_STEPS = 500; // Number of steps for smooth animation
@@ -54,15 +51,11 @@ export function AssetCard({
   isSelected,
   isSelectionMode,
   isPlaying,
-  canMergeDown,
   progress,
   segmentCount,
   onPress,
   onLongPress,
   onPlay,
-  onDelete,
-  onMerge,
-  onEdit,
   onRename
 }: AssetCardProps) {
   const isOptimistic = asset.source === 'optimistic';
@@ -132,12 +125,21 @@ export function AssetCard({
     extrapolate: 'clamp'
   });
 
+  // Handle card press: play/pause in normal mode, toggle selection in selection mode
+  const handleCardPress = React.useCallback(() => {
+    if (isSelectionMode) {
+      onPress(); // Toggle selection
+    } else {
+      onPlay(asset.id); // Play/pause audio
+    }
+  }, [isSelectionMode, onPress, onPlay, asset.id]);
+
   return (
     <TouchableOpacity
       className={`relative overflow-hidden rounded-lg border p-3 ${
         isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
       }`}
-      onPress={onPress}
+      onPress={handleCardPress}
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
@@ -158,6 +160,7 @@ export function AssetCard({
       <View className="flex-row items-center gap-3" style={{ zIndex: 1 }}>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
+            {/* Label with rename functionality - prevents card play when tapped */}
             <TouchableOpacity
               onPress={() => {
                 if (!isSelectionMode && isRenameable && onRename) {
@@ -185,59 +188,6 @@ export function AssetCard({
             {`${isCloud ? 'Cloud' : isOptimistic ? 'Saving…' : 'Local'} • Position ${index + 1}`}
           </Text>
         </View>
-
-        {/* Action buttons - only show for local assets when NOT in selection mode */}
-        {!isSelectionMode && isLocal && (
-          <View className="flex-row gap-1" style={{ zIndex: 1 }}>
-            {/* Play button */}
-            <Button
-              variant="outline"
-              size="icon"
-              onPress={() => onPlay(asset.id)}
-              disabled={isOptimistic}
-            >
-              <Icon
-                as={isPlaying ? Pause : Play}
-                size={16}
-                className={isPlaying ? 'text-primary' : ''}
-              />
-            </Button>
-
-            {/* Edit segments */}
-            {onEdit && (
-              <Button
-                variant="outline"
-                size="icon"
-                onPress={() => onEdit(asset.id, asset.name)}
-                disabled={isOptimistic}
-              >
-                <Icon as={Edit} size={16} />
-              </Button>
-            )}
-
-            {/* Delete asset */}
-            <Button
-              variant="destructive"
-              size="icon"
-              onPress={() => onDelete(asset.id)}
-              disabled={isOptimistic}
-            >
-              <Icon as={Trash2} size={16} />
-            </Button>
-
-            {/* Merge down */}
-            {canMergeDown && (
-              <Button
-                variant="outline"
-                size="icon"
-                onPress={() => onMerge(index)}
-                disabled={isOptimistic}
-              >
-                <Icon as={GitMerge} size={16} />
-              </Button>
-            )}
-          </View>
-        )}
 
         {/* Selection checkbox - only show for local assets in selection mode */}
         {isSelectionMode && isLocal && (
