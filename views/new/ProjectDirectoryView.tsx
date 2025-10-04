@@ -28,7 +28,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProjectById } from '@/hooks/db/useProjects';
 import { useLocalization } from '@/hooks/useLocalization';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -67,8 +66,6 @@ export default function ProjectDirectoryView() {
     resolver: zodResolver(formSchema)
   });
 
-  console.log('currentProjectId', currentProjectId);
-  const { project } = useProjectById(currentProjectId);
   const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
     queryKeyParams: ['for-project', currentProjectId],

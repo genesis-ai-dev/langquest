@@ -166,10 +166,11 @@ export default function ProfileView() {
             {t('profile')}
           </Text>
           {__DEV__ && (
-            <>
+            <View className="flex flex-row gap-2">
               <Button
                 variant="destructive"
                 loading={seedDatabasePending}
+                className="flex-1"
                 onPress={() => {
                   if (Platform.OS === 'web') {
                     void seedDatabase();
@@ -194,8 +195,9 @@ export default function ProfileView() {
                 <Text>Seed data</Text>
               </Button>
               <Button
-                variant="destructive"
+                variant="secondary"
                 loading={deleteDatabasePending}
+                className="flex-1"
                 onPress={() => {
                   if (Platform.OS === 'web') {
                     void deleteDatabase();
@@ -217,9 +219,9 @@ export default function ProfileView() {
                   }
                 }}
               >
-                <Text>Delete local data</Text>
+                <Text>Wipe local database</Text>
               </Button>
-            </>
+            </View>
           )}
           {!posthog.isDisabled && (
             <Button

@@ -15,15 +15,18 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
-import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
+import { getLocalAttachmentUri } from '@/utils/fileUtils';
+import { saveAudioFileLocally } from '@/utils/fileUtils.web';
 import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
@@ -136,9 +139,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       interface QuestAssetJoin {
         asset: unknown;
       }
-      return ((data as QuestAssetJoin[]) || [])
-        .map((d) => d.asset)
-        .filter(Boolean);
+      return (data as QuestAssetJoin[]).map((d) => d.asset).filter(Boolean);
     },
     enableOfflineQuery: true,
     enableCloudQuery: true,
@@ -534,8 +535,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           return;
         }
 
-        const attachmentRecord =
-          await system.permAttachmentQueue?.saveAudio(uri);
+        const localUri = await saveAudioFileLocally(uri);
 
         await system.db.transaction(async (tx) => {
           const linkLocal = resolveTable('quest_asset_link', {
@@ -586,7 +586,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               asset_id: newAsset.id,
               source_language_id: currentProject.target_language_id,
               text: optimisticAsset.name,
-              audio_id: attachmentRecord?.id ?? newId,
+              audio: [localUri],
               download_profiles: [currentUser.id]
             });
         });
@@ -653,44 +653,24 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     async (assetId: string): Promise<string[]> => {
       try {
         // Query both local and synced asset_content_link tables
-        const query = `
-          SELECT id, asset_id, audio_id, source_language_id
-          FROM (
-            SELECT * FROM asset_content_link
-            UNION
-            SELECT * FROM asset_content_link_local
-          )
-          WHERE asset_id = '${assetId}'
-          ORDER BY created_at ASC
-        `;
 
-        const result = await system.powersync.execute(query);
-        const uris: string[] = [];
+        const query = await system.db.query.asset_content_link.findMany({
+          columns: {
+            id: true,
+            asset_id: true,
+            audio: true,
+            source_language_id: true
+          },
+          where: eq(asset_content_link.asset_id, assetId),
+          orderBy: asc(asset_content_link.created_at)
+        });
 
-        if (system.permAttachmentQueue && result.rows) {
-          for (let i = 0; i < result.rows.length; i++) {
-            const row = result.rows.item(i);
-            if (row?.audio_id) {
-              const attachment = await system.powersync.getOptional<{
-                id: string;
-                local_uri: string | null;
-                filename: string | null;
-              }>(
-                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-                [row.audio_id]
-              );
-
-              if (attachment?.local_uri) {
-                const uri = system.permAttachmentQueue.getLocalUri(
-                  attachment.local_uri
-                );
-                if (uri) {
-                  uris.push(uri);
-                }
-              }
-            }
-          }
-        }
+        const uris = await Promise.all(
+          query
+            .flatMap((content) => content.audio)
+            .filter(Boolean)
+            .map(getLocalAttachmentUri)
+        );
 
         console.log(
           `📎 Retrieved ${uris.length} URI(s) for asset ${assetId.slice(0, 8)}`
@@ -865,55 +845,26 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           continue;
         }
 
-        // Use toMergeCompilableQuery to build a safe, composable query
-        const queryInput = {
-          sql: `
-            SELECT id, asset_id, audio_id, text, source_language_id
-            FROM (
-              SELECT *, 'synced' as source FROM asset_content_link
-              UNION
-              SELECT *, 'local' as source FROM asset_content_link_local
-            )
-            WHERE asset_id = ?
-            ORDER BY created_at ASC
-          `,
-          parameters: [asset.id]
-        };
-
-        // Use the util to get a compilable query
-        const compilableQuery = toMergeCompilableQuery(queryInput);
-
-        let result: any;
-        try {
-          result = await system.powersync.execute(
-            compilableQuery.compile().sql,
-            compilableQuery.compile().parameters
-          );
-        } catch (err) {
-          console.error('Failed to load segments for asset', asset.id, err);
-          counts.set(asset.id, 0);
-          continue;
-        }
+        const queryResult = await system.db.query.asset_content_link.findMany({
+          columns: {
+            id: true,
+            asset_id: true,
+            audio: true,
+            text: true,
+            source_language_id: true
+          },
+          where: eq(asset_content_link.asset_id, asset.id),
+          orderBy: asc(asset_content_link.created_at)
+        });
 
         const contents: { id: string; audio_id: string | null }[] = [];
 
-        if (result?.rows) {
-          for (let i = 0; i < result.rows.length; i++) {
-            // Defensive: result.rows.item may be any
-            const row: unknown = result.rows.item(i);
-            if (
-              row &&
-              typeof row === 'object' &&
-              'id' in row &&
-              'audio_id' in row
-            ) {
-              contents.push({
-                id: (row as { id: string }).id,
-                audio_id: (row as { audio_id: string | null }).audio_id
-              });
-            }
-          }
-        }
+        queryResult.forEach((row) => {
+          contents.push({
+            id: row.id,
+            audio_id: row.audio?.[0] ?? null
+          });
+        });
 
         counts.set(asset.id, contents.length);
 
@@ -1055,14 +1006,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const handleDeleteSegment = React.useCallback(
     async (segmentId: string) => {
       try {
+        const contentTable = resolveTable('asset_content_link', {
+          localOverride: true
+        });
         await system.db
-          .delete(resolveTable('asset_content_link', { localOverride: true }))
-          .where(
-            eq(
-              resolveTable('asset_content_link', { localOverride: true }).id,
-              segmentId
-            )
-          );
+          .delete(contentTable)
+          .where(eq(contentTable.id, segmentId));
 
         console.log('✅ Segment deleted');
 
@@ -1071,6 +1020,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           queryKey: ['assets'],
           exact: false
         });
+        await system.permAttachmentQueue?.deleteFromQueue(segmentId);
       } catch (error) {
         console.error('Failed to delete segment:', error);
       }

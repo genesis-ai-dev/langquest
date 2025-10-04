@@ -23,8 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { getLocalUri } from '@/utils/fileUtils';
-import { opfsFileToBlobUrl } from '@/utils/opfsUtils.web';
+import { getLocalAttachmentUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -241,16 +240,7 @@ export default function NextGenAssetDetailView() {
         activeAsset!.content
           .flatMap((content) => content.audio)
           .filter(Boolean)
-          .map(async (audio) => {
-            let localUri = getLocalUri(
-              system.permAttachmentQueue!.getLocalFilePathSuffix(audio)
-            );
-            console.log('[AUDIO SEGMENT] Local URI', localUri);
-            if (Platform.OS === 'web') {
-              localUri = await opfsFileToBlobUrl(localUri);
-            }
-            return localUri;
-          })
+          .map(getLocalAttachmentUri)
       );
     },
     enabled: !!activeAsset && !!system.permAttachmentQueue

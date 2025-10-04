@@ -4,11 +4,10 @@
  * Displays while recording is in progress or saving to database
  */
 
-import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Loader2 } from 'lucide-react-native';
+import { getThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { Animated, View } from 'react-native';
+import { ActivityIndicator, Animated, View } from 'react-native';
 import type { PendingSegment } from '../hooks/useRecordingState';
 
 interface PendingCardProps {
@@ -51,11 +50,7 @@ export const PendingCard = React.memo(function PendingCard({
         {/* Loading spinner for active states */}
         {(pending.status === 'recording' || pending.status === 'saving') && (
           <View className="h-8 w-8 items-center justify-center">
-            <Icon
-              as={Loader2}
-              size={20}
-              className="animate-spin text-primary"
-            />
+            <ActivityIndicator color={getThemeColor('primary')} />
           </View>
         )}
         <View className="flex-1">

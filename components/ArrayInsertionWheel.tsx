@@ -1,8 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import ArrayInsertionList, {
-  type ArrayInsertionListHandle
-} from './ArrayInsertionList';
+import type { ArrayInsertionListHandle } from './ArrayInsertionList';
+import ArrayInsertionList from './ArrayInsertionList';
 
 export interface ArrayInsertionWheelHandle {
   scrollToInsertionIndex: (index: number, animated?: boolean) => void;

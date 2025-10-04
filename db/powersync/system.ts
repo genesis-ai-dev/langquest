@@ -49,6 +49,7 @@ import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
 import { useLocalStore } from '@/store/localStore';
 import type { InferInsertModel } from 'drizzle-orm';
+import { Platform } from 'react-native';
 
 type InsertQuest = InferInsertModel<typeof drizzleSchema.quest>;
 type InsertAsset = InferInsertModel<typeof drizzleSchema.asset>;
@@ -560,7 +561,6 @@ export class System {
     // Insert language
     await this.db.insert(drizzleSchemaLocal.language_local).values({
       id: ENGLISH_LANGUAGE_ID,
-      draft: false,
       creator_id: PROFILE_ID,
       native_name: 'Generated English',
       english_name: 'Generated English',
@@ -576,7 +576,6 @@ export class System {
     ) {
       const project = {
         id: uuid.v4(),
-        draft: false,
         creator_id: PROFILE_ID,
         name: `Project ${i + 1}`,
         description: `Description for project ${i + 1}`,
@@ -595,7 +594,6 @@ export class System {
       const quests: InsertQuest[] = Array.from({ length: 5 }, (_, i) => {
         return {
           id: uuid.v4(),
-          draft: false,
           creator_id: PROFILE_ID,
           name: `Quest ${i + 1}`,
           description: `Description for quest ${i + 1}`,
@@ -825,7 +823,6 @@ export class System {
     // for (let i = 0; i < 10; i++) {
     //   assets.push({
     //     id: uuid.v4(),
-    //     draft: false,
     //     creator_id: PROFILE_ID,
     //     name: `Asset ${i + 1}`,
     //     images: [],
@@ -847,7 +844,6 @@ export class System {
     //     active: true,
     //     visible: true,
     //     private: true,
-    //     draft: false,
     //     creator_id: PROFILE_ID,
     //     created_at: new Date(),
     //     last_updated: new Date(),
@@ -910,7 +906,7 @@ export class System {
         initPromises.push(this.permAttachmentQueue.init());
       }
 
-      if (this.tempAttachmentQueue) {
+      if (this.tempAttachmentQueue && Platform.OS !== 'web') {
         initPromises.push(this.tempAttachmentQueue.init());
       }
 

@@ -1,3 +1,4 @@
+import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import * as FileSystem from 'expo-file-system';
 
 /**
@@ -88,4 +89,14 @@ export function base64ToArrayBuffer(base64: string) {
 
 export function getLocalUri(filePath: string) {
   return `${getDocumentDirectory()}${filePath}`;
+}
+
+export function getLocalFilePathSuffix(filename: string): string {
+  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
+}
+
+// Async because it may need to fetch the file from the web
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function getLocalAttachmentUri(filePath: string) {
+  return getLocalUri(getLocalFilePathSuffix(filePath));
 }

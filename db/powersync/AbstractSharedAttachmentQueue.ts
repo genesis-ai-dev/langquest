@@ -1,4 +1,3 @@
-import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
 import { useLocalStore } from '@/store/localStore';
 import type {
   AttachmentQueueOptions,
@@ -9,8 +8,10 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
+import { asset, asset_content_link } from '../drizzleSchema';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -346,53 +347,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     );
   }
 
-  // Common method to identify all attachments related to an asset
-  async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    // const queueType =
-    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
-    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
-    const attachmentIds: string[] = [];
-
-    try {
-      // 1. Get the asset itself for images
-      const asset = await getAssetById(assetId);
-
-      if (asset?.images) {
-        // console.log(
-        //   `${queueType} Found ${asset.images.length} images in asset`
-        // );
-        attachmentIds.push(...asset.images);
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetAudioContent(assetId);
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio)
-        .map((content) => content.audio![0]!);
-
-      if (contentAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
-        // );
-        attachmentIds.push(...contentAudioIds);
-      }
-
-      // Log all found attachments
-      // console.log(
-      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      // );
-
-      return attachmentIds;
-    } catch {
-      // console.error(
-      //   `${queueType} Error getting attachments for asset ${assetId}:`,
-      //   error
-      // );
-      return [];
-    }
-  }
-
   // Override downloadRecords to track progress
   async downloadRecordsWithProgress() {
     if (!this.options.downloadAttachments) {
@@ -593,5 +547,32 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       default:
         return 'audio/mpeg';
     }
+  }
+
+  async getAllAssetAttachments(assetId: string) {
+    const data = await this.db
+      .select({
+        images: asset.images,
+        audio: asset_content_link.audio
+      })
+      .from(asset)
+      .leftJoin(asset_content_link, eq(asset.id, asset_content_link.asset_id))
+      .where(
+        and(
+          eq(asset.id, assetId),
+          eq(asset.draft, false),
+          eq(asset_content_link.draft, false),
+          or(isNotNull(asset_content_link.audio), isNotNull(asset.images))
+        )
+      );
+
+    const assetImages = data.flatMap((asset) => asset.images).filter(Boolean);
+    const contentLinkAudioIds = data
+      .flatMap((link) => link.audio)
+      .filter(Boolean);
+    const allAttachments = [...assetImages, ...contentLinkAudioIds];
+    const uniqueAttachments = [...new Set(allAttachments)];
+
+    return uniqueAttachments;
   }
 }

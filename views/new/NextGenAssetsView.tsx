@@ -14,7 +14,8 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { asset, quest as questTable } from '@/db/drizzleSchema';
+import type { asset } from '@/db/drizzleSchema';
+import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -43,6 +44,8 @@ import { ReportModal } from '@/components/NewReportModal';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
 import RecordingView from './recording';
 

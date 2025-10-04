@@ -3,8 +3,8 @@
  * file URIs directly on the web, so these become safe no-ops.
  */
 
-import { system } from '@/db/powersync/system';
-import { getOPFSHandle } from './opfsUtils.web';
+import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { getOPFSHandle, opfsFileToBlobUrl } from './opfsUtils.web';
 
 export async function deleteIfExists(
   _uri: string | null | undefined
@@ -172,13 +172,9 @@ export async function saveAudioFileLocally(uri: string) {
   }
   uri = `local/${fileName}`;
   console.log('writing blob to OPFS', uri);
-  const fileHandle = await getOPFSHandle(
-    system.permAttachmentQueue!.getLocalFilePathSuffix(uri),
-    'file',
-    {
-      create: true
-    }
-  );
+  const fileHandle = await getOPFSHandle(getLocalFilePathSuffix(uri), 'file', {
+    create: true
+  });
 
   if (!fileHandle) {
     throw new Error(`Failed to create file handle for path: ${uri}`);
@@ -189,4 +185,14 @@ export async function saveAudioFileLocally(uri: string) {
   await writable.close();
 
   return uri;
+}
+
+export function getLocalFilePathSuffix(filename: string): string {
+  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
+}
+
+export async function getLocalAttachmentUri(filePath: string) {
+  const localUri = getLocalUri(getLocalFilePathSuffix(filePath));
+  const opfsUri = opfsFileToBlobUrl(localUri);
+  return opfsUri;
 }

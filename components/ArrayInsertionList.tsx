@@ -1,4 +1,6 @@
 // theme colors no longer needed after removing overlay
+import type { LegendListRef } from '@legendapp/list';
+import { LegendList } from '@legendapp/list';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import type {
@@ -6,7 +8,7 @@ import type {
   NativeScrollEvent,
   NativeSyntheticEvent
 } from 'react-native';
-import { FlatList, Platform, TouchableOpacity, View } from 'react-native';
+import { Platform, TouchableOpacity, View } from 'react-native';
 // Text no longer needed after removing overlay
 
 export interface ArrayInsertionListHandle {
@@ -37,7 +39,7 @@ function ArrayInsertionListInternal(
   }: ArrayInsertionListProps,
   ref: React.Ref<ArrayInsertionListHandle>
 ) {
-  const flatListRef = React.useRef<FlatList>(null);
+  const flatListRef = React.useRef<LegendListRef>(null);
   const currentIndexRef = React.useRef(value);
   const isUserScrollingRef = React.useRef(false);
   const scrollTimeoutRef = React.useRef<number | null>(null);
@@ -234,7 +236,7 @@ function ArrayInsertionListInternal(
 
   return (
     <View className={className} onLayout={onContainerLayout}>
-      <FlatList
+      <LegendList
         ref={flatListRef}
         data={dataIndices}
         renderItem={renderItem}
@@ -246,20 +248,20 @@ function ArrayInsertionListInternal(
         snapToInterval={rowHeight}
         decelerationRate="fast"
         disableIntervalMomentum
-        getItemLayout={(_, index) => ({
-          length: rowHeight,
-          offset: rowHeight * index + getPaddingTop(),
-          index
-        })}
+        // getItemLayout={(_, index) => ({
+        //   length: rowHeight,
+        //   offset: rowHeight * index + getPaddingTop(),
+        //   index
+        // })}
         contentContainerStyle={{
           paddingTop: getPaddingTop(),
           paddingBottom: getPaddingBottom()
         }}
         // Optimize performance
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        initialNumToRender={10}
+        // removeClippedSubviews={true}
+        // maxToRenderPerBatch={10}
+        // windowSize={10}
+        // initialNumToRender={10}
       />
 
       {/* No overlay; styling of active index handled by parent content */}
