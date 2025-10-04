@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -7,8 +8,9 @@ import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
+import { Share2 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 interface BibleChapterListProps {
@@ -105,6 +107,26 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     }
   };
 
+  const handleSharePress = (chapterNum: number, chapterName: string) => {
+    Alert.alert(
+      'Publish Chapter',
+      `Mock publish functionality for ${chapterName}.\n\nThis would publish the chapter and all its recordings to make them available to other users.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Publish',
+          onPress: () => {
+            console.log(`📤 Publishing ${chapterName}...`);
+            // TODO: Implement actual publish functionality
+          }
+        }
+      ]
+    );
+  };
+
   // Generate array of chapter numbers
   const chapters = Array.from({ length: book.chapters }, (_, i) => i + 1);
 
@@ -143,36 +165,58 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           ) : (
             chapters.map((chapterNum) => {
               const verseCount = book.verses[chapterNum - 1] || 0;
-              const exists = existingChapterNumbers.has(chapterNum);
+              const existingChapter = existingChapters.find(
+                (ch) => ch.chapterNumber === chapterNum
+              );
+              const exists = !!existingChapter;
+              const isLocal = existingChapter?.source === 'local';
               const isCreatingThis = creatingChapter === chapterNum;
 
               return (
-                <Button
+                <View
                   key={chapterNum}
-                  variant={exists ? 'default' : 'outline'}
-                  className={`w-[90px] flex-col gap-1 py-3 ${
-                    !exists ? 'border-dashed' : ''
-                  }`}
-                  onPress={() => handleChapterPress(chapterNum)}
-                  disabled={isCreating || isLoadingChapters}
+                  className="relative w-[90px] flex-col gap-1"
                 >
-                  {isCreatingThis ? (
-                    <ActivityIndicator size="small" />
-                  ) : (
-                    <>
-                      <Text className="text-lg font-bold">{chapterNum}</Text>
-                      <Text
-                        className={`text-xs ${
-                          exists
-                            ? 'text-primary-foreground/70'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {verseCount} verses
-                      </Text>
-                    </>
+                  <Button
+                    variant={exists ? 'default' : 'outline'}
+                    className={`w-full flex-col gap-1 py-3 ${
+                      !exists ? 'border-dashed' : ''
+                    }`}
+                    onPress={() => handleChapterPress(chapterNum)}
+                    disabled={isCreating || isLoadingChapters}
+                  >
+                    {isCreatingThis ? (
+                      <ActivityIndicator size="small" />
+                    ) : (
+                      <>
+                        <Text className="text-lg font-bold">{chapterNum}</Text>
+                        <Text
+                          className={`text-xs ${
+                            exists
+                              ? 'text-primary-foreground/70'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {verseCount} verses
+                        </Text>
+                      </>
+                    )}
+                  </Button>
+                  {exists && isLocal && (
+                    <Pressable
+                      onPress={() =>
+                        handleSharePress(chapterNum, existingChapter.name)
+                      }
+                      className="absolute right-1 top-1 rounded-full bg-primary/10 p-1"
+                    >
+                      <Icon
+                        as={Share2}
+                        size={12}
+                        className="text-primary-foreground"
+                      />
+                    </Pressable>
                   )}
-                </Button>
+                </View>
               );
             })
           )}

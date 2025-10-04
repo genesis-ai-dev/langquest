@@ -1,5 +1,7 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { mergeQuery } from '@/utils/dbUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
 import { and, eq, like } from 'drizzle-orm';
 
@@ -7,6 +9,7 @@ interface BibleChapter {
     id: string;
     name: string;
     chapterNumber: number;
+    source: HybridDataSource;
 }
 
 /**
@@ -19,7 +22,8 @@ export function useBibleChapters(projectId: string, bookName: string) {
         queryFn: async (): Promise<BibleChapter[]> => {
             // Query for quests that match the pattern "BookName ChapterNumber"
             // e.g., "Genesis 1", "Genesis 2", etc.
-            const results = await system.db
+            // Use mergeQuery to get source field (local vs synced)
+            const mergeableQuery = system.db
                 .select()
                 .from(quest)
                 .where(
@@ -28,6 +32,8 @@ export function useBibleChapters(projectId: string, bookName: string) {
                         like(quest.name, `${bookName} %`)
                     )
                 );
+
+            const results = await mergeQuery(mergeableQuery);
 
             // Extract chapter numbers from names
             return results
@@ -39,7 +45,8 @@ export function useBibleChapters(projectId: string, bookName: string) {
                     return {
                         id: q.id,
                         name: q.name,
-                        chapterNumber
+                        chapterNumber,
+                        source: q.source
                     };
                 })
                 .filter((ch) => ch.chapterNumber > 0)
