@@ -38,11 +38,13 @@ import { RecordingControls } from './components/RecordingControls';
 import { RenameAssetModal } from './components/RenameAssetModal';
 import { SegmentCard } from './components/SegmentCard';
 import { SelectionControls } from './components/SelectionControls';
+import { VADSettingsDrawer } from './components/VADSettingsDrawer';
 import { VerseSegmentModal } from './components/VerseSegmentModal';
 import type { OptimisticAsset } from './hooks/useOptimisticAssets';
 import { useOptimisticAssets } from './hooks/useOptimisticAssets';
 import { useRecordingState } from './hooks/useRecordingState';
 import { useSelectionMode } from './hooks/useSelectionMode';
+import { useVADRecording } from './hooks/useVADRecording';
 
 interface RecordingViewProps {
   onBack: () => void;
@@ -66,6 +68,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [showRenameModal, setShowRenameModal] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
+
+  // VAD mode state
+  const [isVADLocked, setIsVADLocked] = React.useState(false);
+  const [vadThreshold, setVadThreshold] = React.useState(0.03); // Default to "Normal"
+  const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1500); // 1.5s default
+  const [showVADSettings, setShowVADSettings] = React.useState(false);
+  const [currentRecordingEnergy, setCurrentRecordingEnergy] = React.useState(0);
   const {
     playSound,
     playSoundSequence,
@@ -397,8 +406,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     []
   );
 
+  // Guard against multiple simultaneous start attempts
+  const isStartingRecordingRef = React.useRef(false);
+
   // Recording lifecycle
   const handleRecordingStart = React.useCallback(() => {
+    // Prevent multiple simultaneous start attempts (debounce)
+    if (isStartingRecordingRef.current || isRecording) {
+      console.log(
+        '⚠️ Already starting/recording, ignoring duplicate start request'
+      );
+      return null;
+    }
+
+    isStartingRecordingRef.current = true;
     console.log('🎬 handleRecordingStart - insertionIndex:', insertionIndex);
 
     // Mark that we're starting a recording operation
@@ -448,6 +469,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       insertionIndex < assets.length ? insertionIndex + 1 : insertionIndex;
     const tempId = startRecording(visualInsertionPos);
 
+    // Reset the starting flag now that startRecording has been called (sets isRecording=true)
+    isStartingRecordingRef.current = false;
+
     console.log(
       '📝 Created pending card:',
       tempId,
@@ -481,11 +505,33 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
 
     return tempId;
-  }, [insertionIndex, assets, startRecording, removePending, spacerHeight]);
+  }, [
+    insertionIndex,
+    assets,
+    startRecording,
+    removePending,
+    spacerHeight,
+    isRecording
+  ]);
 
   const handleRecordingStop = React.useCallback(() => {
     stopRecording();
+    // Reset the starting flag in case it got stuck
+    isStartingRecordingRef.current = false;
   }, [stopRecording]);
+
+  // VAD recording hook - auto-records based on voice activity
+  // Must be after handleRecordingStart and handleRecordingStop are defined
+  const { isVADRecording, currentEnergy, isPreparingRecording } =
+    useVADRecording({
+      threshold: vadThreshold,
+      silenceDuration: vadSilenceDuration,
+      isVADActive: isVADLocked,
+      onRecordingStart: handleRecordingStart,
+      onRecordingStop: handleRecordingStop,
+      isManualRecording: isRecording,
+      currentRecordingEnergy // Pass expo-av metering energy for silence detection during recording
+    });
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
@@ -1325,18 +1371,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       pendingByIndex.set(p.placementIndex, arr);
     }
 
-    // Debug: log pending state
-    if (pendingSegments.length > 0) {
-      console.log(
-        '🔍 Pending segments:',
-        pendingSegments
-          .map(
-            (p) => `${p.name} at index ${p.placementIndex}, status: ${p.status}`
-          )
-          .join(', ')
-      );
-    }
-
     // Render spacer
     const renderSpacer = (key: string) => {
       if (isWheel) return null;
@@ -1563,14 +1597,35 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           </View>
         ) : (
           <RecordingControls
-            isRecording={isRecording}
+            isRecording={isRecording || isVADRecording}
             onRecordingStart={handleRecordingStart}
             onRecordingStop={handleRecordingStop}
             onRecordingComplete={handleRecordingComplete}
+            onRecordingEnergyUpdate={setCurrentRecordingEnergy}
             onLayout={setFooterHeight}
+            isVADLocked={isVADLocked}
+            onVADLockChange={setIsVADLocked}
+            onSettingsPress={() => setShowVADSettings(true)}
+            // VAD visual feedback
+            currentEnergy={currentEnergy}
+            vadThreshold={vadThreshold}
+            isPreparingRecording={isPreparingRecording}
+            // VAD recording control
+            isVADRecording={isVADRecording}
           />
         )}
       </View>
+
+      {/* VAD Settings Drawer */}
+      <VADSettingsDrawer
+        isOpen={showVADSettings}
+        onOpenChange={setShowVADSettings}
+        threshold={vadThreshold}
+        onThresholdChange={setVadThreshold}
+        silenceDuration={vadSilenceDuration}
+        onSilenceDurationChange={setVadSilenceDuration}
+        isVADLocked={isVADLocked}
+      />
 
       {/* Segment management modal */}
       {modalAssetId && (
