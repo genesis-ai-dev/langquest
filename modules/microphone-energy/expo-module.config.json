@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    "ios",
+    "android"
+  ],
+  "ios": {
+    "modules": [
+      "MicrophoneEnergyModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.microphoneenergy.MicrophoneEnergyModule"
+    ]
+  }
+}
