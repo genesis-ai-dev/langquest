@@ -26,6 +26,7 @@ interface AssetCardProps {
     name: string;
     source?: string;
     order_index?: number;
+    created_at?: string | Date;
   };
   index: number;
   isSelected: boolean;
@@ -46,6 +47,7 @@ interface AssetCardProps {
 }
 
 const PROGRESS_STEPS = 500; // Number of steps for smooth animation
+const HIGHLIGHT_PEAK_MS = 3000; // Peak highlight period (3 seconds)
 
 // Format duration in milliseconds to MM:SS
 function formatDuration(ms: number): string {
@@ -53,6 +55,36 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Calculate highlight intensity for a newly created asset
+ * Uses power law decay: intensity = 1 / (1 + (age/peak)^2)
+ *
+ * @param createdAt - When the asset was created
+ * @returns Opacity value 0-1 (0 = no highlight, 1 = full highlight)
+ */
+function calculateHighlightIntensity(createdAt?: string | Date): number {
+  if (!createdAt) return 0;
+
+  const now = Date.now();
+  const created =
+    typeof createdAt === 'string'
+      ? new Date(createdAt).getTime()
+      : createdAt.getTime();
+  const age = now - created;
+
+  if (age < 0) return 0; // Future date, shouldn't happen
+
+  // Power law decay with exponent 2 for smooth falloff
+  // At t=0: intensity = 1.0 (full)
+  // At t=3s: intensity = 0.5 (half)
+  // At t=6s: intensity = 0.2
+  // At t=12s: intensity = 0.05 (barely visible)
+  const normalized = age / HIGHLIGHT_PEAK_MS;
+  const intensity = 1 / (1 + Math.pow(normalized, 2));
+
+  return Math.max(0, Math.min(1, intensity));
 }
 
 export function AssetCard({
@@ -78,6 +110,28 @@ export function AssetCard({
 
   // Animated value for smooth progress transitions
   const animatedProgress = React.useRef(new Animated.Value(0)).current;
+
+  // Highlight intensity for newly created assets (decays over time)
+  const [highlightIntensity, setHighlightIntensity] = React.useState(() =>
+    calculateHighlightIntensity(asset.created_at)
+  );
+
+  // Update highlight intensity every 100ms for smooth decay animation
+  React.useEffect(() => {
+    if (highlightIntensity <= 0.01) return; // Stop updating when basically invisible
+
+    const interval = setInterval(() => {
+      const newIntensity = calculateHighlightIntensity(asset.created_at);
+      setHighlightIntensity(newIntensity);
+
+      // Stop interval when highlight is gone
+      if (newIntensity <= 0.01) {
+        clearInterval(interval);
+      }
+    }, 100); // Update 10 times per second for smooth animation
+
+    return () => clearInterval(interval);
+  }, [asset.created_at, highlightIntensity]);
   const previousProgressRef = React.useRef(0);
   const currentValueRef = React.useRef(0);
 
@@ -154,6 +208,22 @@ export function AssetCard({
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
+      {/* New asset highlight - decaying gradient overlay */}
+      {highlightIntensity > 0.01 && (
+        <View
+          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
+          pointerEvents="none"
+        >
+          <View
+            className="h-full"
+            style={{
+              backgroundColor: `hsl(var(--chart-5) / ${highlightIntensity * 0.3})`,
+              opacity: highlightIntensity
+            }}
+          />
+        </View>
+      )}
+
       {/* Progress bar overlay - positioned absolutely behind content */}
       {isPlaying && progress !== undefined && (
         <View
