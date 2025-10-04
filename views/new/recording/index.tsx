@@ -308,8 +308,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
-  // Keep insertionIndex in valid range and optionally stick to end
+  // Keep insertionIndex in valid range (but don't auto-advance during recording)
   const prevAssetsLengthRef = React.useRef(assets.length);
+  const isRecordingOperationRef = React.useRef(false);
+
   React.useEffect(() => {
     const prevLength = prevAssetsLengthRef.current;
     const newLength = assets.length;
@@ -317,12 +319,21 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // Update ref for next time
     prevAssetsLengthRef.current = newLength;
 
+    // Don't auto-adjust if we're in the middle of a recording operation
+    // The recording flow handles insertionIndex positioning explicitly
+    if (isRecordingOperationRef.current) {
+      return;
+    }
+
     // Case 1: List grew and we were at the old end -> move to new end
+    // (Only for non-recording operations like external additions)
     if (newLength > prevLength && insertionIndex === prevLength) {
+      console.log('📍 List grew, moving insertion to new end:', newLength);
       setInsertionIndex(newLength);
     }
     // Case 2: insertionIndex is beyond valid range -> clamp it
     else if (insertionIndex > newLength) {
+      console.log('📍 Clamping insertion index to:', newLength);
       setInsertionIndex(newLength);
     }
   }, [assets.length, insertionIndex]);
@@ -390,6 +401,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const handleRecordingStart = React.useCallback(() => {
     console.log('🎬 handleRecordingStart - insertionIndex:', insertionIndex);
 
+    // Mark that we're starting a recording operation
+    // This prevents the useEffect from auto-adjusting insertionIndex
+    isRecordingOperationRef.current = true;
+
     // Clean up any stuck pending cards from previous recordings
     if (currentRecordingTempIdRef.current) {
       console.log(
@@ -415,11 +430,17 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       );
       console.log(`   → Will insert AFTER it at order_index: ${targetOrder}`);
     } else {
-      // At "insert at end" position
-      targetOrder = assets.length;
+      // At "insert at end" position - insert after the last asset
+      const lastAsset = assets[assets.length - 1];
+      const lastOrder =
+        lastAsset && typeof lastAsset.order_index === 'number'
+          ? lastAsset.order_index
+          : assets.length - 1;
+      targetOrder = lastOrder + 1;
       console.log(
-        `📍 At end position, inserting at order_index: ${targetOrder}`
+        `📍 At end position, last asset has order_index: ${lastOrder}`
       );
+      console.log(`   → Will insert AFTER it at order_index: ${targetOrder}`);
     }
 
     // Visual insertion happens at insertionIndex + 1 (after the hovered asset)
@@ -606,18 +627,22 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         // 6. Remove optimistic asset
         removeOptimistic(newId);
 
-        // 7. Advance insertion index (now that save is successful)
-        const newInsertionIndex = targetOrder + 1;
-        setInsertionIndex(newInsertionIndex);
-        console.log(`📍 Advanced insertion index to ${newInsertionIndex}`);
-
-        // 8. Invalidate queries
+        // 7. Invalidate queries
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'infinite', currentQuestId, ''],
           exact: false
         });
 
         console.log('✅ Queries invalidated, asset should appear now');
+
+        // 8. Reset recording operation flag after a delay
+        // This allows the list to settle before re-enabling auto-adjustments
+        setTimeout(() => {
+          isRecordingOperationRef.current = false;
+          console.log(
+            '🏁 Recording operation complete, re-enabling auto-adjustments'
+          );
+        }, 500);
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
 
@@ -632,6 +657,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           removePending(pendingTempId);
           currentRecordingTempIdRef.current = null;
         }
+
+        // Reset recording operation flag on error too
+        isRecordingOperationRef.current = false;
       }
     },
     [
