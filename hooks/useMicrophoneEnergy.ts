@@ -30,10 +30,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     const energySubscription = MicrophoneEnergyModule.addListener(
       'onEnergyResult',
       (result: VADResult) => {
-        // Only log if energy level changes significantly (>10%)
-        if (!state.energyResult || Math.abs(result.energy - state.energyResult.energy) > 0.1) {
-          console.log('onEnergyResult - significant change:', result);
-        }
+        // Update state silently - no logging unless there's an error
         setState((prev) => ({ ...prev, energyResult: result }));
       }
     );
@@ -41,7 +38,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     const errorSubscription = MicrophoneEnergyModule.addListener(
       'onError',
       (error: { message: string }) => {
-        console.log('onError', error);
+        console.error('🎤 Microphone energy error:', error);
         setState((prev) => ({ ...prev, error: error.message }));
       }
     );

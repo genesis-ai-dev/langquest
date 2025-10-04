@@ -38,7 +38,7 @@ import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
-import { BibleBookList } from './BibleBookList';
+import { BibleBookList, BibleBookListSkeleton } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
 import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
@@ -49,7 +49,7 @@ export default function ProjectDirectoryView() {
   const { t } = useLocalization();
 
   // Check if this is a Bible project
-  const { project } = useProjectById(currentProjectId);
+  const { project, isProjectLoading } = useProjectById(currentProjectId);
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
@@ -181,7 +181,20 @@ export default function ProjectDirectoryView() {
     [childrenOf, expanded, toggleExpanded, openCreateForParent]
   );
 
-  if (isLoading) {
+  // Show appropriate skeleton based on project type
+  if (isLoading || isProjectLoading) {
+    // If we know it's a Bible project, show Bible-specific skeleton
+    if (project?.template === 'bible') {
+      return (
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between p-4">
+            <Text variant="h4">📖 {project.name}</Text>
+          </View>
+          <BibleBookListSkeleton />
+        </View>
+      );
+    }
+    // Otherwise show default skeleton
     return <ProjectListSkeleton />;
   }
 

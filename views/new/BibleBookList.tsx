@@ -1,3 +1,4 @@
+import { Shimmer } from '@/components/Shimmer';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
@@ -10,6 +11,94 @@ interface BibleBookListProps {
   projectId: string;
   onBookSelect: (bookId: string) => void;
 }
+
+// Skeleton loader for Bible book list
+export const BibleBookListSkeleton = React.memo(() => {
+  // Match responsive layout from BibleBookList
+  const screenWidth = Dimensions.get('window').width;
+  const buttonWidth = 110;
+  const buttonHeight = 140;
+  const gap = 12;
+  const padding = 16;
+  const availableWidth = screenWidth - padding * 2;
+  const buttonsPerRow = Math.max(
+    2,
+    Math.floor((availableWidth + gap) / (buttonWidth + gap))
+  );
+
+  // Render a skeleton book button
+  const renderSkeletonButton = (key: string) => (
+    <View
+      key={key}
+      className="flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 rounded-md border border-border bg-card p-3"
+    >
+      {/* Icon */}
+      <Shimmer width={80} height={80} borderRadius={8} />
+      {/* Book name */}
+      <Shimmer width={60} height={12} borderRadius={4} />
+      {/* Chapter count */}
+      <Shimmer width={40} height={10} borderRadius={4} />
+    </View>
+  );
+
+  // Render a row of skeleton buttons
+  const renderSkeletonRow = (count: number, rowKey: string) => (
+    <View
+      key={rowKey}
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: gap,
+        marginBottom: gap
+      }}
+    >
+      {Array.from({ length: count }, (_, i) =>
+        renderSkeletonButton(`${rowKey}-${i}`)
+      )}
+    </View>
+  );
+
+  // Calculate rows for Old Testament (39 books) and New Testament (27 books)
+  const oldTestamentRows = Math.ceil(39 / buttonsPerRow);
+  const newTestamentRows = Math.ceil(27 / buttonsPerRow);
+
+  return (
+    <ScrollView
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: padding,
+        paddingBottom: 24
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Old Testament section */}
+      <View style={{ width: availableWidth, paddingVertical: 16 }}>
+        <Shimmer width={180} height={24} borderRadius={8} />
+      </View>
+      {Array.from({ length: oldTestamentRows }, (_, i) =>
+        renderSkeletonRow(
+          i === oldTestamentRows - 1
+            ? 39 % buttonsPerRow || buttonsPerRow
+            : buttonsPerRow,
+          `old-${i}`
+        )
+      )}
+
+      {/* New Testament section */}
+      <View style={{ width: availableWidth, paddingVertical: 32 }}>
+        <Shimmer width={180} height={24} borderRadius={8} />
+      </View>
+      {Array.from({ length: newTestamentRows }, (_, i) =>
+        renderSkeletonRow(
+          i === newTestamentRows - 1
+            ? 27 % buttonsPerRow || buttonsPerRow
+            : buttonsPerRow,
+          `new-${i}`
+        )
+      )}
+    </ScrollView>
+  );
+});
 
 export function BibleBookList({
   projectId: _projectId,

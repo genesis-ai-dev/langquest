@@ -1,10 +1,13 @@
 /**
- * RecordingControls - Bottom bar with WalkieTalkie recorder
+ * RecordingControls - Bottom bar with WalkieTalkie recorder and VAD settings
  *
- * Pure presentation component that wraps the recording button
+ * Pure presentation component that wraps the recording button with settings
  */
 
 import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Settings } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -17,7 +20,18 @@ interface RecordingControlsProps {
     duration: number,
     waveformData: number[]
   ) => void;
+  onRecordingEnergyUpdate?: (energy: number) => void;
   onLayout?: (height: number) => void;
+  // VAD props
+  isVADLocked?: boolean;
+  onVADLockChange?: (locked: boolean) => void;
+  onSettingsPress?: () => void;
+  // VAD visual feedback
+  currentEnergy?: number;
+  vadThreshold?: number;
+  isPreparingRecording?: boolean;
+  // VAD recording control
+  isVADRecording?: boolean;
 }
 
 export const RecordingControls = React.memo(function RecordingControls({
@@ -25,20 +39,52 @@ export const RecordingControls = React.memo(function RecordingControls({
   onRecordingStart,
   onRecordingStop,
   onRecordingComplete,
-  onLayout
+  onRecordingEnergyUpdate,
+  onLayout,
+  isVADLocked,
+  onVADLockChange,
+  onSettingsPress,
+  currentEnergy,
+  vadThreshold,
+  isPreparingRecording,
+  isVADRecording
 }: RecordingControlsProps) {
   return (
     <View
       className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
       onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
     >
-      <WalkieTalkieRecorder
-        onRecordingComplete={onRecordingComplete}
-        onRecordingStart={onRecordingStart}
-        onRecordingStop={onRecordingStop}
-        onWaveformUpdate={undefined}
-        isRecording={isRecording}
-      />
+      <View className="relative flex-row items-center justify-center">
+        {/* Settings button on the left */}
+        <View className="absolute bottom-2 left-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={onSettingsPress}
+            className="h-10 w-10"
+          >
+            <Icon as={Settings} size={20} />
+          </Button>
+        </View>
+
+        {/* Recorder in center */}
+        <WalkieTalkieRecorder
+          onRecordingComplete={onRecordingComplete}
+          onRecordingStart={onRecordingStart}
+          onRecordingStop={onRecordingStop}
+          onWaveformUpdate={undefined}
+          onRecordingEnergyUpdate={onRecordingEnergyUpdate}
+          isRecording={isRecording}
+          isVADLocked={isVADLocked}
+          onVADLockChange={onVADLockChange}
+          // VAD visual feedback
+          currentEnergy={currentEnergy}
+          vadThreshold={vadThreshold}
+          isPreparingRecording={isPreparingRecording}
+          // VAD recording control
+          shouldBeRecording={isVADRecording}
+        />
+      </View>
     </View>
   );
 });
