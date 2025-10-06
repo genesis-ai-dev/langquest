@@ -20,18 +20,14 @@ interface RecordingControlsProps {
     duration: number,
     waveformData: number[]
   ) => void;
-  onRecordingEnergyUpdate?: (energy: number) => void;
   onLayout?: (height: number) => void;
   // VAD props
   isVADLocked?: boolean;
   onVADLockChange?: (locked: boolean) => void;
   onSettingsPress?: () => void;
-  // VAD visual feedback
+  // VAD visual feedback (native module handles recording)
   currentEnergy?: number;
   vadThreshold?: number;
-  isPreparingRecording?: boolean;
-  // VAD recording control
-  isVADRecording?: boolean;
 }
 
 export const RecordingControls = React.memo(function RecordingControls({
@@ -39,15 +35,12 @@ export const RecordingControls = React.memo(function RecordingControls({
   onRecordingStart,
   onRecordingStop,
   onRecordingComplete,
-  onRecordingEnergyUpdate,
   onLayout,
   isVADLocked,
   onVADLockChange,
   onSettingsPress,
   currentEnergy,
-  vadThreshold,
-  isPreparingRecording,
-  isVADRecording
+  vadThreshold
 }: RecordingControlsProps) {
   return (
     <View
@@ -73,16 +66,12 @@ export const RecordingControls = React.memo(function RecordingControls({
           onRecordingStart={onRecordingStart}
           onRecordingStop={onRecordingStop}
           onWaveformUpdate={undefined}
-          onRecordingEnergyUpdate={onRecordingEnergyUpdate}
           isRecording={isRecording}
           isVADLocked={isVADLocked}
           onVADLockChange={onVADLockChange}
-          // VAD visual feedback
+          // VAD visual feedback (native module handles recording)
           currentEnergy={currentEnergy}
           vadThreshold={vadThreshold}
-          isPreparingRecording={isPreparingRecording}
-          // VAD recording control
-          shouldBeRecording={isVADRecording}
         />
       </View>
     </View>
