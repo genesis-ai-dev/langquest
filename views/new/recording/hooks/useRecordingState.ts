@@ -31,6 +31,7 @@ interface UseRecordingStateReturn {
         Map<string, { opacity: Animated.Value; translateY: Animated.Value }>
     >;
     startRecording: (insertionIndex: number) => string;
+    createPendingCard: (insertionIndex: number, name?: string) => string; // Create pending card without starting recording
     stopRecording: () => void;
     removePending: (tempId?: string | null) => void;
 }
@@ -58,6 +59,51 @@ export function useRecordingState(): UseRecordingStateReturn {
                 name: 'Recording...',
                 status: 'recording' as const,
                 placementIndex: insertionIndex, // Shows at this visual position
+                createdAt: Date.now()
+            }
+        ]);
+
+        // Slide-in animation for the new pending card
+        try {
+            if (!pendingAnimsRef.current.has(tempId)) {
+                const anims = {
+                    opacity: new Animated.Value(0),
+                    translateY: new Animated.Value(12)
+                };
+                pendingAnimsRef.current.set(tempId, anims);
+                Animated.parallel([
+                    Animated.timing(anims.opacity, {
+                        toValue: 1,
+                        duration: 220,
+                        easing: Easing.out(Easing.cubic),
+                        useNativeDriver: true
+                    }),
+                    Animated.timing(anims.translateY, {
+                        toValue: 0,
+                        duration: 220,
+                        easing: Easing.out(Easing.cubic),
+                        useNativeDriver: true
+                    })
+                ]).start();
+            }
+        } catch {
+            // Animation setup failed, continue without animation
+        }
+
+        return tempId;
+    }, []);
+
+    const createPendingCard = React.useCallback((insertionIndex: number, name = 'Recording...') => {
+        // Create pending card WITHOUT setting isRecording=true (for VAD mode)
+        const tempId = uuid.v4() + '_temp';
+
+        setPendingSegments((prev) => [
+            ...prev,
+            {
+                tempId,
+                name,
+                status: 'recording' as const,
+                placementIndex: insertionIndex,
                 createdAt: Date.now()
             }
         ]);
@@ -131,6 +177,7 @@ export function useRecordingState(): UseRecordingStateReturn {
         pendingSegments,
         pendingAnimsRef,
         startRecording,
+        createPendingCard,
         stopRecording,
         removePending
     };

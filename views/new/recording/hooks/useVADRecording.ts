@@ -1,183 +1,162 @@
 /**
  * useVADRecording - Hook for Voice Activity Detection based recording
- * Automatically starts/stops recording based on microphone energy levels
  * 
- * Strategy:
- * 1. Use MicrophoneEnergyModule to detect when to START recording (pre-recording monitoring)
- * 2. Once recording starts, expo-av takes mic access - can't monitor energy externally
- * 3. Pass current metering from expo-av back to this hook to detect silence during recording
- * 4. Stop recording after silence duration, then resume monitoring for next segment
+ * ONE-RECORDER STRATEGY (simplest, fastest):
+ * 1. Native module does EVERYTHING (monitoring + recording + file writing)
+ * 2. Speech detected → Native starts segment (dumps buffer, keeps recording)
+ * 3. Silence detected → Native stops segment, emits complete event with URI
+ * 4. JavaScript: Just save the URI to database
+ * 5. expo-av NOT used for VAD at all!
  */
 
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
+import MicrophoneEnergyModule from '@/modules/microphone-energy';
 import React from 'react';
 
 interface UseVADRecordingProps {
     threshold: number;
     silenceDuration: number;
     isVADActive: boolean;
-    onRecordingStart: () => void;
-    onRecordingStop: () => void;
+    onSegmentStart: () => void; // Create pending card
+    onSegmentComplete: (uri: string) => void; // Save to database
     isManualRecording: boolean;
-    currentRecordingEnergy?: number; // Energy from expo-av metering during recording
 }
 
 interface UseVADRecordingReturn {
-    isVADRecording: boolean;
     currentEnergy: number;
-    isPreparingRecording: boolean;
+    isRecording: boolean;
 }
 
 export function useVADRecording({
     threshold,
     silenceDuration,
     isVADActive,
-    onRecordingStart,
-    onRecordingStop,
-    isManualRecording,
-    currentRecordingEnergy
+    onSegmentStart,
+    onSegmentComplete,
+    isManualRecording
 }: UseVADRecordingProps): UseVADRecordingReturn {
-    const { isActive, energyResult, startEnergyDetection, stopEnergyDetection } =
-        useMicrophoneEnergy();
+    const {
+        isActive,
+        energyResult,
+        startEnergyDetection,
+        stopEnergyDetection
+    } = useMicrophoneEnergy();
 
-    const [isVADRecording, setIsVADRecording] = React.useState(false);
-    const [isPreparingRecording, setIsPreparingRecording] = React.useState(false);
-    const vadRecordingStartTime = React.useRef<number>(0);
-    const silenceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isRecording, setIsRecording] = React.useState(false); // Use state not ref!
     const lastSpeechTime = React.useRef<number>(0);
+    const recordingStartTime = React.useRef<number>(0);
 
-    // Use energy from MicrophoneModule when not recording, expo-av metering when recording
-    const currentEnergy = isVADRecording
-        ? (currentRecordingEnergy ?? 0)
-        : (energyResult?.energy ?? 0);
+    // Stable refs for callbacks
+    const onSegmentStartRef = React.useRef(onSegmentStart);
+    const onSegmentCompleteRef = React.useRef(onSegmentComplete);
 
-    const MIN_RECORDING_DURATION = 500;
+    React.useEffect(() => {
+        onSegmentStartRef.current = onSegmentStart;
+        onSegmentCompleteRef.current = onSegmentComplete;
+    }, [onSegmentStart, onSegmentComplete]);
 
-    // Predictive threshold: Start recording earlier to capture onset
-    // Lower threshold triggers recording start, main threshold keeps it going
-    // Balanced - captures onset without being too noise-sensitive
-    const PREDICTIVE_MULTIPLIER = 0.35; // Start at 35% of main threshold (balanced)
+    const currentEnergy = energyResult?.energy ?? 0;
+
+    const MIN_SEGMENT_DURATION = 500;
+    const PREDICTIVE_MULTIPLIER = 0.5;
     const predictiveThreshold = threshold * PREDICTIVE_MULTIPLIER;
-
-    // Audio tail capture: Keep recording after silence to capture natural decay
-    const AUDIO_TAIL_DELAY = 300; // Keep recording 300ms after silence threshold reached
+    const AUDIO_TAIL_DELAY = 300;
 
     // Start energy detection when VAD becomes active
     React.useEffect(() => {
         if (isVADActive && !isActive && !isManualRecording) {
-            console.log('🎯 VAD mode activated - starting energy detection');
+            console.log('🎯 VAD mode activated - native module takes over');
             void startEnergyDetection();
-        } else if (!isVADActive && isActive && !isManualRecording) {
-            console.log('🎯 VAD mode deactivated - stopping energy detection');
+        } else if (!isVADActive && isActive) {
+            console.log('🎯 VAD mode deactivated');
+
+            // Stop any active segment
+            if (isRecording) {
+                console.log('🛑 Stopping active segment on VAD unlock');
+                void MicrophoneEnergyModule.stopSegment();
+                setIsRecording(false);
+            }
+
             void stopEnergyDetection();
-
-            // Stop any ongoing VAD recording
-            if (isVADRecording) {
-                setIsVADRecording(false);
-                onRecordingStop();
-            }
-
-            // Clear any timers
-            if (silenceTimer.current) {
-                clearTimeout(silenceTimer.current);
-                silenceTimer.current = null;
-            }
         }
-    }, [
-        isVADActive,
-        isActive,
-        isManualRecording,
-        startEnergyDetection,
-        stopEnergyDetection,
-        isVADRecording,
-        onRecordingStop
-    ]);
+    }, [isVADActive, isActive, isManualRecording, isRecording, startEnergyDetection, stopEnergyDetection]);
 
-    // Update last speech time when energy is above threshold
+    // Listen for segment complete events from native module
     React.useEffect(() => {
-        if (!isVADActive || !isActive || isManualRecording) {
-            return;
-        }
+        const subscription = MicrophoneEnergyModule.addListener(
+            'onSegmentComplete',
+            (payload: { uri: string; duration: number }) => {
+                console.log('📼 Native segment complete:', payload.uri, `(${payload.duration}ms)`);
+                setIsRecording(false);
+                onSegmentCompleteRef.current(payload.uri);
+            }
+        );
 
-        const isAboveThreshold = currentEnergy > threshold;
+        return () => subscription.remove();
+    }, []);
 
-        if (isAboveThreshold) {
+    // Update last speech time
+    React.useEffect(() => {
+        if (!isVADActive || !isActive || isManualRecording) return;
+
+        if (currentEnergy > threshold) {
             lastSpeechTime.current = Date.now();
         }
     }, [isVADActive, isActive, isManualRecording, currentEnergy, threshold]);
 
-    // Detect speech to START recording
-    // Use predictive threshold to start earlier and capture onset
+    // Start segment when speech detected
     React.useEffect(() => {
-        if (!isVADActive || !isActive || isManualRecording || isVADRecording) {
+        if (!isVADActive || !isActive || isManualRecording || isRecording) {
             return;
         }
 
-        const isAbovePredictiveThreshold = currentEnergy > predictiveThreshold;
-
-        if (isAbovePredictiveThreshold) {
+        if (currentEnergy > predictiveThreshold) {
             console.log(
-                `🎤 VAD: Speech detected (${currentEnergy.toFixed(3)} > ${predictiveThreshold.toFixed(3)} predictive [main: ${threshold.toFixed(3)}]) - starting recording`
+                `🎤 VAD: Speech detected (${currentEnergy.toFixed(3)} > ${predictiveThreshold.toFixed(3)}) - starting native segment`
             );
 
-            setIsVADRecording(true);
-            setIsPreparingRecording(false);
-            vadRecordingStartTime.current = Date.now();
+            setIsRecording(true);
+            recordingStartTime.current = Date.now();
             lastSpeechTime.current = Date.now();
-            onRecordingStart();
+
+            // Tell native module to start segment (dumps buffer + continues recording)
+            void MicrophoneEnergyModule.startSegment({ prerollMs: 500 });
+
+            // Tell parent to create pending card
+            onSegmentStartRef.current();
         }
-    }, [
-        isVADActive,
-        isActive,
-        isManualRecording,
-        isVADRecording,
-        currentEnergy,
-        threshold,
-        predictiveThreshold,
-        onRecordingStart
-    ]);
+    }, [isVADActive, isActive, isManualRecording, isRecording, currentEnergy, predictiveThreshold]);
 
-    // Monitor silence during recording using a polling interval (not effect-based)
+    // Monitor silence during recording
     React.useEffect(() => {
-        if (!isVADRecording) return;
+        if (!isRecording) return; // Now uses state, will re-run when isRecording changes!
 
-        console.log('🎯 VAD: Starting silence monitoring interval');
+        console.log('🎯 VAD: Starting silence monitoring');
 
         const checkInterval = setInterval(() => {
             const timeSinceLastSpeech = Date.now() - lastSpeechTime.current;
-            const recordingDuration = Date.now() - vadRecordingStartTime.current;
-
-            // Check if we've been silent long enough (silence threshold + tail delay)
+            const recordingDuration = Date.now() - recordingStartTime.current;
             const totalSilenceRequired = silenceDuration + AUDIO_TAIL_DELAY;
 
-            if (timeSinceLastSpeech >= totalSilenceRequired && recordingDuration >= MIN_RECORDING_DURATION) {
-                console.log(
-                    `💤 VAD: ${timeSinceLastSpeech}ms silence detected (threshold: ${silenceDuration}ms + tail: ${AUDIO_TAIL_DELAY}ms) - stopping recording (${recordingDuration}ms total)`
-                );
-                setIsVADRecording(false);
-                onRecordingStop();
-                setIsPreparingRecording(true);
+            if (timeSinceLastSpeech >= totalSilenceRequired && recordingDuration >= MIN_SEGMENT_DURATION) {
+                console.log(`💤 VAD: ${timeSinceLastSpeech}ms silence - stopping native segment`);
+
+                clearInterval(checkInterval);
+
+                // Tell native module to stop (will emit onSegmentComplete event)
+                void MicrophoneEnergyModule.stopSegment();
+                // Don't set isRecording=false here, wait for onSegmentComplete event
             }
-        }, 100); // Check every 100ms
+        }, 100);
 
         return () => {
-            console.log('🎯 VAD: Stopping silence monitoring interval');
+            console.log('🎯 VAD: Stopping silence monitoring');
             clearInterval(checkInterval);
         };
-    }, [isVADRecording, silenceDuration, onRecordingStop]);
-
-    // Cleanup on unmount
-    React.useEffect(() => {
-        return () => {
-            if (silenceTimer.current) {
-                clearTimeout(silenceTimer.current);
-            }
-        };
-    }, []);
+    }, [isRecording, silenceDuration]); // isRecording is state now!
 
     return {
-        isVADRecording,
         currentEnergy,
-        isPreparingRecording
+        isRecording
     };
 }

@@ -72,7 +72,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const [vadThreshold, setVadThreshold] = React.useState(0.03); // Default to "Normal"
   const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1500); // 1.5s default
   const [showVADSettings, setShowVADSettings] = React.useState(false);
-  const [currentRecordingEnergy, setCurrentRecordingEnergy] = React.useState(0);
   const {
     playSound,
     playSoundSequence,
@@ -103,6 +102,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     pendingSegments,
     pendingAnimsRef,
     startRecording,
+    createPendingCard,
     stopRecording,
     removePending
   } = useRecordingState();
@@ -520,19 +520,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isStartingRecordingRef.current = false;
   }, [stopRecording]);
 
-  // VAD recording hook - auto-records based on voice activity
-  // Must be after handleRecordingStart and handleRecordingStop are defined
-  const { isVADRecording, currentEnergy, isPreparingRecording } =
-    useVADRecording({
-      threshold: vadThreshold,
-      silenceDuration: vadSilenceDuration,
-      isVADActive: isVADLocked,
-      onRecordingStart: handleRecordingStart,
-      onRecordingStop: handleRecordingStop,
-      isManualRecording: isRecording,
-      currentRecordingEnergy // Pass expo-av metering energy for silence detection during recording
-    });
-
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
       const newId = uuid.v4();
@@ -555,6 +542,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           if (pendingTempId) {
             removePending(pendingTempId);
             currentRecordingTempIdRef.current = null;
+            vadPendingCardRef.current = null; // Also clear VAD ref
           }
           return;
         }
@@ -587,11 +575,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             console.log('🧹 Removing pending card:', pendingTempId);
             removePending(pendingTempId);
             currentRecordingTempIdRef.current = null; // Clear it
+            vadPendingCardRef.current = null; // Also clear VAD ref
           } else {
             console.warn(
               '⚠️ No pending tempId found, cleaning all pending cards'
             );
             removePending(null); // Fallback: remove all recording/saving cards
+            vadPendingCardRef.current = null; // Clear VAD ref anyway
           }
         }, 100); // Small delay ensures UI renders the pending card
 
@@ -702,6 +692,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         if (pendingTempId) {
           removePending(pendingTempId);
           currentRecordingTempIdRef.current = null;
+          vadPendingCardRef.current = null; // Also clear VAD ref
         }
 
         // Reset recording operation flag on error too
@@ -721,6 +712,67 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       queryClient
     ]
   );
+
+  // VAD: Native module handles everything
+  const vadPendingCardRef = React.useRef<string | null>(null);
+
+  const handleVADSegmentStart = React.useCallback(() => {
+    console.log('🎬 VAD segment starting - creating pending card');
+
+    // Calculate target order_index
+    let targetOrder: number;
+    if (insertionIndex < assets.length) {
+      const hoveredAsset = assets[insertionIndex];
+      const hoveredOrder =
+        hoveredAsset && typeof hoveredAsset.order_index === 'number'
+          ? hoveredAsset.order_index
+          : insertionIndex;
+      targetOrder = hoveredOrder + 1;
+    } else {
+      const lastAsset = assets[assets.length - 1];
+      const lastOrder =
+        lastAsset && typeof lastAsset.order_index === 'number'
+          ? lastAsset.order_index
+          : assets.length - 1;
+      targetOrder = lastOrder + 1;
+    }
+
+    const visualInsertionPos =
+      insertionIndex < assets.length ? insertionIndex + 1 : insertionIndex;
+    const tempId = createPendingCard(visualInsertionPos);
+
+    if (tempId) {
+      vadPendingCardRef.current = tempId;
+      currentRecordingTempIdRef.current = tempId;
+      currentRecordingOrderRef.current = targetOrder;
+      console.log(
+        '📝 VAD pending card created:',
+        tempId,
+        'at order_index:',
+        targetOrder
+      );
+    }
+  }, [insertionIndex, assets, createPendingCard]);
+
+  const handleVADSegmentComplete = React.useCallback(
+    (uri: string) => {
+      console.log('📼 VAD segment complete from native module:', uri);
+
+      // Save the complete audio file (native module already captured it)
+      void handleRecordingComplete(uri, 0, []); // Duration will be read from file
+    },
+    [handleRecordingComplete]
+  );
+
+  // VAD recording hook - native module does all recording, we just listen
+  const { currentEnergy, isRecording: isVADRecording } = useVADRecording({
+    threshold: vadThreshold,
+    silenceDuration: vadSilenceDuration,
+    isVADActive: isVADLocked,
+    onSegmentStart: handleVADSegmentStart,
+    onSegmentComplete: handleVADSegmentComplete,
+    isManualRecording: isRecording
+  });
 
   // Audio playback
   const getAssetAudioUris = React.useCallback(
@@ -1645,17 +1697,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             onRecordingStart={handleRecordingStart}
             onRecordingStop={handleRecordingStop}
             onRecordingComplete={handleRecordingComplete}
-            onRecordingEnergyUpdate={setCurrentRecordingEnergy}
             onLayout={setFooterHeight}
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}
             onSettingsPress={() => setShowVADSettings(true)}
-            // VAD visual feedback
+            // VAD visual feedback (native module provides energy)
             currentEnergy={currentEnergy}
             vadThreshold={vadThreshold}
-            isPreparingRecording={isPreparingRecording}
-            // VAD recording control
-            isVADRecording={isVADRecording}
           />
         )}
       </View>

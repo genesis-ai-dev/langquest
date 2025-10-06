@@ -21,17 +21,13 @@ interface WalkieTalkieRecorderProps {
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   onWaveformUpdate?: (waveformData: number[]) => void;
-  onRecordingEnergyUpdate?: (energy: number) => void; // For VAD silence detection during recording
   isRecording: boolean;
-  // VAD mode props
+  // VAD mode props (native module handles recording, this is just for UI)
   isVADLocked?: boolean;
   onVADLockChange?: (locked: boolean) => void;
   // VAD visual feedback
   currentEnergy?: number;
   vadThreshold?: number;
-  isPreparingRecording?: boolean;
-  // VAD recording control - when true, should be recording
-  shouldBeRecording?: boolean;
 }
 
 const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
@@ -39,14 +35,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onRecordingStart,
   onRecordingStop,
   onWaveformUpdate,
-  onRecordingEnergyUpdate,
   isRecording,
   isVADLocked = false,
   onVADLockChange,
   currentEnergy = 0,
-  vadThreshold = 0.03,
-  isPreparingRecording = false,
-  shouldBeRecording = false
+  vadThreshold = 0.03
 }) => {
   const { currentUser: _currentUser } = useAuth();
   const { t: _t } = useLocalization();
@@ -56,11 +49,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const [isPressed, setIsPressed] = useState(false);
   const [canRecord, setCanRecord] = useState(false);
   const [isActivating, setIsActivating] = useState(false); // Holding to activate
-
-  // Pre-warmed recorder for VAD mode - kept "hot" and ready to start instantly
-  const [prewarmedRecording, setPrewarmedRecording] =
-    useState<Audio.Recording | null>(null);
-  const [isPrewarming, setIsPrewarming] = useState(false);
 
   // Live waveform display capacity (side-scrolling window)
   const LIVE_BAR_CAPACITY = 60;
@@ -284,90 +272,45 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       // Reset recorded samples for new recording
       setRecordedSamples([]);
 
-      let activeRecording: Audio.Recording | null = null;
-      let usedPrewarmed = false;
+      console.log('🎤 Initializing recorder...');
 
-      // Fast path: Use pre-warmed recorder if available (VAD mode)
-      if (prewarmedRecording) {
-        console.log('⚡ Using pre-warmed recorder - instant start!');
-
-        // Capture the pre-warmed recorder and clear state immediately to prevent reuse
-        const warmedRecorder = prewarmedRecording;
-        setPrewarmedRecording(null);
-
-        try {
-          // Resume the paused recording
-          await warmedRecorder.startAsync();
-          activeRecording = warmedRecorder;
-          usedPrewarmed = true;
-
-          const duration = performance.now() - startTime;
-          console.log(
-            `✅ Recording started in ${duration.toFixed(0)}ms (pre-warmed)`
-          );
-        } catch (error) {
-          console.error('❌ Failed to start pre-warmed recorder:', error);
-          console.log('🔄 Falling back to cold start...');
-
-          // Clean up the failed recorder
-          await warmedRecorder.stopAndUnloadAsync().catch(() => {
-            // Ignore cleanup errors
-          });
-
-          // activeRecording stays null, will fall through to cold start
+      // Check and request permission if needed
+      if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
+        console.log('🔐 Requesting microphone permission...');
+        const permissionResult = await requestPermission();
+        if (permissionResult.status !== Audio.PermissionStatus.GRANTED) {
+          console.log('❌ Permission denied');
+          return;
         }
+        console.log('✅ Permission granted');
       }
 
-      // Slow path: Cold start (manual recording or VAD not ready yet)
-      if (!usedPrewarmed) {
-        console.log('🐌 Cold start - initializing recorder...');
+      // Set audio mode (fast, ~50ms)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true
+      });
 
-        // Check and request permission if needed
-        if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
-          console.log('🔐 Requesting microphone permission...');
-          const permissionResult = await requestPermission();
-          if (permissionResult.status !== Audio.PermissionStatus.GRANTED) {
-            console.log('❌ Permission denied');
-            return;
-          }
-          console.log('✅ Permission granted');
+      console.log('🎤 Creating fresh recording...');
+      // Create recording fresh every time - don't reuse stale recordings
+      const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+      const options = {
+        ...highQuality,
+        ios: {
+          ...(highQuality?.ios ?? {}),
+          isMeteringEnabled: true
+        },
+        android: {
+          ...(highQuality?.android ?? {}),
+          isMeteringEnabled: true
         }
+      } as typeof highQuality;
 
-        // Set audio mode (fast, ~50ms)
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true
-        });
+      const result = await Audio.Recording.createAsync(options);
+      const activeRecording = result.recording;
 
-        console.log('🎤 Creating fresh recording...');
-        // Create recording fresh every time - don't reuse stale recordings
-        const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
-        const options = {
-          ...highQuality,
-          ios: {
-            ...(highQuality?.ios ?? {}),
-            isMeteringEnabled: true
-          },
-          android: {
-            ...(highQuality?.android ?? {}),
-            isMeteringEnabled: true
-          }
-        } as typeof highQuality;
-
-        const result = await Audio.Recording.createAsync(options);
-        activeRecording = result.recording;
-
-        const duration = performance.now() - startTime;
-        console.log(
-          `✅ Recording started in ${duration.toFixed(0)}ms (cold start)`
-        );
-      }
-
-      // Guard: Only proceed if we successfully got a recording
-      if (!activeRecording) {
-        console.error('❌ Failed to create or start recording');
-        return;
-      }
+      const duration = performance.now() - startTime;
+      console.log(`✅ Recording started in ${duration.toFixed(0)}ms`);
 
       setRecording(activeRecording);
       setRecordingDuration(0);
@@ -394,11 +337,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               const normalizedDb = Math.max(-60, Math.min(0, db));
               const amplitude = Math.pow(10, normalizedDb / 20);
               appendLiveSample(amplitude);
-
-              // For VAD mode: Pass metering energy back to parent for silence detection
-              if (isVADLocked) {
-                onRecordingEnergyUpdate?.(amplitude);
-              }
             } else {
               // Fallback: lightweight synthetic animation for platforms without metering
               const t = duration / 1000;
@@ -409,11 +347,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                 Math.min(0.8, base + noise)
               );
               appendLiveSample(fallbackEnergy);
-
-              // For VAD mode with fallback
-              if (isVADLocked) {
-                onRecordingEnergyUpdate?.(fallbackEnergy);
-              }
             }
           }
         }
@@ -454,12 +387,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       // Reset waveform to full set of bars at 0 volume
       setRealTimeWaveform(new Array(LIVE_BAR_CAPACITY).fill(0.01));
       onRecordingStop();
-
-      // If VAD is still locked, pre-warming will auto-trigger for the next segment
-      // via the pre-warming effect watching isVADLocked
-      if (isVADLocked) {
-        console.log('🔄 VAD still active - will pre-warm for next segment');
-      }
     } catch (error) {
       console.error('Failed to stop recording:', error);
       // Clean up state even on error
@@ -569,113 +496,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }).start();
   };
 
-  // Using Button onPressIn/onPressOut for reliable hold-to-record behavior
-
   // Check if we can record (permission granted)
   useEffect(() => {
     setCanRecord(permissionResponse?.status === Audio.PermissionStatus.GRANTED);
   }, [permissionResponse]);
-
-  // Pre-warm recorder when VAD locks - eliminates cold start delay
-  // Key insight: Only pre-warm when NO recording is active (to avoid "only one Recording" error)
-  useEffect(() => {
-    if (isVADLocked && !prewarmedRecording && !isPrewarming && !recording) {
-      console.log('🔥 Pre-warming recorder for instant VAD response...');
-      setIsPrewarming(true);
-
-      void (async () => {
-        try {
-          // Check permission first
-          if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
-            console.log('🔐 Requesting permission for pre-warming...');
-            const permissionResult = await requestPermission();
-            if (permissionResult.status !== Audio.PermissionStatus.GRANTED) {
-              console.log('❌ Permission denied, cannot pre-warm');
-              setIsPrewarming(false);
-              return;
-            }
-          }
-
-          // Set audio mode
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: true,
-            playsInSilentModeIOS: true
-          });
-
-          // Create recording instance
-          const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
-          const options = {
-            ...highQuality,
-            ios: {
-              ...(highQuality?.ios ?? {}),
-              isMeteringEnabled: true
-            },
-            android: {
-              ...(highQuality?.android ?? {}),
-              isMeteringEnabled: true
-            }
-          } as typeof highQuality;
-
-          const { recording: warmedRecording } =
-            await Audio.Recording.createAsync(options);
-
-          // Immediately pause it - this keeps it ready but not actively recording
-          await warmedRecording.pauseAsync();
-
-          setPrewarmedRecording(warmedRecording);
-          setIsPrewarming(false);
-          console.log(
-            '✅ Recorder pre-warmed and ready! Response time: ~10-20ms'
-          );
-        } catch (error) {
-          console.error('❌ Failed to pre-warm recorder:', error);
-          setIsPrewarming(false);
-        }
-      })();
-    }
-
-    // Cleanup: unload pre-warmed recorder when VAD unlocks
-    if (!isVADLocked && prewarmedRecording) {
-      console.log('🧹 Cleaning up pre-warmed recorder (VAD unlocked)');
-      void prewarmedRecording.stopAndUnloadAsync().catch(console.error);
-      setPrewarmedRecording(null);
-      setIsPrewarming(false);
-    }
-  }, [
-    isVADLocked,
-    prewarmedRecording,
-    isPrewarming,
-    recording,
-    permissionResponse,
-    requestPermission
-  ]);
-
-  // VAD mode control - start/stop recording based on shouldBeRecording prop
-  useEffect(() => {
-    if (!isVADLocked) {
-      // If VAD is unlocked and we're recording (from VAD), stop it
-      if (recording) {
-        console.log('🔓 VAD unlocked - stopping any active recording');
-        void stopRecording();
-      }
-      return;
-    }
-
-    if (shouldBeRecording && !recording && !isPrewarming) {
-      // VAD wants to start recording and we're not recording yet
-      // Only start if we're not currently pre-warming (race condition protection)
-      console.log(
-        '🎤 VAD: Starting expo-av recording (baton passed from MicrophoneEnergy)'
-      );
-      void startRecording();
-    } else if (!shouldBeRecording && recording) {
-      // VAD wants to stop recording and we are recording
-      console.log(
-        '🛑 VAD: Stopping expo-av recording (passing baton back to MicrophoneEnergy)'
-      );
-      void stopRecording();
-    }
-  }, [shouldBeRecording, recording, isVADLocked, isPrewarming]);
 
   const _formatDuration = (milliseconds: number) => {
     const seconds = Math.floor(milliseconds / 1000);
@@ -716,8 +540,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // Determine waveform color based on recording state
   const getWaveformColor = () => {
     if (isRecording) return colors.error; // Red when recording
-    if (isPreparingRecording) return colors.primary; // Blue when preparing
-    return colors.disabled; // Gray when idle
+    return colors.primary; // Blue when monitoring
   };
 
   // Scale current energy for visualization (0-1 range to bar height)
@@ -768,9 +591,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               );
             })}
           </View>
-          {isPreparingRecording && (
-            <Text style={styles.preparingText}>Ready...</Text>
-          )}
         </Animated.View>
       )}
 
