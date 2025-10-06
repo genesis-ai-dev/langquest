@@ -1,4 +1,5 @@
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react-native';
@@ -115,6 +116,7 @@ interface InputProps
   suffix?: React.ReactNode | LucideIcon;
   prefixStyling?: boolean;
   suffixStyling?: boolean;
+  drawerInput?: boolean;
   hideEye?: boolean;
   mask?: boolean;
 }
@@ -131,6 +133,7 @@ const Input = React.forwardRef<
       suffix,
       prefixStyling = false,
       suffixStyling = false,
+      drawerInput = false,
       hideEye,
       secureTextEntry,
       mask,
@@ -141,6 +144,7 @@ const Input = React.forwardRef<
   ) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
+    const Component = drawerInput ? BottomSheetTextInput : TextInput;
     return (
       <View
         className={cn(
@@ -180,7 +184,8 @@ const Input = React.forwardRef<
             )}
           </View>
         )}
-        <TextInput
+        <Component
+          // @ts-expect-error - ref is not passed the same type as TextInput
           ref={ref}
           className={cn(
             inputTextVariants({ size }),

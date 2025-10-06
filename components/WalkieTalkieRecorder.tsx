@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHaptic } from '@/hooks/useHaptic';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { Text } from './ui/text';
 
 // Create animated SVG components
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -31,6 +31,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onWaveformUpdate,
   isRecording
 }) => {
+  const mediumHaptic = useHaptic('medium');
+  const heavyHaptic = useHaptic('heavy');
   const { currentUser: _currentUser } = useAuth();
   const { t: _t } = useLocalization();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -255,7 +257,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     console.log('🎙️ Press in detected, starting activation timer...');
 
     // Immediate haptic feedback for tactile response
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    void mediumHaptic();
 
     setIsPressed(true);
     setIsActivating(true);
@@ -279,17 +281,17 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setIsActivating(false);
 
       // Stronger haptic when recording actually starts
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      void heavyHaptic();
 
       void startRecording();
     }, ACTIVATION_TIME);
   };
 
-  const handlePressOut = async () => {
+  const handlePressOut = () => {
     if (!isPressed) return;
 
     // Light haptic feedback on release
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void mediumHaptic();
 
     setIsPressed(false);
 
@@ -378,9 +380,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   return (
     <Animated.View
-      style={[styles.container, { backgroundColor: containerBgColor }]}
+      className="items-center rounded-3xl py-6"
+      style={{ backgroundColor: containerBgColor }}
     >
-      <View style={styles.buttonContainer}>
+      <View className="w-21 h-21 relative items-center justify-center">
         <Animated.View
           style={[
             {
@@ -389,7 +392,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           ]}
         >
           {/* Circular progress indicator - always rendered but only visible when activating */}
-          <View style={styles.progressRing}>
+          <View
+            className="-mt-10.5 -ml-10.5 w-21 h-21 pointer-events-none items-center justify-center"
+            style={{ left: '50%', top: '50%', position: 'absolute' }}
+          >
             <Svg width="84" height="84" viewBox="0 0 84 84">
               {/* Background track (subtle) */}
               {(isActivating || isRecording) && (
@@ -425,29 +431,22 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           <Button
             variant={isRecording ? 'destructive' : 'default'}
             size="icon-xl"
-            style={[
-              styles.recorderButton,
-              isRecording && styles.recordingButton
-            ]}
+            className="h-16 w-16 items-center justify-center overflow-hidden rounded-full"
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
           >
             <Ionicons
               name={isRecording ? 'mic' : 'mic-outline'}
               size={32}
-              color={colors.background}
+              color="white"
             />
           </Button>
         </Animated.View>
       </View>
 
       {!canRecord && (
-        <Button
-          variant="outline"
-          onPress={requestPermission}
-          style={styles.permissionButton}
-        >
-          <Text style={styles.permissionButtonText}>
+        <Button variant="outline" onPress={requestPermission} className="mt-4">
+          <Text className="text-base font-bold">
             Grant Microphone Permission
           </Text>
         </Button>
@@ -455,50 +454,5 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     </Animated.View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    paddingVertical: spacing.large,
-    borderRadius: 24
-  },
-  buttonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: 84,
-    height: 84
-  },
-  progressRing: {
-    position: 'absolute',
-    top: '50%',
-    left: '38.5%',
-    marginTop: -42,
-    marginLeft: -42,
-    width: 84,
-    height: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none'
-  },
-  recorderButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden'
-  },
-  recordingButton: {
-    // Button component handles destructive variant styling
-  },
-  permissionButton: {
-    marginTop: spacing.medium
-  },
-  permissionButtonText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  }
-});
 
 export default WalkieTalkieRecorder;

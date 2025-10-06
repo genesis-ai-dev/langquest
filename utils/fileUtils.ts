@@ -100,3 +100,14 @@ export function getLocalFilePathSuffix(filename: string): string {
 export async function getLocalAttachmentUri(filePath: string) {
   return getLocalUri(getLocalFilePathSuffix(filePath));
 }
+
+export async function saveAudioFileLocally(uri: string) {
+  if (await fileExists(uri)) {
+    await moveFile(
+      uri,
+      getLocalUri(getLocalFilePathSuffix(`local/${uri.split('/').pop()}`))
+    );
+  } else {
+    throw new Error(`File does not exist: ${uri}`);
+  }
+}

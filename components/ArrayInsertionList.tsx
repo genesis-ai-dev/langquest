@@ -1,7 +1,7 @@
 // theme colors no longer needed after removing overlay
+import { useHaptic } from '@/hooks/useHaptic';
 import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
-import * as Haptics from 'expo-haptics';
 import React from 'react';
 import type {
   LayoutChangeEvent,
@@ -39,6 +39,7 @@ function ArrayInsertionListInternal(
   }: ArrayInsertionListProps,
   ref: React.Ref<ArrayInsertionListHandle>
 ) {
+  const lightHaptic = useHaptic('light');
   const flatListRef = React.useRef<LegendListRef>(null);
   const currentIndexRef = React.useRef(value);
   const isUserScrollingRef = React.useRef(false);
@@ -95,10 +96,8 @@ function ArrayInsertionListInternal(
       const newIndex = Math.round(scrollY / rowHeight);
       const clamped = Math.max(0, Math.min(children.length, newIndex));
 
-      // Haptic feedback on snap (native platforms only)
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      // Haptic feedback on snap
+      void lightHaptic();
 
       currentIndexRef.current = clamped;
       isUserScrollingRef.current = false;

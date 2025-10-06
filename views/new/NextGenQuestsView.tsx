@@ -441,6 +441,7 @@ export default function NextGenQuestsView() {
                         placeholder={t('questName')}
                         size="sm"
                         prefix={FolderPenIcon}
+                        drawerInput
                       />
                     </FormControl>
                     <FormMessage />
@@ -458,6 +459,7 @@ export default function NextGenQuestsView() {
                         {...transformInputProps(field)}
                         placeholder={t('description')}
                         size="sm"
+                        drawerInput
                       />
                     </FormControl>
                     <FormMessage />

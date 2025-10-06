@@ -1,4 +1,5 @@
 import { cn } from '@/utils/styleUtils';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
@@ -22,7 +23,9 @@ const textareaVariants = cva(
 
 interface TextareaProps
   extends TextInputProps,
-    VariantProps<typeof textareaVariants> {}
+    VariantProps<typeof textareaVariants> {
+  drawerInput?: boolean;
+}
 
 const Textarea = React.forwardRef<
   React.ComponentRef<typeof TextInput>,
@@ -32,6 +35,7 @@ const Textarea = React.forwardRef<
     {
       className,
       multiline = true,
+      drawerInput = true,
       numberOfLines = Platform.select({ web: 2, native: 8 }), // On web, numberOfLines also determines initial height. On native, it determines the maximum height.
       placeholderClassName,
       size,
@@ -39,8 +43,10 @@ const Textarea = React.forwardRef<
     },
     ref
   ) => {
+    const Component = drawerInput ? BottomSheetTextInput : TextInput;
     return (
-      <TextInput
+      <Component
+        // @ts-expect-error - ref is not passed the same type as TextInput
         ref={ref}
         className={cn(
           textareaVariants({ size }),

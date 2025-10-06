@@ -269,6 +269,7 @@ export default function ProjectDirectoryView() {
                       placeholder={t('questName')}
                       size="sm"
                       prefix={FolderPenIcon}
+                      drawerInput
                     />
                   </FormControl>
                   <FormMessage />
@@ -285,6 +286,7 @@ export default function ProjectDirectoryView() {
                       {...transformInputProps(field)}
                       placeholder={t('description')}
                       size="sm"
+                      drawerInput
                     />
                   </FormControl>
                   <FormMessage />

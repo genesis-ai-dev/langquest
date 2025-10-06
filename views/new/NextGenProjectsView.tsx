@@ -458,6 +458,7 @@ export default function NextGenProjectsView() {
                       placeholder={t('projectName')}
                       size="sm"
                       prefix={FolderPenIcon}
+                      drawerInput
                     />
                   </FormControl>
                   <FormMessage />
@@ -493,6 +494,7 @@ export default function NextGenProjectsView() {
                       {...transformInputProps(field)}
                       placeholder={t('description')}
                       size="sm"
+                      drawerInput
                     />
                   </FormControl>
                   <FormMessage />
