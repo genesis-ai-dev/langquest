@@ -5,17 +5,35 @@ public class MicrophoneEnergyModule: Module {
   private var audioEngine = AVAudioEngine()
   private var isActive = false
   
-  // Ring buffer for capturing speech onset (500ms default)
+  // Ring buffer for capturing speech onset (1000ms for better onset capture)
   private var ringBuffer: [[Float]] = []
-  private var ringBufferMaxSize = 16 // ~500ms at 1024 samples/buffer, 16kHz
+  private var ringBufferMaxSize = 32 // ~1000ms at 1024 samples/buffer, 16kHz (~64ms per buffer)
   private var isRecordingSegment = false
   private var segmentFile: AVAudioFile?
   private var segmentStartTime: Date?
   
+  // Native VAD state
+  private var vadEnabled = false
+  private var vadThreshold: Float = 0.5
+  private var vadOnsetMultiplier: Float = 0.25
+  private var vadConfirmMultiplier: Float = 0.5
+  private var vadSilenceDuration: Int = 300 // ms
+  private var vadMinSegmentDuration: Int = 500 // ms
+  
+  // EMA smoothing
+  private var emaAlpha: Float = 0.3
+  private var smoothedEnergy: Float = 0.0
+  
+  // Schmitt trigger state
+  private var onsetDetected = false
+  private var onsetTime: Date?
+  private var lastSpeechTime: Date?
+  private var recordingStartTime: Date?
+  
   public func definition() -> ModuleDefinition {
     Name("MicrophoneEnergy")
     
-    Events("onEnergyResult", "onError", "onSegmentComplete")
+    Events("onEnergyResult", "onError", "onSegmentComplete", "onSegmentStart")
     
     AsyncFunction("startEnergyDetection") {
       await self.startEnergyDetection()
@@ -23,6 +41,18 @@ public class MicrophoneEnergyModule: Module {
     
     AsyncFunction("stopEnergyDetection") {
       await self.stopEnergyDetection()
+    }
+    
+    AsyncFunction("configureVAD") { (config: [String: Any]) in
+      self.configureVAD(config: config)
+    }
+    
+    AsyncFunction("enableVAD") {
+      self.enableVAD()
+    }
+    
+    AsyncFunction("disableVAD") {
+      self.disableVAD()
     }
     
     AsyncFunction("startSegment") { (options: [String: Any]?) in
@@ -65,6 +95,11 @@ public class MicrophoneEnergyModule: Module {
   private func stopEnergyDetection() async {
     guard isActive else { return }
     
+    // Stop any active segment
+    if isRecordingSegment {
+      try? await stopSegment()
+    }
+    
     audioEngine.inputNode.removeTap(onBus: 0)
     audioEngine.stop()
     
@@ -75,6 +110,49 @@ public class MicrophoneEnergyModule: Module {
     }
     
     isActive = false
+    vadEnabled = false
+    onsetDetected = false
+  }
+  
+  private func configureVAD(config: [String: Any]) {
+    if let threshold = config["threshold"] as? Double {
+      vadThreshold = Float(threshold)
+    }
+    if let silenceDuration = config["silenceDuration"] as? Int {
+      vadSilenceDuration = silenceDuration
+    }
+    if let onsetMult = config["onsetMultiplier"] as? Double {
+      vadOnsetMultiplier = Float(onsetMult)
+    }
+    if let confirmMult = config["confirmMultiplier"] as? Double {
+      vadConfirmMultiplier = Float(confirmMult)
+    }
+    if let minDuration = config["minSegmentDuration"] as? Int {
+      vadMinSegmentDuration = minDuration
+    }
+    
+    print("🎯 VAD configured: threshold=\(vadThreshold), silence=\(vadSilenceDuration)ms")
+  }
+  
+  private func enableVAD() {
+    vadEnabled = true
+    onsetDetected = false
+    smoothedEnergy = 0.0
+    print("🎯 Native VAD enabled")
+  }
+  
+  private func disableVAD() {
+    vadEnabled = false
+    onsetDetected = false
+    
+    // Stop any active segment
+    if isRecordingSegment {
+      Task {
+        try? await stopSegment()
+      }
+    }
+    
+    print("🎯 Native VAD disabled")
   }
   
   private func processAudio(buffer: AVAudioPCMBuffer) {
@@ -89,6 +167,9 @@ public class MicrophoneEnergyModule: Module {
       energy += samples[i] * samples[i]
     }
     energy = sqrt(energy / Float(frameLength))
+    
+    // Apply EMA smoothing
+    smoothedEnergy = emaAlpha * energy + (1.0 - emaAlpha) * smoothedEnergy
     
     // Copy samples to array for ring buffer
     var samplesArray = [Float](repeating: 0, count: frameLength)
@@ -112,11 +193,77 @@ public class MicrophoneEnergyModule: Module {
       }
     }
     
-    // Send pure energy level - let JavaScript decide everything
+    // Native VAD logic (if enabled)
+    if vadEnabled {
+      handleNativeVAD()
+    }
+    
+    // Send energy level to JavaScript (for UI visualization)
     sendEvent("onEnergyResult", [
-      "energy": Double(energy),
+      "energy": Double(smoothedEnergy),
       "timestamp": Date().timeIntervalSince1970 * 1000
     ])
+  }
+  
+  private func handleNativeVAD() {
+    let now = Date()
+    let onsetThreshold = vadThreshold * vadOnsetMultiplier
+    let confirmThreshold = vadThreshold * vadConfirmMultiplier
+    
+    // Update last speech time if above confirm threshold
+    if smoothedEnergy > confirmThreshold {
+      lastSpeechTime = now
+    }
+    
+    // State machine
+    if !isRecordingSegment && !onsetDetected {
+      // IDLE: Check for onset
+      if smoothedEnergy > onsetThreshold {
+        print("🎯 Native VAD: Onset detected (\(smoothedEnergy) > \(onsetThreshold))")
+        onsetDetected = true
+        onsetTime = now
+      }
+    } else if !isRecordingSegment && onsetDetected {
+      // ONSET: Wait for confirmation or timeout
+      let timeSinceOnset = now.timeIntervalSince(onsetTime ?? now) * 1000
+      
+      if smoothedEnergy > confirmThreshold {
+        print("🎤 Native VAD: Speech CONFIRMED (\(smoothedEnergy) > \(confirmThreshold)) - auto-starting segment")
+        
+        // Start recording segment
+        onsetDetected = false
+        lastSpeechTime = now
+        recordingStartTime = now
+        
+        // Emit event to JS (for UI update - create pending card)
+        sendEvent("onSegmentStart", [:])
+        
+        // Start segment with preroll
+        Task {
+          try? await startSegment(options: ["prerollMs": 1000])
+        }
+      } else if timeSinceOnset > 300 {
+        // Timeout - false alarm
+        print("⚠️ Native VAD: Onset timeout - false alarm")
+        onsetDetected = false
+      }
+    } else if isRecordingSegment {
+      // RECORDING: Monitor for silence
+      guard let lastSpeech = lastSpeechTime,
+            let recordingStart = recordingStartTime else { return }
+      
+      let silenceMs = now.timeIntervalSince(lastSpeech) * 1000
+      let durationMs = now.timeIntervalSince(recordingStart) * 1000
+      
+      if silenceMs >= Double(vadSilenceDuration) && durationMs >= Double(vadMinSegmentDuration) {
+        print("💤 Native VAD: \(Int(silenceMs))ms silence - auto-stopping segment")
+        
+        // Stop segment (will emit onSegmentComplete)
+        Task {
+          try? await stopSegment()
+        }
+      }
+    }
   }
   
   private func createPCMBuffer(from samples: [Float], format: AVAudioFormat) -> AVAudioPCMBuffer? {

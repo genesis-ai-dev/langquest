@@ -17,9 +17,9 @@ class MicrophoneEnergyModule : Module() {
   private var isActive = false
   private var recordingScope: CoroutineScope? = null
   
-  // Ring buffer for capturing speech onset (500ms default)
+  // Ring buffer for capturing speech onset (1000ms for better onset capture)
   private val ringBuffer = ArrayDeque<ShortArray>()
-  private val ringBufferMaxSize = 16 // ~500ms at typical buffer sizes
+  private val ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
   private var isRecordingSegment = false
   private var segmentFile: java.io.File? = null
   private var segmentStartTime: Long = 0
@@ -27,11 +27,29 @@ class MicrophoneEnergyModule : Module() {
   
   // Segment audio data collected in memory
   private var segmentBuffers = ArrayList<ShortArray>()
+  
+  // Native VAD state
+  private var vadEnabled = false
+  private var vadThreshold = 0.5f
+  private var vadOnsetMultiplier = 0.25f
+  private var vadConfirmMultiplier = 0.5f
+  private var vadSilenceDuration = 300 // ms
+  private var vadMinSegmentDuration = 500 // ms
+  
+  // EMA smoothing
+  private val emaAlpha = 0.3f
+  private var smoothedEnergy = 0.0f
+  
+  // Schmitt trigger state
+  private var onsetDetected = false
+  private var onsetTime: Long = 0
+  private var lastSpeechTime: Long = 0
+  private var recordingStartTime: Long = 0
 
   override fun definition() = ModuleDefinition {
     Name("MicrophoneEnergy")
 
-    Events("onEnergyResult", "onError", "onSegmentComplete")
+    Events("onEnergyResult", "onError", "onSegmentComplete", "onSegmentStart")
     
     AsyncFunction("startEnergyDetection") { promise: Promise ->
       startEnergyDetection(promise)
@@ -39,6 +57,21 @@ class MicrophoneEnergyModule : Module() {
 
     AsyncFunction("stopEnergyDetection") { promise: Promise ->
       stopEnergyDetection(promise)
+    }
+    
+    AsyncFunction("configureVAD") { config: Map<String, Any?>, promise: Promise ->
+      configureVAD(config)
+      promise.resolve(null)
+    }
+    
+    AsyncFunction("enableVAD") { promise: Promise ->
+      enableVAD()
+      promise.resolve(null)
+    }
+    
+    AsyncFunction("disableVAD") { promise: Promise ->
+      disableVAD()
+      promise.resolve(null)
     }
     
     AsyncFunction("startSegment") { options: Map<String, Any?>?, promise: Promise ->
@@ -114,12 +147,56 @@ class MicrophoneEnergyModule : Module() {
 
   private fun stopEnergyDetectionInternal() {
     isActive = false
+    vadEnabled = false
+    onsetDetected = false
     recordingScope?.cancel()
     recordingScope = null
+
+    // Stop any active segment
+    if (isRecordingSegment) {
+      val promise = object : Promise {
+        override fun resolve(value: Any?) {}
+        override fun reject(code: String, message: String?, cause: Throwable?) {}
+      }
+      stopSegment(promise)
+    }
 
     audioRecord?.stop()
     audioRecord?.release()
     audioRecord = null
+  }
+  
+  private fun configureVAD(config: Map<String, Any?>) {
+    (config["threshold"] as? Number)?.let { vadThreshold = it.toFloat() }
+    (config["silenceDuration"] as? Number)?.let { vadSilenceDuration = it.toInt() }
+    (config["onsetMultiplier"] as? Number)?.let { vadOnsetMultiplier = it.toFloat() }
+    (config["confirmMultiplier"] as? Number)?.let { vadConfirmMultiplier = it.toFloat() }
+    (config["minSegmentDuration"] as? Number)?.let { vadMinSegmentDuration = it.toInt() }
+    
+    println("🎯 VAD configured: threshold=$vadThreshold, silence=${vadSilenceDuration}ms")
+  }
+  
+  private fun enableVAD() {
+    vadEnabled = true
+    onsetDetected = false
+    smoothedEnergy = 0.0f
+    println("🎯 Native VAD enabled")
+  }
+  
+  private fun disableVAD() {
+    vadEnabled = false
+    onsetDetected = false
+    
+    // Stop any active segment
+    if (isRecordingSegment) {
+      val promise = object : Promise {
+        override fun resolve(value: Any?) {}
+        override fun reject(code: String, message: String?, cause: Throwable?) {}
+      }
+      stopSegment(promise)
+    }
+    
+    println("🎯 Native VAD disabled")
   }
 
   private suspend fun processAudioData(audioData: ShortArray, bytesRead: Int, _sampleRate: Int) {
@@ -135,6 +212,9 @@ class MicrophoneEnergyModule : Module() {
       energy += sample * sample
     }
     energy = sqrt(energy / bytesRead)
+    
+    // Apply EMA smoothing
+    smoothedEnergy = emaAlpha * energy.toFloat() + (1.0f - emaAlpha) * smoothedEnergy
 
     // Manage ring buffer (always buffer when not recording segment)
     if (!isRecordingSegment) {
@@ -152,13 +232,84 @@ class MicrophoneEnergyModule : Module() {
         segmentBuffers.add(dataCopy)
       }
     }
+    
+    // Native VAD logic (if enabled)
+    if (vadEnabled) {
+      handleNativeVAD()
+    }
 
-    // Send pure energy level - let JavaScript decide everything
+    // Send energy level to JavaScript (for UI visualization)
     withContext(Dispatchers.Main) {
       sendEvent("onEnergyResult", mapOf(
-        "energy" to energy,
+        "energy" to smoothedEnergy.toDouble(),
         "timestamp" to timestamp
       ))
+    }
+  }
+  
+  private fun handleNativeVAD() {
+    val now = System.currentTimeMillis()
+    val onsetThreshold = vadThreshold * vadOnsetMultiplier
+    val confirmThreshold = vadThreshold * vadConfirmMultiplier
+    
+    // Update last speech time if above confirm threshold
+    if (smoothedEnergy > confirmThreshold) {
+      lastSpeechTime = now
+    }
+    
+    // State machine
+    if (!isRecordingSegment && !onsetDetected) {
+      // IDLE: Check for onset
+      if (smoothedEnergy > onsetThreshold) {
+        println("🎯 Native VAD: Onset detected ($smoothedEnergy > $onsetThreshold)")
+        onsetDetected = true
+        onsetTime = now
+      }
+    } else if (!isRecordingSegment && onsetDetected) {
+      // ONSET: Wait for confirmation or timeout
+      val timeSinceOnset = now - onsetTime
+      
+      if (smoothedEnergy > confirmThreshold) {
+        println("🎤 Native VAD: Speech CONFIRMED ($smoothedEnergy > $confirmThreshold) - auto-starting segment")
+        
+        // Start recording segment
+        onsetDetected = false
+        lastSpeechTime = now
+        recordingStartTime = now
+        
+        // Emit event to JS (for UI update - create pending card)
+        sendEvent("onSegmentStart", emptyMap<String, Any>())
+        
+        // Start segment with preroll
+        val promise = object : Promise {
+          override fun resolve(value: Any?) {}
+          override fun reject(code: String, message: String?, cause: Throwable?) {
+            println("⚠️ Native VAD: Failed to start segment: $message")
+          }
+        }
+        startSegment(mapOf("prerollMs" to 1000), promise)
+      } else if (timeSinceOnset > 300) {
+        // Timeout - false alarm
+        println("⚠️ Native VAD: Onset timeout - false alarm")
+        onsetDetected = false
+      }
+    } else if (isRecordingSegment) {
+      // RECORDING: Monitor for silence
+      val silenceMs = now - lastSpeechTime
+      val durationMs = now - recordingStartTime
+      
+      if (silenceMs >= vadSilenceDuration && durationMs >= vadMinSegmentDuration) {
+        println("💤 Native VAD: ${silenceMs}ms silence - auto-stopping segment")
+        
+        // Stop segment (will emit onSegmentComplete)
+        val promise = object : Promise {
+          override fun resolve(value: Any?) {}
+          override fun reject(code: String, message: String?, cause: Throwable?) {
+            println("⚠️ Native VAD: Failed to stop segment: $message")
+          }
+        }
+        stopSegment(promise)
+      }
     }
   }
 

@@ -1,21 +1,163 @@
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
+import { useAuth } from '@/contexts/AuthContext';
+import type { quest_closure } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
-import { Share2 } from 'lucide-react-native';
+import { HardDriveIcon, Share2 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import {
+  useHybridData,
+  useItemDownload,
+  useItemDownloadStatus
+} from './useHybridData';
 
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+}
+
+type QuestClosure = typeof quest_closure.$inferSelect;
+
+// Helper component to handle individual chapter download state
+function ChapterButton({
+  chapterNum,
+  verseCount,
+  existingChapter,
+  isCreatingThis,
+  onPress,
+  disabled,
+  onShare
+}: {
+  chapterNum: number;
+  verseCount: number;
+  existingChapter?: {
+    id: string;
+    name: string;
+    source: string;
+    download_profiles?: string[] | null;
+  };
+  isCreatingThis: boolean;
+  onPress: () => void;
+  disabled: boolean;
+  onShare?: () => void;
+}) {
+  const { currentUser } = useAuth();
+  const exists = !!existingChapter;
+  const isLocal = existingChapter?.source === 'local';
+  const isCloudQuest = existingChapter?.source === 'cloud';
+
+  // Download status and handler
+  const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
+  const needsDownload = isCloudQuest && !isDownloaded;
+
+  // Quest closure data for download stats
+  const { data: questClosureData } = useHybridData<QuestClosure>({
+    dataType: 'quest_closure',
+    queryKeyParams: [existingChapter?.id || ''],
+    offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${existingChapter?.id || ''}' LIMIT 1`,
+    cloudQueryFn: async () => {
+      if (!existingChapter?.id) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest_closure')
+        .select('*')
+        .eq('quest_id', existingChapter.id)
+        .limit(1)
+        .overrideTypes<QuestClosure[]>();
+      if (error) {
+        console.warn('Error fetching quest closure from cloud:', error);
+        return [];
+      }
+      return data;
+    },
+    enableOfflineQuery: !!existingChapter?.id,
+    getItemId: (item: QuestClosure) => item.quest_id
+  });
+
+  const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
+    'quest',
+    existingChapter?.id || ''
+  );
+
+  const handleDownloadToggle = () => {
+    if (!currentUser?.id || !existingChapter?.id) return;
+    if (!isDownloaded) {
+      downloadQuest({ userId: currentUser.id, download: true });
+    }
+  };
+
+  const questClosure = questClosureData[0] as QuestClosure | undefined;
+  const downloadStats = {
+    totalAssets: questClosure?.total_assets ?? 0,
+    totalTranslations: questClosure?.total_translations ?? 0
+  };
+
+  return (
+    <View className="relative w-[90px] flex-col gap-1">
+      <Button
+        variant={exists ? 'default' : 'outline'}
+        className={`w-full flex-col gap-1 py-3 ${!exists ? 'border-dashed' : ''} ${
+          needsDownload ? 'opacity-50' : ''
+        }`}
+        onPress={onPress}
+        disabled={disabled || needsDownload}
+      >
+        {isCreatingThis ? (
+          <ActivityIndicator size="small" />
+        ) : (
+          <View className="flex-col items-center gap-1">
+            <View className="flex-row items-center gap-1">
+              {isLocal && (
+                <Icon
+                  as={HardDriveIcon}
+                  size={14}
+                  className="text-primary-foreground"
+                />
+              )}
+              <Text className="text-lg font-bold">{chapterNum}</Text>
+            </View>
+            <Text
+              className={`text-xs ${
+                exists ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              }`}
+            >
+              {verseCount} verses
+            </Text>
+          </View>
+        )}
+      </Button>
+      {exists && !isLocal && (
+        <View className="absolute right-1 top-1">
+          <DownloadIndicator
+            isFlaggedForDownload={isDownloaded}
+            isLoading={isDownloading}
+            onPress={handleDownloadToggle}
+            downloadType="quest"
+            stats={downloadStats}
+            size={16}
+          />
+        </View>
+      )}
+      {exists && isLocal && onShare && (
+        <Pressable
+          onPress={onShare}
+          className="absolute right-1 top-1 rounded-full bg-primary/10 p-1"
+        >
+          <Icon as={Share2} size={12} className="text-primary-foreground" />
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
 export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
@@ -28,7 +170,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
 
   // Query existing chapters
   const {
-    existingChapterNumbers,
+    existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,
     isLoading: isLoadingChapters
   } = useBibleChapters(projectId, book?.name || '');
@@ -168,55 +310,23 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
               const existingChapter = existingChapters.find(
                 (ch) => ch.chapterNumber === chapterNum
               );
-              const exists = !!existingChapter;
-              const isLocal = existingChapter?.source === 'local';
               const isCreatingThis = creatingChapter === chapterNum;
 
               return (
-                <View
+                <ChapterButton
                   key={chapterNum}
-                  className="relative w-[90px] flex-col gap-1"
-                >
-                  <Button
-                    variant={exists ? 'default' : 'outline'}
-                    className={`w-full flex-col gap-1 py-3 ${
-                      !exists ? 'border-dashed' : ''
-                    }`}
-                    onPress={() => handleChapterPress(chapterNum)}
-                    disabled={isCreating || isLoadingChapters}
-                  >
-                    {isCreatingThis ? (
-                      <ActivityIndicator size="small" />
-                    ) : (
-                      <>
-                        <Text className="text-lg font-bold">{chapterNum}</Text>
-                        <Text
-                          className={`text-xs ${
-                            exists
-                              ? 'text-primary-foreground/70'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
-                          {verseCount} verses
-                        </Text>
-                      </>
-                    )}
-                  </Button>
-                  {exists && isLocal && (
-                    <Pressable
-                      onPress={() =>
-                        handleSharePress(chapterNum, existingChapter.name)
-                      }
-                      className="absolute right-1 top-1 rounded-full bg-primary/10 p-1"
-                    >
-                      <Icon
-                        as={Share2}
-                        size={12}
-                        className="text-primary-foreground"
-                      />
-                    </Pressable>
-                  )}
-                </View>
+                  chapterNum={chapterNum}
+                  verseCount={verseCount}
+                  existingChapter={existingChapter}
+                  isCreatingThis={isCreatingThis}
+                  onPress={() => handleChapterPress(chapterNum)}
+                  disabled={isCreating || isLoadingChapters}
+                  onShare={
+                    existingChapter
+                      ? () => handleSharePress(chapterNum, existingChapter.name)
+                      : undefined
+                  }
+                />
               );
             })
           )}

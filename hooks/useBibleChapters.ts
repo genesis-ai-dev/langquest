@@ -10,6 +10,7 @@ interface BibleChapter {
     name: string;
     chapterNumber: number;
     source: HybridDataSource;
+    download_profiles?: string[] | null;
 }
 
 /**
@@ -46,7 +47,8 @@ export function useBibleChapters(projectId: string, bookName: string) {
                         id: q.id,
                         name: q.name,
                         chapterNumber,
-                        source: q.source
+                        source: q.source,
+                        download_profiles: q.download_profiles
                     };
                 })
                 .filter((ch) => ch.chapterNumber > 0)

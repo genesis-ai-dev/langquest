@@ -7,15 +7,28 @@ export type VADResult = {
 };
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+export type VADConfig = {
+  threshold?: number;
+  silenceDuration?: number;
+  onsetMultiplier?: number;
+  confirmMultiplier?: number;
+  minSegmentDuration?: number;
+};
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type MicrophoneEnergyModuleEvents = {
   onEnergyResult: (result: VADResult) => void;
   onError: (error: { message: string }) => void;
+  onSegmentStart: () => void;
   onSegmentComplete: (payload: { uri: string; startTime: number; endTime: number; duration: number }) => void;
 };
 
 declare class MicrophoneEnergyModule extends NativeModule<MicrophoneEnergyModuleEvents> {
   startEnergyDetection(): Promise<void>;
   stopEnergyDetection(): Promise<void>;
+  configureVAD(config: VADConfig): Promise<void>;
+  enableVAD(): Promise<void>;
+  disableVAD(): Promise<void>;
   startSegment(options?: { prerollMs?: number }): Promise<void>;
   stopSegment(): Promise<string | null>;
 }
