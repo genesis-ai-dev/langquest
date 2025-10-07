@@ -29,7 +29,7 @@ import { LegendList } from '@legendapp/list';
 import {
   FlagIcon,
   InfoIcon,
-  Mic,
+  MicIcon,
   SearchIcon,
   SettingsIcon
 } from 'lucide-react-native';
@@ -406,14 +406,16 @@ export default function NextGenAssetsView() {
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-row items-center justify-between">
         <Text className="text-xl font-semibold">{t('assets')}</Text>
-        <Button
-          variant="outline"
-          size="icon"
-          className="border-primary"
-          onPress={() => setShowRecording(true)}
-        >
-          <Icon as={Mic} className="text-muted-foreground" />
-        </Button>
+        <View className="flex flex-row items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="border-primary"
+            onPress={() => setShowRecording(true)}
+          >
+            <Icon as={MicIcon} className="text-muted-foreground" />
+          </Button>
+        </View>
       </View>
 
       <Input

@@ -12,6 +12,7 @@ import {
   BottomSheetModal,
   BottomSheetModalProvider,
   BottomSheetView,
+  BottomSheetTextInput as DrawerInput,
   useBottomSheet
 } from '@gorhom/bottom-sheet';
 import { Portal, PortalHost } from '@rn-primitives/portal';
@@ -313,6 +314,7 @@ export {
   DrawerFooter,
   DrawerHandle,
   DrawerHeader,
+  DrawerInput,
   DrawerOverlay,
   DrawerTitle,
   DrawerTrigger

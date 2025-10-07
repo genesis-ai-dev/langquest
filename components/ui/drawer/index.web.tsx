@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { TextInput as DrawerInput } from 'react-native';
 import { Drawer as DrawerPrimitive } from 'vaul';
 
 import { cn } from '@/utils/styleUtils';
@@ -145,6 +146,7 @@ export {
   DrawerFooter,
   DrawerHandle,
   DrawerHeader,
+  DrawerInput,
   DrawerOverlay,
   DrawerTitle,
   DrawerTrigger

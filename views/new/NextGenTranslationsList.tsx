@@ -27,7 +27,7 @@ import NextGenTranslationModal from './NextGenTranslationModalAlt';
 
 interface NextGenTranslationsListProps {
   assetId: string;
-  assetName?: string;
+  assetName?: string | null;
   refreshKey?: number;
   // Props passed from parent to avoid re-querying
   projectData?: {

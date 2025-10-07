@@ -1299,16 +1299,16 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const scrollViewContent = React.useMemo(() => {
     const content: React.ReactNode[] = [];
 
-    if (assets.length === 0 && pendingSegments.length === 0) {
-      content.push(
-        <View key="empty" className="items-center justify-center py-16">
-          <Text className="text-center text-muted-foreground">
-            No assets yet. Start recording to create your first asset.
-          </Text>
-        </View>
-      );
-      return content;
-    }
+    // if (assets.length === 0 && pendingSegments.length === 0) {
+    //   content.push(
+    //     <View key="empty" className="items-center justify-center py-16">
+    //       <Text className="text-center text-muted-foreground">
+    //         No assets yet. Start recording to create your first asset.
+    //       </Text>
+    //     </View>
+    //   );
+    //   return content;
+    // }
 
     // Organize pending by placement index
     const pendingByIndex = new Map<number, typeof pendingSegments>();
@@ -1517,6 +1517,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       </View>
 
       <View className="h-full flex-1 p-2">
+        {rawAssets.length === 0 && pendingSegments.length === 0 && (
+          <View key="empty" className="items-center justify-center py-16">
+            <Text className="text-center text-muted-foreground">
+              No assets yet. Start recording to create your first asset.
+            </Text>
+          </View>
+        )}
         {/* Scrollable list */}
         {isWheel ? (
           <ArrayInsertionWheel

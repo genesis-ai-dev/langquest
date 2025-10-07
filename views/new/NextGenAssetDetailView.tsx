@@ -524,7 +524,10 @@ export default function NextGenAssetDetailView() {
       ) : (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
-          disabled={!allowEditing}
+          disabled={
+            !allowEditing ||
+            (activeAsset.source && activeAsset.source === 'local')
+          }
           onPress={() => allowEditing && handleNewTranslationPress()}
         >
           <Icon as={PlusIcon} size={24} />

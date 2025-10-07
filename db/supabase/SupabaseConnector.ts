@@ -351,6 +351,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           const arrayFields = [
             'download_profiles',
             'images', // in asset table
+            'audio',
             'asset_ids',
             'translation_ids',
             'vote_ids',

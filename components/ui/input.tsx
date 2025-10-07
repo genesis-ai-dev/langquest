@@ -1,5 +1,4 @@
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react-native';
@@ -7,6 +6,7 @@ import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, Pressable, TextInput, View } from 'react-native';
+import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
 const inputVariants = cva(
@@ -144,7 +144,7 @@ const Input = React.forwardRef<
   ) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
-    const Component = drawerInput ? BottomSheetTextInput : TextInput;
+    const Component = drawerInput ? DrawerInput : TextInput;
     return (
       <View
         className={cn(

@@ -1,11 +1,9 @@
 import * as drizzleSchema from '@/db/drizzleSchema';
 import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
+import * as drizzleSchemaSynced from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
-import type {
-  HybridDataSource,
-  offlineQuerySourceOptions
-} from '@/views/new/useHybridData';
-import type { AnyColumn, Table } from 'drizzle-orm';
+import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { AnyColumn, GetColumnData, SQL, Table } from 'drizzle-orm';
 import { and, eq, getOrderByOperators } from 'drizzle-orm';
 
 const {
@@ -33,11 +31,15 @@ export { localTablesOnly };
 // TODO:
 const LOCAL_MODE = false;
 
-export type OfflineQuerySource = keyof typeof offlineQuerySourceOptions;
-
 type TablesOnlyKeys = Exclude<keyof typeof tablesOnly, `${string}Relations`>;
 type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
   keyof typeof drizzleSchemaLocal;
+type SyncedKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_synced` &
+  keyof typeof drizzleSchemaSynced;
+
+export function sourceLocalOverrideOptions(source: HybridDataSource) {
+  return { localOverride: source === 'local' };
+}
 
 /**
  * Resolves the correct table object (local or remote) for a given table name.
@@ -58,7 +60,9 @@ export function resolveTable<T extends TablesOnlyKeys>(
     ? (drizzleSchemaLocal[
         `${table}_local` as LocalKeyFor<T>
       ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
-    : (drizzleSchema[table] as (typeof drizzleSchema)[T]);
+    : (drizzleSchemaSynced[
+        `${table}_synced` as SyncedKeyFor<T>
+      ] as (typeof drizzleSchemaSynced)[SyncedKeyFor<T>]);
 }
 
 export type WithSource<T> = T extends readonly unknown[]
@@ -94,3 +98,11 @@ export function blockedUsersQuery(profileId: string) {
     .from(drizzleSchema.blocked_users)
     .where(eq(drizzleSchema.blocked_users.blocker_id, profileId));
 }
+
+export const aliasedColumn = <T extends AnyColumn>(
+  column: T,
+  alias: string
+): SQL.Aliased<GetColumnData<T>> => {
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  return column.getSQL().mapWith(column.mapFromDriverValue).as(alias);
+};

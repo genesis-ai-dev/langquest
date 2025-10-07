@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
@@ -35,7 +36,6 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, ScrollView, View } from 'react-native';
 import { z } from 'zod';
-
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -43,7 +43,7 @@ interface NextGenNewTranslationModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   assetId: string;
-  assetName: string;
+  assetName?: string | null;
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
   targetLanguageId: string;
@@ -66,6 +66,8 @@ export default function NextGenNewTranslationModal({
   const isOnline = useNetworkStatus();
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
+
+  const { currentQuestId } = useAppNavigation();
 
   const translationSchema = z
     .object({
@@ -101,15 +103,34 @@ export default function NextGenNewTranslationModal({
         audioAttachment = attachment.filename;
       }
 
-      await system.db.insert(resolveTable('asset')).values({
-        ...(translationType === 'text' && { text: data.text }),
-        ...(translationType === 'audio' && { audio: audioAttachment }),
-        source_asset_id: assetId,
-        source_language_id: sourceLanguage!.id,
-        target_language_id: targetLanguageId,
-        creator_id: currentUser!.id,
-        name: data.text,
-        download_profiles: [currentUser!.id]
+      await system.db.transaction(async (tx) => {
+        const [newAsset] = await tx
+          .insert(resolveTable('asset')) // only insert into synced table
+          .values({
+            ...(translationType === 'text' && { text: data.text }),
+            ...(translationType === 'audio' && { audio: audioAttachment }),
+            source_asset_id: assetId,
+            source_language_id: sourceLanguage?.id,
+            creator_id: currentUser!.id,
+            download_profiles: [currentUser!.id]
+          })
+          .returning();
+
+        if (!newAsset) {
+          throw new Error('Failed to insert asset');
+        }
+
+        // Create quest_asset_link
+        await tx
+          .insert(
+            resolveTable('quest_asset_link') // only insert into synced table
+          )
+          .values({
+            id: `${currentQuestId}_${newAsset.id}`,
+            quest_id: currentQuestId!,
+            asset_id: newAsset.id,
+            download_profiles: [currentUser!.id]
+          });
       });
     },
     onSuccess: () => {
@@ -177,7 +198,7 @@ export default function NextGenNewTranslationModal({
                 {/* Asset Info */}
                 <View className="flex-col gap-1">
                   <Text className="text-lg font-bold text-foreground">
-                    {assetName}
+                    {assetName || t('unknown')}
                   </Text>
                   <Text className="text-sm text-muted-foreground">
                     {sourceLanguage?.native_name ||
@@ -265,6 +286,7 @@ export default function NextGenNewTranslationModal({
           <DrawerFooter>
             <FormSubmit
               onPress={form.handleSubmit((data) => createTranslation(data))}
+              disabled={!currentQuestId}
               className="w-full"
             >
               <Text className="text-base font-bold">{t('submit')}</Text>

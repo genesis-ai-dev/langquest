@@ -1,7 +1,7 @@
 import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { OfflineQuerySource, WithSource } from '@/utils/dbUtils';
+import type { WithSource } from '@/utils/dbUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -23,17 +23,18 @@ type CompilableQuery<T = unknown> = CompilableQueryNative<T>;
 
 type QueryKeyParam = string | number | boolean | null | undefined;
 
-export const offlineQuerySourceOptions = {
+export const offlineDataSourceOptions = {
   local: sourceOptions[0],
   synced: sourceOptions[1]
 } as const;
 
 export const hybridDataSourceOptions = {
-  ...offlineQuerySourceOptions,
+  ...offlineDataSourceOptions,
   cloud: sourceOptions[2]
 } as const;
 
 export type HybridDataSource = keyof typeof hybridDataSourceOptions;
+export type OfflineDataSource = keyof typeof offlineDataSourceOptions;
 
 export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // Unique key for this data type (e.g., 'assets', 'quests', 'translations')
@@ -159,7 +160,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
     return dataArray.map((item) => {
       const typedItem = item as unknown as TOfflineData & {
-        source?: OfflineQuerySource;
+        source?: OfflineDataSource;
       };
       return {
         ...typedItem,
@@ -412,7 +413,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
               return {
                 ...item,
                 source:
-                  (item as unknown as { source?: OfflineQuerySource }).source ??
+                  (item as unknown as { source?: OfflineDataSource }).source ??
                   'synced'
               } as WithSource<TOfflineData>;
             })

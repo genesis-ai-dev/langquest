@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-duplicate-type-constituents */
-import type { OfflineQuerySource } from '@/utils/dbUtils';
+import type { OfflineDataSource } from '@/views/new/useHybridData';
 import type { BuildExtraConfigColumns } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import type {
@@ -67,7 +67,7 @@ import type {
 //   )
 // }
 
-type TableSource = OfflineQuerySource | 'merged';
+type TableSource = OfflineDataSource | 'merged';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type OmitFirstParameter<T extends (...args: any) => any> = T extends (
@@ -270,7 +270,10 @@ export function createTagTable<T extends TableSource>(
   return table;
 }
 
-export function createAssetTable<T extends TableSource>(
+export function createAssetTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     language,
@@ -281,24 +284,26 @@ export function createAssetTable<T extends TableSource>(
     project: typeof project_synced | typeof project_local;
     profile: typeof profile_synced | typeof profile_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'asset', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
   const table = getTableCreator(source)(
     'asset',
     {
       ...getTableColumns(source),
-      name: text().notNull(),
+      name: text(),
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       source_language_id: text()
-        .notNull()
+        // .notNull() TODO: make decision about this
         .references(() => language.id),
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
-      order_index: int().notNull().default(0),
-      ...params[0]
+      ...columns
     },
     (table) => {
       return [
@@ -306,7 +311,7 @@ export function createAssetTable<T extends TableSource>(
         index('source_language_id_idx').on(table.source_language_id),
         index('asset_source_asset_id_idx').on(table.source_asset_id),
         index('asset_project_id_idx').on(table.project_id),
-        ...normalizeParams(params[1], table)
+        ...normalizeParams(extraConfig, table)
       ];
     }
   );

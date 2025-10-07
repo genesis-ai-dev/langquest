@@ -1,10 +1,10 @@
 import { cn } from '@/utils/styleUtils';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, TextInput } from 'react-native';
+import { DrawerInput } from './drawer';
 
 const textareaVariants = cva(
   'flex w-full flex-row rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5',
@@ -43,7 +43,7 @@ const Textarea = React.forwardRef<
     },
     ref
   ) => {
-    const Component = drawerInput ? BottomSheetTextInput : TextInput;
+    const Component = drawerInput ? DrawerInput : TextInput;
     return (
       <Component
         // @ts-expect-error - ref is not passed the same type as TextInput
