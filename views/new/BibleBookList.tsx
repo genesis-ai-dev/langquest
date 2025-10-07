@@ -1,3 +1,4 @@
+import { Shimmer } from '@/components/Shimmer';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
@@ -125,6 +126,66 @@ export function BibleBookList({
         </Text>
       </View>
       {renderBookRows(newTestament, 'new')}
+    </ScrollView>
+  );
+}
+
+export function BibleBookListSkeleton() {
+  const screenWidth = Dimensions.get('window').width;
+  const buttonWidth = 110;
+  const gap = 12;
+  const padding = 16;
+  const availableWidth = screenWidth - padding * 2;
+  const buttonsPerRow = Math.max(
+    2,
+    Math.floor((availableWidth + gap) / (buttonWidth + gap))
+  );
+
+  // Create a few rows of skeleton buttons
+  const renderSkeletonRow = (rowIndex: number) => {
+    const buttons = [];
+    for (let i = 0; i < buttonsPerRow; i++) {
+      buttons.push(
+        <Shimmer
+          key={`skeleton-${rowIndex}-${i}`}
+          width={buttonWidth}
+          height={140}
+          borderRadius={8}
+        />
+      );
+    }
+    return (
+      <View
+        key={rowIndex}
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          gap: gap,
+          marginBottom: gap
+        }}
+      >
+        {buttons}
+      </View>
+    );
+  };
+
+  return (
+    <ScrollView
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: padding,
+        paddingBottom: 24
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ width: availableWidth, paddingVertical: 16 }}>
+        <Shimmer width={200} height={24} borderRadius={4} />
+      </View>
+      {[0, 1, 2, 3].map(renderSkeletonRow)}
+      <View style={{ width: availableWidth, paddingVertical: 32 }}>
+        <Shimmer width={200} height={24} borderRadius={4} />
+      </View>
+      {[4, 5, 6].map(renderSkeletonRow)}
     </ScrollView>
   );
 }
