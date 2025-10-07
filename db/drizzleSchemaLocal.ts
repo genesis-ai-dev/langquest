@@ -3,7 +3,7 @@
 // Creates _local table variants for offline sync
 
 import { relations, sql } from 'drizzle-orm';
-import { sqliteView, text } from 'drizzle-orm/sqlite-core';
+import { int, sqliteView, text } from 'drizzle-orm/sqlite-core';
 import {
   createAssetContentLinkTable,
   createAssetTable,
@@ -142,11 +142,17 @@ export const quest_tag_link_localRelations = relations(
   })
 );
 
-export const asset_local = createAssetTable('local', {
-  language: language_local,
-  project: project_local,
-  profile: profile_local
-});
+export const asset_local = createAssetTable(
+  'local',
+  {
+    language: language_local,
+    project: project_local,
+    profile: profile_local
+  },
+  {
+    order_index: int().notNull().default(0)
+  }
+);
 
 export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
   source_language: one(language_local, {

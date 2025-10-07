@@ -71,8 +71,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // VAD mode state
   const [isVADLocked, setIsVADLocked] = React.useState(false);
-  const [vadThreshold, setVadThreshold] = React.useState(0.03); // Default to "Normal"
-  const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1500); // 1.5s default
+  const [vadThreshold, setVadThreshold] = React.useState(0.06); // Default speech detection threshold
+  const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1000); // 1000ms for fast turnaround
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const {
     playSound,
@@ -593,48 +593,41 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         const localUri = await saveAudioFileLocally(uri);
 
-        await system.db.transaction(async (tx) => {
-          const linkLocal = resolveTable('quest_asset_link', {
-            localOverride: true
-          });
-          const assetLocal = resolveTable('asset', { localOverride: true });
+        // SERIALIZE DB WRITES: Queue this transaction to prevent race conditions
+        // This ensures VAD segments are written in speech order, not completion order
+        dbWriteQueueRef.current = dbWriteQueueRef.current
+          .then(async () => {
+            console.log(`🔒 DB write starting for order_index ${targetOrder}`);
 
-          // Shift assets at or after insertion point up by 1
-          // Since order_index is now normalized, we can trust the database values
-          const assetsToShift = assets.filter((a) => {
-            const aOrder =
-              typeof a.order_index === 'number' ? a.order_index : 0;
-            return aOrder >= targetOrder && a.source !== 'optimistic';
-          });
+            await system.db.transaction(async (tx) => {
+              const linkLocal = resolveTable('quest_asset_link', {
+                localOverride: true
+              });
+              const assetLocal = resolveTable('asset', { localOverride: true });
 
-          for (const asset of assetsToShift) {
-            const newOrder = (asset.order_index ?? 0) + 1;
-            await tx
-              .update(assetLocal)
-              .set({ order_index: newOrder })
-              .where(eq(assetLocal.id, asset.id));
-          }
+              // NOTE: We don't shift assets because VAD always appends to end
+              // The sequential counter ensures no gaps in order_index
 
-          const [newAsset] = await tx
-            .insert(assetLocal)
-            .values({
-              name: optimisticAsset.name,
-              id: newId,
-              order_index: targetOrder,
-              source_language_id: currentProject.target_language_id,
-              creator_id: currentUser.id,
-              download_profiles: [currentUser.id]
-            })
-            .returning();
+              const [newAsset] = await tx
+                .insert(assetLocal)
+                .values({
+                  name: optimisticAsset.name,
+                  id: newId,
+                  order_index: targetOrder,
+                  source_language_id: currentProject.target_language_id,
+                  creator_id: currentUser.id,
+                  download_profiles: [currentUser.id]
+                })
+                .returning();
 
-          if (!newAsset) throw new Error('Failed to insert asset');
+              if (!newAsset) throw new Error('Failed to insert asset');
 
-          await tx.insert(linkLocal).values({
-            id: `${currentQuestId}_${newAsset.id}`,
-            quest_id: currentQuestId,
-            asset_id: newAsset.id,
-            download_profiles: [currentUser.id]
-          });
+              await tx.insert(linkLocal).values({
+                id: `${currentQuestId}_${newAsset.id}`,
+                quest_id: currentQuestId,
+                asset_id: newAsset.id,
+                download_profiles: [currentUser.id]
+              });
 
           await tx
             .insert(resolveTable('asset_content_link', { localOverride: true }))
@@ -645,14 +638,25 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               audio: [localUri],
               download_profiles: [currentUser.id]
             });
-        });
 
-        console.log(
-          '✅ Asset saved to database:',
-          newId,
-          'at order_index:',
-          targetOrder
-        );
+            console.log(
+              '✅ Asset saved to database:',
+              newId,
+              'at order_index:',
+              targetOrder
+            );
+          })
+          .catch((err) => {
+            console.error(
+              '❌ DB write failed for order_index:',
+              targetOrder,
+              err
+            );
+            throw err; // Re-throw to trigger outer catch
+          });
+
+        // Wait for this write to complete before continuing
+        await dbWriteQueueRef.current;
 
         // 5. Add duration to cache (from recording metadata)
         if (_duration > 0) {
@@ -712,46 +716,82 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     ]
   );
 
-  // VAD: Native module handles everything
+  // VAD: Native module handles everything - DETERMINISTIC queue system
   const vadPendingCardRef = React.useRef<string | null>(null);
+  const vadSequentialCounterRef = React.useRef<number | null>(null); // Pure sequential counter
+  const vadInitializedRef = React.useRef(false);
+
+  // DB write queue to serialize transactions (prevent race conditions)
+  const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
+
+  // Initialize counter once from actual data
+  React.useEffect(() => {
+    if (isVADLocked && !vadInitializedRef.current && assets.length > 0) {
+      // Filter out optimistic/pending assets to get true DB state
+      const realAssets = assets.filter(
+        (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
+      );
+      const maxOrder = Math.max(
+        ...realAssets.map((a) =>
+          typeof a.order_index === 'number' ? a.order_index : 0
+        ),
+        -1
+      );
+      vadSequentialCounterRef.current = maxOrder + 1;
+      vadInitializedRef.current = true;
+      console.log(
+        '🎯 VAD counter initialized to:',
+        vadSequentialCounterRef.current
+      );
+    } else if (!isVADLocked && vadInitializedRef.current) {
+      // Reset when VAD unlocked
+      vadInitializedRef.current = false;
+      vadSequentialCounterRef.current = null;
+      console.log('🎯 VAD counter reset');
+    }
+  }, [isVADLocked, assets]);
 
   const handleVADSegmentStart = React.useCallback(() => {
-    console.log('🎬 VAD segment starting - creating pending card');
+    console.log('🎬 Native VAD: Segment starting - creating pending card');
 
-    // Calculate target order_index
-    let targetOrder: number;
-    if (insertionIndex < assets.length) {
-      const hoveredAsset = assets[insertionIndex];
-      const hoveredOrder =
-        hoveredAsset && typeof hoveredAsset.order_index === 'number'
-          ? hoveredAsset.order_index
-          : insertionIndex;
-      targetOrder = hoveredOrder + 1;
-    } else {
-      const lastAsset = assets[assets.length - 1];
-      const lastOrder =
-        lastAsset && typeof lastAsset.order_index === 'number'
-          ? lastAsset.order_index
-          : assets.length - 1;
-      targetOrder = lastOrder + 1;
+    // DETERMINISTIC: Use sequential counter, NOT assets array state
+    if (vadSequentialCounterRef.current === null) {
+      // Fallback: calculate from real assets only
+      const realAssets = assets.filter(
+        (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
+      );
+      const maxOrder = Math.max(
+        ...realAssets.map((a) =>
+          typeof a.order_index === 'number' ? a.order_index : 0
+        ),
+        -1
+      );
+      vadSequentialCounterRef.current = maxOrder + 1;
     }
 
-    const visualInsertionPos =
-      insertionIndex < assets.length ? insertionIndex + 1 : insertionIndex;
-    const tempId = createPendingCard(visualInsertionPos);
+    const targetOrder = vadSequentialCounterRef.current;
+    const visualPos = assets.length; // Visual position (for UI only)
+
+    const tempId = createPendingCard(visualPos);
 
     if (tempId) {
       vadPendingCardRef.current = tempId;
       currentRecordingTempIdRef.current = tempId;
       currentRecordingOrderRef.current = targetOrder;
+
+      // Increment counter for next segment (DETERMINISTIC)
+      vadSequentialCounterRef.current = targetOrder + 1;
+
       console.log(
-        '📝 VAD pending card created:',
+        '📝 Native VAD: Pending card created:',
         tempId,
         'at order_index:',
-        targetOrder
+        targetOrder,
+        '(next will be:',
+        vadSequentialCounterRef.current + ')'
       );
     }
-  }, [insertionIndex, assets, createPendingCard]);
+  }, [assets, createPendingCard]);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {

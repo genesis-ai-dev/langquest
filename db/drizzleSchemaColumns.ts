@@ -69,16 +69,6 @@ import type {
 
 type TableSource = OfflineDataSource | 'merged';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type OmitFirstParameter<T extends (...args: any) => any> = T extends (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  firstArg: any,
-  ...restArgs: infer P
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-) => any
-  ? P
-  : never;
-
 export const mergedTable = sqliteTableCreator((name) => name);
 export const syncedTable = sqliteTableCreator((name) => `${name}_synced`);
 // export const syncedTable = sqliteTableCreator((name) => name);
@@ -177,6 +167,7 @@ export function createProjectTable<
     self: BuildExtraConfigColumns<'project', TColumnsMap, 'sqlite'>
   ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'project',
     {
@@ -191,7 +182,7 @@ export function createProjectTable<
         .notNull()
         .references(() => language.id),
       creator_id: text().references(() => profile.id),
-      ...columns
+      ...extraColumns
     },
     (table) => [
       index('name_idx').on(table.name),
@@ -203,10 +194,17 @@ export function createProjectTable<
   return table;
 }
 
-export function createProfileTable<T extends TableSource>(
+export function createProfileTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'profile', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'profile',
     {
@@ -218,19 +216,26 @@ export function createProfileTable<T extends TableSource>(
       ui_language_id: text(),
       terms_accepted: int({ mode: 'boolean' }),
       terms_accepted_at: text(),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
 }
 
-export function createLanguageTable<T extends TableSource>(
+export function createLanguageTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'language', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'language',
     {
@@ -243,18 +248,25 @@ export function createLanguageTable<T extends TableSource>(
       ui_ready: int({ mode: 'boolean' }).notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       creator_id: text().references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
 }
 
-export function createTagTable<T extends TableSource>(
+export function createTagTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'tag', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'tag',
     {
@@ -262,9 +274,9 @@ export function createTagTable<T extends TableSource>(
       key: text().notNull(),
       value: text().notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
@@ -289,6 +301,7 @@ export function createAssetTable<
     self: BuildExtraConfigColumns<'asset', TColumnsMap, 'sqlite'>
   ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'asset',
     {
@@ -303,7 +316,7 @@ export function createAssetTable<
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
-      ...columns
+      ...extraColumns
     },
     (table) => {
       return [
@@ -319,7 +332,10 @@ export function createAssetTable<
   return table;
 }
 
-export function createQuestTable<T extends TableSource>(
+export function createQuestTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     project,
@@ -328,8 +344,12 @@ export function createQuestTable<T extends TableSource>(
     project: typeof project_synced | typeof project_local;
     profile: typeof profile_synced | typeof profile_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'quest', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'quest',
     {
@@ -343,14 +363,14 @@ export function createQuestTable<T extends TableSource>(
         .references(() => project.id),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => {
       return [
         index('project_id_idx').on(table.project_id),
         index('parent_id_idx').on(table.parent_id),
         index('name_idx').on(table.name),
-        ...normalizeParams(params[1], table)
+        ...normalizeParams(extraConfig, table)
       ];
     }
   );
@@ -358,7 +378,10 @@ export function createQuestTable<T extends TableSource>(
   return table;
 }
 
-export function createVoteTable<T extends TableSource>(
+export function createVoteTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     asset,
@@ -367,8 +390,12 @@ export function createVoteTable<T extends TableSource>(
     asset: typeof asset_synced | typeof asset_local;
     profile: typeof profile_synced | typeof profile_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'vote', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'vote',
     {
@@ -382,15 +409,13 @@ export function createVoteTable<T extends TableSource>(
       creator_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[1]
+      ...extraColumns
     },
     (table) => {
-      // @ts-expect-error - don't know types
-      const extra = (params[2]?.(table) ?? []) as SQLiteTableExtraConfigValue[];
       return [
         index('asset_id_idx').on(table.asset_id),
         index('creator_id_idx').on(table.creator_id),
-        ...extra
+        ...normalizeParams(extraConfig, table)
       ];
     }
   );
@@ -398,11 +423,18 @@ export function createVoteTable<T extends TableSource>(
   return table;
 }
 
-export function createReportsTable<T extends TableSource>(
+export function createReportsTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'reports', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'reports',
     {
@@ -414,7 +446,7 @@ export function createReportsTable<T extends TableSource>(
       reporter_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => {
       return [
@@ -423,7 +455,7 @@ export function createReportsTable<T extends TableSource>(
           table.record_table
         ),
         index('reporter_id_idx').on(table.reporter_id),
-        ...normalizeParams(params[1], table)
+        ...normalizeParams(extraConfig, table)
       ];
     }
   );
@@ -431,11 +463,18 @@ export function createReportsTable<T extends TableSource>(
   return table;
 }
 
-export function createBlockedUsersTable<T extends TableSource>(
+export function createBlockedUsersTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'blocked_users', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'blocked_users',
     {
@@ -446,22 +485,29 @@ export function createBlockedUsersTable<T extends TableSource>(
       blocked_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({ columns: [table.blocker_id, table.blocked_id] }),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createBlockedContentTable<T extends TableSource>(
+export function createBlockedContentTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'blocked_content', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'blocked_content',
     {
@@ -471,7 +517,7 @@ export function createBlockedContentTable<T extends TableSource>(
       profile_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       index('profile_id_idx').on(table.profile_id),
@@ -479,14 +525,17 @@ export function createBlockedContentTable<T extends TableSource>(
         table.content_id,
         table.content_table
       ),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createAssetContentLinkTable<T extends TableSource>(
+export function createAssetContentLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     asset,
@@ -495,8 +544,12 @@ export function createAssetContentLinkTable<T extends TableSource>(
     asset: typeof asset_synced | typeof asset_local;
     language: typeof language_synced | typeof language_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'asset_content_link', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'asset_content_link',
     {
@@ -508,7 +561,7 @@ export function createAssetContentLinkTable<T extends TableSource>(
         .notNull()
         .references(() => asset.id),
       source_language_id: text().references(() => language.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => {
       return [
@@ -516,7 +569,7 @@ export function createAssetContentLinkTable<T extends TableSource>(
         index('asset_content_link_source_language_id_idx').on(
           table.source_language_id
         ),
-        ...normalizeParams(params[1], table)
+        ...normalizeParams(extraConfig, table)
       ];
     }
   );
@@ -524,7 +577,10 @@ export function createAssetContentLinkTable<T extends TableSource>(
   return table;
 }
 
-export function createProjectLanguageLinkTable<T extends TableSource>(
+export function createProjectLanguageLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     project,
@@ -533,8 +589,16 @@ export function createProjectLanguageLinkTable<T extends TableSource>(
     project: typeof project_synced | typeof project_local;
     language: typeof language_synced | typeof language_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<
+      'project_language_link',
+      TColumnsMap,
+      'sqlite'
+    >
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'project_language_link',
     {
@@ -547,7 +611,7 @@ export function createProjectLanguageLinkTable<T extends TableSource>(
       language_id: text()
         .notNull()
         .references(() => language.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({
@@ -555,14 +619,17 @@ export function createProjectLanguageLinkTable<T extends TableSource>(
       }),
       index('pll_project_id_idx').on(table.project_id),
       index('pll_language_type_idx').on(table.language_type),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createQuestTagLinkTable<T extends TableSource>(
+export function createQuestTagLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     quest,
@@ -571,8 +638,12 @@ export function createQuestTagLinkTable<T extends TableSource>(
     quest: typeof quest_synced | typeof quest_local;
     tag: typeof tag_synced | typeof tag_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'quest_tag_link', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'quest_tag_link',
     {
@@ -584,18 +655,21 @@ export function createQuestTagLinkTable<T extends TableSource>(
       tag_id: text()
         .notNull()
         .references(() => tag.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({ columns: [table.quest_id, table.tag_id] }),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createAssetTagLinkTable<T extends TableSource>(
+export function createAssetTagLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     asset,
@@ -604,8 +678,12 @@ export function createAssetTagLinkTable<T extends TableSource>(
     asset: typeof asset_synced | typeof asset_local;
     tag: typeof tag_synced | typeof tag_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'asset_tag_link', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'asset_tag_link',
     {
@@ -617,18 +695,21 @@ export function createAssetTagLinkTable<T extends TableSource>(
       tag_id: text()
         .notNull()
         .references(() => tag.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({ columns: [table.asset_id, table.tag_id] }),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createQuestAssetLinkTable<T extends TableSource>(
+export function createQuestAssetLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     quest,
@@ -637,8 +718,12 @@ export function createQuestAssetLinkTable<T extends TableSource>(
     quest: typeof quest_synced | typeof quest_local;
     asset: typeof asset_synced | typeof asset_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'quest_asset_link', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'quest_asset_link',
     {
@@ -651,26 +736,33 @@ export function createQuestAssetLinkTable<T extends TableSource>(
       asset_id: text()
         .notNull()
         .references(() => asset.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({ columns: [table.quest_id, table.asset_id] }),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createNotificationTable<T extends TableSource>(
+export function createNotificationTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     profile
   }: {
     profile: typeof profile_synced | typeof profile_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'notification', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'notification',
     {
@@ -681,15 +773,18 @@ export function createNotificationTable<T extends TableSource>(
       profile_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
 }
 
-export function createInviteTable<T extends TableSource>(
+export function createInviteTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     senderProfile,
@@ -700,8 +795,12 @@ export function createInviteTable<T extends TableSource>(
     receiverProfile: typeof profile_synced | typeof profile_local;
     project: typeof project_synced | typeof project_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'invite', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'invite',
     {
@@ -717,18 +816,21 @@ export function createInviteTable<T extends TableSource>(
       project_id: text()
         .notNull()
         .references(() => project.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       index('idx_invite_request_receiver_email').on(table.email),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createProfileProjectLinkTable<T extends TableSource>(
+export function createProfileProjectLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     profile,
@@ -737,8 +839,12 @@ export function createProfileProjectLinkTable<T extends TableSource>(
     profile: typeof profile_synced | typeof profile_local;
     project: typeof project_synced | typeof project_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'profile_project_link', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'profile_project_link',
     {
@@ -750,18 +856,21 @@ export function createProfileProjectLinkTable<T extends TableSource>(
       project_id: text()
         .notNull()
         .references(() => project.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       primaryKey({ columns: [table.profile_id, table.project_id] }),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createRequestTable<T extends TableSource>(
+export function createRequestTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     senderProfile,
@@ -770,8 +879,12 @@ export function createRequestTable<T extends TableSource>(
     senderProfile: typeof profile_synced | typeof profile_local;
     project: typeof project_synced | typeof project_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'request', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'request',
     {
@@ -784,23 +897,30 @@ export function createRequestTable<T extends TableSource>(
       project_id: text()
         .notNull()
         .references(() => project.id),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
 }
 
-export function createSubscriptionTable<T extends TableSource>(
+export function createSubscriptionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     profile
   }: {
     profile: typeof profile_synced | typeof profile_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'subscription', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'subscription',
     {
@@ -810,15 +930,18 @@ export function createSubscriptionTable<T extends TableSource>(
       profile_id: text()
         .notNull()
         .references(() => profile.id),
-      ...params[0]
+      ...extraColumns
     },
-    (table) => [...normalizeParams(params[1], table)]
+    (table) => [...normalizeParams(extraConfig, table)]
   );
 
   return table;
 }
 
-export function createQuestClosureTable<T extends TableSource>(
+export function createQuestClosureTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     quest,
@@ -827,8 +950,12 @@ export function createQuestClosureTable<T extends TableSource>(
     quest: typeof quest_synced | typeof quest_local;
     project: typeof project_synced | typeof project_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'quest_closure', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'quest_closure',
     {
@@ -862,27 +989,34 @@ export function createQuestClosureTable<T extends TableSource>(
       download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
 
       last_updated: text().notNull().default(timestampDefault),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       index('quest_closure_project_id_idx').on(table.project_id),
       index('quest_closure_last_updated_idx').on(table.last_updated),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
   return table;
 }
 
-export function createProjectClosureTable<T extends TableSource>(
+export function createProjectClosureTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+>(
   source: T,
   {
     project
   }: {
     project: typeof project_synced | typeof project_local;
   },
-  ...params: Partial<OmitFirstParameter<typeof syncedTable>>
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'project_closure', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
 ) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
     'project_closure',
     {
@@ -915,11 +1049,11 @@ export function createProjectClosureTable<T extends TableSource>(
       project_id: text()
         .primaryKey()
         .references(() => project.id),
-      ...params[0]
+      ...extraColumns
     },
     (table) => [
       index('project_closure_last_updated_idx').on(table.last_updated),
-      ...normalizeParams(params[1], table)
+      ...normalizeParams(extraConfig, table)
     ]
   );
 
