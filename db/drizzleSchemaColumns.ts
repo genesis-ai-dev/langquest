@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-duplicate-type-constituents */
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import type { OfflineDataSource } from '@/views/new/useHybridData';
 import type { BuildExtraConfigColumns } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
@@ -151,8 +152,8 @@ function normalizeParams<T>(
 }
 
 export function createProjectTable<
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>,
-  T extends TableSource
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -196,7 +197,7 @@ export function createProjectTable<
 
 export function createProfileTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   columns?: TColumnsMap,
@@ -226,7 +227,7 @@ export function createProfileTable<
 
 export function createLanguageTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
@@ -258,7 +259,7 @@ export function createLanguageTable<
 
 export function createTagTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   columns?: TColumnsMap,
@@ -284,7 +285,7 @@ export function createTagTable<
 
 export function createAssetTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -334,7 +335,7 @@ export function createAssetTable<
 
 export function createQuestTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -380,7 +381,7 @@ export function createQuestTable<
 
 export function createVoteTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -425,7 +426,7 @@ export function createVoteTable<
 
 export function createReportsTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
@@ -465,7 +466,7 @@ export function createReportsTable<
 
 export function createBlockedUsersTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
@@ -498,7 +499,7 @@ export function createBlockedUsersTable<
 
 export function createBlockedContentTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   { profile }: { profile: typeof profile_synced | typeof profile_local },
@@ -534,7 +535,7 @@ export function createBlockedContentTable<
 
 export function createAssetContentLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -579,7 +580,7 @@ export function createAssetContentLinkTable<
 
 export function createProjectLanguageLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -628,7 +629,7 @@ export function createProjectLanguageLinkTable<
 
 export function createQuestTagLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -668,7 +669,7 @@ export function createQuestTagLinkTable<
 
 export function createAssetTagLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -708,7 +709,7 @@ export function createAssetTagLinkTable<
 
 export function createQuestAssetLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -749,7 +750,7 @@ export function createQuestAssetLinkTable<
 
 export function createNotificationTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -783,7 +784,7 @@ export function createNotificationTable<
 
 export function createInviteTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -829,7 +830,7 @@ export function createInviteTable<
 
 export function createProfileProjectLinkTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -869,7 +870,7 @@ export function createProfileProjectLinkTable<
 
 export function createRequestTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -907,7 +908,7 @@ export function createRequestTable<
 
 export function createSubscriptionTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -940,7 +941,7 @@ export function createSubscriptionTable<
 
 export function createQuestClosureTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
@@ -1003,7 +1004,7 @@ export function createQuestClosureTable<
 
 export function createProjectClosureTable<
   T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase>
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {

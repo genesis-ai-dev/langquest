@@ -54,6 +54,20 @@ export function sourceLocalOverrideOptions(source: HybridDataSource) {
  */
 export function resolveTable<T extends TablesOnlyKeys>(
   table: T,
+  options: { localOverride: true }
+): (typeof drizzleSchemaLocal)[LocalKeyFor<T>];
+export function resolveTable<T extends TablesOnlyKeys>(
+  table: T,
+  options: { localOverride: false }
+): (typeof drizzleSchemaSynced)[SyncedKeyFor<T>];
+export function resolveTable<T extends TablesOnlyKeys>(
+  table: T,
+  options?: { localOverride?: boolean }
+):
+  | (typeof drizzleSchemaLocal)[LocalKeyFor<T>]
+  | (typeof drizzleSchemaSynced)[SyncedKeyFor<T>];
+export function resolveTable<T extends TablesOnlyKeys>(
+  table: T,
   options: { localOverride?: boolean } = { localOverride: LOCAL_MODE }
 ) {
   return options.localOverride

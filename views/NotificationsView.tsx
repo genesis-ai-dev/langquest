@@ -379,7 +379,7 @@ export default function NotificationsView() {
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
             active: true
-          };
+          } satisfies typeof profile_project_link.$inferInsert;
           console.log('[handleAccept] New link data:', newLinkData);
 
           const insertResult = await system.db

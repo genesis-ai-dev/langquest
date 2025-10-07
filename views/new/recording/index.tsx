@@ -595,11 +595,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         // SERIALIZE DB WRITES: Queue this transaction to prevent race conditions
         // This ensures VAD segments are written in speech order, not completion order
-        dbWriteQueueRef.current = dbWriteQueueRef.current
-          .then(async () => {
-            console.log(`🔒 DB write starting for order_index ${targetOrder}`);
+        dbWriteQueueRef.current = dbWriteQueueRef.current.then(async () => {
+          console.log(`🔒 DB write starting for order_index ${targetOrder}`);
 
-            await system.db.transaction(async (tx) => {
+          await system.db
+            .transaction(async (tx) => {
               const linkLocal = resolveTable('quest_asset_link', {
                 localOverride: true
               });
@@ -613,7 +613,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                 .values({
                   name: optimisticAsset.name,
                   id: newId,
-                  order_index: targetOrder,
+                  // order_index: targetOrder,
                   source_language_id: currentProject.target_language_id,
                   creator_id: currentUser.id,
                   download_profiles: [currentUser.id]
@@ -629,59 +629,62 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                 download_profiles: [currentUser.id]
               });
 
-          await tx
-            .insert(resolveTable('asset_content_link', { localOverride: true }))
-            .values({
-              asset_id: newAsset.id,
-              source_language_id: currentProject.target_language_id,
-              text: optimisticAsset.name,
-              audio: [localUri],
-              download_profiles: [currentUser.id]
+              await tx
+                .insert(
+                  resolveTable('asset_content_link', { localOverride: true })
+                )
+                .values({
+                  asset_id: newAsset.id,
+                  source_language_id: currentProject.target_language_id,
+                  text: optimisticAsset.name,
+                  audio: [localUri],
+                  download_profiles: [currentUser.id]
+                });
+
+              console.log(
+                '✅ Asset saved to database:',
+                newId,
+                'at order_index:',
+                targetOrder
+              );
+            })
+            .catch((err) => {
+              console.error(
+                '❌ DB write failed for order_index:',
+                targetOrder,
+                err
+              );
+              throw err; // Re-throw to trigger outer catch
             });
 
-            console.log(
-              '✅ Asset saved to database:',
-              newId,
-              'at order_index:',
-              targetOrder
-            );
-          })
-          .catch((err) => {
-            console.error(
-              '❌ DB write failed for order_index:',
-              targetOrder,
-              err
-            );
-            throw err; // Re-throw to trigger outer catch
+          // Wait for this write to complete before continuing
+          await dbWriteQueueRef.current;
+
+          // 5. Add duration to cache (from recording metadata)
+          if (_duration > 0) {
+            addAssetDuration(newId, _duration);
+          }
+
+          // 6. Remove optimistic asset
+          removeOptimistic(newId);
+
+          // 7. Invalidate queries
+          await queryClient.invalidateQueries({
+            queryKey: ['assets', 'infinite', currentQuestId, ''],
+            exact: false
           });
 
-        // Wait for this write to complete before continuing
-        await dbWriteQueueRef.current;
+          console.log('✅ Queries invalidated, asset should appear now');
 
-        // 5. Add duration to cache (from recording metadata)
-        if (_duration > 0) {
-          addAssetDuration(newId, _duration);
-        }
-
-        // 6. Remove optimistic asset
-        removeOptimistic(newId);
-
-        // 7. Invalidate queries
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', currentQuestId, ''],
-          exact: false
+          // 8. Reset recording operation flag after a delay
+          // This allows the list to settle before re-enabling auto-adjustments
+          setTimeout(() => {
+            isRecordingOperationRef.current = false;
+            console.log(
+              '🏁 Recording operation complete, re-enabling auto-adjustments'
+            );
+          }, 500);
         });
-
-        console.log('✅ Queries invalidated, asset should appear now');
-
-        // 8. Reset recording operation flag after a delay
-        // This allows the list to settle before re-enabling auto-adjustments
-        setTimeout(() => {
-          isRecordingOperationRef.current = false;
-          console.log(
-            '🏁 Recording operation complete, re-enabling auto-adjustments'
-          );
-        }, 500);
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
 
@@ -1052,7 +1055,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   React.useEffect(() => {
     const controller = new AbortController();
 
-    (async () => {
+    void (async () => {
       const newDurations = new Map<string, number>();
 
       // Get current snapshot of assets to load
@@ -1295,12 +1298,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           .where(eq(contentLocal.asset_id, second.id));
 
         for (const c of secondContent) {
-          if (!c.audio_id) continue;
+          if (!c.audio) continue;
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
             source_language_id: c.source_language_id,
             text: c.text || '',
-            audio_id: c.audio_id,
+            audio: c.audio,
             download_profiles: [currentUser.id]
           });
         }
@@ -1352,12 +1355,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                     .where(eq(contentLocal.asset_id, src.id));
 
                   for (const c of srcContent) {
-                    if (!c.audio_id) continue;
+                    if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
                       source_language_id: c.source_language_id,
                       text: c.text || '',
-                      audio_id: c.audio_id,
+                      audio: c.audio,
                       download_profiles: [currentUser.id]
                     });
                   }
