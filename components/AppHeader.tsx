@@ -7,7 +7,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { AttachmentState } from '@powersync/attachments';
 import { ChevronRight, CloudOff, Menu, RefreshCw } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -30,7 +30,7 @@ export default function AppHeader({
     goBack: _goBack
   } = useAppNavigation();
 
-  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { totalCount: notificationCount } = useNotifications();
   const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
     useSyncState();
@@ -106,14 +106,19 @@ export default function AppHeader({
                   {crumb.onPress ? (
                     <Pressable
                       onPress={crumb.onPress}
-                      onPressIn={() => setPressedIndex(index)}
-                      onPressOut={() => setPressedIndex(null)}
+                      // onPressIn={() => setPressedIndex(index)}
+                      // onPressOut={() => setPressedIndex(null)}
                       hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                      className={`flex-shrink rounded p-1 ${
-                        pressedIndex === index
-                          ? 'scale-[0.98] bg-white/15 opacity-80'
-                          : ''
-                      }`}
+                      className={`flex-shrink rounded p-1`}
+                      style={({ pressed }) => [
+                        {
+                          backgroundColor: pressed
+                            ? 'rgba(255, 255, 255, 0.15)'
+                            : '',
+                          opacity: pressed ? 0.8 : 1,
+                          transform: [{ scale: pressed ? 0.98 : 1 }]
+                        }
+                      ]}
                     >
                       <Text
                         className="font-medium text-primary"

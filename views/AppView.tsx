@@ -71,12 +71,6 @@ export default function AppView() {
   return (
     <StatusProvider>
       <View style={styles.appContainer}>
-        {/* Drawer Navigation */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
-
         {/* Main Content Area */}
         <View style={styles.contentContainer}>
           {/* App Header */}
@@ -87,6 +81,12 @@ export default function AppView() {
           {/* Current View */}
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
         </View>
+
+        {/* Drawer Navigation - Rendered last to appear on top */}
+        <AppDrawer
+          drawerIsVisible={drawerIsVisible}
+          setDrawerIsVisible={setDrawerIsVisible}
+        />
       </View>
     </StatusProvider>
   );
@@ -97,8 +97,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   appContainer: {
-    flex: 1,
-    flexDirection: 'row'
+    flex: 1
   },
   contentContainer: {
     flex: 1

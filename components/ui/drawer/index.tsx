@@ -234,6 +234,8 @@ const DrawerContent = React.forwardRef<
       backdropComponent={() => <PortalHost name="drawer-overlay-host" />}
       handleComponent={() => <PortalHost name="drawer-handle-host" />}
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
+      enablePanDownToClose={true}
+      enableOverDrag={false}
       {...modalProps}
     >
       <BottomSheetView
