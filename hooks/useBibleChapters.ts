@@ -5,7 +5,7 @@ import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
 import { and, eq, like } from 'drizzle-orm';
 
-interface BibleChapter {
+export interface BibleChapter {
     id: string;
     name: string;
     chapterNumber: number;
@@ -40,7 +40,7 @@ export function useBibleChapters(projectId: string, bookName: string) {
             return results
                 .map((q) => {
                     // Extract number from name like "Genesis 1" -> 1
-                    const match = q.name.match(/\s+(\d+)$/);
+                    const match = /\s+(\d+)$/.exec(q.name);
                     const chapterNumber = match ? parseInt(match[1], 10) : 0;
 
                     return {

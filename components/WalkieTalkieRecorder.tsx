@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.small,
     borderRadius: 20,
-    backgroundColor: `${colors.primary}15`
+    backgroundColor: `${colors.textSecondary}`
   },
   lockChannelText: {
     fontSize: fontSizes.small,
