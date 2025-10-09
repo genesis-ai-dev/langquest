@@ -178,13 +178,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // First sort to get initial order
     const sorted = sortAssets(combined);
 
-    // Initialize order_index for assets that don't have it set (0, null, or undefined)
-    // This ensures proper insertion behavior when mixing old and new assets
+    // Initialize order_index for assets that don't have it set (null or undefined)
+    // Note: 0 is a valid order_index for the first asset!
     const withOrderIndex = sorted.map((asset, index) => {
       const needsInit =
-        asset.order_index === null ||
-        asset.order_index === undefined ||
-        asset.order_index === 0;
+        asset.order_index === null || asset.order_index === undefined;
 
       if (needsInit && asset.source !== 'optimistic') {
         // For assets without explicit ordering, assign based on current position
@@ -207,7 +205,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     if (!currentQuestId) return;
 
     const assetsNeedingInit = assets.filter((a) => {
-      // Check if in-memory order_index differs from what was in DB (likely 0)
+      // Check if in-memory order_index should be persisted to DB
+      // Note: 0 is a valid order_index, don't treat it as needing initialization
+      if (a.source === 'optimistic' || typeof a.order_index !== 'number') {
+        return false;
+      }
+
       const rawAsset = rawAssets.find(
         (r) => (r as { id?: string })?.id === a.id
       );
@@ -215,12 +218,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         ? (rawAsset as { order_index?: number }).order_index
         : null;
 
-      return (
-        a.source !== 'optimistic' &&
-        typeof a.order_index === 'number' &&
-        (rawOrder === 0 || rawOrder === null || rawOrder === undefined) &&
-        a.order_index !== rawOrder
-      );
+      // Persist to DB if raw order is not set (null or undefined)
+      return rawOrder === null || rawOrder === undefined;
     });
 
     if (assetsNeedingInit.length === 0) {
