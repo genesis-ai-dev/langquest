@@ -23,7 +23,7 @@ import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable, toMergeCompilableQuery } from '@/utils/dbUtils';
 import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
@@ -606,8 +606,36 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               });
               const assetLocal = resolveTable('asset', { localOverride: true });
 
-              // NOTE: We don't shift assets because VAD always appends to end
-              // The sequential counter ensures no gaps in order_index
+              // Shift all assets with order_index >= targetOrder up by 1
+              // This makes room for the new asset at the target position
+              const assetsToShift = await tx
+                .select({
+                  id: assetLocal.id,
+                  order_index: assetLocal.order_index
+                })
+                .from(assetLocal)
+                .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
+                .where(
+                  and(
+                    eq(linkLocal.quest_id, currentQuestId),
+                    gte(assetLocal.order_index, targetOrder)
+                  )
+                );
+
+              if (assetsToShift.length > 0) {
+                console.log(
+                  `📍 Shifting ${assetsToShift.length} asset(s) to make room at order_index ${targetOrder}`
+                );
+              }
+
+              for (const asset of assetsToShift) {
+                if (typeof asset.order_index === 'number') {
+                  await tx
+                    .update(assetLocal)
+                    .set({ order_index: asset.order_index + 1 })
+                    .where(eq(assetLocal.id, asset.id));
+                }
+              }
 
               const [newAsset] = await tx
                 .insert(assetLocal)
