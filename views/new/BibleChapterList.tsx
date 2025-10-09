@@ -9,10 +9,13 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
+import type { BibleChapter } from '@/hooks/useBibleChapters';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
+import { useChapterPublishing } from '@/hooks/useChapterPublishing';
+import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
-import { HardDriveIcon, Share2 } from 'lucide-react-native';
+import { HardDriveIcon, Upload } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -131,7 +134,7 @@ function ChapterButton({
                 exists ? 'text-primary-foreground/70' : 'text-muted-foreground'
               }`}
             >
-              {verseCount} verses
+              {verseCount}
             </Text>
           </View>
         )}
@@ -151,9 +154,9 @@ function ChapterButton({
       {exists && isLocal && onShare && (
         <Pressable
           onPress={onShare}
-          className="absolute right-1 top-1 rounded-full bg-primary/10 p-1"
+          className="absolute right-1 top-1 rounded-full bg-primary/10 p-1.5"
         >
-          <Icon as={Share2} size={12} className="text-primary-foreground" />
+          <Icon as={Upload} size={12} className="text-primary-foreground" />
         </Pressable>
       )}
     </View>
@@ -164,9 +167,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
+  const { publishChapter, isPublishing } = useChapterPublishing();
   const book = getBibleBook(bookId);
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
+  const { t } = useLocalization();
 
   // Query existing chapters
   const {
@@ -243,26 +248,53 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       });
     } catch (error) {
       console.error('Failed to create chapter:', error);
-      // TODO: Show error toast to user
+      // TODO: Show error toast or something to user
     } finally {
       setCreatingChapter(null);
     }
   };
 
-  const handleSharePress = (chapterNum: number, chapterName: string) => {
+  const handleSharePress = (chapter: BibleChapter) => {
     Alert.alert(
       'Publish Chapter',
-      `Mock publish functionality for ${chapterName}.\n\nThis would publish the chapter and all its recordings to make them available to other users.`,
+      `This will publish ${chapter.name} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Publish',
+          text: isPublishing ? 'Publishing...' : 'Publish',
+          style: 'default',
           onPress: () => {
-            console.log(`📤 Publishing ${chapterName}...`);
-            // TODO: Implement actual publish functionality
+            void (async () => {
+              console.log(`📤 Publishing ${chapter.name}...`);
+
+              try {
+                const result = await publishChapter(chapter.id);
+
+                if (result.success) {
+                  // Show success message from publish service
+                  Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
+                } else {
+                  // Show errors
+                  Alert.alert(
+                    'Publishing Failed',
+                    result.errors?.join('\n\n') || 'An unknown error occurred',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('Publish error:', error);
+                Alert.alert(
+                  t('error'),
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to publish chapter',
+                  [{ text: 'OK' }]
+                );
+              }
+            })();
           }
         }
       ]
@@ -323,7 +355,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                   disabled={isCreating || isLoadingChapters}
                   onShare={
                     existingChapter
-                      ? () => handleSharePress(chapterNum, existingChapter.name)
+                      ? () => handleSharePress(existingChapter)
                       : undefined
                   }
                 />
