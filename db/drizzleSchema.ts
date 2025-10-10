@@ -10,13 +10,16 @@ import {
   sqliteView,
   text
 } from 'drizzle-orm/sqlite-core';
+import uuid from 'react-native-uuid';
 import { reasonOptions, statusOptions } from './constants';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
 // see the official PowerSync documentation for the correct column types:
 // https://docs.powersync.com/usage/sync-rules/types#types
 
-const uuidDefault = sql`(lower(hex(randomblob(16))))`;
+// CRITICAL: Generate UUIDs with dashes in JavaScript to match Postgres format
+// This ensures local (SQLite) and synced (Postgres) records have identical ID format
+// Previously: SQLite used hex without dashes, Postgres added dashes, causing ID mismatches
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 const linkColumns = {
@@ -34,7 +37,7 @@ const baseColumns = {
   ...linkColumns,
   id: text()
     .primaryKey()
-    .$defaultFn(() => uuidDefault)
+    .$defaultFn(() => String(uuid.v4()))
 };
 
 export const profile = sqliteTable('profile', {

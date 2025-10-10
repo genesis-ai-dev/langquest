@@ -23,6 +23,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { sortAssets } from '@/utils/assetSorting';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { deduplicateByUuid } from '@/utils/uuidUtils';
 import { LegendList } from '@legendapp/list';
 import {
   FlagIcon,
@@ -297,8 +298,12 @@ export default function NextGenAssetsView() {
       return asset.id && asset.name;
     });
 
+    // Deduplicate by UUID (handles dash formatting differences)
+    // Priority: synced > local > cloud
+    const dedupedAssets = deduplicateByUuid(validAssets);
+
     // Sort assets using unified sorting logic (order_index -> created_at -> name)
-    return sortAssets(validAssets);
+    return sortAssets(dedupedAssets);
   }, [data.pages]);
 
   // Watch attachment states for all assets

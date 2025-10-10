@@ -38,18 +38,29 @@ import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
-import { BibleBookList, BibleBookListSkeleton } from './BibleBookList';
+import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
 import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId, currentProjectName, currentProjectTemplate } =
+    useCurrentNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
-  // Check if this is a Bible project
-  const { project, isProjectLoading } = useProjectById(currentProjectId);
+  // Fallback: If template is not in navigation state, fetch project
+  // This handles cases like direct navigation or refresh
+  const { project, isProjectLoading } = useProjectById(
+    currentProjectTemplate === undefined ? currentProjectId : null
+  );
+
+  // Use template from navigation state, or fall back to fetched project
+  const template =
+    currentProjectTemplate !== undefined
+      ? currentProjectTemplate
+      : project?.template;
+  const projectName = currentProjectName || project?.name;
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
@@ -65,6 +76,9 @@ export default function ProjectDirectoryView() {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema)
   });
+
+  // Only fetch quests for non-Bible projects
+  const shouldFetchQuests = template !== 'bible';
 
   const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
@@ -83,8 +97,8 @@ export default function ProjectDirectoryView() {
       if (error) throw error;
       return data;
     },
-    enableOfflineQuery: !!currentProjectId,
-    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId && shouldFetchQuests,
+    enableCloudQuery: !!currentProjectId && shouldFetchQuests,
     getItemId: (item) => item.id
   });
 
@@ -181,31 +195,14 @@ export default function ProjectDirectoryView() {
     [childrenOf, expanded, toggleExpanded, openCreateForParent]
   );
 
-  // Show appropriate skeleton based on project type
-  if (isLoading || isProjectLoading) {
-    // If we know it's a Bible project, show Bible-specific skeleton
-    if (project?.template === 'bible') {
-      return (
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between p-4">
-            <Text variant="h4">📖 {project.name}</Text>
-          </View>
-          <BibleBookListSkeleton />
-        </View>
-      );
-    }
-    // Otherwise show default skeleton
-    return <ProjectListSkeleton />;
-  }
-
-  // Bible project routing
-  if (project?.template === 'bible') {
+  // Bible project routing - instant render with no loading state needed
+  if (template === 'bible') {
     // Show book list if no book selected
     if (!selectedBook) {
       return (
         <View className="flex-1">
           <View className="flex-row items-center justify-between p-4">
-            <Text variant="h4">📖 {project.name}</Text>
+            <Text variant="h4">📖 {projectName}</Text>
           </View>
           <BibleBookList
             projectId={currentProjectId!}
@@ -230,6 +227,11 @@ export default function ProjectDirectoryView() {
         <BibleChapterList projectId={currentProjectId!} bookId={selectedBook} />
       </View>
     );
+  }
+
+  // Show loading skeleton for non-Bible projects
+  if (isLoading || isProjectLoading) {
+    return <ProjectListSkeleton />;
   }
 
   // Default unstructured project view

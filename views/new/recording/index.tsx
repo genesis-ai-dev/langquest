@@ -652,6 +652,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   id: newId,
                   order_index: targetOrder,
                   source_language_id: currentProject.target_language_id,
+                  project_id: currentProjectId, // Required for RLS policies
                   creator_id: currentUser.id,
                   download_profiles: [currentUser.id]
                 })
@@ -659,8 +660,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
               if (!newAsset) throw new Error('Failed to insert asset');
 
+              // Generate proper UUID for link table (not string concatenation)
               await tx.insert(linkLocal).values({
-                id: `${currentQuestId}_${newAsset.id}`,
+                id: String(uuid.v4()),
                 quest_id: currentQuestId,
                 asset_id: newAsset.id,
                 download_profiles: [currentUser.id]

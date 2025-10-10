@@ -135,7 +135,8 @@ export function ProjectListItem({
   function goToProjectHelper() {
     goToProject({
       id: project.id,
-      name: project.name
+      name: project.name,
+      template: project.template
     });
   }
 

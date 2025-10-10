@@ -1,6 +1,7 @@
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { OfflineQuerySource, WithSource } from '@/utils/dbUtils';
+import { normalizeUuid } from '@/utils/uuidUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -179,13 +180,16 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const combinedData = React.useMemo(() => {
     const offlineArray = offlineData;
     const cloudArray = cloudData;
-    // Create a map of offline items by ID for quick lookup
+
+    // Create a map of offline items by normalized ID for quick lookup
+    // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
     const offlineMap = new Map(
-      offlineArray.map((item) => [getItemId(item), item])
+      offlineArray.map((item) => [normalizeUuid(getItemId(item)), item])
     );
-    // Add cloud items that don't exist in offline
+
+    // Add cloud items that don't exist in offline (using normalized IDs)
     const uniqueCloudItems = cloudArray.filter(
-      (item) => !offlineMap.has(getItemId(item))
+      (item) => !offlineMap.has(normalizeUuid(getItemId(item)))
     );
 
     // Return offline items first, then unique cloud items
@@ -422,12 +426,13 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
           })
           : [];
 
+        // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
         const offlineMap = new Map(
-          offlineDataWithSource.map((item) => [getItemId(item), item])
+          offlineDataWithSource.map((item) => [normalizeUuid(getItemId(item)), item])
         );
 
         const uniqueCloudItems = cloudDataTransformed.filter((item) => {
-          const id = getItemId(item);
+          const id = normalizeUuid(getItemId(item));
           return !offlineMap.has(id);
         });
 

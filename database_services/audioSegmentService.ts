@@ -4,6 +4,7 @@ import {
   getDocumentDirectory
 } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
 import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -24,6 +25,7 @@ export class AudioSegmentService {
   async saveAudioSegment(
     segment: AudioSegmentData,
     questId: string,
+    projectId: string,
     sourceLanguageId: string,
     creatorId: string
   ): Promise<{ assetId: string; audioUri: string }> {
@@ -44,6 +46,7 @@ export class AudioSegmentService {
             name: segment.name,
             id: segment.id,
             source_language_id: sourceLanguageId,
+            project_id: projectId, // Required for RLS policies
             creator_id: creatorId,
             download_profiles: [creatorId]
           })
@@ -53,10 +56,11 @@ export class AudioSegmentService {
           throw new Error('Failed to insert asset');
         }
 
+        // Generate proper UUID for link table (not string concatenation)
         await tx
           .insert(resolveTable('quest_asset_link', { localOverride: true }))
           .values({
-            id: `${questId}_${newAsset.id}`,
+            id: String(uuid.v4()),
             quest_id: questId,
             asset_id: newAsset.id,
             download_profiles: [creatorId]
@@ -96,12 +100,13 @@ export class AudioSegmentService {
   async saveAudioSegments(
     segments: AudioSegmentData[],
     questId: string,
+    projectId: string,
     sourceLanguageId: string,
     creatorId: string
   ): Promise<{ assetIds: string[]; audioUris: string[] }> {
     const results = await Promise.allSettled(
       segments.map((segment) =>
-        this.saveAudioSegment(segment, questId, sourceLanguageId, creatorId)
+        this.saveAudioSegment(segment, questId, projectId, sourceLanguageId, creatorId)
       )
     );
 
