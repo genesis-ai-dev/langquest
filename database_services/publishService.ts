@@ -14,7 +14,6 @@
  */
 
 import { system } from '@/db/powersync/system';
-import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
 import type { AttachmentState } from '@powersync/attachments';
