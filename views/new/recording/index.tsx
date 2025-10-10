@@ -605,9 +605,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               });
               const assetLocal = resolveTable('asset', { localOverride: true });
 
-              // Shift all assets with order_index >= targetOrder up by 1
-              // This makes room for the new asset at the target position
-              const assetsToShift = await tx
+              // Only shift assets if we're inserting in the middle (not appending at end)
+              // VAD mode uses sequential counter and always appends, so no shifting needed
+              // Manual recordings may insert in the middle, so we need to shift
+
+              // Check if there are any assets with order_index >= targetOrder
+              // If yes, we're inserting in the middle and need to shift
+              const assetsAtOrAfter = await tx
                 .select({
                   id: assetLocal.id,
                   order_index: assetLocal.order_index
@@ -621,19 +625,24 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   )
                 );
 
-              if (assetsToShift.length > 0) {
+              // Only shift if we found assets (meaning we're inserting in the middle)
+              if (assetsAtOrAfter.length > 0) {
                 console.log(
-                  `📍 Shifting ${assetsToShift.length} asset(s) to make room at order_index ${targetOrder}`
+                  `📍 Inserting in middle - shifting ${assetsAtOrAfter.length} asset(s) to make room at order_index ${targetOrder}`
                 );
-              }
 
-              for (const asset of assetsToShift) {
-                if (typeof asset.order_index === 'number') {
-                  await tx
-                    .update(assetLocal)
-                    .set({ order_index: asset.order_index + 1 })
-                    .where(eq(assetLocal.id, asset.id));
+                for (const asset of assetsAtOrAfter) {
+                  if (typeof asset.order_index === 'number') {
+                    await tx
+                      .update(assetLocal)
+                      .set({ order_index: asset.order_index + 1 })
+                      .where(eq(assetLocal.id, asset.id));
+                  }
                 }
+              } else {
+                console.log(
+                  `📍 Appending at end - no shifting needed for order_index ${targetOrder}`
+                );
               }
 
               const [newAsset] = await tx
@@ -757,7 +766,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // Initialize counter once from actual data
   React.useEffect(() => {
-    if (isVADLocked && !vadInitializedRef.current && assets.length > 0) {
+    if (isVADLocked && !vadInitializedRef.current) {
       // Filter out optimistic/pending assets to get true DB state
       const realAssets = assets.filter(
         (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
@@ -785,19 +794,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const handleVADSegmentStart = React.useCallback(() => {
     console.log('🎬 Native VAD: Segment starting - creating pending card');
 
-    // DETERMINISTIC: Use sequential counter, NOT assets array state
+    // Counter should always be initialized by effect before VAD recording starts
+    // But keep safety check to prevent crashes
     if (vadSequentialCounterRef.current === null) {
-      // Fallback: calculate from real assets only
-      const realAssets = assets.filter(
-        (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
-      );
-      const maxOrder = Math.max(
-        ...realAssets.map((a) =>
-          typeof a.order_index === 'number' ? a.order_index : 0
-        ),
-        -1
-      );
-      vadSequentialCounterRef.current = maxOrder + 1;
+      console.error('❌ VAD counter not initialized! This should not happen.');
+      // Emergency fallback
+      vadSequentialCounterRef.current = 0;
     }
 
     const targetOrder = vadSequentialCounterRef.current;
