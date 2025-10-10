@@ -49,11 +49,8 @@ export const NAV_THEME = {
 
 export default function RootLayout() {
   if (Platform.OS === 'web') {
-    const g = globalThis as unknown as Record<string, unknown>;
-    if (typeof g._frameTimestamp === 'undefined') {
-      // Workaround for Reanimated on web (see Moti docs)
-      g._frameTimestamp = null as unknown as number;
-    }
+    // @ts-expect-error - globalThis._frameTimestamp is not defined
+    global._frameTimestamp = null;
   }
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();

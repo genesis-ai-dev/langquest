@@ -105,8 +105,8 @@ const syncedColumns = {
 
 const localColumns = {
   ...baseColumns,
-  source: text({ enum: sourceOptions }).default('local').notNull(),
-  draft: int({ mode: 'boolean' }).notNull().default(true)
+  source: text({ enum: sourceOptions }).default('local').notNull()
+  // draft: int({ mode: 'boolean' }).notNull().default(true)
 };
 
 export function getBaseColumns<T extends TableSource>(
@@ -179,6 +179,7 @@ export function createProjectTable<
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       template: text({ enum: templateOptions }).default('unstructured'),
+      source_language_id: text().references(() => language.id),
       target_language_id: text()
         .notNull()
         .references(() => language.id),
@@ -317,6 +318,7 @@ export function createAssetTable<
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
+      order_index: int().notNull().default(0),
       ...extraColumns
     },
     (table) => {

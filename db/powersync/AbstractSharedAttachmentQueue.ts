@@ -8,10 +8,15 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import type { Transaction } from '@powersync/react-native';
+import BiMap from 'bidirectional-map';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
-import { asset, asset_content_link } from '../drizzleSchema';
+import {
+  asset_content_link_synced,
+  asset_synced
+} from '../drizzleSchemaSynced';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -162,10 +167,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               const record = attachmentsInDatabase.find((r) => r.id == id);
 
               if (!record) {
+                console.log('record not found', id);
                 const newRecord = await this.newAttachmentRecord({
                   id: id,
                   state: AttachmentState.QUEUED_SYNC
                 });
+
+                console.log('newRecord', newRecord);
 
                 // Validate the record before saving
                 if (!newRecord.id || !newRecord.filename) {
@@ -239,7 +247,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Override saveToQueue to add storage_type (using type assertion for compatibility)
   async saveToQueue(
-    record: Omit<AttachmentRecord, 'timestamp'>
+    record: Omit<AttachmentRecord, 'timestamp'>,
+    tx?: Transaction
   ): Promise<AttachmentRecord> {
     const updatedRecord: AttachmentRecord = {
       ...record,
@@ -267,9 +276,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         `Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`
       );
     }
-
     try {
-      await this.powersync.execute(
+      await (tx ?? this.powersync).execute(
         `INSERT OR REPLACE INTO ${this.table} 
          (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -527,46 +535,52 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     });
   }
 
+  static media_map = new BiMap({
+    'audio/mpeg': 'm4a',
+    'audio/webm': 'webm',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif'
+  });
+
   getExtensionFromMediaType(mediaType: string) {
-    switch (mediaType) {
-      case 'audio/mpeg':
-        return 'm4a';
-      case 'audio/webm':
-        return 'webm';
-      default:
-        return 'm4a';
-    }
+    return AbstractSharedAttachmentQueue.media_map.has(mediaType)
+      ? AbstractSharedAttachmentQueue.media_map.get(mediaType)!
+      : 'audio/mpeg';
   }
 
   getMediaTypeFromExtension(extension?: string) {
-    switch (extension) {
-      case 'm4a':
-        return 'audio/mpeg';
-      case 'webm':
-        return 'audio/webm';
-      default:
-        return 'audio/mpeg';
-    }
+    return extension &&
+      AbstractSharedAttachmentQueue.media_map.hasValue(extension)
+      ? AbstractSharedAttachmentQueue.media_map.getKey(extension)!
+      : 'audio/mpeg';
   }
 
   async getAllAssetAttachments(assetId: string) {
     const data = await this.db
       .select({
-        images: asset.images,
-        audio: asset_content_link.audio
+        images: asset_synced.images,
+        audio: asset_content_link_synced.audio
       })
-      .from(asset)
-      .leftJoin(asset_content_link, eq(asset.id, asset_content_link.asset_id))
+      .from(asset_synced)
+      .leftJoin(
+        asset_content_link_synced,
+        eq(asset_synced.id, asset_content_link_synced.asset_id)
+      )
       .where(
         and(
-          eq(asset.id, assetId),
-          eq(asset.draft, false),
-          eq(asset_content_link.draft, false),
-          or(isNotNull(asset_content_link.audio), isNotNull(asset.images))
+          eq(asset_synced.id, assetId),
+          or(
+            isNotNull(asset_content_link_synced.audio),
+            isNotNull(asset_synced.images)
+          )
         )
       );
 
-    const assetImages = data.flatMap((asset) => asset.images).filter(Boolean);
+    const assetImages = data
+      .flatMap((asset_synced) => asset_synced.images)
+      .filter(Boolean);
     const contentLinkAudioIds = data
       .flatMap((link) => link.audio)
       .filter(Boolean);

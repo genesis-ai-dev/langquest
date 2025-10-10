@@ -7,7 +7,7 @@ import { Platform, TextInput } from 'react-native';
 import { DrawerInput } from './drawer';
 
 const textareaVariants = cva(
-  'flex w-full flex-row rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5',
+  'flex w-full flex-row rounded-md border border-border bg-card text-foreground shadow-sm shadow-black/5',
   {
     variants: {
       size: {

@@ -6,9 +6,13 @@ import type {
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import type { Transaction } from '@powersync/react-native';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
-import { asset, asset_content_link } from '../drizzleSchema';
+import {
+  asset_content_link_synced,
+  asset_synced
+} from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
@@ -69,25 +73,31 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
       const query = this.db
         .select({
-          images: asset.images,
-          audio: asset_content_link.audio
+          images: asset_synced.images,
+          audio: asset_content_link_synced.audio
         })
-        .from(asset)
-        .leftJoin(asset_content_link, eq(asset.id, asset_content_link.asset_id))
+        .from(asset_synced)
+        .leftJoin(
+          asset_content_link_synced,
+          eq(asset_synced.id, asset_content_link_synced.asset_id)
+        )
         .where(
           and(
-            eq(asset.draft, false),
-            eq(asset_content_link.draft, false),
-            or(isNotNull(asset_content_link.audio), isNotNull(asset.images))
+            or(
+              isNotNull(asset_content_link_synced.audio),
+              isNotNull(asset_synced.images)
+            )
           )
         );
 
       function refreshAllAttachments(data: Awaited<typeof query>) {
         const assetImages = data
-          .flatMap((asset) => asset.images)
+          .flatMap((asset_synced) => asset_synced.images)
           .filter(Boolean);
         const contentLinkAudioIds = data
-          .flatMap((link) => link.audio)
+          .flatMap(
+            (asset_content_link_synced) => asset_content_link_synced.audio
+          )
           .filter(Boolean);
         const allAttachments = [...assetImages, ...contentLinkAudioIds];
         const uniqueAttachments = [...new Set(allAttachments)];
@@ -128,7 +138,10 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
-    const photoAttachment = await this.newAttachmentRecord();
+    const photoAttachment = await this.newAttachmentRecord({
+      id: base64Data.split('/').pop()!
+    });
+    console.log('photoAttachment');
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
     const fileInfo = await getFileInfo(localUri);
     if (fileInfo.exists) {
@@ -138,14 +151,16 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     return this.saveToQueue(photoAttachment);
   }
 
-  async saveAudio(tempUri: string): Promise<AttachmentRecord> {
+  async saveAudio(
+    tempUri: string,
+    tx?: Transaction
+  ): Promise<AttachmentRecord> {
     const audioAttachment = await this.newAttachmentRecord({
-      media_type: 'audio/mpeg'
+      id: tempUri.split('/').pop()!
     });
 
     console.log('saveAudio', audioAttachment);
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
-    // Native environment - use file system operations
     const fileInfo = await getFileInfo(tempUri);
 
     if (fileInfo.exists) {
@@ -153,7 +168,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
       audioAttachment.size = fileInfo.size;
     }
 
-    return this.saveToQueue(audioAttachment);
+    return this.saveToQueue(audioAttachment, tx);
   }
 
   async expireCache() {

@@ -9,7 +9,7 @@ import { profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
@@ -146,7 +146,8 @@ export default function NextGenProjectsView() {
   const defaultValues = {
     private: true,
     visible: true,
-    template: 'unstructured'
+    template: 'unstructured',
+    name: ''
   } as const;
 
   const form = useForm<FormData>({
@@ -401,7 +402,7 @@ export default function NextGenProjectsView() {
               size="sm"
             />
             <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
-              <Icon as={PlusIcon} />
+              <Icon as={PlusIcon} className="text-primary-foreground" />
             </DrawerTrigger>
           </View>
         </View>
@@ -433,7 +434,10 @@ export default function NextGenProjectsView() {
             ListFooterComponent={() =>
               isFetchingNextPage && (
                 <View className="p-4">
-                  <ActivityIndicator size="small" className="text-primary" />
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
                 </View>
               )
             }

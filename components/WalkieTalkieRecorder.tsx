@@ -43,6 +43,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 }) => {
   const mediumHaptic = useHaptic('medium');
   const heavyHaptic = useHaptic('heavy');
+  const successHaptic = useHaptic('success');
   const { currentUser: _currentUser } = useAuth();
   const { t: _t } = useLocalization();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -125,7 +126,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
         // Haptic feedback when approaching lock threshold
         if (dx > LOCK_HAPTIC_THRESHOLD && dx < LOCK_HAPTIC_THRESHOLD + 5) {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          void mediumHaptic();
         }
       },
       onPanResponderRelease: (_, gestureState) => {
@@ -134,9 +135,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         // If slid far enough, lock into VAD mode
         if (gestureState.dx >= SLIDE_THRESHOLD) {
           console.log('🔒 Slide-to-lock completed - activating VAD mode');
-          void Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success
-          );
+
+          void successHaptic();
 
           // Animate to locked position
           Animated.spring(slideX, {

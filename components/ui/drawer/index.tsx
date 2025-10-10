@@ -100,19 +100,12 @@ function DrawerTrigger({
 } & React.ComponentProps<typeof Pressable>) {
   const context = React.useContext(DrawerContext);
 
-  // Render directly as Pressable to avoid Slot navigation context issues during transitions
-  if (!asChild) {
-    return (
-      <Pressable onPress={() => context?.setOpen(true)} {...props}>
-        {children}
-      </Pressable>
-    );
-  }
+  const Component = asChild ? Slot.Pressable : Pressable;
 
   return (
-    <Slot.Pressable onPress={() => context?.setOpen(true)} {...props}>
+    <Component onPress={() => context?.setOpen(true)} {...props}>
       {children}
-    </Slot.Pressable>
+    </Component>
   );
 }
 

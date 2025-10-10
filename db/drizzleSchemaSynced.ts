@@ -273,10 +273,10 @@ export const report_syncedRelations = relations(reports_synced, ({ one }) => ({
     fields: [reports_synced.reporter_id],
     references: [profile_synced.id]
   }),
-  translation: one(asset_synced, {
+  asset: one(asset_synced, {
     fields: [reports_synced.record_id],
     references: [asset_synced.id],
-    relationName: 'translation_reports'
+    relationName: 'asset_reports'
   })
 }));
 

@@ -13,9 +13,9 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
+import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
-import Slider from '@react-native-community/slider';
 import React from 'react';
 import { Animated, View } from 'react-native';
 
@@ -158,13 +158,10 @@ export function VADSettingsDrawer({
 
             <Slider
               value={threshold}
-              onValueChange={onThresholdChange}
-              minimumValue={0.005}
-              maximumValue={0.1}
+              onValueChange={(value) => onThresholdChange(value[0]!)}
+              min={0.005}
+              max={0.1}
               step={0.001}
-              minimumTrackTintColor="#0ea5e9"
-              maximumTrackTintColor="#e2e8f0"
-              thumbTintColor="#0ea5e9"
               className="h-10 w-full"
             />
 
@@ -200,13 +197,10 @@ export function VADSettingsDrawer({
 
             <Slider
               value={silenceDuration}
-              onValueChange={onSilenceDurationChange}
-              minimumValue={500}
-              maximumValue={3000}
+              onValueChange={(value) => onSilenceDurationChange(value[0]!)}
+              min={500}
+              max={3000}
               step={100}
-              minimumTrackTintColor="#0ea5e9"
-              maximumTrackTintColor="#e2e8f0"
-              thumbTintColor="#0ea5e9"
               className="h-10 w-full"
             />
 

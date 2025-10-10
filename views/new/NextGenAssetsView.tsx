@@ -23,7 +23,6 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { sortAssets } from '@/utils/assetSorting';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
@@ -44,6 +43,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
+import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
@@ -293,18 +293,7 @@ export default function NextGenAssetsView() {
   );
 
   // Flatten all pages into a single array
-  const assets = React.useMemo(() => {
-    const allAssets = data.pages.flatMap((page) => page.data);
-
-    // Filter out invalid assets (e.g., cloud assets without proper data)
-    const validAssets = allAssets.filter((asset) => {
-      // Must have at least id and name to be valid
-      return asset.id && asset.name;
-    });
-
-    // Sort assets using unified sorting logic (order_index -> created_at -> name)
-    return sortAssets(validAssets);
-  }, [data.pages]);
+  const assets = data.pages.flatMap((page) => page.data);
 
   // Watch attachment states for all assets
   const assetIds = React.useMemo(() => {
@@ -410,10 +399,10 @@ export default function NextGenAssetsView() {
           <Button
             variant="outline"
             size="icon"
-            className="border-primary"
+            className="border-[1.5px] border-primary"
             onPress={() => setShowRecording(true)}
           >
-            <Icon as={MicIcon} className="text-muted-foreground" />
+            <Icon as={MicIcon} className="text-primary" />
           </Button>
         </View>
       </View>
@@ -427,7 +416,7 @@ export default function NextGenAssetsView() {
         size="sm"
         suffix={
           isFetching && searchQuery ? (
-            <ActivityIndicator size="small" className="text-primary" />
+            <ActivityIndicator size="small" color={getThemeColor('primary')} />
           ) : undefined
         }
         suffixStyling={false}
@@ -453,7 +442,7 @@ export default function NextGenAssetsView() {
       {isLoading ? (
         searchQuery ? (
           <View className="flex-1 items-center justify-center pt-8">
-            <ActivityIndicator size="large" className="text-primary" />
+            <ActivityIndicator size="large" color={getThemeColor('primary')} />
             <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
           </View>
         ) : (
@@ -473,7 +462,10 @@ export default function NextGenAssetsView() {
           ListFooterComponent={() =>
             isFetchingNextPage ? (
               <View className="items-center py-4">
-                <ActivityIndicator size="small" className="text-primary" />
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
               </View>
             ) : null
           }

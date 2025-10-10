@@ -11,11 +11,11 @@ import { Label } from '@/components/ui/label';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { buttonVariants } from './button';
+import { buttonTextVariants, buttonVariants } from './button';
 import type { Option } from './select';
 import { getOptionFromValue } from './select';
 import * as Slot from './slot';
-import { Text } from './text';
+import { Text, TextClassContext } from './text';
 
 const Form = FormProvider;
 
@@ -239,10 +239,11 @@ const FormSubmit = React.forwardRef<
     const isDisabled =
       !formState.isValid || formState.isSubmitting || props.disabled;
 
-    // Render directly as Pressable to avoid Slot navigation context issues during transitions
-    if (!asChild) {
-      return (
-        <Pressable
+    const Component = asChild ? Slot.Pressable : Pressable;
+
+    return (
+      <TextClassContext.Provider value={buttonTextVariants({ className })}>
+        <Component
           ref={ref}
           disabled={isDisabled}
           {...props}
@@ -263,33 +264,8 @@ const FormSubmit = React.forwardRef<
             )}
             {children}
           </>
-        </Pressable>
-      );
-    }
-
-    return (
-      <Slot.Pressable
-        ref={ref}
-        disabled={isDisabled}
-        {...props}
-        className={cn(
-          'flex-row items-center gap-2',
-          isDisabled &&
-            'opacity-50 hover:opacity-50 web:pointer-events-none web:cursor-default',
-          buttonVariants({ className })
-        )}
-      >
-        <>
-          {formState.isSubmitting && (
-            <ActivityIndicator
-              size="small"
-              color={activityIndicatorColor || getThemeColor('secondary')}
-              className={activityIndicatorClassName}
-            />
-          )}
-          {children}
-        </>
-      </Slot.Pressable>
+        </Component>
+      </TextClassContext.Provider>
     );
   }
 );

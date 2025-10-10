@@ -47,7 +47,7 @@ import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable, sortingHelper } from '@/utils/dbUtils';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LegendList } from '@legendapp/list';
 import { useMutation } from '@tanstack/react-query';
@@ -95,6 +95,12 @@ export default function NextGenQuestsView() {
   );
 
   const { project: currentProject } = useProjectById(currentProjectId);
+
+  const { membership } = useUserPermissions(
+    currentProjectId || '',
+    'open_project',
+    false
+  );
 
   // Create Quest bottom sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -211,7 +217,9 @@ export default function NextGenQuestsView() {
   const dimensions = useWindowDimensions();
 
   // Allow quest creation if the project has a non-empty template value
-  const canCreateQuestNow = currentProject?.template;
+  const canCreateQuestNow =
+    currentProject?.template ||
+    (currentProject?.source !== 'local' && membership !== null);
 
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
@@ -294,7 +302,7 @@ export default function NextGenQuestsView() {
             />
             {canCreateQuestNow && (
               <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
-                <Icon as={PlusIcon} />
+                <Icon as={PlusIcon} className="text-primary-foreground" />
               </DrawerTrigger>
             )}
           </View>
@@ -336,7 +344,10 @@ export default function NextGenQuestsView() {
             ListFooterComponent={() =>
               isFetchingNextPage ? (
                 <View className="items-center py-4">
-                  <ActivityIndicator size="small" className="text-primary" />
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
                 </View>
               ) : null
             }

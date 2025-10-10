@@ -48,7 +48,7 @@ export async function readFile(
   fileURI: string,
   options?: { encoding?: 'utf8' | 'base64' }
 ) {
-  if (await fileExists(fileURI)) {
+  if (!(await fileExists(fileURI))) {
     throw new Error(`File does not exist: ${fileURI}`);
   }
   const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
@@ -95,17 +95,22 @@ export function getLocalFilePathSuffix(filename: string): string {
   return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
 }
 
-// Async because it may need to fetch the file from the web
-// eslint-disable-next-line @typescript-eslint/require-await
-export async function getLocalAttachmentUri(filePath: string) {
-  return getLocalUri(getLocalFilePathSuffix(filePath));
+export function getLocalAttachmentUri(filePath: string) {
+  return getLocalUri(
+    getLocalFilePathSuffix(`local/${filePath.split('/').pop()}`)
+  );
 }
 
-export async function saveAudioFileLocally(uri: string) {
-  const newUri = getLocalUri(
-    getLocalFilePathSuffix(`local/${uri.split('/').pop()}`)
-  );
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function getLocalAttachmentUriOPFS(filePath: string) {
+  return getLocalAttachmentUri(filePath);
+}
+
+export async function saveAudioLocally(uri: string) {
+  const newUri = getLocalAttachmentUri(uri);
+  console.log('🔍 Saving audio file locally:', uri, newUri);
   if (await fileExists(uri)) {
+    await ensureDir(getLocalUri(getLocalFilePathSuffix('local')));
     await moveFile(uri, newUri);
   } else {
     throw new Error(`File does not exist: ${uri}`);

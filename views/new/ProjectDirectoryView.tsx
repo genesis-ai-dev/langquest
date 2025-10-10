@@ -8,6 +8,10 @@ import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import type { WithSource } from '@/utils/dbUtils';
 import { resolveTable } from '@/utils/dbUtils';
 // import { LegendList } from '@legendapp/list';
+import { ModalDetails } from '@/components/ModalDetails';
+import { ReportModal } from '@/components/NewReportModal';
+import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import {
   Drawer,
   DrawerClose,
@@ -26,15 +30,29 @@ import {
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHasUserReported } from '@/hooks/db/useReports';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
-import { FolderPenIcon } from 'lucide-react-native';
-import React from 'react';
+import {
+  FlagIcon,
+  FolderPenIcon,
+  InfoIcon,
+  SettingsIcon,
+  UsersIcon
+} from 'lucide-react-native';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import z from 'zod';
@@ -53,6 +71,10 @@ export default function ProjectDirectoryView() {
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showReportModal, setShowReportModal] = React.useState(false);
 
   type Quest = typeof quest.$inferSelect;
 
@@ -63,15 +85,35 @@ export default function ProjectDirectoryView() {
   type FormData = z.infer<typeof formSchema>;
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema)
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: ''
+    }
   });
+
+  const { hasAccess: canManageProject } = useUserPermissions(
+    currentProjectId || '',
+    'project_settings_cog'
+  );
+
+  const { hasReported, isLoading: isReportLoading } = useHasUserReported(
+    currentProjectId!,
+    'projects',
+    currentUser!.id
+  );
 
   const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
     queryKeyParams: ['for-project', currentProjectId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findMany({
-        columns: { id: true, name: true, description: true, parent_id: true },
+        columns: {
+          id: true,
+          name: true,
+          description: true,
+          parent_id: true,
+          source: true
+        },
         where: and(eq(quest.project_id, currentProjectId!))
       })
     ),
@@ -170,6 +212,7 @@ export default function ProjectDirectoryView() {
             isOpen={isOpen}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => openCreateForParent(parentId)}
+            projectId={currentProjectId!}
           />
         );
         if (hasChildren && isOpen) {
@@ -254,7 +297,12 @@ export default function ProjectDirectoryView() {
                 </Text>
               </View>
             ) : (
-              <ScrollView className="gap-1">{renderTree(roots, 0)}</ScrollView>
+              <ScrollView
+                className="gap-1"
+                showsVerticalScrollIndicator={false}
+              >
+                {renderTree(roots, 0)}
+              </ScrollView>
             )}
             <Button
               onPress={() => openCreateForParent(null)}
@@ -265,6 +313,73 @@ export default function ProjectDirectoryView() {
             </Button>
           </View>
         </View>
+
+        <View style={{ bottom: 64, right: 16 }} className="absolute">
+          <SpeedDial>
+            <SpeedDialItems>
+              {canManageProject ? (
+                <SpeedDialItem
+                  icon={SettingsIcon}
+                  variant="outline"
+                  onPress={() => setShowSettingsModal(true)}
+                />
+              ) : !hasReported && !isReportLoading ? (
+                <SpeedDialItem
+                  icon={FlagIcon}
+                  variant="outline"
+                  onPress={() => setShowReportModal(true)}
+                />
+              ) : null}
+              <SpeedDialItem
+                icon={UsersIcon}
+                variant="outline"
+                onPress={() => setShowMembershipModal(true)}
+              />
+              <SpeedDialItem
+                icon={InfoIcon}
+                variant="outline"
+                onPress={() => setShowProjectDetails(true)}
+              />
+            </SpeedDialItems>
+            <SpeedDialTrigger />
+          </SpeedDial>
+        </View>
+
+        {/* Membership Modal */}
+        <ProjectMembershipModal
+          isVisible={showMembershipModal}
+          onClose={() => setShowMembershipModal(false)}
+          projectId={currentProjectId || ''}
+        />
+
+        {/* Project Details Modal */}
+        {showProjectDetails && project && (
+          <ModalDetails
+            isVisible={showProjectDetails}
+            content={project}
+            contentType="project"
+            onClose={() => setShowProjectDetails(false)}
+          />
+        )}
+
+        {/* Settings Modal - Only for owners */}
+        {canManageProject ? (
+          <ProjectSettingsModal
+            isVisible={showSettingsModal}
+            onClose={() => setShowSettingsModal(false)}
+            projectId={currentProjectId || ''}
+          />
+        ) : (
+          <ReportModal
+            isVisible={showReportModal}
+            onClose={() => setShowReportModal(false)}
+            recordId={currentProjectId!}
+            creatorId={project?.creator_id ?? undefined}
+            recordTable="projects"
+            hasAlreadyReported={hasReported}
+            onReportSubmitted={() => null}
+          />
+        )}
 
         <DrawerContent className="pb-safe">
           <DrawerHeader>

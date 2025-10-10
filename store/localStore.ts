@@ -152,7 +152,7 @@ export const useLocalStore = create<LocalState>()(
       savedLanguage: null,
       dateTermsAccepted: null,
       analyticsOptOut: false,
-      theme: 'dark',
+      theme: 'system',
 
       // App settings (defaults)
       notificationsEnabled: true,

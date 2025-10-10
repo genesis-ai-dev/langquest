@@ -201,6 +201,7 @@ export class System {
       })
     ]);
 
+    Logger.setLevel(Logger.DEBUG);
     // Check if we're on native or web platform
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (PowerSyncDatabaseNative) {

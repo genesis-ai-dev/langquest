@@ -42,6 +42,7 @@ Write Postgres-compatible SQL code for Supabase migration files that:
 - Add copious comments for any destructive SQL commands, including truncating, dropping, or column alterations.
 - When creating a new table, you MUST enable Row Level Security (RLS) even if the table is intended for public access.
 - When creating RLS Policies
+  - Please refer to the existing migrations in the `supabase/migrations` folder for RLS policies that are in effect.
   - Ensure the policies cover all relevant access scenarios (e.g. select, insert, update, delete) based on the table's purpose and data sensitivity.
   - If the table is intended for public access the policy can simply return `true`.
   - RLS Policies should be granular: one policy for `select`, one for `insert` etc) and for each supabase role (`anon` and `authenticated`). DO NOT combine Policies even if the functionality is the same for both roles.

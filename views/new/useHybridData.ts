@@ -158,7 +158,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const offlineData = React.useMemo(() => {
     // Ensure we always have an array
     const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
-    return dataArray.map((item) => {
+    return dataArray.filter(Boolean).map((item) => {
       const typedItem = item as unknown as TOfflineData & {
         source?: OfflineDataSource;
       };

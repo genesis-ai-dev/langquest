@@ -154,7 +154,7 @@ export function ProjectListItem({
                   {(project.private ||
                     !!membership ||
                     project.source === 'local') && (
-                    <View className="flex flex-row gap-1.5">
+                    <View className="flex flex-row items-center gap-1.5">
                       {project.source === 'local' && (
                         <Icon
                           as={HardDriveIcon}
@@ -176,7 +176,7 @@ export function ProjectListItem({
                     </View>
                   )}
                   <CardTitle numberOfLines={2} className="flex flex-1">
-                    <Text>{project.name}</Text>
+                    {project.name}
                   </CardTitle>
                 </View>
                 {isDownloaded && (

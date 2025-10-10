@@ -40,7 +40,7 @@ function TabsTrigger({
     <TextClassContext.Provider
       value={cn(
         'text-sm font-medium text-muted-foreground',
-        value === props.value && 'dark:text-foreground',
+        value === props.value && 'text-primary-foreground',
         props.disabled && 'text-muted-foreground/50'
       )}
     >
@@ -51,7 +51,7 @@ function TabsTrigger({
             web: 'inline-flex cursor-default whitespace-nowrap transition-[color,box-shadow] hover:cursor-pointer focus-visible:border-ring focus-visible:outline-1 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0'
           }),
           props.value === value &&
-            'border-foreground/10 bg-input dark:bg-primary/90',
+            'border-foreground/10 bg-primary/90 text-primary-foreground',
           className
         )}
         {...props}

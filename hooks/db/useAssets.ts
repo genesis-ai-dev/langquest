@@ -42,7 +42,6 @@ import type { Tag } from './useTags';
 export type Asset = InferSelectModel<typeof asset>;
 export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type AssetContent = InferSelectModel<typeof asset_content_link>;
-export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
 
 /**
@@ -1080,7 +1079,11 @@ export function useAssetsByQuest(
           .from(asset)
           .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
           .where(and(...conditions.filter(Boolean)))
-          .orderBy(asc(asset.name))
+          .orderBy(
+            asc(asset.order_index),
+            asc(asset.created_at),
+            asc(asset.name)
+          )
           .limit(pageSize)
           .offset(offset);
 

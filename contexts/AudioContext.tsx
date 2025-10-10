@@ -140,6 +140,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // Load and play new sound
     try {
       console.log('📂 Creating Audio.Sound from URI...');
+      console.log('🔍 URI:', uri);
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: true }

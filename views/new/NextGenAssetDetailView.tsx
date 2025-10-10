@@ -5,7 +5,7 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
-import { Button } from '@/components/ui/button';
+import { Button, buttonTextVariants } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { getLocalAttachmentUri } from '@/utils/fileUtils';
+import { getLocalAttachmentUriOPFS } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -240,7 +240,7 @@ export default function NextGenAssetDetailView() {
         activeAsset!.content
           .flatMap((content) => content.audio)
           .filter(Boolean)
-          .map(getLocalAttachmentUri)
+          .map(getLocalAttachmentUriOPFS)
       );
     },
     enabled: !!activeAsset && !!system.permAttachmentQueue
@@ -531,7 +531,9 @@ export default function NextGenAssetDetailView() {
           onPress={() => allowEditing && handleNewTranslationPress()}
         >
           <Icon as={PlusIcon} size={24} />
-          <Text className="text-base font-bold">{t('newTranslation')}</Text>
+          <Text className={cn(buttonTextVariants(), 'text-base font-bold')}>
+            {t('newTranslation')}
+          </Text>
         </Button>
       )}
 

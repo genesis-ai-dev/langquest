@@ -239,9 +239,7 @@ export default function SettingsView() {
           >
             <CardHeader className="flex-1 p-0">
               <CardTitle>{item.title}</CardTitle>
-              {item.description && (
-                <CardDescription>{item.description}</CardDescription>
-              )}
+              <CardDescription>{item.description}</CardDescription>
             </CardHeader>
             <Switch
               checked={item.value || false}
@@ -268,9 +266,7 @@ export default function SettingsView() {
             >
               <CardHeader className="flex-1 p-0">
                 <CardTitle>{item.title}</CardTitle>
-                {item.description && (
-                  <CardDescription>{item.description}</CardDescription>
-                )}
+                <CardDescription>{item.description}</CardDescription>
               </CardHeader>
             </TouchableOpacity>
           </Card>
@@ -296,9 +292,7 @@ export default function SettingsView() {
             >
               <CardHeader className="flex-1 p-0">
                 <CardTitle className="text-primary">{item.title}</CardTitle>
-                {item.description && (
-                  <CardDescription>{item.description}</CardDescription>
-                )}
+                <CardDescription>{item.description}</CardDescription>
               </CardHeader>
             </Pressable>
           </Card>

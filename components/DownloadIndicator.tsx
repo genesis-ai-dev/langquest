@@ -1,6 +1,7 @@
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { storage } from '@/utils/storage';
+import { getThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { CircleArrowDownIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -118,7 +119,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         disabled={isDisabled || isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator size={size} color={colors.primary} />
+          <ActivityIndicator size={size} color={getThemeColor('primary')} />
         ) : showProgress && progressPercentage > 0 && !isFlaggedForDownload ? (
           // Custom progress indicator for quests
           <View

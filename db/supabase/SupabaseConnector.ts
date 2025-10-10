@@ -410,6 +410,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
               );
             }
 
+            console.log('Record:', record);
+
             result = await table.upsert(record);
             break;
           }
@@ -437,12 +439,14 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
 
         if (result.error) {
-          console.debug('Upload data:', result.data, opData);
+          console.debug('Upload data', result.data, opData);
           result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
             result
           )}`;
           result.error.stack = undefined;
           throw result.error;
+        } else {
+          console.log('Uploaded successfully:', opData);
         }
       }
 

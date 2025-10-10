@@ -159,7 +159,7 @@ export async function getFileInfo(_uri: string | null | undefined) {
 }
 
 // save the file in the browser locally
-export async function saveAudioFileLocally(uri: string) {
+export async function saveAudioLocally(uri: string) {
   console.log('saveAudioFileLocally', uri);
   console.log('fetching blob from', uri);
   const response = await fetch(uri);
@@ -191,8 +191,14 @@ export function getLocalFilePathSuffix(filename: string): string {
   return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
 }
 
-export async function getLocalAttachmentUri(filePath: string) {
-  const localUri = getLocalUri(getLocalFilePathSuffix(filePath));
+export function getLocalAttachmentUri(filePath: string) {
+  return getLocalUri(
+    getLocalFilePathSuffix(`local/${filePath.split('/').pop()}`)
+  );
+}
+
+export async function getLocalAttachmentUriOPFS(filePath: string) {
+  const localUri = getLocalAttachmentUri(filePath);
   const opfsUri = opfsFileToBlobUrl(localUri);
   return opfsUri;
 }

@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
-import { getLocalAttachmentUri, saveAudioFileLocally } from '@/utils/fileUtils';
+import { getLocalAttachmentUriOPFS, saveAudioLocally } from '@/utils/fileUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
@@ -199,6 +199,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     return withOrderIndex;
   }, [rawAssets, optimisticAssets]);
+
+  // Stable key for asset membership; prevents effects from retriggering on identity-only changes
+  const assetIdsKey = React.useMemo(
+    () => assets.map((a) => a.id).join(','),
+    [assets]
+  );
 
   // Normalize order_index values in database once when assets need initialization
   const hasNormalizedOrderIndexRef = React.useRef(false);
@@ -591,7 +597,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           return;
         }
 
-        const localUri = await saveAudioFileLocally(uri);
+        const localUri = await saveAudioLocally(uri);
 
         // SERIALIZE DB WRITES: Queue this transaction to prevent race conditions
         // This ensures VAD segments are written in speech order, not completion order
@@ -837,7 +843,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           query
             .flatMap((content) => content.audio)
             .filter(Boolean)
-            .map(getLocalAttachmentUri)
+            .map(getLocalAttachmentUriOPFS)
         );
 
         console.log(
@@ -1049,7 +1055,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     if (assets.length > 0) {
       void loadSegments();
     }
-  }, [assets]);
+    // Only re-run when the set of asset IDs changes; avoids loops from identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetIdsKey]);
 
   // Load durations lazily in background - non-blocking, no infinite loops
   React.useEffect(() => {

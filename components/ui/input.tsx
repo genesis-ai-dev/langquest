@@ -10,7 +10,7 @@ import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
 const inputVariants = cva(
-  'flex w-full min-w-48 flex-row items-center rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5 web:w-full',
+  'flex w-full min-w-48 flex-row items-center rounded-md border border-input bg-card text-foreground shadow-sm shadow-black/5 web:w-full',
   {
     variants: {
       size: {
