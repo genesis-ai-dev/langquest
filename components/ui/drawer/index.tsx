@@ -236,6 +236,9 @@ const DrawerContent = React.forwardRef<
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
       enablePanDownToClose={true}
       enableOverDrag={false}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
       {...modalProps}
     >
       <BottomSheetView

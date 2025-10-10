@@ -150,7 +150,11 @@ export default function NextGenNewTranslationModal({
     (translationType === 'audio' && audioUri);
 
   return (
-    <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
+    <Drawer
+      open={visible}
+      onOpenChange={(open) => !open && handleClose()}
+      snapPoints={['85%']}
+    >
       <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>

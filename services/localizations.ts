@@ -3716,6 +3716,34 @@ export const localizations = {
     brazilian_portuguese: 'Erro ao carregar as configurações de tradução.',
     tok_pisin: 'I no inap load translation settings.',
     indonesian: 'Gagal memuat pengaturan terjemahan.'
+  },
+  contentText: {
+    english: 'Content Text',
+    spanish: 'Texto del Contenido',
+    brazilian_portuguese: 'Texto do Conteúdo',
+    tok_pisin: 'Content Text',
+    indonesian: 'Teks Konten'
+  },
+  enterContentText: {
+    english: 'Enter content text...',
+    spanish: 'Ingrese el texto del contenido...',
+    brazilian_portuguese: 'Digite o texto do conteúdo...',
+    tok_pisin: 'Putim content text...',
+    indonesian: 'Masukkan teks konten...'
+  },
+  saving: {
+    english: 'Saving...',
+    spanish: 'Guardando...',
+    brazilian_portuguese: 'Salvando...',
+    tok_pisin: 'Seivim...',
+    indonesian: 'Menyimpan...'
+  },
+  localAssetEditHint: {
+    english: 'This asset is local only. Text can be edited until published.',
+    spanish: 'Este recurso es solo local. El texto se puede editar hasta que se publique.',
+    brazilian_portuguese: 'Este recurso é apenas local. O texto pode ser editado até ser publicado.',
+    tok_pisin: 'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
+    indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
   }
 } as const;
 

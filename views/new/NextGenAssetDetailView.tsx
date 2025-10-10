@@ -8,21 +8,18 @@ import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  renameAsset,
+  updateAssetContentText
+} from '@/database_services/assetService';
 import type { LayerStatus } from '@/database_services/types';
-import type {
-  asset as assetCloud,
-  asset_content_link as assetContentCloud
-} from '@/db/drizzleSchema';
 import {
   asset,
   language as languageTable,
   project as projectCloud
 } from '@/db/drizzleSchema';
-import type {
-  asset_content_link_local as assetContentLocal,
-  asset_local as assetLocal
-} from '@/db/drizzleSchemaLocal';
 import { project_local as projectLocal } from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -43,26 +40,24 @@ import {
   LockIcon,
   PlusIcon,
   SettingsIcon,
+  SparklesIcon,
   UserIcon,
   Volume2Icon,
   VolumeXIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
+import { RenameAssetModal } from './recording/components/RenameAssetModal';
 import { useHybridData } from './useHybridData';
-
-type CloudAsset = typeof assetCloud.$inferSelect;
-type LocalAsset = typeof assetLocal.$inferSelect;
-type DbAsset = CloudAsset | LocalAsset;
-type CloudAssetContent = typeof assetContentCloud.$inferSelect;
-type LocalAssetContent = typeof assetContentLocal.$inferSelect;
-type DbAssetContent = CloudAssetContent | LocalAssetContent;
-
-type AssetWithContent = DbAsset & { content?: DbAssetContent[] };
-
-const ASSET_VIEWER_PROPORTION = 0.35;
 
 type TabType = 'text' | 'image';
 
@@ -97,12 +92,38 @@ export default function NextGenAssetDetailView() {
 
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [contentTexts, setContentTexts] = useState<Map<string, string>>(
+    new Map()
+  );
+  const [savingContentIds, setSavingContentIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [showRenameModal, setShowRenameModal] = useState(false);
 
   const {
     data: offlineAsset,
     isLoading: isOfflineLoading,
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
+
+  // Check if asset is local-only (not synced yet)
+  const { data: isLocalOnly } = useQuery({
+    queryKey: ['asset', 'isLocalOnly', currentAssetId],
+    queryFn: async () => {
+      if (!currentAssetId) return false;
+
+      // Check if asset exists in synced table
+      const syncedAsset = await system.db
+        .select()
+        .from(asset)
+        .where(eq(asset.id, currentAssetId))
+        .limit(1);
+
+      // If not in synced table, it's local-only
+      return syncedAsset.length === 0;
+    },
+    enabled: !!currentAssetId
+  });
 
   // Load asset attachments when asset ID changes
   useEffect(() => {
@@ -156,7 +177,7 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const { allowEditing, allowSettings, invisible } = React.useMemo(() => {
+  const { allowEditing, allowSettings } = React.useMemo(() => {
     if (!activeAsset) {
       return { allowEditing: false, allowSettings: false, invisible: false };
     }
@@ -227,15 +248,73 @@ export default function NextGenAssetDetailView() {
     }
   }, [activeAsset]);
 
+  // Initialize content texts when asset loads
+  useEffect(() => {
+    if (activeAsset?.content) {
+      const textMap = new Map<string, string>();
+      activeAsset.content.forEach((content) => {
+        textMap.set(content.id, content.text || '');
+      });
+      setContentTexts(textMap);
+    }
+  }, [activeAsset?.content]);
+
+  // Handle saving text content changes for a specific content record
+  const handleSaveText = async (contentId: string, newText: string) => {
+    if (!currentAssetId || !isLocalOnly) return;
+
+    setSavingContentIds((prev) => new Set(prev).add(contentId));
+    try {
+      await updateAssetContentText(currentAssetId, newText, contentId);
+      void refetchOfflineAsset();
+    } catch (err: unknown) {
+      console.error('Failed to save asset content text:', err);
+    } finally {
+      setSavingContentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(contentId);
+        return newSet;
+      });
+    }
+  };
+
+  // Update content text in state
+  const updateContentText = (contentId: string, text: string) => {
+    setContentTexts((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(contentId, text);
+      return newMap;
+    });
+  };
+
+  // Handle asset renaming
+  const handleSaveRename = async (newName: string) => {
+    if (!currentAssetId || !isLocalOnly) return;
+
+    try {
+      await renameAsset(currentAssetId, newName);
+      void refetchOfflineAsset();
+    } catch (err: unknown) {
+      console.error('Failed to rename asset:', err);
+    }
+  };
+
   // Debug logging
   const debugInfo = React.useMemo(
     () => ({
       assetId: currentAssetId,
+      isLocalOnly,
       activeAsset: activeAsset
         ? {
             id: activeAsset.id,
             name: activeAsset.name,
             contentCount: activeAsset.content?.length ?? 0,
+            contentDetails:
+              activeAsset.content?.map((c) => ({
+                id: c.id.slice(0, 8),
+                text: c.text?.slice(0, 50) || '(empty)',
+                hasAudio: !!c.audio_id
+              })) ?? [],
             hasAudio: activeAsset.content?.some((c) => c.audio_id) ?? false
           }
         : null,
@@ -248,7 +327,13 @@ export default function NextGenAssetDetailView() {
           hasLocalUri: !!state.local_uri
         }))
     }),
-    [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
+    [
+      currentAssetId,
+      isLocalOnly,
+      activeAsset,
+      attachmentStates,
+      allAttachmentIds
+    ]
   );
 
   React.useEffect(() => {
@@ -271,9 +356,6 @@ export default function NextGenAssetDetailView() {
       </View>
     );
   }
-
-  const screenHeight = Dimensions.get('window').height;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
   if (isLoading || isOfflineLoading) {
     return <AssetSkeleton />;
@@ -309,273 +391,401 @@ export default function NextGenAssetDetailView() {
   };
 
   return (
-    <View className="mb-safe flex-1 px-4">
-      {/* Header */}
-      <View className="flex-row items-center justify-between gap-1">
-        <View className="flex-1 flex-row items-center gap-4">
-          <Text className="flex-1 text-xl font-bold text-foreground">
-            {activeAsset.name}
-          </Text>
-          {projectData?.private && (
-            <View className="flex-row items-center gap-1">
-              <Icon as={LockIcon} className="text-muted-foreground" />
-              {translateMembership === 'owner' && (
-                <Icon as={CrownIcon} className="text-primary" />
-              )}
-              {translateMembership === 'member' && (
-                <Icon as={UserIcon} className="text-primary" />
-              )}
-            </View>
-          )}
-        </View>
-        {SHOW_DEV_ELEMENTS && offlineAsset && (
-          <Text className="text-sm text-foreground">
-            V: {activeAsset.visible ? '🟢' : '🔴'} A:{' '}
-            {activeAsset.active ? '🟢' : '🔴'}
-          </Text>
-        )}
-
-        {allowSettings &&
-          (translateMembership === 'owner' ? (
-            <Button
-              onPress={() => setShowAssetSettingsModal(true)}
-              variant="ghost"
-              size="icon"
-              className="p-2"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="mb-safe flex-1"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView
+        className="flex-1 px-4"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+      >
+        {/* Header */}
+        <View className="flex-row items-center justify-between gap-1">
+          <View className="flex-1 flex-row items-center gap-4">
+            <TouchableOpacity
+              onPress={() => {
+                if (isLocalOnly) {
+                  setShowRenameModal(true);
+                }
+              }}
+              disabled={!isLocalOnly}
+              activeOpacity={0.7}
+              className="flex-1"
             >
-              <Icon as={SettingsIcon} size={22} className="text-foreground" />
-            </Button>
-          ) : (
-            !hasReported &&
-            !isReportLoading && (
+              <Text
+                className={`flex-1 text-xl font-bold text-foreground ${isLocalOnly ? 'underline' : ''}`}
+              >
+                {activeAsset.name}
+              </Text>
+            </TouchableOpacity>
+            {projectData?.private && (
+              <View className="flex-row items-center gap-1">
+                <Icon as={LockIcon} className="text-muted-foreground" />
+                {translateMembership === 'owner' && (
+                  <Icon as={CrownIcon} className="text-primary" />
+                )}
+                {translateMembership === 'member' && (
+                  <Icon as={UserIcon} className="text-primary" />
+                )}
+              </View>
+            )}
+          </View>
+          {SHOW_DEV_ELEMENTS && offlineAsset && (
+            <Text className="text-sm text-foreground">
+              V: {activeAsset.visible ? '🟢' : '🔴'} A:{' '}
+              {activeAsset.active ? '🟢' : '🔴'}
+              {isLocalOnly && ' 📱'}
+            </Text>
+          )}
+
+          {allowSettings &&
+            (translateMembership === 'owner' ? (
               <Button
-                onPress={() => setShowReportModal(true)}
+                onPress={() => setShowAssetSettingsModal(true)}
                 variant="ghost"
                 size="icon"
                 className="p-2"
               >
-                <Icon as={FlagIcon} size={20} className="text-foreground" />
+                <Icon as={SettingsIcon} size={22} className="text-foreground" />
               </Button>
-            )
-          ))}
-      </View>
-
-      {/* Tab Bar */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabType)}
-      >
-        <TabsList className="w-full flex-row">
-          <TabsTrigger
-            value="text"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.content || activeAsset.content.length === 0}
-          >
-            <Icon as={FileTextIcon} size={24} />
-          </TabsTrigger>
-          <TabsTrigger
-            value="image"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.images || activeAsset.images.length === 0}
-          >
-            <Icon as={ImageIcon} size={24} />
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Asset Content Viewer */}
-        <View
-          className={cn(!allowEditing && 'opacity-50')}
-          style={{ height: assetViewerHeight }}
-        >
-          <TabsContent value="text">
-            {activeAsset.content && activeAsset.content.length > 0 ? (
-              activeAsset.content.map((content, index) => (
-                <View
-                  key={index}
-                  style={{
-                    marginBottom: index < activeAsset.content.length - 1 ? 8 : 0
-                  }}
+            ) : (
+              !hasReported &&
+              !isReportLoading && (
+                <Button
+                  onPress={() => setShowReportModal(true)}
+                  variant="ghost"
+                  size="icon"
+                  className="p-2"
                 >
-                  <SourceContent
-                    content={content}
-                    sourceLanguage={
-                      content.source_language_id
-                        ? (languageById.get(content.source_language_id) ?? null)
-                        : null
-                    }
-                    audioUri={
-                      content.audio_id
-                        ? (() => {
-                            const attachment = attachmentStates.get(
-                              content.audio_id
-                            );
-                            const localUri = attachment?.local_uri;
-
-                            if (!localUri) {
-                              console.log(
-                                `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                                attachment?.state
-                              );
-                              return null;
-                            }
-
-                            const fullUri =
-                              system.permAttachmentQueue?.getLocalUri(localUri);
-                            console.log(
-                              `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                            );
-                            return fullUri;
-                          })()
-                        : null
-                    }
-                    isLoading={isLoadingAttachments}
-                  />
-
-                  {/* Audio status indicator */}
-                  {SHOW_DEV_ELEMENTS && content.audio_id && (
-                    <View
-                      className="flex-row items-center gap-1"
-                      style={{ marginTop: 8 }}
-                    >
-                      <Icon
-                        as={
-                          attachmentStates.get(content.audio_id)?.local_uri
-                            ? Volume2Icon
-                            : VolumeXIcon
-                        }
-                        size={16}
-                        className="text-muted-foreground"
-                      />
-                      <Text className="text-sm text-muted-foreground">
-                        {attachmentStates.get(content.audio_id)?.local_uri
-                          ? t('audioReady')
-                          : t('audioNotAvailable')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
-
-          <TabsContent value="image">
-            {activeAsset.images && activeAsset.images.length > 0 ? (
-              <View className="h-48 overflow-hidden rounded-lg">
-                <ImageCarousel
-                  uris={activeAsset.images
-                    .map((imageId) => {
-                      const attachment = attachmentStates.get(imageId);
-                      const localUri = attachment?.local_uri;
-
-                      if (!localUri) {
-                        console.log(
-                          `[IMAGE] No local URI for image ${imageId}, state:`,
-                          attachment?.state
-                        );
-                        return null;
-                      }
-
-                      const fullUri =
-                        system.permAttachmentQueue?.getLocalUri(localUri);
-                      console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
-                      return fullUri;
-                    })
-                    .filter((uri): uri is string => uri !== null)}
-                />
-              </View>
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
+                  <Icon as={FlagIcon} size={20} className="text-foreground" />
+                </Button>
+              )
+            ))}
         </View>
-      </Tabs>
 
-      {/* Translations List - Pass project data to avoid re-querying */}
-      <View className="flex-1">
-        <NextGenTranslationsList
-          assetId={currentAssetId}
-          assetName={activeAsset.name}
-          refreshKey={translationsRefreshKey}
-          projectData={projectData}
-          canVote={canTranslate}
-          membership={translateMembership}
-        />
-      </View>
+        {/* Asset Content Section with Tabs */}
+        <View className="gap-3">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as TabType)}
+          >
+            <TabsList className="w-full flex-row">
+              <TabsTrigger
+                value="text"
+                className="flex-1 items-center py-2"
+                disabled={
+                  !activeAsset.content || activeAsset.content.length === 0
+                }
+              >
+                <Icon as={FileTextIcon} size={24} />
+              </TabsTrigger>
+              <TabsTrigger
+                value="image"
+                className="flex-1 items-center py-2"
+                disabled={
+                  !activeAsset.images || activeAsset.images.length === 0
+                }
+              >
+                <Icon as={ImageIcon} size={24} />
+              </TabsTrigger>
+            </TabsList>
 
-      {/* New Translation Button with PrivateAccessGate */}
-      {projectData?.private && !canTranslate ? (
-        <PrivateAccessGate
-          projectId={currentProjectId || ''}
-          projectName={projectData.name || ''}
-          isPrivate={true}
-          action="translate"
-          renderTrigger={({ onPress }) => (
-            <Button
-              className="flex-row items-center justify-center gap-2 px-6 py-4"
-              onPress={onPress}
-            >
-              <Icon
-                as={LockIcon}
-                size={20}
-                className="text-primary-foreground"
+            {/* Asset Content Viewer */}
+            <View className={cn(!allowEditing && 'opacity-50')}>
+              <TabsContent value="text">
+                {activeAsset.content && activeAsset.content.length > 0 ? (
+                  activeAsset.content.map((content, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        marginBottom:
+                          index < activeAsset.content.length - 1 ? 8 : 0
+                      }}
+                    >
+                      <SourceContent
+                        content={content}
+                        sourceLanguage={
+                          content.source_language_id
+                            ? (languageById.get(content.source_language_id) ??
+                              null)
+                            : null
+                        }
+                        audioUri={
+                          content.audio_id
+                            ? (() => {
+                                const attachment = attachmentStates.get(
+                                  content.audio_id
+                                );
+                                const localUri = attachment?.local_uri;
+
+                                if (!localUri) {
+                                  console.log(
+                                    `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
+                                    attachment?.state
+                                  );
+                                  return null;
+                                }
+
+                                const fullUri =
+                                  system.permAttachmentQueue?.getLocalUri(
+                                    localUri
+                                  );
+                                console.log(
+                                  `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
+                                );
+                                return fullUri;
+                              })()
+                            : null
+                        }
+                        isLoading={isLoadingAttachments}
+                      />
+
+                      {/* Audio status indicator */}
+                      {SHOW_DEV_ELEMENTS && content.audio_id && (
+                        <View
+                          className="flex-row items-center gap-1"
+                          style={{ marginTop: 8 }}
+                        >
+                          <Icon
+                            as={
+                              attachmentStates.get(content.audio_id)?.local_uri
+                                ? Volume2Icon
+                                : VolumeXIcon
+                            }
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                          <Text className="text-sm text-muted-foreground">
+                            {attachmentStates.get(content.audio_id)?.local_uri
+                              ? t('audioReady')
+                              : t('audioNotAvailable')}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))
+                ) : (
+                  <Text className="p-8 text-center text-base italic text-muted-foreground">
+                    {t('noContentAvailable')}
+                  </Text>
+                )}
+              </TabsContent>
+
+              <TabsContent value="image">
+                {activeAsset.images && activeAsset.images.length > 0 ? (
+                  <View className="h-48 overflow-hidden rounded-lg">
+                    <ImageCarousel
+                      uris={activeAsset.images
+                        .map((imageId) => {
+                          const attachment = attachmentStates.get(imageId);
+                          const localUri = attachment?.local_uri;
+
+                          if (!localUri) {
+                            console.log(
+                              `[IMAGE] No local URI for image ${imageId}, state:`,
+                              attachment?.state
+                            );
+                            return null;
+                          }
+
+                          const fullUri =
+                            system.permAttachmentQueue?.getLocalUri(localUri);
+                          console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
+                          return fullUri;
+                        })
+                        .filter((uri): uri is string => uri !== null)}
+                    />
+                  </View>
+                ) : (
+                  <Text className="p-8 text-center text-base italic text-muted-foreground">
+                    {t('noContentAvailable')}
+                  </Text>
+                )}
+              </TabsContent>
+            </View>
+          </Tabs>
+
+          {/* Local-only text editing section - one editor per content record */}
+          {isLocalOnly &&
+            activeAsset.content &&
+            activeAsset.content.length > 0 && (
+              <View className="gap-4 border-t border-border pt-4">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-semibold text-foreground">
+                    {t('contentText') || 'Content Text'}
+                    {activeAsset.content.length > 1 && (
+                      <Text className="text-sm text-muted-foreground">
+                        {' '}
+                        ({activeAsset.content.length} segments)
+                      </Text>
+                    )}
+                  </Text>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled
+                    className="opacity-50"
+                  >
+                    <Icon
+                      as={SparklesIcon}
+                      size={20}
+                      className="text-muted-foreground"
+                    />
+                  </Button>
+                </View>
+
+                {activeAsset.content.map((content, index) => {
+                  const isSaving = savingContentIds.has(content.id);
+                  const currentText = contentTexts.get(content.id) || '';
+
+                  return (
+                    <View key={content.id} className="gap-2">
+                      {activeAsset.content.length > 1 && (
+                        <Text className="text-sm font-medium text-muted-foreground">
+                          Segment {index + 1}
+                          {content.audio_id && ' 🎵'}
+                        </Text>
+                      )}
+
+                      <Textarea
+                        value={currentText}
+                        onChangeText={(text) =>
+                          updateContentText(content.id, text)
+                        }
+                        onBlur={() => {
+                          if (currentText !== content.text) {
+                            void handleSaveText(content.id, currentText);
+                          }
+                        }}
+                        placeholder={
+                          t('enterContentText') || 'Enter content text...'
+                        }
+                        className="min-h-[100px]"
+                        editable={!isSaving && allowEditing}
+                      />
+
+                      {isSaving && (
+                        <Text className="text-xs italic text-muted-foreground">
+                          {t('saving') || 'Saving...'}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+
+                <Text className="text-xs text-muted-foreground">
+                  {t('localAssetEditHint') ||
+                    'This asset is local only. Text can be edited until published.'}
+                </Text>
+              </View>
+            )}
+        </View>
+
+        {/* Translations List - Only for synced assets */}
+        {!isLocalOnly && (
+          <View>
+            <NextGenTranslationsList
+              assetId={currentAssetId}
+              assetName={activeAsset.name}
+              refreshKey={translationsRefreshKey}
+              projectData={projectData}
+              canVote={canTranslate}
+              membership={translateMembership}
+            />
+          </View>
+        )}
+
+        {/* Spacer to push action buttons to bottom */}
+        {!isLocalOnly && <View style={{ flex: 1 }} />}
+
+        {/* Action Buttons Section */}
+        {!isLocalOnly && (
+          <View className="pt-4">
+            {/* New Translation Button with PrivateAccessGate */}
+            {projectData?.private && !canTranslate ? (
+              <PrivateAccessGate
+                projectId={currentProjectId || ''}
+                projectName={projectData.name || ''}
+                isPrivate={true}
+                action="translate"
+                renderTrigger={({ onPress }) => (
+                  <Button
+                    className="flex-row items-center justify-center gap-2 px-6 py-4"
+                    onPress={onPress}
+                  >
+                    <Icon
+                      as={LockIcon}
+                      size={20}
+                      className="text-primary-foreground"
+                    />
+                    <Icon
+                      as={PlusIcon}
+                      size={24}
+                      className="text-primary-foreground"
+                    />
+                    <Text className="text-base font-bold text-primary-foreground">
+                      {t('membersOnly')}
+                    </Text>
+                  </Button>
+                )}
+                onAccessGranted={() => setShowNewTranslationModal(true)}
               />
-              <Icon
-                as={PlusIcon}
-                size={24}
-                className="text-primary-foreground"
-              />
-              <Text className="text-base font-bold text-primary-foreground">
-                {t('membersOnly')}
-              </Text>
-            </Button>
-          )}
-          onAccessGranted={() => setShowNewTranslationModal(true)}
-        />
-      ) : (
-        <Button
-          className="-mx-2 flex-row items-center justify-center gap-2 px-6 py-4"
-          disabled={!allowEditing}
-          onPress={() => allowEditing && handleNewTranslationPress()}
-        >
-          <Icon as={PlusIcon} size={24} />
-          <Text className="text-base font-bold">{t('newTranslation')}</Text>
-        </Button>
-      )}
+            ) : (
+              <Button
+                className="-mx-2 flex-row items-center justify-center gap-2 px-6 py-4"
+                disabled={!allowEditing}
+                onPress={() => allowEditing && handleNewTranslationPress()}
+              >
+                <Icon as={PlusIcon} size={24} />
+                <Text className="text-base font-bold">
+                  {t('newTranslation')}
+                </Text>
+              </Button>
+            )}
+          </View>
+        )}
 
-      {/* New Translation Modal */}
-      {canTranslate && allowEditing && (
-        <NextGenNewTranslationModal
-          visible={showNewTranslationModal}
-          onClose={() => setShowNewTranslationModal(false)}
-          onSuccess={handleTranslationSuccess}
-          assetId={currentAssetId}
-          assetName={activeAsset.name}
-          assetContent={activeAsset.content}
-          sourceLanguage={null}
-          targetLanguageId={targetLanguageId}
-        />
-      )}
+        {/* Modals */}
+        {canTranslate && allowEditing && (
+          <NextGenNewTranslationModal
+            visible={showNewTranslationModal}
+            onClose={() => setShowNewTranslationModal(false)}
+            onSuccess={handleTranslationSuccess}
+            assetId={currentAssetId}
+            assetName={activeAsset.name}
+            assetContent={activeAsset.content}
+            sourceLanguage={null}
+            targetLanguageId={targetLanguageId}
+          />
+        )}
 
-      <AssetSettingsModal
-        isVisible={showAssetSettingsModal}
-        onClose={() => setShowAssetSettingsModal(false)}
-        assetId={activeAsset.id}
-      />
-      <ReportModal
-        isVisible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        recordId={activeAsset.id}
-        creatorId={activeAsset?.creator_id ?? undefined}
-        recordTable="assets"
-        hasAlreadyReported={hasReported}
-        onReportSubmitted={() => refetchOfflineAsset()}
-      />
-    </View>
+        <AssetSettingsModal
+          isVisible={showAssetSettingsModal}
+          onClose={() => setShowAssetSettingsModal(false)}
+          assetId={activeAsset.id}
+        />
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={activeAsset.id}
+          creatorId={activeAsset?.creator_id ?? undefined}
+          recordTable="assets"
+          hasAlreadyReported={hasReported}
+          onReportSubmitted={() => refetchOfflineAsset()}
+        />
+
+        {/* Rename Modal for local assets */}
+        {isLocalOnly && (
+          <RenameAssetModal
+            isVisible={showRenameModal}
+            currentName={activeAsset.name}
+            onClose={() => setShowRenameModal(false)}
+            onSave={handleSaveRename}
+          />
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
