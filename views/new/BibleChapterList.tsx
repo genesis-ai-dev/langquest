@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
@@ -15,7 +16,7 @@ import { useChapterPublishing } from '@/hooks/useChapterPublishing';
 import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
-import { HardDriveIcon, Upload } from 'lucide-react-native';
+import { Cloud, HardDriveIcon, Upload } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -40,7 +41,8 @@ function ChapterButton({
   isCreatingThis,
   onPress,
   disabled,
-  onShare
+  onShare,
+  isPublishingThis
 }: {
   chapterNum: number;
   verseCount: number;
@@ -48,21 +50,30 @@ function ChapterButton({
     id: string;
     name: string;
     source: string;
+    hasLocalCopy: boolean;
+    hasSyncedCopy: boolean;
     download_profiles?: string[] | null;
   };
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
   onShare?: () => void;
+  isPublishingThis?: boolean;
 }) {
   const { currentUser } = useAuth();
   const exists = !!existingChapter;
-  const isLocal = existingChapter?.source === 'local';
+  const hasLocalCopy = existingChapter?.hasLocalCopy ?? false;
+  const hasSyncedCopy = existingChapter?.hasSyncedCopy ?? false;
   const isCloudQuest = existingChapter?.source === 'cloud';
 
   // Download status and handler
   const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
   const needsDownload = isCloudQuest && !isDownloaded;
+
+  // console.log for debugging
+  console.log(
+    `Chapter ${chapterNum}: hasLocal=${hasLocalCopy}, hasSynced=${hasSyncedCopy}, source=${existingChapter?.source}`
+  );
 
   // Quest closure data for download stats
   const { data: questClosureData } = useHybridData<QuestClosure>({
@@ -111,7 +122,7 @@ function ChapterButton({
         variant={exists ? 'default' : 'outline'}
         className={`w-full flex-col gap-1 py-3 ${!exists ? 'border-dashed' : ''} ${
           needsDownload ? 'opacity-50' : ''
-        }`}
+        } ${hasSyncedCopy ? 'bg-chart-5' : ''} ${hasLocalCopy ? 'bg-chart-2' : ''}`}
         onPress={onPress}
         disabled={disabled || needsDownload}
       >
@@ -120,7 +131,7 @@ function ChapterButton({
         ) : (
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
-              {isLocal && (
+              {hasLocalCopy && (
                 <Icon
                   as={HardDriveIcon}
                   size={14}
@@ -139,7 +150,8 @@ function ChapterButton({
           </View>
         )}
       </Button>
-      {exists && !isLocal && (
+      {/* Show download indicator if synced OR cloud */}
+      {exists && (hasSyncedCopy || isCloudQuest) && (
         <View className="absolute right-1 top-1">
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
@@ -151,12 +163,18 @@ function ChapterButton({
           />
         </View>
       )}
-      {exists && isLocal && onShare && (
+      {/* Show upload button ONLY if has local but NOT synced */}
+      {exists && hasLocalCopy && !hasSyncedCopy && onShare && (
         <Pressable
           onPress={onShare}
           className="absolute right-1 top-1 rounded-full bg-primary/10 p-1.5"
+          disabled={disabled || isPublishingThis}
         >
-          <Icon as={Upload} size={12} className="text-primary-foreground" />
+          {isPublishingThis ? (
+            <ActivityIndicator size="small" />
+          ) : (
+            <Icon as={Upload} size={12} className="text-primary-foreground" />
+          )}
         </Pressable>
       )}
     </View>
@@ -167,7 +185,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
-  const { publishChapter, isPublishing } = useChapterPublishing();
+  const { publishChapter } = useChapterPublishing();
   const book = getBibleBook(bookId);
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
@@ -183,6 +201,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
   );
+
+  // Track which chapter is currently being published (by chapter ID, not number)
+  const [publishingChapterId, setPublishingChapterId] = React.useState<
+    string | null
+  >(null);
 
   if (!book) {
     return (
@@ -255,6 +278,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   };
 
   const handleSharePress = (chapter: BibleChapter) => {
+    // Prevent opening dialog if this chapter is already being published
+    if (publishingChapterId === chapter.id) {
+      return;
+    }
+
     Alert.alert(
       'Publish Chapter',
       `This will publish ${chapter.name} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
@@ -264,11 +292,14 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           style: 'cancel'
         },
         {
-          text: isPublishing ? 'Publishing...' : 'Publish',
+          text: 'Publish',
           style: 'default',
           onPress: () => {
             void (async () => {
               console.log(`📤 Publishing ${chapter.name}...`);
+
+              // Mark this chapter as publishing (non-blocking)
+              setPublishingChapterId(chapter.id);
 
               try {
                 const result = await publishChapter(chapter.id);
@@ -293,6 +324,9 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                     : 'Failed to publish chapter',
                   [{ text: 'OK' }]
                 );
+              } finally {
+                // Clear publishing state when done (success or error)
+                setPublishingChapterId(null);
               }
             })();
           }
@@ -304,66 +338,94 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   // Generate array of chapter numbers
   const chapters = Array.from({ length: book.chapters }, (_, i) => i + 1);
 
+  // Get the name of the chapter being published for the banner
+  const publishingChapterName = publishingChapterId
+    ? existingChapters.find((ch) => ch.id === publishingChapterId)?.name
+    : null;
+
   return (
-    <ScrollView className="flex-1">
-      <View className="flex-col gap-4 p-4">
-        {/* Header */}
-        <View className="flex-row items-center gap-3">
-          {IconComponent ? (
-            <IconComponent width={48} height={48} color={primaryColor} />
-          ) : (
-            <Text className="text-4xl">📖</Text>
-          )}
-          <View className="flex-col">
-            <Text variant="h3">{book.name}</Text>
-            <Text className="text-sm text-muted-foreground">
-              {book.chapters} chapters
-            </Text>
+    <View className="flex-1">
+      <ScrollView className="flex-1">
+        <View className="flex-col gap-4 p-4">
+          {/* Header */}
+          <View className="flex-row items-center gap-3">
+            {IconComponent ? (
+              <IconComponent width={48} height={48} color={primaryColor} />
+            ) : (
+              <Text className="text-4xl">📖</Text>
+            )}
+            <View className="flex-col">
+              <Text variant="h3">{book.name}</Text>
+              <Text className="text-sm text-muted-foreground">
+                {book.chapters} chapters
+              </Text>
+            </View>
+          </View>
+
+          {/* Chapter Grid */}
+          <View className="flex-row flex-wrap gap-2">
+            {isLoadingChapters ? (
+              // Show loading skeleton
+              <View className="flex-row flex-wrap gap-2">
+                {chapters.slice(0, 6).map((chapterNum) => (
+                  <View
+                    key={chapterNum}
+                    className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
+                  >
+                    <ActivityIndicator size="small" />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              chapters.map((chapterNum) => {
+                const verseCount = book.verses[chapterNum - 1] || 0;
+                const existingChapter = existingChapters.find(
+                  (ch) => ch.chapterNumber === chapterNum
+                );
+                const isCreatingThis = creatingChapter === chapterNum;
+                const isPublishingThis =
+                  existingChapter?.id === publishingChapterId;
+
+                return (
+                  <ChapterButton
+                    key={chapterNum}
+                    chapterNum={chapterNum}
+                    verseCount={verseCount}
+                    existingChapter={existingChapter}
+                    isCreatingThis={isCreatingThis}
+                    onPress={() => handleChapterPress(chapterNum)}
+                    disabled={Boolean(isCreating || isLoadingChapters)}
+                    onShare={
+                      existingChapter
+                        ? () => handleSharePress(existingChapter)
+                        : undefined
+                    }
+                    isPublishingThis={isPublishingThis}
+                  />
+                );
+              })
+            )}
           </View>
         </View>
+      </ScrollView>
 
-        {/* Chapter Grid */}
-        <View className="flex-row flex-wrap gap-2">
-          {isLoadingChapters ? (
-            // Show loading skeleton
-            <View className="flex-row flex-wrap gap-2">
-              {chapters.slice(0, 6).map((chapterNum) => (
-                <View
-                  key={chapterNum}
-                  className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
-                >
-                  <ActivityIndicator size="small" />
-                </View>
-              ))}
+      {/* Floating publishing progress banner */}
+      {publishingChapterName && (
+        <View className="absolute bottom-4 left-4 right-4">
+          <Card className="flex-row items-center gap-3 bg-card p-4 shadow-lg">
+            <ActivityIndicator size="small" className="text-primary" />
+            <View className="flex-1 flex-col gap-1">
+              <Text className="font-medium">
+                Publishing {publishingChapterName}...
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                Uploading to cloud in background
+              </Text>
             </View>
-          ) : (
-            chapters.map((chapterNum) => {
-              const verseCount = book.verses[chapterNum - 1] || 0;
-              const existingChapter = existingChapters.find(
-                (ch) => ch.chapterNumber === chapterNum
-              );
-              const isCreatingThis = creatingChapter === chapterNum;
-
-              return (
-                <ChapterButton
-                  key={chapterNum}
-                  chapterNum={chapterNum}
-                  verseCount={verseCount}
-                  existingChapter={existingChapter}
-                  isCreatingThis={isCreatingThis}
-                  onPress={() => handleChapterPress(chapterNum)}
-                  disabled={isCreating || isLoadingChapters}
-                  onShare={
-                    existingChapter
-                      ? () => handleSharePress(existingChapter)
-                      : undefined
-                  }
-                />
-              );
-            })
-          )}
+            <Icon as={Cloud} size={20} className="text-muted-foreground" />
+          </Card>
         </View>
-      </View>
-    </ScrollView>
+      )}
+    </View>
   );
 }

@@ -12,6 +12,7 @@ export interface NavigationState {
   view: AppView;
   projectId?: string;
   projectName?: string;
+  projectTemplate?: string | null;
   questId?: string;
   questName?: string;
   assetId?: string;
@@ -102,7 +103,7 @@ export function useAppNavigation() {
   }, [currentState.view, goBackToView]);
 
   const goToProject = useCallback(
-    (projectData: { id: string; name?: string }) => {
+    (projectData: { id: string; name?: string; template?: string | null }) => {
       // Check if we're already at this project or deeper
       if (currentState.projectId === projectData.id && currentState.view === 'quests') {
         // Already here, do nothing
@@ -118,7 +119,8 @@ export function useAppNavigation() {
         navigate({
           view: 'quests',
           projectId: projectData.id,
-          projectName: projectData.name
+          projectName: projectData.name,
+          projectTemplate: projectData.template
         });
       }
     },
@@ -224,7 +226,7 @@ export function useAppNavigation() {
       crumbs.push({
         label: state.projectName,
         onPress: () =>
-          goToProject({ id: state.projectId!, name: state.projectName })
+          goToProject({ id: state.projectId!, name: state.projectName, template: state.projectTemplate })
       });
       crumbs.push({ label: state.questName, onPress: undefined });
     } else if (
@@ -237,7 +239,7 @@ export function useAppNavigation() {
       crumbs.push({
         label: state.projectName,
         onPress: () =>
-          goToProject({ id: state.projectId!, name: state.projectName })
+          goToProject({ id: state.projectId!, name: state.projectName, template: state.projectTemplate })
       });
       crumbs.push({
         label: state.questName,
@@ -261,6 +263,7 @@ export function useAppNavigation() {
     currentQuestId: currentState.questId,
     currentAssetId: currentState.assetId,
     currentProjectName: currentState.projectName,
+    currentProjectTemplate: currentState.projectTemplate,
     currentQuestName: currentState.questName,
     currentAssetName: currentState.assetName,
 
@@ -290,6 +293,7 @@ export function useCurrentNavigation() {
     currentQuestId,
     currentAssetId,
     currentProjectName,
+    currentProjectTemplate,
     currentQuestName,
     currentAssetName
   } = useAppNavigation();
@@ -299,10 +303,11 @@ export function useCurrentNavigation() {
     return currentProjectId
       ? {
         id: currentProjectId,
-        name: currentProjectName || 'Project'
+        name: currentProjectName || 'Project',
+        template: currentProjectTemplate
       }
       : null;
-  }, [currentProjectId, currentProjectName]);
+  }, [currentProjectId, currentProjectName, currentProjectTemplate]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
