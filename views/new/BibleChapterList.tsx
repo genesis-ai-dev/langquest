@@ -1,6 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
@@ -10,15 +9,12 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
-import type { BibleChapter } from '@/hooks/useBibleChapters';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
-import { useChapterPublishing } from '@/hooks/useChapterPublishing';
-import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
-import { Cloud, HardDriveIcon, Upload } from 'lucide-react-native';
+import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import {
   useHybridData,
@@ -40,9 +36,7 @@ function ChapterButton({
   existingChapter,
   isCreatingThis,
   onPress,
-  disabled,
-  onShare,
-  isPublishingThis
+  disabled
 }: {
   chapterNum: number;
   verseCount: number;
@@ -57,8 +51,6 @@ function ChapterButton({
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
-  onShare?: () => void;
-  isPublishingThis?: boolean;
 }) {
   const { currentUser } = useAuth();
   const exists = !!existingChapter;
@@ -163,20 +155,6 @@ function ChapterButton({
           />
         </View>
       )}
-      {/* Show upload button ONLY if has local but NOT synced */}
-      {exists && hasLocalCopy && !hasSyncedCopy && onShare && (
-        <Pressable
-          onPress={onShare}
-          className="absolute right-1 top-1 rounded-full bg-primary/10 p-1.5"
-          disabled={disabled || isPublishingThis}
-        >
-          {isPublishingThis ? (
-            <ActivityIndicator size="small" />
-          ) : (
-            <Icon as={Upload} size={12} className="text-primary-foreground" />
-          )}
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -185,11 +163,9 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
-  const { publishChapter } = useChapterPublishing();
   const book = getBibleBook(bookId);
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
-  const { t } = useLocalization();
 
   // Query existing chapters
   const {
@@ -201,11 +177,6 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
   );
-
-  // Track which chapter is currently being published (by chapter ID, not number)
-  const [publishingChapterId, setPublishingChapterId] = React.useState<
-    string | null
-  >(null);
 
   if (!book) {
     return (
@@ -277,71 +248,8 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     }
   };
 
-  const handleSharePress = (chapter: BibleChapter) => {
-    // Prevent opening dialog if this chapter is already being published
-    if (publishingChapterId === chapter.id) {
-      return;
-    }
-
-    Alert.alert(
-      'Publish Chapter',
-      `This will publish ${chapter.name} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: 'Publish',
-          style: 'default',
-          onPress: () => {
-            void (async () => {
-              console.log(`📤 Publishing ${chapter.name}...`);
-
-              // Mark this chapter as publishing (non-blocking)
-              setPublishingChapterId(chapter.id);
-
-              try {
-                const result = await publishChapter(chapter.id);
-
-                if (result.success) {
-                  // Show success message from publish service
-                  Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
-                } else {
-                  // Show errors
-                  Alert.alert(
-                    'Publishing Failed',
-                    result.errors?.join('\n\n') || 'An unknown error occurred',
-                    [{ text: 'OK' }]
-                  );
-                }
-              } catch (error) {
-                console.error('Publish error:', error);
-                Alert.alert(
-                  t('error'),
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to publish chapter',
-                  [{ text: 'OK' }]
-                );
-              } finally {
-                // Clear publishing state when done (success or error)
-                setPublishingChapterId(null);
-              }
-            })();
-          }
-        }
-      ]
-    );
-  };
-
   // Generate array of chapter numbers
   const chapters = Array.from({ length: book.chapters }, (_, i) => i + 1);
-
-  // Get the name of the chapter being published for the banner
-  const publishingChapterName = publishingChapterId
-    ? existingChapters.find((ch) => ch.id === publishingChapterId)?.name
-    : null;
 
   return (
     <View className="flex-1">
@@ -383,8 +291,6 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                   (ch) => ch.chapterNumber === chapterNum
                 );
                 const isCreatingThis = creatingChapter === chapterNum;
-                const isPublishingThis =
-                  existingChapter?.id === publishingChapterId;
 
                 return (
                   <ChapterButton
@@ -395,12 +301,6 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                     isCreatingThis={isCreatingThis}
                     onPress={() => handleChapterPress(chapterNum)}
                     disabled={Boolean(isCreating || isLoadingChapters)}
-                    onShare={
-                      existingChapter
-                        ? () => handleSharePress(existingChapter)
-                        : undefined
-                    }
-                    isPublishingThis={isPublishingThis}
                   />
                 );
               })
@@ -408,24 +308,6 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           </View>
         </View>
       </ScrollView>
-
-      {/* Floating publishing progress banner */}
-      {publishingChapterName && (
-        <View className="absolute bottom-4 left-4 right-4">
-          <Card className="flex-row items-center gap-3 bg-card p-4 shadow-lg">
-            <ActivityIndicator size="small" className="text-primary" />
-            <View className="flex-1 flex-col gap-1">
-              <Text className="font-medium">
-                Publishing {publishingChapterName}...
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                Uploading to cloud in background
-              </Text>
-            </View>
-            <Icon as={Cloud} size={20} className="text-muted-foreground" />
-          </Card>
-        </View>
-      )}
     </View>
   );
 }

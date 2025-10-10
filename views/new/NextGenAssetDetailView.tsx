@@ -25,6 +25,7 @@ import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { toMergeCompilableQuery } from '@/utils/dbUtils';
@@ -105,6 +106,9 @@ export default function NextGenAssetDetailView() {
     isLoading: isOfflineLoading,
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
+
+  // Check if quest is published (determines if we can edit/translate)
+  const { isPublished } = useQuestPublishStatus(currentQuestId);
 
   // Check if asset is local-only (not synced yet)
   const { data: isLocalOnly } = useQuery({
@@ -607,8 +611,9 @@ export default function NextGenAssetDetailView() {
             </View>
           </Tabs>
 
-          {/* Local-only text editing section - one editor per content record */}
+          {/* Local-only text editing section - only show for unpublished quests */}
           {isLocalOnly &&
+            !isPublished &&
             activeAsset.content &&
             activeAsset.content.length > 0 && (
               <View className="gap-4 border-t border-border pt-4">
@@ -683,8 +688,8 @@ export default function NextGenAssetDetailView() {
             )}
         </View>
 
-        {/* Translations List - Only for synced assets */}
-        {!isLocalOnly && (
+        {/* Translations List - Only for published quests (synced assets) */}
+        {!isLocalOnly && isPublished && (
           <View>
             <NextGenTranslationsList
               assetId={currentAssetId}
@@ -698,10 +703,10 @@ export default function NextGenAssetDetailView() {
         )}
 
         {/* Spacer to push action buttons to bottom */}
-        {!isLocalOnly && <View style={{ flex: 1 }} />}
+        {!isLocalOnly && isPublished && <View style={{ flex: 1 }} />}
 
-        {/* Action Buttons Section */}
-        {!isLocalOnly && (
+        {/* Action Buttons Section - Only show for published quests */}
+        {!isLocalOnly && isPublished && (
           <View className="pt-4">
             {/* New Translation Button with PrivateAccessGate */}
             {projectData?.private && !canTranslate ? (

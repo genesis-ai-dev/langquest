@@ -477,6 +477,20 @@ export const localizations = {
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto'
   },
+  published: {
+    english: 'Published',
+    spanish: 'Publicado',
+    brazilian_portuguese: 'Publicado',
+    tok_pisin: 'Publisim pinis',
+    indonesian: 'Diterbitkan'
+  },
+  cannotPublishWhileOffline: {
+    english: 'Cannot publish while offline',
+    spanish: 'No se puede publicar mientras está desconectado',
+    brazilian_portuguese: 'Não é possível publicar enquanto está desconectado',
+    tok_pisin: 'I no inap publish long no gat internet',
+    indonesian: 'Tidak dapat memublikasikan saat offline'
+  },
   quest: {
     english: 'Quest',
     spanish: 'Misión',

@@ -32,7 +32,7 @@ interface UseChapterPublishingResult {
  * };
  * ```
  */
-export function useChapterPublishing(): UseChapterPublishingResult {
+export function useChapterPublishing(t: (key: string) => string): UseChapterPublishingResult {
     const { currentUser } = useAuth();
     const queryClient = useQueryClient();
 
@@ -51,7 +51,8 @@ export function useChapterPublishing(): UseChapterPublishingResult {
 
             const result = await publishBibleChapter({
                 chapterId,
-                userId: currentUser.id
+                userId: currentUser.id,
+                t
             });
 
             if (!result.success) {
@@ -76,6 +77,12 @@ export function useChapterPublishing(): UseChapterPublishingResult {
                     queryKey: ['assets', 'infinite', result.publishedQuestId],
                     exact: false
                 });
+
+                // CRITICAL: Invalidate quest publish status to update UI buttons
+                void queryClient.invalidateQueries({
+                    queryKey: ['quest-publish-status', result.publishedQuestId],
+                    exact: false
+                });
             }
 
             // Invalidate quest queries
@@ -93,7 +100,7 @@ export function useChapterPublishing(): UseChapterPublishingResult {
         publishChapter,
         isPublishing,
         publishResult: publishResult || null,
-        error: error as Error | null
+        error: error
     };
 }
 

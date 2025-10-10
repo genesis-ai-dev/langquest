@@ -14,6 +14,8 @@
  */
 
 import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
 import type { AttachmentState } from '@powersync/attachments';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -26,6 +28,7 @@ import uuid from 'react-native-uuid';
 export interface PublishChapterParams {
     chapterId: string;
     userId: string;
+    t: (key: string) => string;
 }
 
 export interface PublishChapterResult {
@@ -90,7 +93,7 @@ interface ChapterData {
         last_updated: string;
         active: boolean;
     };
-    assets: Array<{
+    assets: {
         id: string;
         name: string;
         order_index: number;
@@ -104,8 +107,8 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
-    questAssetLinks: Array<{
+    }[];
+    questAssetLinks: {
         id: string;
         quest_id: string;
         asset_id: string;
@@ -114,8 +117,8 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
-    assetContentLinks: Array<{
+    }[];
+    assetContentLinks: {
         id: string;
         asset_id: string;
         source_language_id: string | null;
@@ -125,8 +128,8 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
-    tags: Array<{
+    }[];
+    tags: {
         id: string;
         key: string;
         value: string;
@@ -134,8 +137,8 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
-    questTagLinks: Array<{
+    }[];
+    questTagLinks: {
         id: string;
         quest_id: string;
         tag_id: string;
@@ -143,8 +146,8 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
-    assetTagLinks: Array<{
+    }[];
+    assetTagLinks: {
         id: string;
         asset_id: string;
         tag_id: string;
@@ -152,7 +155,7 @@ interface ChapterData {
         created_at: string;
         last_updated: string;
         active: boolean;
-    }>;
+    }[];
 }
 
 interface ValidationResult {
@@ -193,21 +196,35 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
 
     console.log(`📖 Found chapter: ${chapter.name}`);
 
-    // 2. Get parent book quest if exists (and is local)
+    // 2. Get parent book quest if exists (check both local and synced tables)
     let parentBook = undefined;
     if (chapter.parent_id) {
-        const [parent] = await system.db
+        // First check quest_local (local-only)
+        const [parentInLocal] = await system.db
             .select()
             .from(questLocal)
             .where(eq(questLocal.id, chapter.parent_id))
             .limit(1);
 
-        if (parent) {
-            parentBook = parent;
-            console.log(`📚 Found parent book: ${parent.name}`);
+        if (parentInLocal) {
+            parentBook = parentInLocal;
+            console.log(`📚 Found parent book in local: ${parentInLocal.name}`);
         } else {
-            // Parent might already be published - that's okay
-            console.log(`📚 Parent book already published or not in local: ${chapter.parent_id}`);
+            // Also check quest (synced table) - might be synced but not uploaded to Supabase yet
+            const questSynced = resolveTable('quest', { localOverride: false });
+            const [parentInSynced] = await system.db
+                .select()
+                .from(questSynced)
+                .where(eq(questSynced.id, chapter.parent_id))
+                .limit(1);
+
+            if (parentInSynced) {
+                parentBook = parentInSynced;
+                console.log(`📚 Found parent book in synced table: ${parentInSynced.name} - will ensure it's published`);
+            } else {
+                // Parent doesn't exist locally at all - assume it's already in Supabase
+                console.log(`📚 Parent book not found locally, assuming already in Supabase: ${chapter.parent_id}`);
+            }
         }
     }
 
@@ -535,6 +552,69 @@ async function ensureAudioUploaded(data: ChapterData): Promise<number> {
 // ============================================================================
 
 /**
+ * Upload parent book directly to Supabase to satisfy foreign key constraints
+ * CRITICAL: Parent MUST exist in Supabase before PowerSync uploads the chapter
+ * We bypass PowerSync here and upload directly to guarantee ordering
+ */
+async function ensureParentBookInSupabase(data: ChapterData): Promise<void> {
+    if (!data.parentBook) return;
+
+    console.log(`🔍 Checking if parent book exists in Supabase: ${data.parentBook.name}`);
+
+    try {
+        // Check if parent book already exists in Supabase
+        const { data: existing, error: checkError } = await system.supabaseConnector.client
+            .from('quest')
+            .select('id')
+            .eq('id', data.parentBook.id)
+            .limit(1);
+
+        if (checkError) {
+            console.warn('⚠️  Could not check parent book in Supabase:', checkError);
+            throw new Error(`Failed to check parent book: ${checkError.message}`);
+        }
+
+        if (existing && existing.length > 0) {
+            console.log(`✅ Parent book already exists in Supabase`);
+            return;
+        }
+
+        // Parent doesn't exist - upload it directly to Supabase (bypass PowerSync)
+        console.log(`📤 Uploading parent book directly to Supabase: ${data.parentBook.name}`);
+
+        const { error: insertError } = await system.supabaseConnector.client
+            .from('quest')
+            .insert({
+                id: data.parentBook.id,
+                name: data.parentBook.name,
+                description: data.parentBook.description,
+                project_id: data.parentBook.project_id,
+                parent_id: data.parentBook.parent_id,
+                creator_id: data.parentBook.creator_id,
+                visible: data.parentBook.visible,
+                download_profiles: data.parentBook.download_profiles,
+                created_at: data.parentBook.created_at,
+                last_updated: data.parentBook.last_updated,
+                active: data.parentBook.active
+            });
+
+        if (insertError) {
+            // If error is "already exists", that's okay - race condition with another process
+            if (insertError.code === '23505') {
+                console.log(`✅ Parent book was already inserted by another process`);
+                return;
+            }
+            throw new Error(`Failed to insert parent book: ${insertError.message}`);
+        }
+
+        console.log(`✅ Parent book uploaded directly to Supabase`);
+    } catch (error) {
+        console.error('❌ Failed to ensure parent book in Supabase:', error);
+        throw error;
+    }
+}
+
+/**
  * Wait for critical dependencies to exist in Supabase
  * This ensures RLS policies can validate parent relationships
  */
@@ -551,6 +631,7 @@ async function waitForCriticalDependencies(
     // We need to wait for:
     // 1. profile_project_link (if publishing new project)
     // 2. All assets (parent of asset_content_link)
+    // Note: Parent book is handled upfront via ensureParentBookInSupabase()
 
     let profileLinkReady = !data.project; // Already ready if not publishing project
     let assetsReady = data.assets.length === 0; // Already ready if no assets
@@ -654,7 +735,7 @@ async function waitForCriticalDependencies(
 async function executePublishTransaction(
     data: ChapterData,
     userId: string,
-    includeContentLinks: boolean = false
+    includeContentLinks = false
 ): Promise<void> {
     console.log(`🔒 Starting publish transaction (includeContentLinks: ${includeContentLinks})...`);
 
@@ -1013,6 +1094,15 @@ export async function publishBibleChapter(
     console.log(`\n📤 PUBLISHING CHAPTER: ${chapterId}`);
     console.log(`👤 User: ${userId}`);
 
+    // if user is offline, return with an alert 
+    if (!getNetworkStatus()) {
+        return {
+            success: false,
+            status: 'error',
+            message: t('cannotPublishWhileOffline'),
+        };
+    }
+
     try {
         // STEP 1: Gather all data
         const chapterData = await gatherChapterData(chapterId);
@@ -1029,23 +1119,27 @@ export async function publishBibleChapter(
             };
         }
 
-        // STEP 3: Ensure audio files are uploading
+        // STEP 3: Ensure parent book exists in Supabase FIRST (bypass PowerSync for ordering)
+        // This prevents foreign key constraint violations during chapter upload
+        await ensureParentBookInSupabase(chapterData);
+
+        // STEP 4: Ensure audio files are uploading
         const pendingAttachments = await ensureAudioUploaded(chapterData);
 
         if (pendingAttachments > 0) {
             console.log(`⏳ ${pendingAttachments} audio files still uploading...`);
         }
 
-        // STEP 4A: Execute publish transaction (WITHOUT asset_content_link)
+        // STEP 5A: Execute publish transaction (WITHOUT asset_content_link)
         // This prevents PowerSync from trying to upload content links before dependencies are ready
         await executePublishTransaction(chapterData, userId, false);
 
-        // STEP 4B: Wait for critical dependencies to reach Supabase
+        // STEP 5B: Wait for critical dependencies to reach Supabase
         // This ensures RLS policies have everything they need before we insert content links
         console.log('⏳ Waiting before inserting asset_content_link records...');
         await waitForCriticalDependencies(chapterData, userId);
 
-        // STEP 4C: Now insert asset_content_link records
+        // STEP 5C: Now insert asset_content_link records
         // Dependencies are confirmed, so RLS should pass
         console.log('✅ Dependencies ready - inserting asset_content_link records');
         await executePublishTransaction(chapterData, userId, true);
