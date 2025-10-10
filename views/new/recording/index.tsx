@@ -2,6 +2,8 @@
  * RecordingView - Audio recording with visual insertion point
  *
  * Main orchestrator - delegates to hooks and components
+ *
+ * For more info about how we are using the native modules to be the 'controller' for the asset recording, see docs/VAD_DETERMINISM.md
  */
 
 import type { ArrayInsertionListHandle } from '@/components/ArrayInsertionList';
