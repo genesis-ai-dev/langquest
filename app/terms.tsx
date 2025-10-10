@@ -2,7 +2,6 @@ import { LanguageSelect } from '@/components/language-select';
 import { Button, buttonTextVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Icon } from '@/components/ui/icon';
-import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
@@ -74,7 +73,10 @@ function Terms() {
         <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} />
       </View>
 
-      <ScrollView contentContainerClassName="flex flex-col gap-4 flex-1">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="flex flex-col gap-3 pb-4"
+      >
         <Text variant="p">{t('termsContributionInfo')}</Text>
         <Text variant="p">{t('termsDataInfo')}</Text>
         <Text variant="p">{t('analyticsInfo')}</Text>
@@ -93,19 +95,20 @@ function Terms() {
       </ScrollView>
 
       {canAcceptTerms && (
-        <View className="flex w-full flex-col gap-4">
-          <View className="flex w-full flex-row gap-2.5">
+        <View className="flex w-full flex-col gap-3 pt-2">
+          <Pressable
+            onPress={handleToggleTerms}
+            className="flex w-full flex-row items-start gap-2.5 rounded-lg border border-border bg-card p-4"
+          >
             <Checkbox
               checked={termsAccepted}
               onCheckedChange={handleToggleTerms}
             />
-            <Label onPress={handleToggleTerms}>{t('agreeToTerms')}</Label>
-          </View>
-          <Button
-            className="flex-1"
-            onPress={handleAcceptTerms}
-            disabled={!termsAccepted}
-          >
+            <Text className="flex-1 text-base leading-relaxed text-foreground">
+              {t('agreeToTerms')}
+            </Text>
+          </Pressable>
+          <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
             <Text>{t('accept')}</Text>
           </Button>
         </View>
