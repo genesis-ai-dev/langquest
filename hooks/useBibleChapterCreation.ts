@@ -138,6 +138,7 @@ export function useBibleChapterCreation() {
                     [bookTag] = await tx
                         .insert(tagLocal)
                         .values({
+                            name: `${bibleTags.book.key}:${bibleTags.book.value}`, // Derived from key:value
                             key: bibleTags.book.key,
                             value: bibleTags.book.value,
                             download_profiles: [currentUser.id]
@@ -181,6 +182,7 @@ export function useBibleChapterCreation() {
                     [chapterTag] = await tx
                         .insert(tagLocal)
                         .values({
+                            name: `${bibleTags.chapter.key}:${bibleTags.chapter.value}`, // Derived from key:value
                             key: bibleTags.chapter.key,
                             value: bibleTags.chapter.value,
                             download_profiles: [currentUser.id]
