@@ -1,3 +1,4 @@
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -8,13 +9,12 @@ import type { WithSource } from '@/utils/dbUtils';
 import {
   ChevronDown,
   ChevronRight,
-  Download,
   Folder,
-  Plus,
-  Share2Icon
+  HardDriveIcon,
+  Plus
 } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useItemDownload } from './useHybridData';
 
 type Quest = typeof questTable.$inferSelect;
@@ -86,38 +86,29 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           </Text>
         )}
       </Pressable>
-      {quest.source === 'local' ? (
-        <View className="ml-2 flex flex-row items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7"
-            onPress={() =>
-              Alert.alert(
-                'Mock Publish',
-                'This is a mock public publish function.'
-              )
-            }
-          >
-            <Icon as={Share2Icon} />
-          </Button>
-        </View>
-      ) : quest.source === 'cloud' ? (
-        <View className="ml-2 flex flex-row items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7"
-            disabled={isDownloading || !currentUser?.id}
+      {/* Download status indicator */}
+      <View className="ml-2 flex flex-row items-center gap-1">
+        {quest.source === 'local' ? (
+          <Icon as={HardDriveIcon} className="text-muted-foreground" />
+        ) : (
+          <DownloadIndicator
+            isFlaggedForDownload={quest.source === 'synced'}
+            isLoading={isDownloading}
             onPress={() => {
-              if (!currentUser?.id) return;
-              downloadQuest({ userId: currentUser.id, download: true });
+              if (quest.source === 'cloud') {
+                if (!currentUser?.id) return;
+                downloadQuest({ userId: currentUser.id, download: true });
+              }
+              // If local, this is just a hard drive icon -- not actionable
             }}
-          >
-            <Icon as={Download} />
-          </Button>
-        </View>
-      ) : null}
+            className="text-muted-foreground"
+            downloadType="quest"
+            // For now, no stats; could be passed as needed
+            // For local-only: just shows a hard drive, non-pressable
+            showProgress={false}
+          />
+        )}
+      </View>
       <Button
         size="icon"
         variant="outline"

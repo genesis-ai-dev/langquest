@@ -25,6 +25,7 @@ import {
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+  bookQuestId: string; // The parent quest ID (the book itself)
 }
 
 type QuestClosure = typeof quest_closure.$inferSelect;
@@ -61,11 +62,6 @@ function ChapterButton({
   // Download status and handler
   const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
   const needsDownload = isCloudQuest && !isDownloaded;
-
-  // console.log for debugging
-  // console.log(
-  //   `Chapter ${chapterNum}: hasLocal=${hasLocalCopy}, hasSynced=${hasSyncedCopy}, source=${existingChapter?.source}`
-  // );
 
   // Quest closure data for download stats
   const { data: questClosureData } = useHybridData<QuestClosure>({
@@ -108,13 +104,21 @@ function ChapterButton({
     totalTranslations: questClosure?.total_translations ?? 0
   };
 
+  // Determine background color based on status
+  // Priority: synced (published) > local-only > default
+  const getBackgroundColor = () => {
+    if (hasSyncedCopy) return 'bg-chart-5'; // Published (green)
+    if (hasLocalCopy) return 'bg-chart-2'; // Local-only (blue)
+    return ''; // Default button color
+  };
+
   return (
     <View className="relative w-[90px] flex-col gap-1">
       <Button
         variant={exists ? 'default' : 'outline'}
         className={`w-full flex-col gap-1 py-3 ${!exists ? 'border-dashed' : ''} ${
           needsDownload ? 'opacity-50' : ''
-        } ${hasSyncedCopy ? 'bg-chart-5' : ''} ${hasLocalCopy ? 'bg-chart-2' : ''}`}
+        } ${getBackgroundColor()}`}
         onPress={onPress}
         disabled={disabled || needsDownload}
       >
@@ -159,7 +163,10 @@ function ChapterButton({
   );
 }
 
-export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
+export function BibleChapterList({
+  projectId,
+  bookId,
+}: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
@@ -167,7 +174,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
 
-  // Query existing chapters using bookId (tag-based identification)
+  // Query existing chapters using parent-child relationship
   const {
     existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,

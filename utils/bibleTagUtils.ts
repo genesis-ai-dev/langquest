@@ -85,7 +85,7 @@ export function createBibleVerseTags(
 /**
  * Parse Bible reference from tags
  */
-export function parseBibleTags(tags: Array<{ key: string; value: string }>): {
+export function parseBibleTags(tags: { key: string; value: string }[]): {
     bookId?: string;
     chapter?: number;
     verseStart?: number;
@@ -107,7 +107,7 @@ export function parseBibleTags(tags: Array<{ key: string; value: string }>): {
 /**
  * Check if a quest/asset has Bible tags
  */
-export function hasBibleTags(tags: Array<{ key: string; value: string }>): boolean {
+export function hasBibleTags(tags: { key: string; value: string }[]): boolean {
     return tags.some(t => t.key === BIBLE_TAG_KEYS.BOOK);
 }
 
@@ -116,7 +116,7 @@ export function hasBibleTags(tags: Array<{ key: string; value: string }>): boole
  * e.g., "Genesis 1:1-5"
  */
 export function formatBibleTagsReference(
-    tags: Array<{ key: string; value: string }>,
+    tags: { key: string; value: string }[],
     getBibleBookFn: typeof getBibleBook
 ): string | null {
     const parsed = parseBibleTags(tags);
@@ -141,4 +141,3 @@ export function formatBibleTagsReference(
 
     return ref;
 }
-

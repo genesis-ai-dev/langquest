@@ -25,6 +25,7 @@ import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { toMergeCompilableQuery } from '@/utils/dbUtils';

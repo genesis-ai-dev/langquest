@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -35,7 +36,7 @@ import { eq } from 'drizzle-orm';
 import { FolderPenIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
@@ -64,6 +65,24 @@ export default function ProjectDirectoryView() {
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
+  const [bookQuestId, setBookQuestId] = React.useState<string | null>(null);
+  const { findOrCreateBook } = useBibleBookCreation();
+
+  // Find/create book quest when a book is selected
+  React.useEffect(() => {
+    if (selectedBook && !bookQuestId && template === 'bible') {
+      findOrCreateBook({
+        projectId: currentProjectId!,
+        bookId: selectedBook
+      })
+        .then((bookQuest) => {
+          setBookQuestId(bookQuest.id);
+        })
+        .catch((error) => {
+          console.error('Error finding/creating book quest:', error);
+        });
+    }
+  }, [selectedBook, bookQuestId, currentProjectId, findOrCreateBook, template]);
 
   type Quest = typeof quest.$inferSelect;
 
@@ -213,18 +232,34 @@ export default function ProjectDirectoryView() {
     }
 
     // Show chapter list if book selected
+    if (!bookQuestId) {
+      return (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+          <Text className="mt-4">Loading book...</Text>
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1">
         <View className="flex-row items-center gap-2 p-4">
           <Button
             variant="ghost"
             size="sm"
-            onPress={() => setSelectedBook(null)}
+            onPress={() => {
+              setSelectedBook(null);
+              setBookQuestId(null);
+            }}
           >
             <Text>← Back</Text>
           </Button>
         </View>
-        <BibleChapterList projectId={currentProjectId!} bookId={selectedBook} />
+        <BibleChapterList
+          projectId={currentProjectId!}
+          bookId={selectedBook}
+          bookQuestId={bookQuestId}
+        />
       </View>
     );
   }
