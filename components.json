@@ -13,7 +13,7 @@
     "components": "@/components",
     "utils": "@/utils/styleUtils",
     "ui": "@/components/ui",
-    "lib": "@/lib",
+    "lib": "@/utils",
     "hooks": "@/hooks"
   },
   "registries": {

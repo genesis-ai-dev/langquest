@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["app/**/*.{js,ts,tsx}", "views/**/*.{js,ts,tsx}"],
+  "project": ["**/*.{js,ts,tsx}"],
+  "ignore": [
+    "drizzleSchemaLocal.ts",
+    "drizzleSchemaSynced.ts",
+    "components/ui/**/*.{js,ts,tsx}"
+  ],
+  "typescript": true
+}

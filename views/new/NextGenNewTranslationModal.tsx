@@ -61,6 +61,7 @@ export default function NextGenNewTranslationModal({
   sourceLanguage,
   targetLanguageId
 }: NextGenNewTranslationModalProps) {
+  const { currentProjectId } = useAppNavigation();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -111,6 +112,7 @@ export default function NextGenNewTranslationModal({
             ...(translationType === 'audio' && { audio: audioAttachment }),
             source_asset_id: assetId,
             source_language_id: sourceLanguage?.id,
+            project_id: currentProjectId!,
             creator_id: currentUser!.id,
             download_profiles: [currentUser!.id]
           })

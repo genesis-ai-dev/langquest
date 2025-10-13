@@ -6,12 +6,11 @@ import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
-import { openDB, useDrizzleStudio } from '@/hooks/useDrizzleStudio';
+import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
 import ResetPasswordView2 from '@/views/ResetPasswordView2';
 import { useRouter } from 'expo-router';
-import { StyleSheet } from 'react-native';
 
 // Wrapper component to provide consistent gradient background
 function AppWrapper({ children }: { children: React.ReactNode }) {
@@ -31,7 +30,7 @@ export default function App() {
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const router = useRouter();
 
-  useDrizzleStudio(openDB());
+  useDrizzleStudio();
 
   // Initialize network listener on app startup
   useEffect(() => {
@@ -96,9 +95,3 @@ export default function App() {
     </AppWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: {
-    flex: 1
-  }
-});

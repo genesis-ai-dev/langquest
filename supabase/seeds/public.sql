@@ -296,6 +296,22 @@ INSERT INTO "public"."quest_asset_link" ("quest_id", "asset_id", "visible", "dow
 	('bace07b1-41de-4535-9c68-aa81683d9370', '38003a13-ec16-99cf-1973-c6bf864f63a8', true, ARRAY['135167eb-7a93-4d90-8b00-85508facac71']::uuid[], true, '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00');
 
 
+-- Backfill: set asset.project_id for existing seeded assets using first linked quest
+UPDATE "public"."asset" a
+SET "project_id" = src.project_id
+FROM (
+  SELECT DISTINCT ON (qal.asset_id)
+    qal.asset_id,
+    q.project_id
+  FROM "public"."quest_asset_link" qal
+  JOIN "public"."quest" q ON q.id = qal.quest_id
+  WHERE qal.active = true
+  ORDER BY qal.asset_id, qal.created_at NULLS LAST
+) AS src
+WHERE a.id = src.asset_id
+  AND a."project_id" IS NULL;
+
+
 --
 -- Data for Name: vote; Type: TABLE DATA; Schema: public; Owner: postgres
 --

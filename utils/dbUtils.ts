@@ -4,7 +4,8 @@ import * as drizzleSchemaSynced from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import type { AnyColumn, GetColumnData, SQL, Table } from 'drizzle-orm';
-import { and, eq, getOrderByOperators } from 'drizzle-orm';
+import { and, eq, getOrderByOperators, is } from 'drizzle-orm';
+import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
 const {
   quest_tag_categories: _,
@@ -119,4 +120,38 @@ export const aliasedColumn = <T extends AnyColumn>(
 ): SQL.Aliased<GetColumnData<T>> => {
   // eslint-disable-next-line @typescript-eslint/unbound-method
   return column.getSQL().mapWith(column.mapFromDriverValue).as(alias);
+};
+
+export function toColumns(array: string[]) {
+  return array.map((item) => `'${item}'`).join(', ');
+}
+
+export const resetDatabase = async () => {
+  try {
+    // Get table names from drizzleSchemaLocal using the same pattern as system.ts
+    const tableNames = Object.entries(drizzleSchemaLocal)
+      .filter(([_name, obj]) => is(obj as unknown, SQLiteTable))
+      .map(([name]) => name);
+
+    console.log(`Found ${tableNames.length} tables to reset`);
+
+    // Drop tables from our schema (SQLite doesn't have types like PostgreSQL)
+    for (const tableName of tableNames) {
+      // Remove the _local suffix to get the actual table name
+      await system.powersync.execute(
+        `DROP TABLE IF EXISTS ps_data__${tableName}`
+      );
+      await system.powersync.execute(`DROP VIEW IF EXISTS ${tableName}`);
+      console.log(`Dropped table: ${tableName}`);
+    }
+
+    await system.powersync.execute(`DROP TABLE IF EXISTS ps_data__attachments`);
+
+    await system.init();
+
+    console.log('Database reset successfully: all tables dropped');
+  } catch (error) {
+    console.error('Error resetting database:', error);
+    throw error;
+  }
 };

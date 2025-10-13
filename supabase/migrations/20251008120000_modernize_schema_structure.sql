@@ -41,6 +41,22 @@ alter table asset add column if not exists order_index integer not null default 
 -- Note: asset_project_id_idx already exists from migration 20250919000000_enable_vfs_nesting.sql
 create index if not exists asset_source_asset_id_idx on asset(source_asset_id);
 
+-- Backfill: set asset.project_id for existing rows using first linked quest
+-- Chooses the earliest quest_asset_link per asset (by qal.created_at when available)
+update asset a
+set project_id = src.project_id
+from (
+  select distinct on (qal.asset_id)
+    qal.asset_id,
+    q.project_id
+  from quest_asset_link qal
+  join quest q on q.id = qal.quest_id
+  where qal.active = true
+  order by qal.asset_id, qal.created_at nulls last
+) as src
+where a.id = src.asset_id
+  and a.project_id is null;
+
 -- rls: allow authenticated project owners or members to insert assets for a project
 create policy "Asset insert limited to owners and members"
 on public.asset
@@ -48,13 +64,52 @@ as permissive
 for insert
 to authenticated
 with check (
+  asset.creator_id = (select auth.uid())
+  and (
+    exists (
+      select 1
+      from profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+        and ppl.project_id = asset.project_id
+    )
+    or exists (
+      select 1
+      from project p
+      where p.id = asset.project_id
+        and p.creator_id = (select auth.uid())
+    )
+  )
+);
+
+-- Optimize and complete existing UPDATE policies from prior migrations
+-- Avoid joins where possible
+alter policy "Enable asset updates only by project owners"
+on public.asset
+using (
   exists (
     select 1
-    from profile_project_link ppl
+    from public.profile_project_link ppl
     where ppl.profile_id = (select auth.uid())
       and ppl.project_id = asset.project_id
-      and ppl.membership in ('owner', 'member')
+      and ppl.membership = 'owner'
       and ppl.active = true
+  )
+);
+
+alter policy "Enable updates only for project owners"
+on public.quest_asset_link
+using (
+  exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.membership = 'owner'
+      and ppl.active = true
+      and ppl.project_id = (
+        select q.project_id from public.quest q where q.id = quest_asset_link.quest_id
+      )
   )
 );
 
@@ -67,12 +122,31 @@ to authenticated
 with check (
   exists (
     select 1
-    from quest q
-    join profile_project_link ppl on ppl.project_id = q.project_id
-    where q.id = quest_asset_link.quest_id
-      and ppl.profile_id = (select auth.uid())
+    from profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
       and ppl.membership in ('owner', 'member')
       and ppl.active = true
+      and ppl.project_id = (
+        select q.project_id from quest q where q.id = quest_asset_link.quest_id
+      )
+  )
+  or (
+    not exists (
+      select 1
+      from profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+        and ppl2.project_id = (
+          select q.project_id from quest q where q.id = quest_asset_link.quest_id
+        )
+    )
+    and exists (
+      select 1 from project p
+      where p.id = (
+        select q.project_id from quest q where q.id = quest_asset_link.quest_id
+      )
+        and p.creator_id = (select auth.uid())
+    )
   )
 );
 
@@ -85,12 +159,40 @@ to authenticated
 with check (
   exists (
     select 1
-    from asset a
-    join profile_project_link ppl on ppl.project_id = a.project_id
-    where a.id = asset_content_link.asset_id
-      and ppl.profile_id = (select auth.uid())
+    from profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
       and ppl.membership in ('owner', 'member')
       and ppl.active = true
+      and ppl.project_id = (
+        select q.project_id 
+        from quest_asset_link qal
+        join quest q on q.id = qal.quest_id
+        where qal.asset_id = asset_content_link.asset_id
+      )
+  )
+  or (
+    not exists (
+      select 1
+      from profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+        and ppl2.project_id = (
+          select q.project_id 
+          from quest_asset_link qal
+          join quest q on q.id = qal.quest_id
+          where qal.asset_id = asset_content_link.asset_id
+        )
+    )
+    and exists (
+      select 1 from project p
+      where p.id = (
+        select q.project_id 
+        from quest_asset_link qal
+        join quest q on q.id = qal.quest_id
+        where qal.asset_id = asset_content_link.asset_id
+      )
+        and p.creator_id = (select auth.uid())
+    )
   )
 );
 
@@ -101,14 +203,32 @@ as permissive
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
-      and ppl.project_id = quest.project_id
-      and ppl.membership in ('owner', 'member')
-      and ppl.active = true
+  (
+    exists (
+      select 1
+      from profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.project_id = quest.project_id
+        and ppl.membership in ('owner', 'member')
+        and ppl.active = true
+    )
+    or (
+      not exists (
+        select 1
+        from profile_project_link ppl2
+        where ppl2.profile_id = (select auth.uid())
+          and ppl2.project_id = quest.project_id
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from project p
+        where p.id = quest.project_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
   )
+  and quest.creator_id = (select auth.uid())
 );
 
 -- Modify vote table to reference assets instead of translations
@@ -386,6 +506,84 @@ begin
   return null;
 end;
 $$ language plpgsql;
+
+-- Replace language array functions to remove dependency on dropped translation table
+-- Quest language arrays are now computed from asset_content_link joined via quest_asset_link
+create or replace function public.update_quest_language_arrays(quest_id_param uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.quest_closure qc
+  set source_language_ids = (
+    select coalesce(
+      jsonb_agg(distinct acl.source_language_id::text)
+        filter (where acl.source_language_id is not null),
+      '[]'::jsonb
+    )
+    from public.quest_asset_link qal
+    join public.asset a on a.id = qal.asset_id and qal.active = true
+    join public.asset_content_link acl on acl.asset_id = a.id and acl.active = true
+    where qal.quest_id = quest_id_param
+      and (a.source_asset_id is null)
+  ),
+  target_language_ids = (
+    select coalesce(
+      jsonb_agg(distinct acl.source_language_id::text)
+        filter (where acl.source_language_id is not null),
+      '[]'::jsonb
+    )
+    from public.quest_asset_link qal
+    join public.asset a on a.id = qal.asset_id and qal.active = true
+    join public.asset_content_link acl on acl.asset_id = a.id and acl.active = true
+    where qal.quest_id = quest_id_param
+      and (a.source_asset_id is not null)
+  ),
+  last_updated = now()
+  where qc.quest_id = quest_id_param;
+end;
+$$;
+
+create or replace function public.update_project_language_arrays(project_id_param uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.project_closure pc
+  set source_language_ids = (
+    select coalesce(
+      jsonb_agg(distinct acl.source_language_id::text)
+        filter (where acl.source_language_id is not null),
+      '[]'::jsonb
+    )
+    from public.quest q
+    join public.quest_asset_link qal on qal.quest_id = q.id and qal.active = true
+    join public.asset a on a.id = qal.asset_id
+    join public.asset_content_link acl on acl.asset_id = a.id and acl.active = true
+    where q.project_id = project_id_param
+      and (a.source_asset_id is null)
+  ),
+  target_language_ids = (
+    select coalesce(
+      jsonb_agg(distinct acl.source_language_id::text)
+        filter (where acl.source_language_id is not null),
+      '[]'::jsonb
+    )
+    from public.quest q
+    join public.quest_asset_link qal on qal.quest_id = q.id and qal.active = true
+    join public.asset a on a.id = qal.asset_id
+    join public.asset_content_link acl on acl.asset_id = a.id and acl.active = true
+    where q.project_id = project_id_param
+      and (a.source_asset_id is not null)
+  ),
+  last_updated = now()
+  where pc.project_id = project_id_param;
+end;
+$$;
 
 -- Add CASCADE delete behavior to foreign key constraints
 -- This allows automatic cleanup of related records when parent records are deleted

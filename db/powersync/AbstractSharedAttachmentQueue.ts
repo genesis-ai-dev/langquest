@@ -1,4 +1,5 @@
 import { useLocalStore } from '@/store/localStore';
+import { toColumns } from '@/utils/dbUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -8,7 +9,6 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import type { Transaction } from '@powersync/react-native';
 import BiMap from 'bidirectional-map';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
@@ -248,7 +248,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   // Override saveToQueue to add storage_type (using type assertion for compatibility)
   async saveToQueue(
     record: Omit<AttachmentRecord, 'timestamp'>,
-    tx?: Transaction
+    tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
     const updatedRecord: AttachmentRecord = {
       ...record,
@@ -277,11 +277,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       );
     }
     try {
-      await (tx ?? this.powersync).execute(
+      await (tx ?? this.db).run(
         `INSERT OR REPLACE INTO ${this.table} 
          (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values
+         VALUES (${toColumns(values as string[])})`
       );
     } catch (error) {
       console.error('[saveToQueue] SQL Error:', error);
@@ -411,6 +410,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             updateProgress(); // Count as completed even if no record
             return;
           }
+          console.log('downloading record', record);
           await this.downloadRecord(record);
           updateProgress(); // Update progress after successful download
         } catch (error) {

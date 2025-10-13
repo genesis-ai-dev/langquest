@@ -6,8 +6,9 @@ import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { Text } from './ui/text';
 
 // Create animated SVG components
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -733,7 +734,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       </View>
 
       {!canRecord && (
-        <Button variant="outline" onPress={requestPermission} className="mt-4">
+        <Button
+          variant="secondary"
+          onPress={requestPermission}
+          className="mt-4"
+        >
           <Text className="text-base font-bold">
             Grant Microphone Permission
           </Text>

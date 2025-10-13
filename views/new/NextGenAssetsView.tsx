@@ -30,7 +30,8 @@ import {
   InfoIcon,
   MicIcon,
   SearchIcon,
-  SettingsIcon
+  SettingsIcon,
+  Share2Icon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -43,6 +44,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/useReports';
+import { publishQuest } from '@/utils/publishUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
@@ -396,6 +398,13 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <Text className="text-xl font-semibold">{t('assets')}</Text>
         <View className="flex flex-row items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onPress={() => publishQuest(currentQuestId, currentProjectId!)}
+          >
+            <Icon as={Share2Icon} />
+          </Button>
           <Button
             variant="outline"
             size="icon"

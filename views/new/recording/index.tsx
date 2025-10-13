@@ -162,7 +162,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const assets = React.useMemo(() => {
     interface UIAsset {
       id: string;
-      name: string;
+      name: string | null;
       created_at?: string;
       order_index?: number | null;
       source?: string;
@@ -292,7 +292,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 84;
-  const isWheel = true; //process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
+  const isWheel = false; // Temporarily disable native wheel to avoid RN Text warning
 
   // Animated spacer for insertion point
   const spacerHeight = React.useRef(new Animated.Value(6)).current;
@@ -597,7 +597,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           return;
         }
 
+        console.log('🔍 Saving audio locally:', uri);
+
         const localUri = await saveAudioLocally(uri);
+
+        console.log('🔍 Saved audio locally:', localUri);
 
         // SERIALIZE DB WRITES: Queue this transaction to prevent race conditions
         // This ensures VAD segments are written in speech order, not completion order
@@ -622,6 +626,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   // order_index: targetOrder,
                   source_language_id: currentProject.target_language_id,
                   creator_id: currentUser.id,
+                  project_id: currentProject.id,
                   download_profiles: [currentUser.id]
                 })
                 .returning();
@@ -845,6 +850,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             .filter(Boolean)
             .map(getLocalAttachmentUriOPFS)
         );
+
+        console.log('uris', uris);
 
         console.log(
           `📎 Retrieved ${uris.length} URI(s) for asset ${assetId.slice(0, 8)}`
@@ -1141,9 +1148,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // Handle rename button - opens rename modal
   const handleRenameAsset = React.useCallback(
-    (assetId: string, currentName: string) => {
+    (assetId: string, currentName: string | null) => {
       setRenameAssetId(assetId);
-      setRenameAssetName(currentName);
+      setRenameAssetName(currentName ?? '');
       setShowRenameModal(true);
     },
     []

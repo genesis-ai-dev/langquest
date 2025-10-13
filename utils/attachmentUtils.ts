@@ -1,67 +1,6 @@
-import {
-  getAssetAudioContent,
-  getAssetById,
-  getAssetsById,
-  getAssetsContent
-} from '@/hooks/db/useAssets';
+import { getAssetsById, getAssetsContent } from '@/hooks/db/useAssets';
 import { AttachmentState } from '@powersync/attachments';
-import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
-
-export function getOnlineUriForFilePath(filePath: string) {
-  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${process.env.EXPO_PUBLIC_SUPABASE_BUCKET}/${filePath}`;
-}
-
-export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
-  // With the shared directory approach, we just need to check
-  // if the file exists in the shared directory
-
-  const fullPath = `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${assetId}`;
-  const sharedUri = system.permAttachmentQueue?.getLocalUri(fullPath);
-
-  if (sharedUri) {
-    const exists = await system.storage.fileExists(sharedUri);
-
-    if (exists) {
-      return sharedUri;
-    } else if (retryCount > 0) {
-      // Add a small delay before retrying
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return getLocalUriFromAssetId(assetId, retryCount - 1);
-    }
-  }
-
-  return null;
-}
-
-export async function calculateTotalAttachments(assetIds: string[]) {
-  try {
-    let totalAttachments = 0;
-
-    for (const assetId of assetIds) {
-      // 1. Get the asset itself for images
-      const assetRecord = await getAssetById(assetId);
-
-      if (assetRecord?.images) {
-        totalAttachments += assetRecord.images.length;
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetAudioContent(assetId);
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio)
-        .flatMap((content) => content.audio!);
-
-      totalAttachments += contentAudioIds.length;
-    }
-
-    return totalAttachments;
-  } catch (error) {
-    console.error('Error calculating total attachments:', error);
-    return 0;
-  }
-}
 
 export async function getAssetAttachmentIds(
   assetIds: string[]

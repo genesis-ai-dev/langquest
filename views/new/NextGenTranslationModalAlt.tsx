@@ -200,6 +200,10 @@ export default function NextGenTranslationModal({
           throw new Error('Please enter a transcription');
         }
 
+        if (!project) {
+          throw new Error('Project is required');
+        }
+
         const translationAudio = asset.content
           .flatMap((c) => c.audio)
           .filter(Boolean);
@@ -207,14 +211,15 @@ export default function NextGenTranslationModal({
           const [newAsset] = await tx
             .insert(
               resolveTable('asset', {
-                localOverride: project?.source === 'local'
+                localOverride: project.source === 'local'
               })
             )
             .values({
               name: asset.name,
               source_language_id: asset.source_language_id,
               source_asset_id: asset.id,
-              creator_id: currentUser.id
+              creator_id: currentUser.id,
+              project_id: project.id
             })
             .returning();
           if (!newAsset) {
@@ -223,7 +228,7 @@ export default function NextGenTranslationModal({
           await tx
             .insert(
               resolveTable('asset_content_link', {
-                localOverride: project?.source === 'local'
+                localOverride: project.source === 'local'
               })
             )
             .values({

@@ -212,7 +212,6 @@ export default function ProjectDirectoryView() {
             isOpen={isOpen}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => openCreateForParent(parentId)}
-            projectId={currentProjectId!}
           />
         );
         if (hasChildren && isOpen) {

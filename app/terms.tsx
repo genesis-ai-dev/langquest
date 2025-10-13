@@ -10,8 +10,9 @@ import { cn } from '@/utils/styleUtils';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { XIcon } from 'lucide-react-native';
-import React, { memo, useCallback, useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Linking, Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 function Terms() {
   const router = useRouter();
@@ -57,10 +58,11 @@ function Terms() {
 
   return (
     <View
-      className="my-safe flex-1 items-center gap-4 bg-background p-4"
+      // className="my-safe flex-col items-center gap-4 p-4"
+      className="py-safe flex flex-1 flex-col gap-4 bg-background px-4"
       onLayout={onLayoutView}
     >
-      <View className="w-full flex-row items-center justify-between">
+      <View className="w-full flex-row items-center justify-between bg-background">
         <Text variant="h4">{t('termsAndPrivacyTitle')}</Text>
         {!canAcceptTerms && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
@@ -74,7 +76,7 @@ function Terms() {
         <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} />
       </View>
 
-      <ScrollView contentContainerClassName="flex flex-col gap-4 flex-1">
+      <ScrollView contentContainerClassName="flex flex-col gap-4">
         <Text variant="p">{t('termsContributionInfo')}</Text>
         <Text variant="p">{t('termsDataInfo')}</Text>
         <Text variant="p">{t('analyticsInfo')}</Text>
@@ -93,19 +95,15 @@ function Terms() {
       </ScrollView>
 
       {canAcceptTerms && (
-        <View className="flex w-full flex-col gap-4">
-          <View className="flex w-full flex-row gap-2.5">
+        <View className="flex flex-col gap-2">
+          <View className="flex w-full flex-row items-center gap-2.5">
             <Checkbox
               checked={termsAccepted}
               onCheckedChange={handleToggleTerms}
             />
             <Label onPress={handleToggleTerms}>{t('agreeToTerms')}</Label>
           </View>
-          <Button
-            className="flex-1"
-            onPress={handleAcceptTerms}
-            disabled={!termsAccepted}
-          >
+          <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
             <Text>{t('accept')}</Text>
           </Button>
         </View>
@@ -114,4 +112,4 @@ function Terms() {
   );
 }
 
-export default memo(Terms);
+export default Terms;

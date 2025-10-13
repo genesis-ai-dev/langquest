@@ -1,14 +1,15 @@
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import * as FileSystem from 'expo-file-system';
-
+import uuid from 'react-native-uuid';
 /**
  * Delete a file if it exists. No-ops if uri is falsy or file is missing.
  */
 export async function deleteIfExists(uri: string | null | undefined) {
-  await FileSystem.deleteAsync(uri ?? '');
+  await FileSystem.deleteAsync(uri ?? '', { idempotent: true });
 }
 
 export async function getFileInfo(uri: string | null | undefined) {
+  console.log('getFileInfo', uri);
   return await FileSystem.getInfoAsync(uri ?? '');
 }
 
@@ -103,15 +104,15 @@ export function getLocalAttachmentUri(filePath: string) {
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function getLocalAttachmentUriOPFS(filePath: string) {
-  return getLocalAttachmentUri(filePath);
+  return filePath;
 }
 
 export async function saveAudioLocally(uri: string) {
-  const newUri = getLocalAttachmentUri(uri);
+  const newUri = `${uuid.v4()}.${uri.split('.').pop()}`;
   console.log('🔍 Saving audio file locally:', uri, newUri);
   if (await fileExists(uri)) {
     await ensureDir(getLocalUri(getLocalFilePathSuffix('local')));
-    await moveFile(uri, newUri);
+    await moveFile(uri, getLocalAttachmentUri(newUri));
   } else {
     throw new Error(`File does not exist: ${uri}`);
   }

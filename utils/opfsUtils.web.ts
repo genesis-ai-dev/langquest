@@ -92,7 +92,7 @@ export async function getOPFSHandle<T extends 'file' | 'directory'>(
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'NotFoundError') {
-      console.warn(`Path segment "${path}" was not found.`);
+      console.warn(`OPFS Path segment "${path}" was not found.`);
     } else {
       console.error(`Error traversing path:`, error);
     }

@@ -21,7 +21,8 @@ export class AudioSegmentService {
     segment: AudioSegmentData,
     questId: string,
     sourceLanguageId: string,
-    creatorId: string
+    creatorId: string,
+    projectId: string
   ): Promise<{ assetId: string; audioUri: string }> {
     try {
       // Save the recorded audio via the permanent attachment queue
@@ -41,6 +42,7 @@ export class AudioSegmentService {
             id: segment.id,
             source_language_id: sourceLanguageId,
             creator_id: creatorId,
+            project_id: projectId,
             download_profiles: [creatorId]
           })
           .returning();
@@ -92,11 +94,18 @@ export class AudioSegmentService {
     segments: AudioSegmentData[],
     questId: string,
     sourceLanguageId: string,
-    creatorId: string
+    creatorId: string,
+    projectId: string
   ): Promise<{ assetIds: string[]; audioUris: string[] }> {
     const results = await Promise.allSettled(
       segments.map((segment) =>
-        this.saveAudioSegment(segment, questId, sourceLanguageId, creatorId)
+        this.saveAudioSegment(
+          segment,
+          questId,
+          sourceLanguageId,
+          creatorId,
+          projectId
+        )
       )
     );
 

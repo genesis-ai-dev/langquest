@@ -149,7 +149,7 @@ export default function NewSignIn({
         <View className="flex flex-col gap-2">
           <Button
             onPress={form.handleSubmit((data) => login(data))}
-            disabled={isPending}
+            loading={isPending}
           >
             <Text>{t('signIn')}</Text>
           </Button>

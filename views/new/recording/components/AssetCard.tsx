@@ -16,17 +16,17 @@
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { CheckCircle, Circle } from 'lucide-react-native';
+import type { Asset } from '@/hooks/db/useAssets';
+import { useLocalization } from '@/hooks/useLocalization';
+import { cn } from '@/utils/styleUtils';
+import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import type { HybridDataSource } from '../../useHybridData';
 
 interface AssetCardProps {
-  asset: {
-    id: string;
-    name: string;
-    source?: string;
-    order_index?: number;
-    created_at?: string | Date;
+  asset: Pick<Asset, 'id' | 'name' | 'order_index' | 'created_at'> & {
+    source: HybridDataSource | 'optimistic';
   };
   index: number;
   isSelected: boolean;
@@ -38,7 +38,7 @@ interface AssetCardProps {
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
-  onRename?: (assetId: string, currentName: string) => void;
+  onRename?: (assetId: string, currentName: string | null) => void;
   // Note: These callbacks are still passed but no longer used (batch operations only)
   onDelete?: (assetId: string) => void;
   onMerge?: (index: number) => void;
@@ -199,11 +199,13 @@ export function AssetCard({
     }
   }, [isSelectionMode, onPress, onPlay, asset.id]);
 
+  const { t } = useLocalization();
   return (
     <TouchableOpacity
-      className={`relative overflow-hidden rounded-lg border p-3 ${
+      className={cn(
+        'relative overflow-hidden rounded-lg border p-3',
         isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
-      }`}
+      )}
       onPress={handleCardPress}
       onLongPress={onLongPress}
       activeOpacity={0.7}
@@ -254,7 +256,7 @@ export function AssetCard({
               <Text
                 className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
               >
-                {asset.name}
+                {asset.name || t('unnamedAsset')}
               </Text>
             </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
@@ -282,7 +284,7 @@ export function AssetCard({
         {isSelectionMode && isLocal && (
           <View className="pl-2" style={{ zIndex: 1 }}>
             <Icon
-              as={isSelected ? CheckCircle : Circle}
+              as={isSelected ? CheckCircleIcon : CircleIcon}
               size={20}
               className={isSelected ? 'text-primary' : 'text-muted-foreground'}
             />

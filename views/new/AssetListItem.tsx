@@ -13,7 +13,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
-import { EyeOffIcon, PauseIcon } from 'lucide-react-native';
+import { EyeOffIcon, HardDriveIcon, PauseIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
@@ -113,9 +113,12 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                     )}
                   </View>
                 )}
-                <CardTitle numberOfLines={2} className="flex flex-1">
-                  {asset.name || t('unnamedAsset')}
-                </CardTitle>
+                <View className="flex flex-row items-center gap-2">
+                  {asset.source === 'local' && <Icon as={HardDriveIcon} />}
+                  <CardTitle numberOfLines={2}>
+                    {asset.name || t('unnamedAsset')}
+                  </CardTitle>
+                </View>
               </View>
               <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}

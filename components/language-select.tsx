@@ -107,7 +107,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   // Don't set a default language on mount - let it be empty until user selects
   const selectedLanguage = value
     ? languages.find((l) => l.id === value)
-    : uiLanguage;
+    : (uiLanguage ?? languages.find((lang) => lang.locale === 'en'));
 
   const selectedOption = getAllLanguageOption(selectedLanguage);
 

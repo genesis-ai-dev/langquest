@@ -6,7 +6,6 @@ import type {
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import type { Transaction } from '@powersync/react-native';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
 import {
@@ -153,10 +152,12 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async saveAudio(
     tempUri: string,
-    tx?: Transaction
+    tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
+    const recordId = tempUri.split('/').pop()!;
+    console.log('saveAudio recordId', recordId);
     const audioAttachment = await this.newAttachmentRecord({
-      id: tempUri.split('/').pop()!
+      id: recordId
     });
 
     console.log('saveAudio', audioAttachment);
@@ -164,10 +165,13 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     const fileInfo = await getFileInfo(tempUri);
 
     if (fileInfo.exists) {
+      console.log('moving file to local uri');
       await moveFile(tempUri, localUri);
       audioAttachment.size = fileInfo.size;
+      console.log('file moved to local uri', localUri, fileInfo.size);
     }
 
+    console.log('saving to queue', JSON.stringify(audioAttachment, null, 2));
     return this.saveToQueue(audioAttachment, tx);
   }
 

@@ -12,8 +12,6 @@ import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import 'react-native-url-polyfill/auto';
 import uuid from 'react-native-uuid';
 
-import { reset } from 'drizzle-seed';
-
 // Import from native SDK - will be empty on web
 import {
   Column as ColumnNative,
@@ -48,6 +46,7 @@ import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
 import { useLocalStore } from '@/store/localStore';
+import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
 import { Platform } from 'react-native';
 
@@ -68,7 +67,8 @@ const ColumnType = ColumnTypeNative || ColumnTypeWeb;
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Schema = SchemaNative || SchemaWeb;
 // const SyncClientImplementation =
-//   SyncClientImplementationNative || SyncClientImplementationWeb;
+
+// SyncClientImplementationNative || SyncClientImplementationWeb;
 
 Logger.useDefaults();
 
@@ -550,8 +550,7 @@ export class System {
   async seed() {
     if (!__DEV__) return; // Only seed in development
     console.log('Resetting database...');
-    // @ts-expect-error abc
-    await reset(this.db, drizzleSchemaLocal);
+    await resetDatabase();
     console.log('Database reset successfully.');
     console.log('Seeding database...');
     const time = performance.now();

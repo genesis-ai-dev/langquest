@@ -20,6 +20,7 @@ export async function fileExists(
 ): Promise<boolean> {
   console.log('fileExists', _uri);
   const fileInfo = await getFileInfo(_uri);
+  console.log('file does exist', _uri, fileInfo.exists);
   return fileInfo.exists;
 }
 
@@ -89,6 +90,10 @@ export async function readFile(
   if (!sourceContent) {
     throw new Error(`File does not exist: ${_fileURI}`);
   }
+  console.log(
+    'sourceContent',
+    _options?.encoding === 'base64' ? btoa(sourceContent) : sourceContent
+  );
   return _options?.encoding === 'base64' ? btoa(sourceContent) : sourceContent;
 }
 
@@ -149,13 +154,15 @@ export async function getFileInfo(_uri: string | null | undefined) {
   console.log('getFileInfo', _uri);
   const handle = await getOPFSHandle(_uri ?? '', 'file');
   const file = await handle?.getFile();
-  return {
+  const fileInfo = {
     uri: _uri ?? '',
     exists: !!file,
     isDirectory: false,
     size: file?.size,
     lastModified: file?.lastModified
   };
+  console.log('fileInfo', fileInfo);
+  return fileInfo;
 }
 
 // save the file in the browser locally
