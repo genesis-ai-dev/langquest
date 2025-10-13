@@ -11,8 +11,6 @@ import {
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
-import { useAudio } from '@/contexts/AudioContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
 import { quest as questTable } from '@/db/drizzleSchema';
@@ -34,7 +32,7 @@ import {
   Share2Icon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
@@ -42,9 +40,11 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 // Recording UI moved into RecordingView component
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
-import { useProjectById } from '@/hooks/db/useProjects';
+import { useChapterPublishing } from '@/hooks/useChapterPublishing';
+import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import { useHasUserReported } from '@/hooks/useReports';
-import { publishQuest } from '@/utils/publishUtils';
+// import { publishQuest } from '@/utils/publishUtils';
+// NOTE: we imght want to use Keean's publishing util instead of Ryder's publish service
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
@@ -57,15 +57,6 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
 };
 
-// Audio segment type for templated project creation
-interface AudioSegment {
-  id: string;
-  uri: string;
-  duration: number;
-  waveformData: number[];
-  name: string;
-}
-
 export default function NextGenAssetsView() {
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
@@ -76,17 +67,6 @@ export default function NextGenAssetsView() {
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-
-  // State for templated project creation mode
-  const [audioSegments, setAudioSegments] = React.useState<AudioSegment[]>([]);
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [currentWaveformData, setCurrentWaveformData] = React.useState<
-    number[]
-  >([]);
-  const [playingSegmentId, setPlayingSegmentId] = React.useState<string | null>(
-    null
-  );
 
   type Quest = typeof questTable.$inferSelect;
 
@@ -105,19 +85,20 @@ export default function NextGenAssetsView() {
         .eq('id', currentQuestId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enableCloudQuery: !!currentQuestId,
     enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
-  const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
-  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
-  const { currentUser } = useAuth();
-
-  // Get project data to check if it's templated
-  const { project: currentProject } = useProjectById(currentProjectId);
+  const selectedQuest = questData[0];
   const [showRecording, setShowRecording] = React.useState(false);
+
+  // Check if the quest is published (immutable if true)
+  const { isPublished, hasLocalCopy } = useQuestPublishStatus(currentQuestId);
+
+  // Publishing hook
+  const { publishChapter, isPublishing } = useChapterPublishing(t as (key: string) => string);
 
   // const handleRecordingComplete = React.useCallback(
   //   async (uri: string, duration: number, waveformData: number[]) => {
@@ -258,13 +239,6 @@ export default function NextGenAssetsView() {
   //   [audioSegments.length, insertionIndex]
   // );
 
-  // Clear playing segment when audio stops
-  React.useEffect(() => {
-    if (!isPlaying) {
-      setPlayingSegmentId(null);
-    }
-  }, [isPlaying]);
-
   // debounced search handled by useDebouncedState
 
   const { membership } = useUserPermissions(
@@ -295,7 +269,27 @@ export default function NextGenAssetsView() {
   );
 
   // Flatten all pages into a single array
+  // <<<<<<< HEAD
   const assets = data.pages.flatMap((page) => page.data);
+  // =======
+  // NOTE: We think we can just do this keean's way, which is all in sqlite, but we might need to check for valid assets still...etc.
+  // const assets = React.useMemo(() => {
+  //   const allAssets = data.pages.flatMap((page) => page.data);
+
+  //   // Filter out invalid assets (e.g., cloud assets without proper data)
+  //   const validAssets = allAssets.filter((asset) => {
+  //     // Must have at least id and name to be valid
+  //     return asset.id && asset.name;
+  //   });
+
+  //   // Deduplicate by UUID (handles dash formatting differences)
+  //   // Priority: synced > local > cloud
+  //   const dedupedAssets = deduplicateByUuid(validAssets);
+
+  //   // Sort assets using unified sorting logic (order_index -> created_at -> name)
+  //   return sortAssets(dedupedAssets);
+  // }, [data.pages]);
+  // >>>>>>> ryder/directory
 
   // Watch attachment states for all assets
   const assetIds = React.useMemo(() => {
@@ -331,12 +325,7 @@ export default function NextGenAssetsView() {
         questId={currentQuestId || ''}
       />
     ),
-    [attachmentStates]
-  );
-
-  const keyExtractor = React.useCallback(
-    (item: Asset & { source?: HybridDataSource }) => item.id,
-    []
+    [attachmentStates, currentQuestId]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -380,6 +369,62 @@ export default function NextGenAssetsView() {
     currentQuestId
   );
 
+  // Handle publish button press
+  const handlePublishPress = React.useCallback(() => {
+    if (!currentQuestId) {
+      console.error('No current quest id');
+      return;
+    }
+
+    // Use quest name if available, otherwise generic message
+    const questName = selectedQuest?.name || 'this chapter';
+
+    Alert.alert(
+      'Publish Chapter',
+      `This will publish ${questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Publish',
+          style: 'default',
+          onPress: () => {
+            void (async () => {
+              try {
+                console.log(`📤 Publishing quest ${currentQuestId}...`);
+
+                const result = await publishChapter(currentQuestId);
+
+                if (result.success) {
+                  // Show success message from publish service
+                  Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
+                } else {
+                  // Show errors
+                  Alert.alert(
+                    'Publishing Failed',
+                    result.errors?.join('\n\n') || 'An unknown error occurred',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('Publish error:', error);
+                Alert.alert(
+                  t('error'),
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to publish chapter',
+                  [{ text: 'OK' }]
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [currentQuestId, selectedQuest?.name, publishChapter, t]);
+
   if (!currentQuestId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -398,21 +443,43 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <Text className="text-xl font-semibold">{t('assets')}</Text>
         <View className="flex flex-row items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onPress={() => publishQuest(currentQuestId, currentProjectId!)}
-          >
-            <Icon as={Share2Icon} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="border-[1.5px] border-primary"
-            onPress={() => setShowRecording(true)}
-          >
-            <Icon as={MicIcon} className="text-primary" />
-          </Button>
+          {/* Show "Published" badge if quest is published */}
+          {isPublished && (
+            <View className="rounded-md bg-chart-5 px-3 py-1.5">
+              <Text className="text-sm font-medium text-primary-foreground">
+                {t('published')}
+              </Text>
+            </View>
+          )}
+
+          {/* Show Publish button if NOT published and has local copy */}
+          {!isPublished && hasLocalCopy && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-primary"
+              onPress={handlePublishPress}
+              disabled={assets.length === 0 || isPublishing}
+            >
+              {isPublishing ? (
+                <ActivityIndicator size="small" className="text-primary" />
+              ) : (
+                <Icon as={Share2Icon} className="text-muted-foreground" />
+              )}
+            </Button>
+          )}
+
+          {/* Show Record button only if NOT published */}
+          {!isPublished && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-primary"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon as={MicIcon} className="text-muted-foreground" />
+            </Button>
+          )}
         </View>
       </View>
 
@@ -484,12 +551,14 @@ export default function NextGenAssetsView() {
                 <Text className="text-muted-foreground">
                   {searchQuery ? 'No assets found' : 'No assets available'}
                 </Text>
-                <Button
-                  variant="default"
-                  onPress={() => setShowRecording(true)}
-                >
-                  <Text>{t('doRecord')}</Text>
-                </Button>
+                {!isPublished && (
+                  <Button
+                    variant="default"
+                    onPress={() => setShowRecording(true)}
+                  >
+                    <Text>{t('doRecord')}</Text>
+                  </Button>
+                )}
               </View>
             </View>
           )}

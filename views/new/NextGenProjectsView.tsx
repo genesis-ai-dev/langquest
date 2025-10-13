@@ -10,7 +10,6 @@ import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, getTableColumns, like, notInArray, or } from 'drizzle-orm';
@@ -348,18 +347,17 @@ export default function NextGenProjectsView() {
   } = currentQuery;
 
   const data = React.useMemo(() => {
-    const allItems = projects.pages.flatMap((page) => page.data);
-    const map = new Map<string, Project & { source: HybridDataSource }>();
-    allItems.forEach((item) => {
-      const existing = map.get(item.id);
-      if (
-        !existing ||
-        (item.source !== 'cloud' && existing.source === 'cloud')
-      ) {
-        map.set(item.id, item);
+    const seen = new Set<string>();
+    const deduped: Project[] = [];
+    for (const page of projects.pages) {
+      for (const item of page.data) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          deduped.push(item);
+        }
       }
-    });
-    return Array.from(map.values());
+    }
+    return deduped;
   }, [projects.pages]);
 
   const dimensions = useWindowDimensions();

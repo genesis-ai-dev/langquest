@@ -89,6 +89,23 @@ BEGIN
   END IF;
 END $$;
 
+-- Clean up duplicate tags BEFORE creating unique constraint
+-- Keep only the oldest tag for each (key, value) pair
+DELETE FROM public.tag
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT 
+            id,
+            ROW_NUMBER() OVER (
+                PARTITION BY "key", "value" 
+                ORDER BY created_at ASC, id ASC
+            ) as row_num
+        FROM public.tag
+    ) ranked
+    WHERE row_num > 1
+);
+
 -- Unique index on (key, value) and helper index on key
 DO $$
 BEGIN

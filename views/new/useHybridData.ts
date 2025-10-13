@@ -1,7 +1,9 @@
 import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+
 import type { WithSource } from '@/utils/dbUtils';
+// import { normalizeUuid } from '@/utils/uuidUtils';
 // Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
@@ -189,11 +191,14 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const combinedData = React.useMemo(() => {
     const offlineArray = offlineData;
     const cloudArray = cloudData;
-    // Create a map of offline items by ID for quick lookup
+
+    // Create a map of offline items by normalized ID for quick lookup
+    // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
     const offlineMap = new Map(
       offlineArray.map((item) => [getItemId(item), item])
     );
-    // Add cloud items that don't exist in offline
+
+    // Add cloud items that don't exist in offline (using normalized IDs)
     const uniqueCloudItems = cloudArray.filter(
       (item) => !offlineMap.has(getItemId(item))
     );
@@ -410,28 +415,29 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       if (offlinePage || cloudPage) {
         const offlineDataWithSource = offlinePage
           ? offlinePage.data.map((item) => {
-              return {
-                ...item,
-                source:
-                  (item as unknown as { source?: OfflineDataSource }).source ??
-                  'synced'
-              } as WithSource<TOfflineData>;
-            })
+            return {
+              ...item,
+              source:
+                (item as unknown as { source?: OfflineDataSource }).source ??
+                'synced'
+            } as WithSource<TOfflineData>;
+          })
           : [];
 
         const cloudDataTransformed = cloudPage
           ? cloudPage.data.map((item: TCloudData) => {
-              const transformedItem = transformCloudData
-                ? (transformCloudData(item) as TOfflineData)
-                : (item as unknown as TCloudData);
+            const transformedItem = transformCloudData
+              ? (transformCloudData(item) as TOfflineData)
+              : (item as unknown as TCloudData);
 
-              return {
-                ...transformedItem,
-                source: 'cloud' as const
-              } as WithSource<typeof transformedItem>;
-            })
+            return {
+              ...transformedItem,
+              source: 'cloud' as const
+            } as WithSource<typeof transformedItem>;
+          })
           : [];
 
+        // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
         const offlineMap = new Map(
           offlineDataWithSource.map((item) => [getItemId(item), item])
         );
@@ -642,7 +648,7 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
         cloudLastUpdated &&
         localLastUpdated &&
         new Date(cloudLastUpdated).getTime() >
-          new Date(localLastUpdated).getTime()
+        new Date(localLastUpdated).getTime()
       ) {
         mergedMap.set(id, cloudItem);
       }

@@ -19,6 +19,7 @@ export interface NavigationStackItem {
   view: AppView;
   projectId?: string;
   projectName?: string;
+  projectTemplate?: string | null;
   questId?: string;
   questName?: string;
   assetId?: string;

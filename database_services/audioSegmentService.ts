@@ -1,5 +1,6 @@
 import { resolveTable } from '@/utils/dbUtils';
 import { eq } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
 import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -51,10 +52,11 @@ export class AudioSegmentService {
           throw new Error('Failed to insert asset');
         }
 
+        // Generate proper UUID for link table (not string concatenation)
         await tx
           .insert(resolveTable('quest_asset_link', { localOverride: true }))
           .values({
-            id: `${questId}_${newAsset.id}`,
+            id: String(uuid.v4()),
             quest_id: questId,
             asset_id: newAsset.id,
             download_profiles: [creatorId]

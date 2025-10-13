@@ -38,6 +38,7 @@ import type {
   quest_synced,
   tag_synced
 } from './drizzleSchemaSynced';
+import uuid from 'react-native-uuid';
 
 // good types:
 // export const pgBaseTable = <
@@ -89,7 +90,7 @@ export const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 export const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 const baseColumns = {
-  id: text().notNull(),
+  id: text().notNull().$defaultFn(() => uuid.v4()),
   active: int({ mode: 'boolean' }).notNull().default(true),
   created_at: text().notNull().default(timestampDefault),
   last_updated: text()

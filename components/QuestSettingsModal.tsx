@@ -13,7 +13,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -56,9 +56,15 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     refetch
   } = useQuestStatuses(questId);
 
+  // Handle error in useEffect to avoid setState during render
+  useEffect(() => {
+    if (isError && isVisible) {
+      Alert.alert(t('error'), t('questSettingsLoadError'));
+      onClose();
+    }
+  }, [isError, isVisible, onClose, t]);
+
   if (isError) {
-    Alert.alert(t('error'), t('questSettingsLoadError'));
-    onClose();
     return null;
   }
 

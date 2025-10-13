@@ -12,9 +12,9 @@ import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
-import { HardDriveIcon, Share2 } from 'lucide-react-native';
+import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import {
   useHybridData,
@@ -25,6 +25,7 @@ import {
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+  bookQuestId: string; // The parent quest ID (the book itself)
 }
 
 type QuestClosure = typeof quest_closure.$inferSelect;
@@ -36,8 +37,7 @@ function ChapterButton({
   existingChapter,
   isCreatingThis,
   onPress,
-  disabled,
-  onShare
+  disabled
 }: {
   chapterNum: number;
   verseCount: number;
@@ -45,16 +45,18 @@ function ChapterButton({
     id: string;
     name: string;
     source: string;
+    hasLocalCopy: boolean;
+    hasSyncedCopy: boolean;
     download_profiles?: string[] | null;
   };
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
-  onShare?: () => void;
 }) {
   const { currentUser } = useAuth();
   const exists = !!existingChapter;
-  const isLocal = existingChapter?.source === 'local';
+  const hasLocalCopy = existingChapter?.hasLocalCopy ?? false;
+  const hasSyncedCopy = existingChapter?.hasSyncedCopy ?? false;
   const isCloudQuest = existingChapter?.source === 'cloud';
 
   // Download status and handler
@@ -102,13 +104,21 @@ function ChapterButton({
     totalTranslations: questClosure?.total_translations ?? 0
   };
 
+  // Determine background color based on status
+  // Priority: synced (published) > local-only > default
+  const getBackgroundColor = () => {
+    if (hasSyncedCopy) return 'bg-chart-5'; // Published (green)
+    if (hasLocalCopy) return 'bg-chart-2'; // Local-only (blue)
+    return ''; // Default button color
+  };
+
   return (
     <View className="relative w-[90px] flex-col gap-1">
       <Button
         variant={exists ? 'default' : 'outline'}
         className={`w-full flex-col gap-1 py-3 ${!exists ? 'border-dashed' : ''} ${
           needsDownload ? 'opacity-50' : ''
-        }`}
+        } ${getBackgroundColor()}`}
         onPress={onPress}
         disabled={disabled || needsDownload}
       >
@@ -117,7 +127,7 @@ function ChapterButton({
         ) : (
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
-              {isLocal && (
+              {hasLocalCopy && (
                 <Icon
                   as={HardDriveIcon}
                   size={14}
@@ -131,12 +141,13 @@ function ChapterButton({
                 exists ? 'text-primary-foreground/70' : 'text-muted-foreground'
               }`}
             >
-              {verseCount} verses
+              {verseCount}
             </Text>
           </View>
         )}
       </Button>
-      {exists && !isLocal && (
+      {/* Show download indicator if synced OR cloud */}
+      {exists && (hasSyncedCopy || isCloudQuest) && (
         <View className="absolute right-1 top-1">
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
@@ -148,19 +159,14 @@ function ChapterButton({
           />
         </View>
       )}
-      {exists && isLocal && onShare && (
-        <Pressable
-          onPress={onShare}
-          className="absolute right-1 top-1 rounded-full bg-primary/10 p-1"
-        >
-          <Icon as={Share2} size={12} className="text-primary-foreground" />
-        </Pressable>
-      )}
     </View>
   );
 }
 
-export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
+export function BibleChapterList({
+  projectId,
+  bookId,
+}: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
@@ -168,12 +174,12 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
 
-  // Query existing chapters
+  // Query existing chapters using parent-child relationship
   const {
     existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,
     isLoading: isLoadingChapters
-  } = useBibleChapters(projectId, book?.name || '');
+  } = useBibleChapters(projectId, bookId);
 
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
@@ -243,95 +249,72 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       });
     } catch (error) {
       console.error('Failed to create chapter:', error);
-      // TODO: Show error toast to user
+      // TODO: Show error toast or something to user
     } finally {
       setCreatingChapter(null);
     }
-  };
-
-  const handleSharePress = (chapterNum: number, chapterName: string) => {
-    Alert.alert(
-      'Publish Chapter',
-      `Mock publish functionality for ${chapterName}.\n\nThis would publish the chapter and all its recordings to make them available to other users.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Publish',
-          onPress: () => {
-            console.log(`📤 Publishing ${chapterName}...`);
-            // TODO: Implement actual publish functionality
-          }
-        }
-      ]
-    );
   };
 
   // Generate array of chapter numbers
   const chapters = Array.from({ length: book.chapters }, (_, i) => i + 1);
 
   return (
-    <ScrollView className="flex-1">
-      <View className="flex-col gap-4 p-4">
-        {/* Header */}
-        <View className="flex-row items-center gap-3">
-          {IconComponent ? (
-            <IconComponent width={48} height={48} color={primaryColor} />
-          ) : (
-            <Text className="text-4xl">📖</Text>
-          )}
-          <View className="flex-col">
-            <Text variant="h3">{book.name}</Text>
-            <Text className="text-sm text-muted-foreground">
-              {book.chapters} chapters
-            </Text>
+    <View className="flex-1">
+      <ScrollView className="flex-1">
+        <View className="flex-col gap-4 p-4">
+          {/* Header */}
+          <View className="flex-row items-center gap-3">
+            {IconComponent ? (
+              <IconComponent width={48} height={48} color={primaryColor} />
+            ) : (
+              <Text className="text-4xl">📖</Text>
+            )}
+            <View className="flex-col">
+              <Text variant="h3">{book.name}</Text>
+              <Text className="text-sm text-muted-foreground">
+                {book.chapters} chapters
+              </Text>
+            </View>
+          </View>
+
+          {/* Chapter Grid */}
+          <View className="flex-row flex-wrap gap-2">
+            {isLoadingChapters ? (
+              // Show loading skeleton
+              <View className="flex-row flex-wrap gap-2">
+                {chapters.slice(0, 6).map((chapterNum) => (
+                  <View
+                    key={chapterNum}
+                    className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
+                  >
+                    <ActivityIndicator size="small" />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              chapters.map((chapterNum) => {
+                const verseCount = book.verses[chapterNum - 1] || 0;
+                const existingChapter = existingChapters.find(
+                  (ch) => ch.chapterNumber === chapterNum
+                );
+                const isCreatingThis = creatingChapter === chapterNum;
+
+                return (
+                  <ChapterButton
+                    key={chapterNum}
+                    chapterNum={chapterNum}
+                    verseCount={verseCount}
+                    existingChapter={existingChapter}
+                    isCreatingThis={isCreatingThis}
+                    onPress={() => handleChapterPress(chapterNum)}
+                    disabled={Boolean(isCreating || isLoadingChapters)}
+                  />
+                );
+              })
+            )}
           </View>
         </View>
-
-        {/* Chapter Grid */}
-        <View className="flex-row flex-wrap gap-2">
-          {isLoadingChapters ? (
-            // Show loading skeleton
-            <View className="flex-row flex-wrap gap-2">
-              {chapters.slice(0, 6).map((chapterNum) => (
-                <View
-                  key={chapterNum}
-                  className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
-                >
-                  <ActivityIndicator size="small" />
-                </View>
-              ))}
-            </View>
-          ) : (
-            chapters.map((chapterNum) => {
-              const verseCount = book.verses[chapterNum - 1] || 0;
-              const existingChapter = existingChapters.find(
-                (ch) => ch.chapterNumber === chapterNum
-              );
-              const isCreatingThis = creatingChapter === chapterNum;
-
-              return (
-                <ChapterButton
-                  key={chapterNum}
-                  chapterNum={chapterNum}
-                  verseCount={verseCount}
-                  existingChapter={existingChapter}
-                  isCreatingThis={isCreatingThis}
-                  onPress={() => handleChapterPress(chapterNum)}
-                  disabled={isCreating || isLoadingChapters}
-                  onShare={
-                    existingChapter
-                      ? () => handleSharePress(chapterNum, existingChapter.name)
-                      : undefined
-                  }
-                />
-              );
-            })
-          )}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

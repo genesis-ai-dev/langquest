@@ -2,6 +2,8 @@
  * RecordingView - Audio recording with visual insertion point
  *
  * Main orchestrator - delegates to hooks and components
+ *
+ * For more info about how we are using the native modules to be the 'controller' for the asset recording, see docs/VAD_DETERMINISM.md
  */
 
 import type { ArrayInsertionListHandle } from '@/components/ArrayInsertionList';
@@ -25,7 +27,7 @@ import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
 import { getLocalAttachmentUriOPFS, saveAudioLocally } from '@/utils/fileUtils';
 import { useQueryClient } from '@tanstack/react-query';
-import { asc, eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
@@ -178,13 +180,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // First sort to get initial order
     const sorted = sortAssets(combined);
 
-    // Initialize order_index for assets that don't have it set (0, null, or undefined)
-    // This ensures proper insertion behavior when mixing old and new assets
+    // Initialize order_index for assets that don't have it set (null or undefined)
+    // Note: 0 is a valid order_index for the first asset!
     const withOrderIndex = sorted.map((asset, index) => {
       const needsInit =
-        asset.order_index === null ||
-        asset.order_index === undefined ||
-        asset.order_index === 0;
+        asset.order_index === null || asset.order_index === undefined;
 
       if (needsInit && asset.source !== 'optimistic') {
         // For assets without explicit ordering, assign based on current position
@@ -213,7 +213,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     if (!currentQuestId) return;
 
     const assetsNeedingInit = assets.filter((a) => {
-      // Check if in-memory order_index differs from what was in DB (likely 0)
+      // Check if in-memory order_index should be persisted to DB
+      // Note: 0 is a valid order_index, don't treat it as needing initialization
+      if (a.source === 'optimistic' || typeof a.order_index !== 'number') {
+        return false;
+      }
+
       const rawAsset = rawAssets.find(
         (r) => (r as { id?: string })?.id === a.id
       );
@@ -221,12 +226,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         ? (rawAsset as { order_index?: number }).order_index
         : null;
 
-      return (
-        a.source !== 'optimistic' &&
-        typeof a.order_index === 'number' &&
-        (rawOrder === 0 || rawOrder === null || rawOrder === undefined) &&
-        a.order_index !== rawOrder
-      );
+      // Persist to DB if raw order is not set (null or undefined)
+      return rawOrder === null || rawOrder === undefined;
     });
 
     if (assetsNeedingInit.length === 0) {
@@ -320,7 +321,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   // Reset audio playback on mount only
   React.useEffect(() => {
     void stopCurrentSound();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   // Keep insertionIndex in valid range (but don't auto-advance during recording)
@@ -615,8 +615,45 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
               });
               const assetLocal = resolveTable('asset', { localOverride: true });
 
-              // NOTE: We don't shift assets because VAD always appends to end
-              // The sequential counter ensures no gaps in order_index
+              // Only shift assets if we're inserting in the middle (not appending at end)
+              // VAD mode uses sequential counter and always appends, so no shifting needed
+              // Manual recordings may insert in the middle, so we need to shift
+
+              // Check if there are any assets with order_index >= targetOrder
+              // If yes, we're inserting in the middle and need to shift
+              const assetsAtOrAfter = await tx
+                .select({
+                  id: assetLocal.id,
+                  order_index: assetLocal.order_index
+                })
+                .from(assetLocal)
+                .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
+                .where(
+                  and(
+                    eq(linkLocal.quest_id, currentQuestId),
+                    gte(assetLocal.order_index, targetOrder)
+                  )
+                );
+
+              // Only shift if we found assets (meaning we're inserting in the middle)
+              if (assetsAtOrAfter.length > 0) {
+                console.log(
+                  `📍 Inserting in middle - shifting ${assetsAtOrAfter.length} asset(s) to make room at order_index ${targetOrder}`
+                );
+
+                for (const asset of assetsAtOrAfter) {
+                  if (typeof asset.order_index === 'number') {
+                    await tx
+                      .update(assetLocal)
+                      .set({ order_index: asset.order_index + 1 })
+                      .where(eq(assetLocal.id, asset.id));
+                  }
+                }
+              } else {
+                console.log(
+                  `📍 Appending at end - no shifting needed for order_index ${targetOrder}`
+                );
+              }
 
               const [newAsset] = await tx
                 .insert(assetLocal)
@@ -625,6 +662,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   id: newId,
                   // order_index: targetOrder,
                   source_language_id: currentProject.target_language_id,
+                  project_id: currentProjectId, // Required for RLS policies
                   creator_id: currentUser.id,
                   project_id: currentProject.id,
                   download_profiles: [currentUser.id]
@@ -633,8 +671,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
               if (!newAsset) throw new Error('Failed to insert asset');
 
+              // Generate proper UUID for link table (not string concatenation)
               await tx.insert(linkLocal).values({
-                id: `${currentQuestId}_${newAsset.id}`,
+                id: String(uuid.v4()),
                 quest_id: currentQuestId,
                 asset_id: newAsset.id,
                 download_profiles: [currentUser.id]
@@ -740,7 +779,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // Initialize counter once from actual data
   React.useEffect(() => {
-    if (isVADLocked && !vadInitializedRef.current && assets.length > 0) {
+    if (isVADLocked && !vadInitializedRef.current) {
       // Filter out optimistic/pending assets to get true DB state
       const realAssets = assets.filter(
         (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
@@ -768,19 +807,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const handleVADSegmentStart = React.useCallback(() => {
     console.log('🎬 Native VAD: Segment starting - creating pending card');
 
-    // DETERMINISTIC: Use sequential counter, NOT assets array state
+    // Counter should always be initialized by effect before VAD recording starts
+    // But keep safety check to prevent crashes
     if (vadSequentialCounterRef.current === null) {
-      // Fallback: calculate from real assets only
-      const realAssets = assets.filter(
-        (a) => a.source !== 'optimistic' && !a.id.includes('_temp')
-      );
-      const maxOrder = Math.max(
-        ...realAssets.map((a) =>
-          typeof a.order_index === 'number' ? a.order_index : 0
-        ),
-        -1
-      );
-      vadSequentialCounterRef.current = maxOrder + 1;
+      console.error('❌ VAD counter not initialized! This should not happen.');
+      // Emergency fallback
+      vadSequentialCounterRef.current = 0;
     }
 
     const targetOrder = vadSequentialCounterRef.current;
@@ -1063,7 +1095,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       void loadSegments();
     }
     // Only re-run when the set of asset IDs changes; avoids loops from identity changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetIdsKey]);
 
   // Load durations lazily in background - non-blocking, no infinite loops

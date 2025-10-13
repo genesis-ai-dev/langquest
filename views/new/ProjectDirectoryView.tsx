@@ -39,6 +39,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHasUserReported } from '@/hooks/db/useReports';
+import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,20 +55,32 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
-import { BibleBookList, BibleBookListSkeleton } from './BibleBookList';
+import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
 import { QuestTreeRow } from './QuestTreeRow';
 import { useHybridData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId, currentProjectName, currentProjectTemplate } =
+    useCurrentNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
-  // Check if this is a Bible project
-  const { project, isProjectLoading } = useProjectById(currentProjectId);
+  // Fallback: If template is not in navigation state, fetch project
+  // This handles cases like direct navigation or refresh
+  const { project, isProjectLoading } = useProjectById(
+    currentProjectTemplate === undefined ? currentProjectId : undefined
+  );
+
+  // Use template from navigation state, or fall back to fetched project
+  const template =
+    currentProjectTemplate !== undefined
+      ? currentProjectTemplate
+      : project?.template;
+  const projectName = currentProjectName || project?.name;
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
@@ -75,6 +88,24 @@ export default function ProjectDirectoryView() {
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
+  const [bookQuestId, setBookQuestId] = React.useState<string | null>(null);
+  const { findOrCreateBook } = useBibleBookCreation();
+
+  // Find/create book quest when a book is selected
+  React.useEffect(() => {
+    if (selectedBook && !bookQuestId && template === 'bible') {
+      findOrCreateBook({
+        projectId: currentProjectId!,
+        bookId: selectedBook
+      })
+        .then((bookQuest) => {
+          setBookQuestId(bookQuest.id);
+        })
+        .catch((error) => {
+          console.error('Error finding/creating book quest:', error);
+        });
+    }
+  }, [selectedBook, bookQuestId, currentProjectId, findOrCreateBook, template]);
 
   type Quest = typeof quest.$inferSelect;
 
@@ -101,6 +132,8 @@ export default function ProjectDirectoryView() {
     'projects',
     currentUser!.id
   );
+  // Only fetch quests for non-Bible projects
+  const shouldFetchQuests = template !== 'bible';
 
   const { data: rawQuests, isLoading } = useHybridData({
     dataType: 'quests',
@@ -128,7 +161,7 @@ export default function ProjectDirectoryView() {
       if (error) throw error;
       return data;
     },
-    enabled: !!currentProjectId,
+    enabled: !!currentProjectId && shouldFetchQuests,
     enableCloudQuery: project?.source !== 'local',
     getItemId: (item) => item.id
   });
@@ -227,31 +260,14 @@ export default function ProjectDirectoryView() {
     [childrenOf, expanded, toggleExpanded, openCreateForParent]
   );
 
-  // Show appropriate skeleton based on project type
-  if (isLoading || isProjectLoading) {
-    // If we know it's a Bible project, show Bible-specific skeleton
-    if (project?.template === 'bible') {
-      return (
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between p-4">
-            <Text variant="h4">📖 {project.name}</Text>
-          </View>
-          <BibleBookListSkeleton />
-        </View>
-      );
-    }
-    // Otherwise show default skeleton
-    return <ProjectListSkeleton />;
-  }
-
-  // Bible project routing
-  if (project?.template === 'bible') {
+  // Bible project routing - instant render with no loading state needed
+  if (template === 'bible') {
     // Show book list if no book selected
     if (!selectedBook) {
       return (
         <View className="flex-1">
           <View className="flex-row items-center justify-between p-4">
-            <Text variant="h4">📖 {project.name}</Text>
+            <Text variant="h4">📖 {projectName}</Text>
           </View>
           <BibleBookList
             projectId={currentProjectId!}
@@ -262,20 +278,41 @@ export default function ProjectDirectoryView() {
     }
 
     // Show chapter list if book selected
+    if (!bookQuestId) {
+      return (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+          <Text className="mt-4">Loading book...</Text>
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1">
         <View className="flex-row items-center gap-2 p-4">
           <Button
             variant="ghost"
             size="sm"
-            onPress={() => setSelectedBook(null)}
+            onPress={() => {
+              setSelectedBook(null);
+              setBookQuestId(null);
+            }}
           >
             <Text>← Back</Text>
           </Button>
         </View>
-        <BibleChapterList projectId={currentProjectId!} bookId={selectedBook} />
+        <BibleChapterList
+          projectId={currentProjectId!}
+          bookId={selectedBook}
+          bookQuestId={bookQuestId}
+        />
       </View>
     );
+  }
+
+  // Show loading skeleton for non-Bible projects
+  if (isLoading || isProjectLoading) {
+    return <ProjectListSkeleton />;
   }
 
   // Default unstructured project view
