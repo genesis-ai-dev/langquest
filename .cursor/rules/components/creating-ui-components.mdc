@@ -16,3 +16,5 @@ When looking for a suitable icon, use the lucide-icons MCP.
 - Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.
 
 - Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap `gap-*`, and `flex-[row|col]`.
+
+- Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.

@@ -231,6 +231,96 @@ with check (
   and quest.creator_id = (select auth.uid())
 );
 
+-- rls: allow authenticated project owners or members to insert tags
+create policy "Tag insert limited to owners and members"
+on public.tag
+as permissive
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+  )
+);
+
+-- rls: allow authenticated project owners or members to insert quest_tag_link rows
+create policy "Quest tag link insert limited to owners and members"
+on public.quest_tag_link
+as permissive
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+      and ppl.project_id = (
+        select q.project_id from public.quest q where q.id = quest_tag_link.quest_id
+      )
+  )
+  or (
+    not exists (
+      select 1
+      from public.profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+        and ppl2.project_id = (
+          select q2.project_id from public.quest q2 where q2.id = quest_tag_link.quest_id
+        )
+    )
+    and exists (
+      select 1 from public.project p
+      where p.id = (
+        select q3.project_id from public.quest q3 where q3.id = quest_tag_link.quest_id
+      )
+        and p.creator_id = (select auth.uid())
+    )
+  )
+);
+
+-- rls: allow authenticated project owners or members to insert asset_tag_link rows
+create policy "Asset tag link insert limited to owners and members"
+on public.asset_tag_link
+as permissive
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+      and ppl.project_id = (
+        select a.project_id from public.asset a where a.id = asset_tag_link.asset_id
+      )
+  )
+  or (
+    not exists (
+      select 1
+      from public.profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+        and ppl2.project_id = (
+          select a2.project_id from public.asset a2 where a2.id = asset_tag_link.asset_id
+        )
+    )
+    and exists (
+      select 1 from public.project p
+      where p.id = (
+        select a3.project_id from public.asset a3 where a3.id = asset_tag_link.asset_id
+      )
+        and p.creator_id = (select auth.uid())
+    )
+  )
+);
+
 -- Modify vote table to reference assets instead of translations
 -- This is a breaking change - votes now apply to assets rather than translations
 

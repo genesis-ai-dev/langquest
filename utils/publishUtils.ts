@@ -1,17 +1,22 @@
 import {
   asset,
   asset_content_link,
+  asset_tag_link,
   profile_project_link,
   quest,
-  quest_asset_link
+  quest_asset_link,
+  quest_tag_link
 } from '@/db/drizzleSchema';
 import {
   asset_content_link_synced,
   asset_synced,
+  asset_tag_link_synced,
   profile_project_link_synced,
   project_synced,
   quest_asset_link_synced,
-  quest_synced
+  quest_synced,
+  quest_tag_link_synced,
+  tag_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import {
@@ -231,6 +236,46 @@ export async function publishQuest(questId: string, projectId: string) {
       console.log('assetContentLinkQuery', assetContentLinkQuery);
       await tx.run(sql.raw(assetContentLinkQuery));
 
+      const tagsForQuests = (
+        await tx.query.quest_tag_link.findMany({
+          where: and(
+            inArray(quest_tag_link.quest_id, nestedQuestsIds),
+            eq(quest_tag_link.source, 'local')
+          ),
+          columns: {
+            tag_id: true
+          }
+        })
+      ).map((link) => link.tag_id);
+
+      const tagsForAssets = (
+        await tx.query.asset_tag_link.findMany({
+          where: and(
+            inArray(asset_tag_link.asset_id, nestedAssetIds),
+            eq(asset_tag_link.source, 'local')
+          ),
+          columns: {
+            tag_id: true
+          }
+        })
+      ).map((link) => link.tag_id);
+
+      const allTagsIds = Array.from(
+        new Set(tagsForQuests.concat(tagsForAssets))
+      );
+
+      const tagColumns = getTableColumns(tag_synced);
+      const tagQuery = `INSERT INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`;
+      await tx.run(sql.raw(tagQuery));
+
+      const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
+      const questTagLinkQuery = `INSERT INTO quest_tag_link_synced(${questTagLinkColumns}) SELECT ${questTagLinkColumns} FROM quest_tag_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;
+      await tx.run(sql.raw(questTagLinkQuery));
+
+      const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
+      const assetTagLinkQuery = `INSERT INTO asset_tag_link_synced(${assetTagLinkColumns}) SELECT ${assetTagLinkColumns} FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
+      await tx.run(sql.raw(assetTagLinkQuery));
+
       const localAudioFilesForAssets = (
         await tx.query.asset_content_link.findMany({
           columns: {
@@ -274,6 +319,7 @@ export async function publishQuest(questId: string, projectId: string) {
           `DELETE FROM project_local WHERE id = '${projectId}' AND source = 'local'`
         )
       );
+
       await tx.run(
         sql.raw(
           `DELETE FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`
@@ -289,9 +335,28 @@ export async function publishQuest(questId: string, projectId: string) {
           `DELETE FROM quest_asset_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`
         )
       );
+
       await tx.run(
         sql.raw(
           `DELETE FROM asset_content_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
+        )
+      );
+
+      // await tx.run(
+      //   sql.raw(
+      //     `DELETE FROM tag_local WHERE source = 'local'`
+      //   )
+      // );
+
+      await tx.run(
+        sql.raw(
+          `DELETE FROM quest_tag_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`
+        )
+      );
+
+      await tx.run(
+        sql.raw(
+          `DELETE FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
         )
       );
 
