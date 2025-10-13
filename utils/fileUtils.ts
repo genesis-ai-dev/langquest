@@ -1,4 +1,5 @@
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { decode as decodeBase64 } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system';
 import uuid from 'react-native-uuid';
 /**
@@ -32,13 +33,13 @@ export async function ensureDir(uri: string) {
 
 export async function writeFile(
   fileURI: string,
-  data: string,
+  base64Data: string,
   options?: { encoding?: 'utf8' | 'base64' }
 ) {
   const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
   const dir = fileURI.split('/').slice(0, -1).join('/');
   await ensureDir(dir);
-  await FileSystem.writeAsStringAsync(fileURI, data, { encoding });
+  await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
 }
 
 export async function moveFile(sourceUri: string, targetUri: string) {
@@ -78,14 +79,11 @@ export function getDocumentDirectory() {
 const encoder = new TextEncoder();
 
 export function stringToArrayBuffer(str: string) {
-  const bytes = encoder.encode(str);
-  return bytes.buffer as unknown as ArrayBuffer;
+  return encoder.encode(str).buffer as unknown as ArrayBuffer;
 }
 
 export function base64ToArrayBuffer(base64: string) {
-  const binaryString = atob(base64);
-  const bytes = encoder.encode(binaryString);
-  return bytes.buffer as unknown as ArrayBuffer;
+  return decodeBase64(base64);
 }
 
 export function getLocalUri(filePath: string) {

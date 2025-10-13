@@ -254,13 +254,30 @@ export class System {
             return { retry: false };
           }
 
+          console.log(
+            '[PermAttachmentQueue] onDownloadError',
+            attachment,
+            exception
+          );
           return { retry: true };
         },
         // eslint-disable-next-line
         onUploadError: async (
           _attachment: AttachmentRecord,
-          _exception: { error: string; message: string; statusCode: number }
+          exception: { toString: () => string }
         ) => {
+          if (
+            exception.toString() ===
+            'StorageApiError: The resource already exists'
+          ) {
+            return { retry: false };
+          }
+
+          console.log(
+            '[PermAttachmentQueue] onUploadError',
+            JSON.stringify(_attachment, null, 2),
+            exception.toString()
+          );
           return { retry: true };
         }
       });

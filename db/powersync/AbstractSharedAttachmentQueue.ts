@@ -536,7 +536,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   }
 
   static media_map = new BiMap({
-    'audio/mpeg': 'm4a',
+    'audio/x-m4a': 'm4a',
     'audio/webm': 'webm',
     'image/jpeg': 'jpg',
     'image/jpg': 'jpg',
@@ -547,14 +547,14 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   getExtensionFromMediaType(mediaType: string) {
     return AbstractSharedAttachmentQueue.media_map.has(mediaType)
       ? AbstractSharedAttachmentQueue.media_map.get(mediaType)!
-      : 'audio/mpeg';
+      : 'audio/x-m4a';
   }
 
   getMediaTypeFromExtension(extension?: string) {
     return extension &&
       AbstractSharedAttachmentQueue.media_map.hasValue(extension)
       ? AbstractSharedAttachmentQueue.media_map.getKey(extension)!
-      : 'audio/mpeg';
+      : 'audio/x-m4a';
   }
 
   async getAllAssetAttachments(assetId: string) {

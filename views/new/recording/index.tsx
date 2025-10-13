@@ -292,7 +292,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 84;
-  const isWheel = false; // Temporarily disable native wheel to avoid RN Text warning
+  const isWheel = true; // Temporarily disable native wheel to avoid RN Text warning
 
   // Animated spacer for insertion point
   const spacerHeight = React.useRef(new Animated.Value(6)).current;
@@ -1155,7 +1155,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     },
     []
   );
-
   // Save renamed asset
   const handleSaveRename = React.useCallback(
     async (newName: string) => {

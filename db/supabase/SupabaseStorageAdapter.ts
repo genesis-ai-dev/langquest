@@ -35,7 +35,13 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
     const { mediaType = 'text/plain' } = options ?? {};
 
-    console.log('uploadFile', filename, mediaType);
+    const decoder = new TextDecoder();
+    const decodedData = decoder.decode(data);
+    console.log(
+      'uploadFile',
+      new TextEncoder().encode(decodedData.slice(0, 50))
+    );
+
     const res = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
       .upload(filename, data, { contentType: mediaType });
@@ -50,11 +56,11 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       throw new Error('Supabase bucket not configured in AppConfig.ts');
     }
 
-    console.log('downloadFile', filePath);
     const { data, error } = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
       .download(filePath);
     if (error) {
+      console.log('downloadFile error', error);
       throw error;
     }
 
