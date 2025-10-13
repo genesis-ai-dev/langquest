@@ -6,9 +6,11 @@
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
+import { BIBLE_TAG_KEYS } from '@/utils/bibleTagUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
 
 interface CreateBookParams {
     projectId: string;
@@ -115,7 +117,54 @@ export function useBibleBookCreation() {
                     throw new Error('Failed to create book quest');
                 }
 
-                console.log(`✅ Created book quest: ${newBook.id}`);
+                // Create Bible tag for localization-proof identification
+                const tagLocal = resolveTable('tag', { localOverride: true });
+                const questTagLinkLocal = resolveTable('quest_tag_link', { localOverride: true });
+
+                // Find or create book tag
+                let [bookTag] = await tx
+                    .select()
+                    .from(tagLocal)
+                    .where(
+                        and(
+                            eq(tagLocal.key, BIBLE_TAG_KEYS.BOOK),
+                            eq(tagLocal.value, bookId)
+                        )
+                    )
+                    .limit(1);
+
+                if (!bookTag) {
+                    [bookTag] = await tx
+                        .insert(tagLocal)
+                        .values({
+                            key: BIBLE_TAG_KEYS.BOOK,
+                            value: bookId,
+                            download_profiles: [currentUser.id]
+                        })
+                        .returning();
+                }
+
+                // Link book tag to quest (with primary key check)
+                const existingLink = await tx
+                    .select()
+                    .from(questTagLinkLocal)
+                    .where(
+                        and(
+                            eq(questTagLinkLocal.quest_id, newBook.id),
+                            eq(questTagLinkLocal.tag_id, bookTag!.id)
+                        )
+                    )
+                    .limit(1);
+
+                if (existingLink.length === 0) {
+                    await tx.insert(questTagLinkLocal).values({
+                        id: String(uuid.v4()),
+                        quest_id: newBook.id,
+                        tag_id: bookTag!.id
+                    });
+                }
+
+                console.log(`✅ Created book quest with Bible tag: ${bookId}`);
 
                 return {
                     id: newBook.id,

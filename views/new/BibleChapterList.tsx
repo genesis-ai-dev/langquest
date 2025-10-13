@@ -63,9 +63,9 @@ function ChapterButton({
   const needsDownload = isCloudQuest && !isDownloaded;
 
   // console.log for debugging
-  console.log(
-    `Chapter ${chapterNum}: hasLocal=${hasLocalCopy}, hasSynced=${hasSyncedCopy}, source=${existingChapter?.source}`
-  );
+  // console.log(
+  //   `Chapter ${chapterNum}: hasLocal=${hasLocalCopy}, hasSynced=${hasSyncedCopy}, source=${existingChapter?.source}`
+  // );
 
   // Quest closure data for download stats
   const { data: questClosureData } = useHybridData<QuestClosure>({
@@ -167,12 +167,12 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const IconComponent = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
 
-  // Query existing chapters
+  // Query existing chapters using bookId (tag-based identification)
   const {
     existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,
     isLoading: isLoadingChapters
-  } = useBibleChapters(projectId, book?.name || '');
+  } = useBibleChapters(projectId, bookId);
 
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
