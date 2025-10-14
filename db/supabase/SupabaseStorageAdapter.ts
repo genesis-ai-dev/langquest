@@ -35,13 +35,6 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
     const { mediaType = 'text/plain' } = options ?? {};
 
-    const decoder = new TextDecoder();
-    const decodedData = decoder.decode(data);
-    console.log(
-      'uploadFile',
-      new TextEncoder().encode(decodedData.slice(0, 50))
-    );
-
     const res = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
       .upload(filename, data, { contentType: mediaType });

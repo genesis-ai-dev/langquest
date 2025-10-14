@@ -4,8 +4,9 @@ import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
+import { LegendList } from '@legendapp/list';
 import React from 'react';
-import { Dimensions, Image, ScrollView, View } from 'react-native';
+import { Dimensions, Image, View } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
@@ -33,15 +34,6 @@ export function BibleBookList({
   // Split books
   const oldTestament = BIBLE_BOOKS.slice(0, 39);
   const newTestament = BIBLE_BOOKS.slice(39);
-
-  // Helper to chunk books into rows
-  function chunkBooks(books: typeof BIBLE_BOOKS, size: number) {
-    const rows = [];
-    for (let i = 0; i < books.length; i += size) {
-      rows.push(books.slice(i, i + size));
-    }
-    return rows;
-  }
 
   const renderBookButton = (
     book: { id: string; chapters: number },
@@ -85,48 +77,33 @@ export function BibleBookList({
     );
   };
 
-  const renderBookRows = (
-    books: typeof BIBLE_BOOKS,
-    testament: 'old' | 'new'
-  ) => {
-    const rows = chunkBooks(books, buttonsPerRow);
-    return rows.map((row, idx) => (
-      <View
-        key={idx}
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'flex-start',
-          gap: gap,
-          marginBottom: gap
-        }}
-      >
-        {row.map((book) => renderBookButton(book, testament))}
-      </View>
-    ));
-  };
+  // Combine all books with testament info
+  const allBooks = [
+    ...oldTestament.map((book) => ({ ...book, testament: 'old' as const })),
+    ...newTestament.map((book) => ({ ...book, testament: 'new' as const }))
+  ];
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        alignItems: 'center',
-        paddingHorizontal: padding,
-        paddingBottom: 24
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={{ width: availableWidth, paddingVertical: 16 }}>
-        <Text variant="h4" className="text-center">
-          Old Testament
-        </Text>
-      </View>
-      {renderBookRows(oldTestament, 'old')}
-      <View style={{ width: availableWidth, paddingVertical: 32 }}>
-        <Text variant="h4" className="text-center">
-          New Testament
-        </Text>
-      </View>
-      {renderBookRows(newTestament, 'new')}
-    </ScrollView>
+    <View className="mb-safe flex-1 gap-6">
+      <LegendList
+        data={allBooks}
+        keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}
+        numColumns={buttonsPerRow}
+        estimatedItemSize={140}
+        columnWrapperStyle={{ gap: gap }}
+        contentContainerStyle={{
+          paddingHorizontal: padding,
+          paddingBottom: 24
+        }}
+        recycleItems
+        renderItem={({ item }) => renderBookButton(item, item.testament)}
+        StickyHeaderComponent={() => (
+          <View style={{ width: availableWidth, paddingVertical: 16 }}>
+            <Shimmer width={200} height={24} borderRadius={4} />
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
@@ -141,51 +118,44 @@ export function BibleBookListSkeleton() {
     Math.floor((availableWidth + gap) / (buttonWidth + gap))
   );
 
-  // Create a few rows of skeleton buttons
-  const renderSkeletonRow = (rowIndex: number) => {
-    const buttons = [];
-    for (let i = 0; i < buttonsPerRow; i++) {
-      buttons.push(
-        <Shimmer
-          key={`skeleton-${rowIndex}-${i}`}
-          width={buttonWidth}
-          height={140}
-          borderRadius={8}
-        />
-      );
-    }
-    return (
-      <View
-        key={rowIndex}
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'flex-start',
-          gap: gap,
-          marginBottom: gap
-        }}
-      >
-        {buttons}
-      </View>
-    );
-  };
+  // Create skeleton items (39 OT + 27 NT = 66 books)
+  const skeletonBooks = Array.from({ length: 66 }, (_, i) => ({
+    id: `skeleton-${i}`,
+    testament: i < 39 ? ('old' as const) : ('new' as const)
+  }));
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        alignItems: 'center',
-        paddingHorizontal: padding,
-        paddingBottom: 24
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={{ width: availableWidth, paddingVertical: 16 }}>
-        <Shimmer width={200} height={24} borderRadius={4} />
-      </View>
-      {[0, 1, 2, 3].map(renderSkeletonRow)}
-      <View style={{ width: availableWidth, paddingVertical: 32 }}>
-        <Shimmer width={200} height={24} borderRadius={4} />
-      </View>
-      {[4, 5, 6].map(renderSkeletonRow)}
-    </ScrollView>
+    <View className="flex-1">
+      <LegendList
+        data={skeletonBooks}
+        keyExtractor={(item) => item.id}
+        numColumns={buttonsPerRow}
+        estimatedItemSize={140}
+        columnWrapperStyle={{ gap: gap }}
+        contentContainerStyle={{
+          paddingHorizontal: padding,
+          paddingBottom: 24
+        }}
+        recycleItems
+        renderItem={() => (
+          <Shimmer width={buttonWidth} height={140} borderRadius={8} />
+        )}
+        ListHeaderComponent={
+          <View style={{ width: availableWidth, paddingVertical: 16 }}>
+            <Shimmer width={200} height={24} borderRadius={4} />
+          </View>
+        }
+        // renderSectionHeader={(index) => {
+        //   if (index === 39) {
+        //     return (
+        //       <View style={{ width: availableWidth, paddingVertical: 32 }}>
+        //         <Shimmer width={200} height={24} borderRadius={4} />
+        //       </View>
+        //     );
+        //   }
+        //   return null;
+        // }}
+      />
+    </View>
   );
 }

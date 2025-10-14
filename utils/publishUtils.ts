@@ -29,7 +29,7 @@ import {
 } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { aliasedColumn, toColumns } from './dbUtils';
-import { getLocalAttachmentUri } from './fileUtils';
+import { getLocalAttachmentUriWithOPFS } from './fileUtils';
 
 async function getParentQuests(questId: string) {
   const parentQuests = system.db
@@ -188,30 +188,33 @@ export async function publishQuest(questId: string, projectId: string) {
   );
 
   try {
+    // Always publish project and profile_project_link, cannot be reverted.
+    const projectColumns = getTableColumns(project_synced);
+    const projectQuery = `INSERT INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
+    console.log('projectQuery', projectQuery);
+    await system.db.run(sql.raw(projectQuery));
+
+    const profileProjectLinkColumns = getTableColumns(
+      profile_project_link_synced
+    );
+
+    const profileProjectLinksIds = (
+      await system.db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.project_id, projectId),
+          eq(profile_project_link.active, true),
+          eq(profile_project_link.source, 'local')
+        )
+      })
+    ).map((link) => link.profile_id);
+
+    const profileProjectLinkQuery = `INSERT INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`;
+    console.log('profileProjectLinkQuery', profileProjectLinkQuery);
+    await system.db.run(sql.raw(profileProjectLinkQuery));
+
+    await system.waitForLatestSync();
+
     const audioUploadResults = await system.db.transaction(async (tx) => {
-      const projectColumns = getTableColumns(project_synced);
-      const projectQuery = `INSERT INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
-      console.log('projectQuery', projectQuery);
-      await tx.run(sql.raw(projectQuery));
-
-      const profileProjectLinkColumns = getTableColumns(
-        profile_project_link_synced
-      );
-
-      const profileProjectLinksIds = (
-        await tx.query.profile_project_link.findMany({
-          where: and(
-            eq(profile_project_link.project_id, projectId),
-            eq(profile_project_link.active, true),
-            eq(profile_project_link.source, 'local')
-          )
-        })
-      ).map((link) => link.profile_id);
-
-      const profileProjectLinkQuery = `INSERT INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`;
-      console.log('profileProjectLinkQuery', profileProjectLinkQuery);
-      await tx.run(sql.raw(profileProjectLinkQuery));
-
       const questColumns = getTableColumns(quest_synced);
       const questQuery = `INSERT INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestsIds.concat(nestedQuestsIds))}) AND source = 'local'`;
       await tx.run(sql.raw(questQuery));
@@ -290,7 +293,7 @@ export async function publishQuest(questId: string, projectId: string) {
       )
         .flatMap((link) => link.audio)
         .filter(Boolean)
-        .map(getLocalAttachmentUri);
+        .map(getLocalAttachmentUriWithOPFS);
 
       console.log('localAudioFilesForAssets', localAudioFilesForAssets);
 
@@ -375,7 +378,9 @@ export async function publishQuest(questId: string, projectId: string) {
     }
 
     console.log('Quest published successfully');
+    return { success: true, message: 'Quest published successfully' };
   } catch (error) {
     console.error('Failed to publish quest:', error);
+    return { success: false, message: 'Failed to publish quest' };
   }
 }

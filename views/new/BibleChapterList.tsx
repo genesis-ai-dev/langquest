@@ -11,11 +11,12 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
-import { useThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
+import { LegendList } from '@legendapp/list';
+import { Image } from 'expo-image';
 import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import {
   useHybridData,
   useItemDownload,
@@ -58,6 +59,7 @@ function ChapterButton({
   const hasLocalCopy = existingChapter?.hasLocalCopy ?? false;
   const hasSyncedCopy = existingChapter?.hasSyncedCopy ?? false;
   const isCloudQuest = existingChapter?.source === 'cloud';
+  const primaryColor = useThemeColor('primary');
 
   // Download status and handler
   const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
@@ -113,17 +115,20 @@ function ChapterButton({
   };
 
   return (
-    <View className="relative w-[90px] flex-col gap-1">
+    <View className="relative w-full flex-col gap-1">
       <Button
         variant={exists ? 'default' : 'outline'}
-        className={`w-full flex-col gap-1 py-3 ${!exists ? 'border-dashed' : ''} ${
-          needsDownload ? 'opacity-50' : ''
-        } ${getBackgroundColor()}`}
+        className={cn(
+          'w-full flex-col gap-1 py-3',
+          !exists && 'border-dashed',
+          needsDownload && 'opacity-50',
+          getBackgroundColor()
+        )}
         onPress={onPress}
         disabled={disabled || needsDownload}
       >
         {isCreatingThis ? (
-          <ActivityIndicator size="small" />
+          <ActivityIndicator size="small" color={primaryColor} />
         ) : (
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
@@ -163,15 +168,12 @@ function ChapterButton({
   );
 }
 
-export function BibleChapterList({
-  projectId,
-  bookId,
-}: BibleChapterListProps) {
+export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const book = getBibleBook(bookId);
-  const IconComponent = BOOK_GRAPHICS[bookId];
+  const bookGraphic = BOOK_GRAPHICS[bookId];
   const primaryColor = useThemeColor('primary');
 
   // Query existing chapters using parent-child relationship
@@ -196,7 +198,7 @@ export function BibleChapterList({
   if (!project) {
     return (
       <View className="flex-1 items-center justify-center p-6">
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={primaryColor} />
         <Text className="mt-4">Loading project...</Text>
       </View>
     );
@@ -255,66 +257,76 @@ export function BibleChapterList({
     }
   };
 
-  // Generate array of chapter numbers
-  const chapters = Array.from({ length: book.chapters }, (_, i) => i + 1);
+  // Generate array of chapter numbers with metadata
+  const chapters = Array.from({ length: book.chapters }, (_, i) => {
+    const chapterNum = i + 1;
+    const verseCount = book.verses[chapterNum - 1] || 0;
+    const existingChapter = existingChapters.find(
+      (ch) => ch.chapterNumber === chapterNum
+    );
+    const isCreatingThis = creatingChapter === chapterNum;
+
+    return {
+      id: chapterNum,
+      chapterNum,
+      verseCount,
+      existingChapter,
+      isCreatingThis
+    };
+  });
 
   return (
     <View className="flex-1">
-      <ScrollView className="flex-1">
-        <View className="flex-col gap-4 p-4">
-          {/* Header */}
-          <View className="flex-row items-center gap-3">
-            {IconComponent ? (
-              <IconComponent width={48} height={48} color={primaryColor} />
-            ) : (
-              <Text className="text-4xl">📖</Text>
-            )}
-            <View className="flex-col">
-              <Text variant="h3">{book.name}</Text>
-              <Text className="text-sm text-muted-foreground">
-                {book.chapters} chapters
-              </Text>
-            </View>
-          </View>
-
-          {/* Chapter Grid */}
-          <View className="flex-row flex-wrap gap-2">
-            {isLoadingChapters ? (
-              // Show loading skeleton
-              <View className="flex-row flex-wrap gap-2">
-                {chapters.slice(0, 6).map((chapterNum) => (
-                  <View
-                    key={chapterNum}
-                    className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
-                  >
-                    <ActivityIndicator size="small" />
-                  </View>
-                ))}
-              </View>
-            ) : (
-              chapters.map((chapterNum) => {
-                const verseCount = book.verses[chapterNum - 1] || 0;
-                const existingChapter = existingChapters.find(
-                  (ch) => ch.chapterNumber === chapterNum
-                );
-                const isCreatingThis = creatingChapter === chapterNum;
-
-                return (
-                  <ChapterButton
-                    key={chapterNum}
-                    chapterNum={chapterNum}
-                    verseCount={verseCount}
-                    existingChapter={existingChapter}
-                    isCreatingThis={isCreatingThis}
-                    onPress={() => handleChapterPress(chapterNum)}
-                    disabled={Boolean(isCreating || isLoadingChapters)}
-                  />
-                );
-              })
-            )}
+      <View className="flex-1 flex-col gap-6">
+        {/* Header */}
+        <View className="flex-row items-center gap-3">
+          {bookGraphic ? (
+            <Image source={bookGraphic} />
+          ) : (
+            <Text className="text-4xl">📖</Text>
+          )}
+          <View className="flex-col">
+            <Text variant="h3">{book.name}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {book.chapters} chapters
+            </Text>
           </View>
         </View>
-      </ScrollView>
+
+        {/* Chapter Grid */}
+        {isLoadingChapters ? (
+          <View className="flex-row flex-wrap gap-2">
+            {chapters.slice(0, 6).map((chapter) => (
+              <View
+                key={chapter.id}
+                className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
+              >
+                <ActivityIndicator size="small" color={primaryColor} />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <LegendList
+            data={chapters}
+            keyExtractor={(item) => item.id.toString()}
+            numColumns={4}
+            estimatedItemSize={90}
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+            columnWrapperStyle={{ gap: 8 }}
+            recycleItems
+            renderItem={({ item }) => (
+              <ChapterButton
+                chapterNum={item.chapterNum}
+                verseCount={item.verseCount}
+                existingChapter={item.existingChapter}
+                isCreatingThis={item.isCreatingThis}
+                onPress={() => handleChapterPress(item.chapterNum)}
+                disabled={Boolean(isCreating || isLoadingChapters)}
+              />
+            )}
+          />
+        )}
+      </View>
     </View>
   );
 }

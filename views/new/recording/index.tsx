@@ -141,13 +141,16 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         .from(asset)
         .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
         .where(eq(quest_asset_link.quest_id, currentQuestId))
-        .orderBy(asc(asset.order_index), asc(asset.created_at))
+        .orderBy(asc(asset.order_index), asc(asset.created_at), asc(asset.name))
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select('asset:asset_id(*)')
         .eq('quest_id', currentQuestId)
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true })
+        .order('name', { ascending: true })
         .overrideTypes<QuestAssetJoin[]>();
       if (error) throw error;
 
@@ -720,7 +723,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         // 7. Invalidate queries
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', currentQuestId, ''],
+          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
           exact: false
         });
 
@@ -1696,7 +1699,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       <View className="h-full flex-1 p-2">
         {rawAssets.length === 0 && pendingSegments.length === 0 && (
           <View key="empty" className="items-center justify-center py-16">
-            <Text className="text-center text-muted-foreground">
+            <Text variant="p" className="text-center text-muted-foreground">
               No assets yet. Start recording to create your first asset.
             </Text>
           </View>

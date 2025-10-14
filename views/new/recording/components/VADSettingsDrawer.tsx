@@ -15,9 +15,16 @@ import {
 } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import React from 'react';
-import { Animated, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming
+} from 'react-native-reanimated';
 
 interface VADSettingsDrawerProps {
   isOpen: boolean;
@@ -74,6 +81,8 @@ export function VADSettingsDrawer({
     stopEnergyDetection
   ]);
 
+  const { t } = useLocalization();
+
   // Preset thresholds
   const presets = [
     { label: 'Sensitive', value: 0.01 },
@@ -81,25 +90,28 @@ export function VADSettingsDrawer({
     { label: 'Loud', value: 0.06 }
   ];
 
+  // Scale functions to convert between 0.005-0.1 range and 5-100 range
+  // This avoids precision loss with very small decimals in the native slider
+  const thresholdToSlider = (threshold: number) => threshold * 1000;
+  const sliderToThreshold = (sliderValue: number) => sliderValue / 1000;
+
   // Animated pulse when above threshold
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const pulseScale = useSharedValue(1);
 
   React.useEffect(() => {
     if (currentEnergy > threshold) {
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 100,
-          useNativeDriver: true
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true
-        })
-      ]).start();
+      pulseScale.value = withSequence(
+        withTiming(1.1, { duration: 100 }),
+        withTiming(1, { duration: 100 })
+      );
     }
-  }, [currentEnergy, threshold, pulseAnim]);
+  }, [currentEnergy, threshold, pulseScale]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: pulseScale.value }]
+    };
+  });
 
   return (
     <Drawer
@@ -125,10 +137,12 @@ export function VADSettingsDrawer({
             {/* Energy Bar */}
             <View className="relative h-12 w-full overflow-hidden rounded-lg bg-muted">
               <Animated.View
-                style={{
-                  width: `${Math.min(100, currentEnergy * 1000)}%`,
-                  transform: [{ scale: pulseAnim }]
-                }}
+                style={[
+                  {
+                    width: `${Math.min(100, currentEnergy * 1000)}%`
+                  },
+                  animatedStyle
+                ]}
                 className={`h-full ${
                   currentEnergy > threshold
                     ? 'bg-primary'
@@ -157,11 +171,13 @@ export function VADSettingsDrawer({
             </Text>
 
             <Slider
-              value={threshold}
-              onValueChange={(value) => onThresholdChange(value[0]!)}
-              min={0.005}
-              max={0.1}
-              step={0.001}
+              value={thresholdToSlider(threshold)}
+              onValueChange={(value) =>
+                onThresholdChange(sliderToThreshold(value[0]!))
+              }
+              min={5}
+              max={100}
+              step={1}
               className="h-10 w-full"
             />
 
@@ -230,7 +246,7 @@ export function VADSettingsDrawer({
 
         <DrawerFooter>
           <DrawerClose>
-            <Text>Done</Text>
+            <Text>{t('done')}</Text>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

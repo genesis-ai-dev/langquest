@@ -30,14 +30,17 @@ export function useAppNavigation() {
   // Current navigation state
   const currentState = useMemo(() => {
     // Ensure navigationStack is always an array
-    const stack = Array.isArray(navigationStack) && navigationStack.length > 0
-      ? navigationStack
-      : [{ view: 'projects' as AppView, timestamp: Date.now() }];
+    const stack =
+      Array.isArray(navigationStack) && navigationStack.length > 0
+        ? navigationStack
+        : [{ view: 'projects' as AppView, timestamp: Date.now() }];
 
-    return stack[stack.length - 1] || {
-      view: 'projects' as AppView,
-      timestamp: Date.now()
-    };
+    return (
+      stack[stack.length - 1] || {
+        view: 'projects' as AppView,
+        timestamp: Date.now()
+      }
+    );
   }, [navigationStack]);
 
   // Navigation functions with instant state transitions
@@ -105,14 +108,19 @@ export function useAppNavigation() {
   const goToProject = useCallback(
     (projectData: { id: string; name?: string; template?: string | null }) => {
       // Check if we're already at this project or deeper
-      if (currentState.projectId === projectData.id && currentState.view === 'quests') {
+      if (
+        currentState.projectId === projectData.id &&
+        currentState.view === 'quests'
+      ) {
         // Already here, do nothing
         return;
       }
 
       // If we're at a deeper level (assets or asset-detail) with the same project, go back
-      if (currentState.projectId === projectData.id &&
-        (currentState.view === 'assets' || currentState.view === 'asset-detail')) {
+      if (
+        currentState.projectId === projectData.id &&
+        (currentState.view === 'assets' || currentState.view === 'asset-detail')
+      ) {
         goBackToView('quests');
       } else {
         // Navigate fresh
@@ -138,13 +146,19 @@ export function useAppNavigation() {
       });
 
       // Check if we're already at this quest
-      if (currentState.questId === questData.id && currentState.view === 'assets') {
+      if (
+        currentState.questId === questData.id &&
+        currentState.view === 'assets'
+      ) {
         // Already here, do nothing
         return;
       }
 
       // If we're at asset-detail for this quest, go back
-      if (currentState.questId === questData.id && currentState.view === 'asset-detail') {
+      if (
+        currentState.questId === questData.id &&
+        currentState.view === 'asset-detail'
+      ) {
         goBackToView('assets');
       } else {
         // Navigate fresh
@@ -226,7 +240,11 @@ export function useAppNavigation() {
       crumbs.push({
         label: state.projectName,
         onPress: () =>
-          goToProject({ id: state.projectId!, name: state.projectName, template: state.projectTemplate })
+          goToProject({
+            id: state.projectId!,
+            name: state.projectName,
+            template: state.projectTemplate
+          })
       });
       crumbs.push({ label: state.questName, onPress: undefined });
     } else if (
@@ -239,7 +257,11 @@ export function useAppNavigation() {
       crumbs.push({
         label: state.projectName,
         onPress: () =>
-          goToProject({ id: state.projectId!, name: state.projectName, template: state.projectTemplate })
+          goToProject({
+            id: state.projectId!,
+            name: state.projectName,
+            template: state.projectTemplate
+          })
       });
       crumbs.push({
         label: state.questName,
@@ -302,31 +324,31 @@ export function useCurrentNavigation() {
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
-        id: currentProjectId,
-        name: currentProjectName || 'Project',
-        template: currentProjectTemplate
-      }
+          id: currentProjectId,
+          name: currentProjectName || 'Project',
+          template: currentProjectTemplate
+        }
       : null;
   }, [currentProjectId, currentProjectName, currentProjectTemplate]);
 
   const currentQuest = useMemo(() => {
     return currentQuestId
       ? {
-        id: currentQuestId,
-        name: currentQuestName || 'Quest',
-        project_id: currentProjectId || ''
-      }
+          id: currentQuestId,
+          name: currentQuestName || 'Quest',
+          project_id: currentProjectId || ''
+        }
       : null;
   }, [currentQuestId, currentQuestName, currentProjectId]);
 
   const currentAsset = useMemo(() => {
     return currentAssetId
       ? {
-        id: currentAssetId,
-        name: currentAssetName || 'Asset',
-        projectId: currentProjectId,
-        questId: currentQuestId
-      }
+          id: currentAssetId,
+          name: currentAssetName || 'Asset',
+          projectId: currentProjectId,
+          questId: currentQuestId
+        }
       : null;
   }, [currentAssetId, currentAssetName, currentProjectId, currentQuestId]);
 
@@ -337,6 +359,10 @@ export function useCurrentNavigation() {
     currentAssetId,
     currentProject,
     currentQuest,
-    currentAsset
+    currentAsset,
+    currentProjectTemplate,
+    currentQuestName,
+    currentAssetName,
+    currentProjectName
   };
 }

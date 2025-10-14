@@ -52,7 +52,7 @@
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "^5.2.6",
     "@hookform/resolvers": "^5.0.1",
-    "@legendapp/list": "^1.0.13",
+    "@legendapp/list": "^2.0.12",
     "@op-engineering/op-sqlite": "^14.1.4",
     "@powersync/attachments": "^2.4.0",
     "@powersync/drizzle-driver": "^0.6.0",
@@ -135,7 +135,8 @@
     "testflight-dev-deploy": "^0.0.8",
     "vaul": "^1.1.2",
     "zod": "^4.1.11",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "expo-image": "~2.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

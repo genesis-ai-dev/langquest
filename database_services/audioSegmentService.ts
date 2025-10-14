@@ -1,4 +1,5 @@
 import { resolveTable } from '@/utils/dbUtils';
+import { saveAudioLocally } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { asset_content_link } from '../db/drizzleSchema';
@@ -31,9 +32,13 @@ export class AudioSegmentService {
         throw new Error('Permanent attachment queue not initialized');
       }
 
-      const attachment = await system.permAttachmentQueue.saveAudio(
-        segment.uri
-      );
+      const localUri = await saveAudioLocally(segment.uri);
+
+      console.log('[AUDIO SEGMENT SERVICE] Local URI:', localUri);
+
+      // const attachment = await system.permAttachmentQueue.saveAudio(
+      //   segment.uri
+      // );
 
       const newAsset = await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -71,18 +76,14 @@ export class AudioSegmentService {
             source_language_id: sourceLanguageId,
             text: segment.name,
             // Link to the created attachment record so the UI can resolve URIs and states
-            audio: [attachment.id],
+            audio: [`local/${localUri}`],
             download_profiles: [creatorId]
           });
 
         return newAsset;
       });
 
-      const audioUri = system.permAttachmentQueue.getLocalUri(
-        attachment.local_uri!
-      );
-
-      return { assetId: newAsset.id, audioUri };
+      return { assetId: newAsset.id, audioUri: localUri };
     } catch (error) {
       console.error('Failed to save audio segment:', error);
       throw error;

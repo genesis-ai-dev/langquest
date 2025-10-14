@@ -4,6 +4,7 @@
  */
 
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { getFileName } from './fileUtils';
 import { getOPFSHandle, opfsFileToBlobUrl } from './opfsUtils.web';
 
 export async function deleteIfExists(
@@ -165,6 +166,16 @@ export async function getFileInfo(_uri: string | null | undefined) {
   return fileInfo;
 }
 
+export function getLocalFilePathSuffix(filename: string): string {
+  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
+}
+
+export async function getLocalAttachmentUriWithOPFS(filePath: string) {
+  const localUri = getLocalUri(getLocalFilePathSuffix(filePath));
+  const opfsUri = opfsFileToBlobUrl(localUri);
+  return opfsUri;
+}
+
 // save the file in the browser locally
 export async function saveAudioLocally(uri: string) {
   console.log('saveAudioFileLocally', uri);
@@ -172,7 +183,7 @@ export async function saveAudioLocally(uri: string) {
   const response = await fetch(uri);
   const blob = await response.blob();
   const extension = blob.type.split(';')[0]!.split('/').pop(); // "audio/webm; codecs=opus"
-  const fileName = `${uri.split('/').pop()}.${extension}`;
+  const fileName = `${getFileName(uri)}.${extension}`;
   console.log('fileName', fileName);
   if (!fileName) {
     throw new Error('Failed to get file name');
@@ -192,20 +203,4 @@ export async function saveAudioLocally(uri: string) {
   await writable.close();
 
   return uri;
-}
-
-export function getLocalFilePathSuffix(filename: string): string {
-  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
-}
-
-export function getLocalAttachmentUri(filePath: string) {
-  return getLocalUri(
-    getLocalFilePathSuffix(`local/${filePath.split('/').pop()}`)
-  );
-}
-
-export async function getLocalAttachmentUriOPFS(filePath: string) {
-  const localUri = getLocalAttachmentUri(filePath);
-  const opfsUri = opfsFileToBlobUrl(localUri);
-  return opfsUri;
 }

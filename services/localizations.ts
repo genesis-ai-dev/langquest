@@ -33,6 +33,13 @@ export const localizations = {
     indonesian:
       'Harap verifikasi alamat email Anda sebelum masuk. Periksa email Anda untuk tautan verifikasi.'
   },
+  done: {
+    english: 'Done',
+    spanish: 'Listo',
+    brazilian_portuguese: 'Feito',
+    tok_pisin: 'Done',
+    indonesian: 'Selesai'
+  },
   all: {
     english: 'All',
     spanish: 'Todo',
@@ -3754,9 +3761,12 @@ export const localizations = {
   },
   localAssetEditHint: {
     english: 'This asset is local only. Text can be edited until published.',
-    spanish: 'Este recurso es solo local. El texto se puede editar hasta que se publique.',
-    brazilian_portuguese: 'Este recurso é apenas local. O texto pode ser editado até ser publicado.',
-    tok_pisin: 'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
+    spanish:
+      'Este recurso es solo local. El texto se puede editar hasta que se publique.',
+    brazilian_portuguese:
+      'Este recurso é apenas local. O texto pode ser editado até ser publicado.',
+    tok_pisin:
+      'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
     indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
   }
 } as const;

@@ -1,5 +1,10 @@
 import { system } from '@/db/powersync/system';
-import { getFileInfo, getLocalUri, moveFile } from '@/utils/fileUtils';
+import {
+  getFileInfo,
+  getFileName,
+  getLocalUri,
+  moveFile
+} from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -138,7 +143,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord({
-      id: base64Data.split('/').pop()!
+      id: getFileName(base64Data)!
     });
     console.log('photoAttachment');
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
@@ -154,7 +159,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     tempUri: string,
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
-    const recordId = tempUri.split('/').pop()!;
+    const recordId = getFileName(tempUri)!;
     console.log('saveAudio recordId', recordId);
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId

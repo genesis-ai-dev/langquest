@@ -26,6 +26,7 @@ import {
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import {
+  BookIcon,
   CrownIcon,
   HardDriveIcon,
   LockIcon,
@@ -165,6 +166,12 @@ export function ProjectListItem({
                       {project.private && (
                         <Icon
                           as={LockIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
+                      {project.template === 'bible' && (
+                        <Icon
+                          as={BookIcon}
                           className="text-secondary-foreground"
                         />
                       )}

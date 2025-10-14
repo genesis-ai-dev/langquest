@@ -22,6 +22,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { getThemeColor } from '@/utils/styleUtils';
 import { eq } from 'drizzle-orm';
 import { Pause, Play, ScissorsIcon, Trash2 } from 'lucide-react-native';
 import React from 'react';
@@ -135,7 +136,10 @@ export function VerseSegmentModal({
         <ScrollView className="max-h-96 px-4">
           {isLoading ? (
             <View className="items-center py-8">
-              <ActivityIndicator size="large" />
+              <ActivityIndicator
+                size="large"
+                color={getThemeColor('primary')}
+              />
               <Text className="mt-2 text-muted-foreground">
                 Loading segments...
               </Text>

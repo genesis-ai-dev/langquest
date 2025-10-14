@@ -146,7 +146,9 @@ export const resetDatabase = async () => {
     }
 
     await system.powersync.execute(`DROP TABLE IF EXISTS ps_data__attachments`);
+    console.log('Dropped attachments table');
 
+    await system.cleanup();
     await system.init();
 
     console.log('Database reset successfully: all tables dropped');

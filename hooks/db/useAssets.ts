@@ -1048,10 +1048,11 @@ export function useAssetsByQuest(
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching
+    isFetching,
+    refetch
   } = useSimpleHybridInfiniteData<AssetQuestLink>(
     'assets',
-    [quest_id || '', searchQuery],
+    ['by-quest', quest_id || '', searchQuery],
     // Offline query function - Assets must be downloaded to use
     async ({ pageParam, pageSize }) => {
       if (!quest_id) return [];
@@ -1109,6 +1110,7 @@ export function useAssetsByQuest(
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching
+    isFetching,
+    refetch
   };
 }

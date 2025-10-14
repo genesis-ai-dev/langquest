@@ -29,6 +29,7 @@ import {
   FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
   SpeedDial,
@@ -42,11 +43,13 @@ import { useHasUserReported } from '@/hooks/db/useReports';
 import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 import {
+  ArrowLeftIcon,
   FlagIcon,
   FolderPenIcon,
   InfoIcon,
@@ -281,31 +284,32 @@ export default function ProjectDirectoryView() {
     if (!bookQuestId) {
       return (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={getThemeColor('primary')} />
           <Text className="mt-4">Loading book...</Text>
         </View>
       );
     }
 
     return (
-      <View className="flex-1">
-        <View className="flex-row items-center gap-2 p-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => {
-              setSelectedBook(null);
-              setBookQuestId(null);
-            }}
-          >
-            <Text>← Back</Text>
-          </Button>
+      <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => {
+            setSelectedBook(null);
+            setBookQuestId(null);
+          }}
+        >
+          <Icon as={ArrowLeftIcon} />
+          <Text>Back</Text>
+        </Button>
+        <View className="w-full flex-1">
+          <BibleChapterList
+            projectId={currentProjectId!}
+            bookId={selectedBook}
+            bookQuestId={bookQuestId}
+          />
         </View>
-        <BibleChapterList
-          projectId={currentProjectId!}
-          bookId={selectedBook}
-          bookQuestId={bookQuestId}
-        />
       </View>
     );
   }

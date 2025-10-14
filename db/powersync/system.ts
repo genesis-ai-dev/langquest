@@ -42,13 +42,11 @@ import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
-import { TempAttachmentQueue } from './TempAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
-import { Platform } from 'react-native';
 
 type InsertQuest = InferInsertModel<typeof drizzleSchema.quest>;
 type InsertAsset = InferInsertModel<typeof drizzleSchema.asset>;
@@ -80,7 +78,7 @@ export class System {
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
-  tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
+  // tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
 
   // Add tracking for attachment queue initialization
@@ -282,40 +280,40 @@ export class System {
         }
       });
 
-      this.tempAttachmentQueue = new TempAttachmentQueue({
-        powersync: this.powersync,
-        storage: this.storage,
-        db: this.db,
-        attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
-        cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
-        // eslint-disable-next-line
-        onDownloadError: async (
-          attachment: AttachmentRecord,
-          exception: { toString: () => string; status?: number }
-        ) => {
-          console.log(
-            'TempAttachmentQueue onDownloadError',
-            attachment,
-            exception
-          );
-          if (
-            exception.toString() === 'StorageApiError: Object not found' ||
-            exception.status === 400 ||
-            exception.toString().includes('status":400')
-          ) {
-            return { retry: false };
-          }
+      // this.tempAttachmentQueue = new TempAttachmentQueue({
+      //   powersync: this.powersync,
+      //   storage: this.storage,
+      //   db: this.db,
+      //   attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
+      //   cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
+      //   // eslint-disable-next-line
+      //   onDownloadError: async (
+      //     attachment: AttachmentRecord,
+      //     exception: { toString: () => string; status?: number }
+      //   ) => {
+      //     console.log(
+      //       'TempAttachmentQueue onDownloadError',
+      //       attachment,
+      //       exception
+      //     );
+      //     if (
+      //       exception.toString() === 'StorageApiError: Object not found' ||
+      //       exception.status === 400 ||
+      //       exception.toString().includes('status":400')
+      //     ) {
+      //       return { retry: false };
+      //     }
 
-          return { retry: true };
-        },
-        // eslint-disable-next-line
-        onUploadError: async (
-          _attachment: AttachmentRecord,
-          _exception: unknown
-        ) => {
-          return { retry: true };
-        }
-      });
+      //     return { retry: true };
+      //   },
+      //   // eslint-disable-next-line
+      //   onUploadError: async (
+      //     _attachment: AttachmentRecord,
+      //     _exception: unknown
+      //   ) => {
+      //     return { retry: true };
+      //   }
+      // });
     }
   }
 
@@ -923,9 +921,9 @@ export class System {
         initPromises.push(this.permAttachmentQueue.init());
       }
 
-      if (this.tempAttachmentQueue && Platform.OS !== 'web') {
-        initPromises.push(this.tempAttachmentQueue.init());
-      }
+      // if (this.tempAttachmentQueue && Platform.OS !== 'web') {
+      //   initPromises.push(this.tempAttachmentQueue.init());
+      // }
 
       if (initPromises.length > 0) {
         await Promise.all(initPromises);
@@ -1006,16 +1004,16 @@ export class System {
         }
       }
 
-      if (this.tempAttachmentQueue) {
-        try {
-          // Call destroy method if it exists
-          (
-            this.tempAttachmentQueue as unknown as { destroy?: () => void }
-          ).destroy?.();
-        } catch (error) {
-          console.warn('Error destroying temporary attachment queue:', error);
-        }
-      }
+      // if (this.tempAttachmentQueue) {
+      //   try {
+      //     // Call destroy method if it exists
+      //     (
+      //       this.tempAttachmentQueue as unknown as { destroy?: () => void }
+      //     ).destroy?.();
+      //   } catch (error) {
+      //     console.warn('Error destroying temporary attachment queue:', error);
+      //   }
+      // }
 
       // Disconnect PowerSync
       if (this.powersync.connected) {

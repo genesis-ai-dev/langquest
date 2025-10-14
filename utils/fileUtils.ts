@@ -2,6 +2,23 @@ import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAtta
 import { decode as decodeBase64 } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system';
 import uuid from 'react-native-uuid';
+
+/**
+ * Extracts the filename from a URI path.
+ * @param uri - The file URI or path string
+ * @returns The filename (last segment after the final '/'), or undefined if the URI is empty
+ * @example
+ * getFileName('/path/to/file.txt') // returns 'file.txt'
+ * getFileName('file.txt') // returns 'file.txt'
+ */
+export function getFileName(uri: string) {
+  return uri.split('/').pop();
+}
+
+export function getDirectory(uri: string) {
+  return uri.split('/').slice(0, -1).join('/');
+}
+
 /**
  * Delete a file if it exists. No-ops if uri is falsy or file is missing.
  */
@@ -10,7 +27,7 @@ export async function deleteIfExists(uri: string | null | undefined) {
 }
 
 export async function getFileInfo(uri: string | null | undefined) {
-  console.log('getFileInfo', uri);
+  console.log('getFileInfo', getFileName(uri ?? ''));
   return await FileSystem.getInfoAsync(uri ?? '');
 }
 
@@ -37,7 +54,7 @@ export async function writeFile(
   options?: { encoding?: 'utf8' | 'base64' }
 ) {
   const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-  const dir = fileURI.split('/').slice(0, -1).join('/');
+  const dir = getDirectory(fileURI);
   await ensureDir(dir);
   await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
 }
@@ -94,23 +111,21 @@ export function getLocalFilePathSuffix(filename: string): string {
   return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
 }
 
-export function getLocalAttachmentUri(filePath: string) {
-  return getLocalUri(
-    getLocalFilePathSuffix(`local/${filePath.split('/').pop()}`)
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/require-await
-export async function getLocalAttachmentUriOPFS(filePath: string) {
-  return getLocalAttachmentUri(filePath);
+export function getLocalAttachmentUriWithOPFS(filePath: string) {
+  return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
 export async function saveAudioLocally(uri: string) {
-  const newUri = `${uuid.v4()}.${uri.split('.').pop()}`;
+  const newUri = `local/${uuid.v4()}.${uri.split('.').pop()}`;
   console.log('🔍 Saving audio file locally:', uri, newUri);
   if (await fileExists(uri)) {
-    await ensureDir(getLocalUri(getLocalFilePathSuffix('local')));
-    await moveFile(uri, getLocalAttachmentUri(newUri));
+    const newPath = getLocalUri(getLocalFilePathSuffix(newUri));
+    await ensureDir(getDirectory(newPath));
+    await moveFile(uri, newPath);
+    console.log(
+      '🔍 Audio file saved locally:',
+      `${getLocalUri(getLocalFilePathSuffix('local'))}/${newUri}`
+    );
   } else {
     throw new Error(`File does not exist: ${uri}`);
   }

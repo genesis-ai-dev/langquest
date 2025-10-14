@@ -27,6 +27,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -165,7 +166,7 @@ export default function NextGenTranslationModal({
       .flatMap((c) => c.audio)
       .filter(Boolean)
       .map((audio) =>
-        system.permAttachmentQueue?.getLocalUri(
+        getLocalAttachmentUriWithOPFS(
           attachmentStates.get(audio)?.local_uri ?? ''
         )
       )
