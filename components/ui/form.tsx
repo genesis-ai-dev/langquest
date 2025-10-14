@@ -248,7 +248,7 @@ const FormSubmit = React.forwardRef<
           disabled={isDisabled}
           {...props}
           className={cn(
-            'flex-row items-center gap-2',
+            'flex flex-row items-center gap-2',
             isDisabled &&
               'opacity-50 hover:opacity-50 web:pointer-events-none web:cursor-default',
             buttonVariants({ className })

@@ -393,6 +393,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           return processed;
         };
 
+        delete opData?.source;
+
         switch (op.op) {
           case UpdateType.PUT: {
             record = isCompositeTable

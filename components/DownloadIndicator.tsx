@@ -3,7 +3,7 @@ import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity } from 'react-native';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 import { Icon } from './ui/icon';
@@ -30,7 +30,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   isFlaggedForDownload,
   isLoading,
   onPress,
-  size = 24,
+  size = 20,
   progressPercentage = 0,
   showProgress = false,
   downloadType,
@@ -115,31 +115,6 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={primaryColor} />
-        ) : showProgress && progressPercentage > 0 && !isFlaggedForDownload ? (
-          // Custom progress indicator for quests
-          <View
-            className="relative items-center justify-center"
-            style={{ width: size, height: size }}
-          >
-            <View
-              className="absolute rounded-full bg-muted opacity-30"
-              style={{
-                width: size,
-                height: size
-              }}
-            />
-            <View
-              className="absolute left-0 rounded-full bg-accent opacity-60"
-              style={{
-                width: size * (progressPercentage / 100),
-                height: size
-              }}
-            />
-            <IconComponent
-              size={size}
-              className={cn('absolute', iconClassName)}
-            />
-          </View>
         ) : (
           <Icon as={IconComponent} size={size} className={iconClassName} />
         )}

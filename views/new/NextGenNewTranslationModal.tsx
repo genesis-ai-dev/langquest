@@ -295,7 +295,7 @@ export default function NextGenNewTranslationModal({
               disabled={!currentQuestId}
               className="w-full"
             >
-              <Text className="text-base font-bold">{t('submit')}</Text>
+              <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
             <DrawerClose>
               <Text>{t('cancel')}</Text>
