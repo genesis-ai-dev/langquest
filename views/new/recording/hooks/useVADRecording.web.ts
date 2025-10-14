@@ -230,7 +230,9 @@ export function useVADRecording({
                         // Notify parent
                         onSegmentCompleteRef.current(uri);
                     } else {
-                        console.log(`⏭️ Web VAD: Segment too short (${duration}ms), discarding`);
+                        console.log(`⏭️ Web VAD: Segment too short (${duration}ms), discarding but cleaning up`);
+                        // Still notify parent with empty URI to trigger cleanup
+                        onSegmentCompleteRef.current('');
                     }
 
                     resolve();

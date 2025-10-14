@@ -30,7 +30,7 @@ export function useOptimisticAssets(
 
     const addOptimistic = React.useCallback((asset: OptimisticAsset) => {
         setOptimisticAssets((prev) => [...prev, asset]);
-        console.log('✨ Optimistic asset added:', asset.name, 'at position', asset.order_index);
+        // Logging moved to caller for better context
     }, []);
 
     const removeOptimistic = React.useCallback((id: string) => {

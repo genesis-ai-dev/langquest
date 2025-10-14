@@ -96,13 +96,34 @@ function Terms() {
 
       {canAcceptTerms && (
         <View className="flex flex-col gap-2">
-          <View className="flex w-full flex-row items-center gap-2.5">
+          <Pressable
+            className={cn(
+              "flex w-full flex-row items-center gap-3 rounded-lg border border-primary bg-primary/5 px-4 py-3",
+              termsAccepted
+                ? "border-primary bg-primary/10"
+                : "border-border"
+            )}
+            onPress={handleToggleTerms}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+            accessibilityLabel={t('agreeToTerms')}
+          >
             <Checkbox
               checked={termsAccepted}
               onCheckedChange={handleToggleTerms}
+              className="scale-125 border-primary"
+              indicatorClassName="bg-primary"
+              iconClassName="text-primary-foreground"
             />
-            <Label onPress={handleToggleTerms}>{t('agreeToTerms')}</Label>
-          </View>
+            <Label
+              className={cn(
+                "flex-1 text-base font-semibold",
+                termsAccepted ? "text-primary" : "text-foreground"
+              )}
+            >
+              {t('agreeToTerms')}
+            </Label>
+          </Pressable>
           <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
             <Text>{t('accept')}</Text>
           </Button>

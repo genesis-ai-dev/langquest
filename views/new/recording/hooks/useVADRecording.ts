@@ -44,6 +44,10 @@ export function useVADRecording({
   const onSegmentStartRef = React.useRef(onSegmentStart);
   const onSegmentCompleteRef = React.useRef(onSegmentComplete);
 
+  // Track segment start time to detect stuck recordings
+  const segmentStartTimeRef = React.useRef<number | null>(null);
+  const segmentTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   React.useEffect(() => {
     onSegmentStartRef.current = onSegmentStart;
     onSegmentCompleteRef.current = onSegmentComplete;
@@ -53,15 +57,13 @@ export function useVADRecording({
 
   // Configure native VAD when settings change
   React.useEffect(() => {
-    if (MicrophoneEnergyModule.configureVAD) {
-      void MicrophoneEnergyModule.configureVAD({
-        threshold,
-        silenceDuration,
-        onsetMultiplier: 0.25,
-        confirmMultiplier: 0.5,
-        minSegmentDuration: 500
-      });
-    }
+    void MicrophoneEnergyModule.configureVAD({
+      threshold,
+      silenceDuration,
+      onsetMultiplier: 0.25,
+      confirmMultiplier: 0.5,
+      minSegmentDuration: 500
+    });
   }, [threshold, silenceDuration]);
 
   // Start energy detection and enable native VAD when active
@@ -69,15 +71,11 @@ export function useVADRecording({
     if (isVADActive && !isActive && !isManualRecording) {
       console.log('🎯 VAD mode activated - native VAD takes over');
       void startEnergyDetection().then(() => {
-        if (MicrophoneEnergyModule.enableVAD) {
-          void MicrophoneEnergyModule.enableVAD();
-        }
+        void MicrophoneEnergyModule.enableVAD();
       });
     } else if (!isVADActive && isActive) {
       console.log('🎯 VAD mode deactivated');
-      if (MicrophoneEnergyModule.disableVAD) {
-        void MicrophoneEnergyModule.disableVAD();
-      }
+      void MicrophoneEnergyModule.disableVAD();
       void stopEnergyDetection();
     }
   }, [
@@ -95,6 +93,23 @@ export function useVADRecording({
       () => {
         console.log('🎬 Native VAD: Segment starting');
         setIsRecording(true);
+        segmentStartTimeRef.current = Date.now();
+
+        // Set a timeout to clean up if segment never completes (e.g., discarded for being too short)
+        // Timeout is generously long (10 seconds) to avoid false positives
+        if (segmentTimeoutRef.current) {
+          clearTimeout(segmentTimeoutRef.current);
+        }
+        segmentTimeoutRef.current = setTimeout(() => {
+          if (segmentStartTimeRef.current) {
+            console.log('⚠️ Native VAD: Segment timeout - likely discarded, cleaning up');
+            setIsRecording(false);
+            segmentStartTimeRef.current = null;
+            // Notify parent with empty URI to trigger cleanup
+            onSegmentCompleteRef.current('');
+          }
+        }, 10000);
+
         onSegmentStartRef.current();
       }
     );
@@ -108,6 +123,14 @@ export function useVADRecording({
           payload.uri,
           `(${payload.duration}ms)`
         );
+
+        // Clear timeout since we got a proper completion
+        if (segmentTimeoutRef.current) {
+          clearTimeout(segmentTimeoutRef.current);
+          segmentTimeoutRef.current = null;
+        }
+        segmentStartTimeRef.current = null;
+
         setIsRecording(false);
         onSegmentCompleteRef.current(payload.uri);
       }
@@ -116,6 +139,9 @@ export function useVADRecording({
     return () => {
       segmentStartSubscription.remove();
       segmentCompleteSubscription.remove();
+      if (segmentTimeoutRef.current) {
+        clearTimeout(segmentTimeoutRef.current);
+      }
     };
   }, []);
 
