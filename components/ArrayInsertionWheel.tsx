@@ -3,6 +3,7 @@ import WheelPicker from '@quidone/react-native-wheel-picker';
 import { ArrowDownNarrowWide, Mic } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
+import ArrayInsertionWheelContainer from './ArrayInsertionWheelContainer';
 import { Icon } from './ui/icon';
 
 export interface ArrayInsertionWheelHandle {
@@ -145,6 +146,9 @@ function ArrayInsertionWheelInternal(
         // Constrain height to an exact multiple of rowHeight so overlay aligns
         style={{ height: wheelHeight }}
         renderItem={renderItem}
+        renderItemContainer={({ key, ...props }) => (
+          <ArrayInsertionWheelContainer key={key} {...props} />
+        )}
         renderOverlay={() => (
           <View
             pointerEvents="none"
