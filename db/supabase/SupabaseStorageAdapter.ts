@@ -53,7 +53,6 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       .from(AppConfig.supabaseBucket)
       .download(filePath);
     if (error) {
-      console.log('downloadFile error', error);
       throw error;
     }
 
