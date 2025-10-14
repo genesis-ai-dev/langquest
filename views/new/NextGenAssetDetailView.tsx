@@ -91,7 +91,7 @@ export default function NextGenAssetDetailView() {
     if (!currentAssetId) return;
 
     // Load attachments for audio support
-    void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
+    // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
   }, [currentAssetId]);
 
   // Get project info for target language and privacy
