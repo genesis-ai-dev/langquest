@@ -87,12 +87,12 @@ export default function NextGenAssetDetailView() {
   } = useNextGenOfflineAsset(currentAssetId || '');
 
   // Load asset attachments when asset ID changes
-  useEffect(() => {
-    if (!currentAssetId) return;
+  // useEffect(() => {
+  //   if (!currentAssetId) return;
 
-    // Load attachments for audio support
-    // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
-  }, [currentAssetId]);
+  //   // Load attachments for audio support
+  //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
+  // }, [currentAssetId]);
 
   // Get project info for target language and privacy
   const { data: projectData } = useQuery({
