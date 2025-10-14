@@ -26,7 +26,6 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -327,7 +326,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     void stopCurrentSound();
   }, []); // Only run on mount
 
-  // Keep insertionIndex in valid range (but don't auto-advance during recording)
+  // Keep insertionIndex in valid range (but don't auto-advance during recording or VAD mode)
   const prevAssetsLengthRef = React.useRef(assets.length);
   const isRecordingOperationRef = React.useRef(false);
 
@@ -344,6 +343,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       return;
     }
 
+    // Don't auto-adjust during VAD mode - insertion stays locked at end
+    if (isVADLocked) {
+      return;
+    }
+
     // Case 1: List grew and we were at the old end -> move to new end
     // (Only for non-recording operations like external additions)
     if (newLength > prevLength && insertionIndex === prevLength) {
@@ -355,7 +359,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       console.log('📍 Clamping insertion index to:', newLength);
       setInsertionIndex(newLength);
     }
-  }, [assets.length, insertionIndex]);
+  }, [assets.length, insertionIndex, isVADLocked]);
 
   const handleInsertionChange = React.useCallback((newIndex: number) => {
     setInsertionIndex(newIndex);
@@ -571,10 +575,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         // 1. Add optimistic asset immediately
         const tempId = uuid.v4() + '_optimistic';
 
-        // Generate name based on highest existing asset number, not position
-        const assetName = getNextAssetName(assets);
+        // Generate name based on order_index (deterministic), not assets.length (racy)
+        // In VAD mode, order_index IS the sequential number, so use it directly
+        const assetName = String(targetOrder + 1).padStart(3, '0');
         console.log(
-          `🏷️  Generated name: ${assetName} (from ${assets.length} existing assets)`
+          `🏷️  Generated name: ${assetName} (from order_index ${targetOrder})`
         );
 
         const optimisticAsset: OptimisticAsset = {
@@ -587,24 +592,28 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         };
 
         addOptimistic(optimisticAsset);
+        console.log(
+          '✨ Optimistic asset added:',
+          assetName,
+          'at order_index',
+          targetOrder
+        );
 
-        // 2. Remove pending card after a small delay to ensure it was visible
-        // This gives React time to render the pending card before removing it
+        // 2. Remove pending card immediately after optimistic is added
+        // React batches state updates, so both happen in same render cycle
         const pendingTempId = currentRecordingTempIdRef.current;
-        setTimeout(() => {
-          if (pendingTempId) {
-            console.log('🧹 Removing pending card:', pendingTempId);
-            removePending(pendingTempId);
-            currentRecordingTempIdRef.current = null; // Clear it
-            vadPendingCardRef.current = null; // Also clear VAD ref
-          } else {
-            console.warn(
-              '⚠️ No pending tempId found, cleaning all pending cards'
-            );
-            removePending(null); // Fallback: remove all recording/saving cards
-            vadPendingCardRef.current = null; // Clear VAD ref anyway
-          }
-        }, 100); // Small delay ensures UI renders the pending card
+        if (pendingTempId) {
+          console.log('🧹 Removing pending card:', pendingTempId);
+          removePending(pendingTempId);
+          currentRecordingTempIdRef.current = null;
+          vadPendingCardRef.current = null;
+        } else {
+          console.warn(
+            '⚠️ No pending tempId found, cleaning all pending cards'
+          );
+          removePending(null); // Fallback: remove all recording/saving cards
+          vadPendingCardRef.current = null;
+        }
 
         // 3. Save to database in background
         if (!newId) {
@@ -622,7 +631,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         // This ensures VAD segments are written in speech order, not completion order
         dbWriteQueueRef.current = dbWriteQueueRef.current
           .then(async () => {
-            console.log(`🔒 DB write starting for order_index ${targetOrder}`);
+            console.log(
+              `🔒 DB write starting | order_index: ${targetOrder} | name: ${assetName}`
+            );
 
             await system.db.transaction(async (tx) => {
               const linkLocal = resolveTable('quest_asset_link', {
@@ -707,10 +718,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             });
 
             console.log(
-              '✅ Asset saved to database:',
-              newId,
-              'at order_index:',
-              targetOrder
+              `✅ DB write complete | order_index: ${targetOrder} | name: ${assetName} | id: ${newId.slice(0, 8)}`
             );
           })
           .catch((err) => {
@@ -730,16 +738,18 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           addAssetDuration(newId, _duration);
         }
 
-        // 6. Remove optimistic asset
-        removeOptimistic(newId);
-
-        // 7. Invalidate queries
+        // 6. Invalidate queries first (before removing optimistic)
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
           exact: false
         });
 
         console.log('✅ Queries invalidated, asset should appear now');
+
+        // 7. Remove optimistic asset after a delay to ensure real asset has appeared
+        setTimeout(() => {
+          removeOptimistic(newId);
+        }, 150);
 
         // 8. Reset recording operation flag after a delay
         // This allows the list to settle before re-enabling auto-adjustments
@@ -819,8 +829,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }, [isVADLocked, assets]);
 
   const handleVADSegmentStart = React.useCallback(() => {
-    console.log('🎬 Native VAD: Segment starting - creating pending card');
-
     // Counter should always be initialized by effect before VAD recording starts
     // But keep safety check to prevent crashes
     if (vadSequentialCounterRef.current === null) {
@@ -831,6 +839,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     const targetOrder = vadSequentialCounterRef.current;
     const visualPos = assets.length; // Visual position (for UI only)
+
+    console.log(
+      '🎬 VAD: Segment starting | order_index:',
+      targetOrder,
+      '| name will be:',
+      String(targetOrder + 1).padStart(3, '0')
+    );
 
     const tempId = createPendingCard(visualPos);
 
@@ -843,23 +858,33 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       vadSequentialCounterRef.current = targetOrder + 1;
 
       console.log(
-        '📝 Native VAD: Pending card created:',
-        tempId,
-        'at order_index:',
-        targetOrder,
-        '(next will be:',
-        vadSequentialCounterRef.current + ')'
+        '📝 VAD: Pending card created:',
+        tempId.slice(0, 8),
+        '| next order_index:',
+        vadSequentialCounterRef.current
       );
     }
   }, [assets, createPendingCard]);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
-      console.log('📼 VAD segment complete from native module:', uri);
+      const orderIndex = currentRecordingOrderRef.current;
+      const assetName = String(orderIndex + 1).padStart(3, '0');
+
+      console.log(
+        '📼 VAD: Segment complete | order_index:',
+        orderIndex,
+        '| name:',
+        assetName,
+        '| uri:',
+        uri.slice(0, 60) + '...'
+      );
 
       // If URI is empty, segment was discarded - just clean up
       if (!uri || uri === '') {
-        console.log('🗑️ VAD segment discarded, cleaning up pending card');
+        console.log(
+          '🗑️ VAD: Segment discarded (too short), cleaning up pending card'
+        );
         const pendingTempId = currentRecordingTempIdRef.current;
         if (pendingTempId) {
           removePending(pendingTempId);
