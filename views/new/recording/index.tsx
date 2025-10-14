@@ -1121,8 +1121,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           // Calculate total duration for all segments
           let totalDuration = 0;
           for (const uri of uris) {
-            if (controller.signal.aborted) break;
-
             try {
               const { sound } = await Audio.Sound.createAsync({ uri });
               const status = await sound.getStatusAsync();
@@ -1136,7 +1134,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             }
           }
 
-          if (totalDuration > 0 && !controller.signal.aborted) {
+          if (totalDuration > 0) {
             newDurations.set(asset.id, totalDuration);
           }
         } catch (err) {

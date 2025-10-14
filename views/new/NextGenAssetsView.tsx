@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
-import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -39,6 +38,7 @@ import { useHybridData } from './useHybridData';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 // Recording UI moved into RecordingView component
+import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useHasUserReported } from '@/hooks/useReports';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
@@ -478,13 +478,13 @@ export default function NextGenAssetsView() {
         )}
 
       {isLoading ? (
-        searchQuery ? (
+        searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />
             <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
           </View>
         ) : (
-          <ProjectListSkeleton />
+          <AssetListSkeleton />
         )
       ) : (
         <LegendList

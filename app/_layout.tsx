@@ -1,5 +1,5 @@
 import '@/global.css';
-import { Platform } from 'react-native';
+import { LogBox, Platform } from 'react-native';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -35,6 +35,8 @@ configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
   strict: false // Disables warnings with nativewind animations
 });
+
+LogBox.ignoreAllLogs();
 
 export const NAV_THEME = {
   light: {
