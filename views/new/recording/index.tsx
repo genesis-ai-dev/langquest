@@ -29,11 +29,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
-import {
-  deleteFile,
-  getLocalAttachmentUriOPFS,
-  saveAudioLocally
-} from '@/utils/fileUtils';
+import { deleteFile, getLocalUri, saveAudioLocally } from '@/utils/fileUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns, gte } from 'drizzle-orm';
@@ -55,6 +51,7 @@ import type { OptimisticAsset } from './hooks/useOptimisticAssets';
 import { useOptimisticAssets } from './hooks/useOptimisticAssets';
 import { useRecordingState } from './hooks/useRecordingState';
 import { useSelectionMode } from './hooks/useSelectionMode';
+import { useVADRecording } from './hooks/useVADRecording';
 import { useVADRecording } from './hooks/useVADRecording';
 
 interface RecordingViewProps {
@@ -882,7 +879,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           query
             .flatMap((content) => content.audio)
             .filter(Boolean)
-            .map(getLocalAttachmentUriOPFS)
+            .map(getLocalAttachmentUriWithOPFS)
         );
 
         console.log('uris', uris);
@@ -1265,9 +1262,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           return null;
         }
 
-        const uri = system.permAttachmentQueue.getLocalUri(
-          attachment.local_uri
-        );
+        const uri = getLocalUri(attachment.local_uri);
         console.log(
           '📎 Got segment URI:',
           uri ? 'success' : 'failed',

@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -465,8 +465,7 @@ export default function NextGenAssetDetailView() {
                         return null;
                       }
 
-                      const fullUri =
-                        system.permAttachmentQueue?.getLocalUri(localUri);
+                      const fullUri = getLocalUri(localUri);
                       console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
                       return fullUri;
                     })

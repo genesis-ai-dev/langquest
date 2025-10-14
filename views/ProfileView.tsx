@@ -169,8 +169,9 @@ export default function ProfileView() {
       await system.powersync.execute(
         `DELETE FROM attachments WHERE state <> ${AttachmentState.SYNCED} OR state <> ${AttachmentState.ARCHIVED}`
       );
-      await deleteIfExists(getLocalUri(getLocalFilePathSuffix('')));
-      await ensureDir(getLocalUri(getLocalFilePathSuffix('')));
+      const path = getLocalFilePathSuffix('local');
+      await deleteIfExists(getLocalUri(path));
+      await ensureDir(getLocalUri(path));
       await system.permAttachmentQueue?.init();
     }
   });

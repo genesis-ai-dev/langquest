@@ -4,7 +4,6 @@ import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useStatusContext } from '@/contexts/StatusContext';
-import { system } from '@/db/powersync/system';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -12,6 +11,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import {
@@ -94,11 +94,8 @@ export default function NextGenTranslationsList({
 
   const getAudioSegments = (asset: WithSource<AssetWithVoteCount>) => {
     if (!asset.audio) return undefined;
-    const localUris = asset.audio.map(
-      (c) =>
-        system.permAttachmentQueue?.getLocalUri(
-          attachmentStates.get(c)?.local_uri ?? ''
-        ) ?? ''
+    const localUris = asset.audio.map((c) =>
+      getLocalUri(attachmentStates.get(c)?.local_uri ?? '')
     );
     return localUris;
   };
