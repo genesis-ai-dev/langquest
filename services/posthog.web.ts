@@ -4,7 +4,7 @@ import posthog from 'posthog-js';
 function isDevEnvironment() {
   // __DEV__ may or may not exist on web
   const isDevFlag = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
-  return process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || isDevFlag;
+  return isDevFlag;
 }
 
 function isDisabled(): boolean {

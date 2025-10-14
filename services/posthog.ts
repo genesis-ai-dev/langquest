@@ -14,7 +14,6 @@ const createPostHogInstance = (optIn = false) => {
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,
     disabled:
-      process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
       __DEV__ ||
       !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
       !process.env.EXPO_PUBLIC_POSTHOG_KEY,

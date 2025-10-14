@@ -522,7 +522,7 @@ export default function AppDrawer({
   }
 
   // Add logout for development
-  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || __DEV__) {
+  if (__DEV__) {
     drawerItems.push({
       name: t('logOut'),
       icon: LogOutIcon,
