@@ -52,7 +52,6 @@ import { useOptimisticAssets } from './hooks/useOptimisticAssets';
 import { useRecordingState } from './hooks/useRecordingState';
 import { useSelectionMode } from './hooks/useSelectionMode';
 import { useVADRecording } from './hooks/useVADRecording';
-import { useVADRecording } from './hooks/useVADRecording';
 
 interface RecordingViewProps {
   onBack: () => void;
