@@ -20,6 +20,7 @@ interface RecordingControlsProps {
     duration: number,
     waveformData: number[]
   ) => void;
+  onRecordingDiscarded?: () => void;
   onLayout?: (height: number) => void;
   // VAD props
   isVADLocked?: boolean;
@@ -35,6 +36,7 @@ export const RecordingControls = React.memo(function RecordingControls({
   onRecordingStart,
   onRecordingStop,
   onRecordingComplete,
+  onRecordingDiscarded,
   onLayout,
   isVADLocked,
   onVADLockChange,
@@ -65,6 +67,7 @@ export const RecordingControls = React.memo(function RecordingControls({
           onRecordingComplete={onRecordingComplete}
           onRecordingStart={onRecordingStart}
           onRecordingStop={onRecordingStop}
+          onRecordingDiscarded={onRecordingDiscarded}
           onWaveformUpdate={undefined}
           isRecording={isRecording}
           isVADLocked={isVADLocked}

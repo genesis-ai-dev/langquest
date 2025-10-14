@@ -21,6 +21,7 @@ interface WalkieTalkieRecorderProps {
   ) => void;
   onRecordingStart: () => void;
   onRecordingStop: () => void;
+  onRecordingDiscarded?: () => void; // Called when recording is too short
   onWaveformUpdate?: (waveformData: number[]) => void;
   isRecording: boolean;
   // VAD mode props (native module handles recording, this is just for UI)
@@ -35,6 +36,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onRecordingComplete,
   onRecordingStart,
   onRecordingStop,
+  onRecordingDiscarded,
   onWaveformUpdate,
   isRecording,
   isVADLocked = false,
@@ -53,6 +55,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const [isPressed, setIsPressed] = useState(false);
   const [canRecord, setCanRecord] = useState(false);
   const [isActivating, setIsActivating] = useState(false); // Holding to activate
+  const [isSlideGestureActive, setIsSlideGestureActive] = useState(false); // Track if user is sliding
 
   // Live waveform display capacity (side-scrolling window)
   const LIVE_BAR_CAPACITY = 60;
@@ -97,20 +100,42 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const SLIDE_THRESHOLD = 120; // Distance to slide before locking (in pixels)
   const LOCK_HAPTIC_THRESHOLD = 100; // When to provide haptic feedback
 
+  // Store current prop values in refs for pan responder access
+  const isVADLockedRef = useRef(isVADLocked);
+  const isRecordingRef = useRef(isRecording);
+
+  useEffect(() => {
+    isVADLockedRef.current = isVADLocked;
+    isRecordingRef.current = isRecording;
+  }, [isVADLocked, isRecording]);
+
   // Pan responder for slide-to-lock gesture
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !isVADLocked,
+      onStartShouldSetPanResponder: () =>
+        !isVADLockedRef.current && !isRecordingRef.current,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         // Only capture horizontal slides (more horizontal than vertical)
+        // Disable sliding if recording has started (activation complete)
         return (
-          !isVADLocked &&
+          !isVADLockedRef.current &&
+          !isRecordingRef.current &&
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
           Math.abs(gestureState.dx) > 5
         );
       },
       onPanResponderGrant: () => {
         setIsSliding(true);
+        setIsSlideGestureActive(true);
+
+        // Cancel any pending activation timer if user starts sliding
+        if (activationTimer.current) {
+          clearTimeout(activationTimer.current);
+          activationTimer.current = null;
+        }
+        setIsActivating(false);
+        activationProgress.setValue(0);
+
         // Pulse the lock indicator
         Animated.sequence([
           Animated.timing(lockOpacity, {
@@ -132,6 +157,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       },
       onPanResponderRelease: (_, gestureState) => {
         setIsSliding(false);
+
+        // Reset slide gesture flag after a short delay
+        setTimeout(() => {
+          setIsSlideGestureActive(false);
+        }, 100);
 
         // If slid far enough, lock into VAD mode
         if (gestureState.dx >= SLIDE_THRESHOLD) {
@@ -155,7 +185,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             useNativeDriver: true
           }).start();
         } else {
-          // Snap back to start
+          // Snap back to start - slide cancelled, don't trigger recording
           Animated.spring(slideX, {
             toValue: 0,
             useNativeDriver: true,
@@ -173,6 +203,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       onPanResponderTerminate: () => {
         // If gesture is interrupted, snap back
         setIsSliding(false);
+        setIsSlideGestureActive(false);
         Animated.spring(slideX, {
           toValue: 0,
           useNativeDriver: true
@@ -372,16 +403,26 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       if (!status) {
         console.warn('⚠️ Recording no longer exists, skipping stop');
         setRecording(null);
+        // Notify parent that recording has stopped
+        onRecordingStop();
         return;
       }
 
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
 
-      if (uri && recordingDuration >= MIN_RECORDING_DURATION) {
-        // Use the actual recorded samples (no mock bars, natural length variation)
-        const waveformData = [...recordedSamples];
-        onRecordingComplete(uri, recordingDuration, waveformData);
+      if (uri) {
+        if (recordingDuration >= MIN_RECORDING_DURATION) {
+          // Use the actual recorded samples (no mock bars, natural length variation)
+          const waveformData = [...recordedSamples];
+          onRecordingComplete(uri, recordingDuration, waveformData);
+        } else {
+          console.log(
+            `⏭️ Recording too short (${recordingDuration}ms), discarding`
+          );
+          // Notify parent to clean up the pending card
+          onRecordingDiscarded?.();
+        }
       }
 
       setRecording(null);
@@ -389,6 +430,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecordedSamples([]);
       // Reset waveform to full set of bars at 0 volume
       setRealTimeWaveform(new Array(LIVE_BAR_CAPACITY).fill(0.01));
+
+      // Notify parent that recording has stopped
       onRecordingStop();
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -397,6 +440,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecordingDuration(0);
       setRecordedSamples([]);
       setRealTimeWaveform(new Array(LIVE_BAR_CAPACITY).fill(0.01));
+
+      // Notify parent that recording has stopped
+      onRecordingStop();
     }
   };
 
@@ -404,6 +450,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     // Disable manual recording when VAD is locked
     if (isVADLocked) {
       console.log('🔒 VAD mode is locked - manual recording disabled');
+      return;
+    }
+
+    // Don't start recording if user is sliding
+    if (isSlideGestureActive) {
+      console.log('🔒 Slide gesture active - ignoring press');
       return;
     }
 
@@ -442,6 +494,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   const handlePressOut = () => {
     if (!isPressed) return;
+
+    // If a slide gesture was/is active, don't process recording logic
+    if (isSlideGestureActive) {
+      console.log('🔒 Slide gesture was active - ignoring press out');
+      setIsPressed(false);
+
+      // Reset progress animation
+      activationProgress.setValue(0);
+
+      // Scale back up animation
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true
+      }).start();
+
+      return;
+    }
 
     // Light haptic feedback on release
     void mediumHaptic();

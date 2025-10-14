@@ -530,6 +530,17 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isStartingRecordingRef.current = false;
   }, [stopRecording]);
 
+  const handleRecordingDiscarded = React.useCallback(() => {
+    console.log('🗑️ Recording discarded (too short), cleaning up pending card');
+    // Clean up the pending card
+    const pendingTempId = currentRecordingTempIdRef.current;
+    if (pendingTempId) {
+      removePending(pendingTempId);
+      currentRecordingTempIdRef.current = null;
+      vadPendingCardRef.current = null;
+    }
+  }, [removePending]);
+
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
       const newId = uuid.v4();
@@ -846,10 +857,22 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     (uri: string) => {
       console.log('📼 VAD segment complete from native module:', uri);
 
+      // If URI is empty, segment was discarded - just clean up
+      if (!uri || uri === '') {
+        console.log('🗑️ VAD segment discarded, cleaning up pending card');
+        const pendingTempId = currentRecordingTempIdRef.current;
+        if (pendingTempId) {
+          removePending(pendingTempId);
+          currentRecordingTempIdRef.current = null;
+          vadPendingCardRef.current = null;
+        }
+        return;
+      }
+
       // Save the complete audio file (native module already captured it)
       void handleRecordingComplete(uri, 0, []); // Duration will be read from file
     },
-    [handleRecordingComplete]
+    [handleRecordingComplete, removePending]
   );
 
   // VAD recording hook - native module does all recording, we just listen
@@ -1746,6 +1769,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             onRecordingStart={handleRecordingStart}
             onRecordingStop={handleRecordingStop}
             onRecordingComplete={handleRecordingComplete}
+            onRecordingDiscarded={handleRecordingDiscarded}
             onLayout={setFooterHeight}
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}

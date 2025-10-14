@@ -100,9 +100,8 @@ const Button = React.forwardRef<
       <Pressable
         className={cn(
           'flex flex-row items-center gap-2',
-          props.disabled ||
-            (props.loading &&
-              'opacity-50 web:pointer-events-none web:cursor-default'),
+          (props.disabled || props.loading) &&
+            'opacity-50 web:pointer-events-none web:cursor-default',
           buttonVariants({ variant, size, className })
         )}
         ref={ref}
