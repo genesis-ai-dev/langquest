@@ -1,6 +1,8 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { ProjectStatus } from '../types';
@@ -27,7 +29,8 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
         columns: {
           private: true,
           active: true,
-          visible: true
+          visible: true,
+          source: true
         },
         where: eq(project.id, projectId)
       })
@@ -54,14 +57,19 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
 
 export async function updateProjectStatus(
   projectId: string,
-  status: Partial<Pick<ProjectStatus, 'private' | 'active' | 'visible'>>
+  status: Partial<Pick<ProjectStatus, 'private' | 'active' | 'visible'>>,
+  projectSource: HybridDataSource
 ) {
   const { db } = system;
 
   console.log('[UpdateProjectStatus]', status);
 
+  const resolvedProject = resolveTable(
+    'project',
+    localSourceOverrideOptions(projectSource)
+  );
   return await db
-    .update(project)
-    .set({ ...status, last_updated: new Date().toISOString() })
-    .where(eq(project.id, projectId));
+    .update(resolvedProject)
+    .set({ ...status })
+    .where(eq(resolvedProject.id, projectId));
 }

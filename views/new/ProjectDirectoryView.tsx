@@ -43,11 +43,12 @@ import { useHasUserReported } from '@/hooks/db/useReports';
 import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import {
   ArrowLeftIcon,
   FlagIcon,
@@ -74,9 +75,7 @@ export default function ProjectDirectoryView() {
 
   // Fallback: If template is not in navigation state, fetch project
   // This handles cases like direct navigation or refresh
-  const { project, isProjectLoading } = useProjectById(
-    currentProjectTemplate === undefined ? currentProjectId : undefined
-  );
+  const { project, isProjectLoading } = useProjectById(currentProjectId);
 
   // Use template from navigation state, or fall back to fetched project
   const template =
@@ -135,6 +134,8 @@ export default function ProjectDirectoryView() {
     'projects',
     currentUser!.id
   );
+
+  const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   // Only fetch quests for non-Bible projects
   const shouldFetchQuests = template !== 'bible';
 
@@ -148,15 +149,22 @@ export default function ProjectDirectoryView() {
           name: true,
           description: true,
           parent_id: true,
-          source: true
+          source: true,
+          visible: true
         },
-        where: and(eq(quest.project_id, currentProjectId!))
+        where: and(
+          eq(quest.project_id, currentProjectId!),
+          or(
+            !showHiddenContent ? eq(quest.visible, true) : undefined,
+            eq(quest.creator_id, currentUser!.id)
+          )
+        )
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
-        .select('id, name, description')
+        .select('id, name, description, parent_id, visible')
         .eq('project_id', currentProjectId)
         .overrideTypes<
           { id: string; name: string; description: string; parent_id: string }[]
@@ -354,7 +362,7 @@ export default function ProjectDirectoryView() {
           </View>
         </View>
 
-        <View style={{ bottom: 64, right: 16 }} className="absolute">
+        <View style={{ bottom: 24, right: 24 }} className="absolute">
           <SpeedDial>
             <SpeedDialItems>
               {canManageProject ? (
@@ -370,11 +378,13 @@ export default function ProjectDirectoryView() {
                   onPress={() => setShowReportModal(true)}
                 />
               ) : null}
-              <SpeedDialItem
-                icon={UsersIcon}
-                variant="outline"
-                onPress={() => setShowMembershipModal(true)}
-              />
+              {project?.source !== 'local' && (
+                <SpeedDialItem
+                  icon={UsersIcon}
+                  variant="outline"
+                  onPress={() => setShowMembershipModal(true)}
+                />
+              )}
               <SpeedDialItem
                 icon={InfoIcon}
                 variant="outline"

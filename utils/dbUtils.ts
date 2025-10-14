@@ -18,17 +18,6 @@ const {
 
 export { tablesOnly };
 
-const {
-  quest_tag_categories_local: _local,
-  asset_tag_categories_local: _local2,
-  project_closure_local: _local3,
-  quest_closure_local: _local4,
-  quest_aggregates_local: _local5,
-  ...localTablesOnly
-} = drizzleSchemaLocal;
-
-export { localTablesOnly };
-
 // TODO:
 const LOCAL_MODE = false;
 
@@ -38,7 +27,7 @@ type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
 type SyncedKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_synced` &
   keyof typeof drizzleSchemaSynced;
 
-export function sourceLocalOverrideOptions(source: HybridDataSource) {
+export function localSourceOverrideOptions(source: HybridDataSource) {
   return { localOverride: source === 'local' };
 }
 
@@ -95,14 +84,14 @@ export function sortingHelper<
   return orderByOperators[sortOrder](column);
 }
 
-export function blockedContentQuery(profileId: string, contentType: string) {
+export function blockedContentQuery(profileId: string, contentTable: string) {
   return system.db
     .select({ content_id: drizzleSchema.blocked_content.content_id })
     .from(drizzleSchema.blocked_content)
     .where(
       and(
         eq(drizzleSchema.blocked_content.profile_id, profileId),
-        eq(drizzleSchema.blocked_content.content_table, contentType)
+        eq(drizzleSchema.blocked_content.content_table, contentTable)
       )
     );
 }

@@ -6,9 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { WithSource } from '@/utils/dbUtils';
+import { cn } from '@/utils/styleUtils';
 import {
   ChevronDown,
   ChevronRight,
+  EyeOffIcon,
   FolderIcon,
   HardDriveIcon,
   Plus
@@ -44,10 +46,15 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
     quest.id
   );
 
+  console.log('quest', quest);
+
   const Component = hasChildren ? Pressable : View;
   return (
     <View
-      className="flex flex-row items-center gap-1 py-1"
+      className={cn(
+        'flex flex-row items-center gap-1 py-1',
+        !quest.visible && 'opacity-50'
+      )}
       style={{ paddingLeft: depth * 12 }}
     >
       {(depth > 0 || hasChildren) && (
@@ -64,6 +71,9 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         </Component>
       )}
       <View className="flex flex-row items-center gap-2">
+        {!quest.visible && (
+          <Icon as={EyeOffIcon} className="text-muted-foreground" />
+        )}
         {quest.source === 'local' && (
           <Icon as={HardDriveIcon} className="text-muted-foreground" />
         )}
@@ -99,9 +109,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       </Pressable>
       {/* Download status indicator */}
       <View className="ml-2 flex flex-row items-center gap-1">
-        {quest.source === 'local' ? (
-          <Icon as={HardDriveIcon} className="text-muted-foreground" />
-        ) : (
+        {quest.source !== 'local' && (
           <DownloadIndicator
             isFlaggedForDownload={quest.source === 'synced'}
             isLoading={isDownloading}

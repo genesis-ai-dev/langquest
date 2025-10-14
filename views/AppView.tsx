@@ -51,7 +51,6 @@ export default function AppView() {
       case 'projects':
         return <NextGenProjectsView />;
       case 'quests':
-        // return <NextGenQuestsView />;
         return <ProjectDirectoryView />;
       case 'assets':
         return <NextGenAssetsView />;

@@ -1,5 +1,7 @@
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
@@ -23,7 +25,7 @@ export function useAssetStatuses(
   assetId: string,
   questId: string
 ): AssetStatusHook {
-  let full: LayerStatus = { active: true, visible: true };
+  let full: LayerStatus = { active: true, visible: true, source: 'local' };
   let currentQuest: LayerStatus | undefined = undefined;
 
   const {
@@ -66,7 +68,7 @@ export function useAssetStatuses(
     };
   }
 
-  full = assetData[0] ?? { active: true, visible: true };
+  full = assetData[0] ?? { active: true, visible: true, source: 'local' };
 
   const {
     data: assetQuestDataArray = [],
@@ -123,24 +125,34 @@ export async function updateAssetStatus(
   type: AssetStatusUpdate,
   assetId: string,
   status: Partial<Pick<LayerStatus, 'active' | 'visible'>>,
+  assetSource: HybridDataSource,
   questId?: string
 ) {
   const { db } = system;
 
   if (type == 'asset_quest' && questId !== undefined) {
+    const resolvedQuestAssetLink = resolveTable(
+      'quest_asset_link',
+      localSourceOverrideOptions(assetSource)
+    );
     return await db
-      .update(quest_asset_link)
+      .update(resolvedQuestAssetLink)
       .set({ ...status, last_updated: new Date().toISOString() })
       .where(
         and(
-          eq(quest_asset_link.quest_id, questId),
-          eq(quest_asset_link.asset_id, assetId)
+          eq(resolvedQuestAssetLink.quest_id, questId),
+          eq(resolvedQuestAssetLink.asset_id, assetId)
         )
       );
   }
-  if (type == 'asset')
+  if (type == 'asset') {
+    const resolvedAsset = resolveTable(
+      'asset',
+      localSourceOverrideOptions(assetSource)
+    );
     return await db
-      .update(asset)
-      .set({ ...status, last_updated: new Date().toISOString() })
-      .where(eq(asset.id, assetId));
+      .update(resolvedAsset)
+      .set({ ...status })
+      .where(eq(resolvedAsset.id, assetId));
+  }
 }

@@ -1,5 +1,7 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { quest, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import {
   useHybridData,
   useSimpleHybridInfiniteData
@@ -7,7 +9,7 @@ import {
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { keepPreviousData } from '@tanstack/react-query';
 import type { AnyColumn, InferSelectModel } from 'drizzle-orm';
-import { and, asc, desc, eq, isNull, like, notInArray, or } from 'drizzle-orm';
+import { and, asc, desc, eq, like, notInArray, or } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
   convertToFetchConfig,
@@ -416,6 +418,8 @@ export function useInfiniteQuestsByProjectId(
     (c) => c.blocked_id
   );
 
+  const { currentUser } = useAuth();
+
   const {
     data,
     fetchNextPage,
@@ -445,15 +449,12 @@ export function useInfiniteQuestsByProjectId(
               like(quest.description, `%${debouncedSearchQuery}%`)
             )
           : undefined,
-        !showHiddenContent ? eq(quest.visible, true) : undefined,
-        blockContentIds.length > 0
-          ? notInArray(quest.id, blockContentIds)
-          : undefined,
-        blockUserIds.length > 0 &&
-          or(
-            isNull(quest.creator_id),
-            notInArray(quest.creator_id, blockUserIds)
-          )
+        or(
+          !showHiddenContent ? eq(quest.visible, true) : undefined,
+          eq(quest.creator_id, currentUser!.id)
+        ),
+        notInArray(quest.id, blockedContentQuery(currentUser!.id, 'quest')),
+        notInArray(quest.creator_id, blockedUsersQuery(currentUser!.id))
       );
 
       const quests = await system.db.query.quest.findMany({

@@ -1063,8 +1063,14 @@ export function useAssetsByQuest(
         const conditions = [
           isNull(asset.source_asset_id),
           eq(quest_asset_link.quest_id, quest_id),
-          !showHiddenContent && eq(asset.visible, true),
-          !showHiddenContent && eq(quest_asset_link.visible, true),
+          or(
+            !showHiddenContent ? eq(asset.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
+          or(
+            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
           notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
           notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
           searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))

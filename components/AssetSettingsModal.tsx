@@ -94,7 +94,13 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         }
       }
 
-      await updateAssetStatus('asset', assetId, { visible, active }, questId);
+      await updateAssetStatus(
+        'asset',
+        assetId,
+        { visible, active },
+        assetData.source,
+        questId
+      );
       refetch('asset');
 
       layerStatus.setLayerStatus(
@@ -103,7 +109,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
           visible,
           active,
           quest_active: assetQuestData?.active ?? true,
-          quest_visible: assetQuestData?.visible ?? true
+          quest_visible: assetQuestData?.visible ?? true,
+          source: assetData.source
         },
         assetId,
         questId
@@ -154,6 +161,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         'asset_quest',
         assetId,
         { visible, active },
+        assetQuestData.source,
         questId
       );
 
@@ -165,7 +173,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
           visible: assetData?.visible ?? true,
           active: assetData?.active ?? true,
           quest_active: active,
-          quest_visible: visible
+          quest_visible: visible,
+          source: assetQuestData.source
         },
         assetId,
         questId

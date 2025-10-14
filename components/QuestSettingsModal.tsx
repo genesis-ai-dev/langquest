@@ -84,9 +84,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         visible = true;
       }
 
-      await updateQuestStatus(questId, { visible, active });
+      await updateQuestStatus(questId, { visible, active }, questData.source);
       refetch();
-      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
 
       Alert.alert(
         t('success'),
@@ -116,9 +120,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         active = false;
       }
 
-      await updateQuestStatus(questId, { visible, active });
+      await updateQuestStatus(questId, { visible, active }, questData.source);
       refetch();
-      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
 
       // Localization keys:
       // success -> 'Success'

@@ -18,6 +18,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { Language } from '@/store/localStore';
+import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
   useHybridData,
@@ -28,6 +29,7 @@ import { eq } from 'drizzle-orm';
 import {
   BookIcon,
   CrownIcon,
+  EyeOffIcon,
   HardDriveIcon,
   LockIcon,
   UserIcon
@@ -148,7 +150,7 @@ export function ProjectListItem({
         key={project.id}
         onPress={() => goToProjectHelper()}
       >
-        <Card className={className}>
+        <Card className={cn(className, !project.visible && 'opacity-50')}>
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">
@@ -157,6 +159,12 @@ export function ProjectListItem({
                     !!membership ||
                     project.source === 'local') && (
                     <View className="flex flex-row items-center gap-1.5">
+                      {!project.visible && (
+                        <Icon
+                          as={EyeOffIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
                       {project.source === 'local' && (
                         <Icon
                           as={HardDriveIcon}

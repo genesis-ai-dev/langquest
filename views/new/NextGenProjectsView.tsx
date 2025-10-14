@@ -10,7 +10,10 @@ import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
+import {
+  useHybridData,
+  useSimpleHybridInfiniteData
+} from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { and, eq, getTableColumns, like, notInArray, or } from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
@@ -55,6 +58,7 @@ import { templateOptions } from '@/db/constants';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -183,28 +187,11 @@ export default function NextGenProjectsView() {
   // Query for My Projects (user is owner or member)
   const userId = currentUser?.id;
   //   // Query for My Projects (user is owner or member)
-  const myProjectsQuery = useSimpleHybridInfiniteData<Project>(
-    'my-projects',
-    [userId || '', searchQuery], // Include userId and searchQuery in query key
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
-      if (!userId) return [];
-
-      const offset = pageParam * pageSize;
-
-      // Query projects where user is linked through profile_project_link
-      const conditions = [
-        eq(profile_project_link.profile_id, userId),
-        eq(profile_project_link.active, true),
-        !showInvisibleContent && eq(project.visible, true),
-        searchQuery &&
-          or(
-            like(project.name, `%${searchQuery.trim()}%`),
-            like(project.description, `%${searchQuery.trim()}%`)
-          )
-      ];
-
-      const projects = await system.db
+  const myProjectsQuery = useHybridData({
+    dataType: 'my-projects',
+    queryKeyParams: [userId || '', searchQuery],
+    offlineQuery: toCompilableQuery(
+      system.db
         .select({
           ...getTableColumns(project)
         })
@@ -213,18 +200,26 @@ export default function NextGenProjectsView() {
           profile_project_link,
           eq(project.id, profile_project_link.project_id)
         )
-        .where(and(...conditions.filter(Boolean)))
-        .limit(pageSize)
-        .offset(offset);
-
-      return projects;
-    },
-    // Cloud query function
-    async ({ pageParam, pageSize }) => {
+        .where(
+          and(
+            ...[
+              eq(profile_project_link.profile_id, userId!),
+              eq(profile_project_link.active, true),
+              or(
+                !showInvisibleContent ? eq(project.visible, true) : undefined,
+                eq(project.creator_id, currentUser!.id)
+              ),
+              searchQuery &&
+                or(
+                  like(project.name, `%${searchQuery.trim()}%`),
+                  like(project.description, `%${searchQuery.trim()}%`)
+                )
+            ].filter(Boolean)
+          )
+        )
+    ),
+    cloudQueryFn: async () => {
       if (!userId) return [];
-
-      const from = pageParam * pageSize;
-      const to = from + pageSize - 1;
 
       // Query projects where user is creator or member
       let query = system.supabaseConnector.client
@@ -235,23 +230,25 @@ export default function NextGenProjectsView() {
           profile_project_link!inner(profile_id)
         `
         )
-        .eq('profile_project_link.profile_id', userId)
-        .range(from, to);
+        .eq('profile_project_link.profile_id', userId);
+
       if (!showInvisibleContent) query = query.eq('visible', true);
       if (searchQuery.trim())
         query = query.or(
           `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
         );
+
       const { data, error } = await query.overrideTypes<Project[]>();
 
       if (error) throw error;
       return data;
     },
-    20 // pageSize
-  );
+    enableCloudQuery: !!userId,
+    enableOfflineQuery: !!userId
+  });
 
   // Query for All Projects (excluding user's projects)
-  const allProjectsQuery = useSimpleHybridInfiniteData<Project>(
+  const allProjects = useSimpleHybridInfiniteData<Project>(
     'all-projects',
     [userId || '', searchQuery], // Include userId and searchQuery in query key
     // Offline query function
@@ -337,28 +334,32 @@ export default function NextGenProjectsView() {
   );
 
   // Use the appropriate query based on active tab
-  const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjectsQuery;
-  const {
-    data: projects,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading
-  } = currentQuery;
+  const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
+  const { data: projectData, isLoading } = currentQuery;
 
   const data = React.useMemo(() => {
-    const seen = new Set<string>();
-    const deduped: Project[] = [];
-    for (const page of projects.pages) {
-      for (const item of page.data) {
-        if (!seen.has(item.id)) {
-          seen.add(item.id);
-          deduped.push(item);
+    // Handle paginated data (with pages property)
+    if ('pages' in projectData && Array.isArray(projectData.pages)) {
+      const seen = new Set<string>();
+      const deduped: Project[] = [];
+      for (const page of projectData.pages) {
+        for (const item of page.data) {
+          if (!seen.has(item.id)) {
+            seen.add(item.id);
+            deduped.push(item);
+          }
         }
       }
+      return deduped;
     }
-    return deduped;
-  }, [projects.pages]);
+
+    // Handle non-paginated data (array)
+    if (Array.isArray(projectData)) {
+      return projectData;
+    }
+
+    return [];
+  }, [projectData]);
 
   const dimensions = useWindowDimensions();
 
@@ -424,13 +425,13 @@ export default function NextGenProjectsView() {
               />
             )}
             onEndReached={() => {
-              if (hasNextPage && !isFetchingNextPage) {
-                fetchNextPage();
+              if (allProjects.hasNextPage && !allProjects.isFetchingNextPage) {
+                allProjects.fetchNextPage();
               }
             }}
             onEndReachedThreshold={0.5}
             ListFooterComponent={() =>
-              isFetchingNextPage && (
+              allProjects.isFetchingNextPage && (
                 <View className="p-4">
                   <ActivityIndicator
                     size="small"
