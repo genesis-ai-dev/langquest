@@ -41,6 +41,14 @@ alter table asset add column if not exists order_index integer not null default 
 -- Note: asset_project_id_idx already exists from migration 20250919000000_enable_vfs_nesting.sql
 create index if not exists asset_source_asset_id_idx on asset(source_asset_id);
 
+create index if not exists idx_asset_order_index on public.asset(order_index);
+
+create index if not exists idx_asset_project_order on public.asset(project_id, order_index) 
+where project_id is not null;
+
+comment on column public.asset.order_index is 
+'Defines the display order of assets within a quest. Lower values appear first. Default is 0.';
+
 -- Backfill: set asset.project_id for existing rows using first linked quest
 -- Chooses the earliest quest_asset_link per asset (by qal.created_at when available)
 update asset a

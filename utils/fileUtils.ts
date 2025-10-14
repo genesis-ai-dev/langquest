@@ -102,7 +102,7 @@ export function getLocalAttachmentUri(filePath: string) {
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function getLocalAttachmentUriOPFS(filePath: string) {
-  return filePath;
+  return getLocalAttachmentUri(filePath);
 }
 
 export async function saveAudioLocally(uri: string) {

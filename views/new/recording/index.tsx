@@ -17,7 +17,11 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { asset_content_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -25,9 +29,14 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
-import { getLocalAttachmentUriOPFS, saveAudioLocally } from '@/utils/fileUtils';
+import {
+  deleteFile,
+  getLocalAttachmentUriOPFS,
+  saveAudioLocally
+} from '@/utils/fileUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, gte } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
@@ -123,33 +132,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const { data: rawAssets } = useHybridData({
     dataType: 'assets',
     queryKeyParams: [currentQuestId],
-    offlineQuery: `
-      SELECT a.*, qal.quest_id
-      FROM (
-        SELECT *, 'synced' as source FROM asset
-        UNION
-        SELECT *, 'local' as source FROM asset_local
-      ) a
-      INNER JOIN (
-        SELECT * FROM quest_asset_link
-        UNION
-        SELECT * FROM quest_asset_link_local
-      ) qal ON a.id = qal.asset_id
-      WHERE qal.quest_id = '${currentQuestId}'
-      ORDER BY a.order_index ASC, a.created_at ASC
-    `,
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          ...getTableColumns(asset),
+          quest_id: quest_asset_link.quest_id
+        })
+        .from(asset)
+        .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+        .where(eq(quest_asset_link.quest_id, currentQuestId))
+        .orderBy(asc(asset.order_index), asc(asset.created_at))
+    ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest_asset_link')
         .select('asset:asset_id(*)')
-        .eq('quest_id', currentQuestId);
+        .eq('quest_id', currentQuestId)
+        .overrideTypes<QuestAssetJoin[]>();
       if (error) throw error;
 
       // Extract assets from join result
       interface QuestAssetJoin {
         asset: unknown;
       }
-      return (data as QuestAssetJoin[]).map((d) => d.asset).filter(Boolean);
+      return data.map((d) => d.asset).filter(Boolean);
     },
     enableOfflineQuery: true,
     enableCloudQuery: true,
@@ -164,7 +170,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const assets = React.useMemo(() => {
     interface UIAsset {
       id: string;
-      name: string | null;
+      name: string;
       created_at?: string;
       order_index?: number | null;
       source?: string;
@@ -199,12 +205,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
     return withOrderIndex;
   }, [rawAssets, optimisticAssets]);
-
-  // Stable key for asset membership; prevents effects from retriggering on identity-only changes
-  const assetIdsKey = React.useMemo(
-    () => assets.map((a) => a.id).join(','),
-    [assets]
-  );
 
   // Normalize order_index values in database once when assets need initialization
   const hasNormalizedOrderIndexRef = React.useRef(false);
@@ -293,7 +293,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 84;
-  const isWheel = true; // Temporarily disable native wheel to avoid RN Text warning
+  const isWheel = true; //process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
 
   // Animated spacer for insertion point
   const spacerHeight = React.useRef(new Animated.Value(6)).current;
@@ -605,11 +605,11 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
         // SERIALIZE DB WRITES: Queue this transaction to prevent race conditions
         // This ensures VAD segments are written in speech order, not completion order
-        dbWriteQueueRef.current = dbWriteQueueRef.current.then(async () => {
-          console.log(`🔒 DB write starting for order_index ${targetOrder}`);
+        dbWriteQueueRef.current = dbWriteQueueRef.current
+          .then(async () => {
+            console.log(`🔒 DB write starting for order_index ${targetOrder}`);
 
-          await system.db
-            .transaction(async (tx) => {
+            await system.db.transaction(async (tx) => {
               const linkLocal = resolveTable('quest_asset_link', {
                 localOverride: true
               });
@@ -660,11 +660,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                 .values({
                   name: optimisticAsset.name,
                   id: newId,
-                  // order_index: targetOrder,
+                  order_index: targetOrder,
                   source_language_id: currentProject.target_language_id,
                   project_id: currentProjectId, // Required for RLS policies
                   creator_id: currentUser.id,
-                  project_id: currentProject.id,
                   download_profiles: [currentUser.id]
                 })
                 .returning();
@@ -690,51 +689,51 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
                   audio: [localUri],
                   download_profiles: [currentUser.id]
                 });
-
-              console.log(
-                '✅ Asset saved to database:',
-                newId,
-                'at order_index:',
-                targetOrder
-              );
-            })
-            .catch((err) => {
-              console.error(
-                '❌ DB write failed for order_index:',
-                targetOrder,
-                err
-              );
-              throw err; // Re-throw to trigger outer catch
             });
 
-          // Wait for this write to complete before continuing
-          await dbWriteQueueRef.current;
-
-          // 5. Add duration to cache (from recording metadata)
-          if (_duration > 0) {
-            addAssetDuration(newId, _duration);
-          }
-
-          // 6. Remove optimistic asset
-          removeOptimistic(newId);
-
-          // 7. Invalidate queries
-          await queryClient.invalidateQueries({
-            queryKey: ['assets', 'infinite', currentQuestId, ''],
-            exact: false
+            console.log(
+              '✅ Asset saved to database:',
+              newId,
+              'at order_index:',
+              targetOrder
+            );
+          })
+          .catch((err) => {
+            console.error(
+              '❌ DB write failed for order_index:',
+              targetOrder,
+              err
+            );
+            throw err; // Re-throw to trigger outer catch
           });
 
-          console.log('✅ Queries invalidated, asset should appear now');
+        // Wait for this write to complete before continuing
+        await dbWriteQueueRef.current;
 
-          // 8. Reset recording operation flag after a delay
-          // This allows the list to settle before re-enabling auto-adjustments
-          setTimeout(() => {
-            isRecordingOperationRef.current = false;
-            console.log(
-              '🏁 Recording operation complete, re-enabling auto-adjustments'
-            );
-          }, 500);
+        // 5. Add duration to cache (from recording metadata)
+        if (_duration > 0) {
+          addAssetDuration(newId, _duration);
+        }
+
+        // 6. Remove optimistic asset
+        removeOptimistic(newId);
+
+        // 7. Invalidate queries
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'infinite', currentQuestId, ''],
+          exact: false
         });
+
+        console.log('✅ Queries invalidated, asset should appear now');
+
+        // 8. Reset recording operation flag after a delay
+        // This allows the list to settle before re-enabling auto-adjustments
+        setTimeout(() => {
+          isRecordingOperationRef.current = false;
+          console.log(
+            '🏁 Recording operation complete, re-enabling auto-adjustments'
+          );
+        }, 500);
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
 
@@ -1078,7 +1077,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
             audio_id: row.audio?.[0] ?? null
           });
         });
-
         counts.set(asset.id, contents.length);
 
         // Store full segment data for assets with multiple segments
@@ -1094,8 +1092,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     if (assets.length > 0) {
       void loadSegments();
     }
-    // Only re-run when the set of asset IDs changes; avoids loops from identity changes
-  }, [assetIdsKey]);
+  }, [assets]);
 
   // Load durations lazily in background - non-blocking, no infinite loops
   React.useEffect(() => {
@@ -1150,7 +1147,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     })();
 
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
   // Calculate progress percentage for current playing asset
@@ -1222,9 +1218,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         const contentTable = resolveTable('asset_content_link', {
           localOverride: true
         });
-        await system.db
+        const [content] = await system.db
           .delete(contentTable)
-          .where(eq(contentTable.id, segmentId));
+          .where(eq(contentTable.id, segmentId))
+          .returning();
 
         console.log('✅ Segment deleted');
 
@@ -1233,7 +1230,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           queryKey: ['assets'],
           exact: false
         });
-        await system.permAttachmentQueue?.deleteFromQueue(segmentId);
+
+        console.log('🔍 Deleting audio files:', content?.audio);
+        await Promise.all(
+          (content?.audio ?? []).map(async (audio) => {
+            return await deleteFile(await getLocalAttachmentUriOPFS(audio));
+          })
+        );
       } catch (error) {
         console.error('Failed to delete segment:', error);
       }
