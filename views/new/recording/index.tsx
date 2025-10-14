@@ -326,40 +326,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     void stopCurrentSound();
   }, []); // Only run on mount
 
-  // Keep insertionIndex in valid range (but don't auto-advance during recording or VAD mode)
-  const prevAssetsLengthRef = React.useRef(assets.length);
+  // Track if we're in a recording operation to prevent bounds check from interfering
   const isRecordingOperationRef = React.useRef(false);
 
+  // Simple bounds check - clamp insertion index to valid range
   React.useEffect(() => {
-    const prevLength = prevAssetsLengthRef.current;
-    const newLength = assets.length;
+    // Don't adjust during recording operations
+    if (isRecordingOperationRef.current) return;
 
-    // Update ref for next time
-    prevAssetsLengthRef.current = newLength;
-
-    // Don't auto-adjust if we're in the middle of a recording operation
-    // The recording flow handles insertionIndex positioning explicitly
-    if (isRecordingOperationRef.current) {
-      return;
+    const maxIndex = assets.length;
+    if (insertionIndex > maxIndex) {
+      console.log('📍 Clamping insertion index to:', maxIndex);
+      setInsertionIndex(maxIndex);
     }
-
-    // Don't auto-adjust during VAD mode - insertion stays locked at end
-    if (isVADLocked) {
-      return;
-    }
-
-    // Case 1: List grew and we were at the old end -> move to new end
-    // (Only for non-recording operations like external additions)
-    if (newLength > prevLength && insertionIndex === prevLength) {
-      console.log('📍 List grew, moving insertion to new end:', newLength);
-      setInsertionIndex(newLength);
-    }
-    // Case 2: insertionIndex is beyond valid range -> clamp it
-    else if (insertionIndex > newLength) {
-      console.log('📍 Clamping insertion index to:', newLength);
-      setInsertionIndex(newLength);
-    }
-  }, [assets.length, insertionIndex, isVADLocked]);
+  }, [assets.length, insertionIndex]);
 
   const handleInsertionChange = React.useCallback((newIndex: number) => {
     setInsertionIndex(newIndex);
@@ -436,8 +416,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isStartingRecordingRef.current = true;
     console.log('🎬 handleRecordingStart - insertionIndex:', insertionIndex);
 
-    // Mark that we're starting a recording operation
-    // This prevents the useEffect from auto-adjusting insertionIndex
+    // Mark that we're in a recording operation
     isRecordingOperationRef.current = true;
 
     // Clean up any stuck pending cards from previous recordings
@@ -599,21 +578,22 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           targetOrder
         );
 
-        // 2. Remove pending card immediately after optimistic is added
-        // React batches state updates, so both happen in same render cycle
+        // 2. Remove pending card after a small delay to ensure smooth transition
         const pendingTempId = currentRecordingTempIdRef.current;
-        if (pendingTempId) {
-          console.log('🧹 Removing pending card:', pendingTempId);
-          removePending(pendingTempId);
-          currentRecordingTempIdRef.current = null;
-          vadPendingCardRef.current = null;
-        } else {
-          console.warn(
-            '⚠️ No pending tempId found, cleaning all pending cards'
-          );
-          removePending(null); // Fallback: remove all recording/saving cards
-          vadPendingCardRef.current = null;
-        }
+        setTimeout(() => {
+          if (pendingTempId) {
+            console.log('🧹 Removing pending card:', pendingTempId);
+            removePending(pendingTempId);
+            currentRecordingTempIdRef.current = null;
+            vadPendingCardRef.current = null;
+          } else {
+            console.warn(
+              '⚠️ No pending tempId found, cleaning all pending cards'
+            );
+            removePending(null); // Fallback: remove all recording/saving cards
+            vadPendingCardRef.current = null;
+          }
+        }, 100); // Small delay ensures UI renders the pending card
 
         // 3. Save to database in background
         if (!newId) {
@@ -738,26 +718,35 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           addAssetDuration(newId, _duration);
         }
 
-        // 6. Invalidate queries first (before removing optimistic)
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
-          exact: false
-        });
+        // 6. Handle query invalidation based on mode
+        if (isVADLocked) {
+          // In VAD mode: defer invalidation to prevent flashing
+          pendingInvalidationRef.current = true;
+          console.log('⏳ Deferred query invalidation (VAD mode)');
+        } else {
+          // Manual mode: invalidate immediately
+          await queryClient.invalidateQueries({
+            queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+            exact: false
+          });
+          console.log('✅ Queries invalidated, asset should appear now');
+        }
 
-        console.log('✅ Queries invalidated, asset should appear now');
-
-        // 7. Remove optimistic asset after a delay to ensure real asset has appeared
+        // 7. Remove optimistic asset after a small delay
         setTimeout(() => {
           removeOptimistic(newId);
         }, 150);
 
-        // 8. Reset recording operation flag after a delay
-        // This allows the list to settle before re-enabling auto-adjustments
+        // 8. Advance insertion index to after the newly recorded asset (manual mode only)
+        if (!isVADLocked) {
+          setInsertionIndex((prev) => prev + 1);
+          console.log('📍 Advanced insertion index to next position');
+        }
+
+        // 9. Clear recording operation flag after delay to let UI settle
         setTimeout(() => {
           isRecordingOperationRef.current = false;
-          console.log(
-            '🏁 Recording operation complete, re-enabling auto-adjustments'
-          );
+          console.log('🏁 Recording operation complete');
         }, 500);
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
@@ -775,7 +764,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           vadPendingCardRef.current = null; // Also clear VAD ref
         }
 
-        // Reset recording operation flag on error too
+        // Clear recording operation flag on error
         isRecordingOperationRef.current = false;
       }
     },
@@ -789,7 +778,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       removePending,
       removeOptimistic,
       addAssetDuration,
-      queryClient
+      queryClient,
+      isVADLocked
     ]
   );
 
@@ -800,6 +790,9 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // DB write queue to serialize transactions (prevent race conditions)
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
+
+  // Track pending query invalidations (deferred in VAD mode to prevent flashing)
+  const pendingInvalidationRef = React.useRef(false);
 
   // Initialize counter once from actual data
   React.useEffect(() => {
@@ -827,6 +820,28 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       console.log('🎯 VAD counter reset');
     }
   }, [isVADLocked, assets]);
+
+  // Scroll to end when VAD mode activates (once, not on every asset change)
+  React.useEffect(() => {
+    if (isVADLocked) {
+      const endIndex = assets.length;
+      setInsertionIndex(endIndex);
+      listRef.current?.scrollToInsertionIndex(endIndex, true);
+      console.log('📍 VAD activated - scrolled to end');
+    }
+  }, [isVADLocked]); // Only trigger when VAD lock changes, not assets.length
+
+  // Invalidate queries when VAD mode is turned off (deferred invalidation)
+  React.useEffect(() => {
+    if (!isVADLocked && pendingInvalidationRef.current) {
+      console.log('🔄 Running deferred query invalidation');
+      pendingInvalidationRef.current = false;
+      void queryClient.invalidateQueries({
+        queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+        exact: false
+      });
+    }
+  }, [isVADLocked, currentQuestId, queryClient]);
 
   const handleVADSegmentStart = React.useCallback(() => {
     // Counter should always be initialized by effect before VAD recording starts
