@@ -55,7 +55,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     asset.id || '',
     {
       visible: asset.visible && asset.quest_visible,
-      active: asset.active && asset.quest_active
+      active: asset.active && asset.quest_active,
+      source: asset.source
     },
     questId
   );
@@ -67,7 +68,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
         visible: asset.visible,
         active: asset.active,
         quest_active: asset.quest_active,
-        quest_visible: asset.quest_visible
+        quest_visible: asset.quest_visible,
+        source: asset.source
       },
       asset.id,
       questId
