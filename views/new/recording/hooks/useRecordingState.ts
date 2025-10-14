@@ -1,6 +1,6 @@
 /**
  * useRecordingState - Manages recording lifecycle and pending segments
- * 
+ *
  * Handles:
  * - Recording start/stop state
  * - Pending segment tracking
@@ -8,178 +8,182 @@
  */
 
 import React from 'react';
-import { Animated, Easing } from 'react-native';
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import uuid from 'react-native-uuid';
 
 export type PendingStatus = 'recording' | 'saving' | 'ready' | 'error';
 
 export interface PendingSegment {
-    tempId: string;
-    id?: string;
-    name: string;
-    status: PendingStatus;
-    placementIndex: number;
-    duration?: number;
-    uri?: string;
-    createdAt: number;
+  tempId: string;
+  id?: string;
+  name: string;
+  status: PendingStatus;
+  placementIndex: number;
+  duration?: number;
+  uri?: string;
+  createdAt: number;
 }
 
 interface UseRecordingStateReturn {
-    isRecording: boolean;
-    pendingSegments: PendingSegment[];
-    pendingAnimsRef: React.MutableRefObject<
-        Map<string, { opacity: Animated.Value; translateY: Animated.Value }>
-    >;
-    startRecording: (insertionIndex: number) => string;
-    createPendingCard: (insertionIndex: number, name?: string) => string; // Create pending card without starting recording
-    stopRecording: () => void;
-    removePending: (tempId?: string | null) => void;
+  isRecording: boolean;
+  pendingSegments: PendingSegment[];
+  pendingAnimsRef: React.MutableRefObject<
+    Map<
+      string,
+      {
+        opacity: ReturnType<typeof useSharedValue<number>>;
+        translateY: ReturnType<typeof useSharedValue<number>>;
+      }
+    >
+  >;
+  startRecording: (insertionIndex: number) => string;
+  createPendingCard: (insertionIndex: number, name?: string) => string; // Create pending card without starting recording
+  stopRecording: () => void;
+  removePending: (tempId?: string | null) => void;
 }
 
 export function useRecordingState(): UseRecordingStateReturn {
-    const [isRecording, setIsRecording] = React.useState(false);
-    const [pendingSegments, setPendingSegments] = React.useState<PendingSegment[]>([]);
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [pendingSegments, setPendingSegments] = React.useState<
+    PendingSegment[]
+  >([]);
 
-    // Animation refs for pending slide-in
-    const pendingAnimsRef = React.useRef(
-        new Map<string, { opacity: Animated.Value; translateY: Animated.Value }>()
-    );
+  // Animation refs for pending slide-in
+  const pendingAnimsRef = React.useRef(
+    new Map<
+      string,
+      {
+        opacity: ReturnType<typeof useSharedValue<number>>;
+        translateY: ReturnType<typeof useSharedValue<number>>;
+      }
+    >()
+  );
 
-    const startRecording = React.useCallback((insertionIndex: number) => {
-        setIsRecording(true);
+  const startRecording = React.useCallback((insertionIndex: number) => {
+    setIsRecording(true);
 
-        const tempId = uuid.v4() + '_temp';
+    const tempId = uuid.v4() + '_temp';
 
-        // The pending card appears at the insertion boundary
-        // When saved, it will become a real item with order_index = insertionIndex
-        setPendingSegments((prev) => [
-            ...prev,
-            {
-                tempId,
-                name: 'Recording...',
-                status: 'recording' as const,
-                placementIndex: insertionIndex, // Shows at this visual position
-                createdAt: Date.now()
-            }
-        ]);
+    // The pending card appears at the insertion boundary
+    // When saved, it will become a real item with order_index = insertionIndex
+    setPendingSegments((prev) => [
+      ...prev,
+      {
+        tempId,
+        name: 'Recording...',
+        status: 'recording' as const,
+        placementIndex: insertionIndex, // Shows at this visual position
+        createdAt: Date.now()
+      }
+    ]);
 
-        // Slide-in animation for the new pending card
-        try {
-            if (!pendingAnimsRef.current.has(tempId)) {
-                const anims = {
-                    opacity: new Animated.Value(0),
-                    translateY: new Animated.Value(12)
-                };
-                pendingAnimsRef.current.set(tempId, anims);
-                Animated.parallel([
-                    Animated.timing(anims.opacity, {
-                        toValue: 1,
-                        duration: 220,
-                        easing: Easing.out(Easing.cubic),
-                        useNativeDriver: true
-                    }),
-                    Animated.timing(anims.translateY, {
-                        toValue: 0,
-                        duration: 220,
-                        easing: Easing.out(Easing.cubic),
-                        useNativeDriver: true
-                    })
-                ]).start();
-            }
-        } catch {
-            // Animation setup failed, continue without animation
-        }
-
-        return tempId;
-    }, []);
-
-    const createPendingCard = React.useCallback((insertionIndex: number, name = 'Recording...') => {
-        // Create pending card WITHOUT setting isRecording=true (for VAD mode)
-        const tempId = uuid.v4() + '_temp';
-
-        setPendingSegments((prev) => [
-            ...prev,
-            {
-                tempId,
-                name,
-                status: 'recording' as const,
-                placementIndex: insertionIndex,
-                createdAt: Date.now()
-            }
-        ]);
-
-        // Slide-in animation for the new pending card
-        try {
-            if (!pendingAnimsRef.current.has(tempId)) {
-                const anims = {
-                    opacity: new Animated.Value(0),
-                    translateY: new Animated.Value(12)
-                };
-                pendingAnimsRef.current.set(tempId, anims);
-                Animated.parallel([
-                    Animated.timing(anims.opacity, {
-                        toValue: 1,
-                        duration: 220,
-                        easing: Easing.out(Easing.cubic),
-                        useNativeDriver: true
-                    }),
-                    Animated.timing(anims.translateY, {
-                        toValue: 0,
-                        duration: 220,
-                        easing: Easing.out(Easing.cubic),
-                        useNativeDriver: true
-                    })
-                ]).start();
-            }
-        } catch {
-            // Animation setup failed, continue without animation
-        }
-
-        return tempId;
-    }, []);
-
-    const stopRecording = React.useCallback(() => {
-        setIsRecording(false);
-
-        // Freeze most recent recording card into saving state
-        setPendingSegments((prev) => {
-            const next = [...prev];
-            const idx = next.findIndex((p) => p.status === 'recording');
-            if (idx !== -1) {
-                const existing = next[idx];
-                if (!existing) return next;
-                next[idx] = { ...existing, status: 'saving' };
-            }
-            return next;
+    // Slide-in animation for the new pending card
+    try {
+      if (!pendingAnimsRef.current.has(tempId)) {
+        const anims = {
+          opacity: useSharedValue(0),
+          translateY: useSharedValue(12)
+        };
+        pendingAnimsRef.current.set(tempId, anims);
+        anims.opacity.value = withTiming(1, {
+          duration: 220,
+          easing: Easing.out(Easing.cubic)
         });
-    }, []);
+        anims.translateY.value = withTiming(0, {
+          duration: 220,
+          easing: Easing.out(Easing.cubic)
+        });
+      }
+    } catch {
+      // Animation setup failed, continue without animation
+    }
 
-    const removePending = React.useCallback((tempId?: string | null) => {
-        setPendingSegments((prev) =>
-            prev.filter((p) => {
-                if (tempId) return p.tempId !== tempId;
-                // If no tempId provided, remove all recording/saving cards
-                return p.status !== 'recording' && p.status !== 'saving';
-            })
-        );
-    }, []);
+    return tempId;
+  }, []);
 
-    // Cleanup animations for removed pending IDs
-    React.useEffect(() => {
-        const ids = new Set(pendingSegments.map((p) => p.tempId));
-        for (const key of Array.from(pendingAnimsRef.current.keys())) {
-            if (!ids.has(key)) pendingAnimsRef.current.delete(key);
+  const createPendingCard = React.useCallback(
+    (insertionIndex: number, name = 'Recording...') => {
+      // Create pending card WITHOUT setting isRecording=true (for VAD mode)
+      const tempId = uuid.v4() + '_temp';
+
+      setPendingSegments((prev) => [
+        ...prev,
+        {
+          tempId,
+          name,
+          status: 'recording' as const,
+          placementIndex: insertionIndex,
+          createdAt: Date.now()
         }
-    }, [pendingSegments]);
+      ]);
 
-    return {
-        isRecording,
-        pendingSegments,
-        pendingAnimsRef,
-        startRecording,
-        createPendingCard,
-        stopRecording,
-        removePending
-    };
+      // Slide-in animation for the new pending card
+      try {
+        if (!pendingAnimsRef.current.has(tempId)) {
+          const anims = {
+            opacity: useSharedValue(0),
+            translateY: useSharedValue(12)
+          };
+          pendingAnimsRef.current.set(tempId, anims);
+          anims.opacity.value = withTiming(1, {
+            duration: 220,
+            easing: Easing.out(Easing.cubic)
+          });
+          anims.translateY.value = withTiming(0, {
+            duration: 220,
+            easing: Easing.out(Easing.cubic)
+          });
+        }
+      } catch {
+        // Animation setup failed, continue without animation
+      }
+
+      return tempId;
+    },
+    []
+  );
+
+  const stopRecording = React.useCallback(() => {
+    setIsRecording(false);
+
+    // Freeze most recent recording card into saving state
+    setPendingSegments((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((p) => p.status === 'recording');
+      if (idx !== -1) {
+        const existing = next[idx];
+        if (!existing) return next;
+        next[idx] = { ...existing, status: 'saving' };
+      }
+      return next;
+    });
+  }, []);
+
+  const removePending = React.useCallback((tempId?: string | null) => {
+    setPendingSegments((prev) =>
+      prev.filter((p) => {
+        if (tempId) return p.tempId !== tempId;
+        // If no tempId provided, remove all recording/saving cards
+        return p.status !== 'recording' && p.status !== 'saving';
+      })
+    );
+  }, []);
+
+  // Cleanup animations for removed pending IDs
+  React.useEffect(() => {
+    const ids = new Set(pendingSegments.map((p) => p.tempId));
+    for (const key of Array.from(pendingAnimsRef.current.keys())) {
+      if (!ids.has(key)) pendingAnimsRef.current.delete(key);
+    }
+  }, [pendingSegments]);
+
+  return {
+    isRecording,
+    pendingSegments,
+    pendingAnimsRef,
+    startRecording,
+    createPendingCard,
+    stopRecording,
+    removePending
+  };
 }
-

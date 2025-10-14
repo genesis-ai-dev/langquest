@@ -2,18 +2,18 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@/styles/theme';
+import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
+import { LockIcon, LockOpenIcon, MicIcon, XIcon } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   cancelAnimation,
   interpolate,
   interpolateColor,
-  runOnJS,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +21,8 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
+import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
 // Create animated SVG components
@@ -116,7 +118,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     isRecordingRef.current = isRecording;
   }, [isVADLocked, isRecording]);
 
-  // Callbacks wrapped for runOnJS
+  // Callbacks wrapped for scheduleOnRN
   const handleSlideStart = () => {
     setIsSliding(true);
     setIsSlideGestureActive(true);
@@ -153,7 +155,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     .failOffsetY([-10, 10])
     .onStart(() => {
       'worklet';
-      runOnJS(handleSlideStart)();
+      scheduleOnRN(handleSlideStart);
       activationProgress.value = 0;
       lockOpacity.value = withTiming(1, { duration: 150 });
     })
@@ -165,7 +167,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       // Haptic feedback when approaching lock threshold
       if (dx > LOCK_HAPTIC_THRESHOLD && dx < LOCK_HAPTIC_THRESHOLD + 5) {
-        runOnJS(triggerHaptic)();
+        scheduleOnRN(triggerHaptic);
       }
     })
     .onEnd((event) => {
@@ -179,7 +181,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           stiffness: 150
         });
         lockOpacity.value = withTiming(1, { duration: 200 });
-        runOnJS(handleSlideComplete)();
+        scheduleOnRN(handleSlideComplete);
       } else {
         // Snap back to start
         slideX.value = withSpring(0, {
@@ -189,7 +191,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         lockOpacity.value = withTiming(0.3, { duration: 200 });
       }
 
-      runOnJS(handleSlideCancel)();
+      scheduleOnRN(handleSlideCancel);
     })
     .onFinalize(() => {
       'worklet';
@@ -197,7 +199,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       if (slideX.value > 0 && slideX.value < SLIDE_THRESHOLD) {
         slideX.value = withSpring(0);
         lockOpacity.value = withTiming(0.3, { duration: 200 });
-        runOnJS(handleSlideCancel)();
+        scheduleOnRN(handleSlideCancel);
       }
     });
 
@@ -331,6 +333,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       const result = await Audio.Recording.createAsync(options);
       const activeRecording = result.recording;
+      activeRecording.setProgressUpdateInterval(11);
 
       const duration = performance.now() - startTime;
       console.log(`✅ Recording started in ${duration.toFixed(0)}ms`);
@@ -340,37 +343,27 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       onRecordingStart();
 
       // Start monitoring recording status - update more frequently for faster scrolling
-      let lastUpdateTime = 0;
       activeRecording.setOnRecordingStatusUpdate((status) => {
         if (status.isRecording) {
           const duration = status.durationMillis || 0;
           setRecordingDuration(duration);
 
-          // Update waveform every ~11ms (90fps) for much faster scrolling
-          const now = Date.now();
-          if (now - lastUpdateTime >= 11) {
-            lastUpdateTime = now;
-
-            // Use native metering from Expo AV (iOS/Android): status.metering is in dB (approx -160..0)
-            const anyStatus = status as unknown as { metering?: number };
-            if (typeof anyStatus.metering === 'number') {
-              const db = anyStatus.metering;
-              // Convert dB to linear amplitude in [0,1] with better scaling for speech
-              // -60dB is quiet speech, -20dB is normal speech, 0dB is max
-              const normalizedDb = Math.max(-60, Math.min(0, db));
-              const amplitude = Math.pow(10, normalizedDb / 20);
-              appendLiveSample(amplitude);
-            } else {
-              // Fallback: lightweight synthetic animation for platforms without metering
-              const t = duration / 1000;
-              const base = 0.3 + Math.sin(t * 24) * 0.15; // Much faster animation (3x)
-              const noise = (Math.random() - 0.5) * 0.1;
-              const fallbackEnergy = Math.max(
-                0.02,
-                Math.min(0.8, base + noise)
-              );
-              appendLiveSample(fallbackEnergy);
-            }
+          // Use native metering from Expo AV (iOS/Android): status.metering is in dB (approx -160..0)
+          const anyStatus = status as unknown as { metering?: number };
+          if (typeof anyStatus.metering === 'number') {
+            const db = anyStatus.metering;
+            // Convert dB to linear amplitude in [0,1] with better scaling for speech
+            // -60dB is quiet speech, -20dB is normal speech, 0dB is max
+            const normalizedDb = Math.max(-60, Math.min(0, db));
+            const amplitude = Math.pow(10, normalizedDb / 20);
+            appendLiveSample(amplitude);
+          } else {
+            // Fallback: lightweight synthetic animation for platforms without metering
+            const t = duration / 1000;
+            const base = 0.3 + Math.sin(t * 24) * 0.15; // Much faster animation (3x)
+            const noise = (Math.random() - 0.5) * 0.1;
+            const fallbackEnergy = Math.max(0.02, Math.min(0.8, base + noise));
+            appendLiveSample(fallbackEnergy);
           }
         }
       });
@@ -662,9 +655,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       {/* Live waveform visualization when VAD locked */}
       {isVADLocked && (
         <Animated.View
-          style={[styles.waveformContainer, waveformAnimatedStyle]}
+          className="absolute -top-16 items-center gap-1"
+          style={waveformAnimatedStyle}
         >
-          <View style={styles.waveform}>
+          <View className="h-6 flex-row items-center gap-0.5">
             {Array.from({ length: 20 }).map((_, i) => {
               // Create a flowing waveform effect using waveformTime
               const phase = waveformTime + i * 0.5;
@@ -673,13 +667,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               return (
                 <View
                   key={i}
-                  style={[
-                    styles.waveformBar,
-                    {
-                      height: Math.max(2, barHeight * 24),
-                      backgroundColor: getWaveformColor()
-                    }
-                  ]}
+                  className="min-h-[2px] w-[3px] rounded-full"
+                  style={{
+                    height: Math.max(2, barHeight * 24),
+                    backgroundColor: getWaveformColor()
+                  }}
                 />
               );
             })}
@@ -687,14 +679,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         </Animated.View>
       )}
 
-      <View style={styles.slideToLockContainer}>
+      <View className="relative min-h-[100px] w-full flex-row items-center justify-center px-4">
         {/* Lock channel/track on the right */}
         {!isVADLocked && (
           <Animated.View
-            style={[styles.lockChannel, lockIndicatorAnimatedStyle]}
+            className="absolute right-4 flex-row items-center gap-1 rounded-2xl px-3 py-2"
+            style={[
+              { backgroundColor: colors.textSecondary },
+              lockIndicatorAnimatedStyle
+            ]}
           >
-            <Ionicons name="lock-closed" size={24} color={colors.primary} />
-            <Text style={styles.lockChannelText}>
+            <Icon as={LockIcon} className="text-primary-foreground" />
+            <Text className="text-sm font-semibold text-primary">
               {isSliding ? 'Release to lock' : 'Slide →'}
             </Text>
           </Animated.View>
@@ -702,9 +698,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
         {/* Locked indicator with cancel button */}
         {isVADLocked && (
-          <View style={styles.lockedIndicator}>
-            <Ionicons name="lock-closed" size={20} color={colors.primary} />
-            <Text style={styles.lockedText}>VAD Active</Text>
+          <View className="absolute -top-4 flex-row items-center gap-1 rounded-2xl bg-primary px-3 py-1">
+            <Icon as={LockIcon} className="text-primary-foreground" />
+            <Text className="text-sm font-semibold text-primary-foreground">
+              VAD Active
+            </Text>
             <Button
               variant="ghost"
               size="icon"
@@ -712,19 +710,25 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                 console.log('🔓 Cancel VAD mode');
                 onVADLockChange?.(false);
               }}
-              style={styles.cancelButton}
+              className="h-auto w-auto active:bg-transparent"
+              hitSlop={{
+                top: 4,
+                left: 4,
+                bottom: 4,
+                right: 12
+              }}
             >
-              <Ionicons name="close" size={16} color={colors.error} />
+              <Icon as={XIcon} className="text-primary-foreground" />
             </Button>
           </View>
         )}
 
         {/* Button with gesture detector */}
         <GestureDetector gesture={panGesture}>
-          <View style={styles.buttonContainer}>
+          <View className="relative h-[84px] w-[84px] items-center justify-center">
             <Animated.View style={buttonAnimatedStyle}>
               {/* Circular progress indicator */}
-              <View style={styles.progressRing}>
+              <View className="pointer-events-none absolute left-[38.5%] top-1/2 -ml-[42px] -mt-[42px] h-[84px] w-[84px] items-center justify-center">
                 <Svg width="84" height="84" viewBox="0 0 84 84">
                   {/* Background track */}
                   {(isActivating || isRecording) && (
@@ -757,34 +761,24 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               </View>
 
               <Button
-                variant={
-                  isVADLocked
-                    ? 'secondary'
-                    : isRecording
-                      ? 'destructive'
-                      : 'default'
-                }
-                size="icon-xl"
-                style={[
-                  styles.recorderButton,
-                  isRecording && styles.recordingButton,
-                  isVADLocked && styles.lockedButton
-                ]}
+                variant={isRecording ? 'destructive' : 'default'}
+                size="icon-2xl"
+                className={cn(
+                  'items-center justify-center overflow-hidden rounded-full'
+                )}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 disabled={isVADLocked}
               >
-                <Ionicons
-                  name={
-                    isVADLocked
-                      ? 'lock-closed'
-                      : isRecording
-                        ? 'mic'
-                        : 'mic-outline'
-                  }
-                  size={32}
-                  color={colors.background}
-                />
+                {isVADLocked ? (
+                  <Icon
+                    as={LockIcon}
+                    size={24}
+                    className="text-primary-foreground"
+                  />
+                ) : (
+                  <Icon as={MicIcon} size={24} className="text-background" />
+                )}
               </Button>
             </Animated.View>
           </View>
@@ -799,10 +793,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               console.log('🔓 Unlocking VAD mode');
               onVADLockChange?.(false);
             }}
-            style={styles.unlockButton}
+            className="absolute -bottom-16 flex-row items-center gap-1 px-3 py-1"
           >
-            <Ionicons name="lock-open" size={16} color={colors.primary} />
-            <Text style={styles.unlockButtonText}>Unlock</Text>
+            <LockOpenIcon size={16} color={colors.primary} />
+            <Text className="ml-1 text-sm text-primary">Unlock</Text>
           </Button>
         )}
       </View>
@@ -821,136 +815,5 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     </Animated.View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    paddingVertical: spacing.large,
-    borderRadius: 24
-  },
-  waveformContainer: {
-    position: 'absolute',
-    top: -spacing.xlarge - spacing.medium,
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  waveform: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall / 2,
-    height: 24
-  },
-  waveformBar: {
-    width: 3,
-    borderRadius: 1.5,
-    minHeight: 2
-  },
-  preparingText: {
-    fontSize: fontSizes.xsmall,
-    color: colors.primary,
-    fontWeight: '600'
-  },
-  slideToLockContainer: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingHorizontal: spacing.large,
-    minHeight: 100
-  },
-  lockChannel: {
-    position: 'absolute',
-    right: spacing.large,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    borderRadius: 20,
-    backgroundColor: `${colors.textSecondary}`
-  },
-  lockChannelText: {
-    fontSize: fontSizes.small,
-    color: colors.primary,
-    fontWeight: '600'
-  },
-  lockedIndicator: {
-    position: 'absolute',
-    top: -spacing.large,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.xsmall,
-    borderRadius: 16,
-    backgroundColor: `${colors.primary}20`
-  },
-  lockedText: {
-    fontSize: fontSizes.small,
-    color: colors.primary,
-    fontWeight: '600'
-  },
-  cancelButton: {
-    width: 24,
-    height: 24,
-    marginLeft: spacing.xsmall
-  },
-  buttonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: 84,
-    height: 84
-  },
-  progressRing: {
-    position: 'absolute',
-    top: '50%',
-    left: '38.5%',
-    marginTop: -42,
-    marginLeft: -42,
-    width: 84,
-    height: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none'
-  },
-  recorderButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden'
-  },
-  recordingButton: {
-    // Button component handles destructive variant styling
-  },
-  lockedButton: {
-    backgroundColor: colors.primary,
-    opacity: 0.8
-  },
-  unlockButton: {
-    position: 'absolute',
-    bottom: -spacing.xlarge - spacing.medium,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.xsmall
-  },
-  unlockButtonText: {
-    fontSize: fontSizes.small,
-    color: colors.primary,
-    marginLeft: spacing.xsmall
-  },
-  permissionButton: {
-    marginTop: spacing.medium
-  },
-  permissionButtonText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  }
-});
 
 export default WalkieTalkieRecorder;

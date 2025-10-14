@@ -58,7 +58,9 @@ cssInterop(MotiIconImpl, {
     nativeStyleToProp: {
       height: 'size',
       width: 'size',
-      fill: 'fill'
+      fill: 'fill',
+      scaleX: 'scaleX',
+      scaleY: 'scaleY'
     }
   }
 });

@@ -40,7 +40,15 @@ import { and, asc, eq, getTableColumns, gte } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Animated, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
+} from 'react-native-reanimated';
 import uuid from 'react-native-uuid';
 import { useHybridData } from '../useHybridData';
 import { AssetCard } from './components/AssetCard';
@@ -298,27 +306,19 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   const ROW_HEIGHT = 84;
   const isWheel = true; //process.env.EXPO_PUBLIC_USE_NATIVE_WHEEL === '1';
 
-  // Animated spacer for insertion point
-  const spacerHeight = React.useRef(new Animated.Value(6)).current;
-  const spacerPulse = React.useRef(new Animated.Value(0)).current;
+  // Animated spacer for insertion point (using Reanimated)
+  const spacerHeight = useSharedValue(6);
+  const spacerPulse = useSharedValue(0);
 
   React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(spacerPulse, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true
-        }),
-        Animated.timing(spacerPulse, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true
-        })
-      ])
+    spacerPulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 700, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
   }, [spacerPulse]);
 
   // Reset audio playback on mount only
@@ -342,6 +342,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
   }, [assets.length, insertionIndex]);
 
   const handleInsertionChange = React.useCallback((newIndex: number) => {
+    console.log('handleInsertionChange', newIndex);
     setInsertionIndex(newIndex);
   }, []);
 
@@ -438,7 +439,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         hoveredAsset && typeof hoveredAsset.order_index === 'number'
           ? hoveredAsset.order_index
           : insertionIndex;
-      targetOrder = hoveredOrder + 1;
+      targetOrder = hoveredOrder;
       console.log(
         `📍 Hovering over asset at position ${insertionIndex} (order_index: ${hoveredOrder})`
       );
@@ -450,7 +451,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         lastAsset && typeof lastAsset.order_index === 'number'
           ? lastAsset.order_index
           : assets.length - 1;
-      targetOrder = lastOrder + 1;
+      targetOrder = lastOrder;
       console.log(
         `📍 At end position, last asset has order_index: ${lastOrder}`
       );
@@ -472,30 +473,20 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       visualInsertionPos
     );
 
+    console.log('targetOrder', targetOrder);
     // Store for use in handleRecordingComplete
     currentRecordingOrderRef.current = targetOrder;
     currentRecordingTempIdRef.current = tempId;
 
     // Scroll to show the pending card after the hovered asset
-    listRef.current?.scrollToInsertionIndex(visualInsertionPos, true);
+    // listRef.current?.scrollToInsertionIndex(visualInsertionPos, true);
+    setInsertionIndex(visualInsertionPos);
 
     // Briefly expand spacer
-    try {
-      Animated.sequence([
-        Animated.timing(spacerHeight, {
-          toValue: 12,
-          duration: 120,
-          useNativeDriver: false
-        }),
-        Animated.timing(spacerHeight, {
-          toValue: 6,
-          duration: 160,
-          useNativeDriver: false
-        })
-      ]).start();
-    } catch {
-      // ignore animation errors
-    }
+    spacerHeight.value = withSequence(
+      withTiming(12, { duration: 120 }),
+      withTiming(6, { duration: 160 })
+    );
 
     return tempId;
   }, [
@@ -504,7 +495,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     startRecording,
     removePending,
     spacerHeight,
-    isRecording
+    isRecording,
+    isVADLocked
   ]);
 
   const handleRecordingStop = React.useCallback(() => {
@@ -826,7 +818,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     if (isVADLocked) {
       const endIndex = assets.length;
       setInsertionIndex(endIndex);
-      listRef.current?.scrollToInsertionIndex(endIndex, true);
+      // listRef.current?.scrollToInsertionIndex(endIndex, true);
       console.log('📍 VAD activated - scrolled to end');
     }
   }, [isVADLocked]); // Only trigger when VAD lock changes, not assets.length
@@ -1580,24 +1572,25 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // Render spacer
     const renderSpacer = (key: string) => {
       if (isWheel) return null;
-      const scale = spacerPulse.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 1.3]
+
+      const animatedStyle = useAnimatedStyle(() => {
+        const scale = spacerPulse.value * 0.3 + 1;
+        const opacity = spacerPulse.value * 0.4 + 0.6;
+
+        return {
+          height: spacerHeight.value,
+          width: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: [{ scale }],
+          opacity
+        };
       });
-      const opacity = spacerPulse.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.6, 1]
-      });
+
       return (
         <View key={key} className="items-center justify-center">
-          <Animated.View
-            style={{ height: spacerHeight, width: '100%' }}
-            className="items-center justify-center"
-          >
-            <Animated.View
-              style={{ transform: [{ scale }], opacity }}
-              className="h-1.5 w-1.5 rounded-full bg-primary"
-            />
+          <Animated.View style={animatedStyle}>
+            <View className="h-1.5 w-1.5 rounded-full bg-primary" />
           </Animated.View>
         </View>
       );

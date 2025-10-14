@@ -6,7 +6,7 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useDerivedValue,
-  withSpring,
+  withSpring
 } from 'react-native-reanimated';
 
 function Progress({
@@ -20,8 +20,12 @@ function Progress({
   }) {
   return (
     <ProgressPrimitive.Root
-      className={cn('bg-primary/20 relative h-2 w-full overflow-hidden rounded-full', className)}
-      {...props}>
+      className={cn(
+        'relative h-2 w-full overflow-hidden rounded-full bg-primary/20',
+        className
+      )}
+      {...props}
+    >
       <Indicator value={value} className={indicatorClassName} />
     </ProgressPrimitive.Root>
   );
@@ -32,13 +36,13 @@ export { Progress };
 const Indicator = Platform.select({
   web: WebIndicator,
   native: NativeIndicator,
-  default: NullIndicator,
+  default: NullIndicator
 });
 
-type IndicatorProps = {
+interface IndicatorProps {
   value: number | undefined | null;
   className?: string;
-};
+}
 
 function WebIndicator({ value, className }: IndicatorProps) {
   if (Platform.OS !== 'web') {
@@ -47,8 +51,12 @@ function WebIndicator({ value, className }: IndicatorProps) {
 
   return (
     <View
-      className={cn('bg-primary h-full w-full flex-1 transition-all', className)}
-      style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}>
+      className={cn(
+        'h-full w-full flex-1 bg-primary transition-all',
+        className
+      )}
+      style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}
+    >
       <ProgressPrimitive.Indicator className={cn('h-full w-full', className)} />
     </View>
   );
@@ -62,7 +70,7 @@ function NativeIndicator({ value, className }: IndicatorProps) {
       width: withSpring(
         `${interpolate(progress.value, [0, 100], [1, 100], Extrapolation.CLAMP)}%`,
         { overshootClamping: true }
-      ),
+      )
     };
   }, [value]);
 
@@ -72,7 +80,10 @@ function NativeIndicator({ value, className }: IndicatorProps) {
 
   return (
     <ProgressPrimitive.Indicator asChild>
-      <Animated.View style={indicator} className={cn('bg-foreground h-full', className)} />
+      <Animated.View
+        style={indicator}
+        className={cn('h-full rounded-r-full bg-foreground', className)}
+      />
     </ProgressPrimitive.Indicator>
   );
 }
