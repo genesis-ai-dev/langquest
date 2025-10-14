@@ -29,7 +29,12 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { getNextAssetName } from '@/utils/assetNaming';
 import { sortAssets } from '@/utils/assetSorting';
 import { resolveTable } from '@/utils/dbUtils';
-import { deleteFile, getLocalUri, saveAudioLocally } from '@/utils/fileUtils';
+import {
+  deleteFile,
+  getLocalAttachmentUriWithOPFS,
+  getLocalUri,
+  saveAudioLocally
+} from '@/utils/fileUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns, gte } from 'drizzle-orm';
@@ -1233,7 +1238,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         console.log('🔍 Deleting audio files:', content?.audio);
         await Promise.all(
           (content?.audio ?? []).map(async (audio) => {
-            return await deleteFile(await getLocalAttachmentUriOPFS(audio));
+            return deleteFile(getLocalAttachmentUriWithOPFS(audio));
           })
         );
       } catch (error) {
