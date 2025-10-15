@@ -1,4 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { Shimmer } from '@/components/Shimmer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -26,10 +27,17 @@ import {
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
-  bookQuestId: string; // The parent quest ID (the book itself)
 }
 
 type QuestClosure = typeof quest_closure.$inferSelect;
+
+// Simple skeleton for chapter buttons during loading
+const ChapterSkeleton = () => (
+  <View className="w-full flex-col items-center gap-1 rounded-md border border-border bg-muted/50 py-3">
+    <Shimmer width={32} height={24} borderRadius={4} />
+    <Shimmer width={24} height={14} borderRadius={4} />
+  </View>
+);
 
 // Helper component to handle individual chapter download state
 function ChapterButton({
@@ -295,16 +303,15 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
 
         {/* Chapter Grid */}
         {isLoadingChapters ? (
-          <View className="flex-row flex-wrap gap-2">
-            {chapters.slice(0, 6).map((chapter) => (
-              <View
-                key={chapter.id}
-                className="w-[90px] flex-col gap-1 rounded-md border border-border bg-muted/50 py-3"
-              >
-                <ActivityIndicator size="small" color={primaryColor} />
-              </View>
-            ))}
-          </View>
+          <LegendList
+            data={chapters.slice(0, 32)}
+            keyExtractor={(item) => item.id.toString()}
+            numColumns={4}
+            estimatedItemSize={90}
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+            columnWrapperStyle={{ gap: 8 }}
+            renderItem={() => <ChapterSkeleton />}
+          />
         ) : (
           <LegendList
             data={chapters}

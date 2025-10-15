@@ -44,7 +44,6 @@ import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
@@ -59,7 +58,7 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
@@ -90,24 +89,21 @@ export default function ProjectDirectoryView() {
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-  const [bookQuestId, setBookQuestId] = React.useState<string | null>(null);
   const { findOrCreateBook } = useBibleBookCreation();
 
-  // Find/create book quest when a book is selected
+  // Find/create book quest in background when a book is selected
+  // This ensures the book quest exists for other operations, but we don't wait for it
+  // to show chapters since chapters are found via tags, not parent-child relationships
   React.useEffect(() => {
-    if (selectedBook && !bookQuestId && template === 'bible') {
+    if (selectedBook && template === 'bible') {
       findOrCreateBook({
         projectId: currentProjectId!,
         bookId: selectedBook
-      })
-        .then((bookQuest) => {
-          setBookQuestId(bookQuest.id);
-        })
-        .catch((error) => {
-          console.error('Error finding/creating book quest:', error);
-        });
+      }).catch((error: unknown) => {
+        console.error('Error finding/creating book quest:', error);
+      });
     }
-  }, [selectedBook, bookQuestId, currentProjectId, findOrCreateBook, template]);
+  }, [selectedBook, currentProjectId, findOrCreateBook, template]);
 
   type Quest = typeof quest.$inferSelect;
 
@@ -288,16 +284,8 @@ export default function ProjectDirectoryView() {
       );
     }
 
-    // Show chapter list if book selected
-    if (!bookQuestId) {
-      return (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={getThemeColor('primary')} />
-          <Text className="mt-4">Loading book...</Text>
-        </View>
-      );
-    }
-
+    // Show chapter list immediately - it has its own loading states
+    // No need to wait for book quest creation since chapters are found via tags
     return (
       <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
         <Button
@@ -305,7 +293,6 @@ export default function ProjectDirectoryView() {
           size="sm"
           onPress={() => {
             setSelectedBook(null);
-            setBookQuestId(null);
           }}
         >
           <Icon as={ArrowLeftIcon} />
@@ -315,7 +302,6 @@ export default function ProjectDirectoryView() {
           <BibleChapterList
             projectId={currentProjectId!}
             bookId={selectedBook}
-            bookQuestId={bookQuestId}
           />
         </View>
       </View>

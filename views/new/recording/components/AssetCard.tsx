@@ -262,7 +262,7 @@ export function AssetCard({
             {segmentCount && segmentCount > 1 && (
               <View className="rounded bg-primary/20 px-1.5 py-0.5">
                 <Text className="text-xs font-medium text-primary">
-                  {segmentCount} clips
+                  {`${segmentCount} clips`}
                 </Text>
               </View>
             )}

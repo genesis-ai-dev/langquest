@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
+import { getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -138,7 +138,11 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const { allowEditing, allowSettings, invisible } = React.useMemo(() => {
+  const {
+    allowEditing,
+    allowSettings,
+    invisible: _invisible
+  } = React.useMemo(() => {
     if (!activeAsset) {
       return { allowEditing: false, allowSettings: false, invisible: false };
     }
@@ -234,16 +238,32 @@ export default function NextGenAssetDetailView() {
   );
 
   const { data: audioSegments, isLoading: isLoadingAudioSegments } = useQuery({
-    queryKey: ['audioSegments', currentAssetId],
+    queryKey: ['audioSegments', currentAssetId, attachmentStates.size],
     queryFn: async () => {
-      return await Promise.all(
-        activeAsset!.content
-          .flatMap((content) => content.audio)
-          .filter(Boolean)
-          .map(getLocalAttachmentUriWithOPFS)
-      );
+      // Only include audio segments that are actually downloaded
+      const audioIds = activeAsset!.content
+        .flatMap((content) => content.audio)
+        .filter((id): id is string => typeof id === 'string');
+
+      const availableSegments: string[] = [];
+
+      for (const audioId of audioIds) {
+        const attachmentState = attachmentStates.get(audioId);
+
+        // Only include if the attachment is synced and has a local URI
+        if (attachmentState?.local_uri) {
+          const fullUri = getLocalUri(attachmentState.local_uri);
+          availableSegments.push(fullUri);
+        } else {
+          console.log(
+            `[AUDIO] Skipping ${audioId} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
+          );
+        }
+      }
+
+      return availableSegments;
     },
-    enabled: !!activeAsset && !!system.permAttachmentQueue
+    enabled: !!activeAsset && !isLoadingAttachments
   });
 
   console.log('[AUDIO SEGMENTS]', audioSegments);

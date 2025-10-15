@@ -49,33 +49,36 @@ export const RecordingControls = React.memo(function RecordingControls({
       className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
       onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
     >
-      <View className="relative flex-row items-center justify-center">
+      <View className="flex-row items-center justify-between px-4 py-2">
         {/* Settings button on the left */}
-        <View className="absolute bottom-2 left-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={onSettingsPress}
-            className="h-10 w-10"
-          >
-            <Icon as={Settings} size={20} />
-          </Button>
+        <Button
+          variant="ghost"
+          size="lg"
+          onPress={onSettingsPress}
+          className="h-20 w-20"
+        >
+          <Icon as={Settings} size={24} />
+        </Button>
+
+        {/* Recorder in center - takes remaining space */}
+        <View className="flex-1 items-center">
+          <WalkieTalkieRecorder
+            onRecordingComplete={onRecordingComplete}
+            onRecordingStart={onRecordingStart}
+            onRecordingStop={onRecordingStop}
+            onRecordingDiscarded={onRecordingDiscarded}
+            onWaveformUpdate={undefined}
+            isRecording={isRecording}
+            isVADLocked={isVADLocked}
+            onVADLockChange={onVADLockChange}
+            // VAD visual feedback (native module handles recording)
+            currentEnergy={currentEnergy}
+            vadThreshold={vadThreshold}
+          />
         </View>
 
-        {/* Recorder in center */}
-        <WalkieTalkieRecorder
-          onRecordingComplete={onRecordingComplete}
-          onRecordingStart={onRecordingStart}
-          onRecordingStop={onRecordingStop}
-          onRecordingDiscarded={onRecordingDiscarded}
-          onWaveformUpdate={undefined}
-          isRecording={isRecording}
-          isVADLocked={isVADLocked}
-          onVADLockChange={onVADLockChange}
-          // VAD visual feedback (native module handles recording)
-          currentEnergy={currentEnergy}
-          vadThreshold={vadThreshold}
-        />
+        {/* Spacer to balance layout */}
+        <View className="h-20 w-20" />
       </View>
     </View>
   );

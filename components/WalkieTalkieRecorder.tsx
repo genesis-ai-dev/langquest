@@ -5,7 +5,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { colors } from '@/styles/theme';
 import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
-import { LockIcon, MicIcon } from 'lucide-react-native';
+import { LockIcon, MicIcon, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -679,44 +679,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         </Animated.View>
       )}
 
-      <View className="relative min-h-[100px] w-full flex-row items-center justify-center px-4">
+      <View className="min-h-[100px] w-full flex-row-reverse items-center justify-center px-4">
         {/* Lock indicator / Cancel button */}
         {!isVADLocked ? (
           <Animated.View
-            className="absolute right-4 flex-row items-center gap-1 rounded-2xl px-3 py-2"
+            className="align-end absolute right-1 flex-row items-center gap-1 rounded-2xl px-3 py-2 pl-6"
             style={[
               { backgroundColor: colors.textSecondary },
               lockIndicatorAnimatedStyle
             ]}
           >
-            <Icon as={LockIcon} className="text-primary-foreground" />
+            <Icon as={LockIcon} className="text-secondary-foreground" />
             <Text className="text-sm font-semibold text-primary">
               {isSliding ? 'Release to lock' : 'Slide →'}
             </Text>
           </Animated.View>
         ) : (
-          <View className="absolute right-4 flex-col items-end gap-2">
-            <View className="flex-row items-center gap-1 rounded-xl bg-primary px-2 py-1">
-              <Icon
-                as={LockIcon}
-                size={14}
-                className="text-primary-foreground"
-              />
-              <Text className="text-xs font-semibold text-primary-foreground">
-                VAD Active
-              </Text>
-            </View>
-            <Button
-              variant="outline"
-              size="sm"
-              onPress={() => {
-                console.log('🔓 Canceling VAD mode');
-                onVADLockChange?.(false);
-              }}
-            >
-              <Text>Cancel</Text>
-            </Button>
-          </View>
+          <></>
         )}
 
         {/* Button with gesture detector */}
@@ -767,11 +746,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                 disabled={isVADLocked}
               >
                 {isVADLocked ? (
-                  <Icon
-                    as={LockIcon}
-                    size={24}
-                    className="text-primary-foreground"
-                  />
+                  <View className="flex-col items-center">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="mt-0.5 h-auto p-0"
+                      onPress={() => {
+                        console.log('🔓 Canceling VAD mode');
+                        onVADLockChange?.(false);
+                      }}
+                    >
+                      <Icon
+                        as={X}
+                        size={24}
+                        className="text-primary-foreground"
+                      />
+                    </Button>
+                  </View>
                 ) : (
                   <Icon as={MicIcon} size={24} className="text-background" />
                 )}
