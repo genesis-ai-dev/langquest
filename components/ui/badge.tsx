@@ -1,12 +1,14 @@
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
 import * as Slot from '@rn-primitives/slot';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { Platform, View, ViewProps } from 'react-native';
+import type { VariantProps } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
+import type { ViewProps } from 'react-native';
+import { Platform, View } from 'react-native';
 
 const badgeVariants = cva(
   cn(
-    'group shrink-0 flex-row items-center justify-center gap-1 overflow-hidden rounded-md border border-border px-2 py-0.5',
+    'group shrink-0 flex-row items-center justify-center gap-1 overflow-hidden rounded-md border border-border px-1.5 py-0.5',
     Platform.select({
       web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-fit whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3'
     })
@@ -57,22 +59,11 @@ type BadgeProps = ViewProps &
   } & VariantProps<typeof badgeVariants>;
 
 function Badge({ className, variant, asChild, ...props }: BadgeProps) {
-  // Render directly as View to avoid Slot navigation context issues during transitions
-  // Only use Slot.View when explicitly using asChild pattern
-  if (!asChild) {
-    return (
-      <TextClassContext.Provider value={badgeTextVariants({ variant })}>
-        <View
-          className={cn(badgeVariants({ variant }), className)}
-          {...props}
-        />
-      </TextClassContext.Provider>
-    );
-  }
+  const Component = asChild ? Slot.View : View;
 
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
-      <Slot.View
+      <Component
         className={cn(badgeVariants({ variant }), className)}
         {...props}
       />

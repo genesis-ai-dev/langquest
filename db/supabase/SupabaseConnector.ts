@@ -470,7 +470,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * elsewhere instead of discarding, and/or notify the user.
          */
         console.error('Data upload error - discarding:', lastOp, ex);
-        // await transaction.complete();
+        await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
         // Throwing an error here causes this call to be retried after a delay.

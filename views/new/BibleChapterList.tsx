@@ -1,7 +1,7 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { Shimmer } from '@/components/Shimmer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,8 +34,8 @@ type QuestClosure = typeof quest_closure.$inferSelect;
 // Simple skeleton for chapter buttons during loading
 const ChapterSkeleton = () => (
   <View className="w-full flex-col items-center gap-1 rounded-md border border-border bg-muted/50 py-3">
-    <Shimmer width={32} height={24} borderRadius={4} />
-    <Shimmer width={24} height={14} borderRadius={4} />
+    <Skeleton style={{ width: 32, height: 24 }} />
+    <Skeleton style={{ width: 24, height: 14 }} />
   </View>
 );
 
@@ -147,6 +147,16 @@ function ChapterButton({
                   className="text-primary-foreground"
                 />
               )}
+              {exists && (hasSyncedCopy || isCloudQuest) && (
+                <DownloadIndicator
+                  isFlaggedForDownload={isDownloaded}
+                  isLoading={isDownloading}
+                  onPress={handleDownloadToggle}
+                  downloadType="quest"
+                  stats={downloadStats}
+                  size={16}
+                />
+              )}
               <Text className="text-lg font-bold">{chapterNum}</Text>
             </View>
             <Text
@@ -154,24 +164,11 @@ function ChapterButton({
                 exists ? 'text-primary-foreground/70' : 'text-muted-foreground'
               }`}
             >
-              {verseCount}
+              {verseCount} vs
             </Text>
           </View>
         )}
       </Button>
-      {/* Show download indicator if synced OR cloud */}
-      {exists && (hasSyncedCopy || isCloudQuest) && (
-        <View className="absolute right-1 top-1">
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
-            onPress={handleDownloadToggle}
-            downloadType="quest"
-            stats={downloadStats}
-            size={16}
-          />
-        </View>
-      )}
     </View>
   );
 }

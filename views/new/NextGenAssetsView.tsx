@@ -24,6 +24,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
+  CheckIcon,
   FlagIcon,
   InfoIcon,
   MicIcon,
@@ -397,8 +398,12 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <Text className="text-xl font-semibold">{t('assets')}</Text>
         {isPublished ? (
-          <Badge variant="default" className="bg-green-600">
-            <Text className="font-medium text-white">✓ Published</Text>
+          <Badge
+            variant="default"
+            className="bg-chart-5/80 flex flex-row items-center gap-1"
+          >
+            <Icon as={CheckIcon} size={14} className="text-white" />
+            <Text className="font-medium text-white">Published</Text>
           </Badge>
         ) : (
           <View className="flex flex-row items-center gap-2">

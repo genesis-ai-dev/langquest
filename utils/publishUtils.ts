@@ -188,16 +188,7 @@ export async function publishQuest(questId: string, projectId: string) {
   );
 
   try {
-    // Always publish project and profile_project_link, cannot be reverted.
-    const projectColumns = getTableColumns(project_synced);
-    const projectQuery = `INSERT INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
-    console.log('projectQuery', projectQuery);
-    await system.db.run(sql.raw(projectQuery));
-
-    const profileProjectLinkColumns = getTableColumns(
-      profile_project_link_synced
-    );
-
+    // Gather profile_project_link IDs before transaction
     const profileProjectLinksIds = (
       await system.db.query.profile_project_link.findMany({
         where: and(
@@ -208,31 +199,65 @@ export async function publishQuest(questId: string, projectId: string) {
       })
     ).map((link) => link.profile_id);
 
-    const profileProjectLinkQuery = `INSERT INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`;
-    console.log('profileProjectLinkQuery', profileProjectLinkQuery);
-    await system.db.run(sql.raw(profileProjectLinkQuery));
-
-    await system.waitForLatestSync();
-
+    // IMPORTANT: Insert ALL data in a SINGLE transaction to maintain ordering
+    // PowerSync preserves the order of operations within a transaction
+    // Order: project → profile_project_link → parent quests → child quests → assets → links
     const audioUploadResults = await system.db.transaction(async (tx) => {
-      const questColumns = getTableColumns(quest_synced);
-      const questQuery = `INSERT INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestsIds.concat(nestedQuestsIds))}) AND source = 'local'`;
-      await tx.run(sql.raw(questQuery));
+      // Step 1: Insert project FIRST (required for foreign keys)
+      const projectColumns = getTableColumns(project_synced);
+      const projectQuery = `INSERT OR IGNORE INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
+      console.log('projectQuery', projectQuery);
+      await tx.run(sql.raw(projectQuery));
 
+      // Step 2: Insert profile_project_link (depends on project)
+      if (profileProjectLinksIds.length > 0) {
+        const profileProjectLinkColumns = getTableColumns(
+          profile_project_link_synced
+        );
+        const profileProjectLinkQuery = `INSERT OR IGNORE INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`;
+        console.log('profileProjectLinkQuery', profileProjectLinkQuery);
+        await tx.run(sql.raw(profileProjectLinkQuery));
+      } else {
+        console.log(
+          '⏭️ No new profile_project_links to publish (already synced)'
+        );
+      }
+
+      // Step 3: Insert quests (parents first, then children)
+      const questColumns = getTableColumns(quest_synced);
+
+      // Combine all quest IDs for use throughout transaction
+      const allQuestIds = Array.from(
+        new Set([...parentQuestsIds, ...nestedQuestsIds])
+      );
+
+      // Step 3a: Insert parent quests FIRST (order matters for foreign keys)
+      if (parentQuestsIds.length > 0) {
+        const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestsIds)}) AND source = 'local'`;
+        console.log('parentQuestQuery', parentQuestQuery);
+        await tx.run(sql.raw(parentQuestQuery));
+      }
+
+      // Step 3b: Insert nested quests (children) - parents are now in queue first
+      const nestedQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;
+      console.log('nestedQuestQuery', nestedQuestQuery);
+      await tx.run(sql.raw(nestedQuestQuery));
+
+      // Step 4: Insert assets and related records
       const assetColumns = getTableColumns(asset_synced);
-      const assetQuery = `INSERT INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
+      const assetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
       console.log('assetQuery', assetQuery);
       await tx.run(sql.raw(assetQuery));
 
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
-      const questAssetLinkQuery = `INSERT INTO quest_asset_link_synced(${questAssetLinkColumns}) SELECT ${questAssetLinkColumns} FROM quest_asset_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;
+      const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) SELECT ${questAssetLinkColumns} FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;
       console.log('questAssetLinkQuery', questAssetLinkQuery);
       await tx.run(sql.raw(questAssetLinkQuery));
 
       const assetContentLinkColumns = getTableColumns(
         asset_content_link_synced
       );
-      const assetContentLinkQuery = `INSERT INTO asset_content_link_synced(${assetContentLinkColumns}) SELECT ${assetContentLinkColumns.replace(
+      const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) SELECT ${assetContentLinkColumns.replace(
         `audio,`,
         `REPLACE(audio, 'local/', '') AS audio,`
       )} FROM asset_content_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
@@ -242,7 +267,7 @@ export async function publishQuest(questId: string, projectId: string) {
       const tagsForQuests = (
         await tx.query.quest_tag_link.findMany({
           where: and(
-            inArray(quest_tag_link.quest_id, nestedQuestsIds),
+            inArray(quest_tag_link.quest_id, allQuestIds),
             eq(quest_tag_link.source, 'local')
           ),
           columns: {
@@ -268,15 +293,15 @@ export async function publishQuest(questId: string, projectId: string) {
       );
 
       const tagColumns = getTableColumns(tag_synced);
-      const tagQuery = `INSERT INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`;
+      const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`;
       await tx.run(sql.raw(tagQuery));
 
       const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
-      const questTagLinkQuery = `INSERT INTO quest_tag_link_synced(${questTagLinkColumns}) SELECT ${questTagLinkColumns} FROM quest_tag_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;
+      const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns}) SELECT ${questTagLinkColumns} FROM quest_tag_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;
       await tx.run(sql.raw(questTagLinkQuery));
 
       const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
-      const assetTagLinkQuery = `INSERT INTO asset_tag_link_synced(${assetTagLinkColumns}) SELECT ${assetTagLinkColumns} FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
+      const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) SELECT ${assetTagLinkColumns} FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
       await tx.run(sql.raw(assetTagLinkQuery));
 
       const localAudioFilesForAssets = (
@@ -317,6 +342,7 @@ export async function publishQuest(questId: string, projectId: string) {
 
       // TODO: upload image attachments if uploading images locally will be a thin
 
+      // Step 5: Clean up local records after moving to synced tables
       await tx.run(
         sql.raw(
           `DELETE FROM project_local WHERE id = '${projectId}' AND source = 'local'`
@@ -330,12 +356,17 @@ export async function publishQuest(questId: string, projectId: string) {
       );
       await tx.run(
         sql.raw(
+          `DELETE FROM quest_local WHERE id IN (${toColumns(allQuestIds)}) AND source = 'local'`
+        )
+      );
+      await tx.run(
+        sql.raw(
           `DELETE FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
         )
       );
       await tx.run(
         sql.raw(
-          `DELETE FROM quest_asset_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`
+          `DELETE FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`
         )
       );
 
@@ -345,15 +376,15 @@ export async function publishQuest(questId: string, projectId: string) {
         )
       );
 
-      // await tx.run(
-      //   sql.raw(
-      //     `DELETE FROM tag_local WHERE source = 'local'`
-      //   )
-      // );
+      await tx.run(
+        sql.raw(
+          `DELETE FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`
+        )
+      );
 
       await tx.run(
         sql.raw(
-          `DELETE FROM quest_tag_link_local WHERE quest_id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`
+          `DELETE FROM quest_tag_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`
         )
       );
 

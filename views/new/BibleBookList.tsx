@@ -1,5 +1,5 @@
-import { Shimmer } from '@/components/Shimmer';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
@@ -99,7 +99,7 @@ export function BibleBookList({
         renderItem={({ item }) => renderBookButton(item, item.testament)}
         StickyHeaderComponent={() => (
           <View style={{ width: availableWidth, paddingVertical: 16 }}>
-            <Shimmer width={200} height={24} borderRadius={4} />
+            <Skeleton style={{ width: 200, height: 24 }} />
           </View>
         )}
       />
@@ -138,18 +138,21 @@ export function BibleBookListSkeleton() {
         }}
         recycleItems
         renderItem={() => (
-          <Shimmer width={buttonWidth} height={140} borderRadius={8} />
+          <Skeleton
+            className="rounded-lg"
+            style={{ width: buttonWidth, height: 140 }}
+          />
         )}
         ListHeaderComponent={
           <View style={{ width: availableWidth, paddingVertical: 16 }}>
-            <Shimmer width={200} height={24} borderRadius={4} />
+            <Skeleton style={{ width: 200, height: 24 }} />
           </View>
         }
         // renderSectionHeader={(index) => {
         //   if (index === 39) {
         //     return (
         //       <View style={{ width: availableWidth, paddingVertical: 32 }}>
-        //         <Shimmer width={200} height={24} borderRadius={4} />
+        //         <Skeleton style={{ width: 200, height: 24 }} />
         //       </View>
         //     );
         //   }

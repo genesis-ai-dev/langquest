@@ -537,6 +537,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   static media_map = new BiMap({
     'audio/x-m4a': 'm4a',
+    'audio/x-wav': 'wav',
     'audio/webm': 'webm',
     'image/jpeg': 'jpg',
     'image/jpg': 'jpg',

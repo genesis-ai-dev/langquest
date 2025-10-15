@@ -245,9 +245,10 @@ export default function NextGenNewTranslationModal({
                         <FormItem>
                           <FormControl>
                             <Textarea
+                              {...transformInputProps(field)}
                               placeholder={t('enterTranslation')}
                               autoFocus
-                              {...transformInputProps(field)}
+                              drawerInput
                             />
                           </FormControl>
                           <FormMessage />
@@ -293,7 +294,6 @@ export default function NextGenNewTranslationModal({
             <FormSubmit
               onPress={form.handleSubmit((data) => createTranslation(data))}
               disabled={!currentQuestId}
-              className="w-full"
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
