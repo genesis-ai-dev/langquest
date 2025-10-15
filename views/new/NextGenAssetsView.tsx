@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -388,61 +389,70 @@ export default function NextGenAssetsView() {
     return <RecordingView onBack={() => setShowRecording(false)} />;
   }
 
+  // Check if quest is published (source is 'synced')
+  const isPublished = selectedQuest?.source === 'synced';
+
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-row items-center justify-between">
         <Text className="text-xl font-semibold">{t('assets')}</Text>
-        <View className="flex flex-row items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={isPublishing}
-            onPress={() => {
-              if (!currentQuestId) {
-                console.error('No current quest id');
-                return;
-              }
+        {isPublished ? (
+          <Badge variant="default" className="bg-green-600">
+            <Text className="font-medium text-white">✓ Published</Text>
+          </Badge>
+        ) : (
+          <View className="flex flex-row items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={isPublishing}
+              onPress={() => {
+                if (!currentQuestId) {
+                  console.error('No current quest id');
+                  return;
+                }
 
-              // Use quest name if available, otherwise generic message
-              const questName = selectedQuest?.name || 'this chapter';
+                // Use quest name if available, otherwise generic message
+                const questName = selectedQuest?.name || 'this chapter';
 
-              Alert.alert(
-                'Publish Chapter',
-                `This will publish ${questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
-                [
-                  {
-                    text: t('cancel'),
-                    style: 'cancel'
-                  },
-                  {
-                    text: 'Publish',
-                    style: 'default',
-                    onPress: () => {
-                      publishQuest();
+                Alert.alert(
+                  'Publish Chapter',
+                  `This will publish ${questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
+                  [
+                    {
+                      text: t('cancel'),
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Publish',
+                      style: 'default',
+                      onPress: () => {
+                        publishQuest();
+                      }
                     }
-                  }
-                ]
-              );
-            }}
-          >
-            {isPublishing ? (
-              <ActivityIndicator
-                size="small"
-                color={getThemeColor('primary')}
-              />
-            ) : (
-              <Icon as={Share2Icon} />
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="border-[1.5px] border-primary"
-            onPress={() => setShowRecording(true)}
-          >
-            <Icon as={MicIcon} className="text-primary" />
-          </Button>
-        </View>
+                  ]
+                );
+              }}
+            >
+              {isPublishing ? (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              ) : (
+                <Icon as={Share2Icon} />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-[1.5px] border-primary"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon as={MicIcon} className="text-primary" />
+            </Button>
+          </View>
+        )}
       </View>
 
       <Input
@@ -514,12 +524,14 @@ export default function NextGenAssetsView() {
                 <Text className="text-muted-foreground">
                   {searchQuery ? 'No assets found' : 'No assets available'}
                 </Text>
-                <Button
-                  variant="default"
-                  onPress={() => setShowRecording(true)}
-                >
-                  <Text>{t('doRecord')}</Text>
-                </Button>
+                {!isPublished && (
+                  <Button
+                    variant="default"
+                    onPress={() => setShowRecording(true)}
+                  >
+                    <Text>{t('doRecord')}</Text>
+                  </Button>
+                )}
               </View>
             </View>
           )}
