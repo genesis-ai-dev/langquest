@@ -630,10 +630,12 @@ async function waitForCriticalDependencies(
     // We need to wait for:
     // 1. profile_project_link (if publishing new project)
     // 2. All assets (parent of asset_content_link)
+    // 3. quest_asset_link (RLS policy needs this to find project relationship)
     // Note: Parent book is handled upfront via ensureParentBookInSupabase()
 
     let profileLinkReady = !data.project; // Already ready if not publishing project
     let assetsReady = data.assets.length === 0; // Already ready if no assets
+    let questAssetLinksReady = data.questAssetLinks.length === 0; // Already ready if no links
 
     // Track what we've already confirmed to avoid redundant checks and logs
     let projectConfirmed = false;
@@ -704,8 +706,30 @@ async function waitForCriticalDependencies(
             }
         }
 
+        // Check quest_asset_link if needed
+        // CRITICAL: RLS policy for asset_content_link needs these to exist
+        if (!questAssetLinksReady && data.questAssetLinks.length > 0) {
+            try {
+                const linkIds = data.questAssetLinks.map(l => l.id);
+                const { data: linksData, error } = await system.supabaseConnector.client
+                    .from('quest_asset_link')
+                    .select('id')
+                    .in('id', linkIds);
+
+                if (!error && linksData && linksData.length === data.questAssetLinks.length) {
+                    console.log(`✅ All ${data.questAssetLinks.length} quest_asset_links synced to Supabase (${elapsed}ms)`);
+                    questAssetLinksReady = true;
+                } else if (linksData && Date.now() - lastProgressLog > progressLogInterval) {
+                    console.log(`⏳ Quest-asset links syncing: ${linksData.length}/${data.questAssetLinks.length} (${elapsed}ms)`);
+                    lastProgressLog = Date.now();
+                }
+            } catch (error) {
+                console.warn('Error checking quest_asset_link:', error);
+            }
+        }
+
         // If everything is ready, we're done
-        if (profileLinkReady && assetsReady) {
+        if (profileLinkReady && assetsReady && questAssetLinksReady) {
             console.log(`✅ All dependencies ready (${elapsed}ms)`);
             return;
         }
@@ -722,6 +746,9 @@ async function waitForCriticalDependencies(
     }
     if (!assetsReady) {
         console.warn(`  - ${data.assets.length} assets (PowerSync still uploading)`);
+    }
+    if (!questAssetLinksReady) {
+        console.warn(`  - ${data.questAssetLinks.length} quest_asset_links (PowerSync still uploading)`);
     }
     console.warn('⚠️  Continuing anyway - PowerSync will retry failed uploads');
 }
@@ -1088,7 +1115,7 @@ async function executePublishTransaction(
 export async function publishBibleChapter(
     params: PublishChapterParams
 ): Promise<PublishChapterResult> {
-    const { chapterId, userId } = params;
+    const { chapterId, userId, t } = params;
 
     console.log(`\n📤 PUBLISHING CHAPTER: ${chapterId}`);
     console.log(`👤 User: ${userId}`);
@@ -1275,7 +1302,7 @@ async function cleanupDuplicateLocalRecords(
 /**
  * Clean up ALL local records after confirmed cloud sync
  * TODO: This should be called by a background process that monitors PowerSync sync status
- * 
+ *
  * For now, we keep local records as a safety measure.
  * Future: Implement a background job that:
  * 1. Checks PowerSync upload queue is empty

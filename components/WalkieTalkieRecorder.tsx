@@ -652,33 +652,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       className="items-center rounded-3xl py-6"
       style={containerAnimatedStyle}
     >
-      {/* Live waveform visualization when VAD locked */}
-      {isVADLocked && (
-        <Animated.View
-          className="absolute -top-16 items-center gap-1"
-          style={waveformAnimatedStyle}
-        >
-          <View className="h-6 flex-row items-center gap-0.5">
-            {Array.from({ length: 20 }).map((_, i) => {
-              // Create a flowing waveform effect using waveformTime
-              const phase = waveformTime + i * 0.5;
-              const wave = 0.5 + Math.sin(phase) * 0.5;
-              const barHeight = energyScale * wave;
-              return (
-                <View
-                  key={i}
-                  className="min-h-[2px] w-[3px] rounded-full"
-                  style={{
-                    height: Math.max(2, barHeight * 24),
-                    backgroundColor: getWaveformColor()
-                  }}
-                />
-              );
-            })}
-          </View>
-        </Animated.View>
-      )}
-
       <View className="min-h-[100px] w-full flex-row-reverse items-center justify-center px-4">
         {/* Lock indicator / Cancel button */}
         {!isVADLocked ? (
@@ -696,6 +669,33 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           </Animated.View>
         ) : (
           <></>
+        )}
+
+        {/* Live waveform visualization when VAD locked - positioned to the left */}
+        {isVADLocked && (
+          <Animated.View
+            className="absolute left-4 flex-row items-center gap-0.5"
+            style={waveformAnimatedStyle}
+          >
+            <View className="h-6 flex-row items-center gap-0.5">
+              {Array.from({ length: 20 }).map((_, i) => {
+                // Create a flowing waveform effect using waveformTime
+                const phase = waveformTime + i * 0.5;
+                const wave = 0.5 + Math.sin(phase) * 0.5;
+                const barHeight = energyScale * wave;
+                return (
+                  <View
+                    key={i}
+                    className="min-h-[2px] w-[3px] rounded-full"
+                    style={{
+                      height: Math.max(2, barHeight * 24),
+                      backgroundColor: getWaveformColor()
+                    }}
+                  />
+                );
+              })}
+            </View>
+          </Animated.View>
         )}
 
         {/* Button with gesture detector */}
@@ -734,7 +734,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                   )}
                 </Svg>
               </View>
-
               <Button
                 variant={isRecording ? 'destructive' : 'default'}
                 size="icon-2xl"

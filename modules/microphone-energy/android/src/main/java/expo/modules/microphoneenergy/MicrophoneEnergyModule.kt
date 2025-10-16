@@ -45,6 +45,8 @@ class MicrophoneEnergyModule : Module() {
   private var onsetTime: Long = 0
   private var lastSpeechTime: Long = 0
   private var recordingStartTime: Long = 0
+  private var lastSegmentEndTime: Long = 0 // Track when last segment ended
+  private val cooldownPeriodMs = 500 // Cooldown after segment ends before detecting new onset
 
   override fun definition() = ModuleDefinition {
     Name("MicrophoneEnergy")
@@ -180,6 +182,7 @@ class MicrophoneEnergyModule : Module() {
     vadEnabled = true
     onsetDetected = false
     smoothedEnergy = 0.0f
+    lastSegmentEndTime = 0L // Reset cooldown when VAD enabled
     println("🎯 Native VAD enabled")
   }
   
@@ -259,11 +262,17 @@ class MicrophoneEnergyModule : Module() {
     
     // State machine
     if (!isRecordingSegment && !onsetDetected) {
-      // IDLE: Check for onset
+      // IDLE: Check for onset (with cooldown to prevent rapid re-triggers)
+      val timeSinceLastSegment = now - lastSegmentEndTime
       if (smoothedEnergy > onsetThreshold) {
-        println("🎯 Native VAD: Onset detected ($smoothedEnergy > $onsetThreshold)")
-        onsetDetected = true
-        onsetTime = now
+        if (timeSinceLastSegment >= cooldownPeriodMs || lastSegmentEndTime == 0L) {
+          println("🎯 Native VAD: Onset detected ($smoothedEnergy > $onsetThreshold)")
+          onsetDetected = true
+          onsetTime = now
+        } else {
+          // Still in cooldown period - ignore onset
+          println("⏳ Native VAD: Onset ignored (cooldown: ${timeSinceLastSegment}ms/${cooldownPeriodMs}ms)")
+        }
       }
     } else if (!isRecordingSegment && onsetDetected) {
       // ONSET: Wait for confirmation or timeout
@@ -398,10 +407,13 @@ class MicrophoneEnergyModule : Module() {
 
     try {
       isRecordingSegment = false
+      
+      // Record when segment ended for cooldown logic
+      lastSegmentEndTime = System.currentTimeMillis()
 
       val file = segmentFile
       val startTime = segmentStartTime
-      val endTime = System.currentTimeMillis()
+      val endTime = lastSegmentEndTime
       val duration = endTime - startTime
 
       if (file != null) {
@@ -438,6 +450,7 @@ class MicrophoneEnergyModule : Module() {
         out.close()
         
         println("✅ WAV file written: ${file.absolutePath}")
+        println("⏳ Cooldown active: ${cooldownPeriodMs}ms before next onset detection")
 
         // Send completion event with file URI
         val uri = "file://${file.absolutePath}"

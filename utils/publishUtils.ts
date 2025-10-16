@@ -204,6 +204,7 @@ export async function publishQuest(questId: string, projectId: string) {
     // Order: project → profile_project_link → parent quests → child quests → assets → links
     const audioUploadResults = await system.db.transaction(async (tx) => {
       // Step 1: Insert project FIRST (required for foreign keys)
+      // IDEMPOTENT: Use INSERT OR IGNORE to allow re-publishing
       const projectColumns = getTableColumns(project_synced);
       const projectQuery = `INSERT OR IGNORE INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
       console.log('projectQuery', projectQuery);
@@ -292,6 +293,7 @@ export async function publishQuest(questId: string, projectId: string) {
         new Set(tagsForQuests.concat(tagsForAssets))
       );
 
+      // IDEMPOTENT: Only insert tags that don't already exist in synced table
       const tagColumns = getTableColumns(tag_synced);
       const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`;
       await tx.run(sql.raw(tagQuery));
