@@ -15,7 +15,15 @@ import {
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
-import { and, eq, getTableColumns, like, notInArray, or } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  like,
+  notInArray,
+  or
+} from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
@@ -159,14 +167,6 @@ export default function NextGenProjectsView() {
     disabled: !currentUser?.id
   });
 
-  //   // Clean Status Navigation
-  const currentContext = useStatusContext();
-  currentContext.setLayerStatus(
-    LayerType.PROJECT,
-    { active: true, visible: true },
-    ''
-  );
-
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
@@ -270,7 +270,6 @@ export default function NextGenProjectsView() {
 
       const trimmed = searchQuery.trim();
       const conditions = [
-        eq(project.active, true),
         userProjectIds.length > 0 && notInArray(project.id, userProjectIds),
         !showInvisibleContent && eq(project.visible, true),
         blockUserIds.length > 0 && notInArray(project.creator_id, blockUserIds),
@@ -284,6 +283,7 @@ export default function NextGenProjectsView() {
 
       const projects = await system.db.query.project.findMany({
         where: and(...conditions.filter(Boolean)),
+        orderBy: desc(project.priority),
         limit: pageSize,
         offset
       });
@@ -323,6 +323,8 @@ export default function NextGenProjectsView() {
           `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
         );
 
+      query = query.order('priority', { ascending: false });
+
       const { data, error } = await query
         .range(from, to)
         .overrideTypes<Project[]>();
@@ -336,6 +338,18 @@ export default function NextGenProjectsView() {
   // Use the appropriate query based on active tab
   const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
   const { data: projectData, isLoading } = currentQuery;
+
+  //   // Clean Status Navigation
+  const currentContext = useStatusContext();
+  currentContext.setLayerStatus(
+    LayerType.PROJECT,
+    {
+      active: true,
+      visible: true,
+      source: 'local'
+    },
+    ''
+  );
 
   const data = React.useMemo(() => {
     // Handle paginated data (with pages property)
