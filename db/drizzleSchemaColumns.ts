@@ -86,7 +86,6 @@ function getTableCreator(
       : syncedTable;
 }
 
-export const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 export const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
 const baseColumns = {
@@ -117,22 +116,22 @@ export function getBaseColumns<T extends TableSource>(
 ): T extends 'local'
   ? typeof localColumns
   : T extends 'merged'
-    ? typeof syncedColumns & typeof localColumns
-    : typeof syncedColumns {
+  ? typeof syncedColumns & typeof localColumns
+  : typeof syncedColumns {
   return (
     source === 'local'
       ? localColumns
       : source === 'merged'
         ? {
-            ...syncedColumns,
-            ...localColumns
-          }
+          ...syncedColumns,
+          ...localColumns
+        }
         : syncedColumns
   ) as T extends 'local'
     ? typeof localColumns
     : T extends 'merged'
-      ? typeof syncedColumns & typeof localColumns
-      : typeof syncedColumns;
+    ? typeof syncedColumns & typeof localColumns
+    : typeof syncedColumns;
 }
 
 export function getTableColumns<T extends TableSource>(source: T) {
@@ -140,7 +139,7 @@ export function getTableColumns<T extends TableSource>(source: T) {
     ...getBaseColumns(source),
     id: text()
       .primaryKey()
-      .$defaultFn(() => uuidDefault)
+      .$defaultFn(() => uuid.v4())
   };
 }
 

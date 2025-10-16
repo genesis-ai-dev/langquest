@@ -433,6 +433,24 @@ export class System {
 
   private async createUnionViews() {
     console.log('Creating union views...');
+
+    // TEMPORARY: Force drop all union views to ensure recreation
+    try {
+      const existingViews = await this.powersync.getAll<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'view' AND name LIKE '%_union'`
+      );
+      for (const { name } of existingViews) {
+        try {
+          await this.powersync.execute(`DROP VIEW IF EXISTS "${name}"`);
+          console.log(`Dropped existing union view: ${name}`);
+        } catch (e) {
+          console.warn(`Failed to drop view ${name}:`, e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to drop existing union views:', e);
+    }
+
     try {
       // Build CREATE VIEW statements for each app table (exclude relations/views)
       const tableNames = Object.entries(drizzleSchema)
@@ -481,7 +499,7 @@ export class System {
 
         let createSql: string;
         if (fallback) {
-          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, * FROM "${synced}" UNION ALL SELECT 'local' AS source, * FROM "${local}"`;
+          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, * FROM "${synced}" UNION ALL SELECT 'local' AS source, * FROM "${local}" WHERE REPLACE(id, '-', '') NOT IN (SELECT REPLACE(id, '-', '') FROM "${synced}")`;
         } else {
           const remoteSet = new Set(remoteColumnNames);
           const localSet = new Set(localColumnNames);
@@ -500,7 +518,7 @@ export class System {
             .filter((col) => col !== 'source')
             .join(', ');
 
-          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, ${syncedSelect} FROM "${synced}" UNION ALL SELECT 'local' AS source, ${localSelect} FROM "${local}"`;
+          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, ${syncedSelect} FROM "${synced}" UNION ALL SELECT 'local' AS source, ${localSelect} FROM "${local}" WHERE REPLACE(id, '-', '') NOT IN (SELECT REPLACE(id, '-', '') FROM "${synced}")`;
         }
 
         plannedStatements.push({
@@ -534,6 +552,12 @@ export class System {
             const expected = createSql;
 
             const viewExists = !!existing;
+
+            // Debug logging to see what's being compared
+            console.log(`Comparing view ${view}:`);
+            console.log('Existing:', existing);
+            console.log('Expected:', expected);
+            console.log('Match:', existing === expected);
 
             if (existing === expected) {
               console.log(`Union view for ${view} is up to date.`);

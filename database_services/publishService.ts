@@ -1,23 +1,27 @@
 /**
  * Publishing Service - Safely publish Bible chapters from local to synced tables
  * 
- * CRITICAL: This service prioritizes data safety. We NEVER delete local records
- * until we're certain they've been successfully uploaded to the cloud.
+ * CRITICAL: This service prioritizes data safety. We NEVER delete local records.
+ * Local records are preserved indefinitely as a backup, even after successful publish.
  * 
  * Publishing Flow:
  * 1. Validate chapter data (all audio uploaded, no conflicts)
  * 2. Copy records from *_local → synced tables (triggers PowerSync upload)
  * 3. Mark as "publishing" and return immediately to user
  * 4. PowerSync uploads in background while connected
- * 5. Background process monitors upload status
- * 6. Only after successful cloud sync, delete local copies
+ * 5. Local records remain as backup (NOT deleted)
+ * 
+ * Cleanup Policy:
+ * - Local records are preserved indefinitely for data safety
+ * - Future: Manual cleanup service (verify in Supabase → then delete)
+ * - Cleanup is NOT part of publishing flow
  */
 
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
 import type { AttachmentState } from '@powersync/attachments';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 // ============================================================================
@@ -1170,13 +1174,9 @@ export async function publishBibleChapter(
         console.log('✅ Dependencies ready - inserting asset_content_link records');
         await executePublishTransaction(chapterData, userId, true);
 
-        // STEP 6: Clean up duplicate local records immediately
-        // This is safe because we've verified the synced version exists
-        await cleanupDuplicateLocalRecords(chapterData);
-
         console.log('\n✅ CHAPTER PUBLISH COMPLETE');
         console.log('📡 PowerSync is uploading to cloud in background...');
-        console.log('💾 Local copies preserved until cloud sync confirmed');
+        console.log('💾 Local copies preserved indefinitely for data safety');
         console.log('♻️  Publish is idempotent - safe to retry if needed');
 
         // Build success message with details about what was published
@@ -1225,98 +1225,34 @@ export async function publishBibleChapter(
 }
 
 // ============================================================================
-// CLEANUP FUNCTIONS
+// LOCAL RECORD CLEANUP POLICY
 // ============================================================================
-
-/**
- * Immediately clean up duplicate local records after publish
- * This removes duplicate records in quest_local that have the same name but different IDs
- * SAFE: Only removes duplicates, keeps the published version
- */
-async function cleanupDuplicateLocalRecords(
-    data: ChapterData
-): Promise<void> {
-    console.log(`🧹 Cleaning up duplicate local records...`);
-
-    const questLocal = resolveTable('quest', { localOverride: true });
-
-    try {
-        // Find all local quests with the same name in this project
-        const allWithSameName = await system.db
-            .select()
-            .from(questLocal)
-            .where(
-                and(
-                    eq(questLocal.project_id, data.chapter.project_id),
-                    eq(questLocal.name, data.chapter.name)
-                )
-            );
-
-        // Filter out the one we just published - keep it, delete the rest
-        const duplicateIds = allWithSameName
-            .filter(d => d.id !== data.chapter.id)
-            .map(d => d.id);
-
-        if (duplicateIds.length > 0) {
-            console.log(`🗑️  Found ${duplicateIds.length} duplicate local records, removing them...`);
-
-            await system.db
-                .delete(questLocal)
-                .where(inArray(questLocal.id, duplicateIds));
-
-            console.log(`✅ Removed ${duplicateIds.length} duplicate local records`);
-        } else {
-            console.log(`✅ No duplicate local records found`);
-        }
-
-        // Also clean up duplicates for parent book if we published it
-        if (data.parentBook) {
-            const allBooksWithSameName = await system.db
-                .select()
-                .from(questLocal)
-                .where(
-                    and(
-                        eq(questLocal.project_id, data.parentBook.project_id),
-                        eq(questLocal.name, data.parentBook.name)
-                    )
-                );
-
-            const bookDuplicateIds = allBooksWithSameName
-                .filter(d => d.id !== data.parentBook?.id)
-                .map(d => d.id);
-
-            if (bookDuplicateIds.length > 0) {
-                await system.db
-                    .delete(questLocal)
-                    .where(inArray(questLocal.id, bookDuplicateIds));
-
-                console.log(`✅ Removed ${bookDuplicateIds.length} duplicate book records`);
-            }
-        }
-    } catch (error) {
-        console.error('❌ Error cleaning up duplicates:', error);
-        // Don't throw - cleanup failure shouldn't fail the publish
-    }
-}
-
-/**
- * Clean up ALL local records after confirmed cloud sync
- * TODO: This should be called by a background process that monitors PowerSync sync status
- *
- * For now, we keep local records as a safety measure.
- * Future: Implement a background job that:
- * 1. Checks PowerSync upload queue is empty
- * 2. Verifies records exist in cloud
- * 3. Only then deletes local copies
- */
-// export async function cleanupLocalRecordsAfterSync(
-//     chapterId: string
-// ): Promise<void> {
-//     console.log(`🧹 Cleaning up local records for chapter: ${chapterId}`);
-
-//     // TODO: Implement safe cleanup logic
-//     // For now, we intentionally keep local records as backup
-
-//     console.log('⚠️  Full cleanup not yet implemented - local records preserved for safety');
-// }
+//
+// CRITICAL: We intentionally DO NOT delete local records during or after publishing.
+//
+// Publishing Flow (Current - Safe):
+// 1. Copy records from *_local → synced tables
+// 2. PowerSync uploads synced tables to Supabase (background)
+// 3. Local records remain as backup indefinitely
+//
+// Why We Don't Delete Local Records:
+// ✓ PowerSync may fail to upload (network issues, RLS errors, server problems)
+// ✓ If we delete before confirming cloud upload, data loss can occur
+// ✓ Local records serve as backup if remote database has issues
+// ✓ Users can recover data if remote gets corrupted or deleted
+// ✓ No risk of race conditions or timing issues with PowerSync
+//
+// Future Manual Cleanup Strategy (NOT IMPLEMENTED YET):
+// - Create a separate cleanup service/function (run manually by user/admin)
+// - That service should:
+//   1. Query Supabase directly to confirm record exists
+//   2. Verify data integrity (compare timestamps, checksums, etc.)
+//   3. Confirm PowerSync upload queue is empty for those records
+//   4. Only then delete from *_local tables
+// - NEVER tie cleanup to PowerSync upload events (could be false positive)
+// - Make cleanup opt-in and transparent to user
+// - Log all deletions for audit trail
+//
+// Current Status: Local records preserved indefinitely for maximum safety.
+// ============================================================================
 

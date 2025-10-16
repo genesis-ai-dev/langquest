@@ -392,57 +392,27 @@ export async function publishQuest(questId: string, projectId: string) {
 
       // TODO: upload image attachments if uploading images locally will be a thin
 
-      // Step 5: Clean up local records after moving to synced tables
-      await tx.run(
-        sql.raw(
-          `DELETE FROM project_local WHERE id = '${projectId}' AND source = 'local'`
-        )
-      );
-
-      await tx.run(
-        sql.raw(
-          `DELETE FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`
-        )
-      );
-      await tx.run(
-        sql.raw(
-          `DELETE FROM quest_local WHERE id IN (${toColumns(allQuestIds)}) AND source = 'local'`
-        )
-      );
-      await tx.run(
-        sql.raw(
-          `DELETE FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
-        )
-      );
-      await tx.run(
-        sql.raw(
-          `DELETE FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`
-        )
-      );
-
-      await tx.run(
-        sql.raw(
-          `DELETE FROM asset_content_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
-        )
-      );
-
-      await tx.run(
-        sql.raw(
-          `DELETE FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`
-        )
-      );
-
-      await tx.run(
-        sql.raw(
-          `DELETE FROM quest_tag_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`
-        )
-      );
-
-      await tx.run(
-        sql.raw(
-          `DELETE FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`
-        )
-      );
+      // ============================================================================
+      // CRITICAL: LOCAL RECORDS ARE PRESERVED FOR DATA SAFETY
+      // ============================================================================
+      // We intentionally DO NOT delete local records during publishing.
+      // 
+      // Reasons:
+      // 1. PowerSync may fail to upload to Supabase (network issues, RLS errors, etc.)
+      // 2. If we delete local records before confirming cloud upload, data loss can occur
+      // 3. Local records serve as a backup if the remote database has issues
+      //
+      // Future cleanup strategy:
+      // - Create a separate manual cleanup service (NOT part of publish flow)
+      // - That service should:
+      //   1. Query Supabase to confirm record exists
+      //   2. Verify the data matches (checksums, timestamps, etc.)
+      //   3. Only then delete from *_local tables
+      // - Run cleanup manually or on a scheduled basis
+      // - Never tie cleanup to PowerSync upload success (could be false positive)
+      //
+      // For now: Local records remain indefinitely as a safety measure.
+      // ============================================================================
 
       return audioUploadResults;
     });
