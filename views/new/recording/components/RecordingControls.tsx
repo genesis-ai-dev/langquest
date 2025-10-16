@@ -1,10 +1,14 @@
 /**
  * RecordingControls - Bottom bar with WalkieTalkie recorder and VAD settings
  *
- * Pure presentation component that wraps the recording button with settings
+ * RING BUFFER VERSION:
+ * - Waveform displayed above the controls
+ * - Prevents re-renders from frequent currentEnergy updates
+ * - Only re-renders when critical props change (isRecording, isVADLocked)
  */
 
-import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
+import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder.ringbuffer';
+import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Settings } from 'lucide-react-native';
@@ -31,55 +35,85 @@ interface RecordingControlsProps {
   vadThreshold?: number;
 }
 
-export const RecordingControls = React.memo(function RecordingControls({
-  isRecording,
-  onRecordingStart,
-  onRecordingStop,
-  onRecordingComplete,
-  onRecordingDiscarded,
-  onLayout,
-  isVADLocked,
-  onVADLockChange,
-  onSettingsPress,
-  currentEnergy,
-  vadThreshold
-}: RecordingControlsProps) {
-  return (
-    <View
-      className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
-      onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
-    >
-      <View className="flex-row items-center justify-between px-4 py-2">
-        {/* Settings button on the left */}
-        <Button
-          variant="ghost"
-          size="lg"
-          onPress={onSettingsPress}
-          className="h-20 w-20"
-        >
-          <Icon as={Settings} size={24} />
-        </Button>
+export const RecordingControls = React.memo(
+  function RecordingControls({
+    isRecording,
+    onRecordingStart,
+    onRecordingStop,
+    onRecordingComplete,
+    onRecordingDiscarded,
+    onLayout,
+    isVADLocked,
+    onVADLockChange,
+    onSettingsPress,
+    currentEnergy,
+    vadThreshold
+  }: RecordingControlsProps) {
+    return (
+      <View
+        className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+        onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
+      >
+        {/* Waveform visualization above controls */}
+        <WaveformVisualization
+          isVisible={isVADLocked ?? false}
+          currentEnergy={currentEnergy ?? 0}
+          vadThreshold={vadThreshold ?? 0.03}
+          isRecording={isRecording}
+          barCount={60}
+          maxHeight={24}
+        />
 
-        {/* Recorder in center - takes remaining space */}
-        <View className="flex-1 items-center">
-          <WalkieTalkieRecorder
-            onRecordingComplete={onRecordingComplete}
-            onRecordingStart={onRecordingStart}
-            onRecordingStop={onRecordingStop}
-            onRecordingDiscarded={onRecordingDiscarded}
-            onWaveformUpdate={undefined}
-            isRecording={isRecording}
-            isVADLocked={isVADLocked}
-            onVADLockChange={onVADLockChange}
-            // VAD visual feedback (native module handles recording)
-            currentEnergy={currentEnergy}
-            vadThreshold={vadThreshold}
-          />
+        {/* Controls row */}
+        <View className="flex-row items-center justify-between px-4 py-2">
+          {/* Settings button on the left */}
+          <Button
+            variant="ghost"
+            size="lg"
+            onPress={onSettingsPress}
+            className="h-20 w-20"
+          >
+            <Icon as={Settings} size={24} />
+          </Button>
+
+          {/* Recorder in center - takes remaining space */}
+          <View className="flex-1 items-center">
+            <WalkieTalkieRecorder
+              onRecordingComplete={onRecordingComplete}
+              onRecordingStart={onRecordingStart}
+              onRecordingStop={onRecordingStop}
+              onRecordingDiscarded={onRecordingDiscarded}
+              onWaveformUpdate={undefined}
+              isRecording={isRecording}
+              isVADLocked={isVADLocked}
+              onVADLockChange={onVADLockChange}
+              // Energy values passed directly - ring buffer handles updates efficiently
+              currentEnergy={currentEnergy}
+              vadThreshold={vadThreshold}
+            />
+          </View>
+
+          {/* Spacer to balance layout */}
+          <View className="h-20 w-20" />
         </View>
-
-        {/* Spacer to balance layout */}
-        <View className="h-20 w-20" />
       </View>
-    </View>
-  );
-});
+    );
+  },
+  // **OPTIMIZATION: Custom equality check - only re-render for critical prop changes**
+  (prevProps, nextProps) => {
+    // Re-render ONLY if these props change:
+    // Note: We DO pass currentEnergy through now, but the ring buffer
+    // implementation handles the frequent updates efficiently on the UI thread
+    return (
+      prevProps.isRecording === nextProps.isRecording &&
+      prevProps.isVADLocked === nextProps.isVADLocked &&
+      prevProps.onRecordingStart === nextProps.onRecordingStart &&
+      prevProps.onRecordingStop === nextProps.onRecordingStop &&
+      prevProps.onRecordingComplete === nextProps.onRecordingComplete &&
+      prevProps.onRecordingDiscarded === nextProps.onRecordingDiscarded &&
+      prevProps.onVADLockChange === nextProps.onVADLockChange &&
+      prevProps.onSettingsPress === nextProps.onSettingsPress
+      // Still ignoring currentEnergy and vadThreshold changes to prevent cascade
+    );
+  }
+);

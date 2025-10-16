@@ -27,6 +27,7 @@ import { Text } from './ui/text';
 
 // Create animated SVG components
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedView = Animated.View;
 
 interface WalkieTalkieRecorderProps {
   onRecordingComplete: (
@@ -36,7 +37,7 @@ interface WalkieTalkieRecorderProps {
   ) => void;
   onRecordingStart: () => void;
   onRecordingStop: () => void;
-  onRecordingDiscarded?: () => void; // Called when recording is too short
+  onRecordingDiscarded?: () => void;
   onWaveformUpdate?: (waveformData: number[]) => void;
   isRecording: boolean;
   // VAD mode props (native module handles recording, this is just for UI)
@@ -46,6 +47,46 @@ interface WalkieTalkieRecorderProps {
   currentEnergy?: number;
   vadThreshold?: number;
 }
+
+/**
+ * WaveformBar - Individual bar that displays energy at a specific position
+ *
+ * Uses a shared value that gets updated in a ring-buffer fashion.
+ * Each bar only re-renders when its specific value changes.
+ */
+interface WaveformBarProps {
+  barIndex: number;
+  barValue: Animated.SharedValue<number>;
+  isRecording: boolean;
+  maxHeight: number;
+}
+
+const WaveformBar = React.memo(
+  ({ barValue, isRecording, maxHeight }: WaveformBarProps) => {
+    const barAnimatedStyle = useAnimatedStyle(() => {
+      'worklet';
+      // Smooth height transitions for less jitter
+      const targetHeight = Math.max(2, barValue.value * maxHeight);
+
+      return {
+        height: withTiming(targetHeight, {
+          duration: 30,
+          easing: Easing.linear
+        }),
+        backgroundColor: isRecording ? colors.error : colors.primary
+      };
+    });
+
+    return (
+      <AnimatedView
+        className="min-h-[2px] w-[3px] rounded-full"
+        style={barAnimatedStyle}
+      />
+    );
+  }
+);
+
+WaveformBar.displayName = 'WaveformBar';
 
 const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onRecordingComplete,
@@ -69,18 +110,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isPressed, setIsPressed] = useState(false);
   const [canRecord, setCanRecord] = useState(false);
-  const [isActivating, setIsActivating] = useState(false); // Holding to activate
-  const [isSlideGestureActive, setIsSlideGestureActive] = useState(false); // Track if user is sliding
+  const [isActivating, setIsActivating] = useState(false);
+  const [isSlideGestureActive, setIsSlideGestureActive] = useState(false);
 
-  // Live waveform display capacity (side-scrolling window)
-  const LIVE_BAR_CAPACITY = 60;
+  // **RING BUFFER CONFIG**
+  const WAVEFORM_BAR_COUNT = 60; // Number of bars to display
+  const WAVEFORM_MAX_HEIGHT = 24; // Max height in pixels
 
-  // Initialize with full set of bars at 0 volume
-  const [_realTimeWaveform, setRealTimeWaveform] = useState<number[]>(
-    () => new Array(LIVE_BAR_CAPACITY).fill(0.01) as number[] // Start with minimal volume bars
-  );
-
-  // Track all recorded samples for final interpolation
+  // Track all recorded samples for final waveform data
   const [recordedSamples, setRecordedSamples] = useState<number[]>([]);
 
   // Reanimated shared values for smooth UI-thread animations
@@ -91,23 +128,69 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const slideX = useSharedValue(0);
   const lockOpacity = useSharedValue(0.3);
 
+  // **RING BUFFER: Array of shared values, one per bar**
+  // Initialize all bars to 0.01 (minimal height)
+  const waveformBars = useRef<Animated.SharedValue<number>[]>(
+    Array.from({ length: WAVEFORM_BAR_COUNT }, () => useSharedValue(0.01))
+  ).current;
+
+  // Current energy as shared value for UI thread access
+  const currentEnergyShared = useSharedValue(0);
+  const vadThresholdShared = useSharedValue(vadThreshold);
+
+  // Update shared values when props change
+  useEffect(() => {
+    currentEnergyShared.value = currentEnergy;
+  }, [currentEnergy, currentEnergyShared]);
+
+  useEffect(() => {
+    vadThresholdShared.value = vadThreshold;
+  }, [vadThreshold, vadThresholdShared]);
+
+  /**
+   * When energy updates, push to ring buffer
+   * This bridges React state to UI thread worklet
+   */
+  useEffect(() => {
+    if (!isVADLocked) return;
+
+    // Normalize energy to 0-1 range
+    const normalizedEnergy = Math.max(
+      0.01,
+      Math.min(1, currentEnergy / (vadThreshold * 3))
+    );
+
+    // Update on UI thread: Shift all values left (bar[0] ← bar[1], bar[1] ← bar[2], etc.)
+    // This is efficient because each bar's shared value update happens independently
+    for (let i = 0; i < WAVEFORM_BAR_COUNT - 1; i++) {
+      waveformBars[i].value = waveformBars[i + 1].value;
+    }
+
+    // Add new value on the right
+    waveformBars[WAVEFORM_BAR_COUNT - 1].value = normalizedEnergy;
+  }, [currentEnergy, isVADLocked, vadThreshold, waveformBars]);
+
+  // Reset waveform when VAD is unlocked
+  useEffect(() => {
+    if (!isVADLocked) {
+      // Reset all bars to minimal height with smooth animation
+      for (let i = 0; i < WAVEFORM_BAR_COUNT; i++) {
+        waveformBars[i].value = withTiming(0.01, { duration: 200 });
+      }
+    }
+  }, [isVADLocked, waveformBars]);
+
   // Timers and state
   const activationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSliding, setIsSliding] = useState(false);
 
-  // Minimum recording duration (1 second)
-  const MIN_RECORDING_DURATION = 1000; // Updated to 1 second as requested
-
-  // Time to hold before recording starts (WhatsApp-style)
+  // Constants
+  const MIN_RECORDING_DURATION = 1000;
   const ACTIVATION_TIME = 500;
-
-  // Delay after release before stopping recording (to capture audio tail)
-  const RELEASE_DELAY = 300; // 300ms to capture the end of speech
-
-  // Slide-to-lock constants
-  const SLIDE_THRESHOLD = 120; // Distance to slide before locking (in pixels)
-  const LOCK_HAPTIC_THRESHOLD = 100; // When to provide haptic feedback
+  const RELEASE_DELAY = 300;
+  const SLIDE_THRESHOLD = 120;
+  const LOCK_HAPTIC_THRESHOLD = 100;
 
   // Store current prop values in refs for gesture access
   const isVADLockedRef = useRef(isVADLocked);
@@ -123,7 +206,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     setIsSliding(true);
     setIsSlideGestureActive(true);
 
-    // Cancel any pending activation timer if user starts sliding
     if (activationTimer.current) {
       clearTimeout(activationTimer.current);
       activationTimer.current = null;
@@ -148,7 +230,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     void mediumHaptic();
   };
 
-  // Pan gesture for slide-to-lock using Reanimated Gesture API
+  // Pan gesture for slide-to-lock
   const panGesture = Gesture.Pan()
     .enabled(!isVADLocked && !isRecording)
     .activeOffsetX(5)
@@ -161,11 +243,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     })
     .onUpdate((event) => {
       'worklet';
-      // Only allow rightward slides
       const dx = Math.max(0, Math.min(SLIDE_THRESHOLD, event.translationX));
       slideX.value = dx;
 
-      // Haptic feedback when approaching lock threshold
       if (dx > LOCK_HAPTIC_THRESHOLD && dx < LOCK_HAPTIC_THRESHOLD + 5) {
         scheduleOnRN(triggerHaptic);
       }
@@ -175,7 +255,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       const dx = event.translationX;
 
       if (dx >= SLIDE_THRESHOLD) {
-        // Slid far enough - lock into VAD mode
         slideX.value = withSpring(SLIDE_THRESHOLD, {
           damping: 15,
           stiffness: 150
@@ -183,7 +262,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         lockOpacity.value = withTiming(1, { duration: 200 });
         scheduleOnRN(handleSlideComplete);
       } else {
-        // Snap back to start
         slideX.value = withSpring(0, {
           damping: 12,
           stiffness: 200
@@ -195,7 +273,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     })
     .onFinalize(() => {
       'worklet';
-      // If gesture is interrupted, snap back
       if (slideX.value > 0 && slideX.value < SLIDE_THRESHOLD) {
         slideX.value = withSpring(0);
         lockOpacity.value = withTiming(0.3, { duration: 200 });
@@ -209,21 +286,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       slideX.value = withSpring(0);
       lockOpacity.value = withTiming(0.3, { duration: 200 });
     }
-  }, [isVADLocked]);
+  }, [isVADLocked, slideX, lockOpacity]);
 
-  // Append a live sample with side-scrolling window (shift left, add right)
+  // Append a live sample for recording playback
   const appendLiveSample = (amplitude01: number) => {
     const clampedAmplitude = Math.max(0.01, Math.min(1, amplitude01));
-
-    // Add to recorded samples for final interpolation
     setRecordedSamples((prev) => [...prev, clampedAmplitude]);
-
-    // Update live display with side-scrolling
-    setRealTimeWaveform((prev) => {
-      const next = [...prev.slice(1), clampedAmplitude];
-      onWaveformUpdate?.(next);
-      return next;
-    });
   };
 
   // Cleanup recording and timers on unmount
@@ -265,7 +333,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               (finished2) => {
                 'worklet';
                 if (finished2 && isRecordingRef.current) {
-                  // Loop the animation
                   pulseAnim.value = withTiming(1.2, {
                     duration: 500,
                     easing: Easing.inOut(Easing.ease)
@@ -280,26 +347,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       cancelAnimation(pulseAnim);
       pulseAnim.value = withTiming(1, { duration: 200 });
     }
-  }, [isRecording]);
+  }, [isRecording, pulseAnim]);
 
-  // Background color animation when recording starts/stops
+  // Background color animation
   useEffect(() => {
     bgColorAnim.value = withTiming(isRecording ? 1 : 0, {
       duration: 300
     });
-  }, [isRecording]);
+  }, [isRecording, bgColorAnim]);
 
   const startRecording = async () => {
     try {
       const startTime = performance.now();
       console.log('🎙️ Starting recording process...');
 
-      // Reset recorded samples for new recording
       setRecordedSamples([]);
-
       console.log('🎤 Initializing recorder...');
 
-      // Check and request permission if needed
       if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
         console.log('🔐 Requesting microphone permission...');
         const permissionResult = await requestPermission();
@@ -310,14 +374,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         console.log('✅ Permission granted');
       }
 
-      // Set audio mode (fast, ~50ms)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true
       });
 
       console.log('🎤 Creating fresh recording...');
-      // Create recording fresh every time - don't reuse stale recordings
       const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
       const options = {
         ...highQuality,
@@ -342,25 +404,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecordingDuration(0);
       onRecordingStart();
 
-      // Start monitoring recording status - update more frequently for faster scrolling
       activeRecording.setOnRecordingStatusUpdate((status) => {
         if (status.isRecording) {
           const duration = status.durationMillis || 0;
           setRecordingDuration(duration);
 
-          // Use native metering from Expo AV (iOS/Android): status.metering is in dB (approx -160..0)
           const anyStatus = status as unknown as { metering?: number };
           if (typeof anyStatus.metering === 'number') {
             const db = anyStatus.metering;
-            // Convert dB to linear amplitude in [0,1] with better scaling for speech
-            // -60dB is quiet speech, -20dB is normal speech, 0dB is max
             const normalizedDb = Math.max(-60, Math.min(0, db));
             const amplitude = Math.pow(10, normalizedDb / 20);
             appendLiveSample(amplitude);
           } else {
-            // Fallback: lightweight synthetic animation for platforms without metering
             const t = duration / 1000;
-            const base = 0.3 + Math.sin(t * 24) * 0.15; // Much faster animation (3x)
+            const base = 0.3 + Math.sin(t * 24) * 0.15;
             const noise = (Math.random() - 0.5) * 0.1;
             const fallbackEnergy = Math.max(0.02, Math.min(0.8, base + noise));
             appendLiveSample(fallbackEnergy);
@@ -380,12 +437,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
 
     try {
-      // Check if recording still exists and hasn't been cleaned up
       const status = await recording.getStatusAsync().catch(() => null);
       if (!status) {
         console.warn('⚠️ Recording no longer exists, skipping stop');
         setRecording(null);
-        // Notify parent that recording has stopped
         onRecordingStop();
         return;
       }
@@ -395,14 +450,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       if (uri) {
         if (recordingDuration >= MIN_RECORDING_DURATION) {
-          // Use the actual recorded samples (no mock bars, natural length variation)
           const waveformData = [...recordedSamples];
           onRecordingComplete(uri, recordingDuration, waveformData);
         } else {
           console.log(
             `⏭️ Recording too short (${recordingDuration}ms), discarding`
           );
-          // Notify parent to clean up the pending card
           onRecordingDiscarded?.();
         }
       }
@@ -410,32 +463,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecording(null);
       setRecordingDuration(0);
       setRecordedSamples([]);
-      // Reset waveform to full set of bars at 0 volume
-      setRealTimeWaveform(new Array(LIVE_BAR_CAPACITY).fill(0.01));
 
-      // Notify parent that recording has stopped
       onRecordingStop();
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      // Clean up state even on error
       setRecording(null);
       setRecordingDuration(0);
       setRecordedSamples([]);
-      setRealTimeWaveform(new Array(LIVE_BAR_CAPACITY).fill(0.01));
-
-      // Notify parent that recording has stopped
       onRecordingStop();
     }
   };
 
   const handlePressIn = () => {
-    // Disable manual recording when VAD is locked
     if (isVADLocked) {
       console.log('🔒 VAD mode is locked - manual recording disabled');
       return;
     }
 
-    // Don't start recording if user is sliding
     if (isSlideGestureActive) {
       console.log('🔒 Slide gesture active - ignoring press');
       return;
@@ -443,32 +487,25 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
     console.log('🎙️ Press in detected, starting activation timer...');
 
-    // Immediate haptic feedback for tactile response
     void mediumHaptic();
 
     setIsPressed(true);
     setIsActivating(true);
 
-    // Start button press animation (smooth spring on UI thread)
     scaleAnim.value = withSpring(0.9, {
       damping: 15,
       stiffness: 150
     });
 
-    // Start progress animation (timing on UI thread)
     activationProgress.value = withTiming(1, {
       duration: ACTIVATION_TIME,
       easing: Easing.linear
     });
 
-    // Start recording after ACTIVATION_TIME
     activationTimer.current = setTimeout(() => {
       console.log('✅ Activation complete, starting recording...');
       setIsActivating(false);
-
-      // Stronger haptic when recording actually starts
       void heavyHaptic();
-
       void startRecording();
     }, ACTIVATION_TIME);
   };
@@ -476,29 +513,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const handlePressOut = () => {
     if (!isPressed) return;
 
-    // If a slide gesture was/is active, don't process recording logic
     if (isSlideGestureActive) {
       console.log('🔒 Slide gesture was active - ignoring press out');
       setIsPressed(false);
-
-      // Reset progress animation (smooth on UI thread)
       activationProgress.value = withTiming(0, { duration: 150 });
-
-      // Scale back up animation
       scaleAnim.value = withSpring(1, {
         damping: 15,
         stiffness: 150
       });
-
       return;
     }
 
-    // Light haptic feedback on release
     void mediumHaptic();
-
     setIsPressed(false);
 
-    // If still activating, cancel activation
     if (isActivating) {
       console.log('❌ Released before activation complete, canceling...');
       setIsActivating(false);
@@ -508,30 +536,23 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         activationTimer.current = null;
       }
 
-      // Reset progress animation
       activationProgress.value = withTiming(0, { duration: 150 });
-
-      // Scale back up animation
       scaleAnim.value = withSpring(1, {
         damping: 15,
         stiffness: 150
       });
-
       return;
     }
 
-    // If recording, stop it after a delay to capture audio tail
     if (isRecording) {
       console.log(
         `⏳ Release detected, will stop recording in ${RELEASE_DELAY}ms to capture audio tail`
       );
 
-      // Clear any existing release delay timer
       if (releaseDelayTimer.current) {
         clearTimeout(releaseDelayTimer.current);
       }
 
-      // Delay the stop to capture the end of speech
       releaseDelayTimer.current = setTimeout(() => {
         console.log('🛑 Stopping recording after delay');
         void stopRecording();
@@ -539,31 +560,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       }, RELEASE_DELAY);
     }
 
-    // Reset progress for next time
     activationProgress.value = withTiming(0, { duration: 150 });
-
-    // Scale back up animation
     scaleAnim.value = withSpring(1, {
       damping: 15,
       stiffness: 150
     });
   };
 
-  // Check if we can record (permission granted)
   useEffect(() => {
     setCanRecord(permissionResponse?.status === Audio.PermissionStatus.GRANTED);
   }, [permissionResponse]);
 
-  const _formatDuration = (milliseconds: number) => {
-    const seconds = Math.floor(milliseconds / 1000);
-    const ms = Math.floor((milliseconds % 1000) / 100);
-    return `${seconds}.${ms}`;
-  };
+  const progressCircumference = 2 * Math.PI * 38;
 
-  // Constants for circular progress
-  const progressCircumference = 2 * Math.PI * 38; // radius = 38 (button radius + stroke padding)
-
-  // Animated styles using Reanimated
+  // Animated styles
   const containerAnimatedStyle = useAnimatedStyle(() => {
     const bgColor = interpolateColor(
       bgColorAnim.value,
@@ -591,7 +601,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     };
   });
 
-  // Animated props for SVG Circle
   const progressCircleAnimatedProps = useAnimatedProps(() => {
     return {
       stroke: interpolateColor(
@@ -607,14 +616,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     };
   });
 
-  // Live waveform animation for VAD mode
+  // Waveform opacity animation
   const waveformOpacity = useSharedValue(0);
 
   useEffect(() => {
     waveformOpacity.value = withTiming(isVADLocked ? 1 : 0, {
       duration: 300
     });
-  }, [isVADLocked]);
+  }, [isVADLocked, waveformOpacity]);
 
   const waveformAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -622,40 +631,38 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     };
   });
 
-  // Determine waveform color based on recording state
-  const getWaveformColor = () => {
-    if (isRecording) return colors.error; // Red when recording
-    return colors.primary; // Blue when monitoring
-  };
-
-  // Scale current energy for visualization (0-1 range to bar height)
-  const energyScale = Math.min(
-    1,
-    Math.max(0, currentEnergy / (vadThreshold * 3))
-  );
-
-  // Use a state to track animation frame for waveform
-  const [waveformTime, setWaveformTime] = useState(0);
-
-  useEffect(() => {
-    if (!isVADLocked) return;
-
-    const interval = setInterval(() => {
-      setWaveformTime((t) => t + 0.1);
-    }, 50); // Update 20 times per second
-
-    return () => clearInterval(interval);
-  }, [isVADLocked]);
+  // Create array indices for mapping (created once)
+  const barIndices = Array.from({ length: WAVEFORM_BAR_COUNT }, (_, i) => i);
 
   return (
-    <Animated.View
+    <AnimatedView
       className="items-center rounded-3xl py-6"
       style={containerAnimatedStyle}
     >
       <View className="min-h-[100px] w-full flex-row-reverse items-center justify-center px-4">
-        {/* Lock indicator / Cancel button */}
+        {/* **RING BUFFER WAVEFORM: Real energy values flowing left** */}
+        {isVADLocked && (
+          <AnimatedView
+            className="absolute left-4 flex-row items-center gap-0.5"
+            style={waveformAnimatedStyle}
+          >
+            <View className="h-6 flex-row items-center gap-0.5">
+              {barIndices.map((i) => (
+                <WaveformBar
+                  key={i}
+                  barIndex={i}
+                  barValue={waveformBars[i]}
+                  isRecording={isRecording}
+                  maxHeight={WAVEFORM_MAX_HEIGHT}
+                />
+              ))}
+            </View>
+          </AnimatedView>
+        )}
+
+        {/* Lock indicator */}
         {!isVADLocked ? (
-          <Animated.View
+          <AnimatedView
             className="align-end absolute right-1 flex-row items-center gap-1 rounded-2xl px-3 py-2 pl-6"
             style={[
               { backgroundColor: colors.textSecondary },
@@ -666,46 +673,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             <Text className="text-sm font-semibold text-primary">
               {isSliding ? 'Release to lock' : 'Slide →'}
             </Text>
-          </Animated.View>
+          </AnimatedView>
         ) : (
           <></>
-        )}
-
-        {/* Live waveform visualization when VAD locked - positioned to the left */}
-        {isVADLocked && (
-          <Animated.View
-            className="absolute left-4 flex-row items-center gap-0.5"
-            style={waveformAnimatedStyle}
-          >
-            <View className="h-6 flex-row items-center gap-0.5">
-              {Array.from({ length: 20 }).map((_, i) => {
-                // Create a flowing waveform effect using waveformTime
-                const phase = waveformTime + i * 0.5;
-                const wave = 0.5 + Math.sin(phase) * 0.5;
-                const barHeight = energyScale * wave;
-                return (
-                  <View
-                    key={i}
-                    className="min-h-[2px] w-[3px] rounded-full"
-                    style={{
-                      height: Math.max(2, barHeight * 24),
-                      backgroundColor: getWaveformColor()
-                    }}
-                  />
-                );
-              })}
-            </View>
-          </Animated.View>
         )}
 
         {/* Button with gesture detector */}
         <GestureDetector gesture={panGesture}>
           <View className="relative h-[84px] w-[84px] items-center justify-center">
-            <Animated.View style={buttonAnimatedStyle}>
+            <AnimatedView style={buttonAnimatedStyle}>
               {/* Circular progress indicator */}
               <View className="pointer-events-none absolute left-[38.5%] top-1/2 -ml-[42px] -mt-[42px] h-[84px] w-[84px] items-center justify-center">
                 <Svg width="84" height="84" viewBox="0 0 84 84">
-                  {/* Background track */}
                   {(isActivating || isRecording) && (
                     <Circle
                       cx="42"
@@ -717,7 +696,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                       opacity={0.3}
                     />
                   )}
-                  {/* Progress arc */}
                   {(isActivating || isRecording) && (
                     <AnimatedCircle
                       cx="42"
@@ -766,7 +744,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                   <Icon as={MicIcon} size={24} className="text-background" />
                 )}
               </Button>
-            </Animated.View>
+            </AnimatedView>
           </View>
         </GestureDetector>
       </View>
@@ -782,7 +760,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           </Text>
         </Button>
       )}
-    </Animated.View>
+    </AnimatedView>
   );
 };
 
