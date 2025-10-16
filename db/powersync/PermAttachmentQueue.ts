@@ -1,5 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { fileExists, readFile, writeFile } from '@/utils/fileUtils';
+import { copyFile, fileExists, writeFile } from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -7,6 +7,7 @@ import type {
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { isNotNull } from 'drizzle-orm';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import type * as drizzleSchema from '../drizzleSchema';
 import { AppConfig } from '../supabase/AppConfig';
@@ -212,9 +213,9 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
     const photoAttachment = await this.newAttachmentRecord();
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
-    writeFile(localUri, base64Data, { encoding: 'base64' });
+    await writeFile(localUri, base64Data, { encoding: 'base64' });
 
-    if (fileExists(localUri)) {
+    if (await fileExists(localUri)) {
       // Note: We can't get file size from fileUtils, so we'll estimate from base64
       photoAttachment.size = Math.floor((base64Data.length * 3) / 4);
     }
@@ -224,24 +225,35 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async saveAudio(tempUri: string): Promise<AttachmentRecord> {
     const extension = tempUri.split('.').pop();
+
+    const mediaType = 'audio/mpeg';
     const audioAttachment = await this.newAttachmentRecord(
       {
-        media_type: 'audio/mpeg'
+        media_type: mediaType
       },
       extension
     );
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
 
-    // For audio files, we need to copy the file content
-    if (fileExists(tempUri)) {
-      const audioData = readFile(tempUri, { encoding: 'base64' });
-      writeFile(localUri, audioData, { encoding: 'base64' });
+    const exists = await fileExists(tempUri);
 
-      // Estimate size from base64 data
-      audioAttachment.size = Math.floor((audioData.length * 3) / 4);
+    // For audio files, we need to copy the file content
+    if (exists) {
+      // Simply copy the file directly without conversion
+      await copyFile(tempUri, localUri);
+
+      // Get actual file size
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      if (fileInfo.exists && !fileInfo.isDirectory) {
+        audioAttachment.size = fileInfo.size || 0;
+      }
+    } else {
+      throw new Error(`Audio file not found: ${tempUri}`);
     }
 
-    return this.saveToQueue(audioAttachment);
+    const result = await this.saveToQueue(audioAttachment);
+
+    return result;
   }
 
   async expireCache() {

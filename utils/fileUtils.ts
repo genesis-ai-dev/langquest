@@ -41,18 +41,20 @@ export async function writeFile(
 
 export async function readFile(
   fileURI: string,
-  options?: { encoding?: 'utf8' | 'base64' }
+  _options?: { encoding?: 'utf8' | 'base64' }
 ) {
-  if (await fileExists(fileURI)) {
+  if (!(await fileExists(fileURI))) {
     throw new Error(`File does not exist: ${fileURI}`);
   }
-  const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
 
-  const fileContent = await FileSystem.readAsStringAsync(fileURI, options);
-  if (encoding === FileSystem.EncodingType.Base64) {
-    return base64ToArrayBuffer(fileContent);
-  }
-  return stringToArrayBuffer(fileContent);
+  // For binary files (audio, images, etc.), always read as base64
+  // This prevents data corruption from UTF-8 conversion
+  const fileContent = await FileSystem.readAsStringAsync(fileURI, {
+    encoding: FileSystem.EncodingType.Base64
+  });
+
+  // Convert base64 to ArrayBuffer properly
+  return base64ToArrayBuffer(fileContent);
 }
 
 export async function deleteFile(uri: string) {
@@ -78,6 +80,9 @@ export function stringToArrayBuffer(str: string) {
 
 export function base64ToArrayBuffer(base64: string) {
   const binaryString = atob(base64);
-  const bytes = encoder.encode(binaryString);
-  return bytes.buffer as unknown as ArrayBuffer;
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
 }

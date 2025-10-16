@@ -40,6 +40,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       .upload(filename, data, { contentType: mediaType });
 
     if (res.error) {
+      console.error('[STORAGE] Upload failed:', filename, res.error);
       throw res.error;
     }
   }
@@ -72,7 +73,20 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     fileURI: string,
     options?: { encoding?: 'utf8' | 'base64'; mediaType?: string }
   ): Promise<ArrayBuffer> {
-    return readFile(fileURI, options);
+    const exists = await fileExists(fileURI);
+
+    if (!exists) {
+      console.error('[STORAGE] File does not exist for upload:', fileURI);
+      throw new Error(`File does not exist for upload: ${fileURI}`);
+    }
+
+    try {
+      const result = await readFile(fileURI, options);
+      return result;
+    } catch (error) {
+      console.error('[STORAGE] Error reading file for upload:', error);
+      throw error;
+    }
   }
 
   async deleteFile(
