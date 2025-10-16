@@ -1,13 +1,12 @@
 /**
  * RecordingControls - Bottom bar with WalkieTalkie recorder and VAD settings
  *
- * RING BUFFER VERSION:
  * - Waveform displayed above the controls
  * - Prevents re-renders from frequent currentEnergy updates
  * - Only re-renders when critical props change (isRecording, isVADLocked)
  */
 
-import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder.ringbuffer';
+import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
 import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';

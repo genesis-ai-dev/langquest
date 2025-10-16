@@ -7,14 +7,18 @@
 import { Text } from '@/components/ui/text';
 import { getThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { ActivityIndicator, Animated, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  type SharedValue
+} from 'react-native-reanimated';
 import type { PendingSegment } from '../hooks/useRecordingState';
 
 interface PendingCardProps {
   pending: PendingSegment;
   animation?: {
-    opacity: Animated.Value;
-    translateY: Animated.Value;
+    opacity: SharedValue<number>;
+    translateY: SharedValue<number>;
   };
 }
 
@@ -38,13 +42,25 @@ export const PendingCard = React.memo(function PendingCard({
         ? 'border-destructive bg-destructive/10'
         : 'border-border bg-card';
 
+  // ✅ Use Reanimated's useAnimatedStyle for SharedValue compatibility
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!animation) {
+      return {
+        opacity: 1,
+        transform: [{ translateY: 0 }]
+      };
+    }
+
+    return {
+      opacity: animation.opacity.value,
+      transform: [{ translateY: animation.translateY.value }]
+    };
+  }, [animation]);
+
   return (
     <Animated.View
       className={`rounded-lg border p-3 ${borderColor}`}
-      style={{
-        opacity: animation?.opacity || 1,
-        transform: [{ translateY: animation?.translateY || 0 }]
-      }}
+      style={animatedStyle}
     >
       <View className="flex-row items-center gap-3">
         {/* Loading spinner for active states */}

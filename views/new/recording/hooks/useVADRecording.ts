@@ -67,14 +67,22 @@ export function useVADRecording({
   }, [threshold, silenceDuration]);
 
   // Start energy detection and enable native VAD when active
+  // Energy monitoring runs for both VAD and manual recording (for waveform)
+  // VAD auto-recording only runs in VAD mode (not during manual)
   React.useEffect(() => {
-    if (isVADActive && !isActive && !isManualRecording) {
-      console.log('🎯 VAD mode activated - native VAD takes over');
-      void startEnergyDetection().then(() => {
-        void MicrophoneEnergyModule.enableVAD();
-      });
+    if (isVADActive && !isActive) {
+      if (isManualRecording) {
+        console.log('🎯 Energy monitoring activated for manual recording (waveform only)');
+        void startEnergyDetection();
+        // Don't enable VAD auto-recording during manual mode
+      } else {
+        console.log('🎯 VAD mode activated - native VAD takes over');
+        void startEnergyDetection().then(() => {
+          void MicrophoneEnergyModule.enableVAD();
+        });
+      }
     } else if (!isVADActive && isActive) {
-      console.log('🎯 VAD mode deactivated');
+      console.log('🎯 Energy monitoring deactivated');
       void MicrophoneEnergyModule.disableVAD();
       void stopEnergyDetection();
     }

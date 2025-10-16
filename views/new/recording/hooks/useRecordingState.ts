@@ -42,13 +42,52 @@ interface UseRecordingStateReturn {
   removePending: (tempId?: string | null) => void;
 }
 
+// ✅ FIX 1: Pre-create a pool of shared values at top level
+
 export function useRecordingState(): UseRecordingStateReturn {
   const [isRecording, setIsRecording] = React.useState(false);
   const [pendingSegments, setPendingSegments] = React.useState<
     PendingSegment[]
   >([]);
 
-  // Animation refs for pending slide-in
+  // ✅ GOOD: Pre-create animation shared values at top level (not in callbacks!)
+  // Create all shared values at the top level (hooks must be called unconditionally)
+  const opacity0 = useSharedValue(0);
+  const translateY0 = useSharedValue(12);
+  const opacity1 = useSharedValue(0);
+  const translateY1 = useSharedValue(12);
+  const opacity2 = useSharedValue(0);
+  const translateY2 = useSharedValue(12);
+  const opacity3 = useSharedValue(0);
+  const translateY3 = useSharedValue(12);
+  const opacity4 = useSharedValue(0);
+  const translateY4 = useSharedValue(12);
+  const opacity5 = useSharedValue(0);
+  const translateY5 = useSharedValue(12);
+  const opacity6 = useSharedValue(0);
+  const translateY6 = useSharedValue(12);
+  const opacity7 = useSharedValue(0);
+  const translateY7 = useSharedValue(12);
+  const opacity8 = useSharedValue(0);
+  const translateY8 = useSharedValue(12);
+  const opacity9 = useSharedValue(0);
+  const translateY9 = useSharedValue(12);
+
+  // Store them in a stable array using useRef
+  const animationPool = React.useRef([
+    { opacity: opacity0, translateY: translateY0, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity1, translateY: translateY1, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity2, translateY: translateY2, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity3, translateY: translateY3, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity4, translateY: translateY4, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity5, translateY: translateY5, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity6, translateY: translateY6, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity7, translateY: translateY7, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity8, translateY: translateY8, metadata: { inUse: false, id: null as string | null } },
+    { opacity: opacity9, translateY: translateY9, metadata: { inUse: false, id: null as string | null } }
+  ]).current;
+
+  // Animation refs for pending slide-in (for backwards compatibility)
   const pendingAnimsRef = React.useRef(
     new Map<
       string,
@@ -59,47 +98,77 @@ export function useRecordingState(): UseRecordingStateReturn {
     >()
   );
 
-  const startRecording = React.useCallback((insertionIndex: number) => {
-    setIsRecording(true);
-
-    const tempId = uuid.v4() + '_temp';
-
-    // The pending card appears at the insertion boundary
-    // When saved, it will become a real item with order_index = insertionIndex
-    setPendingSegments((prev) => [
-      ...prev,
-      {
-        tempId,
-        name: 'Recording...',
-        status: 'recording' as const,
-        placementIndex: insertionIndex, // Shows at this visual position
-        createdAt: Date.now()
-      }
-    ]);
-
-    // Slide-in animation for the new pending card
-    try {
-      if (!pendingAnimsRef.current.has(tempId)) {
-        const anims = {
-          opacity: useSharedValue(0),
-          translateY: useSharedValue(12)
-        };
-        pendingAnimsRef.current.set(tempId, anims);
-        anims.opacity.value = withTiming(1, {
-          duration: 220,
-          easing: Easing.out(Easing.cubic)
-        });
-        anims.translateY.value = withTiming(0, {
-          duration: 220,
-          easing: Easing.out(Easing.cubic)
-        });
-      }
-    } catch {
-      // Animation setup failed, continue without animation
+  // Get or allocate animation from pool
+  const getAnimation = React.useCallback((id: string) => {
+    // Check if already in use
+    const existing = animationPool.find((a) => a.metadata.id === id);
+    if (existing) {
+      return { opacity: existing.opacity, translateY: existing.translateY };
     }
 
-    return tempId;
-  }, []);
+    // Find unused slot
+    const unused = animationPool.find((a) => !a.metadata.inUse);
+    if (unused) {
+      unused.metadata.inUse = true;
+      unused.metadata.id = id;
+      unused.opacity.value = 0;
+      unused.translateY.value = 12;
+      return { opacity: unused.opacity, translateY: unused.translateY };
+    }
+
+    // Fallback: reuse oldest slot
+    const oldest = animationPool[0]!;
+    oldest.metadata.id = id;
+    oldest.opacity.value = 0;
+    oldest.translateY.value = 12;
+    return { opacity: oldest.opacity, translateY: oldest.translateY };
+  }, []); // Empty deps since animationPool is from .current (stable)
+
+  // Release animation back to pool
+  const releaseAnimation = React.useCallback((id: string) => {
+    const anim = animationPool.find((a) => a.metadata.id === id);
+    if (anim) {
+      anim.metadata.inUse = false;
+      anim.metadata.id = null;
+    }
+  }, []); // Empty deps since animationPool is from .current (stable)
+
+  const startRecording = React.useCallback(
+    (insertionIndex: number) => {
+      setIsRecording(true);
+
+      const tempId = uuid.v4() + '_temp';
+
+      // The pending card appears at the insertion boundary
+      // When saved, it will become a real item with order_index = insertionIndex
+      setPendingSegments((prev) => [
+        ...prev,
+        {
+          tempId,
+          name: 'Recording...',
+          status: 'recording' as const,
+          placementIndex: insertionIndex, // Shows at this visual position
+          createdAt: Date.now()
+        }
+      ]);
+
+      // ✅ GOOD: Get pre-created animation from pool
+      const anims = getAnimation(tempId);
+      pendingAnimsRef.current.set(tempId, anims);
+
+      anims.opacity.value = withTiming(1, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic)
+      });
+      anims.translateY.value = withTiming(0, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic)
+      });
+
+      return tempId;
+    },
+    [getAnimation]
+  );
 
   const createPendingCard = React.useCallback(
     (insertionIndex: number, name = 'Recording...') => {
@@ -117,30 +186,22 @@ export function useRecordingState(): UseRecordingStateReturn {
         }
       ]);
 
-      // Slide-in animation for the new pending card
-      try {
-        if (!pendingAnimsRef.current.has(tempId)) {
-          const anims = {
-            opacity: useSharedValue(0),
-            translateY: useSharedValue(12)
-          };
-          pendingAnimsRef.current.set(tempId, anims);
-          anims.opacity.value = withTiming(1, {
-            duration: 220,
-            easing: Easing.out(Easing.cubic)
-          });
-          anims.translateY.value = withTiming(0, {
-            duration: 220,
-            easing: Easing.out(Easing.cubic)
-          });
-        }
-      } catch {
-        // Animation setup failed, continue without animation
-      }
+      // ✅ GOOD: Get pre-created animation from pool
+      const anims = getAnimation(tempId);
+      pendingAnimsRef.current.set(tempId, anims);
+
+      anims.opacity.value = withTiming(1, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic)
+      });
+      anims.translateY.value = withTiming(0, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic)
+      });
 
       return tempId;
     },
-    []
+    [getAnimation]
   );
 
   const stopRecording = React.useCallback(() => {
@@ -159,15 +220,23 @@ export function useRecordingState(): UseRecordingStateReturn {
     });
   }, []);
 
-  const removePending = React.useCallback((tempId?: string | null) => {
-    setPendingSegments((prev) =>
-      prev.filter((p) => {
-        if (tempId) return p.tempId !== tempId;
-        // If no tempId provided, remove all recording/saving cards
-        return p.status !== 'recording' && p.status !== 'saving';
-      })
-    );
-  }, []);
+  const removePending = React.useCallback(
+    (tempId?: string | null) => {
+      // Release animation back to pool
+      if (tempId) {
+        releaseAnimation(tempId);
+      }
+
+      setPendingSegments((prev) =>
+        prev.filter((p) => {
+          if (tempId) return p.tempId !== tempId;
+          // If no tempId provided, remove all recording/saving cards
+          return p.status !== 'recording' && p.status !== 'saving';
+        })
+      );
+    },
+    [releaseAnimation]
+  );
 
   // Cleanup animations for removed pending IDs
   React.useEffect(() => {

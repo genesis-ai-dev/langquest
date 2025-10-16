@@ -469,7 +469,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       const lastOrder =
         lastAsset && typeof lastAsset.order_index === 'number'
           ? lastAsset.order_index
-          : assets.length - 1;
+          : Math.max(0, assets.length - 1); // ✅ Fix: Ensure minimum order_index of 0
       targetOrder = lastOrder;
       console.log(
         `📍 At end position, last asset has order_index: ${lastOrder}`
@@ -480,39 +480,45 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     // Visual insertion happens at insertionIndex + 1 (after the hovered asset)
     const visualInsertionPos =
       insertionIndex < assets.length ? insertionIndex + 1 : insertionIndex;
-    const tempId = startRecording(visualInsertionPos);
+
+    // ✅ FIX 4: Use startTransition to mark state updates as low priority
+    let tempId: string;
+    React.startTransition(() => {
+      // Batch all state updates together
+      tempId = startRecording(visualInsertionPos);
+
+      console.log('targetOrder', targetOrder);
+      // Store for use in handleRecordingComplete
+      currentRecordingOrderRef.current = targetOrder;
+      currentRecordingTempIdRef.current = tempId;
+
+      // Scroll to show the pending card (manual recording only, not VAD mode)
+      if (!isVADLocked) {
+        setInsertionIndex(visualInsertionPos);
+        console.log(
+          '📍 Scrolled to show pending card at position:',
+          visualInsertionPos
+        );
+      }
+    });
 
     // Reset the starting flag now that startRecording has been called (sets isRecording=true)
     isStartingRecordingRef.current = false;
 
     console.log(
       '📝 Created pending card:',
-      tempId,
+      tempId!,
       'visual position:',
       visualInsertionPos
     );
 
-    console.log('targetOrder', targetOrder);
-    // Store for use in handleRecordingComplete
-    currentRecordingOrderRef.current = targetOrder;
-    currentRecordingTempIdRef.current = tempId;
-
-    // Scroll to show the pending card (manual recording only, not VAD mode)
-    if (!isVADLocked) {
-      setInsertionIndex(visualInsertionPos);
-      console.log(
-        '📍 Scrolled to show pending card at position:',
-        visualInsertionPos
-      );
-    }
-
-    // Briefly expand spacer for visual feedback
+    // Animation on UI thread - not affected by batching
     spacerHeight.value = withSequence(
       withTiming(12, { duration: 120 }),
       withTiming(6, { duration: 160 })
     );
 
-    return tempId;
+    return tempId!;
   }, [
     insertionIndex,
     assets,
@@ -919,14 +925,18 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     [handleRecordingComplete, removePending]
   );
 
-  // VAD recording hook - native module does all recording, we just listen
+  // VAD recording hook - native module provides energy ONLY in VAD mode
+  // ✅ FIX: Do NOT activate during manual recording to avoid Recording object conflicts
+  // Manual recording uses WalkieTalkieRecorder's own Recording object
+  const shouldMonitorEnergy = isVADLocked; // Only in VAD mode, NOT during manual recording
+
   const { currentEnergy, isRecording: isVADRecording } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
-    isVADActive: isVADLocked,
+    isVADActive: shouldMonitorEnergy, // ← Only VAD mode (prevents Recording conflicts)
     onSegmentStart: handleVADSegmentStart,
     onSegmentComplete: handleVADSegmentComplete,
-    isManualRecording: isRecording
+    isManualRecording: isRecording // ← Still pass flag for safety
   });
 
   // Audio playback

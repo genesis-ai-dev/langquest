@@ -410,8 +410,13 @@ export default function NextGenAssetsView() {
             <Button
               variant="outline"
               size="icon"
-              disabled={isPublishing}
+              disabled={isPublishing || !isOnline}
               onPress={() => {
+                if (!isOnline) {
+                  Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                  return;
+                }
+
                 if (!currentQuestId) {
                   console.error('No current quest id');
                   return;
