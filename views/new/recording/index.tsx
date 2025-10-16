@@ -173,12 +173,30 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     getItemId: (item) => (item as unknown as { id: string }).id
   });
 
+  // Stabilize rawAssets to prevent render loops from useHybridData
+  // Only update when the actual IDs change, not just array reference
+  const stableRawAssets = React.useMemo(() => {
+    const ids = rawAssets.map((a) => (a as { id?: string }).id).join(',');
+    console.log('📌 Raw assets stabilized, IDs:', ids.slice(0, 50) + '...');
+    return rawAssets;
+  }, [
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    rawAssets.map((a) => (a as { id?: string }).id).join(',')
+  ]);
+
   // Assets come directly from the query (no nested structure)
   const { optimisticAssets, addOptimistic, removeOptimistic } =
-    useOptimisticAssets(rawAssets);
+    useOptimisticAssets(stableRawAssets);
 
   // Merge and sort assets
   const assets = React.useMemo(() => {
+    console.log(
+      '🔄 Recomputing assets | raw:',
+      stableRawAssets.length,
+      'optimistic:',
+      optimisticAssets.length
+    );
+
     interface UIAsset {
       id: string;
       name: string;
@@ -187,7 +205,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       source?: string;
     }
 
-    const valid = rawAssets.filter((a) => {
+    const valid = stableRawAssets.filter((a) => {
       const obj = a as { id?: string; name?: string } | null | undefined;
       return obj?.id && obj.name;
     }) as UIAsset[];
@@ -215,7 +233,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     });
 
     return withOrderIndex;
-  }, [rawAssets, optimisticAssets]);
+  }, [stableRawAssets, optimisticAssets]);
 
   // Normalize order_index values in database once when assets need initialization
   const hasNormalizedOrderIndexRef = React.useRef(false);
@@ -230,7 +248,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         return false;
       }
 
-      const rawAsset = rawAssets.find(
+      const rawAsset = stableRawAssets.find(
         (r) => (r as { id?: string })?.id === a.id
       );
       const rawOrder = rawAsset
@@ -276,9 +294,10 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
         console.error('❌ Failed to normalize order_index:', error);
       }
     })();
-  }, [assets, rawAssets, currentQuestId]);
+  }, [assets, stableRawAssets, currentQuestId]);
 
-  // Insertion tracking - start at end of list by default
+  // Insertion tracking - simple state, user-controlled
+  // Wheel component needs controlled value prop, but we don't fight it with effects
   const [insertionIndex, setInsertionIndex] = React.useState(() =>
     Math.max(0, assets.length)
   );
@@ -326,23 +345,26 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     void stopCurrentSound();
   }, []); // Only run on mount
 
-  // Track if we're in a recording operation to prevent bounds check from interfering
-  const isRecordingOperationRef = React.useRef(false);
+  // Track if user is actively scrolling to prevent interference
+  const isUserScrollingRef = React.useRef(false);
+  const scrollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
-  // Simple bounds check - clamp insertion index to valid range
-  React.useEffect(() => {
-    // Don't adjust during recording operations
-    if (isRecordingOperationRef.current) return;
-
-    const maxIndex = assets.length;
-    if (insertionIndex > maxIndex) {
-      console.log('📍 Clamping insertion index to:', maxIndex);
-      setInsertionIndex(maxIndex);
-    }
-  }, [assets.length, insertionIndex]);
-
+  // User controls scroll position - we just update state to match
   const handleInsertionChange = React.useCallback((newIndex: number) => {
     console.log('handleInsertionChange', newIndex);
+
+    // Mark that user is scrolling
+    isUserScrollingRef.current = true;
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    // Clear the flag after scroll settles
+    scrollTimeoutRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+    }, 200);
+
     setInsertionIndex(newIndex);
   }, []);
 
@@ -417,9 +439,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isStartingRecordingRef.current = true;
     console.log('🎬 handleRecordingStart - insertionIndex:', insertionIndex);
 
-    // Mark that we're in a recording operation
-    isRecordingOperationRef.current = true;
-
     // Clean up any stuck pending cards from previous recordings
     if (currentRecordingTempIdRef.current) {
       console.log(
@@ -478,11 +497,16 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     currentRecordingOrderRef.current = targetOrder;
     currentRecordingTempIdRef.current = tempId;
 
-    // Scroll to show the pending card after the hovered asset
-    // listRef.current?.scrollToInsertionIndex(visualInsertionPos, true);
-    setInsertionIndex(visualInsertionPos);
+    // Scroll to show the pending card (manual recording only, not VAD mode)
+    if (!isVADLocked) {
+      setInsertionIndex(visualInsertionPos);
+      console.log(
+        '📍 Scrolled to show pending card at position:',
+        visualInsertionPos
+      );
+    }
 
-    // Briefly expand spacer
+    // Briefly expand spacer for visual feedback
     spacerHeight.value = withSequence(
       withTiming(12, { duration: 120 }),
       withTiming(6, { duration: 160 })
@@ -729,17 +753,8 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           removeOptimistic(newId);
         }, 150);
 
-        // 8. Advance insertion index to after the newly recorded asset (manual mode only)
-        if (!isVADLocked) {
-          setInsertionIndex((prev) => prev + 1);
-          console.log('📍 Advanced insertion index to next position');
-        }
-
-        // 9. Clear recording operation flag after delay to let UI settle
-        setTimeout(() => {
-          isRecordingOperationRef.current = false;
-          console.log('🏁 Recording operation complete');
-        }, 500);
+        // 8. Done - user controls scroll position
+        console.log('🏁 Recording operation complete');
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
 
@@ -755,9 +770,6 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
           currentRecordingTempIdRef.current = null;
           vadPendingCardRef.current = null; // Also clear VAD ref
         }
-
-        // Clear recording operation flag on error
-        isRecordingOperationRef.current = false;
       }
     },
     [
@@ -813,13 +825,13 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     }
   }, [isVADLocked, assets]);
 
-  // Scroll to end when VAD mode activates (once, not on every asset change)
+  // Optional: Scroll to end when VAD mode activates
+  // This is a convenience feature - user can still manually scroll if they want
   React.useEffect(() => {
     if (isVADLocked) {
       const endIndex = assets.length;
-      setInsertionIndex(endIndex);
-      // listRef.current?.scrollToInsertionIndex(endIndex, true);
-      console.log('📍 VAD activated - scrolled to end');
+      listRef.current?.scrollToInsertionIndex(endIndex, true);
+      console.log('📍 VAD activated - suggesting scroll to end');
     }
   }, [isVADLocked]); // Only trigger when VAD lock changes, not assets.length
 
@@ -1541,6 +1553,12 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
 
   // Render content
   const scrollViewContent = React.useMemo(() => {
+    console.log(
+      '🔄 Rebuilding scrollViewContent | assets:',
+      assets.length,
+      'pending:',
+      pendingSegments.length
+    );
     const content: React.ReactNode[] = [];
 
     // if (assets.length === 0 && pendingSegments.length === 0) {
@@ -1701,7 +1719,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     isSelectionMode,
     isPlaying,
     currentAudioId,
-    insertionIndex,
+    // insertionIndex - removed because it doesn't affect children when isWheel=true
     isWheel,
     spacerHeight,
     spacerPulse,
@@ -1709,12 +1727,14 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
     playbackProgress,
     assetSegmentCounts,
     assetSegments,
+    assetDurations,
     toggleSelect,
     enterSelection,
     handlePlayAsset,
     handleDeleteLocalAsset,
     handleMergeDownLocal,
     handleEditSegments,
+    handleRenameAsset,
     handlePlaySegment,
     handleDeleteSegment,
     getSegmentUri
@@ -1750,7 +1770,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       </View>
 
       <View className="h-full flex-1 p-2">
-        {rawAssets.length === 0 && pendingSegments.length === 0 && (
+        {stableRawAssets.length === 0 && pendingSegments.length === 0 && (
           <View key="empty" className="items-center justify-center py-16">
             <Text variant="p" className="text-center text-muted-foreground">
               No assets yet. Start recording to create your first asset.

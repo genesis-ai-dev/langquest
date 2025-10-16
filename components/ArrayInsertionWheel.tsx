@@ -37,6 +37,36 @@ function ArrayInsertionWheelInternal(
   const itemCount = children.length + 1; // extra end boundary
   const clampedValue = Math.max(0, Math.min(itemCount - 1, value));
 
+  // Stabilize clampedValue to prevent unnecessary WheelPicker updates
+  const prevClampedRef = React.useRef(clampedValue);
+  const stableClampedValue = React.useMemo(() => {
+    if (prevClampedRef.current !== clampedValue) {
+      console.log(
+        '📊 Wheel value changed:',
+        prevClampedRef.current,
+        '→',
+        clampedValue,
+        '| itemCount:',
+        itemCount
+      );
+      prevClampedRef.current = clampedValue;
+    }
+    return clampedValue;
+  }, [clampedValue, itemCount]);
+
+  // Debug logging to trace clamping
+  React.useEffect(() => {
+    if (clampedValue !== value) {
+      console.log(
+        '⚠️ CLAMPING OCCURRED: input value=',
+        value,
+        '→ clamped=',
+        clampedValue,
+        '| valid range: 0-' + (itemCount - 1)
+      );
+    }
+  }, [value, clampedValue, itemCount]);
+
   const data = React.useMemo<PickerItem<number>[]>(
     () => Array.from({ length: itemCount }, (_, i) => ({ value: i })),
     [itemCount]
@@ -71,12 +101,12 @@ function ArrayInsertionWheelInternal(
         // Parent controls value; just notify desired change
         onChange?.(Math.max(0, Math.min(itemCount - 1, index)));
       },
-      getInsertionIndex: () => clampedValue,
+      getInsertionIndex: () => stableClampedValue,
       scrollItemToTop: (index: number) => {
         onChange?.(Math.max(0, Math.min(itemCount - 1, index + 1)));
       }
     }),
-    [clampedValue, itemCount, onChange]
+    [stableClampedValue, itemCount, onChange]
   );
 
   const renderItem = React.useCallback(
@@ -138,7 +168,7 @@ function ArrayInsertionWheelInternal(
     >
       <WheelPicker
         data={data}
-        value={clampedValue}
+        value={stableClampedValue}
         itemHeight={rowHeight}
         visibleItemCount={visibleCount}
         // Fire only on final change to avoid thrashing parent state during scroll
