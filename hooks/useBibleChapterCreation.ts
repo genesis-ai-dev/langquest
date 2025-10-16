@@ -1,5 +1,6 @@
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { createBibleChapterTags } from '@/utils/bibleTagUtils';
 import { resolveTable } from '@/utils/dbUtils';
@@ -48,55 +49,26 @@ export function useBibleChapterCreation() {
 
       return await system.db.transaction(async (tx) => {
         const questName = `${book.name} ${chapter}`;
-        const questLocal = resolveTable('quest', { localOverride: true });
-        const questSynced = resolveTable('quest', { localOverride: false });
 
         // Check if quest already exists in BOTH tables (more thorough)
         // This prevents creating duplicates if chapter was published
-        const [existingLocal] = await tx
+        const [existing] = await tx
           .select()
-          .from(questLocal)
+          .from(quest)
           .where(
             and(
-              eq(questLocal.project_id, projectId),
-              eq(questLocal.name, questName),
-              eq(questLocal.parent_id, bookQuestId)
+              eq(quest.project_id, projectId),
+              eq(quest.name, questName),
+              eq(quest.parent_id, bookQuestId)
             )
           )
           .limit(1);
 
-        if (existingLocal) {
-          console.log(
-            `⚠️ Chapter already exists in local, returning: ${existingLocal.id}`
-          );
+        if (existing) {
+          console.log(`⚠️ Chapter already exists, returning: ${existing.id}`);
           return {
-            questId: existingLocal.id,
-            questName: existingLocal.name,
-            assetCount: 0,
-            projectId,
-            bookId: bookId
-          };
-        }
-
-        const [existingSynced] = await tx
-          .select()
-          .from(questSynced)
-          .where(
-            and(
-              eq(questSynced.project_id, projectId),
-              eq(questSynced.name, questName),
-              eq(questSynced.parent_id, bookQuestId)
-            )
-          )
-          .limit(1);
-
-        if (existingSynced) {
-          console.log(
-            `⚠️ Chapter already exists in synced, returning: ${existingSynced.id}`
-          );
-          return {
-            questId: existingSynced.id,
-            questName: existingSynced.name,
+            questId: existing.id,
+            questName: existing.name,
             assetCount: 0,
             projectId,
             bookId: bookId
@@ -108,7 +80,7 @@ export function useBibleChapterCreation() {
           `📖 Creating chapter quest: ${questName} (parent: ${bookQuestId})`
         );
         const [chapterQuest] = await tx
-          .insert(questLocal)
+          .insert(resolveTable('quest', { localOverride: true }))
           .values({
             name: questName,
             description: `${verseCount} verses`,

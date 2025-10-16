@@ -43,7 +43,9 @@ const FATAL_RESPONSE_CODES = [
   // Examples include NOT NULL, FOREIGN KEY and UNIQUE violations.
   new RegExp('^23...$'),
   // INSUFFICIENT PRIVILEGE - typically a row-level security violation
-  new RegExp('^42501$')
+  new RegExp('^42501$'),
+  // UNIQUE CONSTRAINT VIOLATION - typically a row-level security violation
+  new RegExp('^23505$')
 ];
 
 interface CompositeKeyConfig {
@@ -72,7 +74,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          storage: AsyncStorage
+          storage: AsyncStorage,
+          detectSessionInUrl: false // Important for React Native
         }
       }
     );
@@ -300,6 +303,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
     const transaction = await database.getNextCrudTransaction();
+    console.log('uploadData transaction', transaction);
     if (!transaction) return;
 
     let lastOp: CrudEntry | null = null;
@@ -404,6 +408,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             // Process array fields
             record = processArrayFields(record);
 
+            let upsertOptions:
+              | {
+                  onConflict?: string;
+                  ignoreDuplicates?: boolean;
+                  count?: 'exact' | 'planned' | 'estimated';
+                }
+              | undefined;
+
+            // if (op.table === 'tag') {
+            //   upsertOptions = {
+            //     onConflict: '(key, value)',
+            //     ignoreDuplicates: true
+            //   };
+            // }
             // Log the record for debugging
             if (op.table === 'vote') {
               console.log(
@@ -414,7 +432,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
             console.log('Record:', record);
 
-            result = await table.upsert(record);
+            result = await table.upsert(record, upsertOptions);
             break;
           }
 
@@ -448,7 +466,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           result.error.stack = undefined;
           throw result.error;
         } else {
-          console.log('Uploaded successfully:', opData);
+          console.log('Uploaded successfully:', op.table, opData);
         }
       }
 
@@ -470,7 +488,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * elsewhere instead of discarding, and/or notify the user.
          */
         console.error('Data upload error - discarding:', lastOp, ex);
-        await transaction.complete();
+        // await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
         // Throwing an error here causes this call to be retried after a delay.

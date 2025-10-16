@@ -159,47 +159,77 @@ with check (
 );
 
 -- rls: allow authenticated project owners or members to insert asset_content_link rows
+-- Uses asset.project_id directly since all assets now have project_id (backfilled in this migration)
 create policy "Asset content insert limited to owners and members"
 on public.asset_content_link
 as permissive
 for insert
 to authenticated
 with check (
+  -- Check via asset → project (simple and direct)
   exists (
     select 1
-    from profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
+    from asset a
+    join profile_project_link ppl on ppl.project_id = a.project_id
+    where a.id = asset_content_link.asset_id
+      and ppl.profile_id = (select auth.uid())
       and ppl.membership in ('owner', 'member')
       and ppl.active = true
-      and ppl.project_id = (
-        select q.project_id 
-        from quest_asset_link qal
-        join quest q on q.id = qal.quest_id
-        where qal.asset_id = asset_content_link.asset_id
-      )
   )
   or (
-    not exists (
+    -- Creator can insert even without profile_project_link if it doesn't exist yet
+    exists (
       select 1
-      from profile_project_link ppl2
-      where ppl2.profile_id = (select auth.uid())
-        and ppl2.active = true
-        and ppl2.project_id = (
-          select q.project_id 
-          from quest_asset_link qal
-          join quest q on q.id = qal.quest_id
-          where qal.asset_id = asset_content_link.asset_id
-        )
-    )
-    and exists (
-      select 1 from project p
-      where p.id = (
-        select q.project_id 
-        from quest_asset_link qal
-        join quest q on q.id = qal.quest_id
-        where qal.asset_id = asset_content_link.asset_id
-      )
+      from asset a
+      join project p on p.id = a.project_id
+      where a.id = asset_content_link.asset_id
         and p.creator_id = (select auth.uid())
+    )
+    and not exists (
+      select 1
+      from asset a
+      join profile_project_link ppl2 on ppl2.project_id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+    )
+  )
+);
+
+-- rls: allow authenticated project owners or members to update asset_content_link rows
+-- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
+create policy "Asset content update limited to owners and members"
+on public.asset_content_link
+as permissive
+for update
+to authenticated
+using (
+  -- Check via asset → project (simple and direct)
+  exists (
+    select 1
+    from asset a
+    join profile_project_link ppl on ppl.project_id = a.project_id
+    where a.id = asset_content_link.asset_id
+      and ppl.profile_id = (select auth.uid())
+      and ppl.membership in ('owner', 'member')
+      and ppl.active = true
+  )
+  or (
+    -- Creator can update even without profile_project_link if it doesn't exist yet
+    exists (
+      select 1
+      from asset a
+      join project p on p.id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and p.creator_id = (select auth.uid())
+    )
+    and not exists (
+      select 1
+      from asset a
+      join profile_project_link ppl2 on ppl2.project_id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
     )
   )
 );
@@ -238,7 +268,6 @@ with check (
   )
   and quest.creator_id = (select auth.uid())
 );
-
 -- rls: allow authenticated project owners or members to insert tags
 create policy "Tag insert limited to owners and members"
 on public.tag
@@ -246,6 +275,23 @@ as permissive
 for insert
 to authenticated
 with check (
+  exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+  )
+);
+
+-- rls: allow authenticated project owners or members to update tags
+-- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
+create policy "Tag update limited to owners and members"
+on public.tag
+as permissive
+for update
+to authenticated
+using (
   exists (
     select 1
     from public.profile_project_link ppl
@@ -264,29 +310,63 @@ to authenticated
 with check (
   exists (
     select 1
-    from public.profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
+    from public.quest q
+    join public.profile_project_link ppl on ppl.project_id = q.project_id
+    where q.id = quest_tag_link.quest_id
+      and ppl.profile_id = (select auth.uid())
       and ppl.active = true
       and ppl.membership in ('owner', 'member')
-      and ppl.project_id = (
-        select q.project_id from public.quest q where q.id = quest_tag_link.quest_id
-      )
   )
   or (
     not exists (
       select 1
-      from public.profile_project_link ppl2
-      where ppl2.profile_id = (select auth.uid())
+      from public.quest q
+      join public.profile_project_link ppl2 on ppl2.project_id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and ppl2.profile_id = (select auth.uid())
         and ppl2.active = true
-        and ppl2.project_id = (
-          select q2.project_id from public.quest q2 where q2.id = quest_tag_link.quest_id
-        )
     )
     and exists (
-      select 1 from public.project p
-      where p.id = (
-        select q3.project_id from public.quest q3 where q3.id = quest_tag_link.quest_id
-      )
+      select 1
+      from public.quest q
+      join public.project p on p.id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and p.creator_id = (select auth.uid())
+    )
+  )
+);
+
+-- rls: allow authenticated project owners or members to update quest_tag_link rows
+-- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
+create policy "Quest tag link update limited to owners and members"
+on public.quest_tag_link
+as permissive
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.quest q
+    join public.profile_project_link ppl on ppl.project_id = q.project_id
+    where q.id = quest_tag_link.quest_id
+      and ppl.profile_id = (select auth.uid())
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+  )
+  or (
+    not exists (
+      select 1
+      from public.quest q
+      join public.profile_project_link ppl2 on ppl2.project_id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and ppl2.profile_id = (select auth.uid())
+        and ppl2.active = true
+    )
+    and exists (
+      select 1
+      from public.quest q
+      join public.project p on p.id = q.project_id
+      where q.id = quest_tag_link.quest_id
         and p.creator_id = (select auth.uid())
     )
   )

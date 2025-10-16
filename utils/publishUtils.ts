@@ -5,7 +5,8 @@ import {
   profile_project_link,
   quest,
   quest_asset_link,
-  quest_tag_link
+  quest_tag_link,
+  tag
 } from '@/db/drizzleSchema';
 import {
   asset_content_link_synced,
@@ -175,12 +176,22 @@ function getTableColumns<T extends SQLiteTable>(table: T) {
 }
 
 export async function publishQuest(questId: string, projectId: string) {
-  const parentQuestsIds = Array.from(
-    new Set((await getParentQuests(questId)).map((quest) => quest.id))
+  const parentQuestIds = Array.from(
+    new Set(
+      (await getParentQuests(questId))
+        .map((quest) => quest.id)
+        .filter((q) => q !== questId)
+    )
   );
   const nestedQuestsIds = Array.from(
-    new Set((await getNestedQuests(questId)).map((quest) => quest.id))
+    new Set(
+      (await getNestedQuests(questId))
+        .map((quest) => quest.id)
+        .filter((q) => q !== questId)
+    )
   );
+  nestedQuestsIds.unshift(questId);
+  console.log('nestedQuestsIds', nestedQuestsIds);
   const nestedAssetIds = Array.from(
     new Set(
       (await getNestedAssets(nestedQuestsIds)).map((asset) => asset.asset_id)
@@ -229,12 +240,12 @@ export async function publishQuest(questId: string, projectId: string) {
 
       // Combine all quest IDs for use throughout transaction
       const allQuestIds = Array.from(
-        new Set([...parentQuestsIds, ...nestedQuestsIds])
+        new Set([...parentQuestIds, ...nestedQuestsIds])
       );
 
       // Step 3a: Insert parent quests FIRST (order matters for foreign keys)
-      if (parentQuestsIds.length > 0) {
-        const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestsIds)}) AND source = 'local'`;
+      if (parentQuestIds.length > 0) {
+        const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestIds)}) AND source = 'local'`;
         console.log('parentQuestQuery', parentQuestQuery);
         await tx.run(sql.raw(parentQuestQuery));
       }
@@ -293,9 +304,46 @@ export async function publishQuest(questId: string, projectId: string) {
         new Set(tagsForQuests.concat(tagsForAssets))
       );
 
-      // IDEMPOTENT: Only insert tags that don't already exist in synced table
+      // Check for tag key conflicts with online tags before inserting
+      const localTags = await tx.query.tag.findMany({
+        where: and(inArray(tag.id, allTagsIds), eq(tag.source, 'local')),
+        columns: {
+          id: true,
+          key: true
+        }
+      });
+
+      const localTagKeys = localTags.map((t) => t.key);
+
+      let tagsToPublish = allTagsIds;
+
+      if (localTagKeys.length > 0) {
+        const { data: conflictingOnlineTags } =
+          await system.supabaseConnector.client
+            .from('tag')
+            .select('key')
+            .in('key', localTagKeys)
+            .overrideTypes<{ key: string }[]>();
+
+        if (conflictingOnlineTags && conflictingOnlineTags.length > 0) {
+          const conflictingKeys = conflictingOnlineTags.map((t) => t.key);
+          console.warn(
+            `Skipping tags with conflicting keys that already exist online: ${conflictingKeys.join(', ')}`
+          );
+
+          // Filter out tags with conflicting keys
+          const conflictingTagIds = localTags
+            .filter((t) => conflictingKeys.includes(t.key))
+            .map((t) => t.id);
+
+          tagsToPublish = allTagsIds.filter(
+            (id) => !conflictingTagIds.includes(id)
+          );
+        }
+      }
+
       const tagColumns = getTableColumns(tag_synced);
-      const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(allTagsIds)}) AND source = 'local'`;
+      const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(tagsToPublish)}) AND source = 'local'`;
       await tx.run(sql.raw(tagQuery));
 
       const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
