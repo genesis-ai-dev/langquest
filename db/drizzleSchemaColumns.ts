@@ -187,6 +187,7 @@ export function createProjectTable<
         .notNull()
         .references(() => language.id),
       creator_id: text().references(() => profile.id),
+      priority: int().notNull().default(0),
       ...extraColumns
     },
     (table) => [
