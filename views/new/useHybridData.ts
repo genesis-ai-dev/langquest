@@ -108,7 +108,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     queryKeyParams,
     offlineQuery,
     cloudQueryFn,
-    getItemId = (item) => (item as unknown as { id: string }).id,
+    getItemId: getItemIdProp,
     transformCloudData,
     offlineQueryOptions = {},
     cloudQueryOptions = {},
@@ -116,6 +116,15 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     enableOfflineQuery = true,
     enabled = true
   } = options;
+
+  // Stabilize getItemId to prevent render loops
+  // Use a ref-based approach to maintain function stability
+  const defaultGetItemId = React.useCallback(
+    (item: WithSource<TOfflineData | TCloudData>) =>
+      (item as unknown as { id: string }).id,
+    []
+  );
+  const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
   const shouldFetchCloud = (enableCloudQuery ?? isOnline) && enabled;
@@ -338,12 +347,20 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     offlineQueryFn,
     cloudQueryFn,
     pageSize = 10,
-    getItemId = (item) => (item as unknown as { id: string }).id,
+    getItemId: getItemIdProp,
     transformCloudData,
     offlineQueryOptions: _offlineQueryOptions = {},
     cloudQueryOptions: _cloudQueryOptions = {},
     enableCloudQuery
   } = options;
+
+  // Stabilize getItemId to prevent render loops
+  const defaultGetItemId = React.useCallback(
+    (item: WithSource<TOfflineData | TCloudData>) =>
+      (item as unknown as { id: string | number }).id,
+    []
+  );
+  const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
   const shouldFetchCloud = enableCloudQuery ?? isOnline;
