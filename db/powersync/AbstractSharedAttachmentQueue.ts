@@ -275,6 +275,12 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       throw error;
     }
 
+    // Trigger upload process for QUEUED_UPLOAD records
+    if (updatedRecord.state === AttachmentState.QUEUED_UPLOAD) {
+      // Trigger upload asynchronously
+      void this.uploadRecordsWithProgress();
+    }
+
     // Return the record with storage_type (using type assertion for compatibility)
     // The parent class expects AttachmentRecord, but we've actually added the storage_type
     return updatedRecord;
@@ -498,6 +504,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   // Override uploadRecords to track progress
   async uploadRecordsWithProgress() {
     if (this.uploading) {
+      console.log('[UPLOAD TRIGGER] Upload already in progress, skipping');
       return;
     }
     this.uploading = true;
@@ -525,7 +532,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         return;
       }
 
-      console.log(`Uploading attachments...`);
       while (record) {
         const uploadedSuccessfully = await this.uploadAttachment(record);
         if (!uploadedSuccessfully) {
