@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
-import { useLocalization } from '@/hooks/useLocalization';
 import { colors } from '@/styles/theme';
 import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
@@ -46,6 +45,8 @@ interface WalkieTalkieRecorderProps {
   // VAD visual feedback
   currentEnergy?: number;
   vadThreshold?: number;
+  // Permission state (handled by parent)
+  canRecord?: boolean;
 }
 
 const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
@@ -58,18 +59,17 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   isVADLocked = false,
   onVADLockChange,
   currentEnergy: _currentEnergy = 0,
-  vadThreshold: _vadThreshold = 0.03
+  vadThreshold: _vadThreshold = 0.03,
+  canRecord = true
 }) => {
   const mediumHaptic = useHaptic('medium');
   const heavyHaptic = useHaptic('heavy');
   const successHaptic = useHaptic('success');
   const { currentUser: _currentUser } = useAuth();
-  const { t: _t } = useLocalization();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const isPressedRef = useRef(false);
-  const [canRecord, setCanRecord] = useState(false);
   const isActivatingRef = useRef(false);
   const [isSlideGestureActive, setIsSlideGestureActive] = useState(false);
 
@@ -491,10 +491,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     });
   };
 
-  useEffect(() => {
-    setCanRecord(permissionResponse?.status === Audio.PermissionStatus.GRANTED);
-  }, [permissionResponse]);
-
   const progressCircumference = 2 * Math.PI * 38;
 
   // Animated styles (background animation removed)
@@ -529,6 +525,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       )
     };
   });
+
+  // Permission check is now handled by parent component
+  if (!canRecord) {
+    return null;
+  }
 
   return (
     <View className="items-center rounded-3xl py-6">
@@ -621,18 +622,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           </View>
         </GestureDetector>
       </View>
-
-      {!canRecord && (
-        <Button
-          variant="secondary"
-          onPress={requestPermission}
-          className="mt-4"
-        >
-          <Text className="text-base font-bold">
-            Grant Microphone Permission
-          </Text>
-        </Button>
-      )}
     </View>
   );
 };

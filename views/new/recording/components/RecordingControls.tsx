@@ -10,7 +10,10 @@ import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
 import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Settings } from 'lucide-react-native';
+import { Text } from '@/components/ui/text';
+import { useLocalization } from '@/hooks/useLocalization';
+import { Audio } from 'expo-av';
+import { MicOffIcon, Settings } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -48,6 +51,36 @@ export const RecordingControls = React.memo(
     currentEnergy,
     vadThreshold
   }: RecordingControlsProps) {
+    const { t } = useLocalization();
+    const [permissionResponse, requestPermission] = Audio.usePermissions();
+    const canRecord =
+      permissionResponse?.status === Audio.PermissionStatus.GRANTED;
+
+    // If no permission, show only the permission request UI
+    if (!canRecord) {
+      return (
+        <View
+          className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+          onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
+        >
+          <View className="flex w-full items-center justify-center py-6">
+            <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <Icon as={MicOffIcon} size={32} className="text-red-500" />
+            </View>
+            <Button
+              variant="destructive"
+              onPress={requestPermission}
+              className="w-48"
+            >
+              <Text className="text-base font-bold">
+                {t('grantMicrophonePermission')}
+              </Text>
+            </Button>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View
         className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
@@ -89,6 +122,7 @@ export const RecordingControls = React.memo(
               // Energy values passed directly - ring buffer handles updates efficiently
               currentEnergy={currentEnergy}
               vadThreshold={vadThreshold}
+              canRecord={canRecord}
             />
           </View>
 

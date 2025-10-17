@@ -2201,6 +2201,13 @@ export const localizations = {
     tok_pisin: 'Permission i no',
     indonesian: 'Izin Ditolak'
   },
+  grantMicrophonePermission: {
+    english: 'Grant Microphone Permission',
+    spanish: 'Otorgar Permiso de Microfono',
+    brazilian_portuguese: 'Conceder Permissão de Microfone',
+    tok_pisin: 'Grant Microphone Permission',
+    indonesian: 'Mengakses Mikrofon'
+  },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
     spanish: 'Confirmar Restauración de Audio',
