@@ -212,19 +212,16 @@ function processChapterResults(
         const chapterNumber = q.chapter_number;
         const existing = chapterMap.get(chapterNumber);
 
-        // Priority logic for handling duplicates:
-        // 1. Prefer synced over local/cloud
-        // 2. If same source, prefer newer created_at
-        const shouldReplace =
-            !existing ||
-            (q.quest_source === 'synced' &&
-                existing.sources.has('local') &&
-                !existing.sources.has('synced')) ||
-            (q.quest_source === existing.sources.values().next().value &&
-                q.quest_created_at > existing.created_at);
+        // Priority logic for handling duplicates: synced > local > cloud
+        // Higher priority sources replace lower priority ones
+        const getSourcePriority = (source: HybridDataSource): number => {
+            if (source === 'synced') return 3;
+            if (source === 'local') return 2;
+            return 1; // cloud
+        };
 
-        if (shouldReplace) {
-            // Replace with this record (better priority)
+        if (!existing) {
+            // No existing record, use this one
             chapterMap.set(chapterNumber, {
                 id: q.quest_id,
                 name: q.quest_name,
@@ -236,6 +233,33 @@ function processChapterResults(
         } else if (normalizeUuid(q.quest_id) === normalizeUuid(existing.id)) {
             // Same ID in different source, add source to set
             existing.sources.add(q.quest_source);
+        } else {
+            // Different IDs for same chapter - check priority
+            const existingPriority = Math.max(...Array.from(existing.sources).map(getSourcePriority));
+            const newPriority = getSourcePriority(q.quest_source);
+
+            if (newPriority > existingPriority) {
+                // New record has higher priority, replace
+                chapterMap.set(chapterNumber, {
+                    id: q.quest_id,
+                    name: q.quest_name,
+                    chapterNumber,
+                    sources: new Set([q.quest_source]),
+                    download_profiles: q.quest_download_profiles,
+                    created_at: q.quest_created_at
+                });
+            } else if (newPriority === existingPriority && q.quest_created_at > existing.created_at) {
+                // Same priority, prefer newer
+                chapterMap.set(chapterNumber, {
+                    id: q.quest_id,
+                    name: q.quest_name,
+                    chapterNumber,
+                    sources: new Set([q.quest_source]),
+                    download_profiles: q.quest_download_profiles,
+                    created_at: q.quest_created_at
+                });
+            }
+            // Otherwise, keep existing (it has higher priority or is newer with same priority)
         }
     }
 
@@ -270,64 +294,35 @@ function processChapterResults(
 export function useBibleChapters(projectId: string, bookId: string) {
     const isOnline = useNetworkStatus();
 
-    // First query: Local data only (fast)
+    // First query: Local data only (fast) - returns raw QuestWithMetadata
     const {
-        data: localChapters = [],
+        data: localResults = [],
         isLoading: isLoadingLocal,
         error: localError
     } = useQuery({
         queryKey: ['bible-chapters', 'local', projectId, bookId],
-        queryFn: async () => {
-            const localResults = await fetchLocalChapters(projectId, bookId);
-            return processChapterResults(localResults);
-        },
+        queryFn: () => fetchLocalChapters(projectId, bookId),
         enabled: !!projectId && !!bookId,
         staleTime: 30000 // Cache for 30 seconds
     });
 
-    // Second query: Cloud data (lazy, runs after local)
+    // Second query: Cloud data (lazy, runs after local) - returns raw QuestWithMetadata
     const {
-        data: cloudChapters = [],
+        data: cloudResults = [],
         isLoading: isLoadingCloud
     } = useQuery({
         queryKey: ['bible-chapters', 'cloud', projectId, bookId],
-        queryFn: async () => {
-            const cloudResults = await fetchCloudChapters(projectId, bookId);
-            return processChapterResults(cloudResults);
-        },
+        queryFn: () => fetchCloudChapters(projectId, bookId),
         enabled: !!projectId && !!bookId && isOnline && !isLoadingLocal,
         staleTime: 60000 // Cache for 1 minute
     });
 
-    // Merge local and cloud results, deduplicating
+    // Merge and process results once - updates immediately when either query completes
     const chapters = React.useMemo(() => {
-        const allResults: QuestWithMetadata[] = [];
-
-        // Convert BibleChapter back to QuestWithMetadata for processing
-        for (const ch of localChapters) {
-            allResults.push({
-                quest_id: ch.id,
-                quest_name: ch.name,
-                quest_source: ch.source,
-                quest_created_at: '',
-                quest_download_profiles: ch.download_profiles ?? null,
-                chapter_number: ch.chapterNumber
-            });
-        }
-
-        for (const ch of cloudChapters) {
-            allResults.push({
-                quest_id: ch.id,
-                quest_name: ch.name,
-                quest_source: ch.source,
-                quest_created_at: '',
-                quest_download_profiles: ch.download_profiles ?? null,
-                chapter_number: ch.chapterNumber
-            });
-        }
-
+        // Combine raw results and process once
+        const allResults = [...localResults, ...cloudResults];
         return processChapterResults(allResults);
-    }, [localChapters, cloudChapters]);
+    }, [localResults, cloudResults]);
 
     // Get just the chapter numbers that exist
     const existingChapterNumbers = chapters.map((ch) => ch.chapterNumber);
