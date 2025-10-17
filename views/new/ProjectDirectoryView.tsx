@@ -170,6 +170,7 @@ export default function ProjectDirectoryView() {
     },
     enabled: !!currentProjectId && shouldFetchQuests,
     enableCloudQuery: project?.source !== 'local',
+    lazyLoadCloud: true, // Show local data first, then fetch cloud in background
     getItemId: (item) => item.id
   });
 

@@ -77,6 +77,10 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   // Whether to fetch offline data (defaults to true)
   enableOfflineQuery?: boolean;
 
+  // Whether to lazy load cloud data (wait for offline to finish first)
+  // Improves perceived performance by showing local data immediately
+  lazyLoadCloud?: boolean;
+
   enabled?: boolean;
 }
 
@@ -114,6 +118,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     cloudQueryOptions = {},
     enableCloudQuery,
     enableOfflineQuery = true,
+    lazyLoadCloud = false,
     enabled = true
   } = options;
 
@@ -127,9 +132,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
-  const shouldFetchCloud = (enableCloudQuery ?? isOnline) && enabled;
-  // Fetch offline data using PowerSync's useQuery
 
+  // Fetch offline data using PowerSync's useQuery
   const {
     data: rawOfflineData,
     isLoading: isOfflineLoading,
@@ -141,6 +145,13 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     enabled: enableOfflineQuery && enabled,
     ...offlineQueryOptions
   });
+
+  // Determine when to fetch cloud data
+  // If lazy loading, wait for offline query to finish first
+  const shouldFetchCloud = (enableCloudQuery ?? isOnline) && enabled;
+  const cloudEnabled = lazyLoadCloud
+    ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
+    : shouldFetchCloud && !!cloudQueryFn;
 
   // Fetch cloud data using standard TanStack Query
   const {
@@ -157,7 +168,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
           'No cloud query function provided, please provide a cloud query function or disable the cloud query by setting enableCloudQuery to false.'
         );
       }),
-    enabled: shouldFetchCloud && !!cloudQueryFn,
+    enabled: cloudEnabled,
     ...cloudQueryOptions
   });
 

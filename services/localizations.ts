@@ -526,6 +526,32 @@ export const localizations = {
     tok_pisin: 'I no inap publish long no gat internet',
     indonesian: 'Tidak dapat memublikasikan saat offline'
   },
+  publishChapter: {
+    english: 'Publish Chapter',
+    spanish: 'Publicar Capítulo',
+    brazilian_portuguese: 'Publicar Capítulo',
+    tok_pisin: 'Publisim Chapter',
+    indonesian: 'Publikasikan Bab'
+  },
+  publish: {
+    english: 'Publish',
+    spanish: 'Publicar',
+    brazilian_portuguese: 'Publicar',
+    tok_pisin: 'Publisim',
+    indonesian: 'Publikasikan'
+  },
+  publishChapterMessage: {
+    english:
+      'This will publish {questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven\'t been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.',
+    spanish:
+      'Esto publicará {questName} y todas sus grabaciones para que estén disponibles para otros usuarios.\n\nSi el libro o proyecto padre aún no se ha publicado, se publicarán automáticamente.\n\n⚠️ La publicación carga tus grabaciones en la nube. Esto no se puede deshacer, pero puedes publicar nuevas versiones en el futuro si deseas hacer cambios.',
+    brazilian_portuguese:
+      'Isso publicará {questName} e todas as suas gravações para torná-las disponíveis para outros usuários.\n\nSe o livro ou projeto pai ainda não foi publicado, eles serão publicados automaticamente.\n\n⚠️ A publicação carrega suas gravações na nuvem. Isso não pode ser desfeito, mas você pode publicar novas versões no futuro se quiser fazer alterações.',
+    tok_pisin:
+      'Dispela bai publisim {questName} na olgeta recording bilong en long mekim ol narapela user i ken usim.\n\nSapos papa buk o project i no publisim yet, bai ol i publisim otomatik.\n\n⚠️ Publisim i senimapim ol recording bilong yu i go long cloud. Yu no inap senisim bek dispela, tasol yu ken publisim nupela version bihain sapos yu laik mekim ol senis.',
+    indonesian:
+      'Ini akan memublikasikan {questName} dan semua rekamannya agar tersedia untuk pengguna lain.\n\nJika buku atau proyek induk belum dipublikasikan, mereka akan dipublikasikan secara otomatis.\n\n⚠️ Publikasi mengunggah rekaman Anda ke cloud. Ini tidak dapat dibatalkan, tetapi Anda dapat memublikasikan versi baru di masa depan jika ingin membuat perubahan.'
+  },
   quest: {
     english: 'Quest',
     spanish: 'Misión',

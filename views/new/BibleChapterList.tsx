@@ -5,31 +5,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
-import type { quest_closure } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
-import { BOOK_GRAPHICS } from '@/utils/BOOK_GRAPHICS';
+import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { Image } from 'expo-image';
 import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import {
-  useHybridData,
-  useItemDownload,
-  useItemDownloadStatus
-} from './useHybridData';
+import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
 }
 
-type QuestClosure = typeof quest_closure.$inferSelect;
+// type QuestClosure = typeof quest_closure.$inferSelect;
 
 // Simple skeleton for chapter buttons during loading
 const ChapterSkeleton = () => (
@@ -73,28 +67,28 @@ function ChapterButton({
   const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
   const needsDownload = isCloudQuest && !isDownloaded;
 
-  // Quest closure data for download stats
-  const { data: questClosureData } = useHybridData<QuestClosure>({
-    dataType: 'quest_closure',
-    queryKeyParams: [existingChapter?.id || ''],
-    offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${existingChapter?.id || ''}' LIMIT 1`,
-    cloudQueryFn: async () => {
-      if (!existingChapter?.id) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest_closure')
-        .select('*')
-        .eq('quest_id', existingChapter.id)
-        .limit(1)
-        .overrideTypes<QuestClosure[]>();
-      if (error) {
-        console.warn('Error fetching quest closure from cloud:', error);
-        return [];
-      }
-      return data;
-    },
-    enableOfflineQuery: !!existingChapter?.id,
-    getItemId: (item: QuestClosure) => item.quest_id
-  });
+  // TODO: Optimize - query all quest_closure data once at parent level instead of per-button
+  // const { data: questClosureData } = useHybridData<QuestClosure>({
+  //   dataType: 'quest_closure',
+  //   queryKeyParams: [existingChapter?.id || ''],
+  //   offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${existingChapter?.id || ''}' LIMIT 1`,
+  //   cloudQueryFn: async () => {
+  //     if (!existingChapter?.id) return [];
+  //     const { data, error } = await system.supabaseConnector.client
+  //       .from('quest_closure')
+  //       .select('*')
+  //       .eq('quest_id', existingChapter.id)
+  //       .limit(1)
+  //       .overrideTypes<QuestClosure[]>();
+  //     if (error) {
+  //       console.warn('Error fetching quest closure from cloud:', error);
+  //       return [];
+  //     }
+  //     return data;
+  //   },
+  //   enableOfflineQuery: !!existingChapter?.id,
+  //   getItemId: (item: QuestClosure) => item.quest_id
+  // });
 
   const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
     'quest',
@@ -108,18 +102,28 @@ function ChapterButton({
     }
   };
 
-  const questClosure = questClosureData[0] as QuestClosure | undefined;
+  // const questClosure = questClosureData[0] as QuestClosure | undefined;
   const downloadStats = {
-    totalAssets: questClosure?.total_assets ?? 0,
-    totalTranslations: questClosure?.total_translations ?? 0
+    totalAssets: 0, // questClosure?.total_assets ?? 0,
+    totalTranslations: 0 // questClosure?.total_translations ?? 0
   };
 
-  // Determine background color based on status
-  // Priority: synced (published) > local-only > default
+  // Use semantic Tailwind colors for status, matching conventions:
+  // - Published: success/green (chart-3)
+  // - Local only: info/blue (chart-2)
+  // - Not created: muted
+  // - Foreground should always be readable (primary-foreground for filled, foreground for outline)
   const getBackgroundColor = () => {
-    if (hasSyncedCopy) return 'bg-chart-5'; // Published (green)
-    if (hasLocalCopy) return 'bg-chart-2'; // Local-only (blue)
-    return ''; // Default button color
+    if (hasSyncedCopy) return 'bg-chart-3'; // Published (Success, Green)
+    if (hasLocalCopy) return 'bg-chart-2'; // Local-only (Info, Blue)
+    if (exists) return 'bg-card'; // Exists but not local or synced
+    return 'bg-muted'; // Not yet created (empty slot)
+  };
+
+  const getTextColor = () => {
+    if (hasSyncedCopy || hasLocalCopy) return 'text-secondary';
+    if (exists) return 'text-foreground';
+    return 'text-muted-foreground';
   };
 
   return (
@@ -141,11 +145,7 @@ function ChapterButton({
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
               {hasLocalCopy && (
-                <Icon
-                  as={HardDriveIcon}
-                  size={14}
-                  className="text-primary-foreground"
-                />
+                <Icon as={HardDriveIcon} size={14} className="text-secondary" />
               )}
               {exists && (hasSyncedCopy || isCloudQuest) && (
                 <DownloadIndicator
@@ -155,17 +155,26 @@ function ChapterButton({
                   downloadType="quest"
                   stats={downloadStats}
                   size={16}
+                  // Always use neutral/foreground for indicator to be visible
+                  className={
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-card-foreground'
+                      : 'text-foreground'
+                  }
                 />
               )}
-              <Text className="text-lg font-bold">{chapterNum}</Text>
+              <Text className={cn('text-lg font-bold', getTextColor())}>
+                {chapterNum}
+              </Text>
             </View>
-            <Text
-              className={`text-xs ${
-                exists ? 'text-primary-foreground/70' : 'text-muted-foreground'
-              }`}
+            {/* <Text
+              className={cn(
+                "text-xs",
+                exists ? "text-card-foreground/70" : "text-muted-foreground"
+              )}
             >
               {verseCount} vs
-            </Text>
+            </Text> */}
           </View>
         )}
       </Button>
@@ -178,7 +187,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const book = getBibleBook(bookId);
-  const bookGraphic = BOOK_GRAPHICS[bookId];
+  const bookIconSource = BOOK_ICON_MAP[bookId];
   const primaryColor = useThemeColor('primary');
 
   // Query existing chapters using parent-child relationship
@@ -285,8 +294,12 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       <View className="flex-1 flex-col gap-6">
         {/* Header */}
         <View className="flex-row items-center gap-3">
-          {bookGraphic ? (
-            <Image source={bookGraphic} />
+          {bookIconSource ? (
+            <Image
+              source={bookIconSource}
+              style={{ width: 48, height: 48, tintColor: primaryColor }}
+              contentFit="contain"
+            />
           ) : (
             <Text className="text-4xl">📖</Text>
           )}

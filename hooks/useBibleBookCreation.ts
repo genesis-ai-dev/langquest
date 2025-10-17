@@ -84,32 +84,32 @@ export function useBibleBookCreation() {
                     };
                 }
 
-                // FALLBACK: Try direct name-based query (for backward compatibility)
-                console.log(`🔄 Falling back to name-based search...`);
-                const [existing] = await tx
-                    .select()
-                    .from(quest)
-                    .where(
-                        and(
-                            eq(quest.project_id, projectId),
-                            eq(quest.name, bookName),
-                            isNull(quest.parent_id)
-                        )
-                    )
-                    .limit(1);
+                // // FALLBACK: Try direct name-based query (for backward compatibility)
+                // console.log(`🔄 Falling back to name-based search...`);
+                // const [existing] = await tx
+                //     .select()
+                //     .from(quest)
+                //     .where(
+                //         and(
+                //             eq(quest.project_id, projectId),
+                //             eq(quest.name, bookName),
+                //             isNull(quest.parent_id)
+                //         )
+                //     )
+                // //     .limit(1);
 
-                if (existing) {
-                    console.log(
-                        `✅ Found existing book by name: ${existing.name} (${existing.id})`
-                    );
-                    return {
-                        id: existing.id,
-                        name: existing.name,
-                        project_id: existing.project_id
-                    };
-                }
+                // if (existing) {
+                //     console.log(
+                //         `✅ Found existing book by name: ${existing.name} (${existing.id})`
+                //     );
+                //     return {
+                //         id: existing.id,
+                //         name: existing.name,
+                //         project_id: existing.project_id
+                //     };
+                // }
 
-                console.log(`❌ No existing book found in local tables`);
+                // console.log(`❌ No existing book found in local tables`);
 
                 // LAST RESORT: Check Supabase directly
                 // This handles the case where the book was published but hasn't synced down yet

@@ -400,10 +400,10 @@ export default function NextGenAssetsView() {
         {isPublished ? (
           <Badge
             variant="default"
-            className="bg-chart-5/80 flex flex-row items-center gap-1"
+            className="flex flex-row items-center gap-1 bg-chart-5/80"
           >
             <Icon as={CheckIcon} size={14} className="text-white" />
-            <Text className="font-medium text-white">Published</Text>
+            <Text className="font-medium text-white">{t('published')}</Text>
           </Badge>
         ) : (
           <View className="flex flex-row items-center gap-2">
@@ -426,15 +426,15 @@ export default function NextGenAssetsView() {
                 const questName = selectedQuest?.name || 'this chapter';
 
                 Alert.alert(
-                  'Publish Chapter',
-                  `This will publish ${questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.`,
+                  t('publishChapter'),
+                  t('publishChapterMessage').replace('{questName}', questName),
                   [
                     {
                       text: t('cancel'),
                       style: 'cancel'
                     },
                     {
-                      text: 'Publish',
+                      text: t('publish'),
                       style: 'default',
                       onPress: () => {
                         publishQuest();
