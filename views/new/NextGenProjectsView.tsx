@@ -49,17 +49,10 @@ import {
   FormMessage,
   FormSubmit,
   transformInputProps,
-  transformSelectProps,
   transformSwitchProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
@@ -76,8 +69,6 @@ type TabType = 'my' | 'all';
 type Project = typeof project.$inferSelect;
 
 const { db } = system;
-
-const templateOptionsWithNone = [...templateOptions, 'none'] as const;
 
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
@@ -99,7 +90,7 @@ export default function NextGenProjectsView() {
       .optional(),
     private: z.boolean(),
     visible: z.boolean(),
-    template: z.enum(templateOptionsWithNone)
+    template: z.enum(templateOptions)
   });
 
   type FormData = z.infer<typeof formSchema>;
@@ -113,7 +104,7 @@ export default function NextGenProjectsView() {
             .insert(resolveTable('project', { localOverride: true }))
             .values({
               ...values,
-              template: values.template === 'none' ? null : values.template,
+              template: values.template,
               creator_id: currentUser!.id,
               download_profiles: [currentUser!.id]
             })
@@ -549,48 +540,25 @@ export default function NextGenProjectsView() {
                 <FormItem>
                   <FormLabel>{t('template')}</FormLabel>
                   <FormControl>
-                    <Select {...transformSelectProps(field)}>
-                      <SelectTrigger className="capitalize">
-                        <SelectValue
-                          placeholder={t('selectTemplate')}
-                          className="flex-1 capitalize text-foreground"
-                        />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="w-full"
-                        insets={{ left: 16, right: 16 }}
-                      >
-                        {templateOptionsWithNone.map((option) => (
-                          <SelectItem
-                            key={option}
-                            value={option}
-                            label={option}
-                            textClassName="capitalize"
-                          />
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <RadioGroup
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      {templateOptions.map((option) => (
+                        <RadioGroupItem
+                          key={option}
+                          value={option}
+                          label={t(option)}
+                        >
+                          <Text className="capitalize">{t(option)}</Text>
+                        </RadioGroupItem>
+                      ))}
+                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <View className="mt-1 flex-row items-center justify-between">
-              <Text>{t('visible')}</Text>
-              <FormField
-                control={form.control}
-                name="visible"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Switch {...transformSwitchProps(field)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </View>
             <View className="flex-row items-center justify-between">
               <Text>{t('private')}</Text>
               <FormField

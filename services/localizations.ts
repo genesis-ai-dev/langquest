@@ -3423,6 +3423,21 @@ export const localizations = {
     tok_pisin: 'Template',
     indonesian: 'Template'
   },
+  // template options
+  bible: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Bible',
+    indonesian: 'Alkitab'
+  },
+  unstructured: {
+    english: 'Unstructured',
+    spanish: 'No estructurado',
+    brazilian_portuguese: 'Não estruturado',
+    tok_pisin: 'Unstructured',
+    indonesian: 'Tidak terstruktur'
+  },
   audioTracks: {
     english: 'Audio tracks',
     spanish: 'Pistas de audio',
