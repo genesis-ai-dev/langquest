@@ -147,7 +147,7 @@ export default function NextGenProjectsView() {
     if (savedLanguage && !form.getValues('target_language_id')) {
       form.setValue('target_language_id', savedLanguage.id);
     }
-  }, [savedLanguage]);
+  }, []);
 
   const resetForm = () => {
     form.reset(defaultValues);
