@@ -484,6 +484,34 @@ export const localizations = {
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto'
   },
+  noProjectsFound: {
+    english: 'No projects found',
+    spanish: 'No se encontraron proyectos',
+    brazilian_portuguese: 'Nenhum projeto encontrado',
+    tok_pisin: 'Nogat projek i painim',
+    indonesian: 'Tidak ada proyek yang ditemukan'
+  },
+  noProjectsYet: {
+    english: 'No projects yet',
+    spanish: 'Aún no hay proyectos',
+    brazilian_portuguese: 'Ainda não há projetos',
+    tok_pisin: 'I no gat projek yet',
+    indonesian: 'Belum ada proyek'
+  },
+  noProjectsAvailable: {
+    english: 'No projects available',
+    spanish: 'No hay proyectos disponibles',
+    brazilian_portuguese: 'Nenhum projeto disponível',
+    tok_pisin: 'Nogat projek i stap',
+    indonesian: 'Tidak ada proyek yang tersedia'
+  },
+  createProject: {
+    english: 'Create Project',
+    spanish: 'Crear proyecto',
+    brazilian_portuguese: 'Criar projeto',
+    tok_pisin: 'Wokim Nupela Projek',
+    indonesian: 'Buat Proyek'
+  },
   published: {
     english: 'Published',
     spanish: 'Publicado',

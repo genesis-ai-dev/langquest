@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -454,6 +454,29 @@ export default function NextGenProjectsView() {
                 </View>
               )
             }
+            ListEmptyComponent={() => (
+              <View className="flex-1 items-center justify-center py-16">
+                <View className="flex-col items-center gap-2">
+                  <Text className="text-muted-foreground">
+                    {searchQuery
+                      ? 'No projects found'
+                      : activeTab === 'my'
+                        ? 'No projects yet'
+                        : 'No projects available'}
+                  </Text>
+                  {activeTab === 'my' && !searchQuery && (
+                    <Button
+                      variant="default"
+                      onPress={() => setIsCreateOpen(true)}
+                      className="mt-2"
+                    >
+                      <Icon as={PlusIcon} size={16} />
+                      <Text>{t('newProject')}</Text>
+                    </Button>
+                  )}
+                </View>
+              </View>
+            )}
           />
         )}
       </View>
