@@ -267,6 +267,7 @@ export function createTagTable<
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
+  { project }: { project: typeof project_synced | typeof project_local },
   columns?: TColumnsMap,
   extraConfig?: (
     self: BuildExtraConfigColumns<'tag', TColumnsMap, 'sqlite'>
@@ -280,6 +281,7 @@ export function createTagTable<
       key: text().notNull(),
       value: text().notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      project_id: text().references(() => project.id),
       ...extraColumns
     },
     (table) => [...normalizeParams(extraConfig, table)]

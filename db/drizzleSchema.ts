@@ -95,7 +95,7 @@ export const questRelations = relations(quest, ({ one, many }) => ({
   assets: many(quest_asset_link)
 }));
 
-export const tag = createTagTable('merged');
+export const tag = createTagTable('merged', { project });
 
 export const tagRelations = relations(tag, ({ many }) => ({
   quests: many(quest_tag_link),

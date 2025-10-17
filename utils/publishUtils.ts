@@ -30,7 +30,7 @@ import {
 } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { aliasedColumn, toColumns } from './dbUtils';
-import { getLocalAttachmentUriWithOPFS } from './fileUtils';
+import { getLocalFilePathSuffix, getLocalUri } from './fileUtils';
 
 async function getParentQuests(questId: string) {
   const parentQuests = system.db
@@ -368,7 +368,7 @@ export async function publishQuest(questId: string, projectId: string) {
       )
         .flatMap((link) => link.audio)
         .filter(Boolean)
-        .map(getLocalAttachmentUriWithOPFS);
+        .map((audio) => getLocalUri(getLocalFilePathSuffix(audio)));
 
       console.log('localAudioFilesForAssets', localAudioFilesForAssets);
 

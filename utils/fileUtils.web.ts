@@ -4,8 +4,23 @@
  */
 
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
-import { getFileName } from './fileUtils';
 import { getOPFSHandle, opfsFileToBlobUrl } from './opfsUtils.web';
+
+/**
+ * Extracts the filename from a URI path.
+ * @param uri - The file URI or path string
+ * @returns The filename (last segment after the final '/'), or undefined if the URI is empty
+ * @example
+ * getFileName('/path/to/file.txt') // returns 'file.txt'
+ * getFileName('file.txt') // returns 'file.txt'
+ */
+export function getFileName(uri: string) {
+  return uri.split('/').pop();
+}
+
+export function getDirectory(uri: string) {
+  return uri.split('/').slice(0, -1).join('/');
+}
 
 export async function deleteIfExists(
   _uri: string | null | undefined

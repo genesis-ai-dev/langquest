@@ -268,77 +268,6 @@ with check (
   )
   and quest.creator_id = (select auth.uid())
 );
--- rls: allow authenticated project owners or members to insert tags
--- Requires project_id to be NOT NULL (global tags should only be created by service role)
-create policy "Tag insert limited to owners and members"
-on public.tag
-as permissive
-for insert
-to authenticated
-with check (
-  tag.project_id is not null
-  and exists (
-    select 1
-    from public.profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
-      and ppl.project_id = tag.project_id
-      and ppl.active = true
-      and ppl.membership in ('owner', 'member')
-  )
-  or (
-    tag.project_id is not null
-    and not exists (
-      select 1
-      from public.profile_project_link ppl2
-      where ppl2.profile_id = (select auth.uid())
-        and ppl2.project_id = tag.project_id
-        and ppl2.active = true
-    )
-    and exists (
-      select 1
-      from public.project p
-      where p.id = tag.project_id
-        and p.creator_id = (select auth.uid())
-    )
-  )
-);
-
--- rls: allow authenticated project owners or members to update tags
--- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
--- Users can only update tags belonging to their projects
-create policy "Tag update limited to owners and members"
-on public.tag
-as permissive
-for update
-to authenticated
-using (
-  tag.project_id is not null
-  and (
-    exists (
-      select 1
-      from public.profile_project_link ppl
-      where ppl.profile_id = (select auth.uid())
-        and ppl.project_id = tag.project_id
-        and ppl.active = true
-        and ppl.membership in ('owner', 'member')
-    )
-    or (
-      not exists (
-        select 1
-        from public.profile_project_link ppl2
-        where ppl2.profile_id = (select auth.uid())
-          and ppl2.project_id = tag.project_id
-          and ppl2.active = true
-      )
-      and exists (
-        select 1
-        from public.project p
-        where p.id = tag.project_id
-          and p.creator_id = (select auth.uid())
-      )
-    )
-  )
-);
 
 -- rls: allow authenticated project owners or members to insert quest_tag_link rows
 create policy "Quest tag link insert limited to owners and members"
@@ -509,6 +438,78 @@ drop materialized view if exists quest_tag_categories cascade;
 alter table tag add column if not exists key text;
 alter table tag add column if not exists value text;
 alter table tag add column if not exists project_id uuid references project(id) on delete cascade;
+
+-- rls: allow authenticated project owners or members to insert tags
+-- Requires project_id to be NOT NULL (global tags should only be created by service role)
+create policy "Tag insert limited to owners and members"
+on public.tag
+as permissive
+for insert
+to authenticated
+with check (
+  tag.project_id is not null
+  and exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.project_id = tag.project_id
+      and ppl.active = true
+      and ppl.membership in ('owner', 'member')
+  )
+  or (
+    tag.project_id is not null
+    and not exists (
+      select 1
+      from public.profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.project_id = tag.project_id
+        and ppl2.active = true
+    )
+    and exists (
+      select 1
+      from public.project p
+      where p.id = tag.project_id
+        and p.creator_id = (select auth.uid())
+    )
+  )
+);
+
+-- rls: allow authenticated project owners or members to update tags
+-- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
+-- Users can only update tags belonging to their projects
+create policy "Tag update limited to owners and members"
+on public.tag
+as permissive
+for update
+to authenticated
+using (
+  tag.project_id is not null
+  and (
+    exists (
+      select 1
+      from public.profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.project_id = tag.project_id
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+    )
+    or (
+      not exists (
+        select 1
+        from public.profile_project_link ppl2
+        where ppl2.profile_id = (select auth.uid())
+          and ppl2.project_id = tag.project_id
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from public.project p
+        where p.id = tag.project_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
+  )
+);
 
 -- Migrate existing name data by splitting on ':' delimiter
 -- If name contains ':', split into key and value

@@ -116,7 +116,7 @@ export const quest_localRelations = relations(quest_local, ({ one, many }) => ({
   assets: many(quest_asset_link_local)
 }));
 
-export const tag_local = createTagTable('local');
+export const tag_local = createTagTable('local', { project: project_local });
 
 export const tag_localRelations = relations(tag_local, ({ many }) => ({
   quests: many(quest_tag_link_local),

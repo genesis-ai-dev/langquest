@@ -33,7 +33,7 @@ import {
   Share2Icon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
@@ -419,6 +419,11 @@ export default function NextGenAssetsView() {
 
                 if (!currentQuestId) {
                   console.error('No current quest id');
+                  return;
+                }
+
+                if (Platform.OS === 'web') {
+                  void publishQuest();
                   return;
                 }
 

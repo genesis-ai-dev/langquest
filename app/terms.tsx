@@ -98,10 +98,8 @@ function Terms() {
         <View className="flex flex-col gap-2">
           <Pressable
             className={cn(
-              "flex w-full flex-row items-center gap-3 rounded-lg border border-primary bg-primary/5 px-4 py-3",
-              termsAccepted
-                ? "border-primary bg-primary/10"
-                : "border-border"
+              'flex w-full flex-row items-center gap-3 rounded-lg border border-primary bg-primary/5 px-4 py-3',
+              termsAccepted ? 'border-primary bg-primary/10' : 'border-border'
             )}
             onPress={handleToggleTerms}
             accessibilityRole="checkbox"
@@ -117,8 +115,8 @@ function Terms() {
             />
             <Label
               className={cn(
-                "flex-1 text-base font-semibold",
-                termsAccepted ? "text-primary" : "text-foreground"
+                'flex-1 text-base font-semibold',
+                termsAccepted ? 'text-primary' : 'text-foreground'
               )}
             >
               {t('agreeToTerms')}

@@ -113,7 +113,9 @@ export const quest_syncedRelations = relations(
   })
 );
 
-export const tag_synced = createTagTable('synced');
+export const tag_synced = createTagTable('synced', {
+  project: project_synced
+});
 
 export const tag_syncedRelations = relations(tag_synced, ({ many }) => ({
   quests: many(quest_tag_link_synced),
