@@ -5,15 +5,14 @@
 
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
-import { quest, quest_tag_link, tag } from '@/db/drizzleSchema';
+import { quest } from '@/db/drizzleSchema';
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
-import { BIBLE_TAG_KEYS } from '@/utils/bibleTagUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq, isNull } from 'drizzle-orm';
-import uuid from 'react-native-uuid';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 interface CreateBookParams {
     projectId: string;
@@ -53,55 +52,36 @@ export function useBibleBookCreation() {
             const bookName = book.name;
 
             return await system.db.transaction(async (tx) => {
-                // STRATEGY: Use Bible tags to find books, not quest names
-                // Tags are localization-proof and survive publishing/syncing
+                // STRATEGY: Use metadata to find books, not quest names
+                // Metadata is localization-proof and survives publishing/syncing
 
                 console.log(
                     `🔍 Looking for book "${bookName}" (${bookId}) in project ${projectId.substring(0, 8)}...`
                 );
 
-                // Find book tag
-                const bookTag = await tx
-                    .select()
-                    .from(tag)
-                    .where(and(eq(tag.key, BIBLE_TAG_KEYS.BOOK), eq(tag.value, bookId)))
-                    .limit(1);
+                // Query using JSON metadata - SQLite json_extract
+                // Note: Using raw SQL for JSON operations since Drizzle doesn't have type-safe json_extract yet
+                const booksWithMetadata = await tx.run(
+                    sql.raw(`
+                        SELECT id, name, project_id, metadata
+                        FROM quest
+                        WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
+                          AND parent_id IS NULL
+                          AND json_extract(metadata, '$.bible.book') = '${bookId}'
+                        LIMIT 1
+                    `)
+                );
 
-                console.log(`🏷️  Book tag found: ${bookTag.length}`);
-
-                // Try to find quest via tag link
-                if (bookTag.length > 0 && bookTag[0]) {
-                    const tagLinks = await tx
-                        .select()
-                        .from(quest_tag_link)
-                        .where(eq(quest_tag_link.tag_id, bookTag[0].id));
-
-                    console.log(`   Found ${tagLinks.length} quest-tag links`);
-
-                    for (const link of tagLinks) {
-                        const [existing] = await tx
-                            .select()
-                            .from(quest)
-                            .where(
-                                and(
-                                    eq(quest.id, link.quest_id),
-                                    eq(quest.project_id, projectId),
-                                    isNull(quest.parent_id)
-                                )
-                            )
-                            .limit(1);
-
-                        if (existing) {
-                            console.log(
-                                `✅ Found book via tag: ${existing.name} (${existing.id})`
-                            );
-                            return {
-                                id: existing.id,
-                                name: existing.name,
-                                project_id: existing.project_id
-                            };
-                        }
-                    }
+                if (booksWithMetadata.rows?._array && booksWithMetadata.rows._array.length > 0) {
+                    const existing = booksWithMetadata.rows._array[0] as BookQuest;
+                    console.log(
+                        `✅ Found book via metadata: ${existing.name} (${existing.id})`
+                    );
+                    return {
+                        id: existing.id,
+                        name: existing.name,
+                        project_id: existing.project_id
+                    };
                 }
 
                 // FALLBACK: Try direct name-based query (for backward compatibility)
@@ -171,6 +151,15 @@ export function useBibleBookCreation() {
 
                 // Book doesn't exist anywhere, create it in local
                 console.log(`📚 Creating new book quest: ${bookName}`);
+
+                // Create metadata for Bible book identification
+                const metadata: QuestMetadata = {
+                    bible: {
+                        book: bookId
+                        // Note: chapter is undefined for book-level quests
+                    }
+                };
+
                 const questLocal = resolveTable('quest', { localOverride: true });
                 const [newBook] = await tx
                     .insert(questLocal)
@@ -180,7 +169,8 @@ export function useBibleBookCreation() {
                         project_id: projectId,
                         parent_id: null, // Books have no parent
                         creator_id: currentUser.id,
-                        download_profiles: [currentUser.id]
+                        download_profiles: [currentUser.id],
+                        metadata: metadata // Store Bible book in metadata
                     })
                     .returning();
 
@@ -188,51 +178,7 @@ export function useBibleBookCreation() {
                     throw new Error('Failed to create book quest');
                 }
 
-                // Create Bible tag for localization-proof identification
-
-                // Find or create book tag
-                let [newBookTag] = await tx
-                    .select()
-                    .from(tag)
-                    .where(and(eq(tag.key, BIBLE_TAG_KEYS.BOOK), eq(tag.value, bookId)))
-                    .limit(1);
-
-                if (!newBookTag) {
-                    const tagLocal = resolveTable('tag', { localOverride: true });
-                    [newBookTag] = await tx
-                        .insert(tagLocal)
-                        .values({
-                            key: BIBLE_TAG_KEYS.BOOK,
-                            value: bookId,
-                            download_profiles: [currentUser.id]
-                        })
-                        .returning();
-                }
-
-                // Link book tag to quest (with primary key check)
-                const existingLink = await tx
-                    .select()
-                    .from(quest_tag_link)
-                    .where(
-                        and(
-                            eq(quest_tag_link.quest_id, newBook.id),
-                            eq(quest_tag_link.tag_id, newBookTag!.id)
-                        )
-                    )
-                    .limit(1);
-
-                if (existingLink.length === 0) {
-                    const questTagLinkLocal = resolveTable('quest_tag_link', {
-                        localOverride: true
-                    });
-                    await tx.insert(questTagLinkLocal).values({
-                        id: String(uuid.v4()),
-                        quest_id: newBook.id,
-                        tag_id: newBookTag!.id
-                    });
-                }
-
-                console.log(`✅ Created book quest with Bible tag: ${bookId}`);
+                console.log(`✅ Created book quest with metadata: book=${bookId}`);
 
                 return {
                     id: newBook.id,

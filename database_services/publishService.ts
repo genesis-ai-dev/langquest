@@ -79,6 +79,7 @@ interface ChapterData {
         creator_id: string | null;
         visible: boolean;
         download_profiles: string[] | null;
+        metadata: Record<string, unknown> | null;
         created_at: string;
         last_updated: string;
         active: boolean;
@@ -92,6 +93,7 @@ interface ChapterData {
         creator_id: string | null;
         visible: boolean;
         download_profiles: string[] | null;
+        metadata: Record<string, unknown> | null;
         created_at: string;
         last_updated: string;
         active: boolean;
@@ -596,6 +598,7 @@ async function ensureParentBookInSupabase(data: ChapterData): Promise<void> {
                 creator_id: data.parentBook.creator_id,
                 visible: data.parentBook.visible,
                 download_profiles: data.parentBook.download_profiles,
+                metadata: data.parentBook.metadata,
                 created_at: data.parentBook.created_at,
                 last_updated: data.parentBook.last_updated,
                 active: data.parentBook.active
@@ -872,6 +875,7 @@ async function executePublishTransaction(
                     creator_id: data.parentBook.creator_id,
                     visible: data.parentBook.visible,
                     download_profiles: data.parentBook.download_profiles,
+                    metadata: data.parentBook.metadata,
                     created_at: data.parentBook.created_at,
                     last_updated: data.parentBook.last_updated,
                     active: data.parentBook.active
@@ -899,6 +903,7 @@ async function executePublishTransaction(
                 creator_id: data.chapter.creator_id,
                 visible: data.chapter.visible,
                 download_profiles: data.chapter.download_profiles,
+                metadata: data.chapter.metadata,
                 created_at: data.chapter.created_at,
                 last_updated: data.chapter.last_updated,
                 active: data.chapter.active

@@ -1,12 +1,11 @@
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { quest } from '@/db/drizzleSchema';
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
-import { createBibleChapterTags } from '@/utils/bibleTagUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
-import uuid from 'react-native-uuid';
 import { useBibleBookCreation } from './useBibleBookCreation';
 
 interface CreateChapterParams {
@@ -75,10 +74,19 @@ export function useBibleChapterCreation() {
           };
         }
 
-        // Create chapter quest with proper parent_id
+        // Create chapter quest with proper parent_id and Bible metadata
         console.log(
           `📖 Creating chapter quest: ${questName} (parent: ${bookQuestId})`
         );
+
+        // Create metadata for Bible chapter identification
+        const metadata: QuestMetadata = {
+          bible: {
+            book: bookId,
+            chapter: chapter
+          }
+        };
+
         const [chapterQuest] = await tx
           .insert(resolveTable('quest', { localOverride: true }))
           .values({
@@ -87,7 +95,8 @@ export function useBibleChapterCreation() {
             project_id: projectId,
             parent_id: bookQuestId, // Set parent to book quest
             creator_id: currentUser.id,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            metadata: metadata // Store Bible book/chapter in metadata
           })
           .returning();
 
@@ -95,103 +104,8 @@ export function useBibleChapterCreation() {
           throw new Error('Failed to create chapter quest');
         }
 
-        // Create Bible tags for localization-proof identification
-        const bibleTags = createBibleChapterTags(bookId, chapter);
-        const tagLocal = resolveTable('tag', { localOverride: true });
-        const questTagLinkLocal = resolveTable('quest_tag_link', {
-          localOverride: true
-        });
-
-        // Find or create book tag
-        let [bookTag] = await tx
-          .select()
-          .from(tagLocal)
-          .where(
-            and(
-              eq(tagLocal.key, bibleTags.book.key),
-              eq(tagLocal.value, bibleTags.book.value)
-            )
-          )
-          .limit(1);
-
-        if (!bookTag) {
-          [bookTag] = await tx
-            .insert(tagLocal)
-            .values({
-              name: `${bibleTags.book.key}:${bibleTags.book.value}`, // Derived from key:value
-              key: bibleTags.book.key,
-              value: bibleTags.book.value,
-              download_profiles: [currentUser.id]
-            })
-            .returning();
-        }
-
-        // Link book tag to quest (with primary key check)
-        const existingBookLink = await tx
-          .select()
-          .from(questTagLinkLocal)
-          .where(
-            and(
-              eq(questTagLinkLocal.quest_id, chapterQuest.id),
-              eq(questTagLinkLocal.tag_id, bookTag!.id)
-            )
-          )
-          .limit(1);
-
-        if (existingBookLink.length === 0) {
-          await tx.insert(questTagLinkLocal).values({
-            id: String(uuid.v4()),
-            quest_id: chapterQuest.id,
-            tag_id: bookTag!.id
-          });
-        }
-
-        // Find or create chapter tag
-        let [chapterTag] = await tx
-          .select()
-          .from(tagLocal)
-          .where(
-            and(
-              eq(tagLocal.key, bibleTags.chapter.key),
-              eq(tagLocal.value, bibleTags.chapter.value)
-            )
-          )
-          .limit(1);
-
-        if (!chapterTag) {
-          [chapterTag] = await tx
-            .insert(tagLocal)
-            .values({
-              name: `${bibleTags.chapter.key}:${bibleTags.chapter.value}`, // Derived from key:value
-              key: bibleTags.chapter.key,
-              value: bibleTags.chapter.value,
-              download_profiles: [currentUser.id]
-            })
-            .returning();
-        }
-
-        // Link chapter tag to quest (with primary key check)
-        const existingChapterLink = await tx
-          .select()
-          .from(questTagLinkLocal)
-          .where(
-            and(
-              eq(questTagLinkLocal.quest_id, chapterQuest.id),
-              eq(questTagLinkLocal.tag_id, chapterTag!.id)
-            )
-          )
-          .limit(1);
-
-        if (existingChapterLink.length === 0) {
-          await tx.insert(questTagLinkLocal).values({
-            id: String(uuid.v4()),
-            quest_id: chapterQuest.id,
-            tag_id: chapterTag!.id
-          });
-        }
-
         console.log(
-          `✅ Created Bible tags: ${bibleTags.book.key}=${bibleTags.book.value}, ${bibleTags.chapter.key}=${bibleTags.chapter.value}`
+          `✅ Created chapter with metadata: book=${bookId}, chapter=${chapter}`
         );
 
         return {

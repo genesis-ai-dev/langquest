@@ -1,5 +1,4 @@
 import { system } from '@/db/powersync/system';
-import { BIBLE_TAG_KEYS, parseBibleTags } from '@/utils/bibleTagUtils';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
@@ -10,41 +9,34 @@ export interface BibleChapter {
     name: string;
     chapterNumber: number;
     source: HybridDataSource;
-    hasLocalCopy: boolean; // NEW: Indicates if local version exists
-    hasSyncedCopy: boolean; // NEW: Indicates if synced version exists
+    hasLocalCopy: boolean;
+    hasSyncedCopy: boolean;
     download_profiles?: string[] | null;
 }
 
-interface QuestWithTags {
+interface QuestWithMetadata {
     quest_id: string;
     quest_name: string;
     quest_source: HybridDataSource;
     quest_created_at: string;
     quest_download_profiles: string[] | null;
-    tag_key: string;
-    tag_value: string;
+    chapter_number: number | null;
 }
 
 /**
- * Fetches quests with their tags for a given project and book from local database
- * NOTE: Uses union views (quest, quest_tag_link, tag) that combine local + synced tables
- * CRITICAL: Uses raw SQL to normalize UUIDs during JOIN (remove dashes for comparison)
+ * Fetches chapter quests using metadata field from local database
+ * NOTE: Uses union views (quest) that combine local + synced tables
+ * USES: metadata.bible.book and metadata.bible.chapter for identification
  */
 async function fetchLocalChapters(
     projectId: string,
     bookId: string
-): Promise<QuestWithTags[]> {
+): Promise<QuestWithMetadata[]> {
     console.log(
-        `[fetchLocalChapters] Querying union views for projectId: ${projectId}, bookId: ${bookId}`
+        `[fetchLocalChapters] Querying for projectId: ${projectId}, bookId: ${bookId}`
     );
 
-    // CRITICAL: We need to normalize UUIDs in the JOIN conditions because:
-    // - Synced records have UUIDs WITH dashes: "b6f71550-030a-5ab0-7792-cc9319839309"
-    // - Local records have UUIDs WITHOUT dashes: "b6f71550030a5ab07792cc9319839309"
-    // Using Drizzle's eq() does string comparison which fails across sources
-    // Solution: Use raw SQL with REPLACE to normalize during JOIN
-    // NOTE: Pass projectId/bookId directly - REPLACE handles normalization in SQL
-
+    // Query using metadata JSON field - simpler than tag joins!
     const rawQuery = `
     SELECT 
       q.id as quest_id,
@@ -52,44 +44,27 @@ async function fetchLocalChapters(
       q.source as quest_source,
       q.created_at as quest_created_at,
       q.download_profiles as quest_download_profiles,
-      t.key as tag_key,
-      t.value as tag_value
+      CAST(json_extract(q.metadata, '$.bible.chapter') AS INTEGER) as chapter_number
     FROM quest q
-    INNER JOIN quest_tag_link qtl 
-      ON REPLACE(q.id, '-', '') = REPLACE(qtl.quest_id, '-', '')
-    INNER JOIN tag t 
-      ON REPLACE(qtl.tag_id, '-', '') = REPLACE(t.id, '-', '')
     WHERE 
       REPLACE(q.project_id, '-', '') = REPLACE(?, '-', '')
-      AND REPLACE(q.id, '-', '') IN (
-        SELECT REPLACE(q2.id, '-', '')
-        FROM quest q2
-        INNER JOIN quest_tag_link qtl2 
-          ON REPLACE(q2.id, '-', '') = REPLACE(qtl2.quest_id, '-', '')
-        INNER JOIN tag t2 
-          ON REPLACE(qtl2.tag_id, '-', '') = REPLACE(t2.id, '-', '')
-        WHERE 
-          REPLACE(q2.project_id, '-', '') = REPLACE(?, '-', '')
-          AND t2.key = ?
-          AND t2.value = ?
-      )
+      AND json_extract(q.metadata, '$.bible.book') = ?
+      AND json_extract(q.metadata, '$.bible.chapter') IS NOT NULL
   `;
 
     const result = await system.powersync.execute(rawQuery, [
         projectId,
-        projectId,
-        BIBLE_TAG_KEYS.BOOK,
         bookId
     ]);
 
     // Convert SQLite result to array of objects
-    const questResults: QuestWithTags[] = [];
+    const questResults: QuestWithMetadata[] = [];
     if (result.rows) {
         for (let i = 0; i < result.rows.length; i++) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const row = result.rows.item(i);
             if (row) {
-                // SQLite stores JSON arrays as strings, need to parse
+                // Parse download_profiles (stored as JSON)
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 const downloadProfiles = row.quest_download_profiles;
                 let parsedDownloadProfiles: string[] | null = null;
@@ -117,149 +92,82 @@ async function fetchLocalChapters(
                     quest_created_at: row.quest_created_at as string,
                     quest_download_profiles: parsedDownloadProfiles,
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    tag_key: row.tag_key as string,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    tag_value: row.tag_value as string
+                    chapter_number: row.chapter_number as number | null
                 });
             }
         }
     }
 
-    console.log(
-        `[fetchLocalChapters] Found ${questResults.length} quest-tag results from union views`
-    );
-
-    // Log unique quest IDs and their sources
-    const uniqueQuests = new Map<string, HybridDataSource>();
-    for (const row of questResults) {
-        if (!uniqueQuests.has(row.quest_id)) {
-            uniqueQuests.set(row.quest_id, row.quest_source);
-        }
-    }
-    console.log(
-        `[fetchLocalChapters] Unique quests: ${Array.from(uniqueQuests.entries()).map(([id, source]) => `${id.slice(0, 8)}... (${source})`).join(', ')}`
-    );
-
+    console.log(`[fetchLocalChapters] Found ${questResults.length} chapter quests`);
     return questResults;
 }
 
 /**
- * Fetches quests with their tags for a given project and book from cloud database
- * NOTE: Cloud data is always 'synced' - there's no 'source' column in Postgres
+ * Fetches chapter quests from Supabase cloud using metadata field
  */
 async function fetchCloudChapters(
     projectId: string,
     bookId: string
-): Promise<QuestWithTags[]> {
-    interface CloudQuestResult {
-        id: string;
-        name: string;
-        created_at: string;
-        download_profiles: string[] | null;
-        quest_tag_link: {
-            tag: {
-                key: string;
-                value: string;
-            };
-        }[];
-    }
+): Promise<QuestWithMetadata[]> {
+    console.log(`[fetchCloudChapters] Fetching from Supabase for projectId: ${projectId}, bookId: ${bookId}`);
 
-    const { data, error } = await system.supabaseConnector.client
-        .from('quest')
-        .select(
-            `
-      id,
-      name,
-      created_at,
-      download_profiles,
-      quest_tag_link!inner (
-        tag!inner (
-          key,
-          value
-        )
-      )
-    `
-        )
-        .eq('project_id', projectId);
+    try {
+        // Query Supabase using JSONB operators
+        const { data, error } = await system.supabaseConnector.client
+            .from('quest')
+            .select('id, name, created_at, download_profiles, metadata')
+            .eq('project_id', projectId)
+            .filter('metadata->bible->>book', 'eq', bookId)
+            .not('metadata->bible->>chapter', 'is', null)
+            .overrideTypes<{
+                id: string;
+                name: string;
+                created_at: string;
+                download_profiles: string[] | null;
+                metadata: { bible?: { book: string; chapter: number } } | null;
+            }[]>();
 
-    if (error) {
-        console.error('Error fetching cloud chapters:', error);
+        if (error) {
+            console.error('[fetchCloudChapters] Supabase error:', error);
+            return [];
+        }
+
+        if (data.length === 0) {
+            console.log('[fetchCloudChapters] No chapters found in cloud');
+            return [];
+        }
+
+        // Map to QuestWithMetadata format
+        const results: QuestWithMetadata[] = data
+            .filter(q => q.metadata?.bible?.chapter !== undefined)
+            .map(q => ({
+                quest_id: q.id,
+                quest_name: q.name,
+                quest_source: 'cloud' as HybridDataSource,
+                quest_created_at: q.created_at,
+                quest_download_profiles: q.download_profiles,
+                chapter_number: q.metadata!.bible!.chapter
+            }));
+
+        console.log(`[fetchCloudChapters] Found ${results.length} cloud chapters`);
+        return results;
+    } catch (error) {
+        console.error('[fetchCloudChapters] Exception:', error);
         return [];
     }
-
-    if (data.length === 0) return [];
-
-    // Flatten the response to match local format
-    // All cloud data has source='synced' since it comes from Postgres
-    const flattened: QuestWithTags[] = [];
-    for (const quest of data as unknown as CloudQuestResult[]) {
-        // Check if this quest has the book tag we're looking for
-        const hasBookTag = quest.quest_tag_link.some(
-            (link) => link.tag.key === BIBLE_TAG_KEYS.BOOK && link.tag.value === bookId
-        );
-
-        if (!hasBookTag) continue;
-
-        // Add all tags for this quest
-        for (const link of quest.quest_tag_link) {
-            flattened.push({
-                quest_id: quest.id,
-                quest_name: quest.name,
-                quest_source: 'synced', // All cloud data is synced
-                quest_created_at: quest.created_at,
-                quest_download_profiles: quest.download_profiles,
-                tag_key: link.tag.key,
-                tag_value: link.tag.value
-            });
-        }
-    }
-
-    return flattened;
 }
 
 /**
- * Processes quest results with tags into deduplicated chapter list
+ * Processes quest results with metadata into deduplicated chapter list
  */
 function processChapterResults(
-    questResults: QuestWithTags[]
+    questResults: QuestWithMetadata[]
 ): BibleChapter[] {
     if (questResults.length === 0) {
         return [];
     }
 
-    // Group tags by quest ID in a single pass
-    const questData = new Map<
-        string,
-        {
-            id: string;
-            name: string;
-            source: HybridDataSource;
-            created_at: string;
-            download_profiles?: string[] | null;
-            tags: { key: string; value: string }[];
-        }
-    >();
-
-    for (const row of questResults) {
-        const normalizedId = normalizeUuid(row.quest_id);
-        if (!questData.has(normalizedId)) {
-            questData.set(normalizedId, {
-                id: row.quest_id,
-                name: row.quest_name,
-                source: row.quest_source,
-                created_at: row.quest_created_at,
-                download_profiles: row.quest_download_profiles,
-                tags: []
-            });
-        }
-        questData.get(normalizedId)!.tags.push({
-            key: row.tag_key,
-            value: row.tag_value
-        });
-    }
-
-    // CRITICAL: Group by CHAPTER NUMBER, not by ID
-    // This handles the case where multiple quest IDs exist for same chapter
+    // Group by CHAPTER NUMBER to handle duplicates
     const chapterMap = new Map<
         number,
         {
@@ -272,39 +180,36 @@ function processChapterResults(
         }
     >();
 
-    for (const q of questData.values()) {
-        // Parse Bible tags to get chapter number
-        const bibleRef = parseBibleTags(q.tags);
-        if (!bibleRef.chapter) continue;
+    for (const q of questResults) {
+        if (!q.chapter_number) continue;
 
-        const chapterNumber = bibleRef.chapter;
+        const chapterNumber = q.chapter_number;
         const existing = chapterMap.get(chapterNumber);
 
         // Priority logic for handling duplicates:
-        // 1. Prefer synced over local
+        // 1. Prefer synced over local/cloud
         // 2. If same source, prefer newer created_at
-        // 3. This ensures we show the "canonical" version
         const shouldReplace =
             !existing ||
-            (q.source === 'synced' &&
+            (q.quest_source === 'synced' &&
                 existing.sources.has('local') &&
                 !existing.sources.has('synced')) ||
-            (q.source === existing.sources.values().next().value &&
-                q.created_at > existing.created_at);
+            (q.quest_source === existing.sources.values().next().value &&
+                q.quest_created_at > existing.created_at);
 
         if (shouldReplace) {
             // Replace with this record (better priority)
             chapterMap.set(chapterNumber, {
-                id: q.id,
-                name: q.name,
+                id: q.quest_id,
+                name: q.quest_name,
                 chapterNumber,
-                sources: new Set([q.source]),
-                download_profiles: q.download_profiles,
-                created_at: q.created_at
+                sources: new Set([q.quest_source]),
+                download_profiles: q.quest_download_profiles,
+                created_at: q.quest_created_at
             });
-        } else if (normalizeUuid(q.id) === normalizeUuid(existing.id)) {
-            // Same ID in different source (with/without dashes), add source to set
-            existing.sources.add(q.source);
+        } else if (normalizeUuid(q.quest_id) === normalizeUuid(existing.id)) {
+            // Same ID in different source, add source to set
+            existing.sources.add(q.quest_source);
         }
     }
 
@@ -332,70 +237,43 @@ function processChapterResults(
 
 /**
  * Hook to query existing chapter quests for a Bible book
- * Uses Bible tags (bible:book, bible:chapter) for localization-proof identification
+ * Uses metadata.bible.book and metadata.bible.chapter for identification
  * Returns chapters with source tracking for both local and synced versions
- * CRITICAL: Properly deduplicates by chapter number to prevent multiple IDs with same name
- * NOW HYBRID: Checks both local PowerSync AND cloud Supabase for chapters
+ * HYBRID: Checks both local PowerSync AND cloud Supabase for chapters
  */
 export function useBibleChapters(projectId: string, bookId: string) {
     const isOnline = useNetworkStatus();
 
-    const { data: chapters = [], isLoading } = useQuery({
+    const {
+        data: chapters = [],
+        isLoading,
+        error
+    } = useQuery({
         queryKey: ['bible-chapters', projectId, bookId],
-        queryFn: async (): Promise<BibleChapter[]> => {
-            console.log(
-                `[useBibleChapters] Starting hybrid query for projectId: ${projectId}, bookId: ${bookId}, isOnline: ${isOnline}`
-            );
+        queryFn: async () => {
+            // Always fetch local data
+            const localResults = await fetchLocalChapters(projectId, bookId);
 
-            // Fetch from both local and cloud in parallel
-            const [localResults, cloudResults] = await Promise.allSettled([
-                fetchLocalChapters(projectId, bookId),
-                isOnline ? fetchCloudChapters(projectId, bookId) : Promise.resolve([])
-            ]);
-
-            // Extract successful results
-            const localData =
-                localResults.status === 'fulfilled' ? localResults.value : [];
-            const cloudData =
-                cloudResults.status === 'fulfilled' ? cloudResults.value : [];
-
-            console.log(
-                `[useBibleChapters] Results - Local: ${localData.length} records, Cloud: ${cloudData.length} records`
-            );
-
-            // Log any errors
-            if (localResults.status === 'rejected') {
-                console.error('Error fetching local chapters:', localResults.reason);
-            }
-            if (cloudResults.status === 'rejected') {
-                console.error('Error fetching cloud chapters:', cloudResults.reason);
+            // Fetch cloud data if online
+            let cloudResults: QuestWithMetadata[] = [];
+            if (isOnline) {
+                cloudResults = await fetchCloudChapters(projectId, bookId);
             }
 
-            // Combine and process results
-            const combinedResults = [...localData, ...cloudData];
-            console.log(
-                `[useBibleChapters] Combined ${combinedResults.length} total records before processing`
-            );
-
-            const processed = processChapterResults(combinedResults);
-            console.log(
-                `[useBibleChapters] Processed into ${processed.length} chapters:`,
-                processed.map((ch) => `${ch.name} (${ch.source})`)
-            );
-
-            return processed;
+            // Combine and deduplicate
+            const allResults = [...localResults, ...cloudResults];
+            return processChapterResults(allResults);
         },
         enabled: !!projectId && !!bookId
     });
 
-    // Create a Set of chapter numbers that exist
-    const existingChapterNumbers = new Set(
-        chapters.map((ch) => ch.chapterNumber)
-    );
+    // Get just the chapter numbers that exist
+    const existingChapterNumbers = chapters.map((ch) => ch.chapterNumber);
 
     return {
         chapters,
         existingChapterNumbers,
-        isLoading
+        isLoading,
+        error
     };
 }

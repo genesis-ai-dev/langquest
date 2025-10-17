@@ -143,6 +143,29 @@ export function getTableColumns<T extends TableSource>(source: T) {
   };
 }
 
+// ============================================================================
+// METADATA TYPES - Extensible metadata for different record types
+// ============================================================================
+
+/**
+ * Bible-specific metadata for quests
+ * Used to identify Bible books and chapters without relying on tags
+ */
+export interface BibleMetadata {
+  book: string;      // Bible book ID (e.g., 'gen', 'matt')
+  chapter?: number;  // Chapter number (undefined for book-level quests)
+}
+
+/**
+ * Extensible metadata type for quests
+ * Can be extended with other metadata types as needed
+ */
+export interface QuestMetadata {
+  bible?: BibleMetadata;
+  // Add other metadata types here as needed
+  // e.g., curriculum?: { unit: string; lesson: number };
+}
+
 function normalizeParams<T>(
   params: Partial<Parameters<typeof syncedTable>[2]> | undefined,
   table: T
@@ -364,6 +387,7 @@ export function createQuestTable<
       description: text(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      metadata: text({ mode: 'json' }).$type<QuestMetadata>(),
       project_id: text()
         .notNull()
         .references(() => project.id),
