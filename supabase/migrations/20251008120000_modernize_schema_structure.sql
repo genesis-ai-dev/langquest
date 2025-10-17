@@ -269,35 +269,74 @@ with check (
   and quest.creator_id = (select auth.uid())
 );
 -- rls: allow authenticated project owners or members to insert tags
+-- Requires project_id to be NOT NULL (global tags should only be created by service role)
 create policy "Tag insert limited to owners and members"
 on public.tag
 as permissive
 for insert
 to authenticated
 with check (
-  exists (
+  tag.project_id is not null
+  and exists (
     select 1
     from public.profile_project_link ppl
     where ppl.profile_id = (select auth.uid())
+      and ppl.project_id = tag.project_id
       and ppl.active = true
       and ppl.membership in ('owner', 'member')
+  )
+  or (
+    tag.project_id is not null
+    and not exists (
+      select 1
+      from public.profile_project_link ppl2
+      where ppl2.profile_id = (select auth.uid())
+        and ppl2.project_id = tag.project_id
+        and ppl2.active = true
+    )
+    and exists (
+      select 1
+      from public.project p
+      where p.id = tag.project_id
+        and p.creator_id = (select auth.uid())
+    )
   )
 );
 
 -- rls: allow authenticated project owners or members to update tags
 -- This is required for upsert operations (INSERT ... ON CONFLICT DO UPDATE)
+-- Users can only update tags belonging to their projects
 create policy "Tag update limited to owners and members"
 on public.tag
 as permissive
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
-      and ppl.active = true
-      and ppl.membership in ('owner', 'member')
+  tag.project_id is not null
+  and (
+    exists (
+      select 1
+      from public.profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.project_id = tag.project_id
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+    )
+    or (
+      not exists (
+        select 1
+        from public.profile_project_link ppl2
+        where ppl2.profile_id = (select auth.uid())
+          and ppl2.project_id = tag.project_id
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from public.project p
+        where p.id = tag.project_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
   )
 );
 
@@ -461,6 +500,7 @@ alter table asset_content_link alter column text drop not null;
 -- Modify tag table structure
 -- Replace single 'name' column with 'key' and 'value' columns for structured tagging
 -- Transform existing data by splitting 'name' on ':' delimiter
+-- Add project_id to scope tags to projects (nullable for global tags)
 
 -- First, drop materialized views that depend on tag.name column
 drop materialized view if exists asset_tag_categories cascade;
@@ -468,6 +508,7 @@ drop materialized view if exists quest_tag_categories cascade;
 
 alter table tag add column if not exists key text;
 alter table tag add column if not exists value text;
+alter table tag add column if not exists project_id uuid references project(id) on delete cascade;
 
 -- Migrate existing name data by splitting on ':' delimiter
 -- If name contains ':', split into key and value
@@ -497,6 +538,16 @@ alter table tag alter column value set not null;
 
 -- Drop the old name column after migration
 alter table tag drop column if exists name;
+
+-- Drop the old unique constraint on (key, value) if it exists
+drop index if exists tag_key_value_unique;
+
+-- Create new unique index on (key, value, project_id) to allow same key-value pairs across different projects
+-- and to allow global tags (project_id = null) to coexist with project-scoped tags
+create unique index if not exists tag_key_value_project_unique on tag(key, value, project_id);
+
+-- Create index on project_id for query performance
+create index if not exists tag_project_id_idx on tag(project_id);
 
 -- Make asset name column nullable (translations don't need names)
 alter table asset alter column name drop not null;
