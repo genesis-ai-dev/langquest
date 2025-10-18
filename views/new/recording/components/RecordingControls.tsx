@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 interface RecordingControlsProps {
@@ -52,12 +52,22 @@ export const RecordingControls = React.memo(
     vadThreshold
   }: RecordingControlsProps) {
     const { t } = useLocalization();
-    const [permissionResponse, requestPermission] = Audio.usePermissions();
-    const canRecord =
-      permissionResponse?.status === Audio.PermissionStatus.GRANTED;
+    const [hasPermission, setHasPermission] = useState<boolean>(true);
 
-    // If no permission, show only the permission request UI
-    if (!canRecord) {
+    // Check permissions after render
+    useEffect(() => {
+      void Audio.getPermissionsAsync().then((response) => {
+        setHasPermission(response.status === Audio.PermissionStatus.GRANTED);
+      });
+    }, []);
+
+    const requestPermission = async () => {
+      const response = await Audio.requestPermissionsAsync();
+      setHasPermission(response.status === Audio.PermissionStatus.GRANTED);
+    };
+
+    // Show permission UI only if we explicitly know permission is denied
+    if (!hasPermission) {
       return (
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
@@ -122,7 +132,7 @@ export const RecordingControls = React.memo(
               // Energy values passed directly - ring buffer handles updates efficiently
               currentEnergy={currentEnergy}
               vadThreshold={vadThreshold}
-              canRecord={canRecord}
+              canRecord={hasPermission}
             />
           </View>
 

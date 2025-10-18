@@ -49,7 +49,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
-import RecordingView from './recording';
+import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -387,7 +387,13 @@ export default function NextGenAssetsView() {
 
   // Recording mode UI
   if (showRecording) {
-    return <RecordingView onBack={() => setShowRecording(false)} />;
+    // Pass existing assets as initial data for instant rendering
+    return (
+      <RecordingViewSimplified
+        onBack={() => setShowRecording(false)}
+        initialAssets={assets}
+      />
+    );
   }
 
   // Check if quest is published (source is 'synced')

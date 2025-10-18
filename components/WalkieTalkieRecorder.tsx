@@ -68,7 +68,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const { currentUser: _currentUser } = useAuth();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  // Permission check removed - handled by parent RecordingControls via canRecord prop
   const isPressedRef = useRef(false);
   const isActivatingRef = useRef(false);
   const [isSlideGestureActive, setIsSlideGestureActive] = useState(false);
@@ -278,17 +278,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecordedSamples([]);
       console.log('🎤 Initializing recorder...');
 
-      // Check permission (fast path)
-      if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
-        console.log('🔐 Requesting microphone permission...');
-        const permissionResult = await requestPermission();
-        if (permissionResult.status !== Audio.PermissionStatus.GRANTED) {
-          console.log('❌ Permission denied');
-          onRecordingStop(); // Clean up
-          return;
-        }
-        console.log('✅ Permission granted');
-      }
+      // Permission check removed - parent RecordingControls ensures canRecord=true
+      // before this component is even rendered/interactive
 
       // Heavy operations - but user already sees feedback
       await Audio.setAudioModeAsync({
