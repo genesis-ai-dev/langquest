@@ -21,6 +21,7 @@ export interface SaveRecordingParams {
   userId: string;
   orderIndex: number;
   audioUri: string;
+  assetName: string; // Pre-determined asset name (reserved to prevent duplicates)
 }
 
 /**
@@ -28,15 +29,15 @@ export interface SaveRecordingParams {
  * - Shifts existing assets if needed
  * - Creates asset, quest link, and content link
  * - Returns the new asset ID
+ * - Asset name should be pre-determined and reserved by caller to prevent duplicates
  */
 export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<string> {
-  const { questId, projectId, targetLanguageId, userId, orderIndex, audioUri } =
+  const { questId, projectId, targetLanguageId, userId, orderIndex, audioUri, assetName } =
     params;
 
   const newAssetId = String(uuid.v4());
-  const assetName = String(orderIndex + 1).padStart(3, '0');
 
   console.log(
     `💾 Saving recording | name: ${assetName} | order_index: ${orderIndex}`

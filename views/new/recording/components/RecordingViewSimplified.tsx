@@ -80,6 +80,9 @@ const RecordingViewSimplified = ({
   const vadCounterRef = React.useRef<number | null>(null);
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
+  // Track pending asset names to prevent duplicates when recording multiple assets quickly
+  const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
+
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
@@ -395,14 +398,19 @@ const RecordingViewSimplified = ({
     // Set order index for manual recording
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (USE_INSERTION_WHEEL) {
-      // Use the current insertion index from the wheel
+      // IMPORTANT: insertionIndex is the boundary BEFORE an item
+      // When user sees item 0 centered, insertionIndex = 0 (before item 0)
+      // But they want to insert AFTER the item they're viewing
+      // So we use insertionIndex + 1 for the actual insertion position
+      const actualInsertionIndex = insertionIndex + 1;
+
       const targetOrder =
-        insertionIndex < assets.length
-          ? (assets[insertionIndex]?.order_index ?? insertionIndex)
-          : (assets[assets.length - 1]?.order_index ?? 0) + 1;
+        actualInsertionIndex < assets.length
+          ? (assets[actualInsertionIndex]?.order_index ?? actualInsertionIndex)
+          : (assets[assets.length - 1]?.order_index ?? assets.length - 1) + 1;
       currentRecordingOrderRef.current = targetOrder;
       console.log(
-        `🎯 Recording will insert at index ${insertionIndex} with order_index ${targetOrder}`
+        `🎯 Recording will insert AFTER item at visual index ${insertionIndex} (boundary ${actualInsertionIndex}) with order_index ${targetOrder}`
       );
     } else {
       // Legacy: append to end
@@ -442,6 +450,16 @@ const RecordingViewSimplified = ({
           return;
         }
 
+        // Generate name immediately and reserve it to prevent duplicates
+        // Use total count (existing + pending) for simple sequential naming
+        const nextNumber =
+          assets.length + pendingAssetNamesRef.current.size + 1;
+        const assetName = String(nextNumber).padStart(3, '0');
+        pendingAssetNamesRef.current.add(assetName);
+        console.log(
+          `🏷️ Reserved name: ${assetName} (asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size})`
+        );
+
         // Save audio file locally
         const localUri = await saveAudioLocally(uri);
 
@@ -454,11 +472,19 @@ const RecordingViewSimplified = ({
               targetLanguageId: currentProject.target_language_id,
               userId: currentUser.id,
               orderIndex: targetOrder,
-              audioUri: localUri
+              audioUri: localUri,
+              assetName: assetName // Pass the reserved name
             });
+            // Release the reserved name after successful save
+            pendingAssetNamesRef.current.delete(assetName);
+            console.log(
+              `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
+            );
           })
           .catch((err) => {
             console.error('❌ DB write failed:', err);
+            // Release the reserved name on error
+            pendingAssetNamesRef.current.delete(assetName);
             throw err;
           });
 

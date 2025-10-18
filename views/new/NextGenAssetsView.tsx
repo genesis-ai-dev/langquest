@@ -37,10 +37,9 @@ import { ActivityIndicator, Alert, View } from 'react-native';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
+import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
-// Recording UI moved into RecordingView component
-import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useHasUserReported } from '@/hooks/useReports';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';

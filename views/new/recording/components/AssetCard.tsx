@@ -252,7 +252,7 @@ function AssetCardInternal({
               <Text
                 className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
               >
-                {asset.name || t('unnamedAsset')}ry
+                {asset.name || t('unnamedAsset')}
               </Text>
             </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
