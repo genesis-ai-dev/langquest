@@ -46,6 +46,7 @@ interface UIAsset {
   order_index: number;
   source: 'local' | 'synced' | 'cloud';
   segmentCount: number;
+  duration?: number; // Total duration in milliseconds
 }
 
 interface RecordingViewSimplifiedProps {
@@ -98,6 +99,11 @@ const RecordingViewSimplified = ({
 
   // Track segment counts for each asset (loaded lazily)
   const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
+    Map<string, number>
+  >(new Map());
+
+  // Track durations for each asset (loaded lazily)
+  const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
   >(new Map());
 
@@ -170,8 +176,9 @@ const RecordingViewSimplified = ({
           order_index?: number | null;
           source: 'local' | 'synced' | 'cloud';
         };
-        // Get segment count from lazy-loaded map (default to 1 if not loaded yet)
+        // Get segment count and duration from lazy-loaded maps
         const segmentCount = assetSegmentCounts.get(obj.id) ?? 1;
+        const duration = assetDurations.get(obj.id); // undefined if not loaded yet
 
         return {
           id: obj.id,
@@ -180,15 +187,20 @@ const RecordingViewSimplified = ({
           order_index:
             typeof obj.order_index === 'number' ? obj.order_index : index,
           source: obj.source,
-          segmentCount
+          segmentCount,
+          duration
         };
       });
-  }, [rawAssets, assetSegmentCounts]);
+  }, [rawAssets, assetSegmentCounts, assetDurations]);
 
   // Track actual content changes to prevent unnecessary re-renders
   // LegendList will only re-render items when this key changes
+  // Include duration in the key so cards re-render when durations load
   const assetContentKey = React.useMemo(
-    () => assets.map((a) => `${a.id}:${a.order_index}`).join('|'),
+    () =>
+      assets
+        .map((a) => `${a.id}:${a.order_index}:${a.duration ?? 'none'}`)
+        .join('|'),
     [assets]
   );
 
@@ -550,12 +562,15 @@ const RecordingViewSimplified = ({
   // Track which asset IDs we've loaded counts for to prevent re-loading
   const loadedAssetIdsRef = React.useRef(new Set<string>());
 
-  // Load segment counts in background without blocking initial render
+  // Load segment counts and durations in background without blocking initial render
   React.useEffect(() => {
     const controller = new AbortController();
 
     void (async () => {
       try {
+        // Dynamically import Audio only when needed
+        const { Audio } = await import('expo-av');
+
         // Find assets that need loading
         const assetsToLoad = assetMetadata.filter(
           (id) => !loadedAssetIdsRef.current.has(id)
@@ -566,12 +581,13 @@ const RecordingViewSimplified = ({
         }
 
         const newCounts = new Map<string, number>();
+        const newDurations = new Map<string, number>();
 
         for (const assetId of assetsToLoad) {
           if (controller.signal.aborted) break;
 
           try {
-            // Query asset_content_link to count segments
+            // Query asset_content_link to get audio segments
             const contentLinks =
               await system.db.query.asset_content_link.findMany({
                 columns: {
@@ -582,41 +598,107 @@ const RecordingViewSimplified = ({
                 orderBy: asc(asset_content_link.created_at)
               });
 
-            // Each content link with audio is a segment
-            const segmentCount = contentLinks.filter(
-              (c) => c.audio && c.audio.length > 0
-            ).length;
-            newCounts.set(assetId, segmentCount || 1); // Default to 1 if no audio found
+            // Get audio URIs for duration calculation
+            const audioValues = contentLinks
+              .flatMap((link) => link.audio ?? [])
+              .filter((value): value is string => !!value);
+
+            const segmentCount = audioValues.length || 1;
+            newCounts.set(assetId, segmentCount);
+
+            // Load durations for each audio segment
+            let totalDuration = 0;
+
+            for (const audioValue of audioValues) {
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+              if (controller.signal.aborted) break;
+
+              try {
+                // Get the full URI for this audio
+                let audioUri: string | null = null;
+                if (audioValue.startsWith('local/')) {
+                  audioUri = getLocalAttachmentUriWithOPFS(audioValue);
+                } else if (audioValue.startsWith('file://')) {
+                  audioUri = audioValue;
+                } else if (system.permAttachmentQueue) {
+                  // It's an attachment ID
+                  const attachment = await system.powersync.getOptional<{
+                    id: string;
+                    local_uri: string | null;
+                  }>(
+                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
+                    [audioValue]
+                  );
+                  if (attachment?.local_uri) {
+                    audioUri = system.permAttachmentQueue.getLocalUri(
+                      attachment.local_uri
+                    );
+                  }
+                }
+
+                if (audioUri) {
+                  // Load audio file to get duration
+                  const { sound } = await Audio.Sound.createAsync({
+                    uri: audioUri
+                  });
+                  const status = await sound.getStatusAsync();
+                  await sound.unloadAsync();
+
+                  if (status.isLoaded && status.durationMillis) {
+                    totalDuration += status.durationMillis;
+                  }
+                }
+              } catch (err) {
+                // Skip this segment if we can't load it
+                console.warn(`Failed to load duration for segment:`, err);
+              }
+            }
+
+            if (totalDuration > 0) {
+              newDurations.set(assetId, totalDuration);
+            }
+
             loadedAssetIdsRef.current.add(assetId);
           } catch (err) {
             // If query fails for any asset, default to 1 segment
-            console.warn(
-              `Failed to load segment count for asset ${assetId}:`,
-              err
-            );
+            console.warn(`Failed to load data for asset ${assetId}:`, err);
             newCounts.set(assetId, 1);
             loadedAssetIdsRef.current.add(assetId);
           }
         }
 
-        if (!controller.signal.aborted && newCounts.size > 0) {
-          // Merge with existing counts
-          setAssetSegmentCounts((prev) => {
-            const merged = new Map(prev);
-            for (const [id, count] of newCounts) {
-              merged.set(id, count);
-            }
-            return merged;
-          });
-          console.log(
-            '✅ Loaded segment counts for',
-            newCounts.size,
-            'new assets'
-          );
+        if (!controller.signal.aborted) {
+          if (newCounts.size > 0) {
+            // Merge with existing counts
+            setAssetSegmentCounts((prev) => {
+              const merged = new Map(prev);
+              for (const [id, count] of newCounts) {
+                merged.set(id, count);
+              }
+              return merged;
+            });
+          }
+
+          if (newDurations.size > 0) {
+            // Merge with existing durations
+            setAssetDurations((prev) => {
+              const merged = new Map(prev);
+              for (const [id, duration] of newDurations) {
+                merged.set(id, duration);
+              }
+              return merged;
+            });
+          }
+
+          if (newDurations.size > 0) {
+            console.log(
+              `✅ Loaded durations for ${newDurations.size} asset${newDurations.size > 1 ? 's' : ''}`
+            );
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.error('Failed to load segment counts:', error);
+          console.error('Failed to load asset metadata:', error);
         }
       }
     })();
@@ -830,6 +912,15 @@ const RecordingViewSimplified = ({
       const canMergeDown =
         index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
+      // Calculate progress percentage (0-100) for this asset when playing
+      const progress =
+        isThisAssetPlaying && audioContext.duration > 0
+          ? (audioContext.position / audioContext.duration) * 100
+          : undefined;
+
+      // Always show duration from lazy-loaded metadata (not just when playing)
+      const duration = item.duration;
+
       return (
         <AssetCard
           asset={item}
@@ -837,6 +928,8 @@ const RecordingViewSimplified = ({
           isSelected={isSelected}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          progress={progress}
+          duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
           onPress={() => {
@@ -860,6 +953,8 @@ const RecordingViewSimplified = ({
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
+      audioContext.position,
+      audioContext.duration,
       handlePlayAsset,
       selectedAssetIds,
       isSelectionMode,
@@ -881,6 +976,15 @@ const RecordingViewSimplified = ({
         index < assetsForLegendList.length - 1 &&
         assetsForLegendList[index + 1]?.source !== 'cloud';
 
+      // Calculate progress percentage (0-100) for this asset when playing
+      const progress =
+        isThisAssetPlaying && audioContext.duration > 0
+          ? (audioContext.position / audioContext.duration) * 100
+          : undefined;
+
+      // Always show duration from lazy-loaded metadata (not just when playing)
+      const duration = item.duration;
+
       return (
         <AssetCard
           key={item.id}
@@ -889,6 +993,8 @@ const RecordingViewSimplified = ({
           isSelected={isSelected}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          progress={progress}
+          duration={duration}
           canMergeDown={canMergeDown}
           onPress={() => {
             if (isSelectionMode) {
@@ -913,6 +1019,8 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
+    audioContext.position,
+    audioContext.duration,
     handlePlayAsset,
     selectedAssetIds,
     isSelectionMode,

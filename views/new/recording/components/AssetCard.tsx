@@ -48,7 +48,7 @@ interface AssetCardProps {
   canMergeDown?: boolean;
 }
 
-const PROGRESS_STEPS = 500; // Number of steps for smooth animation
+const PROGRESS_STEPS = 1000; // Number of steps for smooth animation (clamped to prevent excessive updates)
 const HIGHLIGHT_PEAK_MS = 3000; // Peak highlight period (3 seconds)
 
 // Format duration in milliseconds to MM:SS
