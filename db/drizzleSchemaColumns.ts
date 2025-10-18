@@ -116,22 +116,22 @@ export function getBaseColumns<T extends TableSource>(
 ): T extends 'local'
   ? typeof localColumns
   : T extends 'merged'
-  ? typeof syncedColumns & typeof localColumns
-  : typeof syncedColumns {
+    ? typeof syncedColumns & typeof localColumns
+    : typeof syncedColumns {
   return (
     source === 'local'
       ? localColumns
       : source === 'merged'
         ? {
-          ...syncedColumns,
-          ...localColumns
-        }
+            ...syncedColumns,
+            ...localColumns
+          }
         : syncedColumns
   ) as T extends 'local'
     ? typeof localColumns
     : T extends 'merged'
-    ? typeof syncedColumns & typeof localColumns
-    : typeof syncedColumns;
+      ? typeof syncedColumns & typeof localColumns
+      : typeof syncedColumns;
 }
 
 export function getTableColumns<T extends TableSource>(source: T) {
@@ -152,8 +152,8 @@ export function getTableColumns<T extends TableSource>(source: T) {
  * Used to identify Bible books and chapters without relying on tags
  */
 export interface BibleMetadata {
-  book: string;      // Bible book ID (e.g., 'gen', 'matt')
-  chapter?: number;  // Chapter number (undefined for book-level quests)
+  book: string; // Bible book ID (e.g., 'gen', 'matt')
+  chapter?: number; // Chapter number (undefined for book-level quests)
 }
 
 /**

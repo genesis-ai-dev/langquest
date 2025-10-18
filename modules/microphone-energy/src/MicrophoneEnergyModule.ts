@@ -20,7 +20,12 @@ export type MicrophoneEnergyModuleEvents = {
   onEnergyResult: (result: VADResult) => void;
   onError: (error: { message: string }) => void;
   onSegmentStart: () => void;
-  onSegmentComplete: (payload: { uri: string; startTime: number; endTime: number; duration: number }) => void;
+  onSegmentComplete: (payload: {
+    uri: string;
+    startTime: number;
+    endTime: number;
+    duration: number;
+  }) => void;
 };
 
 declare class MicrophoneEnergyModule extends NativeModule<MicrophoneEnergyModuleEvents> {

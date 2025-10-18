@@ -46,7 +46,9 @@ export function useVADRecording({
 
   // Track segment start time to detect stuck recordings
   const segmentStartTimeRef = React.useRef<number | null>(null);
-  const segmentTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const segmentTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   React.useEffect(() => {
     onSegmentStartRef.current = onSegmentStart;
@@ -72,7 +74,9 @@ export function useVADRecording({
   React.useEffect(() => {
     if (isVADActive && !isActive) {
       if (isManualRecording) {
-        console.log('🎯 Energy monitoring activated for manual recording (waveform only)');
+        console.log(
+          '🎯 Energy monitoring activated for manual recording (waveform only)'
+        );
         void startEnergyDetection();
         // Don't enable VAD auto-recording during manual mode
       } else {
@@ -110,7 +114,9 @@ export function useVADRecording({
         }
         segmentTimeoutRef.current = setTimeout(() => {
           if (segmentStartTimeRef.current) {
-            console.log('⚠️ Native VAD: Segment timeout - likely discarded, cleaning up');
+            console.log(
+              '⚠️ Native VAD: Segment timeout - likely discarded, cleaning up'
+            );
             setIsRecording(false);
             segmentStartTimeRef.current = null;
             // Notify parent with empty URI to trigger cleanup

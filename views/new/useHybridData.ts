@@ -443,26 +443,26 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       if (offlinePage || cloudPage) {
         const offlineDataWithSource = offlinePage
           ? offlinePage.data.map((item) => {
-            return {
-              ...item,
-              source:
-                (item as unknown as { source?: OfflineDataSource }).source ??
-                'synced'
-            } as WithSource<TOfflineData>;
-          })
+              return {
+                ...item,
+                source:
+                  (item as unknown as { source?: OfflineDataSource }).source ??
+                  'synced'
+              } as WithSource<TOfflineData>;
+            })
           : [];
 
         const cloudDataTransformed = cloudPage
           ? cloudPage.data.map((item: TCloudData) => {
-            const transformedItem = transformCloudData
-              ? (transformCloudData(item) as TOfflineData)
-              : (item as unknown as TCloudData);
+              const transformedItem = transformCloudData
+                ? (transformCloudData(item) as TOfflineData)
+                : (item as unknown as TCloudData);
 
-            return {
-              ...transformedItem,
-              source: 'cloud' as const
-            } as WithSource<typeof transformedItem>;
-          })
+              return {
+                ...transformedItem,
+                source: 'cloud' as const
+              } as WithSource<typeof transformedItem>;
+            })
           : [];
 
         // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
@@ -676,7 +676,7 @@ export async function hybridFetch<TOfflineData, TCloudData = TOfflineData>(
         cloudLastUpdated &&
         localLastUpdated &&
         new Date(cloudLastUpdated).getTime() >
-        new Date(localLastUpdated).getTime()
+          new Date(localLastUpdated).getTime()
       ) {
         mergedMap.set(id, cloudItem);
       }

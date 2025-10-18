@@ -396,7 +396,7 @@ export async function publishQuest(questId: string, projectId: string) {
       // CRITICAL: LOCAL RECORDS ARE PRESERVED FOR DATA SAFETY
       // ============================================================================
       // We intentionally DO NOT delete local records during publishing.
-      // 
+      //
       // Reasons:
       // 1. PowerSync may fail to upload to Supabase (network issues, RLS errors, etc.)
       // 2. If we delete local records before confirming cloud upload, data loss can occur

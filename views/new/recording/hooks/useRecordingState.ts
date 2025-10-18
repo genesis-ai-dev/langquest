@@ -75,16 +75,56 @@ export function useRecordingState(): UseRecordingStateReturn {
 
   // Store them in a stable array using useRef
   const animationPool = React.useRef([
-    { opacity: opacity0, translateY: translateY0, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity1, translateY: translateY1, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity2, translateY: translateY2, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity3, translateY: translateY3, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity4, translateY: translateY4, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity5, translateY: translateY5, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity6, translateY: translateY6, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity7, translateY: translateY7, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity8, translateY: translateY8, metadata: { inUse: false, id: null as string | null } },
-    { opacity: opacity9, translateY: translateY9, metadata: { inUse: false, id: null as string | null } }
+    {
+      opacity: opacity0,
+      translateY: translateY0,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity1,
+      translateY: translateY1,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity2,
+      translateY: translateY2,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity3,
+      translateY: translateY3,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity4,
+      translateY: translateY4,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity5,
+      translateY: translateY5,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity6,
+      translateY: translateY6,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity7,
+      translateY: translateY7,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity8,
+      translateY: translateY8,
+      metadata: { inUse: false, id: null as string | null }
+    },
+    {
+      opacity: opacity9,
+      translateY: translateY9,
+      metadata: { inUse: false, id: null as string | null }
+    }
   ]).current;
 
   // Animation refs for pending slide-in (for backwards compatibility)

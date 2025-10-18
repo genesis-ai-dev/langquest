@@ -83,9 +83,9 @@ export async function updateAssetContentText(
     // First, verify this asset content exists in the LOCAL table only
     const whereCondition = contentId
       ? and(
-        eq(assetContentLocalTable.asset_id, assetId),
-        eq(assetContentLocalTable.id, contentId)
-      )
+          eq(assetContentLocalTable.asset_id, assetId),
+          eq(assetContentLocalTable.id, contentId)
+        )
       : eq(assetContentLocalTable.asset_id, assetId);
 
     const localAssetContent = await system.db

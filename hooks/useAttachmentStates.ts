@@ -3,7 +3,7 @@ import type { AttachmentRecord } from '@powersync/attachments';
 import { ATTACHMENT_TABLE, AttachmentState } from '@powersync/attachments';
 // Import from native SDK - will be empty on web
 import type { QueryResult as QueryResultNative } from '@powersync/react-native';
-// Import from web SDK - will be empty on native  
+// Import from web SDK - will be empty on native
 import type { QueryResult as QueryResultWeb } from '@powersync/web';
 import { useEffect, useRef, useState } from 'react';
 import { system } from '../db/powersync/system';
