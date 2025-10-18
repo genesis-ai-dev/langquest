@@ -98,6 +98,11 @@ export async function cleanupDuplicateQuests(projectId: string): Promise<{
     const keeper = sorted[0];
     const toDelete = sorted.slice(1);
 
+    if (!keeper) {
+      console.warn(`  No keeper found for group "${group.name}", skipping...`);
+      continue;
+    }
+
     console.log(
       `  Keeping: ${keeper.id} (${keeper.source}, ${keeper.created_at})`
     );

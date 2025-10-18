@@ -47,13 +47,8 @@ export const getGemColor = (
   }
   // If translation has no votes
   if (votes.length === 0) {
-    // If translation was made by current user
-    if (currentUserId && currentUserId === translation.creator_id) {
-      gemColor = colors.textSecondary;
-    } else {
-      // If translation was made by another user
-      gemColor = colors.alert;
-    }
+    // No creator tracking on asset_content_link, so default to alert color
+    gemColor = colors.alert;
   }
   // If translation has votes, gemColor remains colors.success
 
@@ -213,7 +208,7 @@ export const calculateProjectProgress = (
     userContributedPercentage:
       totalProgress.totalAssets > 0
         ? (totalProgress.userContributedAssets / totalProgress.totalAssets) *
-          100
+        100
         : 0,
     pendingTranslationsCount: totalProgress.pendingTranslationsCount,
     totalAssets: totalProgress.totalAssets

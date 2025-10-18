@@ -312,7 +312,8 @@ function processChapterResults(
  * Hook to query existing chapter quests for a Bible book
  * Uses metadata.bible.book and metadata.bible.chapter for identification
  * Returns chapters with source tracking for both local and synced versions
- * HYBRID: Shows local data immediately, then lazily fetches cloud data in background
+ * LOCAL-FIRST: Shows local data immediately, fetches cloud data in parallel (background)
+ * UI never blocks on cloud - only on local query
  */
 export function useBibleChapters(projectId: string, bookId: string) {
   const isOnline = useNetworkStatus();
@@ -329,11 +330,11 @@ export function useBibleChapters(projectId: string, bookId: string) {
     staleTime: 30000 // Cache for 30 seconds
   });
 
-  // Second query: Cloud data (lazy, runs after local) - returns raw QuestWithMetadata
+  // Second query: Cloud data (runs in parallel, updates UI when complete) - returns raw QuestWithMetadata
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['bible-chapters', 'cloud', projectId, bookId],
     queryFn: () => fetchCloudChapters(projectId, bookId),
-    enabled: !!projectId && !!bookId && isOnline && !isLoadingLocal,
+    enabled: !!projectId && !!bookId && isOnline, // Removed !isLoadingLocal - let it run in parallel
     staleTime: 60000 // Cache for 1 minute
   });
 

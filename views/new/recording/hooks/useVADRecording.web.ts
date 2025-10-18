@@ -42,7 +42,7 @@ class RingBuffer {
   private chunks: Blob[] = [];
   private maxChunks: number;
 
-  constructor(durationMs: number = 500, chunkMs: number = 100) {
+  constructor(durationMs = 500, chunkMs = 100) {
     this.maxChunks = Math.ceil(durationMs / chunkMs);
   }
 
@@ -118,11 +118,10 @@ export function useVADRecording({
   const silenceStartRef = React.useRef<number>(0);
   const lastEnergyRef = React.useRef<number>(0);
 
-  const currentEnergy =
-    energyResult?.smoothedEnergy ?? energyResult?.energy ?? 0;
+  const currentEnergy = energyResult?.energy ?? 0;
 
   // Cleanup function
-  const cleanup = React.useCallback(async () => {
+  const cleanup = React.useCallback(() => {
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop();
     }
@@ -193,7 +192,7 @@ export function useVADRecording({
       console.log('✅ Web VAD: Segment recording started');
     } catch (error) {
       console.error('❌ Failed to start segment:', error);
-      await cleanup();
+      cleanup();
     }
   }, [cleanup]);
 
@@ -257,7 +256,7 @@ export function useVADRecording({
       console.log('✅ Web VAD: Segment stopped and saved');
     } catch (error) {
       console.error('❌ Failed to stop segment:', error);
-      await cleanup();
+      cleanup();
     }
   }, [cleanup]);
 
@@ -265,7 +264,7 @@ export function useVADRecording({
   React.useEffect(() => {
     if (!isActive || !energyResult) return;
 
-    const energy = energyResult.smoothedEnergy ?? energyResult.energy;
+    const energy = energyResult.energy;
     const config = vadConfigRef.current;
     const state = vadStateRef.current;
 

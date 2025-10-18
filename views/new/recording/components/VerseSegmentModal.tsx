@@ -44,7 +44,7 @@ interface VerseSegmentModalProps {
 
 interface Segment {
   id: string;
-  audio_id: string | null;
+  audio: string[] | null;
   text: string | null;
 }
 
@@ -105,9 +105,10 @@ export function VerseSegmentModal({
   );
 
   const handlePlaySegment = async (segment: Segment) => {
-    if (!segment.audio_id) return;
+    const audioId = segment.audio?.[0];
+    if (!audioId) return;
 
-    const uri = await getSegmentUri(segment.audio_id);
+    const uri = await getSegmentUri(audioId);
     if (!uri) {
       console.error('No URI found for segment');
       return;
@@ -179,8 +180,8 @@ export function VerseSegmentModal({
                     <View className="flex-1">
                       <Text className="text-sm">
                         Segment {index + 1}
-                        {segment.audio_id &&
-                          ` • ${segment.audio_id.slice(0, 8)}`}
+                        {segment.audio?.[0] &&
+                          ` • ${segment.audio[0].slice(0, 8)}`}
                       </Text>
                     </View>
 

@@ -34,7 +34,7 @@ export const SourceContent: React.FC<SourceContentProps> = ({
         <MiniAudioPlayer
           audioSegments={audioSegments}
           id={content.id}
-          title={content.text}
+          title={content.text ?? ''}
         />
       ) : content.audio && isLoading ? (
         <View className="flex flex-row items-center justify-center gap-2">

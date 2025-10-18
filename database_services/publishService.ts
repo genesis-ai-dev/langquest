@@ -17,6 +17,7 @@
  * - Cleanup is NOT part of publishing flow
  */
 
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
@@ -65,7 +66,7 @@ interface ChapterData {
     id: string;
     profile_id: string;
     project_id: string;
-    membership: string | null;
+    membership: 'owner' | 'member' | null;
     created_at: string;
     last_updated: string;
     active: boolean;
@@ -79,7 +80,7 @@ interface ChapterData {
     creator_id: string | null;
     visible: boolean;
     download_profiles: string[] | null;
-    metadata: Record<string, unknown> | null;
+    metadata: QuestMetadata | null;
     created_at: string;
     last_updated: string;
     active: boolean;
@@ -93,18 +94,18 @@ interface ChapterData {
     creator_id: string | null;
     visible: boolean;
     download_profiles: string[] | null;
-    metadata: Record<string, unknown> | null;
+    metadata: QuestMetadata | null;
     created_at: string;
     last_updated: string;
     active: boolean;
   };
   assets: {
     id: string;
-    name: string;
+    name: string | null;
     order_index: number;
-    source_language_id: string;
+    source_language_id: string | null;
     project_id: string | null;
-    parent_id: string | null;
+    source_asset_id: string | null;
     images: string[] | null;
     creator_id: string | null;
     visible: boolean;
@@ -127,8 +128,8 @@ interface ChapterData {
     id: string;
     asset_id: string;
     source_language_id: string | null;
-    text: string;
-    audio_id: string | null;
+    text: string | null;
+    audio: string[] | null;
     download_profiles: string[] | null;
     created_at: string;
     last_updated: string;
@@ -460,7 +461,7 @@ async function validateChapterForPublishing(
   // 3. Check all audio attachments are uploaded
   if (system.permAttachmentQueue) {
     const audioIds = data.assetContentLinks
-      .map((link) => link.audio_id)
+      .flatMap((link) => link.audio ?? [])
       .filter((id): id is string => id !== null);
 
     if (audioIds.length > 0) {
@@ -558,7 +559,7 @@ async function ensureAudioUploaded(data: ChapterData): Promise<number> {
   }
 
   const audioIds = data.assetContentLinks
-    .map((link) => link.audio_id)
+    .flatMap((link) => link.audio ?? [])
     .filter((id): id is string => id !== null);
 
   if (audioIds.length === 0) {
@@ -929,7 +930,7 @@ async function executePublishTransaction(
             id: data.profileProjectLink.id,
             profile_id: data.profileProjectLink.profile_id,
             project_id: data.profileProjectLink.project_id,
-            membership: data.profileProjectLink.membership,
+            membership: data.profileProjectLink.membership ?? 'member',
             created_at: data.profileProjectLink.created_at,
             last_updated: data.profileProjectLink.last_updated,
             active: data.profileProjectLink.active
@@ -1064,7 +1065,7 @@ async function executePublishTransaction(
             order_index: assetData.order_index,
             source_language_id: assetData.source_language_id,
             project_id: assetData.project_id,
-            parent_id: assetData.parent_id,
+            source_asset_id: assetData.source_asset_id,
             images: assetData.images,
             creator_id: assetData.creator_id,
             visible: assetData.visible,
@@ -1137,7 +1138,7 @@ async function executePublishTransaction(
             asset_id: link.asset_id,
             source_language_id: link.source_language_id,
             text: link.text,
-            audio_id: link.audio_id,
+            audio: link.audio,
             download_profiles: link.download_profiles,
             created_at: link.created_at,
             last_updated: link.last_updated,

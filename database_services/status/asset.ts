@@ -104,7 +104,11 @@ export function useAssetStatuses(
     enableCloudQuery: assetData[0] && assetData[0].source !== 'local' // Only fetch cloud data if the asset is not local
   });
 
-  currentQuest = assetQuestDataArray[0] ?? { active: true, visible: true };
+  currentQuest = assetQuestDataArray[0] ?? {
+    active: true,
+    visible: true,
+    source: 'synced'
+  };
 
   function refetch(type: refetchType) {
     if (type != 'asset_quest') assetRefetch();

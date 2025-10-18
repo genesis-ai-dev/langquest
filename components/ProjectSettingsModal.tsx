@@ -108,7 +108,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       );
       layerStatus.setLayerStatus(
         LayerType.PROJECT,
-        { visible, active },
+        { visible, active, source: projectData.source },
         projectId
       );
 

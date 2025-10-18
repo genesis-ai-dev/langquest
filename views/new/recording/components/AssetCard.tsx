@@ -25,8 +25,10 @@ import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { HybridDataSource } from '../../useHybridData';
 
 interface AssetCardProps {
-  asset: Pick<Asset, 'id' | 'name' | 'order_index' | 'created_at'> & {
+  asset: Pick<Asset, 'id' | 'name'> & {
     source: HybridDataSource | 'optimistic';
+    created_at?: string;
+    order_index?: number | null;
   };
   index: number;
   isSelected: boolean;
@@ -101,7 +103,6 @@ export function AssetCard({
   onPlay,
   onRename
 }: AssetCardProps) {
-  const isOptimistic = asset.source === 'optimistic';
   const isCloud = asset.source === 'cloud';
   // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
   const isLocal = asset.source === 'local';
@@ -268,7 +269,7 @@ export function AssetCard({
             )}
           </View>
           <Text className="text-sm text-muted-foreground">
-            {`${isCloud ? 'Cloud' : isOptimistic ? 'Saving…' : 'Local'} • Position ${index + 1}`}
+            {`${isCloud ? 'Cloud' : 'Local'} • Position ${index + 1}`}
           </Text>
         </View>
         {duration !== undefined && (

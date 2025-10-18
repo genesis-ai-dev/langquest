@@ -202,7 +202,7 @@ export default function RecordingView({ onBack }: RecordingViewProps) {
       name: string;
       created_at?: string;
       order_index?: number | null;
-      source?: string;
+      source: 'local' | 'synced' | 'cloud';
     }
 
     const valid = stableRawAssets.filter((a) => {
