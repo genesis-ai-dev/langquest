@@ -33,7 +33,7 @@ const WaveformBar = React.memo(
 
       return {
         height: withTiming(targetHeight, {
-          duration: 30,
+          duration: 20,
           easing: Easing.linear
         }),
         backgroundColor: barWasRecorded.value ? colors.error : colors.primary

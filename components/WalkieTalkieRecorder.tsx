@@ -303,7 +303,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       const result = await Audio.Recording.createAsync(options);
       const activeRecording = result.recording;
-      activeRecording.setProgressUpdateInterval(11);
+      activeRecording.setProgressUpdateInterval(9);
 
       const duration = performance.now() - startTime;
       console.log(`✅ Recording ready in ${duration.toFixed(0)}ms`);
