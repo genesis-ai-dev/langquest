@@ -208,7 +208,7 @@ export const calculateProjectProgress = (
     userContributedPercentage:
       totalProgress.totalAssets > 0
         ? (totalProgress.userContributedAssets / totalProgress.totalAssets) *
-        100
+          100
         : 0,
     pendingTranslationsCount: totalProgress.pendingTranslationsCount,
     totalAssets: totalProgress.totalAssets

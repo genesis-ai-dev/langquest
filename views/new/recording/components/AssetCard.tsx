@@ -100,11 +100,17 @@ function AssetCardInternal({
   onPlay,
   onRename
 }: AssetCardProps) {
-  const isCloud = asset.source === 'cloud';
   // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
   const isLocal = asset.source === 'local';
   // Renameable = local and not currently saving
   const isRenameable = isLocal;
+
+  // DEBUG: Log segment count and duration for this asset
+  React.useEffect(() => {
+    console.log(
+      `🃏 AssetCard render: ${asset.name} | segments: ${segmentCount ?? 'loading'} | duration: ${duration ? `${Math.round(duration / 1000)}s` : 'loading'}`
+    );
+  }, [segmentCount, duration, asset.name]);
 
   // ============================================================================
   // REANIMATED ANIMATIONS (Run on native thread for better performance)
@@ -236,7 +242,15 @@ function AssetCardInternal({
       )}
 
       {/* Content - z-index ensures it appears above progress bar */}
-      <View className="flex-row items-center gap-3" style={{ zIndex: 1 }}>
+      <View
+        className="flex-row items-center justify-center gap-3"
+        style={{ zIndex: 1 }}
+      >
+        <View className="min-w-[28px] items-center justify-center self-center rounded border border-border bg-muted px-2 py-0.5">
+          <Text className="text-xs font-semibold text-muted-foreground">
+            {index + 1}
+          </Text>
+        </View>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
             {/* Label with rename functionality - prevents card play when tapped */}
@@ -263,9 +277,11 @@ function AssetCardInternal({
               </View>
             )}
           </View>
-          <Text className="text-sm text-muted-foreground">
-            {`${isCloud ? 'Cloud' : 'Local'} • Position ${index + 1}`}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-sm text-muted-foreground">
+              {asset.created_at && new Date(asset.created_at).toLocaleString()}
+            </Text>
+          </View>
         </View>
         {duration !== undefined && (
           <Text

@@ -1,9 +1,6 @@
 import { and, eq, inArray, not } from 'drizzle-orm';
 // import { db } from '../db/database';
-import {
-  asset_content_link,
-  blocked_content
-} from '@/db/drizzleSchema';
+import { asset_content_link, blocked_content } from '@/db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;

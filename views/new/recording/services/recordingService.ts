@@ -34,8 +34,15 @@ export interface SaveRecordingParams {
 export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<string> {
-  const { questId, projectId, targetLanguageId, userId, orderIndex, audioUri, assetName } =
-    params;
+  const {
+    questId,
+    projectId,
+    targetLanguageId,
+    userId,
+    orderIndex,
+    audioUri,
+    assetName
+  } = params;
 
   const newAssetId = String(uuid.v4());
 

@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
   asset,
@@ -34,6 +35,7 @@ import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { RecordingControls } from './RecordingControls';
+import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
@@ -100,6 +102,11 @@ const RecordingViewSimplified = ({
     cancelSelection
   } = useSelectionMode();
 
+  // Rename modal state
+  const [showRenameModal, setShowRenameModal] = React.useState(false);
+  const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
+  const [renameAssetName, setRenameAssetName] = React.useState<string>('');
+
   // Track segment counts for each asset (loaded lazily)
   const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
     Map<string, number>
@@ -160,8 +167,16 @@ const RecordingViewSimplified = ({
   });
 
   // Normalize assets
+  // ARCHITECTURE:
+  // - Asset: A single recording or merged group of recordings
+  // - Segment: One content_link row (merged assets have multiple segments)
+  // - Audio file: Individual audio file (each segment has audio[] array)
+  //
+  // METADATA (loaded lazily in background):
+  // - segmentCount: Number of content_link rows for this asset
+  // - duration: Sum of all audio files' durations across all segments
   const assets = React.useMemo((): UIAsset[] => {
-    return rawAssets
+    const result = rawAssets
       .filter((a) => {
         const obj = a as {
           id?: string;
@@ -180,8 +195,16 @@ const RecordingViewSimplified = ({
           source: 'local' | 'synced' | 'cloud';
         };
         // Get segment count and duration from lazy-loaded maps
+        // Default to 1 segment if not loaded yet, undefined for duration (shows loading state)
         const segmentCount = assetSegmentCounts.get(obj.id) ?? 1;
         const duration = assetDurations.get(obj.id); // undefined if not loaded yet
+
+        // DEBUG: Log assets with multiple segments
+        if (segmentCount > 1) {
+          console.log(
+            `📊 Asset "${obj.name}" (${obj.id.slice(0, 8)}) has ${segmentCount} segments`
+          );
+        }
 
         return {
           id: obj.id,
@@ -194,15 +217,28 @@ const RecordingViewSimplified = ({
           duration
         };
       });
+
+    // DEBUG: Summary of segment counts
+    const multiSegmentAssets = result.filter((a) => a.segmentCount > 1);
+    if (multiSegmentAssets.length > 0) {
+      console.log(
+        `📊 Total assets with multiple segments: ${multiSegmentAssets.length}`
+      );
+    }
+
+    return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
 
   // Track actual content changes to prevent unnecessary re-renders
   // LegendList will only re-render items when this key changes
   // NOTE: Duration is NOT included here to avoid cascading re-renders when durations lazy-load
   // Duration updates will be handled by React.memo in AssetCard (only that card re-renders)
+  // INCLUDE: name (for rename), order_index (for reorder), segmentCount (for merge)
   const assetContentKey = React.useMemo(
     () =>
-      assets.map((a) => `${a.id}:${a.order_index}:${a.segmentCount}`).join('|'),
+      assets
+        .map((a) => `${a.id}:${a.name}:${a.order_index}:${a.segmentCount}`)
+        .join('|'),
     [assets]
   );
 
@@ -276,6 +312,10 @@ const RecordingViewSimplified = ({
           .from(asset_content_link)
           .where(eq(asset_content_link.asset_id, assetId));
 
+        console.log(
+          `📀 Found ${contentLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
+        );
+
         if (contentLinks.length === 0) {
           console.log('No content links found for asset:', assetId);
           return [];
@@ -283,8 +323,17 @@ const RecordingViewSimplified = ({
 
         // Get audio values from content links (can be URIs or attachment IDs)
         const audioValues = contentLinks
-          .flatMap((link) => link.audio ?? [])
+          .flatMap((link) => {
+            const audioArray = link.audio ?? [];
+            console.log(
+              `  📎 Content link has ${audioArray.length} audio file(s):`,
+              audioArray
+            );
+            return audioArray;
+          })
           .filter((value): value is string => !!value);
+
+        console.log(`📊 Total audio files for asset: ${audioValues.length}`);
 
         if (audioValues.length === 0) {
           console.log('No audio values found in content links');
@@ -587,6 +636,40 @@ const RecordingViewSimplified = ({
   // Track which asset IDs we've loaded counts for to prevent re-loading
   const loadedAssetIdsRef = React.useRef(new Set<string>());
 
+  // Clear loaded IDs when asset list changes significantly (e.g., after merge/delete)
+  // This ensures segment counts are re-loaded for modified assets
+  const previousAssetIdsRef = React.useRef(assetIds);
+  React.useEffect(() => {
+    if (previousAssetIdsRef.current !== assetIds) {
+      // Asset list changed - clear cache for assets that no longer exist
+      const currentAssetIdSet = new Set(assetMetadata);
+      const toRemove = Array.from(loadedAssetIdsRef.current).filter(
+        (id) => !currentAssetIdSet.has(id)
+      );
+
+      if (toRemove.length > 0) {
+        console.log(
+          `🧹 Clearing ${toRemove.length} stale asset segment cache entries`
+        );
+        toRemove.forEach((id) => loadedAssetIdsRef.current.delete(id));
+
+        // Also clear from state maps
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          toRemove.forEach((id) => next.delete(id));
+          return next;
+        });
+        setAssetDurations((prev) => {
+          const next = new Map(prev);
+          toRemove.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+
+      previousAssetIdsRef.current = assetIds;
+    }
+  }, [assetIds, assetMetadata]);
+
   // Load segment counts and durations in background without blocking initial render
   React.useEffect(() => {
     const controller = new AbortController();
@@ -602,8 +685,13 @@ const RecordingViewSimplified = ({
         );
 
         if (assetsToLoad.length === 0) {
+          console.log('📊 No assets need loading (all cached)');
           return; // Nothing new to load
         }
+
+        console.log(
+          `📊 Loading segment counts for ${assetsToLoad.length} asset(s)`
+        );
 
         const newCounts = new Map<string, number>();
         const newDurations = new Map<string, number>();
@@ -613,6 +701,15 @@ const RecordingViewSimplified = ({
 
           try {
             // Query asset_content_link to get audio segments
+            // ARCHITECTURE EXPLANATION:
+            // - Each asset can have multiple segments (merged assets)
+            // - Each segment is one row in asset_content_link
+            // - Each segment can have one or more audio files in its audio[] array
+            //
+            // COUNTS:
+            // - Segment count = number of content_link rows
+            // - Audio file count = total audio files across all segments
+            // - Duration = sum of all audio files' durations
             const contentLinks =
               await system.db.query.asset_content_link.findMany({
                 columns: {
@@ -623,15 +720,48 @@ const RecordingViewSimplified = ({
                 orderBy: asc(asset_content_link.created_at)
               });
 
-            // Get audio URIs for duration calculation
+            // DEBUG: Log raw query result
+            console.log(
+              `🔎 Query result for asset ${assetId.slice(0, 8)}:`,
+              contentLinks.length,
+              'rows found'
+            );
+            if (contentLinks.length > 0) {
+              console.log(
+                `   First row ID: ${contentLinks[0]?.id.slice(0, 8)}, audio count: ${contentLinks[0]?.audio?.length ?? 0}`
+              );
+              if (contentLinks.length > 1) {
+                console.log(
+                  `   Second row ID: ${contentLinks[1]?.id.slice(0, 8)}, audio count: ${contentLinks[1]?.audio?.length ?? 0}`
+                );
+              }
+            } else {
+              console.warn(
+                `⚠️ NO content_link rows found for asset ${assetId.slice(0, 8)}!`
+              );
+            }
+
+            // SEGMENT COUNT: Number of content_link rows (each row = one segment)
+            const segmentCount = contentLinks.length || 1;
+            newCounts.set(assetId, segmentCount);
+
+            // DEBUG: Log segment count for this asset
+            console.log(
+              `🔍 Asset ${assetId.slice(0, 8)} segment count: ${segmentCount} ${segmentCount > 1 ? '✅ MULTI-SEGMENT' : '(single)'}`
+            );
+
+            // AUDIO FILES: Extract all audio file references from all segments
+            // This flattens the audio arrays from all content_link rows
             const audioValues = contentLinks
               .flatMap((link) => link.audio ?? [])
               .filter((value): value is string => !!value);
 
-            const segmentCount = audioValues.length || 1;
-            newCounts.set(assetId, segmentCount);
+            // DEBUG: Log audio values found
+            console.log(
+              `🎵 Asset ${assetId.slice(0, 8)} has ${audioValues.length} audio file(s) across ${segmentCount} segment(s) - loading durations...`
+            );
 
-            // Load durations for each audio segment
+            // DURATION: Load and sum all audio file durations
             let totalDuration = 0;
 
             for (const audioValue of audioValues) {
@@ -681,6 +811,13 @@ const RecordingViewSimplified = ({
 
             if (totalDuration > 0) {
               newDurations.set(assetId, totalDuration);
+              console.log(
+                `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
+              );
+            } else {
+              console.log(
+                `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
+              );
             }
 
             loadedAssetIdsRef.current.add(assetId);
@@ -702,6 +839,9 @@ const RecordingViewSimplified = ({
               }
               return merged;
             });
+            console.log(
+              `✅ Loaded segment counts for ${newCounts.size} asset${newCounts.size > 1 ? 's' : ''}`
+            );
           }
 
           if (newDurations.size > 0) {
@@ -713,9 +853,6 @@ const RecordingViewSimplified = ({
               }
               return merged;
             });
-          }
-
-          if (newDurations.size > 0) {
             console.log(
               `✅ Loaded durations for ${newDurations.size} asset${newDurations.size > 1 ? 's' : ''}`
             );
@@ -729,7 +866,7 @@ const RecordingViewSimplified = ({
     })();
 
     return () => controller.abort();
-  }, [assetIds, assetMetadata]); // Only reload when asset IDs change
+  }, [assetMetadata]); // Depend on assetMetadata array (changes when assets change)
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)
@@ -778,6 +915,23 @@ const RecordingViewSimplified = ({
         }
 
         await audioSegmentService.deleteAudioSegment(second.id);
+
+        // Force re-load of segment count for the merged asset
+        console.log(
+          `🔄 Forcing segment count reload for merged asset: ${first.id}`
+        );
+        loadedAssetIdsRef.current.delete(first.id);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          next.delete(first.id);
+          return next;
+        });
+        setAssetDurations((prev) => {
+          const next = new Map(prev);
+          next.delete(first.id);
+          return next;
+        });
+
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
           exact: false
@@ -836,6 +990,22 @@ const RecordingViewSimplified = ({
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Force re-load of segment count for the merged target asset
+                console.log(
+                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
+                );
+                loadedAssetIdsRef.current.delete(target.id);
+                setAssetSegmentCounts((prev) => {
+                  const next = new Map(prev);
+                  next.delete(target.id);
+                  return next;
+                });
+                setAssetDurations((prev) => {
+                  const next = new Map(prev);
+                  next.delete(target.id);
+                  return next;
+                });
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
@@ -925,6 +1095,46 @@ const RecordingViewSimplified = ({
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
   // ============================================================================
+  // RENAME ASSET
+  // ============================================================================
+
+  const handleRenameAsset = React.useCallback(
+    (assetId: string, currentName: string | null) => {
+      setRenameAssetId(assetId);
+      setRenameAssetName(currentName ?? '');
+      setShowRenameModal(true);
+    },
+    []
+  );
+
+  const handleSaveRename = React.useCallback(
+    async (newName: string) => {
+      if (!renameAssetId) return;
+
+      try {
+        // renameAsset will validate that this is a local-only asset
+        // and throw if it's synced (immutable)
+        await renameAsset(renameAssetId, newName);
+
+        // Invalidate queries to refresh the list
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          exact: false
+        });
+
+        console.log('✅ Asset renamed successfully');
+      } catch (error) {
+        console.error('❌ Failed to rename asset:', error);
+        if (error instanceof Error) {
+          console.warn('⚠️ Rename blocked:', error.message);
+          Alert.alert('Error', error.message);
+        }
+      }
+    },
+    [renameAssetId, queryClient, currentQuestId]
+  );
+
+  // ============================================================================
   // RENDER HELPERS
   // ============================================================================
 
@@ -942,6 +1152,9 @@ const RecordingViewSimplified = ({
   );
   const stableHandleMergeDownLocal = React.useCallback(handleMergeDownLocal, [
     handleMergeDownLocal
+  ]);
+  const stableHandleRenameAsset = React.useCallback(handleRenameAsset, [
+    handleRenameAsset
   ]);
 
   // Memoized render function for LegendList
@@ -992,6 +1205,7 @@ const RecordingViewSimplified = ({
           }}
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
+          onRename={stableHandleRenameAsset}
         />
       );
     },
@@ -1007,7 +1221,8 @@ const RecordingViewSimplified = ({
       stableToggleSelect,
       stableEnterSelection,
       stableHandleDeleteLocalAsset,
-      stableHandleMergeDownLocal
+      stableHandleMergeDownLocal,
+      stableHandleRenameAsset
     ]
   );
 
@@ -1062,6 +1277,7 @@ const RecordingViewSimplified = ({
           }}
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
+          onRename={stableHandleRenameAsset}
         />
       );
     });
@@ -1077,7 +1293,8 @@ const RecordingViewSimplified = ({
     stableToggleSelect,
     stableEnterSelection,
     stableHandleDeleteLocalAsset,
-    stableHandleMergeDownLocal
+    stableHandleMergeDownLocal,
+    stableHandleRenameAsset
   ]);
 
   // Render loading state
@@ -1181,6 +1398,14 @@ const RecordingViewSimplified = ({
           />
         )}
       </View>
+
+      {/* Rename modal */}
+      <RenameAssetModal
+        isVisible={showRenameModal}
+        currentName={renameAssetName}
+        onClose={() => setShowRenameModal(false)}
+        onSave={handleSaveRename}
+      />
     </View>
   );
 };
