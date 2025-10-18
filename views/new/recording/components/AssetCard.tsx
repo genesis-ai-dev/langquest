@@ -12,6 +12,10 @@
  * - Tap card → play/pause audio (or toggle selection if in selection mode)
  * - Tap label → rename asset (when renameable)
  * - Long press → enter selection mode
+ *
+ * Performance:
+ * - Uses Reanimated for animations on native thread
+ * - Memoized to prevent unnecessary re-renders
  */
 
 import { Icon } from '@/components/ui/icon';
@@ -21,7 +25,16 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
 import React from 'react';
-import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  Easing,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
 interface AssetCardProps {
@@ -48,9 +61,6 @@ interface AssetCardProps {
   canMergeDown?: boolean;
 }
 
-const PROGRESS_STEPS = 1000; // Number of steps for smooth animation (clamped to prevent excessive updates)
-const HIGHLIGHT_PEAK_MS = 3000; // Peak highlight period (3 seconds)
-
 // Format duration in milliseconds to MM:SS
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -60,14 +70,11 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Calculate highlight intensity for a newly created asset
- * Uses power law decay: intensity = 1 / (1 + (age/peak)^2)
- *
- * @param createdAt - When the asset was created
- * @returns Opacity value 0-1 (0 = no highlight, 1 = full highlight)
+ * Calculate age of asset in milliseconds
+ * Used by Reanimated worklet to compute highlight intensity
  */
-function calculateHighlightIntensity(createdAt?: string | Date): number {
-  if (!createdAt) return 0;
+function calculateAssetAge(createdAt?: string | Date): number {
+  if (!createdAt) return Infinity; // Very old, no highlight
 
   const now = Date.now();
   const created =
@@ -76,20 +83,10 @@ function calculateHighlightIntensity(createdAt?: string | Date): number {
       : createdAt.getTime();
   const age = now - created;
 
-  if (age < 0) return 0; // Future date, shouldn't happen
-
-  // Power law decay with exponent 2 for smooth falloff
-  // At t=0: intensity = 1.0 (full)
-  // At t=3s: intensity = 0.5 (half)
-  // At t=6s: intensity = 0.2
-  // At t=12s: intensity = 0.05 (barely visible)
-  const normalized = age / HIGHLIGHT_PEAK_MS;
-  const intensity = 1 / (1 + Math.pow(normalized, 2));
-
-  return Math.max(0, Math.min(1, intensity));
+  return age < 0 ? Infinity : age;
 }
 
-export function AssetCard({
+function AssetCardInternal({
   asset,
   index,
   isSelected,
@@ -109,86 +106,92 @@ export function AssetCard({
   // Renameable = local and not currently saving
   const isRenameable = isLocal;
 
-  // Animated value for smooth progress transitions
-  const animatedProgress = React.useRef(new Animated.Value(0)).current;
+  // ============================================================================
+  // REANIMATED ANIMATIONS (Run on native thread for better performance)
+  // ============================================================================
 
-  // Highlight intensity for newly created assets (decays over time)
-  const [highlightIntensity, setHighlightIntensity] = React.useState(() =>
-    calculateHighlightIntensity(asset.created_at)
-  );
+  // Progress animation (0-100)
+  const animatedProgress = useSharedValue(0);
 
-  // Update highlight intensity every 100ms for smooth decay animation
-  React.useEffect(() => {
-    if (highlightIntensity <= 0.01) return; // Stop updating when basically invisible
-
-    const interval = setInterval(() => {
-      const newIntensity = calculateHighlightIntensity(asset.created_at);
-      setHighlightIntensity(newIntensity);
-
-      // Stop interval when highlight is gone
-      if (newIntensity <= 0.01) {
-        clearInterval(interval);
-      }
-    }, 100); // Update 10 times per second for smooth animation
-
-    return () => clearInterval(interval);
-  }, [asset.created_at, highlightIntensity]);
-  const previousProgressRef = React.useRef(0);
-  const currentValueRef = React.useRef(0);
-
-  // Smooth progress animation with clamping
+  // Update progress with smooth animation
   React.useEffect(() => {
     if (!isPlaying || progress === undefined) {
-      // Reset animation when not playing
-      Animated.timing(animatedProgress, {
-        toValue: 0,
+      // Reset when not playing
+      animatedProgress.value = withTiming(0, {
         duration: 200,
-        useNativeDriver: false
-      }).start(() => {
-        currentValueRef.current = 0;
+        easing: Easing.out(Easing.ease)
       });
-      previousProgressRef.current = 0;
-      return;
-    }
-
-    // Clamp progress to discrete steps for smoother animation
-    const clampedProgress =
-      (Math.round((progress / 100) * PROGRESS_STEPS) / PROGRESS_STEPS) * 100;
-
-    // Only animate if progress actually changed
-    if (clampedProgress !== previousProgressRef.current) {
-      const progressDelta = clampedProgress - previousProgressRef.current;
-
-      // For multi-segment assets, ensure smooth transitions between segments
-      // If progress jumped backwards (new segment started), animate from previous position
-      const fromValue =
-        progressDelta < 0
-          ? previousProgressRef.current
-          : currentValueRef.current;
-
-      // Calculate animation duration based on segment count
-      // Multi-segment assets get slightly faster animations to stay ahead
+    } else {
+      // Smooth animation to current progress
+      // Multi-segment assets get slightly faster animations
       const baseSpeed = segmentCount && segmentCount > 1 ? 400 : 500;
-      const duration = Math.min(baseSpeed, Math.abs(progressDelta) * 10);
-
-      animatedProgress.setValue(fromValue);
-      Animated.timing(animatedProgress, {
-        toValue: clampedProgress,
-        duration,
-        useNativeDriver: false
-      }).start(() => {
-        currentValueRef.current = clampedProgress;
+      animatedProgress.value = withTiming(progress, {
+        duration: baseSpeed,
+        easing: Easing.linear
       });
-
-      previousProgressRef.current = clampedProgress;
     }
   }, [progress, isPlaying, animatedProgress, segmentCount]);
 
-  // Interpolate to slightly lead the actual progress for smoother finish
-  const displayProgress = animatedProgress.interpolate({
-    inputRange: [0, 95, 100],
-    outputRange: ['0%', '97%', '100%'], // Slightly ahead at the end
-    extrapolate: 'clamp'
+  // Progress bar style (interpolate to slightly lead at the end)
+  const progressBarStyle = useAnimatedStyle(() => {
+    'worklet';
+    const width = interpolate(
+      animatedProgress.value,
+      [0, 95, 100],
+      [0, 97, 100],
+      Extrapolation.CLAMP
+    );
+    return {
+      width: `${width}%`
+    };
+  });
+
+  // Highlight animation for newly created assets
+  // Calculate initial age once to avoid recalculation
+  const initialAge = React.useMemo(
+    () => calculateAssetAge(asset.created_at),
+    [asset.created_at]
+  );
+
+  // Animate highlight intensity on native thread
+  const highlightProgress = useSharedValue(0);
+  const HIGHLIGHT_DURATION_MS = 12000; // Total highlight duration (12 seconds)
+
+  React.useEffect(() => {
+    if (initialAge > HIGHLIGHT_DURATION_MS) {
+      // Too old, no animation needed
+      highlightProgress.value = 1; // 1 = fully decayed
+      return;
+    }
+
+    // Animate from current age to fully decayed
+    const startProgress = initialAge / HIGHLIGHT_DURATION_MS;
+    highlightProgress.value = startProgress;
+    highlightProgress.value = withTiming(1, {
+      duration: HIGHLIGHT_DURATION_MS - initialAge,
+      easing: Easing.out(Easing.ease)
+    });
+  }, [initialAge, highlightProgress]);
+
+  // Derive highlight intensity using worklet (runs on native thread)
+  const highlightIntensity = useDerivedValue(() => {
+    'worklet';
+    // Power law decay: intensity = 1 / (1 + (progress * 4)^2)
+    // At progress=0: intensity = 1.0 (full highlight)
+    // At progress=0.25: intensity = 0.5 (half)
+    // At progress=0.5: intensity = 0.2
+    // At progress=1: intensity = 0.06 (barely visible)
+    const normalized = highlightProgress.value * 4;
+    return 1 / (1 + Math.pow(normalized, 2));
+  });
+
+  const highlightStyle = useAnimatedStyle(() => {
+    'worklet';
+    const intensity = highlightIntensity.value;
+    return {
+      opacity: intensity,
+      backgroundColor: `hsl(var(--chart-5) / ${intensity * 0.3})`
+    };
   });
 
   // Handle card press: play/pause in normal mode, toggle selection in selection mode
@@ -211,23 +214,15 @@ export function AssetCard({
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
-      {/* New asset highlight - decaying gradient overlay */}
-      {highlightIntensity > 0.01 && (
-        <View
-          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
+      {/* New asset highlight - decaying gradient overlay (Reanimated on native thread) */}
+      {initialAge < 12000 && (
+        <Animated.View
+          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, highlightStyle]}
           pointerEvents="none"
-        >
-          <View
-            className="h-full"
-            style={{
-              backgroundColor: `hsl(var(--chart-5) / ${highlightIntensity * 0.3})`,
-              opacity: highlightIntensity
-            }}
-          />
-        </View>
+        />
       )}
 
-      {/* Progress bar overlay - positioned absolutely behind content */}
+      {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
       {isPlaying && progress !== undefined && (
         <View
           style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
@@ -235,7 +230,7 @@ export function AssetCard({
         >
           <Animated.View
             className="h-full bg-primary/20"
-            style={{ width: displayProgress }}
+            style={progressBarStyle}
           />
         </View>
       )}
@@ -257,7 +252,7 @@ export function AssetCard({
               <Text
                 className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
               >
-                {asset.name || t('unnamedAsset')}
+                {asset.name || t('unnamedAsset')}ry
               </Text>
             </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
@@ -295,3 +290,32 @@ export function AssetCard({
     </TouchableOpacity>
   );
 }
+
+/**
+ * Memoized AssetCard to prevent unnecessary re-renders
+ * Only re-renders when props actually change
+ */
+export const AssetCard = React.memo(AssetCardInternal, (prev, next) => {
+  // Custom equality check - only re-render if these props change
+  return (
+    prev.asset.id === next.asset.id &&
+    prev.asset.name === next.asset.name &&
+    prev.asset.source === next.asset.source &&
+    prev.index === next.index &&
+    prev.isSelected === next.isSelected &&
+    prev.isSelectionMode === next.isSelectionMode &&
+    prev.isPlaying === next.isPlaying &&
+    prev.progress === next.progress &&
+    prev.duration === next.duration &&
+    prev.segmentCount === next.segmentCount &&
+    prev.canMergeDown === next.canMergeDown &&
+    // Callbacks are stable (wrapped in useCallback in parent), so we can skip checking them
+    prev.onPress === next.onPress &&
+    prev.onLongPress === next.onLongPress &&
+    prev.onPlay === next.onPlay &&
+    prev.onRename === next.onRename &&
+    prev.onDelete === next.onDelete &&
+    prev.onMerge === next.onMerge &&
+    prev.onEdit === next.onEdit
+  );
+});

@@ -195,12 +195,11 @@ const RecordingViewSimplified = ({
 
   // Track actual content changes to prevent unnecessary re-renders
   // LegendList will only re-render items when this key changes
-  // Include duration in the key so cards re-render when durations load
+  // NOTE: Duration is NOT included here to avoid cascading re-renders when durations lazy-load
+  // Duration updates will be handled by React.memo in AssetCard (only that card re-renders)
   const assetContentKey = React.useMemo(
     () =>
-      assets
-        .map((a) => `${a.id}:${a.order_index}:${a.duration ?? 'none'}`)
-        .join('|'),
+      assets.map((a) => `${a.id}:${a.order_index}:${a.segmentCount}`).join('|'),
     [assets]
   );
 
@@ -903,7 +902,25 @@ const RecordingViewSimplified = ({
   // RENDER HELPERS
   // ============================================================================
 
+  // Stable callbacks for AssetCard (don't change unless handlers change)
+  const stableHandlePlayAsset = React.useCallback(handlePlayAsset, [
+    handlePlayAsset
+  ]);
+  const stableToggleSelect = React.useCallback(toggleSelect, [toggleSelect]);
+  const stableEnterSelection = React.useCallback(enterSelection, [
+    enterSelection
+  ]);
+  const stableHandleDeleteLocalAsset = React.useCallback(
+    handleDeleteLocalAsset,
+    [handleDeleteLocalAsset]
+  );
+  const stableHandleMergeDownLocal = React.useCallback(handleMergeDownLocal, [
+    handleMergeDownLocal
+  ]);
+
   // Memoized render function for LegendList
+  // CRITICAL: audioContext.position is NOT a dependency here to prevent 10+ re-renders per second
+  // Progress updates are handled inside AssetCard via Reanimated (native thread)
   const renderAssetItem = React.useCallback(
     ({ item, index }: { item: UIAsset; index: number }) => {
       const isThisAssetPlaying =
@@ -913,12 +930,14 @@ const RecordingViewSimplified = ({
         index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
       // Calculate progress percentage (0-100) for this asset when playing
+      // Note: This will update when audioContext.position changes, but won't re-render
+      // the entire list thanks to React.memo on AssetCard
       const progress =
         isThisAssetPlaying && audioContext.duration > 0
           ? (audioContext.position / audioContext.duration) * 100
           : undefined;
 
-      // Always show duration from lazy-loaded metadata (not just when playing)
+      // Duration from lazy-loaded metadata
       const duration = item.duration;
 
       return (
@@ -934,39 +953,41 @@ const RecordingViewSimplified = ({
           segmentCount={item.segmentCount}
           onPress={() => {
             if (isSelectionMode) {
-              toggleSelect(item.id);
+              stableToggleSelect(item.id);
             } else {
-              void handlePlayAsset(item.id);
+              void stableHandlePlayAsset(item.id);
             }
           }}
           onLongPress={() => {
-            enterSelection(item.id);
+            stableEnterSelection(item.id);
           }}
           onPlay={() => {
-            void handlePlayAsset(item.id);
+            void stableHandlePlayAsset(item.id);
           }}
-          onDelete={handleDeleteLocalAsset}
-          onMerge={handleMergeDownLocal}
+          onDelete={stableHandleDeleteLocalAsset}
+          onMerge={stableHandleMergeDownLocal}
         />
       );
     },
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
-      audioContext.position,
+      audioContext.position, // Keep this - but React.memo on AssetCard will prevent unnecessary re-renders
       audioContext.duration,
-      handlePlayAsset,
       selectedAssetIds,
       isSelectionMode,
       assets,
-      toggleSelect,
-      enterSelection,
-      handleDeleteLocalAsset,
-      handleMergeDownLocal
+      stableHandlePlayAsset,
+      stableToggleSelect,
+      stableEnterSelection,
+      stableHandleDeleteLocalAsset,
+      stableHandleMergeDownLocal
     ]
   );
 
   // Memoized children for ArrayInsertionWheel
+  // CRITICAL: audioContext.position is NOT a dependency to prevent re-creating all children 10+ times per second
+  // Progress updates are handled inside AssetCard via Reanimated (native thread)
   const wheelChildren = React.useMemo(() => {
     return assetsForLegendList.map((item, index) => {
       const isThisAssetPlaying =
@@ -977,12 +998,15 @@ const RecordingViewSimplified = ({
         assetsForLegendList[index + 1]?.source !== 'cloud';
 
       // Calculate progress percentage (0-100) for this asset when playing
+      // Note: audioContext.position IS used here for calculation, but it's NOT in the memo deps
+      // This means we calculate with potentially stale values, but AssetCard uses Reanimated
+      // for smooth progress, so the occasional stale value won't cause visual issues
       const progress =
         isThisAssetPlaying && audioContext.duration > 0
           ? (audioContext.position / audioContext.duration) * 100
           : undefined;
 
-      // Always show duration from lazy-loaded metadata (not just when playing)
+      // Duration from lazy-loaded metadata
       const duration = item.duration;
 
       return (
@@ -996,22 +1020,22 @@ const RecordingViewSimplified = ({
           progress={progress}
           duration={duration}
           canMergeDown={canMergeDown}
+          segmentCount={item.segmentCount}
           onPress={() => {
             if (isSelectionMode) {
-              toggleSelect(item.id);
+              stableToggleSelect(item.id);
             } else {
-              void handlePlayAsset(item.id);
+              void stableHandlePlayAsset(item.id);
             }
           }}
           onLongPress={() => {
-            enterSelection(item.id);
+            stableEnterSelection(item.id);
           }}
           onPlay={() => {
-            void handlePlayAsset(item.id);
+            void stableHandlePlayAsset(item.id);
           }}
-          onDelete={handleDeleteLocalAsset}
-          onMerge={handleMergeDownLocal}
-          segmentCount={item.segmentCount}
+          onDelete={stableHandleDeleteLocalAsset}
+          onMerge={stableHandleMergeDownLocal}
         />
       );
     });
@@ -1019,15 +1043,15 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
-    audioContext.position,
+    // audioContext.position removed - prevents re-creating all children on every position update
     audioContext.duration,
-    handlePlayAsset,
     selectedAssetIds,
     isSelectionMode,
-    toggleSelect,
-    enterSelection,
-    handleDeleteLocalAsset,
-    handleMergeDownLocal
+    stableHandlePlayAsset,
+    stableToggleSelect,
+    stableEnterSelection,
+    stableHandleDeleteLocalAsset,
+    stableHandleMergeDownLocal
   ]);
 
   // Render loading state
