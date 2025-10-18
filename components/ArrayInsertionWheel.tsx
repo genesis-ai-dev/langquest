@@ -82,8 +82,15 @@ function ArrayInsertionWheelInternal(
       const totalHeight = e.nativeEvent.layout.height;
       const available = Math.max(0, totalHeight - topInset - bottomInset);
       let count = Math.max(3, Math.floor(available / rowHeight));
+      // Multiply by 2 to make the wheel taller (use more of the available space)
+      count = Math.floor(count * 2);
       // Keep it odd for a centered selection line
       if (count % 2 === 0) count = Math.max(3, count - 1);
+      // Ensure the wheel doesn't exceed available space
+      const maxCount = Math.floor(available / rowHeight);
+      if (maxCount % 2 === 0) count = Math.min(count, maxCount - 1);
+      else count = Math.min(count, maxCount);
+
       setVisibleCount(count);
       const newWheelHeight = count * rowHeight;
       setWheelHeight(newWheelHeight);

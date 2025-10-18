@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
   asset,
   asset_content_link,
@@ -14,6 +15,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { resolveTable } from '@/utils/dbUtils';
 import {
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
@@ -25,12 +27,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { useHybridData } from '../../useHybridData';
+import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { RecordingControls } from './RecordingControls';
+import { SelectionControls } from './SelectionControls';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
 const USE_INSERTION_WHEEL = true;
@@ -41,6 +45,7 @@ interface UIAsset {
   created_at: string;
   order_index: number;
   source: 'local' | 'synced' | 'cloud';
+  segmentCount: number;
 }
 
 interface RecordingViewSimplifiedProps {
@@ -81,6 +86,20 @@ const RecordingViewSimplified = ({
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 80;
+
+  // Selection mode for batch operations (merge, delete)
+  const {
+    isSelectionMode,
+    selectedAssetIds,
+    enterSelection,
+    toggleSelect,
+    cancelSelection
+  } = useSelectionMode();
+
+  // Track segment counts for each asset (loaded lazily)
+  const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
+    Map<string, number>
+  >(new Map());
 
   // Load assets from database
   // Use initialAssets if provided to avoid redundant query and instant render
@@ -151,16 +170,20 @@ const RecordingViewSimplified = ({
           order_index?: number | null;
           source: 'local' | 'synced' | 'cloud';
         };
+        // Get segment count from lazy-loaded map (default to 1 if not loaded yet)
+        const segmentCount = assetSegmentCounts.get(obj.id) ?? 1;
+
         return {
           id: obj.id,
           name: obj.name,
           created_at: obj.created_at,
           order_index:
             typeof obj.order_index === 'number' ? obj.order_index : index,
-          source: obj.source
+          source: obj.source,
+          segmentCount
         };
       });
-  }, [rawAssets]);
+  }, [rawAssets, assetSegmentCounts]);
 
   // Track actual content changes to prevent unnecessary re-renders
   // LegendList will only re-render items when this key changes
@@ -503,60 +526,386 @@ const RecordingViewSimplified = ({
   }, [isVADLocked, currentQuestId, queryClient]);
 
   // ============================================================================
+  // LAZY LOAD SEGMENT COUNTS
+  // ============================================================================
+
+  // Stable reference to raw assets for segment count loading
+  // Only extract what we need to avoid circular dependencies
+  const assetMetadata = React.useMemo(
+    () =>
+      rawAssets
+        .map((a) => {
+          const obj = a as { id?: string } | null;
+          return obj?.id;
+        })
+        .filter((id): id is string => !!id),
+    [rawAssets]
+  );
+
+  const assetIds = React.useMemo(
+    () => assetMetadata.join(','),
+    [assetMetadata]
+  );
+
+  // Track which asset IDs we've loaded counts for to prevent re-loading
+  const loadedAssetIdsRef = React.useRef(new Set<string>());
+
+  // Load segment counts in background without blocking initial render
+  React.useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        // Find assets that need loading
+        const assetsToLoad = assetMetadata.filter(
+          (id) => !loadedAssetIdsRef.current.has(id)
+        );
+
+        if (assetsToLoad.length === 0) {
+          return; // Nothing new to load
+        }
+
+        const newCounts = new Map<string, number>();
+
+        for (const assetId of assetsToLoad) {
+          if (controller.signal.aborted) break;
+
+          try {
+            // Query asset_content_link to count segments
+            const contentLinks =
+              await system.db.query.asset_content_link.findMany({
+                columns: {
+                  id: true,
+                  audio: true
+                },
+                where: eq(asset_content_link.asset_id, assetId),
+                orderBy: asc(asset_content_link.created_at)
+              });
+
+            // Each content link with audio is a segment
+            const segmentCount = contentLinks.filter(
+              (c) => c.audio && c.audio.length > 0
+            ).length;
+            newCounts.set(assetId, segmentCount || 1); // Default to 1 if no audio found
+            loadedAssetIdsRef.current.add(assetId);
+          } catch (err) {
+            // If query fails for any asset, default to 1 segment
+            console.warn(
+              `Failed to load segment count for asset ${assetId}:`,
+              err
+            );
+            newCounts.set(assetId, 1);
+            loadedAssetIdsRef.current.add(assetId);
+          }
+        }
+
+        if (!controller.signal.aborted && newCounts.size > 0) {
+          // Merge with existing counts
+          setAssetSegmentCounts((prev) => {
+            const merged = new Map(prev);
+            for (const [id, count] of newCounts) {
+              merged.set(id, count);
+            }
+            return merged;
+          });
+          console.log(
+            '✅ Loaded segment counts for',
+            newCounts.size,
+            'new assets'
+          );
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Failed to load segment counts:', error);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [assetIds, assetMetadata]); // Only reload when asset IDs change
+
+  // ============================================================================
+  // ASSET OPERATIONS (Delete, Merge)
+  // ============================================================================
+
+  const handleDeleteLocalAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        await audioSegmentService.deleteAudioSegment(assetId);
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          exact: false
+        });
+      } catch (e) {
+        console.error('Failed to delete local asset', e);
+      }
+    },
+    [queryClient, currentQuestId]
+  );
+
+  const handleMergeDownLocal = React.useCallback(
+    async (index: number) => {
+      try {
+        const first = assets[index];
+        const second = assets[index + 1];
+        if (!first || !second || !currentUser) return;
+        if (first.source === 'cloud' || second.source === 'cloud') return;
+
+        const contentLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const secondContent = await system.db
+          .select()
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, second.id));
+
+        for (const c of secondContent) {
+          if (!c.audio) continue;
+          await system.db.insert(contentLocal).values({
+            asset_id: first.id,
+            source_language_id: c.source_language_id,
+            text: c.text || '',
+            audio: c.audio,
+            download_profiles: [currentUser.id]
+          });
+        }
+
+        await audioSegmentService.deleteAudioSegment(second.id);
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          exact: false
+        });
+      } catch (e) {
+        console.error('Failed to merge local assets', e);
+      }
+    },
+    [assets, currentUser, queryClient, currentQuestId]
+  );
+
+  const handleBatchMergeSelected = React.useCallback(() => {
+    const selectedOrdered = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (selectedOrdered.length < 2) return;
+
+    Alert.alert(
+      'Merge Assets',
+      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Merge',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                if (!currentUser) return;
+
+                const target = selectedOrdered[0]!;
+                const rest = selectedOrdered.slice(1);
+                const contentLocal = resolveTable('asset_content_link', {
+                  localOverride: true
+                });
+
+                for (const src of rest) {
+                  const srcContent = await system.db
+                    .select()
+                    .from(contentLocal)
+                    .where(eq(contentLocal.asset_id, src.id));
+
+                  for (const c of srcContent) {
+                    if (!c.audio) continue;
+                    await system.db.insert(contentLocal).values({
+                      asset_id: target.id,
+                      source_language_id: c.source_language_id,
+                      text: c.text || '',
+                      audio: c.audio,
+                      download_profiles: [currentUser.id]
+                    });
+                  }
+
+                  await audioSegmentService.deleteAudioSegment(src.id);
+                }
+
+                cancelSelection();
+                await queryClient.invalidateQueries({
+                  queryKey: [
+                    'assets',
+                    'infinite',
+                    'by-quest',
+                    currentQuestId,
+                    ''
+                  ],
+                  exact: false
+                });
+
+                console.log('✅ Batch merge completed');
+              } catch (e) {
+                console.error('Failed to batch merge local assets', e);
+                Alert.alert(
+                  'Error',
+                  'Failed to merge assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    cancelSelection,
+    queryClient,
+    currentQuestId
+  ]);
+
+  const handleBatchDeleteSelected = React.useCallback(() => {
+    const selectedOrdered = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (selectedOrdered.length < 1) return;
+
+    Alert.alert(
+      'Delete Assets',
+      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const asset of selectedOrdered) {
+                  await audioSegmentService.deleteAudioSegment(asset.id);
+                }
+
+                cancelSelection();
+                await queryClient.invalidateQueries({
+                  queryKey: [
+                    'assets',
+                    'infinite',
+                    'by-quest',
+                    currentQuestId,
+                    ''
+                  ],
+                  exact: false
+                });
+
+                console.log(
+                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to batch delete local assets', e);
+                Alert.alert(
+                  'Error',
+                  'Failed to delete assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
+
+  // ============================================================================
   // RENDER HELPERS
   // ============================================================================
 
   // Memoized render function for LegendList
   const renderAssetItem = React.useCallback(
-    ({ item }: { item: UIAsset }) => {
+    ({ item, index }: { item: UIAsset; index: number }) => {
       const isThisAssetPlaying =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isSelected = selectedAssetIds.has(item.id);
+      const canMergeDown =
+        index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
       return (
         <AssetCard
           asset={item}
-          index={0}
-          isSelected={false}
-          isSelectionMode={false}
+          index={index}
+          isSelected={isSelected}
+          isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          canMergeDown={canMergeDown}
+          segmentCount={item.segmentCount}
           onPress={() => {
-            void handlePlayAsset(item.id);
+            if (isSelectionMode) {
+              toggleSelect(item.id);
+            } else {
+              void handlePlayAsset(item.id);
+            }
           }}
           onLongPress={() => {
-            console.log('Asset long pressed:', item.id);
+            enterSelection(item.id);
           }}
           onPlay={() => {
             void handlePlayAsset(item.id);
           }}
+          onDelete={handleDeleteLocalAsset}
+          onMerge={handleMergeDownLocal}
         />
       );
     },
-    [audioContext.isPlaying, audioContext.currentAudioId, handlePlayAsset]
+    [
+      audioContext.isPlaying,
+      audioContext.currentAudioId,
+      handlePlayAsset,
+      selectedAssetIds,
+      isSelectionMode,
+      assets,
+      toggleSelect,
+      enterSelection,
+      handleDeleteLocalAsset,
+      handleMergeDownLocal
+    ]
   );
 
   // Memoized children for ArrayInsertionWheel
   const wheelChildren = React.useMemo(() => {
-    return assetsForLegendList.map((item) => {
+    return assetsForLegendList.map((item, index) => {
       const isThisAssetPlaying =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isSelected = selectedAssetIds.has(item.id);
+      const canMergeDown =
+        index < assetsForLegendList.length - 1 &&
+        assetsForLegendList[index + 1]?.source !== 'cloud';
 
       return (
         <AssetCard
           key={item.id}
           asset={item}
-          index={0}
-          isSelected={false}
-          isSelectionMode={false}
+          index={index}
+          isSelected={isSelected}
+          isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          canMergeDown={canMergeDown}
           onPress={() => {
-            void handlePlayAsset(item.id);
+            if (isSelectionMode) {
+              toggleSelect(item.id);
+            } else {
+              void handlePlayAsset(item.id);
+            }
           }}
           onLongPress={() => {
-            console.log('Asset long pressed:', item.id);
+            enterSelection(item.id);
           }}
           onPlay={() => {
             void handlePlayAsset(item.id);
           }}
+          onDelete={handleDeleteLocalAsset}
+          onMerge={handleMergeDownLocal}
+          segmentCount={item.segmentCount}
         />
       );
     });
@@ -564,7 +913,13 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
-    handlePlayAsset
+    handlePlayAsset,
+    selectedAssetIds,
+    isSelectionMode,
+    toggleSelect,
+    enterSelection,
+    handleDeleteLocalAsset,
+    handleMergeDownLocal
   ]);
 
   // Render loading state
@@ -643,22 +998,31 @@ const RecordingViewSimplified = ({
       </View>
 
       {/* Bottom controls - absolutely positioned */}
-      {/* <View className="absolute bottom-0 left-0 right-0"> */}
-      {/* Debug switches for VAD testing */}
-
-      {/* Recording controls */}
-      <RecordingControls
-        isRecording={isRecording || isVADRecording}
-        onRecordingStart={handleRecordingStart}
-        onRecordingStop={handleRecordingStop}
-        onRecordingComplete={handleRecordingComplete}
-        onRecordingDiscarded={handleRecordingDiscarded}
-        onLayout={setFooterHeight}
-        isVADLocked={isVADLocked}
-        onVADLockChange={setIsVADLocked}
-        currentEnergy={currentEnergy}
-        vadThreshold={vadThreshold}
-      />
+      <View className="absolute bottom-0 left-0 right-0">
+        {isSelectionMode ? (
+          <View className="px-4">
+            <SelectionControls
+              selectedCount={selectedAssetIds.size}
+              onCancel={cancelSelection}
+              onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
+            />
+          </View>
+        ) : (
+          <RecordingControls
+            isRecording={isRecording || isVADRecording}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
+            onRecordingComplete={handleRecordingComplete}
+            onRecordingDiscarded={handleRecordingDiscarded}
+            onLayout={setFooterHeight}
+            isVADLocked={isVADLocked}
+            onVADLockChange={setIsVADLocked}
+            currentEnergy={currentEnergy}
+            vadThreshold={vadThreshold}
+          />
+        )}
+      </View>
     </View>
   );
 };
