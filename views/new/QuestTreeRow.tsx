@@ -2,7 +2,6 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { WithSource } from '@/utils/dbUtils';
@@ -25,6 +24,7 @@ export interface QuestTreeRowProps {
   depth: number;
   hasChildren: boolean;
   isOpen: boolean;
+  canCreateNew: boolean;
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
@@ -35,12 +35,12 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   depth,
   hasChildren,
   isOpen,
+  canCreateNew,
   onToggleExpand,
   onAddChild,
   onDownloadClick
 }) => {
   const { goToQuest, currentProjectId } = useAppNavigation();
-  const { currentUser } = useAuth();
 
   console.log('quest', quest);
 
@@ -118,14 +118,16 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           />
         )}
       </View>
-      <Button
-        size="icon"
-        variant="outline"
-        className="ml-2 size-7"
-        onPress={() => onAddChild(quest.id)}
-      >
-        <Icon as={Plus} />
-      </Button>
+      {canCreateNew && (
+        <Button
+          size="icon"
+          variant="outline"
+          className="ml-2 size-7"
+          onPress={() => onAddChild(quest.id)}
+        >
+          <Icon as={Plus} />
+        </Button>
+      )}
     </View>
   );
 };

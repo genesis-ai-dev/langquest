@@ -407,6 +407,7 @@ export default function ProjectDirectoryView() {
             depth={depth}
             hasChildren={hasChildren}
             isOpen={isOpen}
+            canCreateNew={isMember}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => openCreateForParent(parentId)}
             onDownloadClick={handleDownloadClick}
