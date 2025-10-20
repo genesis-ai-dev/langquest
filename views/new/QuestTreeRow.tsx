@@ -17,7 +17,6 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { useItemDownload } from './useHybridData';
 
 type Quest = typeof questTable.$inferSelect;
 
@@ -28,6 +27,7 @@ export interface QuestTreeRowProps {
   isOpen: boolean;
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
+  onDownloadClick?: (questId: string) => void;
 }
 
 export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
@@ -36,15 +36,11 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   onToggleExpand,
-  onAddChild
+  onAddChild,
+  onDownloadClick
 }) => {
   const { goToQuest, currentProjectId } = useAppNavigation();
   const { currentUser } = useAuth();
-
-  const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
-    'quest',
-    quest.id
-  );
 
   console.log('quest', quest);
 
@@ -112,19 +108,13 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         {quest.source !== 'local' && (
           <DownloadIndicator
             isFlaggedForDownload={quest.source === 'synced'}
-            isLoading={isDownloading}
+            isLoading={false}
             onPress={() => {
-              if (quest.source === 'cloud') {
-                if (!currentUser?.id) return;
-                downloadQuest({ userId: currentUser.id, download: true });
+              if (quest.source === 'cloud' && onDownloadClick) {
+                onDownloadClick(quest.id);
               }
-              // If local, this is just a hard drive icon -- not actionable
             }}
             className="text-muted-foreground"
-            downloadType="quest"
-            // For now, no stats; could be passed as needed
-            // For local-only: just shows a hard drive, non-pressable
-            showProgress={false}
           />
         )}
       </View>

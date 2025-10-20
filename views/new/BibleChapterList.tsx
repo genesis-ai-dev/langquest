@@ -1,4 +1,6 @@
+import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,14 +11,17 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
+import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
+import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+import { useItemDownloadStatus } from './useHybridData';
 
 interface BibleChapterListProps {
   projectId: string;
@@ -40,7 +45,8 @@ function ChapterButton({
   existingChapter,
   isCreatingThis,
   onPress,
-  disabled
+  disabled,
+  onDownloadClick
 }: {
   chapterNum: number;
   verseCount: number;
@@ -55,6 +61,7 @@ function ChapterButton({
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
+  onDownloadClick: (questId: string) => void;
 }) {
   const { currentUser } = useAuth();
   const exists = !!existingChapter;
@@ -63,49 +70,15 @@ function ChapterButton({
   const isCloudQuest = existingChapter?.source === 'cloud';
   const primaryColor = useThemeColor('primary');
 
-  // Download status and handler
+  // Download status
   const isDownloaded = useItemDownloadStatus(existingChapter, currentUser?.id);
   const needsDownload = isCloudQuest && !isDownloaded;
-
-  // TODO: Optimize - query all quest_closure data once at parent level instead of per-button
-  // const { data: questClosureData } = useHybridData<QuestClosure>({
-  //   dataType: 'quest_closure',
-  //   queryKeyParams: [existingChapter?.id || ''],
-  //   offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${existingChapter?.id || ''}' LIMIT 1`,
-  //   cloudQueryFn: async () => {
-  //     if (!existingChapter?.id) return [];
-  //     const { data, error } = await system.supabaseConnector.client
-  //       .from('quest_closure')
-  //       .select('*')
-  //       .eq('quest_id', existingChapter.id)
-  //       .limit(1)
-  //       .overrideTypes<QuestClosure[]>();
-  //     if (error) {
-  //       console.warn('Error fetching quest closure from cloud:', error);
-  //       return [];
-  //     }
-  //     return data;
-  //   },
-  //   enableOfflineQuery: !!existingChapter?.id,
-  //   getItemId: (item: QuestClosure) => item.quest_id
-  // });
-
-  const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
-    'quest',
-    existingChapter?.id || ''
-  );
 
   const handleDownloadToggle = () => {
     if (!currentUser?.id || !existingChapter?.id) return;
     if (!isDownloaded) {
-      downloadQuest({ userId: currentUser.id, download: true });
+      onDownloadClick(existingChapter.id);
     }
-  };
-
-  // const questClosure = questClosureData[0] as QuestClosure | undefined;
-  const downloadStats = {
-    totalAssets: 0, // questClosure?.total_assets ?? 0,
-    totalTranslations: 0 // questClosure?.total_translations ?? 0
   };
 
   // Use semantic Tailwind colors for status, matching conventions:
@@ -150,10 +123,8 @@ function ChapterButton({
               {exists && (hasSyncedCopy || isCloudQuest) && (
                 <DownloadIndicator
                   isFlaggedForDownload={isDownloaded}
-                  isLoading={isDownloading}
+                  isLoading={false}
                   onPress={handleDownloadToggle}
-                  downloadType="quest"
-                  stats={downloadStats}
                   size={16}
                   // Always use neutral/foreground for indicator to be visible
                   className={
@@ -186,6 +157,8 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const book = getBibleBook(bookId);
   const bookIconSource = BOOK_ICON_MAP[bookId];
   const primaryColor = useThemeColor('primary');
@@ -200,6 +173,115 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
   );
+
+  // Discovery drawer state
+  const [questIdToDownload, setQuestIdToDownload] = React.useState<
+    string | null
+  >(null);
+  const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] =
+    React.useState(false);
+
+  // Discovery hook
+  const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
+
+  // Track if we've started discovery for this quest ID to prevent loops
+  const startedDiscoveryRef = React.useRef<string | null>(null);
+
+  // Auto-start discovery when drawer opens with a quest ID
+  React.useEffect(() => {
+    if (
+      showDiscoveryDrawer &&
+      questIdToDownload &&
+      !discoveryState.isDiscovering &&
+      startedDiscoveryRef.current !== questIdToDownload
+    ) {
+      console.log(
+        '📥 [Download] Auto-starting discovery for quest:',
+        questIdToDownload
+      );
+      startedDiscoveryRef.current = questIdToDownload;
+      discoveryState.startDiscovery();
+    }
+
+    // Reset ref when drawer closes
+    if (!showDiscoveryDrawer) {
+      startedDiscoveryRef.current = null;
+    }
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering]);
+
+  // Bulk download mutation
+  const bulkDownloadMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser?.id || !discoveryState.discoveredIds) {
+        throw new Error('Missing user or discovered IDs');
+      }
+
+      console.log(
+        '📥 [Bulk Download] Starting bulk download with IDs:',
+        discoveryState.discoveredIds
+      );
+
+      const data = await bulkDownloadQuest(
+        discoveryState.discoveredIds,
+        currentUser.id
+      );
+
+      console.log('📥 [Bulk Download] Success:', data);
+      return data;
+    },
+    onSuccess: async () => {
+      console.log('📥 [Bulk Download] Invalidating queries');
+      // Invalidate download status queries
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status']
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quest-download-status']
+      });
+      // Invalidate bible chapters queries to refresh download status
+      await queryClient.invalidateQueries({
+        queryKey: ['bible-chapters']
+      });
+    }
+  });
+
+  // Handle download click - start discovery
+  const handleDownloadClick = (questId: string) => {
+    console.log('📥 [Download] Opening discovery drawer for quest:', questId);
+    setQuestIdToDownload(questId);
+    setShowDiscoveryDrawer(true);
+    // Discovery will auto-start via useEffect
+  };
+
+  // Handle discovery completion - show confirmation
+  const handleDiscoveryContinue = () => {
+    console.log('📥 [Download] Discovery complete, showing confirmation');
+    setShowDiscoveryDrawer(false);
+    setShowConfirmationModal(true);
+  };
+
+  // Handle confirmation - execute bulk download
+  const handleConfirmDownload = async () => {
+    console.log('📥 [Download] User confirmed, executing bulk download');
+    setShowConfirmationModal(false);
+    await bulkDownloadMutation.mutateAsync();
+    setQuestIdToDownload(null);
+  };
+
+  // Handle cancellation
+  const handleCancelDiscovery = () => {
+    console.log('📥 [Download] User cancelled discovery');
+    discoveryState.cancel();
+    setShowDiscoveryDrawer(false);
+    setQuestIdToDownload(null);
+  };
+
+  const handleCancelConfirmation = () => {
+    console.log('📥 [Download] User cancelled confirmation');
+    setShowConfirmationModal(false);
+    setQuestIdToDownload(null);
+  };
 
   if (!book) {
     return (
@@ -339,11 +421,46 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                 isCreatingThis={item.isCreatingThis}
                 onPress={() => handleChapterPress(item.chapterNum)}
                 disabled={Boolean(isCreating || isLoadingChapters)}
+                onDownloadClick={handleDownloadClick}
               />
             )}
           />
         )}
       </View>
+
+      {/* Discovery Drawer */}
+      <QuestDownloadDiscoveryDrawer
+        isOpen={showDiscoveryDrawer}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDiscovery();
+        }}
+        onContinue={handleDiscoveryContinue}
+        discoveryState={discoveryState}
+      />
+
+      {/* Confirmation Modal */}
+      <DownloadConfirmationModal
+        visible={showConfirmationModal}
+        onConfirm={handleConfirmDownload}
+        onCancel={handleCancelConfirmation}
+        downloadType="quest"
+        discoveredCounts={{
+          Quests: discoveryState.progressSharedValues.quest.value.count,
+          Projects: discoveryState.progressSharedValues.project.value.count,
+          'Quest-Asset Links':
+            discoveryState.progressSharedValues.questAssetLinks.value.count,
+          Assets: discoveryState.progressSharedValues.assets.value.count,
+          'Asset Content Links':
+            discoveryState.progressSharedValues.assetContentLinks.value.count,
+          Votes: discoveryState.progressSharedValues.votes.value.count,
+          'Quest Tags':
+            discoveryState.progressSharedValues.questTagLinks.value.count,
+          'Asset Tags':
+            discoveryState.progressSharedValues.assetTagLinks.value.count,
+          Tags: discoveryState.progressSharedValues.tags.value.count,
+          Languages: discoveryState.progressSharedValues.languages.value.count
+        }}
+      />
     </View>
   );
 }

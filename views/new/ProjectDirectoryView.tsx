@@ -1,10 +1,13 @@
+import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import type { WithSource } from '@/utils/dbUtils';
 import { resolveTable } from '@/utils/dbUtils';
 // import { LegendList } from '@legendapp/list';
@@ -44,9 +47,10 @@ import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq, or } from 'drizzle-orm';
 import {
   ArrowLeftIcon,
@@ -71,6 +75,7 @@ export default function ProjectDirectoryView() {
     useCurrentNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
+  const queryClient = useQueryClient();
 
   // Fallback: If template is not in navigation state, fetch project
   // This handles cases like direct navigation or refresh
@@ -90,6 +95,77 @@ export default function ProjectDirectoryView() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const { findOrCreateBook } = useBibleBookCreation();
+
+  // Discovery drawer state for quest downloads
+  const [questIdToDownload, setQuestIdToDownload] = React.useState<
+    string | null
+  >(null);
+  const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] =
+    React.useState(false);
+
+  // Discovery hook
+  const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
+
+  // Track if we've started discovery for this quest ID to prevent loops
+  const startedDiscoveryRef = React.useRef<string | null>(null);
+
+  // Auto-start discovery when drawer opens with a quest ID
+  React.useEffect(() => {
+    if (
+      showDiscoveryDrawer &&
+      questIdToDownload &&
+      !discoveryState.isDiscovering &&
+      startedDiscoveryRef.current !== questIdToDownload
+    ) {
+      console.log(
+        '📥 [Download] Auto-starting discovery for quest:',
+        questIdToDownload
+      );
+      startedDiscoveryRef.current = questIdToDownload;
+      discoveryState.startDiscovery();
+    }
+
+    // Reset ref when drawer closes
+    if (!showDiscoveryDrawer) {
+      startedDiscoveryRef.current = null;
+    }
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering]);
+
+  // Bulk download mutation
+  const bulkDownloadMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser?.id || !discoveryState.discoveredIds) {
+        throw new Error('Missing user or discovered IDs');
+      }
+
+      console.log(
+        '📥 [Bulk Download] Starting bulk download with IDs:',
+        discoveryState.discoveredIds
+      );
+
+      const data = await bulkDownloadQuest(
+        discoveryState.discoveredIds,
+        currentUser.id
+      );
+
+      console.log('📥 [Bulk Download] Success:', data);
+      return data;
+    },
+    onSuccess: async () => {
+      console.log('📥 [Bulk Download] Invalidating queries');
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status']
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quest-download-status']
+      });
+      // Invalidate the quests query to refresh the download status
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'for-project', currentProjectId]
+      });
+    }
+  });
 
   // Find/create book quest in background when a book is selected
   // This ensures the book quest exists for other operations, but we don't wait for it
@@ -214,6 +290,43 @@ export default function ProjectDirectoryView() {
     setIsCreateOpen(true);
   }, []);
 
+  // Handle download click - start discovery
+  const handleDownloadClick = (questId: string) => {
+    console.log('📥 [Download] Opening discovery drawer for quest:', questId);
+    setQuestIdToDownload(questId);
+    setShowDiscoveryDrawer(true);
+    // Discovery will auto-start via useEffect
+  };
+
+  // Handle discovery completion - show confirmation
+  const handleDiscoveryContinue = () => {
+    console.log('📥 [Download] Discovery complete, showing confirmation');
+    setShowDiscoveryDrawer(false);
+    setShowConfirmationModal(true);
+  };
+
+  // Handle confirmation - execute bulk download
+  const handleConfirmDownload = async () => {
+    console.log('📥 [Download] User confirmed, executing bulk download');
+    setShowConfirmationModal(false);
+    await bulkDownloadMutation.mutateAsync();
+    setQuestIdToDownload(null);
+  };
+
+  // Handle cancellation
+  const handleCancelDiscovery = () => {
+    console.log('📥 [Download] User cancelled discovery');
+    discoveryState.cancel();
+    setShowDiscoveryDrawer(false);
+    setQuestIdToDownload(null);
+  };
+
+  const handleCancelConfirmation = () => {
+    console.log('📥 [Download] User cancelled confirmation');
+    setShowConfirmationModal(false);
+    setQuestIdToDownload(null);
+  };
+
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!currentProjectId || !currentUser?.id) return;
@@ -253,6 +366,7 @@ export default function ProjectDirectoryView() {
             isOpen={isOpen}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => openCreateForParent(parentId)}
+            onDownloadClick={handleDownloadClick}
           />
         );
         if (hasChildren && isOpen) {
@@ -265,7 +379,13 @@ export default function ProjectDirectoryView() {
       }
       return rows;
     },
-    [childrenOf, expanded, toggleExpanded, openCreateForParent]
+    [
+      childrenOf,
+      expanded,
+      toggleExpanded,
+      openCreateForParent,
+      handleDownloadClick
+    ]
   );
 
   // Bible project routing - instant render with no loading state needed
@@ -470,6 +590,40 @@ export default function ProjectDirectoryView() {
             </DrawerClose>
           </DrawerFooter>
         </DrawerContent>
+
+        {/* Discovery Drawer */}
+        <QuestDownloadDiscoveryDrawer
+          isOpen={showDiscoveryDrawer}
+          onOpenChange={(open) => {
+            if (!open) handleCancelDiscovery();
+          }}
+          onContinue={handleDiscoveryContinue}
+          discoveryState={discoveryState}
+        />
+
+        {/* Confirmation Modal */}
+        <DownloadConfirmationModal
+          visible={showConfirmationModal}
+          onConfirm={handleConfirmDownload}
+          onCancel={handleCancelConfirmation}
+          downloadType="quest"
+          discoveredCounts={{
+            Quests: discoveryState.progressSharedValues.quest.value.count,
+            Projects: discoveryState.progressSharedValues.project.value.count,
+            'Quest-Asset Links':
+              discoveryState.progressSharedValues.questAssetLinks.value.count,
+            Assets: discoveryState.progressSharedValues.assets.value.count,
+            'Asset Content Links':
+              discoveryState.progressSharedValues.assetContentLinks.value.count,
+            Votes: discoveryState.progressSharedValues.votes.value.count,
+            'Quest Tags':
+              discoveryState.progressSharedValues.questTagLinks.value.count,
+            'Asset Tags':
+              discoveryState.progressSharedValues.assetTagLinks.value.count,
+            Tags: discoveryState.progressSharedValues.tags.value.count,
+            Languages: discoveryState.progressSharedValues.languages.value.count
+          }}
+        />
       </Drawer>
     </Form>
   );

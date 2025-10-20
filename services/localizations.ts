@@ -198,6 +198,60 @@ export const localizations = {
     tok_pisin: 'Download project taim request i go',
     indonesian: 'Unduh proyek saat permintaan dikirim'
   },
+  discoveringQuestData: {
+    english: 'Discovering Quest Data',
+    spanish: 'Descubriendo Datos de la Misión',
+    brazilian_portuguese: 'Descobrindo Dados da Missão',
+    tok_pisin: 'Painimaut long Quest Data',
+    indonesian: 'Menemukan Data Quest'
+  },
+  analyzingRelatedRecords: {
+    english: 'Analyzing related records...',
+    spanish: 'Analizando registros relacionados...',
+    brazilian_portuguese: 'Analisando registros relacionados...',
+    tok_pisin: 'Lukautim ol related records...',
+    indonesian: 'Menganalisis catatan terkait...'
+  },
+  discoveryComplete: {
+    english: 'Discovery complete',
+    spanish: 'Descubrimiento completo',
+    brazilian_portuguese: 'Descoberta completa',
+    tok_pisin: 'Discovery i pinis',
+    indonesian: 'Penemuan selesai'
+  },
+  totalRecords: {
+    english: 'Total Records',
+    spanish: 'Registros Totales',
+    brazilian_portuguese: 'Registros Totais',
+    tok_pisin: 'Total Records',
+    indonesian: 'Total Catatan'
+  },
+  discoveryErrorsOccurred: {
+    english:
+      'Some errors occurred during discovery. You can still download the discovered records.',
+    spanish:
+      'Ocurrieron algunos errores durante el descubrimiento. Aún puedes descargar los registros descubiertos.',
+    brazilian_portuguese:
+      'Alguns erros ocorreram durante a descoberta. Você ainda pode baixar os registros descobertos.',
+    tok_pisin:
+      'Sampela problem i kamap taim long painimaut. Yu ken download yet ol records we mipela painimaut.',
+    indonesian:
+      'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
+  },
+  discovering: {
+    english: 'Discovering...',
+    spanish: 'Descubriendo...',
+    brazilian_portuguese: 'Descobrindo...',
+    tok_pisin: 'Painimaut...',
+    indonesian: 'Menemukan...'
+  },
+  continueToDownload: {
+    english: 'Continue to Download',
+    spanish: 'Continuar con la Descarga',
+    brazilian_portuguese: 'Continuar para Download',
+    tok_pisin: 'Go het long Download',
+    indonesian: 'Lanjutkan ke Unduhan'
+  },
   email: {
     english: 'Email',
     spanish: 'Email',
