@@ -132,10 +132,9 @@ function ChapterButton({
                   isLoading={false}
                   onPress={handleDownloadToggle}
                   size={16}
-                  // Always use neutral/foreground for indicator to be visible
-                  className={
+                  iconColor={
                     hasSyncedCopy || hasLocalCopy
-                      ? 'text-card-foreground'
+                      ? 'text-secondary'
                       : 'text-foreground'
                   }
                 />
