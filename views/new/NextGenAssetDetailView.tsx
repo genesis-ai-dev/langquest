@@ -41,7 +41,7 @@ import {
   VolumeXIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Platform, Text, View } from 'react-native';
+import { Dimensions, Text, View } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -237,49 +237,31 @@ export default function NextGenAssetDetailView() {
     [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
   );
 
-  const { data: audioSegments, isLoading: isLoadingAudioSegments } = useQuery({
-    queryKey: ['audioSegments', currentAssetId, attachmentStates.size],
-    queryFn: async () => {
-      // Only include audio segments that are actually downloaded
-      const audioIds = activeAsset!.content
-        .flatMap((content) => content.audio)
-        .filter((id): id is string => typeof id === 'string');
+  // Get audio URIs for a specific content item (not all content flattened)
+  const getContentAudioUris = React.useCallback(
+    (content: typeof asset_content_link.$inferSelect): string[] => {
+      if (!content.audio) return [];
 
-      const availableSegments: string[] = [];
-
-      for (const audioId of audioIds) {
-        const attachmentState = attachmentStates.get(audioId);
-
-        // Only include if the attachment is synced and has a local URI
-        if (attachmentState?.local_uri) {
-          const fullUri = getLocalUri(attachmentState.local_uri);
-          availableSegments.push(fullUri);
-        } else {
+      return content.audio
+        .filter((audioId): audioId is string => typeof audioId === 'string')
+        .map((audioId) => {
+          const attachmentState = attachmentStates.get(audioId);
+          if (attachmentState?.local_uri) {
+            const fullUri = getLocalUri(attachmentState.local_uri);
+            console.log(
+              `[AUDIO] Content audio ${audioId.slice(0, 8)} -> ${fullUri.slice(0, 80)}`
+            );
+            return fullUri;
+          }
           console.log(
             `[AUDIO] Skipping ${audioId} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
           );
-        }
-      }
-
-      return availableSegments;
+          return null;
+        })
+        .filter((uri): uri is string => uri !== null);
     },
-    enabled: !!activeAsset && !isLoadingAttachments
-  });
-
-  console.log('[AUDIO SEGMENTS]', audioSegments);
-
-  useEffect(() => {
-    if (!audioSegments) return;
-
-    return () => {
-      if (Platform.OS === 'web') {
-        audioSegments?.forEach((segment) => {
-          console.log('[AUDIO SEGMENT] Revoking object URL', segment);
-          URL.revokeObjectURL(segment);
-        });
-      }
-    };
-  }, [audioSegments]);
+    [attachmentStates]
+  );
 
   React.useEffect(() => {
     console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
@@ -433,8 +415,8 @@ export default function NextGenAssetDetailView() {
                         ? (languageById.get(content.source_language_id) ?? null)
                         : null
                     }
-                    audioSegments={audioSegments}
-                    isLoading={isLoadingAttachments || isLoadingAudioSegments}
+                    audioSegments={getContentAudioUris(content)}
+                    isLoading={isLoadingAttachments}
                   />
 
                   {/* Audio status indicator */}
