@@ -409,26 +409,8 @@ with check (
   )
 );
 
--- Modify vote table to reference assets instead of translations
--- This is a breaking change - votes now apply to assets rather than translations
-
--- First, create a backup of existing vote data if needed
--- Note: This migration assumes translation table will be removed
-
--- Drop existing foreign key constraint and index
-alter table vote drop constraint if exists vote_translation_id_fkey;
-drop index if exists vote_translation_id_idx;
-drop index if exists vote_translation_id_creator_id_idx;
-
--- Rename translation_id to asset_id and update references
-alter table vote rename column translation_id to asset_id;
-
--- Add foreign key constraint to asset table
-alter table vote add constraint vote_asset_id_fkey foreign key (asset_id) references asset(id);
-
--- Recreate indexes with new column name
-create index if not exists vote_asset_id_idx on vote(asset_id);
-create index if not exists vote_creator_id_idx on vote(creator_id);
+-- Note: Vote table migration happens AFTER translation → asset migration
+-- to ensure foreign key constraints can be satisfied
 
 -- Modify asset_content_link table
 -- Change audio_id (single text) to audio (json array)
@@ -607,11 +589,27 @@ from translation t
 join quest_asset_link qal on qal.asset_id = t.asset_id
 where t.active = true and qal.active = true;
 
--- Note: Vote table column was already renamed from translation_id to asset_id earlier (line 56)
--- The rename operation preserves the data, so votes now correctly reference assets
--- Since we're reusing translation IDs as asset IDs (Step 1), the references remain valid
+-- Step 4: Migrate vote table to reference assets instead of translations
+-- Now that translations have been migrated to assets (with same IDs), we can safely update the vote table
+-- The translation IDs are now asset IDs, so the references will remain valid
 
--- Step 4: Clean up - Remove translation table entirely
+-- Drop existing foreign key constraint and index
+alter table vote drop constraint if exists vote_translation_id_fkey;
+drop index if exists vote_translation_id_idx;
+drop index if exists vote_translation_id_creator_id_idx;
+
+-- Rename translation_id to asset_id and update references
+alter table vote rename column translation_id to asset_id;
+
+-- Add foreign key constraint to asset table
+-- This now works because translations have been migrated to assets with the same IDs
+alter table vote add constraint vote_asset_id_fkey foreign key (asset_id) references asset(id);
+
+-- Recreate indexes with new column name
+create index if not exists vote_asset_id_idx on vote(asset_id);
+create index if not exists vote_creator_id_idx on vote(creator_id);
+
+-- Step 5: Clean up - Remove translation table entirely
 -- This is a major breaking change - all translation functionality now handled through assets
 drop table if exists translation cascade;
 
