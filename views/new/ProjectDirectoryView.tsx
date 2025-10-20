@@ -57,6 +57,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq, or } from 'drizzle-orm';
 import {
   ArrowLeftIcon,
+  BookOpenIcon,
+  ChurchIcon,
   FlagIcon,
   FolderPenIcon,
   InfoIcon,
@@ -437,9 +439,13 @@ export default function ProjectDirectoryView() {
     // Show book list if no book selected
     if (!selectedBook) {
       return (
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between p-4">
-            <Text variant="h4">📖 {projectName}</Text>
+        <View className="align-start flex-1">
+          <View className="flex-row items-center justify-start gap-3 p-4">
+            <View className="flex flex-row items-center gap-1">
+              <Icon as={ChurchIcon} />
+              <Icon as={BookOpenIcon} />
+            </View>
+            <Text variant="h4">{projectName}</Text>
           </View>
           <BibleBookList
             projectId={currentProjectId!}

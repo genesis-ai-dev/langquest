@@ -3,7 +3,8 @@ import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
-import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
+import { useLocalization } from '@/hooks/useLocalization';
+import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { PlusIcon } from 'lucide-react-native';
@@ -25,7 +26,7 @@ export function BibleBookList({
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
-
+  const { t } = useLocalization();
   // Responsive: calculate how many fit per row
   const screenWidth = Dimensions.get('window').width;
   const buttonWidth = 110;
@@ -45,7 +46,6 @@ export function BibleBookList({
     book: { id: string; chapters: number },
     testament: 'old' | 'new'
   ) => {
-    const emoji = BOOK_EMOJIS[book.id] || '📖';
     const iconSource = BOOK_ICON_MAP[book.id];
     const bookExists = existingBookIds?.has(book.id);
     const isDisabled = !bookExists && !canCreateNew;
@@ -66,19 +66,15 @@ export function BibleBookList({
         onPress={() => onBookSelect(book.id)}
         disabled={isDisabled}
       >
-        {iconSource ? (
-          <Image
-            source={iconSource}
-            style={{
-              width: 80,
-              height: 80,
-              tintColor: testament === 'old' ? primaryColor : secondaryColor
-            }}
-            resizeMode="contain"
-          />
-        ) : (
-          <Text className="text-4xl">{emoji}</Text>
-        )}
+        <Image
+          source={iconSource}
+          style={{
+            width: 80,
+            height: 80,
+            tintColor: testament === 'old' ? primaryColor : secondaryColor
+          }}
+          resizeMode="contain"
+        />
         <View className="flex-col items-center gap-0.5">
           <Text
             className="text-xs font-bold uppercase"
@@ -86,8 +82,8 @@ export function BibleBookList({
           >
             {book.id}
           </Text>
-          <Text className="text-[10px] text-muted-foreground">
-            {book.chapters} ch
+          <Text className="text-xxs text-muted-foreground">
+            {book.chapters}
           </Text>
         </View>
         {/* Add plus icon for createable books */}
