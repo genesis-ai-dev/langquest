@@ -54,56 +54,6 @@ interface DrawerItemType {
   disabled?: boolean;
 }
 
-// Shimmer component for grace period
-const ShimmerBar: React.FC<{ className?: string }> = ({ className }) => {
-  const shimmerValue = useRef(new Animated.Value(0)).current;
-  const [containerWidth, setContainerWidth] = useState(100);
-
-  useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false
-        }),
-        Animated.timing(shimmerValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false
-        })
-      ])
-    );
-
-    shimmerAnimation.start();
-
-    return () => {
-      shimmerAnimation.stop();
-    };
-  }, [shimmerValue]);
-
-  const shimmerTranslate = shimmerValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-containerWidth, containerWidth]
-  });
-
-  return (
-    <View
-      className={cn('h-1 overflow-hidden rounded-full bg-muted', className)}
-      onLayout={(event) => {
-        setContainerWidth(event.nativeEvent.layout.width);
-      }}
-    >
-      <Animated.View
-        className="h-full w-1/2 rounded-full bg-primary/60"
-        style={{
-          transform: [{ translateX: shimmerTranslate }]
-        }}
-      />
-    </View>
-  );
-};
-
 export default function AppDrawer({
   drawerIsVisible,
   setDrawerIsVisible
@@ -155,6 +105,19 @@ export default function AppDrawer({
   const { attachmentStates, isLoading: attachmentStatesLoading } =
     useAttachmentStates([]);
 
+  // Throttled attachment progress - only update when counts change significantly
+  const [throttledProgress, setThrottledProgress] = useState({
+    total: 0,
+    synced: 0,
+    downloading: 0,
+    queued: 0,
+    hasActivity: false,
+    unsynced: 0
+  });
+
+  const lastUpdateTimeRef = useRef(0);
+  const THROTTLE_MS = 500; // Update at most every 500ms
+
   // Calculate attachment progress stats
   const attachmentProgress = useMemo(() => {
     if (attachmentStatesLoading || attachmentStates.size === 0) {
@@ -163,7 +126,8 @@ export default function AppDrawer({
         synced: 0,
         downloading: 0,
         queued: 0,
-        hasActivity: false
+        hasActivity: false,
+        unsynced: 0
       };
     }
 
@@ -191,8 +155,12 @@ export default function AppDrawer({
 
     const hasActivity = downloading > 0 || queued > 0;
 
-    // Debug logging when there's activity
-    if (hasActivity || total > 0) {
+    // Debug logging when there's activity (but throttled)
+    const now = Date.now();
+    if (
+      (hasActivity || total > 0) &&
+      now - lastUpdateTimeRef.current > THROTTLE_MS
+    ) {
       console.log(`📊 [AppDrawer] Attachment states:`, {
         total,
         synced,
@@ -201,6 +169,7 @@ export default function AppDrawer({
         hasActivity,
         statesCounts: Object.fromEntries(statesCounts)
       });
+      lastUpdateTimeRef.current = now;
     }
 
     return {
@@ -213,9 +182,42 @@ export default function AppDrawer({
     };
   }, [attachmentStates, attachmentStatesLoading]);
 
+  // Throttle updates to the rendered progress
+  useEffect(() => {
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+
+    // Check if counts have changed meaningfully
+    const countsDifferent =
+      attachmentProgress.total !== throttledProgress.total ||
+      attachmentProgress.synced !== throttledProgress.synced ||
+      attachmentProgress.downloading !== throttledProgress.downloading ||
+      attachmentProgress.queued !== throttledProgress.queued ||
+      attachmentProgress.hasActivity !== throttledProgress.hasActivity;
+
+    if (!countsDifferent) return;
+
+    // Update immediately if enough time has passed or activity state changed
+    if (
+      timeSinceLastUpdate > THROTTLE_MS ||
+      attachmentProgress.hasActivity !== throttledProgress.hasActivity
+    ) {
+      setThrottledProgress(attachmentProgress);
+      lastUpdateTimeRef.current = now;
+    } else {
+      // Schedule an update after throttle period
+      const timeoutId = setTimeout(() => {
+        setThrottledProgress(attachmentProgress);
+        lastUpdateTimeRef.current = Date.now();
+      }, THROTTLE_MS - timeSinceLastUpdate);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [attachmentProgress, throttledProgress]);
+
   // Handle attachment progress visibility with grace period
   useEffect(() => {
-    if (attachmentProgress.hasActivity) {
+    if (throttledProgress.hasActivity) {
       // Clear any existing timer
       if (gracePeriodTimer.current) {
         clearTimeout(gracePeriodTimer.current);
@@ -261,7 +263,7 @@ export default function AppDrawer({
       }
     };
   }, [
-    attachmentProgress.hasActivity,
+    throttledProgress.hasActivity,
     showAttachmentProgress,
     isInGracePeriod,
     fadeAnim
@@ -596,9 +598,9 @@ export default function AppDrawer({
           >
             <Text className="text-center text-sm font-medium text-foreground">
               {!isConnected
-                ? `${attachmentProgress.synced} ${t('filesDownloaded')}`
-                : attachmentProgress.hasActivity
-                  ? `${t('downloading')} ${attachmentProgress.downloading + attachmentProgress.queued} ${t('files')}...`
+                ? `${throttledProgress.synced} ${t('filesDownloaded')}`
+                : throttledProgress.hasActivity
+                  ? `${t('downloading')} ${throttledProgress.downloading + throttledProgress.queued} ${t('files')}...`
                   : powersyncStatus?.connected
                     ? powersyncStatus.dataFlowStatus.downloading
                       ? t('syncingDatabase')
@@ -612,14 +614,13 @@ export default function AppDrawer({
 
             {/* Progress bar for download progress */}
             {(powersyncStatus?.downloadProgress ||
-              attachmentProgress.hasActivity) && (
+              throttledProgress.hasActivity) && (
               <View className="flex flex-col gap-2">
                 <Progress
                   value={
-                    attachmentProgress.hasActivity
-                      ? attachmentProgress.total > 0
-                        ? (attachmentProgress.synced /
-                            attachmentProgress.total) *
+                    throttledProgress.hasActivity
+                      ? throttledProgress.total > 0
+                        ? (throttledProgress.synced / throttledProgress.total) *
                           100
                         : 0
                       : undefined
@@ -632,8 +633,8 @@ export default function AppDrawer({
 
           {/* Attachment sync progress section */}
           {(showAttachmentProgress ||
-            attachmentProgress.hasActivity ||
-            attachmentProgress.total > 0) && (
+            throttledProgress.hasActivity ||
+            throttledProgress.total > 0) && (
             <Animated.View
               style={{
                 opacity: showAttachmentProgress ? fadeAnim : 1
@@ -642,14 +643,14 @@ export default function AppDrawer({
               <View
                 className={cn(
                   'rounded-md p-3',
-                  attachmentProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
+                  throttledProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
                 )}
               >
                 <View className="flex flex-col gap-2">
                   <Text
                     className={cn(
                       'text-sm text-foreground',
-                      attachmentProgress.hasActivity
+                      throttledProgress.hasActivity
                         ? 'font-semibold'
                         : 'font-medium'
                     )}
@@ -661,71 +662,69 @@ export default function AppDrawer({
                         </Text>
                         <Text className="text-sm text-foreground">
                           {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('files')})
+                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
+                          {t('files')})
                         </Text>
                       </>
-                    ) : attachmentProgress.downloading > 0 &&
-                      attachmentProgress.queued > 0 ? (
+                    ) : throttledProgress.downloading > 0 &&
+                      throttledProgress.queued > 0 ? (
                       <>
                         <Text className="text-sm text-foreground">
-                          {t('downloading')}: {attachmentProgress.downloading}
+                          {t('downloading')}: {throttledProgress.downloading}
                         </Text>
                         <Text className="text-sm text-foreground">, </Text>
                         <Text className="text-sm text-foreground">
-                          {t('queued')}: {attachmentProgress.queued}
+                          {t('queued')}: {throttledProgress.queued}
                         </Text>
                         <Text className="text-sm text-foreground">
                           {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
+                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
+                          {t('complete')})
                         </Text>
                       </>
-                    ) : attachmentProgress.downloading > 0 ? (
+                    ) : throttledProgress.downloading > 0 ? (
                       <>
                         <Text className="text-sm text-foreground">
-                          {t('downloading')}: {attachmentProgress.downloading}{' '}
+                          {t('downloading')}: {throttledProgress.downloading}{' '}
                           {t('files')}
                         </Text>
                         <Text className="text-sm text-foreground">
                           {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
+                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
+                          {t('complete')})
                         </Text>
                       </>
-                    ) : attachmentProgress.queued > 0 ? (
+                    ) : throttledProgress.queued > 0 ? (
                       <>
                         <Text className="text-sm text-foreground">
-                          {t('queuedForDownload')}: {attachmentProgress.queued}{' '}
+                          {t('queuedForDownload')}: {throttledProgress.queued}{' '}
                           {t('files')}
                         </Text>
                         <Text className="text-sm text-foreground">
                           {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
+                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
+                          {t('complete')})
                         </Text>
                       </>
                     ) : (
                       <Text className="text-foreground">
-                        {attachmentProgress.synced}/{attachmentProgress.total}{' '}
+                        {throttledProgress.synced}/{throttledProgress.total}{' '}
                         {t('filesDownloaded')}
                       </Text>
                     )}
                   </Text>
-                  {isInGracePeriod ? (
-                    <ShimmerBar />
-                  ) : (
-                    <Progress
-                      value={
-                        attachmentProgress.total > 0
-                          ? (attachmentProgress.synced /
-                              attachmentProgress.total) *
+                  <Progress
+                    value={
+                      isInGracePeriod
+                        ? 100
+                        : throttledProgress.total > 0
+                          ? (throttledProgress.synced /
+                              throttledProgress.total) *
                             100
                           : 0
-                      }
-                      className="h-1"
-                    />
-                  )}
+                    }
+                    className="h-1"
+                  />
                 </View>
               </View>
             </Animated.View>
