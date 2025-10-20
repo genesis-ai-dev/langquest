@@ -92,7 +92,7 @@ export const TranslationSettingsModal: React.FC<
       await updateTranslationStatus(translationId, { visible, active });
       layerStatus.setLayerStatus(
         LayerType.TRANSLATION,
-        { visible, active },
+        { visible, active, source: translationData?.source ?? 'synced' },
         translationId
       );
       refetch();

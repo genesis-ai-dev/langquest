@@ -16,6 +16,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -88,7 +89,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
   // Query for existing membership request using useHybridData
-  const { data: existingRequests } = useHybridData<Request>({
+  const { data: existingRequests } = useHybridData({
     dataType: 'membership-request',
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
@@ -115,7 +116,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   });
 
   // Query for membership status (for modal mode) using useHybridData
-  const { data: membershipLinks } = useHybridData<ProfileProjectLink>({
+  const { data: membershipLinks } = useHybridData({
     dataType: 'membership-status',
     queryKeyParams: [projectId, currentUser?.id || ''],
 
@@ -137,9 +138,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         .select('*')
         .eq('profile_id', currentUser?.id || '')
         .eq('project_id', projectId)
-        .eq('active', true);
+        .eq('active', true)
+        .overrideTypes<ProfileProjectLink[]>();
       if (error) throw error;
-      return data as ProfileProjectLink[];
+      return data;
     },
 
     // Only run cloud query when in modal mode
@@ -151,10 +153,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   // Query for project download status using useHybridData
   // This checks if the project has been downloaded (possibly through other actions)
-  const { data: downloadStatusData } = useHybridData<{
-    id: string;
-    download_profiles: string[] | null;
-  }>({
+  const { data: downloadStatusData } = useHybridData({
     dataType: 'download-status',
     queryKeyParams: ['project', projectId, currentUser?.id || ''],
 
@@ -230,7 +229,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           .where(eq(request.id, existingRequest.id));
       } else {
         // Create new request
-        await db.insert(request).values({
+        await db.insert(resolveTable('request')).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',

@@ -1,30 +1,33 @@
 import { TranslationCard } from '@/components/TranslationCard';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
 import { useStatusContext } from '@/contexts/StatusContext';
-import type { translation } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useTranslationsWithVotesByAsset } from '@/hooks/db/useTranslations';
+import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
+import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import type { SortOrder, WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
-import type { InferSelectModel } from 'drizzle-orm';
-import React, { useState } from 'react';
+import { getLocalUri } from '@/utils/fileUtils';
+import { getThemeColor } from '@/utils/styleUtils';
+import { LegendList } from '@legendapp/list';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+  ArrowDownWideNarrowIcon,
+  ArrowUpNarrowWideIcon,
+  CalendarIcon,
+  LockIcon,
+  ThumbsUpIcon
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import NextGenTranslationModal from './NextGenTranslationModalAlt';
 
 interface NextGenTranslationsListProps {
   assetId: string;
-  assetName?: string;
+  assetName?: string | null;
   refreshKey?: number;
   // Props passed from parent to avoid re-querying
   projectData?: {
@@ -36,18 +39,6 @@ interface NextGenTranslationsListProps {
   membership?: MembershipRole;
 }
 
-// Base types from the database
-type Translation = InferSelectModel<typeof translation>;
-// type Vote = InferSelectModel<typeof vote>;
-
-// Extended type with vote information
-interface TranslationWithVotes extends Translation {
-  upVotes: number;
-  downVotes: number;
-  netVotes: number;
-  source?: 'localSqlite' | 'cloudSupabase';
-}
-
 type SortOption = 'voteCount' | 'dateSubmitted';
 
 export default function NextGenTranslationsList({
@@ -55,58 +46,45 @@ export default function NextGenTranslationsList({
   refreshKey,
   projectData,
   canVote: canVoteProp,
-  membership: membershipProp
+  membership: _membershipProp
 }: NextGenTranslationsListProps) {
   const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
+  const [open, setOpen] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('voteCount');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [selectedTranslationId, setSelectedTranslationId] = useState<
     string | null
   >(null);
   const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
-  const currentLayer = useStatusContext();
-  const { showInvisibleContent } = currentLayer;
+  const _currentLayer = useStatusContext();
 
   const {
-    data: translationsWithVotes,
+    data: assets,
     isLoading,
-    hasError
-  } = useTranslationsWithVotesByAsset(
+    hasError: _hasError
+  } = useTargetAssetsWithVoteCountByAssetId(
     assetId,
-    // '',
-    showInvisibleContent,
+    false, // showInvisibleContent - using false as default since property doesn't exist
     String(refreshKey),
     String(voteRefreshKey),
-    useOfflineData
+    useOfflineData,
+    sortOption,
+    sortOrder
   );
 
   // Use props from parent if available, otherwise default behavior
   const isPrivateProject = projectData?.private || false;
   const canVote = canVoteProp !== undefined ? canVoteProp : !isPrivateProject;
-  const membership = membershipProp || null;
 
   // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
-    return translationsWithVotes
-      .filter((trans) => trans.audio)
-      .map((trans) => trans.audio!)
-      .filter(Boolean);
-  }, [translationsWithVotes]);
+    return assets.flatMap((trans) => trans.audio).filter(Boolean);
+  }, [assets]);
 
   const { attachmentStates, isLoading: _isLoadingAttachments } =
     useAttachmentStates(audioIds);
-
-  const sortedTranslations = React.useMemo(() => {
-    return [...translationsWithVotes].sort((a, b) => {
-      if (sortOption === 'voteCount') {
-        return b.netVotes - a.netVotes;
-      }
-      return (
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-    });
-  }, [translationsWithVotes, sortOption]);
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
     if (!fullText) return '(Empty translation)';
@@ -114,17 +92,18 @@ export default function NextGenTranslationsList({
     return fullText.substring(0, maxLength).trim() + '...';
   };
 
-  const getAudioUri = (translation: TranslationWithVotes) => {
-    if (!translation.audio) return undefined;
-    const localUri = attachmentStates.get(translation.audio)?.local_uri;
-    return localUri
-      ? system.permAttachmentQueue?.getLocalUri(localUri)
-      : undefined;
+  const getAudioSegments = (asset: WithSource<AssetWithVoteCount>) => {
+    if (!asset.audio) return undefined;
+    const localUris = asset.audio.map((c) =>
+      getLocalUri(attachmentStates.get(c)?.local_uri ?? '')
+    );
+    return localUris;
   };
 
   const handleTranslationPress = (translationId: string) => {
     // Always allow opening modal - voting restrictions are handled inside the modal
     setSelectedTranslationId(translationId);
+    setOpen(true);
   };
 
   const handleVoteSuccess = () => {
@@ -132,171 +111,139 @@ export default function NextGenTranslationsList({
     setVoteRefreshKey((prev) => prev + 1);
   };
 
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+  };
+
   return (
-    <View
-      style={[
-        styles.container
-        // !allowEditing && sharedStyles.disabled
-      ]}
-    >
-      <View style={styles.horizontalLine} />
+    <View className="flex-1">
+      <View className="h-px bg-border" />
 
       {/* Header with toggle and sort options */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.sectionTitle}>
+      <View className="flex-col gap-4 py-4">
+        <View className="flex-row items-center justify-between gap-2">
+          <Text variant="h4">
             {t('translations')}
             {isPrivateProject && !canVote && (
-              <Text style={styles.lockIndicator}> 🔒</Text>
+              <Text className="text-base">
+                <Icon as={LockIcon} />
+              </Text>
             )}
           </Text>
 
           {/* Data Source Toggle */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOW_DEV_ELEMENTS && (
-            <View style={styles.toggleContainer}>
+            <View className="flex-row items-center gap-2">
               <Text
-                style={[
-                  styles.toggleText,
-                  !useOfflineData && styles.inactiveToggleText
-                ]}
+                className={`text-base ${!useOfflineData ? 'opacity-30' : ''}`}
               >
                 💾
               </Text>
               <Switch
-                value={!useOfflineData}
-                onValueChange={(value) => setUseOfflineData(!value)}
-                trackColor={{
-                  false: colors.inputBackground,
-                  true: colors.primary
-                }}
-                thumbColor={colors.buttonText}
-                style={styles.switch}
+                checked={!useOfflineData}
+                onCheckedChange={(checked: boolean) =>
+                  setUseOfflineData(!checked)
+                }
               />
               <Text
-                style={[
-                  styles.toggleText,
-                  useOfflineData && styles.inactiveToggleText
-                ]}
+                className={`text-base ${useOfflineData ? 'opacity-30' : ''}`}
               >
                 🌐
               </Text>
             </View>
           )}
-          {/* Sort options */}
-          <View></View>
-          <View style={styles.sortContainer}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.xsmall
-              }}
+
+          <View className="flex-row gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="p-2"
+              onPress={toggleSortOrder}
             >
-              <Ionicons
-                name="swap-vertical-outline"
+              <Icon
+                as={
+                  sortOrder === 'asc'
+                    ? ArrowUpNarrowWideIcon
+                    : ArrowDownWideNarrowIcon
+                }
                 size={16}
-                color={colors.text}
               />
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.sortButton,
-                sortOption === 'voteCount' && styles.sortButtonSelected
-              ]}
+            </Button>
+            <Button
+              variant={sortOption === 'voteCount' ? 'default' : 'outline'}
+              size="icon"
+              className="p-2"
               onPress={() => setSortOption('voteCount')}
             >
-              <Ionicons
-                name="thumbs-up"
+              <Icon
+                as={ThumbsUpIcon}
                 size={16}
-                color={
-                  sortOption === 'voteCount' ? colors.background : colors.text
+                className={
+                  sortOption === 'voteCount'
+                    ? 'text-primary-foreground'
+                    : 'text-foreground'
                 }
               />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.sortButton,
-                sortOption === 'dateSubmitted' && styles.sortButtonSelected
-              ]}
+            </Button>
+            <Button
+              variant={sortOption === 'dateSubmitted' ? 'default' : 'outline'}
+              size="icon"
+              className="p-2"
               onPress={() => setSortOption('dateSubmitted')}
             >
-              <Ionicons
-                name="calendar"
+              <Icon
+                as={CalendarIcon}
                 size={16}
-                color={
+                className={
                   sortOption === 'dateSubmitted'
-                    ? colors.background
-                    : colors.text
+                    ? 'text-primary-foreground'
+                    : 'text-foreground'
                 }
               />
-            </TouchableOpacity>
+            </Button>
           </View>
         </View>
-
-        {/* Membership status for private projects */}
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {SHOW_DEV_ELEMENTS && isPrivateProject && (
-          <View style={styles.membershipStatus}>
-            <Text style={styles.membershipText}>
-              {membership === 'owner' && '👑 Owner'}
-              {membership === 'member' && '👤 Member'}
-              {!membership && '🚫 Non-member (View Only)'}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Translations List */}
-      <ScrollView
-        style={[
-          styles.scrollView
-          //  !allowEditing && sharedStyles.disabled
-        ]}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollViewContent}
-      >
-        {isLoading ? (
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-            style={styles.loader}
-          />
-        ) : sortedTranslations.length > 0 ? (
-          sortedTranslations.map((trans) => (
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center gap-8">
+          <ActivityIndicator size="large" color={getThemeColor('primary')} />
+        </View>
+      ) : (
+        <LegendList
+          data={assets}
+          key={`${assets.length}-${sortOption}-${sortOrder}`}
+          keyExtractor={(item) => item.id}
+          recycleItems
+          estimatedItemSize={120}
+          maintainVisibleContentPosition
+          contentContainerStyle={{ gap: 12 }}
+          renderItem={({ item }) => (
             <TranslationCard
-              key={trans.id}
-              translation={trans}
-              previewText={getPreviewText(trans.text || '')}
+              asset={item}
+              previewText={getPreviewText(item.text || '')}
               handleTranslationPress={handleTranslationPress}
-              audioUri={getAudioUri(trans)}
+              audioSegments={getAudioSegments(item)}
             />
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>{t('noTranslationsYet')}</Text>
-          </View>
-        )}
-
-        {/* Offline/Cloud stats with error handling */}
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {SHOW_DEV_ELEMENTS && (
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              {useOfflineData ? '💾 Offline' : '🌐 Cloud'} Data
-              {hasError &&
-                ` (Error loading ${useOfflineData ? 'offline' : 'cloud'} data)`}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          )}
+          ListEmptyComponent={() => (
+            <View className="flex-1 items-center justify-center gap-8">
+              <Text className="text-center text-muted-foreground">
+                {t('noTranslationsYet')}
+              </Text>
+            </View>
+          )}
+        />
+      )}
 
       {/* Translation Modal */}
       {selectedTranslationId && (
         <NextGenTranslationModal
-          visible={!!selectedTranslationId}
-          onClose={() => setSelectedTranslationId(null)}
-          translationId={selectedTranslationId}
+          open={open}
+          onOpenChange={setOpen}
+          assetId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
           canVote={canVote}
           isPrivateProject={isPrivateProject}
@@ -307,153 +254,3 @@ export default function NextGenTranslationsList({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
-  horizontalLine: {
-    height: 1,
-    backgroundColor: colors.inputBorder,
-    marginVertical: spacing.medium
-  },
-  header: {
-    paddingHorizontal: spacing.medium,
-    marginBottom: spacing.medium
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.small
-  },
-  sectionTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  lockIndicator: {
-    fontSize: fontSizes.medium
-  },
-  membershipStatus: {
-    marginTop: spacing.xsmall
-  },
-  membershipText: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
-  },
-  toggleText: {
-    fontSize: fontSizes.medium
-  },
-  inactiveToggleText: {
-    opacity: 0.3
-  },
-  switch: {
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  sortButton: {
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    borderWidth: 1,
-    borderColor: colors.inputBorder
-  },
-  sortButtonSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary
-  },
-  scrollView: {
-    flex: 1
-  },
-  scrollViewContent: {
-    paddingHorizontal: spacing.medium,
-    paddingBottom: spacing.medium
-  },
-  loader: {
-    marginTop: spacing.xlarge
-  },
-  translationCard: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    marginBottom: spacing.medium,
-    position: 'relative'
-  },
-  translationCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  translationCardLeft: {
-    flex: 1,
-    marginRight: spacing.small
-  },
-  translationCardRight: {
-    alignItems: 'flex-end'
-  },
-  translationPreview: {
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    marginBottom: spacing.xsmall
-  },
-  voteContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
-  },
-  voteCount: {
-    color: colors.text,
-    fontSize: fontSizes.small,
-    fontWeight: 'bold'
-  },
-  sourceTag: {
-    fontSize: fontSizes.xsmall,
-    color: colors.textSecondary
-  },
-  emptyContainer: {
-    padding: spacing.xlarge,
-    alignItems: 'center'
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium,
-    textAlign: 'center'
-  },
-  statsContainer: {
-    padding: spacing.small,
-    backgroundColor: colors.backgroundSecondary,
-    alignItems: 'center'
-  },
-  statsText: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  netVoteText: {
-    fontSize: fontSizes.xsmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xsmall
-  },
-  translationHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xsmall
-  },
-  audioIcon: {
-    marginLeft: spacing.small,
-    marginTop: 2
-  },
-  audioPlayerContainer: {
-    marginVertical: spacing.small,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.small,
-    padding: spacing.small
-  }
-});

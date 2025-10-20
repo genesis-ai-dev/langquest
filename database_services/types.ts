@@ -1,6 +1,9 @@
+import type { HybridDataSource } from '@/views/new/useHybridData';
+
 export interface LayerStatus {
   visible: boolean;
   active: boolean;
+  source: HybridDataSource;
 }
 
 export interface ProjectStatus extends LayerStatus {

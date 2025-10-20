@@ -6,13 +6,32 @@ import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Icon } from './icon';
 
+export function getOptionFromValue(value?: string | null): Option {
+  if (value) {
+    return {
+      value: value,
+      label: value
+    };
+  }
+}
+
 type Option = SelectPrimitive.Option;
 
 const Select = SelectPrimitive.Root;
 
 const SelectGroup = SelectPrimitive.Group;
 
-const SelectValue = SelectPrimitive.Value;
+const SelectValue = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Value>,
+  React.ComponentProps<typeof SelectPrimitive.Value>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Value
+    ref={ref}
+    className={cn('text-foreground', className)}
+    {...props}
+  />
+));
+SelectValue.displayName = 'SelectValue';
 
 const SelectTrigger = React.forwardRef<
   SelectPrimitive.TriggerRef,
@@ -21,7 +40,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'native:h-12 native:text-base flex h-10 flex-row items-center justify-between rounded-md border border-border bg-input px-3 py-2 text-sm text-muted-foreground web:ring-offset-background web:focus:outline-none web:focus:ring-2 web:focus:ring-ring web:focus:ring-offset-2 [&>span]:line-clamp-1',
+      'native:h-12 native:text-base flex h-10 flex-row items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm text-muted-foreground web:ring-offset-background web:focus:outline-none web:focus:ring-2 web:focus:ring-ring web:focus:ring-offset-2 [&>span]:line-clamp-1',
       props.disabled && 'opacity-50 web:cursor-not-allowed',
       className
     )}
@@ -94,7 +113,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Overlay
         style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
       >
-        <View className="z-50">
+        <View className="z-[9999]">
           <MotiView
             from={{ opacity: 0 }}
             animate={{ opacity: open ? 1 : 0 }}
@@ -103,7 +122,7 @@ const SelectContent = React.forwardRef<
             <SelectPrimitive.Content
               ref={ref}
               className={cn(
-                'relative z-50 max-h-96 min-w-[8rem] rounded-md border border-border bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+                'relative z-50 max-h-96 min-w-[8rem] rounded-md border border-input bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
                 position === 'popper' &&
                   'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
                 open
@@ -151,8 +170,8 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   SelectPrimitive.ItemRef,
-  SelectPrimitive.ItemProps
->(({ className, ...props }, ref) => (
+  SelectPrimitive.ItemProps & { textClassName?: string }
+>(({ className, textClassName, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -172,7 +191,12 @@ const SelectItem = React.forwardRef<
         />
       </SelectPrimitive.ItemIndicator>
     </View>
-    <SelectPrimitive.ItemText className="native:text-base text-sm text-popover-foreground web:group-focus:text-accent-foreground" />
+    <SelectPrimitive.ItemText
+      className={cn(
+        'native:text-base flex-1 text-sm text-popover-foreground web:group-focus:text-accent-foreground',
+        textClassName
+      )}
+    />
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;

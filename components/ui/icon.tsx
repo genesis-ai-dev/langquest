@@ -11,6 +11,7 @@ type IconProps = MotiProps<LucideProps> &
   };
 
 import React from 'react';
+import { TextClassContext } from './text';
 
 const MotiIconImpl = React.forwardRef<
   React.ComponentRef<LucideIcon>,
@@ -57,7 +58,9 @@ cssInterop(MotiIconImpl, {
     nativeStyleToProp: {
       height: 'size',
       width: 'size',
-      fill: 'fill'
+      fill: 'fill',
+      scaleX: 'scaleX',
+      scaleY: 'scaleY'
     }
   }
 });
@@ -88,10 +91,11 @@ function Icon({
   size = getThemeToken('default-icon-size'),
   ...props
 }: IconProps) {
+  const textClass = React.useContext(TextClassContext);
   return (
     <IconImpl
       as={IconComponent}
-      className={cn('text-foreground', className)}
+      className={cn('text-foreground', textClass, className)}
       size={size}
       {...props}
     />

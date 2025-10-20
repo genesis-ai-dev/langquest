@@ -1,6 +1,5 @@
-import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
-import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalStore } from '@/store/localStore';
+import { toColumns } from '@/utils/dbUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -10,8 +9,14 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
+import BiMap from 'bidirectional-map';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
+import {
+  asset_content_link_synced,
+  asset_synced
+} from '../drizzleSchemaSynced';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -46,28 +51,34 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // eslint-disable-next-line
   async newAttachmentRecord(
-    record?: Partial<AttachmentRecord>,
-    extension?: string
+    record?: Partial<AttachmentRecord>
   ): Promise<AttachmentRecord> {
     // When downloading existing attachments, use the provided ID directly
-    if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
-      // Validate that the ID is not empty
-      if (!record.id.trim()) {
-        throw new Error('Attachment ID cannot be empty');
-      }
-      const localUri = this.getLocalFilePathSuffix(record.id);
-      return {
-        ...record,
-        filename: record.id,
-        local_uri: localUri,
-        timestamp: new Date().getTime()
-      } as AttachmentRecord;
-    }
+    // if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
+    //   console.log('downloading attachment', record);
+    //   // Validate that the ID is not empty
+    //   if (!record.id.trim()) {
+    //     throw new Error('Attachment ID cannot be empty');
+    //   }
+    //   const localUri = this.getLocalFilePathSuffix(record.id);
+    //   return {
+    //     ...record,
+    //     filename: record.id,
+    //     local_uri: localUri,
+    //     timestamp: new Date().getTime()
+    //   } as AttachmentRecord;
+    // }
+
+    const mediaType = record?.media_type
+      ? record.media_type
+      : this.getMediaTypeFromExtension(record?.id?.split('.').pop());
+    const extension = this.getExtensionFromMediaType(mediaType);
 
     // For new uploads, generate a new ID
-    const photoId = record?.id ?? uuid.v4();
-    const filename =
-      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
+    const recordId = record?.id ?? uuid.v4();
+    const filename = recordId.endsWith(extension)
+      ? recordId
+      : `${recordId}.${extension}`;
     const localUri = this.getLocalFilePathSuffix(filename);
 
     return {
@@ -76,6 +87,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       id: filename,
       filename: filename,
       local_uri: localUri,
+      media_type: mediaType,
       timestamp: new Date().getTime()
     } as AttachmentRecord;
   }
@@ -155,10 +167,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               const record = attachmentsInDatabase.find((r) => r.id == id);
 
               if (!record) {
+                console.log('record not found', id);
                 const newRecord = await this.newAttachmentRecord({
                   id: id,
                   state: AttachmentState.QUEUED_SYNC
                 });
+
+                console.log('newRecord', newRecord);
 
                 // Validate the record before saving
                 if (!newRecord.id || !newRecord.filename) {
@@ -232,7 +247,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Override saveToQueue to add storage_type (using type assertion for compatibility)
   async saveToQueue(
-    record: Omit<AttachmentRecord, 'timestamp'>
+    record: Omit<AttachmentRecord, 'timestamp'>,
+    tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
     const updatedRecord: AttachmentRecord = {
       ...record,
@@ -260,13 +276,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         `Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`
       );
     }
-
     try {
-      await this.powersync.execute(
+      await (tx ?? this.db).run(
         `INSERT OR REPLACE INTO ${this.table} 
          (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values
+         VALUES (${toColumns(values as string[])})`
       );
     } catch (error) {
       console.error('[saveToQueue] SQL Error:', error);
@@ -346,69 +360,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     );
   }
 
-  // Common method to identify all attachments related to an asset
-  async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    // const queueType =
-    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
-    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
-    const attachmentIds: string[] = [];
-
-    try {
-      // 1. Get the asset itself for images
-      const asset = await getAssetById(assetId);
-
-      if (asset?.images) {
-        // console.log(
-        //   `${queueType} Found ${asset.images.length} images in asset`
-        // );
-        attachmentIds.push(...asset.images);
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetAudioContent(assetId);
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-
-      if (contentAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
-        // );
-        attachmentIds.push(...contentAudioIds);
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await getTranslationsByAssetId(assetId);
-
-      const translationAudioIds = translations
-        .filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
-        // );
-        attachmentIds.push(...translationAudioIds);
-      }
-
-      // Log all found attachments
-      // console.log(
-      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      // );
-
-      return attachmentIds;
-    } catch {
-      // console.error(
-      //   `${queueType} Error getting attachments for asset ${assetId}:`,
-      //   error
-      // );
-      return [];
-    }
-  }
-
   // Override downloadRecords to track progress
   async downloadRecordsWithProgress() {
     if (!this.options.downloadAttachments) {
@@ -465,10 +416,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             updateProgress(); // Count as completed even if no record
             return;
           }
+          console.log('downloading record', record);
           await this.downloadRecord(record);
           updateProgress(); // Update progress after successful download
         } catch (error) {
-          console.error(`Failed to download attachment ${id}:`, error);
+          console.error(`Failed to download attachment ${id}: `, error);
           updateProgress(); // Count as completed even if failed
         } finally {
           // Start next download if queue not empty
@@ -587,5 +539,61 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         void this.uploadRecordsWithProgress();
       }
     });
+  }
+
+  static media_map = new BiMap({
+    'audio/mp4': 'm4a', // Standard MIME type for M4A/AAC in MP4 container
+    'audio/wav': 'wav', // Standard MIME type for WAV
+    'audio/webm': 'webm',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif'
+  });
+
+  getExtensionFromMediaType(mediaType: string) {
+    return AbstractSharedAttachmentQueue.media_map.has(mediaType)
+      ? AbstractSharedAttachmentQueue.media_map.get(mediaType)!
+      : 'audio/mp4'; // Default to standard M4A MIME type
+  }
+
+  getMediaTypeFromExtension(extension?: string) {
+    return extension &&
+      AbstractSharedAttachmentQueue.media_map.hasValue(extension)
+      ? AbstractSharedAttachmentQueue.media_map.getKey(extension)!
+      : 'audio/mp4'; // Default to standard M4A MIME type
+  }
+
+  async getAllAssetAttachments(assetId: string) {
+    const data = await this.db
+      .select({
+        images: asset_synced.images,
+        audio: asset_content_link_synced.audio
+      })
+      .from(asset_synced)
+      .leftJoin(
+        asset_content_link_synced,
+        eq(asset_synced.id, asset_content_link_synced.asset_id)
+      )
+      .where(
+        and(
+          eq(asset_synced.id, assetId),
+          or(
+            isNotNull(asset_content_link_synced.audio),
+            isNotNull(asset_synced.images)
+          )
+        )
+      );
+
+    const assetImages = data
+      .flatMap((asset_synced) => asset_synced.images)
+      .filter(Boolean);
+    const contentLinkAudioIds = data
+      .flatMap((link) => link.audio)
+      .filter(Boolean);
+    const allAttachments = [...assetImages, ...contentLinkAudioIds];
+    const uniqueAttachments = [...new Set(allAttachments)];
+
+    return uniqueAttachments;
   }
 }

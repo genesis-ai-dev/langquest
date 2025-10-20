@@ -1,6 +1,6 @@
+import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { System } from '@/db/powersync/system'; // Import System type
 import { getFilesInUploadQueue } from '@/utils/attachmentUtils';
-import { eq } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
@@ -96,7 +96,7 @@ export async function backupUnsyncedAudio(
       if (!audioId) continue; // Skip null/empty IDs just in case
 
       // Construct the source path based on the attachment ID
-      const sourceUri = `${getDocumentDirectory()}shared_attachments/${audioId}`;
+      const sourceUri = `${getDocumentDirectory()}${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${audioId}`;
       try {
         const fileInfo = await FileSystem.getInfoAsync(sourceUri, {
           size: true
@@ -111,25 +111,19 @@ export async function backupUnsyncedAudio(
 
         // Embed assetId in backup filename
         let assetId: string | undefined;
-        // First, check asset_content_link (for source audio)
-        const contentLink = await system.db.query.asset_content_link.findFirst({
-          where: (acl) => eq(acl.audio_id, audioId)
-        });
+        // Check asset_content_link (audio is now an array, so we need to check if audioId is in the array)
+        const allContentLinks =
+          await system.db.query.asset_content_link.findMany();
+        const contentLink = allContentLinks.find((acl) =>
+          acl.audio?.includes(audioId)
+        );
         if (contentLink) {
           assetId = contentLink.asset_id;
-        } else {
-          // If not found, check translation table (for user recordings)
-          const transLink = await system.db.query.translation.findFirst({
-            where: (t) => eq(t.audio, audioId)
-          });
-          if (transLink) {
-            assetId = transLink.asset_id;
-          }
         }
 
         if (!assetId) {
           console.warn(
-            `[backupUnsyncedAudio] No asset link found in asset_content_link OR translation for audioId: ${audioId}`
+            `[backupUnsyncedAudio] No asset link found in asset_content_link for audioId: ${audioId}`
           );
           errors.push(`No asset mapping found for audioId: ${audioId}`);
           onProgress?.(index + 1, totalFiles);

@@ -1,72 +1,134 @@
-import { eq } from 'drizzle-orm';
-import {
-  asset,
-  asset_content_link,
-  quest,
-  quest_asset_link
-} from '../db/drizzleSchema';
-import { system } from '../db/powersync/system';
+/**
+ * Asset service - Database operations for assets
+ */
 
-const { db } = system;
+import { system } from '@/db/powersync/system';
+import { resolveTable } from '@/utils/dbUtils';
+import { and, eq } from 'drizzle-orm';
 
-export type Asset = typeof asset.$inferSelect;
-export type AssetContent = typeof asset_content_link.$inferSelect;
+/**
+ * Update an asset's name - ONLY for local-only assets
+ * @param assetId - The ID of the asset to rename
+ * @param newName - The new name for the asset
+ * @throws Error if asset is synced (immutable)
+ */
+export async function renameAsset(
+  assetId: string,
+  newName: string
+): Promise<void> {
+  try {
+    // CRITICAL: Only allow renaming local-only assets
+    // Synced assets are immutable once published
+    const assetLocalTable = resolveTable('asset', { localOverride: true });
 
-export class AssetService {
-  async getAssetById(id: string) {
-    const results = await db.select().from(asset).where(eq(asset.id, id));
-    return results[0] as Asset | undefined;
-  }
-
-  async getAssetContent(asset_id: string): Promise<AssetContent[]> {
-    return db
+    // First, verify this asset exists in the LOCAL table only
+    const localAsset = await system.db
       .select()
-      .from(asset_content_link)
-      .where(eq(asset_content_link.asset_id, asset_id));
-  }
+      .from(assetLocalTable)
+      .where(eq(assetLocalTable.id, assetId))
+      .limit(1);
 
-  async getAssetsByQuestId(quest_id: string) {
-    // First get asset IDs from junction table
-    const assetLinks = await db
-      .select({
-        asset_id: quest_asset_link.asset_id
-      })
-      .from(quest_asset_link)
-      .where(eq(quest_asset_link.quest_id, quest_id));
+    if (!localAsset || localAsset.length === 0) {
+      throw new Error(
+        'Asset not found in local table - cannot rename synced assets'
+      );
+    }
 
-    // Then get the actual assets
-    const assetPromises = assetLinks.map((link) =>
-      this.getAssetById(link.asset_id)
-    );
+    // Verify it doesn't exist in synced table (double-check it's not published)
+    const syncedTable = resolveTable('asset', { localOverride: false });
+    const syncedAsset = await system.db
+      .select()
+      .from(syncedTable)
+      .where(eq(syncedTable.id, assetId))
+      .limit(1);
 
-    return Promise.all(assetPromises);
-  }
+    if (syncedAsset && syncedAsset.length > 0) {
+      throw new Error(
+        'Cannot rename synced assets - they are immutable once published'
+      );
+    }
 
-  async getAssetsByProjectId(project_id: string) {
-    // First get all quests for this project
-    const quests = await db
-      .select({
-        id: quest.id
-      })
-      .from(quest)
-      .where(eq(quest.project_id, project_id));
+    // Safe to rename - it's local only
+    await system.db
+      .update(assetLocalTable)
+      .set({ name: newName.trim() })
+      .where(eq(assetLocalTable.id, assetId));
 
-    // Then get all assets for each quest
-    const assetPromises = quests.map((quest) =>
-      this.getAssetsByQuestId(quest.id)
-    );
-
-    // Wait for all asset queries to complete
-    const assetsByQuest = await Promise.all(assetPromises);
-
-    // Flatten the array of arrays and remove duplicates
-    const uniqueAssets = new Map<string, Asset>();
-    assetsByQuest.flat().forEach((asset) => {
-      if (asset) uniqueAssets.set(asset.id, asset);
-    });
-
-    return Array.from(uniqueAssets.values());
+    console.log(`✅ Asset ${assetId.slice(0, 8)} renamed to: ${newName}`);
+  } catch (error) {
+    console.error('Failed to rename asset:', error);
+    throw error;
   }
 }
 
-export const assetService = new AssetService();
+/**
+ * Update asset content text - ONLY for local-only assets
+ * @param assetId - The ID of the asset whose content to update
+ * @param contentId - The ID of the specific content link record to update (optional - updates first content if not provided)
+ * @param newText - The new text content
+ * @throws Error if asset content is synced (immutable)
+ */
+export async function updateAssetContentText(
+  assetId: string,
+  newText: string,
+  contentId?: string
+): Promise<void> {
+  try {
+    // CRITICAL: Only allow updating local-only asset content
+    // Synced asset content is immutable once published
+    const assetContentLocalTable = resolveTable('asset_content_link', {
+      localOverride: true
+    });
+
+    // First, verify this asset content exists in the LOCAL table only
+    const whereCondition = contentId
+      ? and(
+          eq(assetContentLocalTable.asset_id, assetId),
+          eq(assetContentLocalTable.id, contentId)
+        )
+      : eq(assetContentLocalTable.asset_id, assetId);
+
+    const localAssetContent = await system.db
+      .select()
+      .from(assetContentLocalTable)
+      .where(whereCondition)
+      .limit(1);
+
+    if (!localAssetContent || localAssetContent.length === 0) {
+      throw new Error(
+        'Asset content not found in local table - cannot edit synced content'
+      );
+    }
+
+    const targetContentId = localAssetContent[0]!.id;
+
+    // Verify it doesn't exist in synced table (double-check it's not published)
+    const syncedTable = resolveTable('asset_content_link', {
+      localOverride: false
+    });
+    const syncedAssetContent = await system.db
+      .select()
+      .from(syncedTable)
+      .where(eq(syncedTable.id, targetContentId))
+      .limit(1);
+
+    if (syncedAssetContent && syncedAssetContent.length > 0) {
+      throw new Error(
+        'Cannot edit synced asset content - it is immutable once published'
+      );
+    }
+
+    // Safe to update - it's local only
+    await system.db
+      .update(assetContentLocalTable)
+      .set({ text: newText.trim() })
+      .where(eq(assetContentLocalTable.id, targetContentId));
+
+    console.log(
+      `✅ Asset content ${targetContentId.slice(0, 8)} updated for asset ${assetId.slice(0, 8)}`
+    );
+  } catch (error: unknown) {
+    console.error('Failed to update asset content text:', error);
+    throw error;
+  }
+}

@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type {
@@ -12,7 +11,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 // Define a type for interpolation values
 // Use a Record as preferred by linter
@@ -20,12 +19,12 @@ export type InterpolationValues = Record<string, string | number>;
 
 export function useLocalization(languageOverride?: string | null) {
   const { currentUser } = useAuth();
-  const currentLanguage = useLocalStore((state) => state.language);
+  const currentLanguage = useLocalStore((state) => state.uiLanguage);
 
   const uiLanguageId = currentUser?.user_metadata.ui_language_id;
 
   // Use useHybridData directly to fetch the user's language preference
-  const { data: languages } = useHybridData<Language>({
+  const { data } = useHybridData({
     dataType: 'language',
     queryKeyParams: [uiLanguageId || ''],
 
@@ -52,8 +51,7 @@ export function useLocalization(languageOverride?: string | null) {
     enableCloudQuery: !!uiLanguageId
   });
 
-  const profileLanguage = languages[0];
-
+  const profileLanguage = data[0];
   // Get language with priority:
   // 1. Manual override (provided as prop)
   // 2. Authenticated user's profile language
@@ -75,11 +73,12 @@ export function useLocalization(languageOverride?: string | null) {
       console.warn(`Translation key "${key}" not found`);
       return key;
     }
-    let translatedString = (
-      userLanguage in localizations[key]
-        ? localizations[key][userLanguage]
-        : localizations[key].english
-    ) as string;
+    const entry = localizations[key] as Partial<
+      Record<SupportedLanguage, string>
+    > & {
+      english: string;
+    };
+    let translatedString = entry[userLanguage] ?? entry.english;
 
     // If options is a number, treat as a single value for a placeholder like {{value}}
     if (typeof options === 'number') {

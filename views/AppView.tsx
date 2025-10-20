@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /**
  * Main App View - Single route with state-driven navigation
  * Replaces the entire file-based routing structure
@@ -18,17 +17,14 @@ import SettingsView from '@/views/SettingsView';
 import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
 import NextGenAssetsView from '@/views/new/NextGenAssetsView';
 import NextGenProjectsView from '@/views/new/NextGenProjectsView';
-import NextGenQuestsView from '@/views/new/NextGenQuestsView';
+// import NextGenQuestsView from '@/views/new/NextGenQuestsView';
+import ProjectDirectoryView from '@/views/new/ProjectDirectoryView';
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import { StatusProvider } from '@/contexts/StatusContext';
-import AssetDetailView from './AssetDetailView';
-import AssetsView from './AssetsView';
-import ProjectsView from './ProjectsView';
-import QuestsView from './QuestsView';
 
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
@@ -50,33 +46,16 @@ export default function AppView() {
     return () => backHandler.remove();
   }, [canGoBack, goBack]);
 
-  const SHOULD_USE_NEXT_GEN_VIEWS = true;
   const renderCurrentView = () => {
     switch (currentView) {
       case 'projects':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenProjectsView />
-        ) : (
-          <ProjectsView />
-        );
+        return <NextGenProjectsView />;
       case 'quests':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenQuestsView />
-        ) : (
-          <QuestsView />
-        );
+        return <ProjectDirectoryView />;
       case 'assets':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetsView />
-        ) : (
-          <AssetsView />
-        );
+        return <NextGenAssetsView />;
       case 'asset-detail':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetDetailView />
-        ) : (
-          <AssetDetailView />
-        );
+        return <NextGenAssetDetailView />;
       case 'profile':
         return <ProfileView />;
       case 'notifications':
@@ -91,12 +70,6 @@ export default function AppView() {
   return (
     <StatusProvider>
       <View style={styles.appContainer}>
-        {/* Drawer Navigation */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
-
         {/* Main Content Area */}
         <View style={styles.contentContainer}>
           {/* App Header */}
@@ -107,6 +80,12 @@ export default function AppView() {
           {/* Current View */}
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
         </View>
+
+        {/* Drawer Navigation - Rendered last to appear on top */}
+        <AppDrawer
+          drawerIsVisible={drawerIsVisible}
+          setDrawerIsVisible={setDrawerIsVisible}
+        />
       </View>
     </StatusProvider>
   );
@@ -117,8 +96,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   appContainer: {
-    flex: 1,
-    flexDirection: 'row'
+    flex: 1
   },
   contentContainer: {
     flex: 1

@@ -1,3 +1,8 @@
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   invite,
@@ -10,24 +15,28 @@ import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { colors } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
+import { resolveTable } from '@/utils/dbUtils';
+import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  BellIcon,
+  CheckIcon,
+  MailIcon,
+  UserPlusIcon,
+  WifiIcon,
+  XIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Alert as RNAlert,
   ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface NotificationItem {
   id: string;
@@ -70,7 +79,7 @@ export default function NotificationsView() {
   }, [userMemberships]);
 
   // Query for invite notifications (where user's email matches) - without project relation
-  const { data: inviteData } = useHybridData<typeof invite.$inferSelect>({
+  const { data: inviteData } = useHybridData({
     dataType: 'invite-notifications',
     queryKeyParams: [currentUser?.email || ''],
 
@@ -100,7 +109,7 @@ export default function NotificationsView() {
   });
 
   // Get pending requests for owner projects - without project relation
-  const { data: requestData } = useHybridData<typeof request.$inferSelect>({
+  const { data: requestData } = useHybridData({
     dataType: 'request-notifications',
     queryKeyParams: [...ownerProjectIds],
 
@@ -139,19 +148,16 @@ export default function NotificationsView() {
   }, [inviteData, filteredRequestData]);
 
   // Query for projects separately
-  const { data: projects } = useHybridData<typeof project.$inferSelect>({
+  const { data: projects } = useHybridData({
     dataType: 'notification-projects',
     queryKeyParams: [...projectIds],
 
     // PowerSync query using Drizzle
-    offlineQuery:
-      projectIds.length > 0
-        ? toCompilableQuery(
-            system.db.query.project.findMany({
-              where: inArray(project.id, projectIds)
-            })
-          )
-        : 'SELECT * FROM project WHERE 1=0', // Empty query when no project IDs
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findMany({
+        where: inArray(project.id, projectIds)
+      })
+    ), // Empty query when no project IDs
 
     // Cloud query
     cloudQueryFn: async () => {
@@ -163,7 +169,8 @@ export default function NotificationsView() {
         .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
       return data;
-    }
+    },
+    enableOfflineQuery: projectIds.length > 0
   });
 
   // Create a map of project ID to project data for easy lookup
@@ -185,19 +192,16 @@ export default function NotificationsView() {
   }, [inviteData, filteredRequestData]);
 
   // Query for sender profiles from local database
-  const { data: senderProfiles } = useHybridData<SenderProfile>({
+  const { data: senderProfiles } = useHybridData({
     dataType: 'sender-profiles',
     queryKeyParams: [...senderProfileIds],
 
     // PowerSync query using Drizzle
-    offlineQuery:
-      senderProfileIds.length > 0
-        ? toCompilableQuery(
-            system.db.query.profile.findMany({
-              where: inArray(profile.id, senderProfileIds)
-            })
-          )
-        : 'SELECT * FROM profile WHERE 1=0', // Empty query when no sender IDs
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile.findMany({
+        where: inArray(profile.id, senderProfileIds)
+      })
+    ),
 
     // Cloud query
     cloudQueryFn: async () => {
@@ -209,7 +213,8 @@ export default function NotificationsView() {
         .overrideTypes<SenderProfile[]>();
       if (error) throw error;
       return data;
-    }
+    },
+    enableOfflineQuery: senderProfileIds.length > 0
   });
 
   // Create a map of profile ID to profile data for easy lookup
@@ -239,8 +244,6 @@ export default function NotificationsView() {
       last_updated: item.last_updated
     };
   });
-
-  console.log('inviteNotifications', inviteNotifications);
 
   const requestNotifications: NotificationItem[] = filteredRequestData.map(
     (item) => {
@@ -376,7 +379,7 @@ export default function NotificationsView() {
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
             active: true
-          };
+          } satisfies typeof profile_project_link.$inferInsert;
           console.log('[handleAccept] New link data:', newLinkData);
 
           const insertResult = await system.db
@@ -464,18 +467,20 @@ export default function NotificationsView() {
               );
           } else {
             // Create new link
-            await system.db.insert(profile_project_link).values({
-              id: `${senderProfileId}_${projectId}`,
-              profile_id: senderProfileId,
-              project_id: projectId,
-              membership: asOwner ? 'owner' : 'member',
-              active: true
-            });
+            await system.db
+              .insert(resolveTable('profile_project_link'))
+              .values({
+                id: `${senderProfileId}_${projectId}`,
+                profile_id: senderProfileId,
+                project_id: projectId,
+                membership: asOwner ? 'owner' : 'member',
+                active: true
+              });
           }
         }
       }
 
-      Alert.alert(t('success'), t('invitationAcceptedSuccessfully'));
+      RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -483,7 +488,7 @@ export default function NotificationsView() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      Alert.alert(t('error'), t('failedToAcceptInvite'));
+      RNAlert.alert(t('error'), t('failedToAcceptInvite'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -541,10 +546,10 @@ export default function NotificationsView() {
         }
       }
 
-      Alert.alert(t('success'), t('invitationDeclinedSuccessfully'));
+      RNAlert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      Alert.alert(t('error'), t('failedToDeclineInvite'));
+      RNAlert.alert(t('error'), t('failedToDeclineInvite'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);
@@ -561,313 +566,176 @@ export default function NotificationsView() {
     console.log('Rendering notification:', item.id);
 
     return (
-      <View key={item.id} style={styles.notificationItem}>
-        <View style={styles.notificationContent}>
-          <View style={styles.notificationHeader}>
-            <Ionicons
-              name={item.type === 'invite' ? 'mail' : 'person-add'}
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={styles.notificationTitle}>
-              {item.type === 'invite'
-                ? t('projectInvitationTitle')
-                : t('joinRequestTitle')}
-            </Text>
-          </View>
-
-          <Text style={styles.notificationMessage} ph-no-capture>
-            {item.type === 'invite'
-              ? t('invitedYouToJoin', {
-                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
-                  project: item.project_name,
-                  role: roleText
-                })
-              : t('requestedToJoin', {
-                  sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
-                  project: item.project_name,
-                  role: roleText
-                })}
-          </Text>
-
-          <Text style={styles.notificationDate}>
-            {new Date(item.created_at).toLocaleDateString()}
-          </Text>
-
-          {/* Download toggle for invites */}
-          {/* {item.type === 'invite' && (
-            <View style={styles.downloadSection}>
-              <View style={styles.downloadToggleRow}>
-                <Text style={styles.downloadLabel}>
-                  {t('downloadProjectLabel')}
+      <Card key={item.id}>
+        <CardContent className="p-4">
+          <View className="flex gap-4">
+            <View className="flex gap-2">
+              <View className="flex-row items-center gap-2">
+                <Icon
+                  as={item.type === 'invite' ? MailIcon : UserPlusIcon}
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text className="text-sm font-semibold text-foreground">
+                  {item.type === 'invite'
+                    ? t('projectInvitationTitle')
+                    : t('joinRequestTitle')}
                 </Text>
-                <Switch
-                  value={shouldDownload}
-                  onValueChange={(value) => {
-                    console.log(
-                      'Toggle changed for notification:',
-                      item.id,
-                      'New value:',
-                      value
-                    );
-                    setDownloadToggles((prev) => {
-                      const newToggles = {
-                        ...prev,
-                        [item.id]: value
-                      };
-                      console.log('Updated toggles:', newToggles);
-                      return newToggles;
-                    });
-                  }}
-                  trackColor={{
-                    false: colors.textSecondary,
-                    true: colors.primary
-                  }}
-                  thumbColor={
-                    shouldDownload ? colors.primary : colors.inputBackground
-                  }
-                  disabled={isProcessing}
-                />
               </View>
-              {!shouldDownload && (
-                <View style={styles.warningContainer}>
-                  <Ionicons name="warning" size={16} color={colors.alert} />
-                  <Text style={styles.warningText}>
-                    {t('projectNotAvailableOfflineWarning')}
-                  </Text>
+
+              <Text className="text-sm leading-5 text-foreground" ph-no-capture>
+                {item.type === 'invite'
+                  ? t('invitedYouToJoin', {
+                      sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                      project: item.project_name,
+                      role: roleText
+                    })
+                  : t('requestedToJoin', {
+                      sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                      project: item.project_name,
+                      role: roleText
+                    })}
+              </Text>
+
+              <Text className="text-xs text-muted-foreground">
+                {new Date(item.created_at).toLocaleDateString()}
+              </Text>
+
+              {/* Download toggle for invites */}
+              {/* {item.type === 'invite' && (
+                <View style={styles.downloadSection}>
+                  <View style={styles.downloadToggleRow}>
+                    <Text style={styles.downloadLabel}>
+                      {t('downloadProjectLabel')}
+                    </Text>
+                    <Switch
+                      value={shouldDownload}
+                      onValueChange={(value) => {
+                        console.log(
+                          'Toggle changed for notification:',
+                          item.id,
+                          'New value:',
+                          value
+                        );
+                        setDownloadToggles((prev) => {
+                          const newToggles = {
+                            ...prev,
+                            [item.id]: value
+                          };
+                          console.log('Updated toggles:', newToggles);
+                          return newToggles;
+                        });
+                      }}
+                      trackColor={{
+                        false: colors.textSecondary,
+                        true: colors.primary
+                      }}
+                      thumbColor={
+                        shouldDownload ? colors.primary : colors.inputBackground
+                      }
+                      disabled={isProcessing}
+                    />
+                  </View>
+                  {!shouldDownload && (
+                    <View style={styles.warningContainer}>
+                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Text style={styles.warningText}>
+                        {t('projectNotAvailableOfflineWarning')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
+              )} */}
             </View>
-          )} */}
-        </View>
 
-        <View style={styles.notificationActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
-            onPress={() =>
-              handleAccept(item.id, item.type, item.project_id, item.as_owner)
-            }
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color={colors.buttonText} />
-            ) : (
-              <>
-                <Ionicons
-                  name="checkmark"
-                  size={16}
-                  color={colors.buttonText}
-                />
-                <Text style={styles.actionButtonText}>{t('accept')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            <View className="flex-row gap-2">
+              <Button
+                size="sm"
+                className="flex-1 flex-row items-center gap-2"
+                onPress={() =>
+                  handleAccept(
+                    item.id,
+                    item.type,
+                    item.project_id,
+                    item.as_owner
+                  )
+                }
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('foreground')}
+                  />
+                ) : (
+                  <>
+                    <Icon as={CheckIcon} />
+                    <Text className="text-foreground">{t('accept')}</Text>
+                  </>
+                )}
+              </Button>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.declineButton]}
-            onPress={() => handleDecline(item.id, item.type)}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color={colors.buttonText} />
-            ) : (
-              <>
-                <Ionicons name="close" size={16} color={colors.buttonText} />
-                <Text style={styles.actionButtonText}>{t('decline')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-1 flex-row items-center gap-2"
+                onPress={() => handleDecline(item.id, item.type)}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('foreground')}
+                  />
+                ) : (
+                  <>
+                    <Icon as={XIcon} />
+                    <Text>{t('decline')}</Text>
+                  </>
+                )}
+              </Button>
+            </View>
+          </View>
+        </CardContent>
+      </Card>
     );
   };
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <View style={styles.container}>
-          <Text style={styles.pageTitle}>{t('notifications')}</Text>
+    <View className="flex-1 gap-4 px-4 pt-4">
+      <Text className="text-2xl font-bold">{t('settings')}</Text>
 
-          {!isConnected && (
-            <View style={styles.offlineBanner}>
-              <Ionicons name="wifi-outline" size={20} color={colors.alert} />
-              <Text style={styles.offlineBannerText}>
-                {t('offlineNotificationMessage')}
-              </Text>
+      {!isConnected && (
+        <Alert icon={WifiIcon}>
+          <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
+        </Alert>
+      )}
+
+      <View className="flex-1 flex-col gap-4">
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {allNotifications.length === 0 ? (
+            <View className="flex-1 items-center justify-center py-14">
+              <View className="flex-col items-center gap-4">
+                <Icon as={BellIcon} size={64} color={colors.textSecondary} />
+                <View className="flex-col items-center gap-2">
+                  <Text className="text-base font-semibold text-foreground">
+                    {t('noNotificationsTitle')}
+                  </Text>
+                  <Text className="px-6 text-center text-sm text-muted-foreground">
+                    {t('noNotificationsMessage')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View className="flex-col gap-4 pb-4">
+              {allNotifications.map(renderNotificationItem)}
             </View>
           )}
-
-          <ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            {allNotifications.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons
-                  name="notifications-outline"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.emptyStateText}>
-                  {t('noNotificationsTitle')}
-                </Text>
-                <Text style={styles.emptyStateSubtext}>
-                  {t('noNotificationsMessage')}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.notificationsList}>
-                {allNotifications.map(renderNotificationItem)}
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.medium,
-    paddingTop: spacing.medium
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.large
-  },
-  scrollView: {
-    flex: 1,
-    marginTop: spacing.medium
-  },
-  notificationsList: {
-    gap: spacing.medium,
-    paddingBottom: spacing.medium
-  },
-  notificationItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary
-  },
-  notificationContent: {
-    marginBottom: spacing.medium
-  },
-  notificationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small,
-    marginBottom: spacing.small
-  },
-  notificationTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text
-  },
-  notificationMessage: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: spacing.small
-  },
-  notificationDate: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  notificationActions: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xsmall,
-    paddingVertical: spacing.small,
-    paddingHorizontal: spacing.medium,
-    borderRadius: borderRadius.small,
-    minHeight: 40
-  },
-  acceptButton: {
-    backgroundColor: colors.success
-  },
-  declineButton: {
-    backgroundColor: colors.error
-  },
-  actionButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.small,
-    fontWeight: '600'
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxxlarge
-  },
-  emptyStateText: {
-    fontSize: fontSizes.large,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.medium,
-    marginBottom: spacing.small
-  },
-  emptyStateSubtext: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.large
-  },
-  downloadSection: {
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  downloadToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  downloadLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    flex: 1
-  },
-  warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.small,
-    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
-    padding: spacing.small,
-    borderRadius: borderRadius.small
-  },
-  warningText: {
-    fontSize: fontSizes.small,
-    color: colors.alert,
-    flex: 1,
-    lineHeight: 16
-  },
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: spacing.small,
-    paddingHorizontal: spacing.medium,
-    borderRadius: borderRadius.small,
-    marginBottom: spacing.medium,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.alert
-  },
-  offlineBannerText: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginLeft: spacing.small
-  }
-});
+// Tailwind classes (via NativeWind) are now used instead of StyleSheet styles

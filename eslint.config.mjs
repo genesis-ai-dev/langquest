@@ -1,4 +1,5 @@
 import eslint from '@eslint/js';
+import drizzlePlugin from 'eslint-plugin-drizzle';
 import importPlugin from 'eslint-plugin-import';
 import reactPlugin from 'eslint-plugin-react';
 import hooksPlugin from 'eslint-plugin-react-hooks';
@@ -12,7 +13,8 @@ export default tseslint.config(
     plugins: {
       import: importPlugin,
       react: reactPlugin,
-      hooks: hooksPlugin
+      hooks: hooksPlugin,
+      drizzle: drizzlePlugin
     },
     extends: [
       eslint.configs.recommended,

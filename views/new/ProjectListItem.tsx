@@ -18,13 +18,22 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { Language } from '@/store/localStore';
+import { cn } from '@/utils/styleUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
   useHybridData,
   useItemDownloadStatus
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
-import { CrownIcon, LockIcon, UserIcon } from 'lucide-react-native';
+import {
+  BookIcon,
+  CrownIcon,
+  EyeOffIcon,
+  HardDriveIcon,
+  LockIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -32,7 +41,7 @@ export function ProjectListItem({
   project,
   className
 }: {
-  project: Project;
+  project: Project & { source: HybridDataSource };
   className?: string;
 }) {
   const { t } = useLocalization();
@@ -113,10 +122,7 @@ export function ProjectListItem({
       project as LayerStatus,
       project.id
     );
-    goToProject({
-      id: project.id,
-      name: project.name
-    });
+    goToProjectHelper();
   };
 
   const handleBypass = () => {
@@ -126,29 +132,54 @@ export function ProjectListItem({
       project as LayerStatus,
       project.id
     );
+    goToProjectHelper();
+  };
+
+  function goToProjectHelper() {
     goToProject({
       id: project.id,
-      name: project.name
+      name: project.name,
+      template: project.template
     });
-  };
+  }
 
   return (
     <>
       <Pressable
         className={className}
         key={project.id}
-        onPress={() => goToProject({ id: project.id, name: project.name })}
+        onPress={() => goToProjectHelper()}
       >
-        <Card className={className}>
+        <Card className={cn(className, !project.visible && 'opacity-50')}>
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">
                 <View className="flex flex-1 flex-row gap-2">
-                  {(project.private || !!membership) && (
-                    <View className="flex flex-row gap-1.5">
+                  {(project.private ||
+                    !!membership ||
+                    project.source === 'local') && (
+                    <View className="flex flex-row items-center gap-1.5">
+                      {!project.visible && (
+                        <Icon
+                          as={EyeOffIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
+                      {project.source === 'local' && (
+                        <Icon
+                          as={HardDriveIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
                       {project.private && (
                         <Icon
                           as={LockIcon}
+                          className="text-secondary-foreground"
+                        />
+                      )}
+                      {project.template === 'bible' && (
+                        <Icon
+                          as={BookIcon}
                           className="text-secondary-foreground"
                         />
                       )}
@@ -178,20 +209,21 @@ export function ProjectListItem({
                 )}
               </View>
               <CardDescription>
-                {sourceLanguages.length
-                  ? sourceLanguages
-                      .map((l) => getLanguageDisplayName(l))
-                      .join(', ')
-                  : '—'}{' '}
-                → {getLanguageDisplayName(targetLanguage)}
+                <Text>
+                  {`${
+                    sourceLanguages.length
+                      ? sourceLanguages
+                          .map((l) => getLanguageDisplayName(l))
+                          .join(', ')
+                      : '—'
+                  } → ${getLanguageDisplayName(targetLanguage)}`}
+                </Text>
               </CardDescription>
             </View>
           </CardHeader>
-          {project.description && (
-            <CardContent>
-              <Text numberOfLines={4}>{project.description}</Text>
-            </CardContent>
-          )}
+          <CardContent>
+            <Text numberOfLines={4}>{project.description}</Text>
+          </CardContent>
         </Card>
       </Pressable>
 

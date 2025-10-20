@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
@@ -5,7 +6,6 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
-import { useAuth } from '@/contexts/AuthContext';
 
 // Type definition
 type Project = InferSelectModel<typeof project>;

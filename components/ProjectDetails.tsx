@@ -1,4 +1,4 @@
-import type { language, project } from '@/db/drizzleSchema';
+import type { project } from '@/db/drizzleSchema';
 import {
   language as languageTable,
   project_language_link
@@ -13,7 +13,7 @@ import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Project = typeof project.$inferSelect;
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface ProjectDetailsProps {
   project: Project;

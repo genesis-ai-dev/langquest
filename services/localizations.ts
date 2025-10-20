@@ -1,5 +1,10 @@
 // Define all supported UI languages
-export type SupportedLanguage = 'english' | 'spanish' | 'brazilian_portuguese';
+export type SupportedLanguage =
+  | 'english'
+  | 'spanish'
+  | 'brazilian_portuguese'
+  | 'tok_pisin'
+  | 'indonesian';
 
 // Define the structure for translations
 export type LocalizationKey = keyof typeof localizations;
@@ -27,6 +32,13 @@ export const localizations = {
       'Plis checkum email adres bilong yu pastaim long sainum. Lukim email bilong yu long verification link.',
     indonesian:
       'Harap verifikasi alamat email Anda sebelum masuk. Periksa email Anda untuk tautan verifikasi.'
+  },
+  done: {
+    english: 'Done',
+    spanish: 'Listo',
+    brazilian_portuguese: 'Feito',
+    tok_pisin: 'Done',
+    indonesian: 'Selesai'
   },
   all: {
     english: 'All',
@@ -91,6 +103,54 @@ export const localizations = {
     tok_pisin: 'Confirm password',
     indonesian: 'Konfirmasi Kata Sandi'
   },
+  createObject: {
+    english: 'Create',
+    spanish: 'Crear',
+    brazilian_portuguese: 'Criar',
+    tok_pisin: 'Create',
+    indonesian: 'Buat'
+  },
+  projectName: {
+    english: 'Project Name',
+    spanish: 'Nombre del Proyecto',
+    brazilian_portuguese: 'Nome do Projeto',
+    tok_pisin: 'Project Name',
+    indonesian: 'Nama Proyek'
+  },
+  newProject: {
+    english: 'New Project',
+    spanish: 'Nuevo Proyecto',
+    brazilian_portuguese: 'Novo Projeto',
+    tok_pisin: 'Nupela Project',
+    indonesian: 'Proyek Baru'
+  },
+  newQuest: {
+    english: 'New Quest'
+  },
+  questName: {
+    english: 'Quest Name'
+  },
+  description: {
+    english: 'Description',
+    spanish: 'Descripción',
+    brazilian_portuguese: 'Descrição',
+    tok_pisin: 'Description',
+    indonesian: 'Deskripsi'
+  },
+  visible: {
+    english: 'Visible',
+    spanish: 'Visible',
+    brazilian_portuguese: 'Visible',
+    tok_pisin: 'Visible',
+    indonesian: 'Visible'
+  },
+  private: {
+    english: 'Private',
+    spanish: 'Privado',
+    brazilian_portuguese: 'Privado',
+    tok_pisin: 'Private',
+    indonesian: 'Private'
+  },
   date: {
     english: 'Date',
     spanish: 'Fecha',
@@ -138,6 +198,60 @@ export const localizations = {
     tok_pisin: 'Download project taim request i go',
     indonesian: 'Unduh proyek saat permintaan dikirim'
   },
+  discoveringQuestData: {
+    english: 'Discovering Quest Data',
+    spanish: 'Descubriendo Datos de la Misión',
+    brazilian_portuguese: 'Descobrindo Dados da Missão',
+    tok_pisin: 'Painimaut long Quest Data',
+    indonesian: 'Menemukan Data Quest'
+  },
+  analyzingRelatedRecords: {
+    english: 'Analyzing related records...',
+    spanish: 'Analizando registros relacionados...',
+    brazilian_portuguese: 'Analisando registros relacionados...',
+    tok_pisin: 'Lukautim ol related records...',
+    indonesian: 'Menganalisis catatan terkait...'
+  },
+  discoveryComplete: {
+    english: 'Discovery complete',
+    spanish: 'Descubrimiento completo',
+    brazilian_portuguese: 'Descoberta completa',
+    tok_pisin: 'Discovery i pinis',
+    indonesian: 'Penemuan selesai'
+  },
+  totalRecords: {
+    english: 'Total Records',
+    spanish: 'Registros Totales',
+    brazilian_portuguese: 'Registros Totais',
+    tok_pisin: 'Total Records',
+    indonesian: 'Total Catatan'
+  },
+  discoveryErrorsOccurred: {
+    english:
+      'Some errors occurred during discovery. You can still download the discovered records.',
+    spanish:
+      'Ocurrieron algunos errores durante el descubrimiento. Aún puedes descargar los registros descubiertos.',
+    brazilian_portuguese:
+      'Alguns erros ocorreram durante a descoberta. Você ainda pode baixar os registros descobertos.',
+    tok_pisin:
+      'Sampela problem i kamap taim long painimaut. Yu ken download yet ol records we mipela painimaut.',
+    indonesian:
+      'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
+  },
+  discovering: {
+    english: 'Discovering...',
+    spanish: 'Descubriendo...',
+    brazilian_portuguese: 'Descobrindo...',
+    tok_pisin: 'Painimaut...',
+    indonesian: 'Menemukan...'
+  },
+  continueToDownload: {
+    english: 'Continue to Download',
+    spanish: 'Continuar con la Descarga',
+    brazilian_portuguese: 'Continuar para Download',
+    tok_pisin: 'Go het long Download',
+    indonesian: 'Lanjutkan ke Unduhan'
+  },
   email: {
     english: 'Email',
     spanish: 'Email',
@@ -159,6 +273,20 @@ export const localizations = {
     brazilian_portuguese: 'E-mail é obrigatório',
     tok_pisin: 'Email i mas',
     indonesian: 'Email diperlukan'
+  },
+  nameRequired: {
+    english: 'Name is required',
+    spanish: 'Nombre es requerido',
+    brazilian_portuguese: 'Nome é obrigatório',
+    tok_pisin: 'Name i mas',
+    indonesian: 'Nama diperlukan'
+  },
+  descriptionTooLong: {
+    english: 'Description must be less than {max} characters',
+    spanish: 'La descripción debe tener menos de {max} caracteres',
+    brazilian_portuguese: 'A descrição deve ter menos de {max} caracteres',
+    tok_pisin: 'Description i no sem long {max} character',
+    indonesian: 'Deskripsi harus kurang dari {max} karakter'
   },
   enterTranslation: {
     english: 'Enter your translation here',
@@ -410,6 +538,74 @@ export const localizations = {
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto'
   },
+  noProjectsFound: {
+    english: 'No projects found',
+    spanish: 'No se encontraron proyectos',
+    brazilian_portuguese: 'Nenhum projeto encontrado',
+    tok_pisin: 'Nogat projek i painim',
+    indonesian: 'Tidak ada proyek yang ditemukan'
+  },
+  noProjectsYet: {
+    english: 'No projects yet',
+    spanish: 'Aún no hay proyectos',
+    brazilian_portuguese: 'Ainda não há projetos',
+    tok_pisin: 'I no gat projek yet',
+    indonesian: 'Belum ada proyek'
+  },
+  noProjectsAvailable: {
+    english: 'No projects available',
+    spanish: 'No hay proyectos disponibles',
+    brazilian_portuguese: 'Nenhum projeto disponível',
+    tok_pisin: 'Nogat projek i stap',
+    indonesian: 'Tidak ada proyek yang tersedia'
+  },
+  createProject: {
+    english: 'Create Project',
+    spanish: 'Crear proyecto',
+    brazilian_portuguese: 'Criar projeto',
+    tok_pisin: 'Wokim Nupela Projek',
+    indonesian: 'Buat Proyek'
+  },
+  published: {
+    english: 'Published',
+    spanish: 'Publicado',
+    brazilian_portuguese: 'Publicado',
+    tok_pisin: 'Publisim pinis',
+    indonesian: 'Diterbitkan'
+  },
+  cannotPublishWhileOffline: {
+    english: 'Cannot publish while offline',
+    spanish: 'No se puede publicar mientras está desconectado',
+    brazilian_portuguese: 'Não é possível publicar enquanto está desconectado',
+    tok_pisin: 'I no inap publish long no gat internet',
+    indonesian: 'Tidak dapat memublikasikan saat offline'
+  },
+  publishChapter: {
+    english: 'Publish Chapter',
+    spanish: 'Publicar Capítulo',
+    brazilian_portuguese: 'Publicar Capítulo',
+    tok_pisin: 'Publisim Chapter',
+    indonesian: 'Publikasikan Bab'
+  },
+  publish: {
+    english: 'Publish',
+    spanish: 'Publicar',
+    brazilian_portuguese: 'Publicar',
+    tok_pisin: 'Publisim',
+    indonesian: 'Publikasikan'
+  },
+  publishChapterMessage: {
+    english:
+      "This will publish {questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.",
+    spanish:
+      'Esto publicará {questName} y todas sus grabaciones para que estén disponibles para otros usuarios.\n\nSi el libro o proyecto padre aún no se ha publicado, se publicarán automáticamente.\n\n⚠️ La publicación carga tus grabaciones en la nube. Esto no se puede deshacer, pero puedes publicar nuevas versiones en el futuro si deseas hacer cambios.',
+    brazilian_portuguese:
+      'Isso publicará {questName} e todas as suas gravações para torná-las disponíveis para outros usuários.\n\nSe o livro ou projeto pai ainda não foi publicado, eles serão publicados automaticamente.\n\n⚠️ A publicação carrega suas gravações na nuvem. Isso não pode ser desfeito, mas você pode publicar novas versões no futuro se quiser fazer alterações.',
+    tok_pisin:
+      'Dispela bai publisim {questName} na olgeta recording bilong en long mekim ol narapela user i ken usim.\n\nSapos papa buk o project i no publisim yet, bai ol i publisim otomatik.\n\n⚠️ Publisim i senimapim ol recording bilong yu i go long cloud. Yu no inap senisim bek dispela, tasol yu ken publisim nupela version bihain sapos yu laik mekim ol senis.',
+    indonesian:
+      'Ini akan memublikasikan {questName} dan semua rekamannya agar tersedia untuk pengguna lain.\n\nJika buku atau proyek induk belum dipublikasikan, mereka akan dipublikasikan secara otomatis.\n\n⚠️ Publikasi mengunggah rekaman Anda ke cloud. Ini tidak dapat dibatalkan, tetapi Anda dapat memublikasikan versi baru di masa depan jika ingin membuat perubahan.'
+  },
   quest: {
     english: 'Quest',
     spanish: 'Misión',
@@ -505,6 +701,13 @@ export const localizations = {
     brazilian_portuguese: 'Por favor, selecione um idioma',
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
+  },
+  selectTemplate: {
+    english: 'Please select a template',
+    spanish: 'Por favor seleccione una plantilla',
+    brazilian_portuguese: 'Por favor, selecione uma planta',
+    tok_pisin: 'Plis makim wanpela template',
+    indonesian: 'Silakan pilih template'
   },
   sendResetEmail: {
     english: 'Send Reset Email',
@@ -874,7 +1077,7 @@ export const localizations = {
   },
   enterEmailForPasswordReset: {
     english: 'Enter your email to reset your password',
-    spanish: 'Ingrese su correo electrónico para restablecer su contraseña',
+    spanish: 'Ingrese su email para restablecer su contraseña',
     brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha',
     tok_pisin: 'Putim email bilong yu long resetim password',
     indonesian: 'Masukkan email Anda untuk mereset kata sandi'
@@ -2078,6 +2281,13 @@ export const localizations = {
     tok_pisin: 'Permission i no',
     indonesian: 'Izin Ditolak'
   },
+  grantMicrophonePermission: {
+    english: 'Grant Microphone Permission',
+    spanish: 'Otorgar Permiso de Microfono',
+    brazilian_portuguese: 'Conceder Permissão de Microfone',
+    tok_pisin: 'Grant Microphone Permission',
+    indonesian: 'Mengakses Mikrofon'
+  },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
     spanish: 'Confirmar Restauración de Audio',
@@ -2630,6 +2840,69 @@ export const localizations = {
     brazilian_portuguese: 'Traduções',
     tok_pisin: 'Ol Translation',
     indonesian: 'Terjemahan'
+  },
+  doRecord: {
+    english: 'Record',
+    spanish: 'Grabar',
+    brazilian_portuguese: 'Gravar',
+    tok_pisin: 'Rekodem',
+    indonesian: 'Rekam'
+  },
+  isRecording: {
+    english: 'Recording...',
+    spanish: 'Grabando...',
+    brazilian_portuguese: 'Gravando...',
+    tok_pisin: 'Recording...',
+    indonesian: 'Merekam...'
+  },
+  audioSegments: {
+    english: 'Audio Segments',
+    spanish: 'Pistas de Audio',
+    brazilian_portuguese: 'Pistas de Áudio',
+    tok_pisin: 'Ol audio track',
+    indonesian: 'Trek audio'
+  },
+  audioSegment: {
+    english: 'Audio Segment',
+    spanish: 'Pista de Audio',
+    brazilian_portuguese: 'Pista de Áudio',
+    tok_pisin: 'Ol audio track',
+    indonesian: 'Trek audio'
+  },
+  asAssets: {
+    english: 'as Assets',
+    spanish: 'como Assets',
+    brazilian_portuguese: 'como Assets',
+    tok_pisin: 'as Assets',
+    indonesian: 'sebagai Assets'
+  },
+  asAsset: {
+    english: 'as Asset',
+    spanish: 'como Asset',
+    brazilian_portuguese: 'como Asset',
+    tok_pisin: 'as Asset',
+    indonesian: 'sebagai Asset'
+  },
+  save: {
+    english: 'Save',
+    spanish: 'Guardar',
+    brazilian_portuguese: 'Salvar',
+    tok_pisin: 'Save',
+    indonesian: 'Simpan'
+  },
+  merge: {
+    english: 'Merge',
+    spanish: 'Fusionar',
+    brazilian_portuguese: 'Mesclar',
+    tok_pisin: 'Merge',
+    indonesian: 'Menggabungkan'
+  },
+  projectDirectory: {
+    english: 'Project Directory',
+    spanish: 'Directorio de Proyecto',
+    brazilian_portuguese: 'Diretório de Projeto',
+    tok_pisin: 'Project Directory',
+    indonesian: 'Direktori Proyek'
   },
   projectMadePublic: {
     english: 'The project has been made public',
@@ -3230,6 +3503,28 @@ export const localizations = {
     tok_pisin: 'Tokples',
     indonesian: 'Bahasa'
   },
+  template: {
+    english: 'Template',
+    spanish: 'Plantilla',
+    brazilian_portuguese: 'Plantilla',
+    tok_pisin: 'Template',
+    indonesian: 'Template'
+  },
+  // template options
+  bible: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Bible',
+    indonesian: 'Alkitab'
+  },
+  unstructured: {
+    english: 'Unstructured',
+    spanish: 'No estructurado',
+    brazilian_portuguese: 'Não estruturado',
+    tok_pisin: 'Unstructured',
+    indonesian: 'Tidak terstruktur'
+  },
   audioTracks: {
     english: 'Audio tracks',
     spanish: 'Pistas de audio',
@@ -3572,6 +3867,37 @@ export const localizations = {
     brazilian_portuguese: 'Erro ao carregar as configurações de tradução.',
     tok_pisin: 'I no inap load translation settings.',
     indonesian: 'Gagal memuat pengaturan terjemahan.'
+  },
+  contentText: {
+    english: 'Content Text',
+    spanish: 'Texto del Contenido',
+    brazilian_portuguese: 'Texto do Conteúdo',
+    tok_pisin: 'Content Text',
+    indonesian: 'Teks Konten'
+  },
+  enterContentText: {
+    english: 'Enter content text...',
+    spanish: 'Ingrese el texto del contenido...',
+    brazilian_portuguese: 'Digite o texto do conteúdo...',
+    tok_pisin: 'Putim content text...',
+    indonesian: 'Masukkan teks konten...'
+  },
+  saving: {
+    english: 'Saving...',
+    spanish: 'Guardando...',
+    brazilian_portuguese: 'Salvando...',
+    tok_pisin: 'Seivim...',
+    indonesian: 'Menyimpan...'
+  },
+  localAssetEditHint: {
+    english: 'This asset is local only. Text can be edited until published.',
+    spanish:
+      'Este recurso es solo local. El texto se puede editar hasta que se publique.',
+    brazilian_portuguese:
+      'Este recurso é apenas local. O texto pode ser editado até ser publicado.',
+    tok_pisin:
+      'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
+    indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
   }
 } as const;
 

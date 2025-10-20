@@ -17,6 +17,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -113,7 +114,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { data: projectData, isLoading: projectLoading } = useHybridData<
     typeof projectTable.$inferSelect
   >({
-    dataType: 'project',
+    dataType: 'project-membership',
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed
@@ -569,7 +570,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(invite).values({
+      await db.insert(resolveTable('invite')).values({
         sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,

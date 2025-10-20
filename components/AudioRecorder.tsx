@@ -157,7 +157,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       });
 
       const uri = recording.getURI();
-      if (recordingUri) deleteIfExists(recordingUri);
+      if (recordingUri) {
+        await deleteIfExists(recordingUri);
+        console.log('Deleted previous recording attempt', recordingUri);
+      }
       console.log('Recording stopped and stored at', uri);
       setRecordingUri(uri ?? null);
       setRecording(null);

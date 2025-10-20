@@ -1,86 +1,6 @@
-import {
-  getAssetAudioContent,
-  getAssetById,
-  getAssetsById,
-  getAssetsContent
-} from '@/hooks/db/useAssets';
-import {
-  getTranslationsByAssetIds,
-  getTranslationsWithAudioByAssetId
-} from '@/hooks/db/useTranslations';
+import { getAssetsById, getAssetsContent } from '@/hooks/db/useAssets';
 import { AttachmentState } from '@powersync/attachments';
-import { AbstractSharedAttachmentQueue } from '../db/powersync/AbstractSharedAttachmentQueue';
 import { system } from '../db/powersync/system';
-
-export function getOnlineUriForFilePath(filePath: string) {
-  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${process.env.EXPO_PUBLIC_SUPABASE_BUCKET}/${filePath}`;
-}
-
-export async function getLocalUriFromAssetId(assetId: string, retryCount = 3) {
-  // With the shared directory approach, we just need to check
-  // if the file exists in the shared directory
-
-  const fullPath = `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${assetId}`;
-  const sharedUri = system.permAttachmentQueue?.getLocalUri(fullPath);
-
-  if (sharedUri) {
-    const exists = await system.storage.fileExists(sharedUri);
-
-    if (exists) {
-      return sharedUri;
-    } else if (retryCount > 0) {
-      // Add a small delay before retrying
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return getLocalUriFromAssetId(assetId, retryCount - 1);
-    }
-  }
-
-  return null;
-}
-
-export async function calculateTotalAttachments(assetIds: string[]) {
-  try {
-    let totalAttachments = 0;
-
-    for (const assetId of assetIds) {
-      // 1. Get the asset itself for images
-      const assetRecord = await getAssetById(assetId);
-
-      if (assetRecord?.images) {
-        totalAttachments += assetRecord.images.length;
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetAudioContent(assetId);
-
-      const contentAudioIds = assetContents
-        ?.filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-
-      if (contentAudioIds) {
-        totalAttachments += contentAudioIds.length;
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await getTranslationsWithAudioByAssetId(assetId);
-
-      const translationAudioIds = translations
-        ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds) {
-        totalAttachments += translationAudioIds.length;
-      }
-    }
-
-    return totalAttachments;
-  } catch (error) {
-    console.error('Error calculating total attachments:', error);
-    return 0;
-  }
-}
 
 export async function getAssetAttachmentIds(
   assetIds: string[]
@@ -90,19 +10,16 @@ export async function getAssetAttachmentIds(
     const attachmentIds: string[] = [];
 
     // Execute all queries in parallel using Promise.allSettled
-    const [assetResult, contentResult, translationResult] =
-      await Promise.allSettled([
-        // 1. Get the assets for images
-        await getAssetsById(assetIds),
-        // 2. Get asset_content_link entries for audio
-        await getAssetsContent(assetIds),
-        // 3. Get translations for the assets and their audio
-        await getTranslationsByAssetIds(assetIds)
-      ]);
+    const [assetResult, contentResult] = await Promise.allSettled([
+      // 1. Get the assets for images
+      await getAssetsById(assetIds),
+      // 2. Get asset_content_link entries for audio
+      await getAssetsContent(assetIds)
+    ]);
 
     // Process asset images if successful
     if (assetResult.status === 'fulfilled') {
-      assetResult.value?.forEach((asset) => {
+      assetResult.value.forEach((asset) => {
         if (asset.images) {
           attachmentIds.push(...asset.images);
         }
@@ -112,23 +29,10 @@ export async function getAssetAttachmentIds(
     // Process content audio IDs if successful
     if (contentResult.status === 'fulfilled') {
       const contentAudioIds = contentResult.value
-        ?.filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-      if (contentAudioIds) {
-        attachmentIds.push(...contentAudioIds);
-      }
-    }
+        .filter((content) => content.audio)
+        .flatMap((content) => content.audio!);
 
-    // Process translation audio IDs if successful
-    if (translationResult.status === 'fulfilled') {
-      const translationAudioIds = translationResult.value
-        ?.filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-      if (translationAudioIds) {
-        attachmentIds.push(...translationAudioIds);
-      }
+      attachmentIds.push(...contentAudioIds);
     }
 
     // Return unique attachment IDs

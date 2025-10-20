@@ -1,7 +1,7 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { sharedStyles, spacing } from '@/styles/theme';
 import React from 'react';
 import { View } from 'react-native';
-import { Shimmer } from './Shimmer';
 
 // Skeleton loader component for asset cards
 export const AssetSkeleton = React.memo(() => (
@@ -14,9 +14,9 @@ export const AssetSkeleton = React.memo(() => (
       }}
     >
       {/* Asset title */}
-      <Shimmer width="100%" height={20} borderRadius={4} style={{ flex: 1 }} />
+      <Skeleton style={{ flex: 1, height: 20 }} />
       {/* Download indicator */}
-      <Shimmer width={32} height={32} borderRadius={16} />
+      <Skeleton className="rounded-full" style={{ width: 32, height: 32 }} />
     </View>
 
     {/* Translation count/gems area */}
@@ -28,9 +28,9 @@ export const AssetSkeleton = React.memo(() => (
         gap: spacing.xsmall
       }}
     >
-      <Shimmer width={20} height={20} borderRadius={10} />
-      <Shimmer width={20} height={20} borderRadius={10} />
-      <Shimmer width={20} height={20} borderRadius={10} />
+      <Skeleton className="rounded-full" style={{ width: 20, height: 20 }} />
+      <Skeleton className="rounded-full" style={{ width: 20, height: 20 }} />
+      <Skeleton className="rounded-full" style={{ width: 20, height: 20 }} />
     </View>
   </View>
 ));

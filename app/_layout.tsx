@@ -1,5 +1,5 @@
 import '@/global.css';
-import { Platform } from 'react-native';
+import { LogBox, Platform } from 'react-native';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -36,6 +36,8 @@ configureReanimatedLogger({
   strict: false // Disables warnings with nativewind animations
 });
 
+LogBox.ignoreAllLogs();
+
 export const NAV_THEME = {
   light: {
     ...DefaultTheme,
@@ -49,11 +51,8 @@ export const NAV_THEME = {
 
 export default function RootLayout() {
   if (Platform.OS === 'web') {
-    const g = globalThis as unknown as Record<string, unknown>;
-    if (typeof g._frameTimestamp === 'undefined') {
-      // Workaround for Reanimated on web (see Moti docs)
-      g._frameTimestamp = null as unknown as number;
-    }
+    // @ts-expect-error - globalThis._frameTimestamp is not defined
+    global._frameTimestamp = null;
   }
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();
@@ -113,25 +112,25 @@ export default function RootLayout() {
   console.log('[RootLayout] scheme:', scheme);
 
   return (
-    <ThemeProvider value={NAV_THEME[scheme]}>
-      <StatusBar style={systemBarsStyle} />
-      <PowerSyncContext.Provider value={system.powersync}>
-        <PostHogProvider>
-          <AuthProvider>
-            <QueryProvider>
-              <AudioProvider>
-                <SafeAreaProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
+    <PowerSyncContext.Provider value={system.powersync}>
+      <PostHogProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <AudioProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <StatusBar style={systemBarsStyle} />
+                  <ThemeProvider value={NAV_THEME[scheme]}>
                     <Stack screenOptions={{ headerShown: false }} />
                     <PortalHost />
-                  </GestureHandlerRootView>
-                </SafeAreaProvider>
-              </AudioProvider>
-            </QueryProvider>
-          </AuthProvider>
-        </PostHogProvider>
-      </PowerSyncContext.Provider>
-    </ThemeProvider>
+                  </ThemeProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </AudioProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </PostHogProvider>
+    </PowerSyncContext.Provider>
   );
 }
 

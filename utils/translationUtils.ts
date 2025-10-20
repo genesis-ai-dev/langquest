@@ -1,4 +1,3 @@
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
@@ -8,7 +7,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { User } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 export class TranslationUtils {
   static currentLanguage: SupportedLanguage = 'english';
@@ -45,8 +44,9 @@ export class TranslationUtils {
         this.currentLanguage =
           language.english_name.toLowerCase() as SupportedLanguage;
       }
-    } catch (error) {
-      console.error('Error initializing TranslationUtils:', error);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('Error initializing TranslationUtils:', errorMessage);
     }
   }
 
@@ -54,19 +54,27 @@ export class TranslationUtils {
     // Access the translation by key first, then by language
     const translationEntry =
       key in localizations
-        ? localizations[key as keyof typeof localizations]
+        ? (localizations[key as keyof typeof localizations] as Partial<
+            Record<SupportedLanguage, string>
+          > & { english?: string })
         : undefined;
 
-    const translation = translationEntry?.[this.currentLanguage] ?? key;
+    const translation =
+      translationEntry?.[this.currentLanguage] ??
+      translationEntry?.english ??
+      key;
 
     if (!substitutions) return translation;
 
     let formattedMessage = translation;
-    for (const [placeholder, value] of Object.entries(substitutions)) {
-      formattedMessage = formattedMessage.replace(
-        new RegExp(`\\{${placeholder}\\}`, 'g'),
-        value
-      );
+    for (const placeholder in substitutions) {
+      if (Object.prototype.hasOwnProperty.call(substitutions, placeholder)) {
+        const value = substitutions[placeholder] ?? '';
+        formattedMessage = formattedMessage.replace(
+          new RegExp(`\\{${placeholder}\\}`, 'g'),
+          value
+        );
+      }
     }
 
     return formattedMessage;

@@ -1,14 +1,8 @@
-import type * as OPSqlite from '@op-engineering/op-sqlite';
-import { open } from '@op-engineering/op-sqlite';
+import { system } from '@/db/powersync/system';
+import type { DBAdapter } from '@powersync/react-native';
 import type { DevToolsPluginClient, EventSubscription } from 'expo/devtools';
 import { useDevToolsPluginClient } from 'expo/devtools';
 import { useEffect } from 'react';
-
-export function openDB() {
-  return open({
-    name: 'sqlite.db'
-  });
-}
 
 type SqlParam = string | number | null | Uint8Array;
 
@@ -24,11 +18,12 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-export function useDrizzleStudio(db: OPSqlite.DB | null) {
+export function useDrizzleStudio() {
+  const db = system.factory.openDB();
   const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
 
   const queryFn =
-    (db: OPSqlite.DB, client: DevToolsPluginClient) =>
+    (db: DBAdapter, client: DevToolsPluginClient) =>
     async (e: {
       sql: string;
       params?: SqlParam[];
@@ -41,40 +36,36 @@ export function useDrizzleStudio(db: OPSqlite.DB | null) {
           client.sendMessage(`query-${e.id}`, raw);
           return;
         }
-        const stmt = db.prepareStatement(e.sql);
-        await stmt.bind(e.params || []);
-        const executed = await stmt.execute();
-        client.sendMessage(`query-${e.id}`, executed.rows);
+        const executed = await db.execute(e.sql, e.params || []);
+        client.sendMessage(`query-${e.id}`, executed.rows?._array);
       } catch (error: unknown) {
         client.sendMessage(`query-${e.id}`, { error: getErrorMessage(error) });
       }
     };
 
   const transactionFn =
-    (db: OPSqlite.DB, client: DevToolsPluginClient) =>
+    (db: DBAdapter, client: DevToolsPluginClient) =>
     async (e: {
       queries: { sql: string; params?: SqlParam[] }[];
       id: string;
     }) => {
       const results: unknown[] = [];
       try {
-        await db.execute('BEGIN');
-        for (const query of e.queries) {
-          const stmt = db.prepareStatement(query.sql);
-          await stmt.bind(query.params || []);
-          const executed = await stmt.execute();
-          results.push(executed.rows);
-        }
-        await db.execute('COMMIT');
+        await db.writeTransaction(async (tx) => {
+          for (const query of e.queries) {
+            const executed = await tx.execute(query.sql, query.params || []);
+            results.push(executed.rows?._array);
+          }
+        });
       } catch (error: unknown) {
-        await db.execute('ROLLBACK').catch(() => undefined);
+        console.error('useDrizzleStudio transactionFn error', error);
         results.push({ error: getErrorMessage(error) });
       }
       client.sendMessage(`transaction-${e.id}`, results);
     };
 
   useEffect(() => {
-    if (!client || !db) {
+    if (!client) {
       return;
     }
 

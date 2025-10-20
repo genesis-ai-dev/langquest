@@ -11,3 +11,9 @@ export const statusOptions = [
   'withdrawn'
   // 'expired'
 ] as const;
+
+export const templateOptions = ['unstructured', 'bible'] as const;
+
+export const sourceOptions = ['local', 'synced', 'cloud'] as const;
+
+export const membershipOptions = ['owner', 'member'] as const;

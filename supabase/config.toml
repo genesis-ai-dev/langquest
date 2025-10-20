@@ -98,8 +98,8 @@ file_size_limit = "50MiB"
 [storage.buckets.local]
 public = true
 file_size_limit = "50MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4", "application/octet-stream"]
-objects_path = "./assets"
+allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "video/mp4", "video/webm", "application/octet-stream"]
+# objects_path = "./assets"
 
 [auth]
 enabled = true

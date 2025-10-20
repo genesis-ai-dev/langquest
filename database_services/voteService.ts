@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 // import { db } from '../db/database';
+import { resolveTable } from '@/utils/dbUtils';
 import { vote } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -9,7 +10,7 @@ const { db } = system;
 
 export class VoteService {
   async addVote(data: {
-    translation_id: string;
+    asset_id: string;
     creator_id: string;
     vote_id?: string;
     polarity: Vote['polarity'];
@@ -22,7 +23,7 @@ export class VoteService {
         (
           await db.query.vote.findFirst({
             where: and(
-              eq(vote.translation_id, data.translation_id),
+              eq(vote.asset_id, data.asset_id),
               eq(vote.creator_id, data.creator_id)
             ),
             columns: {
@@ -50,7 +51,7 @@ export class VoteService {
         );
       } else {
         console.log('creating new vote', {
-          translation_id: data.translation_id,
+          asset_id: data.asset_id,
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment ?? '',
@@ -58,8 +59,8 @@ export class VoteService {
           download_profiles: [data.creator_id]
         });
         // Create new vote - let PowerSync handle array serialization
-        await db.insert(vote).values({
-          translation_id: data.translation_id,
+        await db.insert(resolveTable('vote')).values({
+          asset_id: data.asset_id,
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment ?? '',
@@ -73,10 +74,10 @@ export class VoteService {
     }
   }
 
-  async getUserVoteForTranslation(translation_id: string, userId: string) {
+  async getUserVoteForTranslation(asset_id: string, userId: string) {
     const result = await db.query.vote.findFirst({
       where: and(
-        eq(vote.translation_id, translation_id),
+        eq(vote.asset_id, asset_id),
         eq(vote.creator_id, userId),
         eq(vote.active, true)
       )
@@ -84,9 +85,9 @@ export class VoteService {
     return result;
   }
 
-  async getVotesByTranslationId(translation_id: string) {
+  async getVotesByAssetId(asset_id: string) {
     const result = await db.query.vote.findMany({
-      where: and(eq(vote.translation_id, translation_id), eq(vote.active, true))
+      where: and(eq(vote.asset_id, asset_id), eq(vote.active, true))
     });
     return result;
   }

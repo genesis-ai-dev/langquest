@@ -32,7 +32,7 @@ interface WebDBConnection {
   executeRaw: (sql: string, params?: unknown[]) => Promise<unknown[][]>;
 }
 
-export function useDrizzleStudio(_db: unknown) {
+export function useDrizzleStudio() {
   const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
 
   const connRef = useRef<WebDBConnection | null>(null);
@@ -84,6 +84,7 @@ export function useDrizzleStudio(_db: unknown) {
       } catch {
         // ignore
       }
+      console.error('useDrizzleStudio transactionFn error', error);
       results.push({ error: getErrorMessage(error) });
     }
     client.sendMessage(`transaction-${e.id}`, results);

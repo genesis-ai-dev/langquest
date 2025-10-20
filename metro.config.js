@@ -5,10 +5,22 @@ const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
-// DO NOT ADD MJS TO ASSET EXTS - IT BREAKS THE ENTIRE APP
+// DO NOT PUSH MJS TO ASSET EXTS SEPERATELY - DUPLICATE EXTENSIONS BREAK THE ENTIRE APP
 // config.resolver.assetExts.push('mjs');
 
-config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
+// Configure SVG transformer
+const { transformer, resolver } = config;
+
+config.transformer = {
+  ...transformer,
+  babelTransformerPath: require.resolve('react-native-svg-transformer')
+};
+
+config.resolver = {
+  ...resolver,
+  assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
+  sourceExts: [...resolver.sourceExts, 'svg', 'mjs', 'cjs'] // MJS IS ADDED HERE
+};
 
 // Needed to make `@powersync/web/umd` imports work
 config.resolver.unstable_enablePackageExports = true;

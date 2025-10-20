@@ -1,6 +1,8 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
@@ -17,30 +19,38 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
 
   const {
     data: questData = [],
-    refetch,
     isLoading,
-    isError
-  } = useHybridQuery({
-    queryKey: ['quest-settings', questId],
+    isError,
+    refetch
+  } = useHybridData({
+    dataType: 'quest-settings',
+    queryKeyParams: [questId],
     offlineQuery: toCompilableQuery(
       db.query.quest.findMany({
         columns: {
           active: true,
-          visible: true
+          visible: true,
+          source: true
         },
         where: eq(quest.id, questId)
       })
     ),
-    onlineFn: async (): Promise<(typeof quest.$inferSelect)[]> => {
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('quest')
         .select('active, visible')
         .eq('id', questId)
-        .limit(1);
+        .limit(1)
+        .overrideTypes<
+          Pick<typeof quest.$inferSelect, 'active' | 'visible'>[]
+        >();
 
       if (error) throw error;
-      return data as (typeof quest.$inferSelect)[];
-    }
+      return data;
+    },
+    enableOfflineQuery: !!questId,
+    enableCloudQuery: !!questId,
+    getItemId: () => questId
   });
 
   return {
@@ -53,12 +63,17 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
 
 export async function updateQuestStatus(
   questId: string,
-  status: Partial<Pick<LayerStatus, 'active' | 'visible'>>
+  status: Partial<Pick<LayerStatus, 'active' | 'visible'>>,
+  questSource: HybridDataSource
 ) {
   const { db } = system;
 
+  const resolvedQuest = resolveTable(
+    'quest',
+    localSourceOverrideOptions(questSource)
+  );
   return await db
-    .update(quest)
-    .set({ ...status, last_updated: new Date().toISOString() })
-    .where(eq(quest.id, questId));
+    .update(resolvedQuest)
+    .set({ ...status })
+    .where(eq(resolvedQuest.id, questId));
 }

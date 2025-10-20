@@ -13,12 +13,9 @@ export type Vote = InferSelectModel<typeof vote>;
 
 /**
  * Returns { vote, isLoading, error }
- * Fetches user's vote for a specific translation from Supabase (online) or local Drizzle DB (offline)
+ * Fetches user's vote for a specific asset from Supabase (online) or local Drizzle DB (offline)
  */
-export function useUserVoteForTranslation(
-  translation_id: string,
-  user_id: string
-) {
+export function useUserVoteForTranslation(asset_id: string, user_id: string) {
   const { db, supabaseConnector } = system;
 
   const {
@@ -26,12 +23,12 @@ export function useUserVoteForTranslation(
     isLoading: isVoteLoading,
     ...rest
   } = useHybridSupabaseRealtimeQuery({
-    queryKey: ['vote', 'user', translation_id, user_id],
+    queryKey: ['vote', 'user', asset_id, user_id],
     onlineFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('vote')
         .select('*')
-        .eq('translation_id', translation_id)
+        .eq('asset_id', asset_id)
         .eq('creator_id', user_id)
         .eq('active', true)
         .overrideTypes<Vote[]>();
@@ -40,7 +37,7 @@ export function useUserVoteForTranslation(
     },
     offlineQuery: db.query.vote.findMany({
       where: and(
-        eq(vote.translation_id, translation_id),
+        eq(vote.asset_id, asset_id),
         eq(vote.creator_id, user_id),
         eq(vote.active, true)
       )
@@ -50,7 +47,7 @@ export function useUserVoteForTranslation(
       table: 'vote',
       schema: 'public'
     },
-    enabled: !!translation_id && !!user_id
+    enabled: !!asset_id && !!user_id
   });
 
   const userVote = voteArray[0] || null;
@@ -58,43 +55,43 @@ export function useUserVoteForTranslation(
   return { vote: userVote, isVoteLoading, ...rest };
 }
 
-function getVotesByTranslationIdConfig(translation_id: string) {
+function getVotesByAssetIdConfig(asset_id: string) {
   return createHybridSupabaseQueryConfig({
-    queryKey: ['votes', 'by-translation', translation_id],
+    queryKey: ['votes', 'by-asset', asset_id],
     onlineFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('vote')
         .select('*')
-        .eq('translation_id', translation_id)
+        .eq('asset_id', asset_id)
         .eq('active', true)
         .overrideTypes<Vote[]>();
       if (error) throw error;
       return data;
     },
     offlineQuery: system.db.query.vote.findMany({
-      where: and(eq(vote.translation_id, translation_id), eq(vote.active, true))
+      where: and(eq(vote.asset_id, asset_id), eq(vote.active, true))
     }),
-    enabled: !!translation_id
+    enabled: !!asset_id
   });
 }
 
-export function getVotesByTranslationId(translation_id: string) {
+export function getVotesByAssetId(asset_id: string) {
   return hybridSupabaseFetch(
-    convertToSupabaseFetchConfig(getVotesByTranslationIdConfig(translation_id))
+    convertToSupabaseFetchConfig(getVotesByAssetIdConfig(asset_id))
   );
 }
 
 /**
  * Returns { votes, isLoading, error }
- * Fetches all votes for a specific translation from Supabase (online) or local Drizzle DB (offline)
+ * Fetches all votes for a specific asset from Supabase (online) or local Drizzle DB (offline)
  */
-export function useVotesByTranslationId(translation_id: string) {
+export function useVotesByAssetId(asset_id: string) {
   const {
     data: votes,
     isLoading: isVotesLoading,
     ...rest
   } = useHybridSupabaseRealtimeQuery({
-    ...getVotesByTranslationIdConfig(translation_id),
+    ...getVotesByAssetIdConfig(asset_id),
     channelName: 'public:vote',
     subscriptionConfig: {
       table: 'vote',

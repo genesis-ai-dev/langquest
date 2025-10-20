@@ -13,7 +13,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -56,9 +56,15 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     refetch
   } = useQuestStatuses(questId);
 
+  // Handle error in useEffect to avoid setState during render
+  useEffect(() => {
+    if (isError && isVisible) {
+      Alert.alert(t('error'), t('questSettingsLoadError'));
+      onClose();
+    }
+  }, [isError, isVisible, onClose, t]);
+
   if (isError) {
-    Alert.alert(t('error'), t('questSettingsLoadError'));
-    onClose();
     return null;
   }
 
@@ -78,9 +84,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         visible = true;
       }
 
-      await updateQuestStatus(questId, { visible, active });
+      await updateQuestStatus(questId, { visible, active }, questData.source);
       refetch();
-      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
 
       Alert.alert(
         t('success'),
@@ -110,9 +120,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         active = false;
       }
 
-      await updateQuestStatus(questId, { visible, active });
+      await updateQuestStatus(questId, { visible, active }, questData.source);
       refetch();
-      layerStatus.setLayerStatus(LayerType.QUEST, { visible, active }, questId);
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
 
       // Localization keys:
       // success -> 'Success'

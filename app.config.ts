@@ -33,6 +33,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         bundleIdentifier: uniqueIdentifier,
         config: {
           usesNonExemptEncryption: false
+        },
+        entitlements: {
+          'com.apple.developer.networking.wifi-info': true
         }
       },
       android: {

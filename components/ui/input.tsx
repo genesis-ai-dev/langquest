@@ -6,10 +6,11 @@ import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, Pressable, TextInput, View } from 'react-native';
+import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
 const inputVariants = cva(
-  'flex w-full min-w-48 flex-row items-center rounded-md border border-border bg-input text-foreground shadow-sm shadow-black/5 web:w-full',
+  'flex w-full min-w-48 flex-row items-center rounded-md border border-input bg-card text-foreground shadow-sm shadow-black/5 web:w-full',
   {
     variants: {
       size: {
@@ -32,9 +33,9 @@ const inputTextVariants = cva(
   {
     variants: {
       size: {
-        sm: 'native:text-sm native:leading-4 text-sm',
-        default: 'native:text-base native:leading-5 text-base',
-        lg: 'native:text-lg native:leading-5'
+        sm: 'native:leading-4 text-sm',
+        default: 'native:leading-5 text-base',
+        lg: 'native:leading-5 text-lg'
       }
     },
     defaultVariants: {
@@ -43,12 +44,12 @@ const inputTextVariants = cva(
   }
 );
 
-const iconSizeVariants = cva('text-muted-foreground', {
+const iconSizeVariants = cva(undefined, {
   variants: {
     size: {
-      sm: 'size-4',
-      default: 'size-5',
-      lg: 'size-6'
+      sm: 16,
+      default: 20,
+      lg: 24
     }
   },
   defaultVariants: {
@@ -115,19 +116,24 @@ interface InputProps
   suffix?: React.ReactNode | LucideIcon;
   prefixStyling?: boolean;
   suffixStyling?: boolean;
+  drawerInput?: boolean;
   hideEye?: boolean;
   mask?: boolean;
 }
 
-const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
+const Input = React.forwardRef<
+  React.ComponentRef<typeof TextInput>,
+  InputProps
+>(
   (
     {
       className,
       placeholderClassName,
       prefix,
       suffix,
-      prefixStyling = true,
-      suffixStyling = true,
+      prefixStyling = false,
+      suffixStyling = false,
+      drawerInput = false,
       hideEye,
       secureTextEntry,
       mask,
@@ -138,6 +144,7 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
   ) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
+    const Component = drawerInput ? DrawerInput : TextInput;
     return (
       <View
         className={cn(
@@ -171,12 +178,14 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
             ) : (
               <Icon
                 as={prefix as LucideIcon}
-                className={iconSizeVariants({ size })}
+                className="text-muted-foreground"
+                size={iconSizeVariants({ size })}
               />
             )}
           </View>
         )}
-        <TextInput
+        <Component
+          // @ts-expect-error - ref is not passed the same type as TextInput
           ref={ref}
           className={cn(
             inputTextVariants({ size }),

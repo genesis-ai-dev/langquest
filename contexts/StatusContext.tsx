@@ -1,8 +1,11 @@
 import type { AssetStatus, LayerStatus } from '@/database_services/types';
-import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 
-export const defaultStatus: LayerStatus = { visible: true, active: true };
+export const defaultStatus: LayerStatus = {
+  visible: true,
+  active: true,
+  source: 'synced'
+};
 
 interface LayerIds {
   0: Map<string, LayerStatus>;
@@ -33,8 +36,6 @@ interface StatusContextType {
     currentLayer?: LayerStatus,
     secondId?: string
   ) => StatusParams;
-  showInvisibleContent: boolean;
-  setShowInvisibleContent: (value: boolean) => void;
 }
 
 interface StatusParams {
@@ -50,11 +51,7 @@ export const StatusContext = createContext<StatusContextType>({
     allowEditing: false,
     allowSettings: false,
     invisible: false
-  }),
-  showInvisibleContent: false,
-  setShowInvisibleContent: () => {
-    return false;
-  }
+  })
 });
 
 export const useStatusContext = () => useContext(StatusContext);
@@ -63,12 +60,11 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
   children
 }) => {
   // Keep a layer chain to apply to deeper layers
-  const [showInvisibleContent, setShowInvisibleContent] = useState(false);
   const navLayersStatus = React.useRef<LayerStatus[]>([
-    { visible: true, active: true }, // 0 Project
-    { visible: true, active: true }, // 1 Quest
-    { visible: true, active: true }, // 2 Asset
-    { visible: true, active: true } //  3 Translation
+    { visible: true, active: true, source: 'synced' }, // 0 Project
+    { visible: true, active: true, source: 'synced' }, // 1 Quest
+    { visible: true, active: true, source: 'synced' }, // 2 Asset
+    { visible: true, active: true, source: 'synced' } //  3 Translation
   ]);
   const layerIds = React.useRef<LayerIds>({
     0: new Map(),
@@ -77,14 +73,6 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     3: new Map(),
     combined: new Map()
   });
-
-  useEffect(() => {
-    const fetchShowHiddenContent = async () => {
-      const showHidden = await getOptionShowHiddenContent();
-      setShowInvisibleContent(showHidden);
-    };
-    void fetchShowHiddenContent();
-  }, []);
 
   const layerStatus = (layerType: LayerType, id?: string) => {
     const status = defaultStatus;
@@ -99,7 +87,11 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
       i < navLayersStatus.current.length;
       i++
     ) {
-      navLayersStatus.current[i] = { visible: true, active: true };
+      navLayersStatus.current[i] = {
+        visible: true,
+        active: true,
+        source: 'synced'
+      };
     }
 
     return status;
@@ -114,24 +106,28 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     if ('quest_active' in status) {
       navLayersStatus.current[Number(layerType)] = {
         visible: status.visible && status.quest_visible,
-        active: status.active && status.quest_active
+        active: status.active && status.quest_active,
+        source: status.source
       };
       if (secondId) {
         layerIds.current.combined.set(id + secondId, {
           visible: status.quest_visible,
-          active: status.quest_active
+          active: status.quest_active,
+          source: status.source
         });
       }
     } else
       navLayersStatus.current[Number(layerType)] = {
         visible: status.visible,
-        active: status.active
+        active: status.active,
+        source: status.source
       };
 
-    const { visible, active } = status;
+    const { visible, active, source } = status;
     layerIds.current[layerType].set(id, {
       visible,
-      active
+      active,
+      source
     });
 
     // When in a shallow layer, ensure all deeper layers are visible and active
@@ -141,7 +137,11 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
       i < navLayersStatus.current.length;
       i++
     ) {
-      navLayersStatus.current[i] = { visible: true, active: true };
+      navLayersStatus.current[i] = {
+        visible: true,
+        active: true,
+        source: 'synced'
+      };
     }
 
     // printStatus();
@@ -150,7 +150,11 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
   function getStatusParams(
     layerType: LayerType,
     id?: string,
-    currentLayer: LayerStatus = { visible: true, active: true },
+    currentLayer: LayerStatus = {
+      visible: true,
+      active: true,
+      source: 'synced'
+    },
     secondId?: string
   ): StatusParams {
     let activeParent = true;
@@ -172,13 +176,15 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
 
     currentLayer = {
       active: currentLayer.active,
-      visible: currentLayer.visible
+      visible: currentLayer.visible,
+      source: currentLayer.source
     };
 
     if (id && layerIds.current[layerType].has(id)) {
       const auxLayer = layerIds.current[layerType].get(id) ?? {
         visible: true,
-        active: true
+        active: true,
+        source: 'synced' as const
       };
       currentLayer.active = currentLayer.active && auxLayer.active;
       currentLayer.visible = currentLayer.visible && auxLayer.visible;
@@ -187,7 +193,8 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     if (secondId) {
       const combinedLayer = layerIds.current.combined.get(id + secondId) ?? {
         visible: true,
-        active: true
+        active: true,
+        source: 'synced' as const
       };
       currentLayer.active = currentLayer.active && combinedLayer.active;
       currentLayer.visible = currentLayer.visible && combinedLayer.visible;
@@ -229,9 +236,7 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         layerStatus,
         setLayerStatus,
-        getStatusParams,
-        showInvisibleContent,
-        setShowInvisibleContent
+        getStatusParams
       }}
     >
       {children}

@@ -79,7 +79,7 @@ function SpeedDialTrigger({
       onPress={onPress}
       size="icon-xl"
       variant="outline"
-      className={className}
+      className={cn(!open && 'opacity-50', className)}
       {...props}
     >
       <MotiView

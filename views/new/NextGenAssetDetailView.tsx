@@ -5,86 +5,72 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import { Button, buttonTextVariants } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type { language } from '@/db/drizzleSchema';
 import {
   asset,
-  asset_content_link,
   language as languageTable,
-  project
+  project,
+  project as projectCloud
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
+import { getLocalUri } from '@/utils/fileUtils';
+import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  CrownIcon,
+  FileTextIcon,
+  FlagIcon,
+  ImageIcon,
+  LockIcon,
+  PlusIcon,
+  SettingsIcon,
+  UserIcon,
+  Volume2Icon,
+  VolumeXIcon
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Platform, Text, View } from 'react-native';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
-
-interface AssetWithContent extends Asset {
-  content?: AssetContent[];
-}
-
-type Asset = typeof asset.$inferSelect;
-type AssetContent = typeof asset_content_link.$inferSelect;
 
 const ASSET_VIEWER_PROPORTION = 0.35;
 
 type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
-  return useQuery({
-    queryKey: ['asset', 'offline', assetId],
-    queryFn: async () => {
-      // Get asset with content
-      const assetResult = await system.db
-        .select()
-        .from(asset)
-        .where(eq(asset.id, assetId))
-        .limit(1);
-
-      if (!assetResult.length) return null;
-
-      const assetData = assetResult[0];
-
-      // Get asset content
-      const contentResult = await system.db
-        .select()
-        .from(asset_content_link)
-        .where(eq(asset_content_link.asset_id, assetId));
-
-      return {
-        ...assetData,
-        content: contentResult
-      } as AssetWithContent;
-    },
-    enabled: !!assetId
+  return useHybridData({
+    dataType: 'asset',
+    queryKeyParams: [assetId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findFirst({
+        where: eq(asset.id, assetId),
+        with: {
+          content: true
+        }
+      })
+    ),
+    enableCloudQuery: false,
+    enableOfflineQuery: !!assetId
   });
 }
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { currentAssetId, currentProjectId, currentQuestId } =
-    useCurrentNavigation();
+    useAppNavigation();
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [targetLanguageId, setTargetLanguageId] = useState<string>('');
@@ -101,23 +87,31 @@ export default function NextGenAssetDetailView() {
   } = useNextGenOfflineAsset(currentAssetId || '');
 
   // Load asset attachments when asset ID changes
-  useEffect(() => {
-    if (!currentAssetId) return;
+  // useEffect(() => {
+  //   if (!currentAssetId) return;
 
-    // Load attachments for audio support
-    void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
-  }, [currentAssetId]);
+  //   // Load attachments for audio support
+  //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
+  // }, [currentAssetId]);
 
   // Get project info for target language and privacy
   const { data: projectData } = useQuery({
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
-      const result = await system.db
+      // Try local first then cloud
+      let result = await system.db
         .select()
         .from(project)
         .where(eq(project.id, currentProjectId))
         .limit(1);
+      if (!result[0]) {
+        result = await system.db
+          .select()
+          .from(projectCloud)
+          .where(eq(projectCloud.id, currentProjectId))
+          .limit(1);
+      }
       return result[0] || null;
     },
     enabled: !!currentProjectId
@@ -138,26 +132,35 @@ export default function NextGenAssetDetailView() {
   }, [projectData]);
 
   // Determine which asset to display
-  const activeAsset = offlineAsset;
+  const activeAsset = offlineAsset?.[0];
+
   const isLoading = isOfflineLoading;
 
   const currentStatus = useStatusContext();
 
-  const { allowEditing, allowSettings, invisible } =
-    currentStatus.getStatusParams(
+  const {
+    allowEditing,
+    allowSettings,
+    invisible: _invisible
+  } = React.useMemo(() => {
+    if (!activeAsset) {
+      return { allowEditing: false, allowSettings: false, invisible: false };
+    }
+    return currentStatus.getStatusParams(
       LayerType.ASSET,
-      activeAsset?.id || '',
+      activeAsset.id || '',
       activeAsset as LayerStatus,
       currentQuestId
     );
+  }, [activeAsset, currentQuestId, currentStatus]);
 
   // Collect attachment IDs for audio support
   const allAttachmentIds = React.useMemo(() => {
     if (!activeAsset?.content) return [];
 
     const contentAudioIds = activeAsset.content
-      .filter((content) => content.audio_id)
-      .map((content) => content.audio_id!)
+      .filter((content) => content.audio)
+      .flatMap((content) => content.audio!)
       .filter(Boolean);
 
     const imageIds = activeAsset.images ?? [];
@@ -167,8 +170,6 @@ export default function NextGenAssetDetailView() {
 
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
-
-  type Language = typeof language.$inferSelect;
 
   // Collect content-level language IDs for this asset
   const contentLanguageIds = React.useMemo(() => {
@@ -180,7 +181,7 @@ export default function NextGenAssetDetailView() {
   }, [activeAsset?.content]);
 
   // Fetch all languages used by content items
-  const { data: contentLanguages = [] } = useHybridData<Language>({
+  const { data: contentLanguages = [] } = useHybridData({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
     offlineQuery: toCompilableQuery(
@@ -216,20 +217,12 @@ export default function NextGenAssetDetailView() {
   const debugInfo = React.useMemo(
     () => ({
       assetId: currentAssetId,
-      offlineAsset: offlineAsset
-        ? {
-            id: offlineAsset.id,
-            name: offlineAsset.name,
-            contentCount: offlineAsset.content?.length ?? 0,
-            hasAudio: offlineAsset.content?.some((c) => c.audio_id) ?? false
-          }
-        : null,
       activeAsset: activeAsset
         ? {
             id: activeAsset.id,
             name: activeAsset.name,
             contentCount: activeAsset.content?.length ?? 0,
-            hasAudio: activeAsset.content?.some((c) => c.audio_id) ?? false
+            hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
           }
         : null,
       attachmentStatesCount: attachmentStates.size,
@@ -241,14 +234,52 @@ export default function NextGenAssetDetailView() {
           hasLocalUri: !!state.local_uri
         }))
     }),
-    [
-      currentAssetId,
-      offlineAsset,
-      activeAsset,
-      attachmentStates,
-      allAttachmentIds
-    ]
+    [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
   );
+
+  const { data: audioSegments, isLoading: isLoadingAudioSegments } = useQuery({
+    queryKey: ['audioSegments', currentAssetId, attachmentStates.size],
+    queryFn: async () => {
+      // Only include audio segments that are actually downloaded
+      const audioIds = activeAsset!.content
+        .flatMap((content) => content.audio)
+        .filter((id): id is string => typeof id === 'string');
+
+      const availableSegments: string[] = [];
+
+      for (const audioId of audioIds) {
+        const attachmentState = attachmentStates.get(audioId);
+
+        // Only include if the attachment is synced and has a local URI
+        if (attachmentState?.local_uri) {
+          const fullUri = getLocalUri(attachmentState.local_uri);
+          availableSegments.push(fullUri);
+        } else {
+          console.log(
+            `[AUDIO] Skipping ${audioId} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
+          );
+        }
+      }
+
+      return availableSegments;
+    },
+    enabled: !!activeAsset && !isLoadingAttachments
+  });
+
+  console.log('[AUDIO SEGMENTS]', audioSegments);
+
+  useEffect(() => {
+    if (!audioSegments) return;
+
+    return () => {
+      if (Platform.OS === 'web') {
+        audioSegments?.forEach((segment) => {
+          console.log('[AUDIO SEGMENT] Revoking object URL', segment);
+          URL.revokeObjectURL(segment);
+        });
+      }
+    };
+  }, [audioSegments]);
 
   React.useEffect(() => {
     console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
@@ -261,8 +292,12 @@ export default function NextGenAssetDetailView() {
 
   if (!currentAssetId) {
     return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>{t('noAssetSelected')}</Text>
+      <View className="flex-1">
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-center text-xl font-bold text-foreground">
+            {t('noAssetSelected')}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -270,16 +305,21 @@ export default function NextGenAssetDetailView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  if (isLoading) {
+  if (isLoading || isOfflineLoading) {
     return <AssetSkeleton />;
   }
 
   if (!activeAsset) {
     return (
-      <View style={sharedStyles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t('assetNotAvailableOffline')}</Text>
-          <Text style={styles.errorHint}>{t('assetMayNotBeSynchronized')}</Text>
+      <View className="flex-1 bg-background">
+        <View className="flex-1 items-center justify-center p-4">
+          <Text className="text-center text-lg text-destructive">
+            {t('assetNotAvailableOffline')}
+          </Text>
+          <View className="h-2" />
+          <Text className="text-center text-sm italic text-muted-foreground">
+            {t('assetMayNotBeSynchronized')}
+          </Text>
         </View>
       </View>
     );
@@ -299,249 +339,170 @@ export default function NextGenAssetDetailView() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View className="mb-safe flex-1 px-4">
       {/* Header */}
-      <View
-        style={[
-          styles.headerBar
-          // !allowSettings && sharedStyles.disabled
-        ]}
-      >
-        <View style={styles.titleContainer}>
-          <Text style={styles.assetName}>{activeAsset.name}</Text>
+      <View className="flex-row items-center justify-between gap-1">
+        <View className="flex-1 flex-row items-center gap-4">
+          <Text className="flex-1 text-xl font-bold text-foreground">
+            {activeAsset.name}
+          </Text>
           {projectData?.private && (
-            <View style={styles.projectIndicators}>
-              <Ionicons
-                name="lock-closed"
-                size={16}
-                color={colors.textSecondary}
-              />
+            <View className="flex-row items-center gap-1">
+              <Icon as={LockIcon} className="text-muted-foreground" />
               {translateMembership === 'owner' && (
-                <Ionicons name="ribbon" size={16} color={colors.primary} />
+                <Icon as={CrownIcon} className="text-primary" />
               )}
               {translateMembership === 'member' && (
-                <Ionicons name="person" size={16} color={colors.primary} />
+                <Icon as={UserIcon} className="text-primary" />
               )}
             </View>
           )}
         </View>
-        {SHOW_DEV_ELEMENTS && (
-          <Text style={[{ color: colors.text }]}>
-            V: {offlineAsset.visible ? '🟢' : '🔴'} A:{' '}
-            {offlineAsset.active ? '🟢' : '🔴'}
+        {SHOW_DEV_ELEMENTS && offlineAsset && (
+          <Text className="text-sm text-foreground">
+            V: {activeAsset.visible ? '🟢' : '🔴'} A:{' '}
+            {activeAsset.active ? '🟢' : '🔴'}
           </Text>
         )}
 
         {allowSettings &&
           (translateMembership === 'owner' ? (
-            <TouchableOpacity
+            <Button
               onPress={() => setShowAssetSettingsModal(true)}
-              style={styles.statsButton}
+              variant="ghost"
+              size="icon"
+              className="p-2"
             >
-              <Ionicons name="settings" size={22} color={colors.text} />
-            </TouchableOpacity>
+              <Icon as={SettingsIcon} size={22} className="text-foreground" />
+            </Button>
           ) : (
             !hasReported &&
             !isReportLoading && (
-              <TouchableOpacity
+              <Button
                 onPress={() => setShowReportModal(true)}
-                style={styles.statsButton}
+                variant="ghost"
+                size="icon"
+                className="p-2"
               >
-                <Ionicons name="flag" size={20} color={colors.text} />
-              </TouchableOpacity>
+                <Icon as={FlagIcon} size={20} className="text-foreground" />
+              </Button>
             )
           ))}
       </View>
 
       {/* Tab Bar */}
-      <View style={[styles.tabBar]}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'text' && styles.activeTab,
-            (!activeAsset.content || activeAsset.content.length === 0) &&
-              styles.disabledTab
-          ]}
-          onPress={() => setActiveTab('text')}
-          disabled={!activeAsset.content || activeAsset.content.length === 0}
-        >
-          <Ionicons
-            name="text"
-            size={24}
-            color={
-              activeAsset.content && activeAsset.content.length > 0
-                ? colors.text
-                : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'image' && styles.activeTab,
-            (!activeAsset.images || activeAsset.images.length === 0) &&
-              styles.disabledTab
-          ]}
-          onPress={() => setActiveTab('image')}
-          disabled={!activeAsset.images || activeAsset.images.length === 0}
-        >
-          <Ionicons
-            name="image"
-            size={24}
-            color={
-              activeAsset.images && activeAsset.images.length > 0
-                ? colors.text
-                : colors.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Asset Content Viewer */}
-      <View
-        style={[
-          styles.assetViewer,
-          !allowEditing && sharedStyles.disabled,
-          invisible && sharedStyles.invisible,
-          { height: assetViewerHeight }
-        ]}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as TabType)}
       >
-        <ScrollView
-          style={[styles.contentScrollView]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentScrollViewContent}
+        <TabsList className="w-full flex-row">
+          <TabsTrigger
+            value="text"
+            className="flex-1 items-center py-2"
+            disabled={!activeAsset.content || activeAsset.content.length === 0}
+          >
+            <Icon as={FileTextIcon} size={24} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="image"
+            className="flex-1 items-center py-2"
+            disabled={!activeAsset.images || activeAsset.images.length === 0}
+          >
+            <Icon as={ImageIcon} size={24} />
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Asset Content Viewer */}
+        <View
+          className={cn(!allowEditing && 'opacity-50')}
+          style={{ height: assetViewerHeight }}
         >
-          {/* Text Content Tab */}
-          {activeTab === 'text' && (
-            <>
-              {activeAsset.content && activeAsset.content.length > 0 ? (
-                activeAsset.content.map((content, index) => (
-                  <View key={index} style={styles.contentItem}>
-                    <SourceContent
-                      content={content}
-                      sourceLanguage={
-                        content.source_language_id
-                          ? (languageById.get(content.source_language_id) ??
-                            null)
-                          : null
-                      }
-                      audioUri={
-                        content.audio_id
-                          ? (() => {
-                              const attachment = attachmentStates.get(
-                                content.audio_id
-                              );
-                              const localUri = attachment?.local_uri;
-
-                              if (!localUri) {
-                                console.log(
-                                  `[AUDIO] No local URI for audio ${content.audio_id}, state:`,
-                                  attachment?.state
-                                );
-                                return null;
-                              }
-
-                              const fullUri =
-                                system.permAttachmentQueue?.getLocalUri(
-                                  localUri
-                                );
-                              console.log(
-                                `[AUDIO] Audio ${content.audio_id} -> ${fullUri}`
-                              );
-                              return fullUri;
-                            })()
-                          : null
-                      }
-                      isLoading={isLoadingAttachments}
-                    />
-
-                    {/* Audio status indicator */}
-                    {}
-                    {SHOW_DEV_ELEMENTS && content.audio_id && (
-                      <View style={styles.audioStatusContainer}>
-                        <Ionicons
-                          name={
-                            attachmentStates.get(content.audio_id)?.local_uri
-                              ? 'volume-high'
-                              : 'volume-mute'
-                          }
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={styles.audioStatusText}>
-                          {attachmentStates.get(content.audio_id)?.local_uri
-                            ? t('audioReady')
-                            : t('audioNotAvailable')}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.noContentText}>
-                  {t('noContentAvailable')}
-                </Text>
-              )}
-            </>
-          )}
-
-          {/* Image Content Tab */}
-          {activeTab === 'image' && (
-            <>
-              {activeAsset.images && activeAsset.images.length > 0 ? (
-                <View style={styles.imageCarouselWrapper}>
-                  <ImageCarousel
-                    uris={activeAsset.images
-                      .map((imageId) => {
-                        const attachment = attachmentStates.get(imageId);
-                        const localUri = attachment?.local_uri;
-
-                        if (!localUri) {
-                          console.log(
-                            `[IMAGE] No local URI for image ${imageId}, state:`,
-                            attachment?.state
-                          );
-                          return null;
-                        }
-
-                        const fullUri =
-                          system.permAttachmentQueue?.getLocalUri(localUri);
-                        console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
-                        return fullUri;
-                      })
-                      .filter((uri): uri is string => uri !== null)}
+          <TabsContent value="text">
+            {activeAsset.content && activeAsset.content.length > 0 ? (
+              activeAsset.content.map((content, index) => (
+                <View
+                  key={index}
+                  style={{
+                    marginBottom: index < activeAsset.content.length - 1 ? 8 : 0
+                  }}
+                >
+                  <SourceContent
+                    content={content}
+                    sourceLanguage={
+                      content.source_language_id
+                        ? (languageById.get(content.source_language_id) ?? null)
+                        : null
+                    }
+                    audioSegments={audioSegments}
+                    isLoading={isLoadingAttachments || isLoadingAudioSegments}
                   />
-                </View>
-              ) : (
-                <Text style={[styles.noContentText]}>
-                  {t('noContentAvailable')}
-                </Text>
-              )}
-            </>
-          )}
 
-          {/* Asset Info - Always visible 
-          <View style={styles.assetInfo}>
-            <Text style={styles.assetInfoText}>
-              {t('language')}:{' '}
-              {sourceLanguage?.native_name ??
-                sourceLanguage?.english_name ??
-                t('unknown')}
-            </Text>
-            {activeAsset.content?.some((c) => c.audio_id) && (
-              <Text style={styles.assetInfoText}>
-                🔊{' '}
-                {t('audioTracks', {
-                  count: activeAsset.content.filter((c) => c.audio_id).length
-                })}
+                  {/* Audio status indicator */}
+                  {SHOW_DEV_ELEMENTS && content.audio && (
+                    <View
+                      className="flex-row items-center gap-1"
+                      style={{ marginTop: 8 }}
+                    >
+                      <Icon
+                        as={
+                          attachmentStates.get(content.audio[0]!)?.local_uri
+                            ? Volume2Icon
+                            : VolumeXIcon
+                        }
+                        size={16}
+                        className="text-muted-foreground"
+                      />
+                      <Text className="text-sm text-muted-foreground">
+                        {attachmentStates.get(content.audio[0]!)?.local_uri
+                          ? t('audioReady')
+                          : t('audioNotAvailable')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text className="p-8 text-center text-base italic text-muted-foreground">
+                {t('noContentAvailable')}
               </Text>
             )}
-          </View>*/}
-        </ScrollView>
-      </View>
+          </TabsContent>
+
+          <TabsContent value="image">
+            {activeAsset.images && activeAsset.images.length > 0 ? (
+              <View className="h-48 overflow-hidden rounded-lg">
+                <ImageCarousel
+                  uris={activeAsset.images
+                    .map((imageId) => {
+                      const attachment = attachmentStates.get(imageId);
+                      const localUri = attachment?.local_uri;
+
+                      if (!localUri) {
+                        console.log(
+                          `[IMAGE] No local URI for image ${imageId}, state:`,
+                          attachment?.state
+                        );
+                        return null;
+                      }
+
+                      const fullUri = getLocalUri(localUri);
+                      console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
+                      return fullUri;
+                    })
+                    .filter((uri): uri is string => uri !== null)}
+                />
+              </View>
+            ) : (
+              <Text className="p-8 text-center text-base italic text-muted-foreground">
+                {t('noContentAvailable')}
+              </Text>
+            )}
+          </TabsContent>
+        </View>
+      </Tabs>
 
       {/* Translations List - Pass project data to avoid re-querying */}
-      <View style={{ flex: 1 }}>
+      <View className="flex-1">
         <NextGenTranslationsList
           assetId={currentAssetId}
           assetName={activeAsset.name}
@@ -560,36 +521,41 @@ export default function NextGenAssetDetailView() {
           isPrivate={true}
           action="translate"
           renderTrigger={({ onPress }) => (
-            <TouchableOpacity
-              style={styles.newTranslationButton}
+            <Button
+              className="flex-row items-center justify-center gap-2 px-6 py-4"
               onPress={onPress}
             >
-              <Ionicons
-                name="lock-closed"
+              <Icon
+                as={LockIcon}
                 size={20}
-                color={colors.buttonText}
+                className="text-primary-foreground"
               />
-              <Ionicons name="add" size={24} color={colors.buttonText} />
-              <Text style={styles.newTranslationButtonText}>
+              <Icon
+                as={PlusIcon}
+                size={24}
+                className="text-primary-foreground"
+              />
+              <Text className="text-base font-bold text-primary-foreground">
                 {t('membersOnly')}
               </Text>
-            </TouchableOpacity>
+            </Button>
           )}
           onAccessGranted={() => setShowNewTranslationModal(true)}
         />
       ) : (
-        <TouchableOpacity
-          style={[
-            styles.newTranslationButton,
-            !allowEditing && sharedStyles.disabled
-          ]}
-          onPress={() => (allowEditing ? handleNewTranslationPress() : null)}
+        <Button
+          className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
+          disabled={
+            !allowEditing ||
+            (activeAsset.source && activeAsset.source === 'local')
+          }
+          onPress={() => allowEditing && handleNewTranslationPress()}
         >
-          <Ionicons name="add" size={24} color={colors.buttonText} />
-          <Text style={styles.newTranslationButtonText}>
+          <Icon as={PlusIcon} size={24} />
+          <Text className={cn(buttonTextVariants(), 'text-base font-bold')}>
             {t('newTranslation')}
           </Text>
-        </TouchableOpacity>
+        </Button>
       )}
 
       {/* New Translation Modal */}
@@ -620,144 +586,6 @@ export default function NextGenAssetDetailView() {
         hasAlreadyReported={hasReported}
         onReportSubmitted={() => refetchOfflineAsset()}
       />
-    </SafeAreaView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background
-  },
-  headerBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  titleContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small,
-    marginRight: spacing.medium
-  },
-  assetName: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    flex: 1
-  },
-  projectIndicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.backgroundSecondary,
-    paddingVertical: spacing.small,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.small
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary
-  },
-  disabledTab: {
-    opacity: 0.5
-  },
-  assetViewer: {
-    backgroundColor: colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  contentScrollView: {
-    flex: 1
-  },
-  contentScrollViewContent: {
-    padding: spacing.medium
-  },
-  contentItem: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginBottom: spacing.small
-  },
-  noContentText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    padding: spacing.large
-  },
-  assetInfo: {
-    marginTop: spacing.medium,
-    gap: spacing.xsmall
-  },
-  assetInfoText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  errorContainer: {
-    padding: spacing.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.large
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: fontSizes.medium,
-    textAlign: 'center',
-    marginTop: spacing.medium
-  },
-  errorHint: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small,
-    textAlign: 'center',
-    marginTop: spacing.small,
-    fontStyle: 'italic'
-  },
-  newTranslationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.medium,
-    paddingHorizontal: spacing.large,
-    gap: spacing.small
-  },
-  newTranslationButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  audioStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall,
-    marginTop: spacing.small
-  },
-  audioStatusText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  imageCarouselWrapper: {
-    height: 200, // Fixed height for the carousel
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 8,
-    overflow: 'hidden'
-  },
-  statsButton: {
-    marginLeft: spacing.medium
-  }
-});

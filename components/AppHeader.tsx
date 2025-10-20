@@ -1,13 +1,14 @@
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
-import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import { AttachmentState } from '@powersync/attachments';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight, CloudOff, Menu, RefreshCw } from 'lucide-react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -16,6 +17,7 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
+import { Button } from './ui/button';
 
 export default function AppHeader({
   drawerToggleCallback
@@ -28,7 +30,7 @@ export default function AppHeader({
     goBack: _goBack
   } = useAppNavigation();
 
-  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { totalCount: notificationCount } = useNotifications();
   const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
     useSyncState();
@@ -78,59 +80,48 @@ export default function AppHeader({
   }));
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        {/* Back Button */}
-        {/* {canGoBack && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={goBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-        )} */}
-
+    <View className="bg-transparent p-4">
+      <View className="flex-row items-center">
         {/* Breadcrumbs */}
-        <View style={styles.breadcrumbContainer}>
+        <View className="flex-1 flex-row items-center overflow-hidden">
           {breadcrumbs.map((crumb, index) => {
             const isLast = index === breadcrumbs.length - 1;
             const isFirst = index === 0;
 
             return (
-              <View key={index} style={styles.breadcrumbItem}>
+              <View key={index} className="flex-shrink flex-row items-center">
                 {!isFirst && (
-                  <Ionicons
-                    name="chevron-forward"
+                  <Icon
+                    as={ChevronRight}
+                    className="mx-1 flex-shrink-0 text-muted-foreground"
                     size={16}
-                    color={colors.textSecondary}
-                    style={styles.breadcrumbSeparator}
                   />
                 )}
 
                 <View
-                  style={
-                    isLast
-                      ? styles.currentBreadcrumbTextContainer
-                      : styles.breadcrumbTextContainer
-                  }
+                  className={`flex-shrink ${
+                    isLast ? 'max-w-[150px]' : 'max-w-[80px]'
+                  }`}
                 >
                   {crumb.onPress ? (
                     <Pressable
                       onPress={crumb.onPress}
-                      onPressIn={() => setPressedIndex(index)}
-                      onPressOut={() => setPressedIndex(null)}
+                      // onPressIn={() => setPressedIndex(index)}
+                      // onPressOut={() => setPressedIndex(null)}
                       hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                      className={`flex-shrink rounded p-1`}
                       style={({ pressed }) => [
-                        styles.breadcrumbTouchable,
-                        pressed && styles.breadcrumbPressed
+                        {
+                          backgroundColor: pressed
+                            ? 'rgba(255, 255, 255, 0.15)'
+                            : '',
+                          opacity: pressed ? 0.8 : 1,
+                          transform: [{ scale: pressed ? 0.98 : 1 }]
+                        }
                       ]}
                     >
                       <Text
-                        style={[
-                          styles.breadcrumbLink,
-                          pressedIndex === index && styles.breadcrumbTextPressed
-                        ]}
+                        className="font-medium text-primary"
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
@@ -139,7 +130,7 @@ export default function AppHeader({
                     </Pressable>
                   ) : (
                     <Text
-                      style={styles.breadcrumbCurrent}
+                      className="font-semibold text-foreground"
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
@@ -153,172 +144,38 @@ export default function AppHeader({
         </View>
 
         {/* Menu Button with Indicators */}
-        <View style={styles.menuButtonContainer}>
-          <Pressable
+        <View className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
             onPress={drawerToggleCallback}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={({ pressed }) => [
-              styles.menuButton,
-              pressed && styles.menuButtonPressed
-            ]}
+            className="relative size-8"
           >
-            <Ionicons name="menu" size={24} color={colors.text} />
+            <Icon as={Menu} size={24} />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (
-              <View style={styles.offlineIndicator}>
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={10}
-                  color="white"
-                />
+              <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                <Icon as={CloudOff} size={10} className="text-white" />
               </View>
             ) : isSyncing ? (
-              <Animated.View style={[styles.syncIndicator, spinStyle]}>
-                <Ionicons name="sync-outline" size={10} color="white" />
+              <Animated.View
+                style={spinStyle}
+                className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-primary shadow-sm"
+              >
+                <Icon as={RefreshCw} size={10} className="text-white" />
               </Animated.View>
             ) : null}
 
             {/* Notification Badge - Top Right Corner */}
             {notificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <View style={styles.notificationDot} />
+              <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                <View className="h-1.5 w-1.5 rounded-full bg-white" />
               </View>
             )}
-          </Pressable>
+          </Button>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.medium
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center'
-    // minHeight: 54 // Standard touch target
-  },
-  backButton: {
-    marginRight: spacing.small,
-    padding: spacing.xsmall
-  },
-  breadcrumbContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    overflow: 'hidden' // Prevent overflow
-  },
-  breadcrumbItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1 // Allow items to shrink
-  },
-  breadcrumbTextContainer: {
-    maxWidth: 80, // Short max width for previous breadcrumbs
-    flexShrink: 1
-  },
-  currentBreadcrumbTextContainer: {
-    maxWidth: 150, // Longer max width for current breadcrumb
-    flexShrink: 1
-  },
-  breadcrumbTouchable: {
-    flexShrink: 1,
-    padding: 4,
-    borderRadius: 4
-  },
-  breadcrumbPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Subtle white overlay
-    transform: [{ scale: 0.98 }] // Slight scale down for tactile feedback
-  },
-  breadcrumbTextPressed: {
-    opacity: 0.8 // Less opacity reduction
-  },
-  menuButtonContainer: {
-    position: 'relative'
-  },
-  menuButton: {
-    padding: spacing.xsmall,
-    borderRadius: 4,
-    position: 'relative'
-  },
-  menuButtonPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Match breadcrumb style
-    transform: [{ scale: 0.98 }]
-  },
-  syncIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  offlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#FF6B6B', // Orange-red for offline
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FF4444', // Red color for notifications
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  notificationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'white'
-  },
-  breadcrumbSeparator: {
-    marginHorizontal: spacing.xsmall,
-    flexShrink: 0 // Don't shrink separators
-  },
-  breadcrumbLink: {
-    fontSize: fontSizes.medium,
-    color: colors.primary,
-    fontWeight: '500'
-  },
-  breadcrumbCurrent: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    fontWeight: '600'
-  },
-  spacer: {
-    width: 32 // Balance the back button
-  }
-});

@@ -28,7 +28,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 27.59% 22.75%;
     --primary: 251.9 55.25% 57.06%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 100% 100%;
     --secondary: 249.38 100% 93.73%;
     --secondary-foreground: 249.38 33.33% 37.65%;
     --muted: 234 45.45% 95.69%;
@@ -38,7 +38,7 @@
     --destructive: 350.18 100% 66.47%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 34.78% 90.98%;
-    --input: 0 0% 100%;
+    --input: 240 34.78% 90.98%;
     --ring: 251.9 55.76% 57.45%;
     --chart-1: 251.9 55.76% 57.45%;
     --chart-2: 249.64 94.92% 76.86%;

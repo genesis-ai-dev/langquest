@@ -1,53 +1,45 @@
-import { PasswordInput } from '@/components/PasswordInput';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { safeNavigate } from '@/utils/sharedUtils';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-interface ResetPasswordFormData {
-  password: string;
-  confirmPassword: string;
-}
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { LockIcon } from 'lucide-react-native';
+import { useForm } from 'react-hook-form';
+import { Alert, Keyboard, View } from 'react-native';
+import { z } from 'zod';
 
 export default function ResetPasswordView2() {
-  const [isLoading, setIsLoading] = useState(false);
   const { signOut } = useAuth();
   const { t } = useLocalization();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { errors }
-  } = useForm<ResetPasswordFormData>({
-    defaultValues: {
-      password: '',
-      confirmPassword: ''
-    }
-  });
+  const formSchema = z
+    .object({
+      password: z
+        .string(t('passwordRequired'))
+        .min(6, t('passwordMinLength'))
+        .trim(),
+      confirmPassword: z.string(t('confirmPassword')).trim()
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: t('passwordsNoMatch'),
+      path: ['confirmPassword']
+    });
 
-  const onSubmit = async (data: ResetPasswordFormData) => {
-    setIsLoading(true);
-    try {
+  const { mutateAsync: updatePassword, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
       const { error } = await system.supabaseConnector.client.auth.updateUser({
         password: data.password.trim()
       });
@@ -56,212 +48,98 @@ export default function ResetPasswordView2() {
 
       Keyboard.dismiss();
 
-      Alert.alert(
-        t('success') || 'Success',
-        t('passwordResetSuccess') ||
-          'Your password has been updated successfully',
-        [
-          {
-            text: t('ok') || 'OK',
-            // Sign out and let auth context handle navigation to sign in
-            // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
-            // at next page.
-            onPress: () => safeNavigate(() => void signOut())
-          }
-        ]
-      );
+      Alert.alert(t('success'), t('passwordResetSuccess'), [
+        {
+          text: t('ok'),
+          // Sign out and let auth context handle navigation to sign in
+          // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
+          // at next page.
+          onPress: () => safeNavigate(() => void signOut())
+        }
+      ]);
 
       // Reset form
-      reset();
-    } catch (error) {
+      form.reset();
+    },
+    onError: (error) => {
       Alert.alert(
-        t('error') || 'Error',
-        error instanceof Error
-          ? error.message
-          : t('passwordUpdateFailed') || 'Failed to update password'
+        t('error'),
+        error instanceof Error ? error.message : t('passwordUpdateFailed')
       );
-    } finally {
-      setIsLoading(false);
     }
-  };
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    disabled: isPending
+  });
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+    <Form {...form}>
+      <View className="m-safe flex flex-col gap-4 p-6">
+        <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('createNewPassword')}</Text>
+        </View>
+
+        <View className="flex w-full flex-1 flex-col gap-4">
+          <Icon as={LockIcon} size={32} className="mx-auto" />
+
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="newPassword"
+                    autoComplete="new-password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('newPassword')}
+                    secureTextEntry
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="newPassword"
+                    autoComplete="new-password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('confirmPassword')}
+                    secureTextEntry
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            onPress={form.handleSubmit((data) => updatePassword(data))}
+            disabled={isPending}
+            className="mt-4"
           >
-            <View
-              style={[
-                sharedStyles.container,
-                { backgroundColor: 'transparent', gap: spacing.medium }
-              ]}
-            >
-              <View style={{ alignItems: 'center', width: '100%' }}>
-                <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>
-                  {t('createNewPassword') || 'Create New Password'}
-                </Text>
-              </View>
-
-              {/* Form section */}
-              <View
-                style={{
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: spacing.medium
-                }}
-              >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={32}
-                  color={colors.text}
-                />
-
-                <View style={{ gap: spacing.medium, width: '100%' }}>
-                  {/* New Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="password"
-                      rules={{
-                        required:
-                          t('passwordRequired') || 'Password is required',
-                        minLength: {
-                          value: 6,
-                          message:
-                            t('passwordMinLength') ||
-                            'Password must be at least 6 characters'
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('newPassword') || 'New Password'}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.password && (
-                      <Text style={styles.errorText}>
-                        {errors.password.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Confirm Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="confirmPassword"
-                      rules={{
-                        required:
-                          t('confirmPassword') ||
-                          'Please confirm your password',
-                        validate: (value) =>
-                          value === watch('password') ||
-                          t('passwordsNoMatch') ||
-                          'Passwords do not match'
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={
-                              t('confirmPassword') || 'Confirm New Password'
-                            }
-                            placeholderTextColor={colors.text}
-                            value={value || ''}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.confirmPassword && (
-                      <Text style={styles.errorText}>
-                        {errors.confirmPassword.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Submit button */}
-                  <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center',
-                        opacity: isLoading ? 0.7 : 1
-                      }
-                    ]}
-                    onPress={handleSubmit(onSubmit)}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color={colors.background} />
-                    ) : (
-                      <Text style={sharedStyles.buttonText}>
-                        {t('updatePassword') || 'Update Password'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+            <Text>{t('updatePassword')}</Text>
+          </Button>
+        </View>
+      </View>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    alignSelf: 'flex-start'
-  }
-});

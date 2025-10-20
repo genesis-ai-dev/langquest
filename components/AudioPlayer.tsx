@@ -16,14 +16,14 @@ interface AudioFile {
 
 interface AudioPlayerProps {
   audioFiles?: AudioFile[];
-  audioUri?: string;
+  audioSegments?: string[];
   useCarousel?: boolean;
   mini?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   audioFiles = [],
-  audioUri,
+  audioSegments,
   useCarousel = true,
   mini = false
 }) => {
@@ -126,8 +126,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     );
   }
 
-  const audioFilesOrSingle = audioUri
-    ? [{ id: 'single', title: t('recording'), uri: audioUri }]
+  const audioFilesOrSingle = audioSegments
+    ? [{ id: 'single', title: t('recording'), uri: audioSegments[0]! }]
     : audioFiles;
 
   if (!audioFilesOrSingle[0]) return null;

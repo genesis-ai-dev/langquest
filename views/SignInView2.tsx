@@ -40,11 +40,11 @@ export default function NewSignIn({
 
   const formSchema = z.object({
     email: z
-      .string({ required_error: t('emailRequired') })
-      .email({ message: t('enterValidEmail') }),
-    password: z
-      .string({ required_error: t('passwordRequired') })
-      .min(6, { message: t('passwordMinLength') })
+      .email(t('enterValidEmail'))
+      .nonempty(t('emailRequired'))
+      .toLowerCase()
+      .trim(),
+    password: z.string(t('passwordRequired')).min(6, t('passwordMinLength'))
   });
 
   const { mutateAsync: login, isPending } = useMutation({
@@ -149,7 +149,7 @@ export default function NewSignIn({
         <View className="flex flex-col gap-2">
           <Button
             onPress={form.handleSubmit((data) => login(data))}
-            disabled={isPending}
+            loading={isPending}
           >
             <Text>{t('signIn')}</Text>
           </Button>

@@ -2,39 +2,59 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { TranslationSettingsModal } from '@/components/TranslationSettingsModal';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { translationService } from '@/database_services/translationService';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { translation, vote } from '@/db/drizzleSchema';
+import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import {
+  FlagIcon,
+  LockIcon,
+  PencilIcon,
+  SettingsIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  UserCircleIcon,
+  XIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Modal,
+  Alert as RNAlert,
   ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
+import { useHybridData } from './useHybridData';
 
 interface NextGenTranslationModalProps {
-  visible: boolean;
-  onClose: () => void;
-  translationId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  assetId: string;
   onVoteSuccess?: () => void;
   canVote?: boolean;
   isPrivateProject?: boolean;
@@ -42,64 +62,35 @@ interface NextGenTranslationModalProps {
   projectName?: string;
 }
 
-interface TranslationWithVotes {
-  id: string;
-  text: string | null;
-  audio: string | null;
-  creator_id: string;
-  created_at: string;
-  target_language_id: string;
-  asset_id: string;
-  active: boolean;
-  visible: boolean;
-  votes: {
-    id: string;
-    polarity: 'up' | 'down';
-    creator_id: string;
-    active: boolean;
-  }[];
-}
-
-function useNextGenTranslation(translationId: string) {
-  return useQuery({
-    queryKey: ['translation', 'nextgen', translationId],
-    queryFn: async () => {
-      // Get translation
-      const translationResult = await system.db
-        .select()
-        .from(translation)
-        .where(eq(translation.id, translationId))
-        .limit(1);
-
-      if (!translationResult.length) return null;
-
-      const translationData = translationResult[0];
-
-      // Get votes
-      const votesResult = await system.db
-        .select()
-        .from(vote)
-        .where(eq(vote.translation_id, translationId));
-
-      return {
-        ...translationData,
-        votes: votesResult
-      } as TranslationWithVotes;
-    },
-    enabled: !!translationId
+function useNextGenTranslation(assetId: string) {
+  return useHybridData({
+    dataType: 'translation',
+    queryKeyParams: [assetId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.asset.findFirst({
+        where: eq(asset.id, assetId),
+        with: {
+          content: true,
+          votes: true
+        }
+      })
+    ),
+    enabled: !!assetId,
+    enableCloudQuery: false
   });
 }
 
 export default function NextGenTranslationModal({
-  visible,
-  onClose,
-  translationId,
+  open,
+  onOpenChange,
+  assetId,
   onVoteSuccess,
   canVote: _canVote = true,
   isPrivateProject = false,
   projectId,
   projectName
 }: NextGenTranslationModalProps) {
+  const { project } = useProjectById(projectId);
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -112,28 +103,27 @@ export default function NextGenTranslationModal({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const { data: translationData, isLoading } =
-    useNextGenTranslation(translationId);
+  const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
   // Get audio attachment states
-  const audioIds = translationData?.audio ? [translationData.audio] : [];
+  const audioIds = translationData.flatMap((t) =>
+    t.content.flatMap((c) => c.audio ?? [])
+  );
   const { attachmentStates } = useAttachmentStates(audioIds);
 
+  const asset = translationData[0];
+  const assetText = asset?.content[0]?.text;
   // Calculate vote counts
   const upVotes =
-    translationData?.votes.filter((v) => v.active && v.polarity === 'up')
-      .length ?? 0;
+    asset?.votes.filter((v) => v.active && v.polarity === 'up').length ?? 0;
   const downVotes =
-    translationData?.votes.filter((v) => v.active && v.polarity === 'down')
-      .length ?? 0;
-  const userVote = translationData?.votes.find(
-    (v) => v.creator_id === currentUser?.id
-  );
+    asset?.votes.filter((v) => v.active && v.polarity === 'down').length ?? 0;
+  const userVote = asset?.votes.find((v) => v.creator_id === currentUser?.id);
 
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
-      if (!currentUser || !translationData) {
-        Alert.alert(t('error'), t('pleaseLogInToVote'));
+      if (!currentUser || !asset) {
+        RNAlert.alert(t('error'), t('pleaseLogInToVote'));
         return;
       }
       setPendingVoteType(voteType);
@@ -141,7 +131,7 @@ export default function NextGenTranslationModal({
       // If user already voted with the same polarity, deactivate the vote
       if (userVote?.polarity === voteType) {
         await voteService.addVote({
-          translation_id: translationId,
+          asset_id: assetId,
           creator_id: currentUser.id,
           vote_id: userVote.id,
           polarity: voteType,
@@ -150,7 +140,7 @@ export default function NextGenTranslationModal({
       } else {
         // Otherwise, add/update the vote
         await voteService.addVote({
-          translation_id: translationId,
+          asset_id: assetId,
           creator_id: currentUser.id,
           vote_id: userVote?.id,
           polarity: voteType
@@ -158,7 +148,7 @@ export default function NextGenTranslationModal({
       }
 
       await queryClient.invalidateQueries({
-        queryKey: ['translation', 'nextgen', translationId]
+        queryKey: ['translation', 'nextgen', assetId]
       });
     },
     onSuccess: () => {
@@ -170,33 +160,40 @@ export default function NextGenTranslationModal({
     }
   });
 
-  const getAudioUri = () => {
-    if (!translationData?.audio) return undefined;
-    const localUri = attachmentStates.get(translationData.audio)?.local_uri;
-    return localUri
-      ? system.permAttachmentQueue?.getLocalUri(localUri)
-      : undefined;
+  const getAudioSegments = () => {
+    if (!asset?.content.flatMap((c) => c.audio).length) return [];
+    return asset.content
+      .flatMap((c) => c.audio)
+      .filter(Boolean)
+      .map((audio) =>
+        getLocalAttachmentUriWithOPFS(
+          attachmentStates.get(audio)?.local_uri ?? ''
+        )
+      )
+      .filter(Boolean);
   };
 
-  const isOwnTranslation = currentUser?.id === translationData?.creator_id;
+  const audioSegments = getAudioSegments();
+
+  const isOwnTranslation = currentUser?.id === asset?.creator_id;
 
   const {
     hasReported,
     isLoading: isReportLoading,
     refetch
-  } = useHasUserReported(translationData?.id || '', 'translations');
+  } = useHasUserReported(asset?.id || '', 'translations');
 
   // Initialize edited text when translation data loads
   React.useEffect(() => {
-    if (translationData?.text) {
-      setEditedText(translationData.text);
+    if (assetText) {
+      setEditedText(assetText);
     }
-  }, [translationData?.text]);
+  }, [assetText]);
 
   const { mutate: createTranscription, isPending: isTranscribing } =
     useMutation({
       mutationFn: async () => {
-        if (!currentUser || !translationData) {
+        if (!currentUser || !asset) {
           throw new Error('Missing required data');
         }
 
@@ -204,24 +201,56 @@ export default function NextGenTranslationModal({
           throw new Error('Please enter a transcription');
         }
 
-        // Create a new translation with the same audio but new text
-        return translationService.createTranslation({
-          text: editedText.trim(),
-          target_language_id: translationData.target_language_id,
-          asset_id: translationData.asset_id,
-          creator_id: currentUser.id,
-          audio: translationData.audio || ''
+        if (!project) {
+          throw new Error('Project is required');
+        }
+
+        const translationAudio = asset.content
+          .flatMap((c) => c.audio)
+          .filter(Boolean);
+        await system.db.transaction(async (tx) => {
+          const [newAsset] = await tx
+            .insert(
+              resolveTable('asset', {
+                localOverride: project.source === 'local'
+              })
+            )
+            .values({
+              name: asset.name,
+              source_language_id: asset.source_language_id,
+              source_asset_id: asset.id,
+              creator_id: currentUser.id,
+              project_id: project.id
+            })
+            .returning();
+          if (!newAsset) {
+            throw new Error('Failed to insert asset');
+          }
+          await tx
+            .insert(
+              resolveTable('asset_content_link', {
+                localOverride: project.source === 'local'
+              })
+            )
+            .values({
+              text: editedText.trim(),
+              asset_id: newAsset.id,
+              source_language_id: asset.source_language_id,
+              ...(translationAudio.length > 0
+                ? { audio: translationAudio }
+                : {})
+            });
         });
       },
       onSuccess: () => {
-        Alert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
+        RNAlert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
-        onClose();
+        onOpenChange(false);
       },
       onError: (error) => {
         console.error('Error creating transcription:', error);
-        Alert.alert(t('error'), t('failedToCreateTranscription'));
+        RNAlert.alert(t('error'), t('failedToCreateTranscription'));
       }
     });
 
@@ -229,7 +258,7 @@ export default function NextGenTranslationModal({
     if (isEditing) {
       // Cancel editing
       setIsEditing(false);
-      setEditedText(translationData?.text || '');
+      setEditedText(assetText ?? '');
     } else {
       // Start editing
       setIsEditing(true);
@@ -243,26 +272,31 @@ export default function NextGenTranslationModal({
   const layerStatus = useStatusContext();
   const { allowEditing, allowSettings } = layerStatus.getStatusParams(
     LayerType.TRANSLATION,
-    translationData?.id || '',
-    translationData as LayerStatus
+    asset?.id || '',
+    asset as LayerStatus
   );
 
-  if (!visible) return null;
-
+  const { stopCurrentSound, isPlaying } = useAudio();
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
+    <Drawer
+      open={open}
+      onOpenChange={async (open) => {
+        onOpenChange(open);
+        if (!open) {
+          setShowReportModal(false);
+          setShowSettingsModal(false);
+          setIsEditing(false);
+          if (isPlaying) {
+            await stopCurrentSound();
+          }
+        }
+      }}
     >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.overlayTouchable} onPress={onClose} />
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('translation')}</Text>
-            <View style={styles.headerButtons}>
+      <DrawerContent className="mb-safe py-4">
+        <DrawerHeader>
+          <View className="flex-row items-center justify-between">
+            <DrawerTitle>{t('translation')}</DrawerTitle>
+            <View className="flex-row gap-2">
               {/* Edit/Transcription button */}
               {allowEditing && (
                 <PrivateAccessGate
@@ -271,493 +305,249 @@ export default function NextGenTranslationModal({
                   isPrivate={isPrivateProject}
                   action="edit_transcription"
                   renderTrigger={({ onPress, hasAccess }) => (
-                    <TouchableOpacity
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onPress={hasAccess ? toggleEdit : onPress}
-                      style={styles.editButton}
+                      className="p-2"
                     >
-                      <Ionicons
-                        name={
+                      <Icon
+                        as={
                           hasAccess
                             ? isEditing
-                              ? 'close'
-                              : 'pencil'
-                            : 'lock-closed'
+                              ? XIcon
+                              : PencilIcon
+                            : LockIcon
                         }
-                        size={20}
-                        color={
-                          hasAccess ? colors.primary : colors.textSecondary
+                        className={
+                          hasAccess ? 'text-primary' : 'text-muted-foreground'
                         }
                       />
-                    </TouchableOpacity>
+                    </Button>
                   )}
                 />
               )}
               {isOwnTranslation && allowSettings && (
-                <TouchableOpacity
-                  style={[
-                    styles.editButton,
-                    {
-                      alignSelf: 'flex-start'
-                    }
-                  ]}
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onPress={() => setShowSettingsModal(true)}
-                  disabled={false}
+                  className="p-2"
                 >
-                  <Ionicons name={'settings'} size={20} color={colors.text} />
-                </TouchableOpacity>
+                  <Icon as={SettingsIcon} className="text-foreground" />
+                </Button>
               )}
               {!isOwnTranslation && (
-                <TouchableOpacity
-                  style={[
-                    styles.editButton,
-                    {
-                      alignSelf: 'flex-start'
-                    }
-                  ]}
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onPress={() => setShowReportModal(true)}
                   disabled={hasReported || isReportLoading}
+                  className="p-2"
                 >
-                  <Ionicons
-                    name={'flag'}
-                    size={20}
-                    color={hasReported ? colors.disabled : colors.text}
+                  <Icon
+                    as={FlagIcon}
+                    className={
+                      hasReported ? 'text-muted-foreground' : 'text-foreground'
+                    }
                   />
-                </TouchableOpacity>
+                </Button>
               )}
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
             </View>
           </View>
+        </DrawerHeader>
 
-          <ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            {isLoading ? (
+        <ScrollView
+          className="max-h-96 px-4"
+          showsVerticalScrollIndicator={false}
+        >
+          {isLoading ? (
+            <View className="py-8">
               <ActivityIndicator
                 size="large"
-                color={colors.primary}
-                style={styles.loader}
+                color={getThemeColor('primary')}
               />
-            ) : translationData ? (
-              <>
-                {/* Translation Text */}
-                <View style={styles.translationContainer}>
-                  {isEditing ? (
-                    <TextInput
-                      style={styles.textInput}
-                      multiline
-                      placeholder={t('enterYourTranscription')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={editedText}
-                      onChangeText={setEditedText}
-                      autoFocus
+            </View>
+          ) : asset ? (
+            <View className="flex-col gap-4">
+              {/* Translation Text */}
+              {isEditing ? (
+                <Textarea
+                  placeholder={t('enterYourTranscription')}
+                  value={editedText}
+                  onChangeText={setEditedText}
+                  autoFocus
+                  size="sm"
+                />
+              ) : (
+                <Text
+                  className={cn(
+                    'text-lg leading-6 text-foreground',
+                    !assetText && 'italic text-muted-foreground'
+                  )}
+                >
+                  {assetText || '(No text)'}
+                </Text>
+              )}
+
+              {/* Audio Player */}
+              {audioSegments.length > 0 && !isEditing && (
+                <View>
+                  <AudioPlayer
+                    audioSegments={audioSegments}
+                    useCarousel={false}
+                    mini={false}
+                  />
+                </View>
+              )}
+
+              {/* Submit button for transcription */}
+              {isEditing && (
+                <Button
+                  variant="default"
+                  onPress={handleSubmitTranscription}
+                  disabled={!editedText.trim() || isTranscribing}
+                >
+                  {isTranscribing ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary-foreground')}
                     />
                   ) : (
-                    <Text style={styles.translationText}>
-                      {translationData.text || '(No text)'}
+                    <Text className="font-bold text-primary-foreground">
+                      {t('submitTranscription')}
                     </Text>
                   )}
-                </View>
+                </Button>
+              )}
 
-                {/* Audio Player */}
-                {translationData.audio && getAudioUri() && !isEditing && (
-                  <View style={styles.audioContainer}>
-                    <AudioPlayer
-                      audioUri={getAudioUri()}
-                      useCarousel={false}
-                      mini={false}
-                    />
-                  </View>
-                )}
-
-                {/* Submit button for transcription */}
-                {isEditing && (
-                  <TouchableOpacity
-                    style={[
-                      styles.submitButton,
-                      (!editedText.trim() || isTranscribing) &&
-                        styles.submitButtonDisabled
-                    ]}
-                    onPress={handleSubmitTranscription}
-                    disabled={!editedText.trim() || isTranscribing}
+              {/* Voting Section with PrivateAccessGate */}
+              {!isOwnTranslation &&
+                currentUser &&
+                !isEditing &&
+                !hasReported &&
+                allowEditing && (
+                  <PrivateAccessGate
+                    projectId={projectId || ''}
+                    projectName={projectName || ''}
+                    isPrivate={isPrivateProject}
+                    action="vote"
+                    inline={true}
                   >
-                    {isTranscribing ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={colors.buttonText}
-                      />
-                    ) : (
-                      <Text style={styles.submitButtonText}>
-                        {t('submitTranscription')}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-
-                {/* Voting Section with PrivateAccessGate */}
-                {!isOwnTranslation &&
-                  currentUser &&
-                  !isEditing &&
-                  !hasReported &&
-                  allowEditing && (
-                    <PrivateAccessGate
-                      projectId={projectId || ''}
-                      projectName={projectName || ''}
-                      isPrivate={isPrivateProject}
-                      action="vote"
-                      inline={true}
-                    >
-                      <View
-                        style={{
-                          marginBottom: 10,
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.text
-                        }}
-                      >
-                        <Text style={styles.netVoteText}>{t('voting')}</Text>
+                    <View className="flex-col gap-2.5">
+                      <View className="border-b border-foreground">
+                        <Text className="text-center text-base font-bold text-foreground">
+                          {t('voting')}
+                        </Text>
                       </View>
-                      {/* {allowEditing && ( */}
-                      <View style={styles.votingContainer}>
-                        <TouchableOpacity
-                          style={[
-                            styles.voteButton,
-                            styles.upVoteButton,
-                            userVote?.polarity === 'up' &&
-                              styles.voteButtonActive
-                          ]}
+                      <View className="w-full flex-row items-center justify-around">
+                        <Button
+                          variant={
+                            userVote?.polarity === 'up'
+                              ? 'default'
+                              : 'secondary'
+                          }
                           onPress={() => handleVote({ voteType: 'up' })}
                           disabled={isVotePending || !allowEditing}
+                          className="flex-row items-center justify-center bg-green-500 px-6 py-3"
                         >
                           {pendingVoteType === 'up' ? (
-                            <ActivityIndicator
-                              size="small"
-                              color={colors.buttonText}
-                            />
+                            <ActivityIndicator size="small" color="white" />
                           ) : (
-                            <>
-                              <Ionicons
-                                name={
-                                  userVote?.polarity === 'up'
-                                    ? 'thumbs-up'
-                                    : 'thumbs-up-outline'
-                                }
-                                size={24}
-                                color={colors.buttonText}
-                              />
-                            </>
+                            <Icon
+                              as={ThumbsUpIcon}
+                              size={24}
+                              className="text-white"
+                            />
                           )}
-                        </TouchableOpacity>
+                        </Button>
 
-                        <View style={styles.voteCountsContainer}>
+                        <View className="flex-1 flex-col items-center justify-center rounded-md">
                           <View>
-                            <Text style={styles.netVoteText}>
+                            <Text className="text-center text-base font-bold text-foreground">
                               Net: {upVotes - downVotes > 0 ? '+' : ''}
                               {upVotes - downVotes}
                             </Text>
                           </View>
-                          <View
-                            style={[
-                              {
-                                width: '100%',
-                                flex: 1,
-                                display: 'flex',
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                paddingHorizontal: spacing.medium
-                              }
-                            ]}
-                          >
-                            <Text style={styles.voteCountText}>{upVotes}</Text>
-                            <Text style={styles.voteCountText}>
+                          <View className="w-full flex-1 flex-row justify-between px-4">
+                            <Text className="text-base font-bold text-foreground">
+                              {upVotes}
+                            </Text>
+                            <Text className="text-base font-bold text-foreground">
                               {downVotes}
                             </Text>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          style={[
-                            styles.voteButton,
-                            styles.downVoteButton,
-                            userVote?.polarity === 'down' &&
-                              styles.voteButtonActive
-                          ]}
+                        <Button
+                          variant={
+                            userVote?.polarity === 'down'
+                              ? 'default'
+                              : 'secondary'
+                          }
                           onPress={() => handleVote({ voteType: 'down' })}
                           disabled={isVotePending || !allowEditing}
+                          className="flex-row items-center justify-center bg-red-600 px-6 py-3"
                         >
                           {pendingVoteType === 'down' ? (
-                            <ActivityIndicator
-                              size="small"
-                              color={colors.buttonText}
-                            />
+                            <ActivityIndicator size="small" color="white" />
                           ) : (
-                            <>
-                              <Ionicons
-                                name={
-                                  userVote?.polarity === 'down'
-                                    ? 'thumbs-down'
-                                    : 'thumbs-down-outline'
-                                }
-                                size={24}
-                                color={colors.buttonText}
-                              />
-                            </>
+                            <Icon
+                              as={ThumbsDownIcon}
+                              size={24}
+                              className="text-white"
+                            />
                           )}
-                        </TouchableOpacity>
+                        </Button>
                       </View>
-                      {/* )} */}
-                    </PrivateAccessGate>
-                  )}
+                    </View>
+                  </PrivateAccessGate>
+                )}
 
-                {/* Show login prompt if not logged in */}
-                {!currentUser && !isEditing && (
-                  <View style={styles.restrictedVotingContainer}>
-                    <Ionicons
-                      name="person-circle-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.restrictedVotingText}>
-                      {t('pleaseLogInToVoteOnTranslations')}
-                    </Text>
-                  </View>
-                )}
-                {isOwnTranslation ? (
-                  <TranslationSettingsModal
-                    isVisible={showSettingsModal}
-                    onClose={() => setShowSettingsModal(false)}
-                    translationId={translationId}
-                  />
-                ) : (
-                  <ReportModal
-                    isVisible={showReportModal}
-                    onClose={() => setShowReportModal(false)}
-                    recordId={translationId}
-                    recordTable="translations"
-                    creatorId={translationData.creator_id}
-                    hasAlreadyReported={hasReported}
-                    onReportSubmitted={() => refetch()}
-                  />
-                )}
-                {/* Debug Info */}
-                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-                {SHOW_DEV_ELEMENTS && (
-                  <View style={styles.debugContainer}>
-                    <Text style={styles.debugText}>
-                      {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
-                      {translationData.id.substring(0, 8)}...
-                    </Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={styles.errorText}>{t('translationNotFound')}</Text>
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+              {/* Show login prompt if not logged in */}
+              {!currentUser && !isEditing && (
+                <Alert icon={UserCircleIcon}>
+                  <AlertTitle>
+                    {t('pleaseLogInToVoteOnTranslations')}
+                  </AlertTitle>
+                </Alert>
+              )}
+              {isOwnTranslation ? (
+                <TranslationSettingsModal
+                  isVisible={showSettingsModal}
+                  onClose={() => setShowSettingsModal(false)}
+                  translationId={assetId}
+                />
+              ) : (
+                <ReportModal
+                  isVisible={showReportModal}
+                  onClose={() => setShowReportModal(false)}
+                  recordId={assetId}
+                  recordTable="translations"
+                  creatorId={asset.creator_id ?? undefined}
+                  hasAlreadyReported={hasReported}
+                  onReportSubmitted={() => refetch()}
+                />
+              )}
+              {/* Debug Info */}
+              {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+              {SHOW_DEV_ELEMENTS && (
+                <View className="items-center">
+                  <Text className="text-sm text-muted-foreground">
+                    {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
+                    {asset.id.substring(0, 8)}...
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="py-8">
+              <Text className="text-center text-base text-destructive">
+                {t('translationNotFound')}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </DrawerContent>
+    </Drawer>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  overlayTouchable: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '90%',
-    maxHeight: '80%'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  title: {
-    fontSize: fontSizes.xlarge,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  closeButton: {
-    //padding: spacing.small,
-    padding: 6
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: spacing.small
-  },
-  editButton: {
-    padding: spacing.small
-  },
-  scrollView: {
-    maxHeight: 400
-  },
-  loader: {
-    marginVertical: spacing.xlarge
-  },
-  translationContainer: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    marginBottom: spacing.medium
-  },
-  translationText: {
-    fontSize: fontSizes.large,
-    color: colors.text,
-    lineHeight: fontSizes.large * 1.4
-  },
-  textInput: {
-    fontSize: fontSizes.large,
-    color: colors.text,
-    lineHeight: fontSizes.large * 1.4,
-    padding: spacing.small,
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    minHeight: 100
-  },
-  audioContainer: {
-    marginBottom: spacing.medium,
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.medium,
-    paddingVertical: spacing.medium,
-    paddingHorizontal: spacing.large,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.medium
-  },
-  submitButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  submitButtonDisabled: {
-    opacity: 0.7
-  },
-  // voteCountsContainer: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  //   // backgroundColor: colors.backgroundSecondary,
-  //   borderRadius: borderRadius.medium,
-  //   padding: spacing.medium,
-  //   marginBottom: spacing.medium,
-  //   gap: spacing.large
-  // },
-  voteCountsContainer: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignContent: 'center',
-    borderRadius: borderRadius.medium
-    // padding: spacing.small
-    // marginBottom: spacing.medium
-    // gap: spacing.large
-  },
-  voteCountItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
-  },
-  voteCountText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  netVoteText: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    color: colors.text,
-    textAlign: 'center'
-    // marginLeft: 'auto'
-    // padding: spacing.small
-  },
-  votingContainer: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    //    gap: spacing.medium,
-    marginBottom: 0,
-    bottom: 0
-    // paddingHorizontal: spacing.xlarge
-  },
-  voteButton: {
-    // flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.medium,
-    paddingHorizontal: spacing.large,
-    borderRadius: borderRadius.medium,
-    gap: spacing.small
-  },
-  upVoteButton: {
-    backgroundColor: colors.success
-  },
-  downVoteButton: {
-    // backgroundColor: colors.primary
-    backgroundColor: '#E53935'
-  },
-  voteButtonActive: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }]
-  },
-  voteButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  debugContainer: {
-    alignItems: 'center',
-    marginTop: spacing.medium
-  },
-  debugText: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  errorText: {
-    fontSize: fontSizes.medium,
-    color: colors.error,
-    textAlign: 'center',
-    marginVertical: spacing.xlarge
-  },
-  restrictedVotingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    marginBottom: spacing.medium,
-    gap: spacing.small
-  },
-  restrictedVotingText: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary,
-    textAlign: 'center'
-  }
-});

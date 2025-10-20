@@ -6,32 +6,47 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import type { language } from '@/db/drizzleSchema';
+import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import { cn } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
-  value?: string;
+  value?: string | null;
   onChange?: (language: Language) => void;
   label?: boolean;
   containerStyle?: object;
+  className?: string;
+  uiReadyOnly?: boolean;
+}
+
+export function getAllLanguageOption(language?: Language | null): Option {
+  if (language) {
+    return {
+      value: language.id,
+      label: language.native_name ?? language.english_name ?? ''
+    };
+  }
 }
 
 export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   value,
   onChange,
-  setLanguagesLoaded
+  setLanguagesLoaded,
+  className,
+  uiReadyOnly
 }) => {
   const insets = useSafeAreaInsets();
   const contentInsets = {
@@ -44,30 +59,39 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     right: 21
   };
 
-  const setLanguage = useLocalStore((state) => state.setLanguage);
-  const savedLanguage = useLocalStore((state) => state.language);
+  const setUILanguage = useLocalStore((state) => state.setUILanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
+
+  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+
   const { t } = useLocalization();
 
-  const { data: languages } = useHybridData<Language>({
-    dataType: 'languages',
-    queryKeyParams: ['ui-ready'],
+  const conditions = [
+    eq(languageTable.active, true),
+    uiReadyOnly && eq(languageTable.ui_ready, true)
+  ];
 
-    // PowerSync query using Drizzle
+  // Use useHybridData to fetch ALL languages (not just UI-ready ones)
+  const { data: languages } = useHybridData({
+    dataType: 'all-languages',
+    queryKeyParams: [uiReadyOnly],
+
+    // PowerSync query using Drizzle - get all active languages
     offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
-        where: (languageTable, { eq, and }) =>
-          and(eq(languageTable.active, true), eq(languageTable.ui_ready, true))
+        where: and(...conditions.filter(Boolean))
       })
     ),
 
-    // Cloud query
+    // Cloud query - get all active languages
     cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
+      let query = system.supabaseConnector.client
         .from('language')
         .select('*')
-        .eq('active', true)
-        .eq('ui_ready', true)
-        .overrideTypes<Language[]>();
+        .eq('active', true);
+      if (uiReadyOnly) query = query.eq('ui_ready', true);
+
+      const { data, error } = await query.overrideTypes<Language[]>();
       if (error) throw error;
       return data;
     }
@@ -79,28 +103,31 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     }
   }, [languages, setLanguagesLoaded]);
 
-  const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
-  const selectedLanguage =
-    languages.find((l) => l.id === value) ?? savedLanguage;
+  // Use controlled value if provided, otherwise fall back to saved language
+  // Don't set a default language on mount - let it be empty until user selects
+  const selectedLanguage = value
+    ? languages.find((l) => l.id === value)
+    : (uiLanguage ?? languages.find((lang) => lang.locale === 'en'));
 
-  const selectedOption: Option = {
-    value: selectedLanguage?.id ?? defaultLanguage?.id ?? '',
-    label: selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
-  };
+  const selectedOption = getAllLanguageOption(selectedLanguage);
 
   return (
     <Select
       value={selectedOption}
-      onValueChange={(option: Option | undefined) => {
+      onValueChange={(option) => {
         if (!option) return;
         const lang = languages.find((l) => l.id === option.value);
         if (lang) {
-          setLanguage(lang);
-          onChange?.(lang);
+          // If onChange is provided, use it (controlled mode)
+          setSavedLanguage(lang);
+          if (onChange) onChange(lang);
+          else setUILanguage(lang);
         }
       }}
     >
-      <SelectTrigger className="h-12 flex-row items-center rounded-md px-3">
+      <SelectTrigger
+        className={cn(`h-12 flex-row items-center rounded-md px-3`, className)}
+      >
         <Icon as={LanguagesIcon} className="text-muted-foreground" />
         <SelectValue
           className="text-base text-foreground"
@@ -111,7 +138,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         {languages
           .filter((l) => l.native_name)
           .map((lang) => (
-            <SelectItem key={lang.id} value={lang.id} label={lang.native_name!}>
+            <SelectItem key={lang.id} {...getAllLanguageOption(lang)!}>
               {lang.native_name}
             </SelectItem>
           ))}
@@ -119,3 +146,5 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     </Select>
   );
 };
+
+LanguageSelect.displayName = 'LanguageSelect';

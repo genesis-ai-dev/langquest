@@ -97,14 +97,18 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         message = active ? t('projectMadeActive') : t('projectMadeInactive');
       }
 
-      await updateProjectStatus(projectId, {
-        private: privateProject,
-        visible,
-        active
-      });
+      await updateProjectStatus(
+        projectId,
+        {
+          private: privateProject,
+          visible,
+          active
+        },
+        projectData.source
+      );
       layerStatus.setLayerStatus(
         LayerType.PROJECT,
-        { visible, active },
+        { visible, active, source: projectData.source },
         projectId
       );
 

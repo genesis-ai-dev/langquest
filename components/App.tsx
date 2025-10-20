@@ -6,38 +6,22 @@ import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { openDB, useDrizzleStudio } from '@/hooks/useDrizzleStudio';
+import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
-import { colors } from '@/styles/theme';
 import AppView from '@/views/AppView';
 import ResetPasswordView2 from '@/views/ResetPasswordView2';
-import clsx from 'clsx';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StyleSheet } from 'react-native';
 
 // Wrapper component to provide consistent gradient background
 function AppWrapper({ children }: { children: React.ReactNode }) {
-  const { currentView } = useAppNavigation();
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={styles.gradient}
+    <SafeAreaView
+      style={{ flex: 1 }}
+      className="bg-background"
+      edges={['top', 'left', 'right']}
     >
-      <SafeAreaView
-        style={{ flex: 1 }}
-        className={clsx(
-          (currentView === 'projects' ||
-            currentView === 'quests' ||
-            currentView === 'profile') &&
-            'bg-background'
-        )}
-        edges={['top', 'left', 'right']}
-      >
-        {children}
-      </SafeAreaView>
-    </LinearGradient>
+      {children}
+    </SafeAreaView>
   );
 }
 
@@ -46,7 +30,7 @@ export default function App() {
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const router = useRouter();
 
-  useDrizzleStudio(openDB());
+  useDrizzleStudio();
 
   // Initialize network listener on app startup
   useEffect(() => {
@@ -111,9 +95,3 @@ export default function App() {
     </AppWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: {
-    flex: 1
-  }
-});

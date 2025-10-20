@@ -222,7 +222,6 @@ class DebugProfiler {
 
   // Enhanced blocking detection with cause analysis
   startBlockingDetection() {
-    return;
     if (!this.enabled) return;
 
     let lastTime = performance.now();
@@ -364,7 +363,6 @@ class DebugProfiler {
 
   // Analyze patterns in blocking events
   private analyzeBlockingPatterns() {
-    return;
     if (this.blockingEvents.length < 5) return;
 
     const recent = this.blockingEvents.slice(-10);
@@ -511,7 +509,7 @@ export const trackStateUpdate = (
 
 // Start blocking detection immediately
 if (__DEV__) {
-  profiler.startBlockingDetection();
+  // profiler.startBlockingDetection();
 }
 
 // Make available globally for debugging

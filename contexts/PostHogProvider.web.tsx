@@ -4,7 +4,6 @@ import React from 'react';
 
 function isDisabled() {
   return (
-    process.env.EXPO_PUBLIC_APP_VARIANT === 'development' ||
     typeof __DEV__ !== 'undefined' ||
     !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
     !process.env.EXPO_PUBLIC_POSTHOG_KEY

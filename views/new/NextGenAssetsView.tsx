@@ -1,37 +1,54 @@
-import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { asset } from '@/db/drizzleSchema';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
-import { useLocalization } from '@/hooks/useLocalization';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors, fontSizes, sharedStyles, spacing } from '@/styles/theme';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
-import React from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from 'react-native';
-
-import { ModalDetails } from '@/components/ModalDetails';
-import { ReportModal } from '@/components/NewReportModal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import {
   SpeedDial,
   SpeedDialItem,
   SpeedDialItems,
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
+import { Text } from '@/components/ui/text';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { asset } from '@/db/drizzleSchema';
+import { quest as questTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useDebouncedState } from '@/hooks/use-debounced-state';
+import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { LegendList } from '@legendapp/list';
+import {
+  CheckIcon,
+  FlagIcon,
+  InfoIcon,
+  MicIcon,
+  SearchIcon,
+  SettingsIcon,
+  Share2Icon
+} from 'lucide-react-native';
+import React from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
+import type { HybridDataSource } from './useHybridData';
+import { useHybridData } from './useHybridData';
+
+import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { ModalDetails } from '@/components/ModalDetails';
+import { ReportModal } from '@/components/NewReportModal';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
-import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/useReports';
-import { FlagIcon, InfoIcon, SettingsIcon } from 'lucide-react-native';
+import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
+import { getThemeColor } from '@/utils/styleUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useMutation } from '@tanstack/react-query';
+import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
+import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -41,23 +58,182 @@ type AssetQuestLink = Asset & {
 
 export default function NextGenAssetsView() {
   const { currentQuestId, currentProjectId } = useCurrentNavigation();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
+    '',
+    300
+  );
   const { t } = useLocalization();
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
 
-  const { quest } = useQuestById(currentQuestId);
+  type Quest = typeof questTable.$inferSelect;
 
-  // Debounce the search query
-  React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms delay
+  const { data: questData } = useHybridData({
+    dataType: 'current-quest',
+    queryKeyParams: [currentQuestId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest.findFirst({
+        where: eq(questTable.id, currentQuestId!)
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('id', currentQuestId)
+        .overrideTypes<Quest[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentQuestId,
+    enableOfflineQuery: !!currentQuestId,
+    getItemId: (item) => item.id
+  });
+  const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  const [showRecording, setShowRecording] = React.useState(false);
+
+  // const handleRecordingComplete = React.useCallback(
+  //   async (uri: string, duration: number, waveformData: number[]) => {
+  //     // Fixed number of bars for visual consistency - stretch/compress recorded data to fit
+  //     const DISPLAY_BARS = 48;
+
+  //     const interpolateToFixedBars = (
+  //       samples: number[],
+  //       targetBars: number
+  //     ): number[] => {
+  //       if (samples.length === 0) {
+  //         return new Array<number>(targetBars).fill(0.01);
+  //       }
+
+  //       const result: number[] = [];
+
+  //       if (samples.length === targetBars) {
+  //         // Perfect match, just clamp values
+  //         return samples.map((v) => Math.max(0.01, Math.min(0.99, v)));
+  //       } else if (samples.length < targetBars) {
+  //         // Expand: linear interpolation to stretch recorded data across fixed bars
+  //         for (let i = 0; i < targetBars; i++) {
+  //           const sourceIndex = (i / (targetBars - 1)) * (samples.length - 1);
+  //           const lowerIndex = Math.floor(sourceIndex);
+  //           const upperIndex = Math.min(
+  //             samples.length - 1,
+  //             Math.ceil(sourceIndex)
+  //           );
+  //           const fraction = sourceIndex - lowerIndex;
+
+  //           const lowerValue = samples[lowerIndex] ?? 0.01;
+  //           const upperValue = samples[upperIndex] ?? 0.01;
+  //           const interpolatedValue =
+  //             lowerValue + (upperValue - lowerValue) * fraction;
+  //           result.push(Math.max(0.01, Math.min(0.99, interpolatedValue)));
+  //         }
+  //       } else {
+  //         // Compress: average bins to fit recorded data into fixed bars
+  //         const binSize = samples.length / targetBars;
+  //         for (let i = 0; i < targetBars; i++) {
+  //           const start = Math.floor(i * binSize);
+  //           const end = Math.floor((i + 1) * binSize);
+  //           let sum = 0;
+  //           let count = 0;
+  //           for (let j = start; j < end && j < samples.length; j++) {
+  //             sum += samples[j] ?? 0;
+  //             count++;
+  //           }
+  //           const avgValue = count > 0 ? sum / count : 0.01;
+  //           result.push(Math.max(0.01, Math.min(0.99, avgValue)));
+  //         }
+  //       }
+
+  //       // Apply light smoothing for better visual appearance
+  //       const smoothed: number[] = [...result];
+  //       for (let i = 1; i < smoothed.length - 1; i++) {
+  //         const prev = result[i - 1] ?? 0.01;
+  //         const curr = result[i] ?? 0.01;
+  //         const next = result[i + 1] ?? 0.01;
+  //         // Light 3-point smoothing (80% original, 20% neighbors)
+  //         smoothed[i] = curr * 0.8 + (prev + next) * 0.1;
+  //       }
+
+  //       return smoothed;
+  //     };
+
+  //     const interpolatedWaveform = interpolateToFixedBars(
+  //       waveformData,
+  //       DISPLAY_BARS
+  //     );
+  //     const newSegment: AudioSegment = {
+  //       id: uuid.v4(),
+  //       uri,
+  //       duration,
+  //       waveformData: interpolatedWaveform,
+  //       name: generateAssetName(audioSegments.length + 1)
+  //     };
+
+  //     if (!currentProject) {
+  //       throw new Error('Current project is required');
+  //     }
+
+  //     if (!currentQuestId) {
+  //       throw new Error('Current quest ID is required');
+  //     }
+
+  //     // TODO: create a record in the asset_local table for local-only temp storage
+  //     await system.db.transaction(async (tx) => {
+  //       const [newAsset] = await tx
+  //         .insert(resolveTable('asset', { localOverride: true }))
+  //         .values({
+  //           name: newSegment.name,
+  //           id: newSegment.id,
+  //           source_language_id: currentProject.target_language_id, // the target language is the source language for the asset
+  //           creator_id: currentUser!.id,
+  //           download_profiles: [currentUser!.id]
+  //         })
+  //         .returning();
+
+  //       if (!newAsset) {
+  //         throw new Error('Failed to insert asset');
+  //       }
+
+  //       await tx
+  //         .insert(resolveTable('quest_asset_link', { localOverride: true }))
+  //         .values({
+  //           id: `${currentQuestId}_${newAsset.id}`,
+  //           quest_id: currentQuestId,
+  //           asset_id: newAsset.id,
+  //           download_profiles: [currentUser!.id]
+  //         });
+
+  //       // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
+  //       // await system.permAttachmentQueue?.saveAudio(uri);
+
+  //       await tx
+  //         .insert(resolveTable('asset_content_link', { localOverride: true }))
+  //         .values({
+  //           asset_id: newAsset.id,
+  //           source_language_id: currentProject.target_language_id,
+  //           text: newSegment.name,
+  //           audio_id: newSegment.id,
+  //           download_profiles: [currentUser!.id]
+  //         });
+  //     });
+
+  //     // TODO: save the audio file to the device, then add to attachment queue, etc. like in a regular translation creation
+
+  //     setAudioSegments((prev) => {
+  //       const newSegments = [...prev];
+  //       newSegments.splice(insertionIndex, 0, newSegment);
+  //       return newSegments;
+  //     });
+
+  //     // Move insertion cursor to after the new segment
+  //     setInsertionIndex((prev) => prev + 1);
+  //   },
+  //   [audioSegments.length, insertionIndex]
+  // );
+
+  // debounced search handled by useDebouncedState
 
   const { membership } = useUserPermissions(
     currentProjectId || '',
@@ -69,8 +245,8 @@ export default function NextGenAssetsView() {
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
-  currentStatus.layerStatus(LayerType.QUEST);
-  const { showInvisibleContent } = currentStatus;
+  currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
+  const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
 
   const {
     data,
@@ -79,7 +255,8 @@ export default function NextGenAssetsView() {
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching
+    isFetching,
+    refetch
   } = useAssetsByQuest(
     currentQuestId || '',
     debouncedSearchQuery,
@@ -87,24 +264,7 @@ export default function NextGenAssetsView() {
   );
 
   // Flatten all pages into a single array
-  const assets = React.useMemo(() => {
-    const allAssets = data.pages.flatMap((page) => page.data);
-
-    // Filter out invalid assets (e.g., cloud assets without proper data)
-    const validAssets = allAssets.filter((asset) => {
-      // Must have at least id and name to be valid
-      return asset.id && asset.name;
-    });
-
-    // Sort assets by name in natural alphanumerical order
-    return validAssets.sort((a, b) => {
-      // Use localeCompare with numeric option for natural sorting
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: 'base'
-      });
-    });
-  }, [data.pages]);
+  const assets = data.pages.flatMap((page) => page.data);
 
   // Watch attachment states for all assets
   const assetIds = React.useMemo(() => {
@@ -132,19 +292,15 @@ export default function NextGenAssetsView() {
   }, [attachmentStates]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: string } }) => (
+    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
       <AssetListItem
+        key={item.id}
         asset={item}
         attachmentState={attachmentStates.get(item.id)}
         questId={currentQuestId || ''}
       />
     ),
-    [attachmentStates]
-  );
-
-  const keyExtractor = React.useCallback(
-    (item: Asset & { source?: string }) => item.id,
-    []
+    [attachmentStates, currentQuestId]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -153,23 +309,11 @@ export default function NextGenAssetsView() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const renderFooter = React.useCallback(() => {
-    if (!isFetchingNextPage) return null;
-
-    return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }, [isFetchingNextPage]);
+  // footer handled inline in ListFooterComponent
 
   const statusText = React.useMemo(() => {
-    const offlineCount = assets.filter(
-      (a) => a.source === 'localSqlite'
-    ).length;
-    const cloudCount = assets.filter(
-      (a) => a.source === 'cloudSupabase'
-    ).length;
+    const offlineCount = assets.filter((a) => a.source !== 'cloud').length;
+    const cloudCount = assets.filter((a) => a.source === 'cloud').length;
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
   }, [isOnline, assets]);
 
@@ -200,97 +344,213 @@ export default function NextGenAssetsView() {
     currentQuestId
   );
 
-  // Speed dial items are composed inline below
-
-  if (isLoading && !searchQuery) {
-    return <ProjectListSkeleton />;
-  }
+  // Handle publish button press with useMutation
+  const { mutate: publishQuest, isPending: isPublishing } = useMutation({
+    mutationFn: async () => {
+      if (!currentQuestId || !currentProjectId) {
+        throw new Error('Missing quest or project ID');
+      }
+      console.log(`📤 Publishing quest ${currentQuestId}...`);
+      const result = await publishQuestUtils(currentQuestId, currentProjectId);
+      void refetch();
+      return result;
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
+      } else {
+        Alert.alert(
+          'Publishing Failed',
+          result.message || 'An unknown error occurred',
+          [{ text: 'OK' }]
+        );
+      }
+    },
+    onError: (error) => {
+      console.error('Publish error:', error);
+      Alert.alert(
+        t('error'),
+        error instanceof Error ? error.message : 'Failed to publish chapter',
+        [{ text: 'OK' }]
+      );
+    }
+  });
 
   if (!currentQuestId) {
     return (
-      <View style={sharedStyles.container}>
-        <Text style={sharedStyles.title}>{t('noQuestSelected')}</Text>
+      <View className="flex-1 items-center justify-center p-6">
+        <Text>{t('noQuestSelected')}</Text>
       </View>
     );
   }
 
-  return (
-    <View style={sharedStyles.container}>
-      <Text style={sharedStyles.title}>{t('assets')}</Text>
+  // Recording mode UI
+  if (showRecording) {
+    // Pass existing assets as initial data for instant rendering
+    return (
+      <RecordingViewSimplified
+        onBack={() => setShowRecording(false)}
+        initialAssets={assets}
+      />
+    );
+  }
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('searchAssets')}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor={colors.textSecondary}
-        />
-        <View style={styles.searchIconContainer}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-        </View>
-        {/* Show loading indicator in search bar when searching */}
-        {isFetching && searchQuery && (
-          <View style={styles.searchLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
+  // Check if quest is published (source is 'synced')
+  const isPublished = selectedQuest?.source === 'synced';
+
+  return (
+    <View className="flex flex-1 flex-col gap-6 p-6">
+      <View className="flex flex-row items-center justify-between">
+        <Text className="text-xl font-semibold">{t('assets')}</Text>
+        {isPublished ? (
+          <Badge
+            variant="default"
+            className="flex flex-row items-center gap-1 bg-chart-5/80"
+          >
+            <Icon as={CheckIcon} size={14} className="text-white" />
+            <Text className="font-medium text-white">{t('published')}</Text>
+          </Badge>
+        ) : (
+          <View className="flex flex-row items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={isPublishing || !isOnline}
+              onPress={() => {
+                if (!isOnline) {
+                  Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                  return;
+                }
+
+                if (!currentQuestId) {
+                  console.error('No current quest id');
+                  return;
+                }
+
+                // Use quest name if available, otherwise generic message
+                const questName = selectedQuest?.name || 'this chapter';
+
+                Alert.alert(
+                  t('publishChapter'),
+                  t('publishChapterMessage').replace('{questName}', questName),
+                  [
+                    {
+                      text: t('cancel'),
+                      style: 'cancel'
+                    },
+                    {
+                      text: t('publish'),
+                      style: 'default',
+                      onPress: () => {
+                        publishQuest();
+                      }
+                    }
+                  ]
+                );
+              }}
+            >
+              {isPublishing ? (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              ) : (
+                <Icon as={Share2Icon} />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-[1.5px] border-primary"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon as={MicIcon} className="text-primary" />
+            </Button>
           </View>
         )}
       </View>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+      <Input
+        placeholder={t('searchAssets')}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        prefix={SearchIcon}
+        prefixStyling={false}
+        size="sm"
+        suffix={
+          isFetching && searchQuery ? (
+            <ActivityIndicator size="small" color={getThemeColor('primary')} />
+          ) : undefined
+        }
+        suffixStyling={false}
+      />
+
       {SHOW_DEV_ELEMENTS && (
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: fontSizes.small,
-            marginBottom: spacing.small
-          }}
-        >
-          {statusText}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
       {SHOW_DEV_ELEMENTS &&
         !isAttachmentStatesLoading &&
         attachmentStates.size > 0 && (
-          <View style={styles.attachmentSummary}>
-            <Text style={styles.attachmentSummaryTitle}>
+          <View className="rounded-md bg-muted p-3">
+            <Text className="mb-1 font-semibold">
               📎 {t('liveAttachmentStates')}:
             </Text>
-            <Text style={styles.attachmentSummaryText}>
+            <Text className="text-muted-foreground">
               {attachmentSummaryText}
             </Text>
           </View>
         )}
 
-      {/* Show skeleton only on initial load, not during search */}
-      {isLoading && searchQuery ? (
-        <View style={styles.searchingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.searchingText}>{t('searching')}</Text>
-        </View>
+      {isLoading ? (
+        searchQuery.trim().length > 0 ? (
+          <View className="flex-1 items-center justify-center pt-8">
+            <ActivityIndicator size="large" color={getThemeColor('primary')} />
+            <Text className="mt-4 text-muted-foreground">{t('searching')}</Text>
+          </View>
+        ) : (
+          <AssetListSkeleton />
+        )
       ) : (
-        <View style={[{ flex: 1, marginBottom: spacing.xlarge }]}>
-          <FlashList
-            data={assets}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
+        <LegendList
+          data={assets}
+          key={assets.length}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderItem({ item })}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          estimatedItemSize={120}
+          recycleItems
+          contentContainerStyle={{ gap: 8 }}
+          maintainVisibleContentPosition
+          ListFooterComponent={() =>
+            isFetchingNextPage ? (
+              <View className="items-center py-4">
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={() => (
+            <View className="flex-1 items-center justify-center py-16">
+              <View className="flex-col items-center gap-2">
+                <Text className="text-muted-foreground">
                   {searchQuery ? 'No assets found' : 'No assets available'}
                 </Text>
+                {!isPublished && (
+                  <Button
+                    variant="default"
+                    onPress={() => setShowRecording(true)}
+                  >
+                    <Text>{t('doRecord')}</Text>
+                  </Button>
+                )}
               </View>
-            }
-          />
-        </View>
+            </View>
+          )}
+        />
       )}
 
       <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
@@ -327,11 +587,11 @@ export default function NextGenAssetsView() {
           projectId={currentProjectId || ''}
         />
       )}
-      {showDetailsModal && quest && (
+      {showDetailsModal && selectedQuest && (
         <ModalDetails
           isVisible={showDetailsModal}
           contentType="quest"
-          content={quest}
+          content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
         />
       )}
@@ -342,143 +602,10 @@ export default function NextGenAssetsView() {
           recordId={currentQuestId}
           recordTable="quests"
           hasAlreadyReported={hasReported}
-          creatorId={quest?.creator_id ?? undefined}
+          creatorId={selectedQuest?.creator_id ?? undefined}
           onReportSubmitted={() => refetchReport()}
         />
       )}
     </View>
   );
 }
-
-export const styles = StyleSheet.create({
-  listContainer: {
-    paddingVertical: spacing.small
-  },
-  listItem: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.medium,
-    marginBottom: spacing.small,
-    gap: spacing.xsmall
-  },
-  assetName: {
-    color: colors.text,
-    fontSize: fontSizes.large,
-    fontWeight: 'bold'
-  },
-  assetInfo: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.small
-  },
-  attachmentSummary: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    padding: spacing.small,
-    marginTop: spacing.small,
-    marginBottom: spacing.small
-  },
-  attachmentSummaryTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold',
-    marginBottom: spacing.xsmall
-  },
-  attachmentSummaryText: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  loadingFooter: {
-    paddingVertical: spacing.medium,
-    alignItems: 'center'
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.medium,
-    position: 'relative'
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-    paddingLeft: 40, // Make room for search icon
-    color: colors.text,
-    fontSize: fontSizes.medium
-  },
-  searchIconContainer: {
-    position: 'absolute',
-    left: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  searchLoadingContainer: {
-    position: 'absolute',
-    right: spacing.small,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 30
-  },
-  searchingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: spacing.xlarge
-  },
-  searchingText: {
-    marginTop: spacing.medium,
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xlarge
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium
-  }
-  // floatingButton: {
-  //   backgroundColor: colors.primary,
-  //   borderRadius: 28,
-  //   width: 56,
-  //   height: 56,
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  //   shadowColor: '#000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.25,
-  //   shadowRadius: 3.84,
-  //   elevation: 5
-  // },
-  // floatingButtonContainer: {
-  //   width: '100%',
-  //   position: 'absolute',
-  //   bottom: spacing.large,
-  //   right: spacing.large,
-  //   gap: spacing.small,
-  //   display: 'flex',
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'center'
-  // },
-  // floatingButtonRow: {
-  //   flexDirection: 'row',
-  //   gap: spacing.small
-  // },
-  // secondaryFloatingButton: {
-  //   backgroundColor: colors.inputBackground
-  // },
-  // settingsFloatingButton: {
-  //   backgroundColor: colors.backgroundSecondary,
-  //   borderWidth: 1,
-  //   borderColor: colors.inputBorder
-  // }
-});
