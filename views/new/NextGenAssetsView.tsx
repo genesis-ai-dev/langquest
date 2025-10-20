@@ -263,8 +263,27 @@ export default function NextGenAssetsView() {
     showInvisibleContent
   );
 
-  // Flatten all pages into a single array
-  const assets = data.pages.flatMap((page) => page.data);
+  // Flatten all pages into a single array and deduplicate
+  // Prefer synced over local when the same asset ID appears in both
+  const assets = React.useMemo(() => {
+    const allAssets = data.pages.flatMap((page) => page.data);
+    const assetMap = new Map<string, AssetQuestLink>();
+
+    // First pass: collect all assets, preferring synced over local
+    for (const asset of allAssets) {
+      const existing = assetMap.get(asset.id);
+      if (!existing) {
+        assetMap.set(asset.id, asset);
+      } else {
+        // Prefer synced over local
+        if (asset.source === 'synced' && existing.source !== 'synced') {
+          assetMap.set(asset.id, asset);
+        }
+      }
+    }
+
+    return Array.from(assetMap.values());
+  }, [data.pages]);
 
   // Watch attachment states for all assets
   const assetIds = React.useMemo(() => {
@@ -514,7 +533,6 @@ export default function NextGenAssetsView() {
       ) : (
         <LegendList
           data={assets}
-          key={assets.length}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => renderItem({ item })}
           onEndReached={onEndReached}
