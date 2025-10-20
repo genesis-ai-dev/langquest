@@ -43,7 +43,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import { useBibleBookCreation } from '@/hooks/useBibleBookCreation';
+import {
+  useBibleBookCreation,
+  useBibleBooks
+} from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
@@ -62,7 +65,7 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
@@ -167,20 +170,6 @@ export default function ProjectDirectoryView() {
     }
   });
 
-  // Find/create book quest in background when a book is selected
-  // This ensures the book quest exists for other operations, but we don't wait for it
-  // to show chapters since chapters are found via tags, not parent-child relationships
-  React.useEffect(() => {
-    if (selectedBook && template === 'bible') {
-      findOrCreateBook({
-        projectId: currentProjectId!,
-        bookId: selectedBook
-      }).catch((error: unknown) => {
-        console.error('Error finding/creating book quest:', error);
-      });
-    }
-  }, [selectedBook, currentProjectId, findOrCreateBook, template]);
-
   type Quest = typeof quest.$inferSelect;
 
   const formSchema = z.object({
@@ -196,10 +185,12 @@ export default function ProjectDirectoryView() {
     }
   });
 
-  const { hasAccess: canManageProject } = useUserPermissions(
+  const { hasAccess: canManageProject, membership } = useUserPermissions(
     currentProjectId || '',
     'project_settings_cog'
   );
+
+  const isMember = membership === 'member' || membership === 'owner';
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentProjectId!,
@@ -208,6 +199,51 @@ export default function ProjectDirectoryView() {
   );
 
   const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+
+  // Query existing books for Bible projects (after isMember is defined)
+  const { books: existingBooks = [] } = useBibleBooks(
+    template === 'bible' ? currentProjectId || '' : ''
+  );
+
+  // Build set of existing book IDs from metadata
+  const existingBookIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const book of existingBooks) {
+      const bookId = book.metadata?.bible?.book;
+      if (bookId) {
+        ids.add(bookId);
+      }
+    }
+    return ids;
+  }, [existingBooks]);
+
+  // Handle book selection with permission check (after isMember and existingBookIds are defined)
+  const handleBookSelect = React.useCallback(
+    (bookId: string) => {
+      const bookExists = existingBookIds.has(bookId);
+
+      // Allow navigation if book exists (anyone can view)
+      // OR if user is member (can create)
+      if (bookExists || isMember) {
+        setSelectedBook(bookId);
+
+        // Find/create book quest in background if user is a member
+        // This ensures the book quest exists for other operations
+        if (isMember && template === 'bible') {
+          findOrCreateBook({
+            projectId: currentProjectId!,
+            bookId: bookId
+          }).catch((error: unknown) => {
+            console.error('Error finding/creating book quest:', error);
+          });
+        }
+      } else {
+        Alert.alert(t('error'), t('membersOnlyCreate'));
+      }
+    },
+    [existingBookIds, isMember, template, currentProjectId, findOrCreateBook, t]
+  );
+
   // Only fetch quests for non-Bible projects
   const shouldFetchQuests = template !== 'bible';
 
@@ -285,10 +321,17 @@ export default function ProjectDirectoryView() {
     });
   }, []);
 
-  const openCreateForParent = React.useCallback((parentId: string | null) => {
-    setParentForNewQuest(parentId);
-    setIsCreateOpen(true);
-  }, []);
+  const openCreateForParent = React.useCallback(
+    (parentId: string | null) => {
+      if (!isMember) {
+        Alert.alert(t('error'), t('membersOnlyCreate'));
+        return;
+      }
+      setParentForNewQuest(parentId);
+      setIsCreateOpen(true);
+    },
+    [isMember, t]
+  );
 
   // Handle download click - start discovery
   const handleDownloadClick = (questId: string) => {
@@ -399,7 +442,9 @@ export default function ProjectDirectoryView() {
           </View>
           <BibleBookList
             projectId={currentProjectId!}
-            onBookSelect={setSelectedBook}
+            onBookSelect={handleBookSelect}
+            existingBookIds={existingBookIds}
+            canCreateNew={isMember}
           />
         </View>
       );
@@ -463,6 +508,7 @@ export default function ProjectDirectoryView() {
               onPress={() => openCreateForParent(null)}
               variant="outline"
               size="sm"
+              disabled={!isMember}
             >
               <Text>{t('createObject')}</Text>
             </Button>

@@ -52,6 +52,20 @@ export const localizations = {
     spanish: 'Opciones',
     brazilian_portuguese: 'Opções'
   },
+  membersOnlyCreate: {
+    english: 'Only project members can create content',
+    spanish: 'Solo los miembros del proyecto pueden crear contenido',
+    brazilian_portuguese: 'Apenas membros do projeto podem criar conteúdo',
+    tok_pisin: 'Tasol ol memba bilong projek inap mekim nupela samting',
+    indonesian: 'Hanya anggota proyek yang dapat membuat konten'
+  },
+  membersOnlyPublish: {
+    english: 'Only project members can publish',
+    spanish: 'Solo los miembros del proyecto pueden publicar',
+    brazilian_portuguese: 'Apenas membros do projeto podem publicar',
+    tok_pisin: 'Tasol ol memba bilong projek inap putim i go long olgeta',
+    indonesian: 'Hanya anggota proyek yang dapat mempublikasikan'
+  },
   apply: {
     english: 'Apply',
     spanish: 'Aplicar',
@@ -579,6 +593,20 @@ export const localizations = {
     brazilian_portuguese: 'Não é possível publicar enquanto está desconectado',
     tok_pisin: 'I no inap publish long no gat internet',
     indonesian: 'Tidak dapat memublikasikan saat offline'
+  },
+  chapters: {
+    english: 'Chapters',
+    spanish: 'Capítulos',
+    brazilian_portuguese: 'Capítulos',
+    tok_pisin: 'Chapter',
+    indonesian: 'Bab'
+  },
+  chapter: {
+    english: 'Chapter',
+    spanish: 'Capítulo',
+    brazilian_portuguese: 'Capítulo',
+    tok_pisin: 'Chapter',
+    indonesian: 'Bab'
   },
   publishChapter: {
     english: 'Publish Chapter',

@@ -1,21 +1,27 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
-import { useThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
+import { PlusIcon } from 'lucide-react-native';
 import React from 'react';
 import { Dimensions, Image, View } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
   onBookSelect: (bookId: string) => void;
+  existingBookIds?: Set<string>;
+  canCreateNew?: boolean;
 }
 
 export function BibleBookList({
   projectId: _projectId,
-  onBookSelect
+  onBookSelect,
+  existingBookIds,
+  canCreateNew = false
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
@@ -41,13 +47,24 @@ export function BibleBookList({
   ) => {
     const emoji = BOOK_EMOJIS[book.id] || '📖';
     const iconSource = BOOK_ICON_MAP[book.id];
+    const bookExists = existingBookIds?.has(book.id);
+    const isDisabled = !bookExists && !canCreateNew;
+
+    if (!bookExists && isDisabled) {
+      return;
+    }
 
     return (
       <Button
         key={book.id}
-        variant="outline"
-        className="flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 p-3"
+        variant={bookExists ? 'outline' : 'ghost'}
+        className={cn(
+          'relative flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 p-3',
+          !bookExists && 'border-dashed',
+          isDisabled && 'opacity-30'
+        )}
         onPress={() => onBookSelect(book.id)}
+        disabled={isDisabled}
       >
         {iconSource ? (
           <Image
@@ -73,6 +90,14 @@ export function BibleBookList({
             {book.chapters} ch
           </Text>
         </View>
+        {/* Add plus icon for createable books */}
+        {!bookExists && canCreateNew && (
+          <Icon
+            as={PlusIcon}
+            size={14}
+            className="absolute -right-1 -top-1 text-primary"
+          />
+        )}
       </Button>
     );
   };

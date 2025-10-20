@@ -242,6 +242,7 @@ export default function NextGenAssetsView() {
   );
 
   const isOwner = membership === 'owner';
+  const isMember = membership === 'member' || membership === 'owner';
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
@@ -434,10 +435,15 @@ export default function NextGenAssetsView() {
             <Button
               variant="outline"
               size="icon"
-              disabled={isPublishing || !isOnline}
+              disabled={isPublishing || !isOnline || !isMember}
               onPress={() => {
                 if (!isOnline) {
                   Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                  return;
+                }
+
+                if (!isMember) {
+                  Alert.alert(t('error'), t('membersOnlyPublish'));
                   return;
                 }
 
