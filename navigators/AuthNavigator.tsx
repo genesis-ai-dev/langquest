@@ -1,6 +1,6 @@
-import ForgotPasswordView2 from '@/views/ForgotPasswordView2';
-import RegisterView2 from '@/views/RegisterView2';
-import SignInView2 from '@/views/SignInView2';
+import ForgotPasswordView from '@/views/ForgotPasswordView';
+import RegisterView from '@/views/RegisterView';
+import SignInView2 from '@/views/SignInView';
 import React, { useState } from 'react';
 
 export type AuthView = 'sign-in' | 'register' | 'forgot-password';
@@ -33,7 +33,7 @@ export function AuthNavigator() {
       );
     case 'register':
       return (
-        <RegisterView2
+        <RegisterView
           key="register"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}
@@ -41,7 +41,7 @@ export function AuthNavigator() {
       );
     case 'forgot-password':
       return (
-        <ForgotPasswordView2
+        <ForgotPasswordView
           key="forgot"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}

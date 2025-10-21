@@ -9,7 +9,7 @@ import LoadingView from '@/components/LoadingView';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
-import ResetPasswordView2 from '@/views/ResetPasswordView2';
+import ResetPasswordView from '@/views/ResetPasswordView';
 import { useRouter } from 'expo-router';
 
 // Wrapper component to provide consistent gradient background
@@ -83,7 +83,7 @@ export default function App() {
   if (sessionType === 'password-reset') {
     return (
       <AppWrapper>
-        <ResetPasswordView2 />
+        <ResetPasswordView />
       </AppWrapper>
     );
   }

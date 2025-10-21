@@ -25,7 +25,7 @@ import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function ForgotPasswordView2({
+export default function ForgotPasswordView({
   onNavigate,
   sharedAuthInfo
 }: {
