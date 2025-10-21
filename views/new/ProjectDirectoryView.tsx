@@ -63,6 +63,7 @@ import {
   FlagIcon,
   FolderPenIcon,
   InfoIcon,
+  LockIcon,
   SettingsIcon,
   UsersIcon
 } from 'lucide-react-native';
@@ -101,6 +102,7 @@ export default function ProjectDirectoryView() {
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
+  const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
   const { findOrCreateBook } = useBibleBookCreation();
 
   // Discovery drawer state for quest downloads
@@ -439,274 +441,277 @@ export default function ProjectDirectoryView() {
     ]
   );
 
-  // Bible project routing - instant render with no loading state needed
-  if (template === 'bible') {
-    // Show book list if no book selected
-    if (!selectedBook) {
-      return (
-        <View className="align-start flex-1">
-          <View className="flex-row items-center justify-start gap-3 p-4">
-            <View className="flex flex-row items-center gap-1">
-              <Icon as={ChurchIcon} />
-              <Icon as={BookOpenIcon} />
+  // Show loading skeleton for non-Bible projects
+  if (isLoading || isProjectLoading) {
+    return <ProjectListSkeleton />;
+  }
+
+  // Render content based on project type
+  const renderContent = () => {
+    // Bible project routing
+    if (template === 'bible') {
+      // Show book list if no book selected
+      if (!selectedBook) {
+        return (
+          <View className="align-start flex-1">
+            <View className="flex-row items-center justify-start gap-3 p-4">
+              <View className="flex flex-row items-center gap-1">
+                <Icon as={ChurchIcon} />
+                <Icon as={BookOpenIcon} />
+              </View>
+              <Text variant="h4">{projectName}</Text>
             </View>
-            <Text variant="h4">{projectName}</Text>
-          </View>
-          <PrivateAccessGate
-            projectId={currentProjectId || ''}
-            projectName={projectName || ''}
-            isPrivate={isPrivateProject}
-            action="contribute"
-            inline={true}
-          >
             <BibleBookList
               projectId={currentProjectId!}
               onBookSelect={handleBookSelect}
               existingBookIds={existingBookIds}
               canCreateNew={isMember}
             />
-          </PrivateAccessGate>
-        </View>
-      );
-    }
+          </View>
+        );
+      }
 
-    // Show chapter list immediately - it has its own loading states
-    // No need to wait for book quest creation since chapters are found via tags
-    return (
-      <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          onPress={() => {
-            setSelectedBook(null);
-          }}
-        >
-          <Icon as={ArrowLeftIcon} />
-          <Text>Back</Text>
-        </Button>
-        <PrivateAccessGate
-          projectId={currentProjectId || ''}
-          projectName={projectName || ''}
-          isPrivate={isPrivateProject}
-          action="contribute"
-          inline={true}
-        >
+      // Show chapter list
+      return (
+        <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={() => {
+              setSelectedBook(null);
+            }}
+          >
+            <Icon as={ArrowLeftIcon} />
+            <Text>Back</Text>
+          </Button>
           <View className="w-full flex-1">
             <BibleChapterList
               projectId={currentProjectId!}
               bookId={selectedBook}
             />
           </View>
-        </PrivateAccessGate>
+        </View>
+      );
+    }
+
+    // Default unstructured project view
+    return (
+      <View className="flex-1 flex-col gap-4 p-4">
+        <Text variant="h4">{t('projectDirectory')}</Text>
+        <View className="pb-safe flex flex-1 flex-col gap-2">
+          {roots.length === 0 ? (
+            <View>
+              <Text className="text-center text-muted-foreground">
+                {t('noQuestsFound')}
+              </Text>
+            </View>
+          ) : (
+            <ScrollView className="gap-1" showsVerticalScrollIndicator={false}>
+              {renderTree(roots, 0)}
+            </ScrollView>
+          )}
+          <Button
+            onPress={() => openCreateForParent(null)}
+            variant="outline"
+            size="sm"
+            disabled={!isMember}
+          >
+            <Text>{t('createObject')}</Text>
+          </Button>
+        </View>
       </View>
     );
-  }
+  };
 
-  // Show loading skeleton for non-Bible projects
-  if (isLoading || isProjectLoading) {
-    return <ProjectListSkeleton />;
-  }
-
-  // Default unstructured project view
   return (
-    <Form {...form}>
-      <Drawer
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        dismissible={!isCreatingQuest}
-      >
-        <View className="flex-1 flex-col gap-4 p-4">
-          <Text variant="h4">{t('projectDirectory')}</Text>
-          <PrivateAccessGate
-            projectId={currentProjectId || ''}
-            projectName={projectName || ''}
-            isPrivate={isPrivateProject}
-            action="contribute"
-            inline={true}
+    <>
+      {template === 'bible' ? (
+        // Bible project - no Form/Drawer needed
+        <View className="flex-1">{renderContent()}</View>
+      ) : (
+        // Non-Bible project - needs Form/Drawer for quest creation
+        <Form {...form}>
+          <Drawer
+            open={isCreateOpen}
+            onOpenChange={setIsCreateOpen}
+            dismissible={!isCreatingQuest}
           >
-            <View className="pb-safe flex flex-1 flex-col gap-2">
-              {roots.length === 0 ? (
-                <View>
-                  <Text className="text-center text-muted-foreground">
-                    {t('noQuestsFound')}
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView
-                  className="gap-1"
-                  showsVerticalScrollIndicator={false}
+            {renderContent()}
+
+            <DrawerContent className="pb-safe">
+              <DrawerHeader>
+                <DrawerTitle>{t('newQuest')}</DrawerTitle>
+              </DrawerHeader>
+              <View className="flex flex-col gap-4 p-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...transformInputProps(field)}
+                          placeholder={t('questName')}
+                          size="sm"
+                          prefix={FolderPenIcon}
+                          drawerInput
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          {...transformInputProps(field)}
+                          placeholder={t('description')}
+                          size="sm"
+                          drawerInput
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </View>
+              <DrawerFooter>
+                <FormSubmit
+                  onPress={form.handleSubmit((data) => createQuest(data))}
                 >
-                  {renderTree(roots, 0)}
-                </ScrollView>
-              )}
-              <Button
-                onPress={() => openCreateForParent(null)}
-                variant="outline"
-                size="sm"
-                disabled={!isMember}
-              >
-                <Text>{t('createObject')}</Text>
-              </Button>
-            </View>
-          </PrivateAccessGate>
-        </View>
+                  <Text>{t('createObject')}</Text>
+                </FormSubmit>
+                <DrawerClose className={buttonVariants({ variant: 'outline' })}>
+                  <Text>{t('cancel')}</Text>
+                </DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        </Form>
+      )}
 
-        <View style={{ bottom: 24, right: 24 }} className="absolute">
-          <SpeedDial>
-            <SpeedDialItems>
-              {canManageProject ? (
-                <SpeedDialItem
-                  icon={SettingsIcon}
-                  variant="outline"
-                  onPress={() => setShowSettingsModal(true)}
-                />
-              ) : !hasReported && !isReportLoading ? (
-                <SpeedDialItem
-                  icon={FlagIcon}
-                  variant="outline"
-                  onPress={() => setShowReportModal(true)}
-                />
-              ) : null}
-              {project?.source !== 'local' && (
-                <SpeedDialItem
-                  icon={UsersIcon}
-                  variant="outline"
-                  onPress={() => setShowMembershipModal(true)}
-                />
-              )}
+      {/* Shared SpeedDial for all project types */}
+      <View style={{ bottom: 24, right: 24 }} className="absolute">
+        <SpeedDial>
+          <SpeedDialItems>
+            {!isMember && isPrivateProject && (
               <SpeedDialItem
-                icon={InfoIcon}
+                icon={LockIcon}
                 variant="outline"
-                onPress={() => setShowProjectDetails(true)}
+                onPress={() => setShowPrivateAccessModal(true)}
               />
-            </SpeedDialItems>
-            <SpeedDialTrigger />
-          </SpeedDial>
-        </View>
+            )}
+            {canManageProject ? (
+              <SpeedDialItem
+                icon={SettingsIcon}
+                variant="outline"
+                onPress={() => setShowSettingsModal(true)}
+              />
+            ) : !hasReported && !isReportLoading ? (
+              <SpeedDialItem
+                icon={FlagIcon}
+                variant="outline"
+                onPress={() => setShowReportModal(true)}
+              />
+            ) : null}
+            {project?.source !== 'local' && (
+              <SpeedDialItem
+                icon={UsersIcon}
+                variant="outline"
+                onPress={() => setShowMembershipModal(true)}
+              />
+            )}
+            <SpeedDialItem
+              icon={InfoIcon}
+              variant="outline"
+              onPress={() => setShowProjectDetails(true)}
+            />
+          </SpeedDialItems>
+          <SpeedDialTrigger />
+        </SpeedDial>
+      </View>
 
-        {/* Membership Modal */}
-        <ProjectMembershipModal
-          isVisible={showMembershipModal}
-          onClose={() => setShowMembershipModal(false)}
+      {/* Shared Modals */}
+      <ProjectMembershipModal
+        isVisible={showMembershipModal}
+        onClose={() => setShowMembershipModal(false)}
+        projectId={currentProjectId || ''}
+      />
+
+      {showProjectDetails && project && (
+        <ModalDetails
+          isVisible={showProjectDetails}
+          content={project}
+          contentType="project"
+          onClose={() => setShowProjectDetails(false)}
+        />
+      )}
+
+      {canManageProject ? (
+        <ProjectSettingsModal
+          isVisible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
           projectId={currentProjectId || ''}
         />
-
-        {/* Project Details Modal */}
-        {showProjectDetails && project && (
-          <ModalDetails
-            isVisible={showProjectDetails}
-            content={project}
-            contentType="project"
-            onClose={() => setShowProjectDetails(false)}
-          />
-        )}
-
-        {/* Settings Modal - Only for owners */}
-        {canManageProject ? (
-          <ProjectSettingsModal
-            isVisible={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-            projectId={currentProjectId || ''}
-          />
-        ) : (
-          <ReportModal
-            isVisible={showReportModal}
-            onClose={() => setShowReportModal(false)}
-            recordId={currentProjectId!}
-            creatorId={project?.creator_id ?? undefined}
-            recordTable="projects"
-            hasAlreadyReported={hasReported}
-            onReportSubmitted={() => null}
-          />
-        )}
-
-        <DrawerContent className="pb-safe">
-          <DrawerHeader>
-            <DrawerTitle>{t('newQuest')}</DrawerTitle>
-          </DrawerHeader>
-          <View className="flex flex-col gap-4 p-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      {...transformInputProps(field)}
-                      placeholder={t('questName')}
-                      size="sm"
-                      prefix={FolderPenIcon}
-                      drawerInput
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      {...transformInputProps(field)}
-                      placeholder={t('description')}
-                      size="sm"
-                      drawerInput
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </View>
-          <DrawerFooter>
-            <FormSubmit
-              onPress={form.handleSubmit((data) => createQuest(data))}
-            >
-              <Text>{t('createObject')}</Text>
-            </FormSubmit>
-            <DrawerClose className={buttonVariants({ variant: 'outline' })}>
-              <Text>{t('cancel')}</Text>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-
-        {/* Discovery Drawer */}
-        <QuestDownloadDiscoveryDrawer
-          isOpen={showDiscoveryDrawer}
-          onOpenChange={(open) => {
-            if (!open) handleCancelDiscovery();
-          }}
-          onContinue={handleDiscoveryContinue}
-          discoveryState={discoveryState}
+      ) : (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={currentProjectId!}
+          creatorId={project?.creator_id ?? undefined}
+          recordTable="projects"
+          hasAlreadyReported={hasReported}
+          onReportSubmitted={() => null}
         />
+      )}
 
-        {/* Confirmation Modal */}
-        <DownloadConfirmationModal
-          visible={showConfirmationModal}
-          onConfirm={handleConfirmDownload}
-          onCancel={handleCancelConfirmation}
-          downloadType="quest"
-          discoveredCounts={{
-            Quests: discoveryState.progressSharedValues.quest.value.count,
-            Projects: discoveryState.progressSharedValues.project.value.count,
-            'Quest-Asset Links':
-              discoveryState.progressSharedValues.questAssetLinks.value.count,
-            Assets: discoveryState.progressSharedValues.assets.value.count,
-            'Asset Content Links':
-              discoveryState.progressSharedValues.assetContentLinks.value.count,
-            Votes: discoveryState.progressSharedValues.votes.value.count,
-            'Quest Tags':
-              discoveryState.progressSharedValues.questTagLinks.value.count,
-            'Asset Tags':
-              discoveryState.progressSharedValues.assetTagLinks.value.count,
-            Tags: discoveryState.progressSharedValues.tags.value.count,
-            Languages: discoveryState.progressSharedValues.languages.value.count
-          }}
-        />
-      </Drawer>
-    </Form>
+      <PrivateAccessGate
+        projectId={currentProjectId || ''}
+        projectName={projectName || ''}
+        isPrivate={isPrivateProject}
+        action="contribute"
+        modal={true}
+        isVisible={showPrivateAccessModal}
+        onClose={() => setShowPrivateAccessModal(false)}
+      />
+
+      {/* Discovery Drawer */}
+      <QuestDownloadDiscoveryDrawer
+        isOpen={showDiscoveryDrawer}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDiscovery();
+        }}
+        onContinue={handleDiscoveryContinue}
+        discoveryState={discoveryState}
+      />
+
+      {/* Confirmation Modal */}
+      <DownloadConfirmationModal
+        visible={showConfirmationModal}
+        onConfirm={handleConfirmDownload}
+        onCancel={handleCancelConfirmation}
+        downloadType="quest"
+        discoveredCounts={{
+          Quests: discoveryState.progressSharedValues.quest.value.count,
+          Projects: discoveryState.progressSharedValues.project.value.count,
+          'Quest-Asset Links':
+            discoveryState.progressSharedValues.questAssetLinks.value.count,
+          Assets: discoveryState.progressSharedValues.assets.value.count,
+          'Asset Content Links':
+            discoveryState.progressSharedValues.assetContentLinks.value.count,
+          Votes: discoveryState.progressSharedValues.votes.value.count,
+          'Quest Tags':
+            discoveryState.progressSharedValues.questTagLinks.value.count,
+          'Asset Tags':
+            discoveryState.progressSharedValues.assetTagLinks.value.count,
+          Tags: discoveryState.progressSharedValues.tags.value.count,
+          Languages: discoveryState.progressSharedValues.languages.value.count
+        }}
+      />
+    </>
   );
 }

@@ -730,6 +730,27 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
   },
+  searchLanguages: {
+    english: 'Search languages...',
+    spanish: 'Buscar idiomas...',
+    brazilian_portuguese: 'Pesquisar idiomas...',
+    tok_pisin: 'Painim ol tokples...',
+    indonesian: 'Cari bahasa...'
+  },
+  noLanguagesFound: {
+    english: 'No languages found',
+    spanish: 'No se encontraron idiomas',
+    brazilian_portuguese: 'Nenhum idioma encontrado',
+    tok_pisin: 'I no gat tokples',
+    indonesian: 'Tidak ada bahasa ditemukan'
+  },
+  typeToSearch: {
+    english: 'Type at least {min} characters to search',
+    spanish: 'Escriba al menos {min} caracteres para buscar',
+    brazilian_portuguese: 'Digite pelo menos {min} caracteres para pesquisar',
+    tok_pisin: 'Raitim {min} leta bipo painim',
+    indonesian: 'Ketik setidaknya {min} karakter untuk mencari'
+  },
   selectTemplate: {
     english: 'Please select a template',
     spanish: 'Por favor seleccione una plantilla',
