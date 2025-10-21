@@ -163,9 +163,14 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 .from('quest')
                 .select('id, project_id')
                 .eq('id', questId)
+                .eq('active', true)
                 .single();
 
-              if (error) throw error;
+              if (error) {
+                // Check if quest exists locally but not in cloud
+                console.error('🔍 [Discovery] Quest not found in cloud, checking local database...');
+                throw new Error(`Quest ${questId} not found in cloud database. It may only exist locally or you may not have permission to access it.`);
+              }
               if (signal.aborted) return null;
 
               ids.questIds = [data.id];

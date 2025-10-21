@@ -246,8 +246,11 @@ export function QuestDownloadDiscoveryDrawer({
           {hasError && !isDiscovering && (
             <View className="rounded-lg bg-destructive/10 p-3">
               <Text className="text-sm text-destructive">
-                {t('discoveryErrorsOccurred') ||
-                  'Some errors occurred during discovery. You can still download the discovered records.'}
+                {totalRecords === 0
+                  ? t('questNotFoundInCloud') ||
+                    'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.'
+                  : t('discoveryErrorsOccurred') ||
+                    'Some errors occurred during discovery. You can still download the discovered records.'}
               </Text>
             </View>
           )}

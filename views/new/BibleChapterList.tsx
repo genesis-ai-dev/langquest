@@ -22,7 +22,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { HardDriveIcon, PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
 import { useItemDownloadStatus } from './useHybridData';
 
 interface BibleChapterListProps {
@@ -154,6 +154,16 @@ function ChapterButton({
           </View>
         )}
       </Button>
+
+      {/* Overlay to make entire button pressable for download when needed */}
+      {needsDownload && !disabled && (
+        <TouchableOpacity
+          onPress={handleDownloadToggle}
+          className="absolute inset-0"
+          activeOpacity={0.7}
+        />
+      )}
+
       {/* Add plus icon for createable chapters */}
       {!exists && canCreateNew && (
         <Icon

@@ -252,6 +252,13 @@ export const localizations = {
     indonesian:
       'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
   },
+  questNotFoundInCloud: {
+    english: 'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.',
+    spanish: 'La misión no se encontró en la base de datos de la nube. Puede que solo exista localmente o que no tenga permiso para acceder a ella. Intenta actualizar la página o contacta al soporte si este problema persiste.',
+    brazilian_portuguese: 'A missão não foi encontrada na base de dados da nuvem. Pode existir localmente ou você pode não ter permissão para acessá-la. Tente atualizar a página ou contate o suporte se este problema persistir.',
+    tok_pisin: 'Quest i no gat long cloud database. I may only exist long local o yu no have permission long access it. Plis refresh page o contact support long this persists.',
+    indonesian: 'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.'
+  },
   discovering: {
     english: 'Discovering...',
     spanish: 'Descubriendo...',
