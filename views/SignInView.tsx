@@ -90,7 +90,7 @@ export default function SignInView({
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('welcome')}</Text>
         </View>
-        <LanguageSelect />
+        <LanguageSelect uiReadyOnly />
         <FormField
           control={form.control}
           name="email"
