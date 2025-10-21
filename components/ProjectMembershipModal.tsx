@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile } from '@/db/drizzleSchema';
@@ -1038,12 +1038,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   action="view_membership"
                   inline={true}
                 >
+                  {/* Tabs Header */}
                   <Tabs
                     value={activeTab}
                     onValueChange={(value) =>
                       setActiveTab(value as 'members' | 'invited' | 'requests')
                     }
-                    className="flex-1"
                   >
                     <TabsList className="mb-2 w-full">
                       <TabsTrigger value="members" className="flex-1">
@@ -1064,11 +1064,17 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         </TabsTrigger>
                       )}
                     </TabsList>
+                  </Tabs>
 
-                    <TabsContent value="members" className="flex-1">
+                  {/* Tab Content - Manual switching for better control */}
+                  <View className="min-h-0 flex-1">
+                    {activeTab === 'members' && (
                       <ScrollView
                         className="flex-1"
-                        contentContainerClassName="pb-4 px-4"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
                       >
@@ -1080,12 +1086,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                           </Text>
                         )}
                       </ScrollView>
-                    </TabsContent>
+                    )}
 
-                    <TabsContent value="invited" className="flex-1">
+                    {activeTab === 'invited' && (
                       <ScrollView
                         className="flex-1"
-                        contentContainerClassName="pb-4 px-4"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
                       >
@@ -1097,12 +1106,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                           </Text>
                         )}
                       </ScrollView>
-                    </TabsContent>
+                    )}
 
-                    <TabsContent value="requests" className="flex-1">
+                    {activeTab === 'requests' && (
                       <ScrollView
                         className="flex-1"
-                        contentContainerClassName="pb-4 px-4"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
                       >
@@ -1114,9 +1126,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                           </Text>
                         )}
                       </ScrollView>
-                    </TabsContent>
-                  </Tabs>
+                    )}
+                  </View>
 
+                  {/* Invite Section */}
                   <View className="border-t border-border p-4">
                     {sendInvitePermissions.hasAccess ? (
                       <>

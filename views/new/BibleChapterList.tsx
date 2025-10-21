@@ -340,13 +340,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       const isCloudQuest = existingChapter.source === 'cloud';
 
       if (isCloudQuest && !isDownloaded) {
-        Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
-          { text: t('cancel'), style: 'cancel' },
-          {
-            text: t('downloadNow'),
-            onPress: () => handleDownloadClick(existingChapter.id)
-          }
-        ]);
+        // Directly trigger download flow for cloud-only quests
+        console.log(
+          `📥 Cloud quest not downloaded, triggering download: ${existingChapter.id}`
+        );
+        handleDownloadClick(existingChapter.id);
         return;
       }
 

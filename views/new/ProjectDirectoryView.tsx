@@ -618,7 +618,7 @@ export default function ProjectDirectoryView() {
                 onPress={() => setShowReportModal(true)}
               />
             ) : null}
-            {project?.source !== 'local' && (
+            {project?.source !== 'local' && (isMember || !isPrivateProject) && (
               <SpeedDialItem
                 icon={UsersIcon}
                 variant="outline"

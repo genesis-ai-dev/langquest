@@ -243,18 +243,37 @@ export default function NextGenAssetDetailView() {
       if (!content.audio) return [];
 
       return content.audio
-        .filter((audioId): audioId is string => typeof audioId === 'string')
-        .map((audioId) => {
-          const attachmentState = attachmentStates.get(audioId);
-          if (attachmentState?.local_uri) {
-            const fullUri = getLocalUri(attachmentState.local_uri);
+        .filter(
+          (audioValue): audioValue is string => typeof audioValue === 'string'
+        )
+        .map((audioValue) => {
+          // Handle direct local URIs (from recording view before publish)
+          if (audioValue.startsWith('local/')) {
+            const fullUri = getLocalUri(audioValue);
             console.log(
-              `[AUDIO] Content audio ${audioId.slice(0, 8)} -> ${fullUri.slice(0, 80)}`
+              `[AUDIO] Direct local URI ${audioValue.slice(0, 20)} -> ${fullUri.slice(0, 80)}`
             );
             return fullUri;
           }
+
+          // Handle full file URIs
+          if (audioValue.startsWith('file://')) {
+            console.log(`[AUDIO] Full file URI ${audioValue.slice(0, 80)}`);
+            return audioValue;
+          }
+
+          // Handle attachment IDs (look up in attachment queue)
+          const attachmentState = attachmentStates.get(audioValue);
+          if (attachmentState?.local_uri) {
+            const fullUri = getLocalUri(attachmentState.local_uri);
+            console.log(
+              `[AUDIO] Attachment ID ${audioValue.slice(0, 8)} -> ${fullUri.slice(0, 80)}`
+            );
+            return fullUri;
+          }
+
           console.log(
-            `[AUDIO] Skipping ${audioId} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
+            `[AUDIO] Skipping ${audioValue} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
           );
           return null;
         })
