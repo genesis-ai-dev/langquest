@@ -97,8 +97,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         try {
-          console.log(`[WATCH IDS] Processing ${ids.length} attachment IDs`);
-
           // Filter out empty or invalid IDs
           const validIds = ids.filter((id) => id && id.trim() !== '');
           if (validIds.length !== ids.length) {
@@ -107,28 +105,21 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             );
           }
 
-          console.log(
-            '[WATCH IDS] skipping the following empty/invalid IDs:',
-            ids.filter((id) => id && id.trim() === '')
-          );
           // Use validIds from here on
           ids = validIds;
 
           // Process in smaller batches to avoid SQL query size limits
-          const BATCH_SIZE = 100;
+          const BATCH_SIZE = 500;
 
           if (this.initialSync) {
             this.initialSync = false;
-            console.log(
-              '[WATCH IDS] Initial sync: Updating existing records to QUEUED_SYNC'
-            );
 
             // Update in batches
             for (let i = 0; i < ids.length; i += BATCH_SIZE) {
               const batchIds = ids.slice(i, i + BATCH_SIZE);
               const _batchIds = `${batchIds.map((id) => `'${id}'`).join(',')}`;
 
-              const updateResult = await this.powersync.execute(
+              await this.powersync.execute(
                 `UPDATE
                     ${this.table}
                   SET state = ${AttachmentState.QUEUED_SYNC}
@@ -137,21 +128,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                   AND
                    id IN (${_batchIds})`
               );
-              console.log(
-                `[WATCH IDS] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Updated ${updateResult.rowsAffected} records`
-              );
             }
           }
 
-          console.log('[WATCH IDS] Fetching current attachments from database');
           const attachmentsInDatabase =
             await this.powersync.getAll<ExtendedAttachmentRecord>(
               `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
             );
-          console.log(
-            '[WATCH IDS] Current attachments in DB:',
-            attachmentsInDatabase.length
-          );
 
           const storageType = this.getStorageType();
 
@@ -167,13 +150,10 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               const record = attachmentsInDatabase.find((r) => r.id == id);
 
               if (!record) {
-                console.log('record not found', id);
                 const newRecord = await this.newAttachmentRecord({
                   id: id,
                   state: AttachmentState.QUEUED_SYNC
                 });
-
-                console.log('newRecord', newRecord);
 
                 // Validate the record before saving
                 if (!newRecord.id || !newRecord.filename) {
@@ -402,8 +382,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         });
       };
 
-      // Download with higher concurrency limit (8 simultaneous downloads)
-      const CONCURRENCY_LIMIT = 8;
+      // Download with higher concurrency limit (16 simultaneous downloads)
+      const CONCURRENCY_LIMIT = 16;
 
       // Create a queue-based concurrent download system
       const downloadQueue = [...idsArray];
@@ -416,7 +396,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             updateProgress(); // Count as completed even if no record
             return;
           }
-          console.log('downloading record', record);
           await this.downloadRecord(record);
           updateProgress(); // Update progress after successful download
         } catch (error) {

@@ -53,7 +53,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('PermAttachmentQueue init');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
@@ -67,8 +66,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log('onAttachmentIdsChange in PERM ATTACHMENT QUEUE');
-
     // Use the getCurrentUserId method instead of getCurrentUser
     void this.getCurrentUserId().then((currentUserId) => {
       if (!currentUserId) {
@@ -114,11 +111,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           }
         );
 
-        console.log(
-          'RYDER: about to call onUpdate with ',
-          uniqueAttachments.length,
-          'attachments'
-        );
         // Tell PowerSync which attachments to keep synced
         onUpdate(uniqueAttachments);
       }
@@ -134,7 +126,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
-    console.log('deleteFromQueue in PermAttachmentQueue', attachmentId);
     const record = await this.record(attachmentId);
     if (record) {
       await this.delete(record);
@@ -145,7 +136,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     const photoAttachment = await this.newAttachmentRecord({
       id: getFileName(base64Data)!
     });
-    console.log('photoAttachment');
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
     const fileInfo = await getFileInfo(localUri);
     if (fileInfo.exists) {
@@ -160,23 +150,18 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
     const recordId = getFileName(tempUri)!;
-    console.log('saveAudio recordId', recordId);
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId
     });
 
-    console.log('saveAudio', audioAttachment);
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
     const fileInfo = await getFileInfo(tempUri);
 
     if (fileInfo.exists) {
-      console.log('moving file to local uri');
       await moveFile(tempUri, localUri);
       audioAttachment.size = fileInfo.size;
-      console.log('file moved to local uri', localUri, fileInfo.size);
     }
 
-    console.log('saving to queue', JSON.stringify(audioAttachment, null, 2));
     return this.saveToQueue(audioAttachment, tx);
   }
 
