@@ -20,7 +20,7 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { HardDriveIcon, PlusCircleIcon } from 'lucide-react-native';
+import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
 import { useItemDownloadStatus } from './useHybridData';
@@ -161,15 +161,6 @@ function ChapterButton({
           onPress={handleDownloadToggle}
           className="absolute inset-0"
           activeOpacity={0.7}
-        />
-      )}
-
-      {/* Add plus icon for createable chapters */}
-      {!exists && canCreateNew && (
-        <Icon
-          as={PlusCircleIcon}
-          size={12}
-          className="absolute -right-1 -top-1 text-primary"
         />
       )}
     </View>
@@ -374,35 +365,46 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       return;
     }
 
-    // Chapter doesn't exist, create it
-    setCreatingChapter(chapterNum);
+    // Chapter doesn't exist - show confirmation dialog
+    Alert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('confirm'),
+        onPress: async () => {
+          setCreatingChapter(chapterNum);
 
-    try {
-      console.log(`📖 Creating new chapter: ${book.name} ${chapterNum}`);
+          try {
+            console.log(`📖 Creating new chapter: ${book.name} ${chapterNum}`);
 
-      const result = await createChapter({
-        projectId,
-        bookId,
-        chapter: chapterNum,
-        targetLanguageId: project.target_language_id
-      });
+            const result = await createChapter({
+              projectId,
+              bookId,
+              chapter: chapterNum,
+              targetLanguageId: project.target_language_id
+            });
 
-      console.log(
-        `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
-      );
+            console.log(
+              `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
+            );
 
-      // Navigate to assets view
-      goToQuest({
-        id: result.questId,
-        project_id: projectId,
-        name: result.questName
-      });
-    } catch (error) {
-      console.error('Failed to create chapter:', error);
-      // TODO: Show error toast or something to user
-    } finally {
-      setCreatingChapter(null);
-    }
+            // Navigate to assets view
+            goToQuest({
+              id: result.questId,
+              project_id: projectId,
+              name: result.questName
+            });
+          } catch (error) {
+            console.error('Failed to create chapter:', error);
+            // TODO: Show error toast or something to user
+          } finally {
+            setCreatingChapter(null);
+          }
+        }
+      }
+    ]);
   };
 
   // Generate array of chapter numbers with metadata
