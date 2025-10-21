@@ -5,14 +5,23 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import type { WithSource } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
+import { InfoIcon, Languages, XIcon } from 'lucide-react-native';
 import { default as React } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
+import { Button } from './ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from './ui/drawer';
+import { Icon } from './ui/icon';
+import { Text } from './ui/text';
 
 type Project = typeof project.$inferSelect;
 type Quest = typeof quest.$inferSelect;
@@ -119,38 +128,31 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       : null;
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.closeArea} onPress={onClose} />
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {contentType === 'project' ? t('project') : t('quest')}
-            </Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+    <Drawer open={isVisible} onOpenChange={onClose} snapPoints={['50%', '90%']}>
+      <DrawerContent className="bg-background px-4 pb-4">
+        <DrawerHeader className="flex-row items-center justify-between">
+          <DrawerTitle>
+            {contentType === 'project' ? t('project') : t('quest')}
+          </DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="icon">
+              <Icon as={XIcon} size={24} />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
 
-          <View style={styles.sectionDecoration}>
-            <Text style={styles.sectionTitle}>
-              <Text style={styles.title}>{content.name}</Text>
-            </Text>
+        <View className="flex-1 gap-4">
+          <View className="border-b border-border pb-3">
+            <Text className="text-lg font-bold">{content.name}</Text>
           </View>
 
           {contentType === 'project' && (
-            <View style={styles.infoRow}>
-              <Ionicons name="language-outline" size={20} color={colors.text} />
+            <View className="flex-row items-center gap-3">
+              <Icon as={Languages} size={20} />
               {isSourceLangLoading || isTargetLangLoading ? (
-                <Text style={styles.infoText}>t('loading')</Text>
+                <Text className="text-muted-foreground">{t('loading')}</Text>
               ) : (
-                <Text style={styles.infoText}>
-                  {' '}
+                <Text className="flex-1">
                   {sourceLanguages.length
                     ? sourceLanguages
                         .map((l) => l.native_name || l.english_name)
@@ -165,87 +167,15 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
           )}
 
           {'description' in content && content.description && (
-            <View style={styles.infoRow}>
-              <Ionicons
-                name="information-circle-outline"
-                size={20}
-                color={colors.text}
-              />
-              <Text style={styles.infoText}>
+            <View className="flex-row items-start gap-3">
+              <Icon as={InfoIcon} size={20} className="mt-0.5" />
+              <Text className="flex-1 text-justify leading-5">
                 {content.description.replace(/\\n/g, '\n\n')}
               </Text>
             </View>
           )}
         </View>
-      </View>
-    </Modal>
+      </DrawerContent>
+    </Drawer>
   );
 };
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  closeArea: {
-    ...StyleSheet.absoluteFillObject
-  },
-  modal: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '80%',
-    maxHeight: '90%'
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  infoRow: {
-    marginTop: spacing.medium,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  infoText: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    paddingHorizontal: spacing.medium,
-    textAlign: 'justify',
-    lineHeight: 16
-  },
-  exploreButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.medium,
-    padding: spacing.medium,
-    alignItems: 'center',
-    marginTop: spacing.large
-  },
-  exploreButtonText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  sectionTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.small
-  },
-  sectionDecoration: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  }
-});

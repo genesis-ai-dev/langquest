@@ -1,0 +1,410 @@
+import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { useLocalization } from '@/hooks/useLocalization';
+import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
+import { cn } from '@/utils/styleUtils';
+import {
+  AlertCircleIcon,
+  CheckCircleIcon,
+  CloudIcon,
+  DatabaseIcon,
+  FileTextIcon,
+  FolderIcon,
+  LinkIcon,
+  Loader2Icon,
+  TagIcon,
+  ThumbsUpIcon,
+  UploadCloudIcon
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ScrollView, View } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle
+} from 'react-native-reanimated';
+
+interface QuestOffloadVerificationDrawerProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onContinue: () => void;
+  verificationState: VerificationState;
+}
+
+interface CategoryRowProps {
+  label: string;
+  icon: typeof FolderIcon;
+  count: number;
+  verified: number;
+  isVerifying: boolean;
+  hasError: boolean;
+  showCount?: boolean;
+}
+
+function CategoryRow({
+  label,
+  icon,
+  count,
+  verified,
+  isVerifying,
+  hasError,
+  showCount = true
+}: CategoryRowProps) {
+  const animatedTextStyle = useAnimatedStyle(() => {
+    return {
+      opacity: isVerifying ? 0.5 : 1
+    };
+  }, [isVerifying]);
+
+  const animatedCountStyle = useAnimatedStyle(() => {
+    return {
+      opacity: isVerifying ? 0.5 : 1
+    };
+  }, [isVerifying]);
+
+  const isFullyVerified =
+    !isVerifying && !hasError && count > 0 && verified === count;
+  const isPartiallyVerified =
+    !isVerifying && !hasError && verified > 0 && verified < count;
+
+  return (
+    <View className="flex-row items-center justify-between border-b border-border py-3">
+      <View className="flex-row items-center gap-3">
+        <Icon as={icon} size={20} className="text-muted-foreground" />
+        <Animated.View style={animatedTextStyle}>
+          <Text className="text-base">{label}</Text>
+        </Animated.View>
+      </View>
+
+      <View className="flex-row items-center gap-2">
+        {showCount && (
+          <Animated.View style={animatedCountStyle}>
+            <Text
+              className={cn(
+                'font-mono text-sm',
+                hasError ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {verified}/{count}
+            </Text>
+          </Animated.View>
+        )}
+
+        {isVerifying && (
+          <Icon
+            as={Loader2Icon}
+            size={16}
+            className="animate-spin text-primary"
+          />
+        )}
+        {isFullyVerified && (
+          <Icon as={CloudIcon} size={16} className="text-green-600" />
+        )}
+        {isPartiallyVerified && (
+          <Icon as={UploadCloudIcon} size={16} className="text-yellow-600" />
+        )}
+        {hasError && (
+          <Icon as={AlertCircleIcon} size={16} className="text-destructive" />
+        )}
+        {!isVerifying && !hasError && count === 0 && (
+          <Icon
+            as={CheckCircleIcon}
+            size={16}
+            className="text-muted-foreground"
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
+export function QuestOffloadVerificationDrawer({
+  isOpen,
+  onOpenChange,
+  onContinue,
+  verificationState
+}: QuestOffloadVerificationDrawerProps) {
+  const { t } = useLocalization();
+  const {
+    isVerifying,
+    hasPendingUploads,
+    pendingUploadCount,
+    progressSharedValues,
+    totalRecordsShared,
+    hasError,
+    estimatedStorageBytes
+  } = verificationState;
+
+  // Use React state for display values
+  const [progress, setProgress] = useState({
+    quest: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    project: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    questAssetLinks: {
+      count: 0,
+      verified: 0,
+      isVerifying: false,
+      hasError: false
+    },
+    assets: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    assetContentLinks: {
+      count: 0,
+      verified: 0,
+      isVerifying: false,
+      hasError: false
+    },
+    votes: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    questTagLinks: {
+      count: 0,
+      verified: 0,
+      isVerifying: false,
+      hasError: false
+    },
+    assetTagLinks: {
+      count: 0,
+      verified: 0,
+      isVerifying: false,
+      hasError: false
+    },
+    tags: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    languages: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    attachments: { count: 0, verified: 0, isVerifying: false, hasError: false }
+  });
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  // Sync shared values to React state using useAnimatedReaction
+  useAnimatedReaction(
+    () => ({
+      quest: progressSharedValues.quest.value,
+      project: progressSharedValues.project.value,
+      questAssetLinks: progressSharedValues.questAssetLinks.value,
+      assets: progressSharedValues.assets.value,
+      assetContentLinks: progressSharedValues.assetContentLinks.value,
+      votes: progressSharedValues.votes.value,
+      questTagLinks: progressSharedValues.questTagLinks.value,
+      assetTagLinks: progressSharedValues.assetTagLinks.value,
+      tags: progressSharedValues.tags.value,
+      languages: progressSharedValues.languages.value,
+      attachments: progressSharedValues.attachments.value,
+      total: totalRecordsShared.value
+    }),
+    (result, prev) => {
+      // Only update if values actually changed to prevent render loops
+      if (!prev || JSON.stringify(result) !== JSON.stringify(prev)) {
+        runOnJS(setProgress)({
+          quest: result.quest,
+          project: result.project,
+          questAssetLinks: result.questAssetLinks,
+          assets: result.assets,
+          assetContentLinks: result.assetContentLinks,
+          votes: result.votes,
+          questTagLinks: result.questTagLinks,
+          assetTagLinks: result.assetTagLinks,
+          tags: result.tags,
+          languages: result.languages,
+          attachments: result.attachments
+        });
+        runOnJS(setTotalRecords)(result.total);
+      }
+    }
+  );
+
+  // Calculate if ready to offload (all records verified, no errors, no pending uploads)
+  const isReadyToOffload =
+    !isVerifying &&
+    !hasPendingUploads &&
+    !hasError &&
+    totalRecords > 0 &&
+    Object.values(progress).every(
+      (p) => p.count === 0 || p.verified === p.count
+    );
+
+  // Format storage size
+  const formatStorageSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
+
+  return (
+    <Drawer
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      dismissible={!isVerifying}
+    >
+      <DrawerContent className="pb-safe">
+        <DrawerHeader>
+          <DrawerTitle>{t('offloadQuest') || 'Offload Quest'}</DrawerTitle>
+          <Text className="text-sm text-muted-foreground">
+            {hasPendingUploads
+              ? t('pendingUploadsDetected') || 'Pending uploads detected'
+              : isVerifying
+                ? t('verifyingCloudData') || 'Verifying data in cloud...'
+                : isReadyToOffload
+                  ? t('readyToOffload') || 'Ready to offload'
+                  : hasError
+                    ? t('cannotOffloadErrors') ||
+                      'Cannot offload - errors detected'
+                    : t('checkingPendingChanges') ||
+                      'Checking for pending changes...'}
+          </Text>
+        </DrawerHeader>
+
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {hasPendingUploads ? (
+            <View className="flex flex-col gap-4 px-4 py-6">
+              <View className="rounded-lg bg-yellow-500/10 p-4">
+                <View className="mb-2 flex-row items-center gap-2">
+                  <Icon
+                    as={UploadCloudIcon}
+                    size={20}
+                    className="text-yellow-600"
+                  />
+                  <Text className="font-semibold text-yellow-600">
+                    {t('pendingUploadsDetected') || 'Pending Uploads Detected'}
+                  </Text>
+                </View>
+                <Text className="text-sm text-muted-foreground">
+                  {t('pendingUploadsMessage') ||
+                    `You have ${pendingUploadCount} pending upload(s). Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.`}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View className="flex flex-col gap-2 px-4">
+              <View className="flex-col gap-0">
+                <CategoryRow
+                  label="Quest"
+                  icon={FolderIcon}
+                  {...progress.quest}
+                />
+                <CategoryRow
+                  label="Project"
+                  icon={DatabaseIcon}
+                  {...progress.project}
+                />
+                <CategoryRow
+                  label="Quest-Asset Links"
+                  icon={LinkIcon}
+                  {...progress.questAssetLinks}
+                />
+                <CategoryRow
+                  label="Assets"
+                  icon={FileTextIcon}
+                  {...progress.assets}
+                />
+                <CategoryRow
+                  label="Asset Content Links"
+                  icon={LinkIcon}
+                  {...progress.assetContentLinks}
+                />
+                <CategoryRow
+                  label="Votes"
+                  icon={ThumbsUpIcon}
+                  {...progress.votes}
+                />
+                <CategoryRow
+                  label="Quest Tags"
+                  icon={LinkIcon}
+                  {...progress.questTagLinks}
+                />
+                <CategoryRow
+                  label="Asset Tags"
+                  icon={LinkIcon}
+                  {...progress.assetTagLinks}
+                />
+                <CategoryRow label="Tags" icon={TagIcon} {...progress.tags} />
+                <CategoryRow
+                  label="Languages"
+                  icon={DatabaseIcon}
+                  {...progress.languages}
+                />
+                <CategoryRow
+                  label="Attachments"
+                  icon={FileTextIcon}
+                  {...progress.attachments}
+                />
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        <DrawerFooter>
+          {!hasPendingUploads && (
+            <>
+              <View className="mb-2 flex-row items-center justify-between rounded-lg bg-muted p-3">
+                <Text className="text-sm font-semibold">
+                  {t('totalRecords') || 'Total Records'}:
+                </Text>
+                <Text className="text-lg font-bold text-primary">
+                  {totalRecords}
+                </Text>
+              </View>
+
+              {estimatedStorageBytes > 0 && (
+                <View className="mb-2 flex-row items-center justify-between rounded-lg bg-muted p-3">
+                  <Text className="text-sm font-semibold">
+                    {t('storageToFree') || 'Storage to Free'}:
+                  </Text>
+                  <Text className="text-lg font-bold text-primary">
+                    {formatStorageSize(estimatedStorageBytes)}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
+          {isReadyToOffload && (
+            <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
+              <Text className="text-sm text-yellow-600">
+                {t('offloadWarning') ||
+                  'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.'}
+              </Text>
+            </View>
+          )}
+
+          {hasError && !isVerifying && !hasPendingUploads && (
+            <View className="mb-2 rounded-lg bg-destructive/10 p-3">
+              <Text className="text-sm text-destructive">
+                {t('cannotOffloadErrors') ||
+                  'Some records were not found in the cloud or could not be verified. Cannot proceed with offload. This may indicate the data has not fully synced yet.'}
+              </Text>
+            </View>
+          )}
+
+          <Button
+            onPress={onContinue}
+            disabled={!isReadyToOffload || isVerifying || hasPendingUploads}
+            variant={isReadyToOffload ? 'destructive' : 'default'}
+          >
+            <Text className="font-bold">
+              {isVerifying
+                ? t('verifyingCloudData') || 'Verifying...'
+                : hasPendingUploads
+                  ? t('waitingForUploads') || 'Waiting for Uploads'
+                  : isReadyToOffload
+                    ? t('continueToOffload') || 'Offload from Device'
+                    : t('cannotOffload') || 'Cannot Offload'}
+            </Text>
+          </Button>
+
+          <DrawerClose asChild>
+            <Button variant="outline" disabled={isVerifying}>
+              <Text>{t('cancel')}</Text>
+            </Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}

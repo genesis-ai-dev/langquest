@@ -1,5 +1,8 @@
-import { colors, fontSizes, spacing } from '@/styles/theme';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { cn } from '@/utils/styleUtils';
+import { View } from 'react-native';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
+import { Text } from './ui/text';
 
 interface SwitchBoxProps {
   title: string;
@@ -17,75 +20,25 @@ export function SwitchBox({
   disabled = false
 }: SwitchBoxProps) {
   return (
-    <View style={styles.content}>
-      <View style={styles.settingRow}>
-        <View style={styles.settingInfo}>
+    <View className="border-b border-border py-4">
+      <View className="flex-row items-center justify-between">
+        <View className="mr-4 flex-1">
+          <Label className={cn(disabled && 'opacity-60')}>{title}</Label>
           <Text
-            style={disabled ? styles.settingTitleDisabled : styles.settingTitle}
-          >
-            {title}
-          </Text>
-          <Text
-            style={
-              disabled
-                ? styles.settingDescriptionDisabled
-                : styles.settingDescription
-            }
+            className={cn(
+              'text-sm text-muted-foreground',
+              disabled && 'opacity-60'
+            )}
           >
             {description}
           </Text>
         </View>
         <Switch
-          value={value}
-          onValueChange={() => onChange()}
+          checked={value}
+          onCheckedChange={onChange}
           disabled={disabled}
-          trackColor={{
-            false: colors.disabled,
-            true: disabled ? colors.disabled : colors.primary
-          }}
-          thumbColor={!value || disabled ? colors.disabled : colors.primary}
         />
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  settingTitleDisabled: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall,
-    opacity: 0.6
-  },
-  settingDescriptionDisabled: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary,
-    opacity: 0.6
-  }
-});

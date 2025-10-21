@@ -219,6 +219,139 @@ export const localizations = {
     tok_pisin: 'Painimaut long Quest Data',
     indonesian: 'Menemukan Data Quest'
   },
+  offloadQuest: {
+    english: 'Offload Quest',
+    spanish: 'Descargar Quest',
+    brazilian_portuguese: 'Descarregar Quest',
+    tok_pisin: 'Rausim Quest',
+    indonesian: 'Lepas Quest'
+  },
+  offloadQuestDescription: {
+    english: 'Remove local data to free up storage',
+    spanish: 'Eliminar datos locales para liberar almacenamiento',
+    brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
+    tok_pisin: 'Rausim data long freeup storage',
+    indonesian: 'Hapus data lokal untuk membebaskan penyimpanan'
+  },
+  verifyingCloudData: {
+    english: 'Verifying data in cloud...',
+    spanish: 'Verificando datos en la nube...',
+    brazilian_portuguese: 'Verificando dados na nuvem...',
+    tok_pisin: 'Checkim data long klaud...',
+    indonesian: 'Memverifikasi data di cloud...'
+  },
+  pendingUploadsDetected: {
+    english: 'Pending uploads detected',
+    spanish: 'Se detectaron cargas pendientes',
+    brazilian_portuguese: 'Uploads pendentes detectados',
+    tok_pisin: 'Painimaut sampela hap i no go yet',
+    indonesian: 'Mendeteksi upload tertunda'
+  },
+  pendingUploadsMessage: {
+    english: 'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
+    spanish: 'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
+    brazilian_portuguese: 'Aguarde todos os uploads para a nuvem antes de descarregar. Conecte-se à internet e aguarde a sincronização completar.',
+    tok_pisin: 'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
+    indonesian: 'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
+  },
+  readyToOffload: {
+    english: 'Ready to offload',
+    spanish: 'Listo para descargar',
+    brazilian_portuguese: 'Pronto para descarregar',
+    tok_pisin: 'Redi long rausim',
+    indonesian: 'Siap untuk melepas'
+  },
+  offloadWarning: {
+    english: 'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
+    spanish: 'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
+    brazilian_portuguese: 'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
+    tok_pisin: 'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
+    indonesian: 'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
+  },
+  storageToFree: {
+    english: 'Storage to Free',
+    spanish: 'Almacenamiento para Liberar',
+    brazilian_portuguese: 'Armazenamento a Liberar',
+    tok_pisin: 'Storage Long Freeup',
+    indonesian: 'Penyimpanan yang Dibebaskan'
+  },
+  continueToOffload: {
+    english: 'Offload from Device',
+    spanish: 'Descargar del Dispositivo',
+    brazilian_portuguese: 'Descarregar do Dispositivo',
+    tok_pisin: 'Rausim long Mashin',
+    indonesian: 'Lepas dari Perangkat'
+  },
+  offloadingQuest: {
+    english: 'Offloading quest...',
+    spanish: 'Descargando quest...',
+    brazilian_portuguese: 'Descarregando quest...',
+    tok_pisin: 'Rausim quest...',
+    indonesian: 'Melepas quest...'
+  },
+  offloadComplete: {
+    english: 'Quest offloaded successfully',
+    spanish: 'Quest descargada con éxito',
+    brazilian_portuguese: 'Quest descarregada com sucesso',
+    tok_pisin: 'Quest i rausim orait',
+    indonesian: 'Quest berhasil dilepas'
+  },
+  offloadError: {
+    english: 'Failed to offload quest',
+    spanish: 'Error al descargar quest',
+    brazilian_portuguese: 'Falha ao descarregar quest',
+    tok_pisin: 'Pasin long rausim quest i no inap',
+    indonesian: 'Gagal melepas quest'
+  },
+  cannotOffloadErrors: {
+    english: 'Cannot offload - errors detected',
+    spanish: 'No se puede descargar - errores detectados',
+    brazilian_portuguese: 'Não é possível descarregar - erros detectados',
+    tok_pisin: 'No inap rausim - painimaut sampela rong',
+    indonesian: 'Tidak dapat melepas - kesalahan terdeteksi'
+  },
+  allDataVerifiedInCloud: {
+    english: 'All data verified in cloud',
+    spanish: 'Todos los datos verificados en la nube',
+    brazilian_portuguese: 'Todos os dados verificados na nuvem',
+    tok_pisin: 'Olgeta data i stret long klaud',
+    indonesian: 'Semua data terverifikasi di cloud'
+  },
+  checkingPendingChanges: {
+    english: 'Checking for pending changes...',
+    spanish: 'Verificando cambios pendientes...',
+    brazilian_portuguese: 'Verificando alterações pendentes...',
+    tok_pisin: 'Checkim sampela senis i no go yet...',
+    indonesian: 'Memeriksa perubahan tertunda...'
+  },
+  verifyingDatabaseRecords: {
+    english: 'Verifying database records',
+    spanish: 'Verificando registros de base de datos',
+    brazilian_portuguese: 'Verificando registros do banco de dados',
+    tok_pisin: 'Checkim ol rekod long database',
+    indonesian: 'Memverifikasi catatan database'
+  },
+  verifyingAttachments: {
+    english: 'Verifying attachments',
+    spanish: 'Verificando archivos adjuntos',
+    brazilian_portuguese: 'Verificando anexos',
+    tok_pisin: 'Checkim ol fail i pas long',
+    indonesian: 'Memverifikasi lampiran'
+  },
+  waitingForUploads: {
+    english: 'Waiting for Uploads',
+    spanish: 'Esperando Cargas',
+    brazilian_portuguese: 'Aguardando Uploads',
+    tok_pisin: 'Wetim Upload',
+    indonesian: 'Menunggu Upload'
+  },
+  cannotOffload: {
+    english: 'Cannot Offload',
+    spanish: 'No se puede Descargar',
+    brazilian_portuguese: 'Não é possível Descarregar',
+    tok_pisin: 'No Inap Rausim',
+    indonesian: 'Tidak dapat Melepas'
+  },
   analyzingRelatedRecords: {
     english: 'Analyzing related records...',
     spanish: 'Analizando registros relacionados...',

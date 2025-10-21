@@ -4,27 +4,24 @@ import {
   useQuestStatuses
 } from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { offloadQuest } from '@/utils/questOffloadUtils';
+import { CloudUpload, XIcon } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
+import { Alert, View } from 'react-native';
+import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
+import { Button } from './ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from './ui/drawer';
+import { Icon } from './ui/icon';
+import { Text } from './ui/text';
 
 interface QuestSettingsModalProps {
   isVisible: boolean;
@@ -43,6 +40,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showOffloadDrawer, setShowOffloadDrawer] = useState(false);
+  const [isOffloading, setIsOffloading] = useState(false);
 
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
@@ -56,6 +55,9 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     refetch
   } = useQuestStatuses(questId);
 
+  // Initialize offload verification hook
+  const verificationState = useQuestOffloadVerification(questId);
+
   // Handle error in useEffect to avoid setState during render
   useEffect(() => {
     if (isError && isVisible) {
@@ -67,6 +69,10 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   if (isError) {
     return null;
   }
+
+  // Check if quest has local data (source is 'local' or has been downloaded)
+  const hasLocalData =
+    questData?.source === 'local' || questData?.source === 'synced';
 
   const handleToggleVisible = async () => {
     if (!questData) return;
@@ -146,108 +152,113 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     }
   };
 
-  return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={[sharedStyles.modal, styles.modalContainer]}>
-              <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>
-                  {t('questSettings')}
-                </Text>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+  const handleStartOffload = () => {
+    setShowOffloadDrawer(true);
+    verificationState.startVerification();
+  };
 
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  questData?.visible
-                    ? t('visibleQuestDescription')
-                    : t('invisibleQuestDescription')
-                }
-                value={questData?.visible ?? false}
-                onChange={() => handleToggleVisible()}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
-              <SwitchBox
-                title={t('active')}
-                description={
-                  questData?.active
-                    ? t('activeQuestDescription')
-                    : t('inactiveQuestDescription')
-                }
-                value={questData?.active ?? false}
-                onChange={() => handleToggleActive()}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+  const handleContinueOffload = async () => {
+    setIsOffloading(true);
+    try {
+      await offloadQuest({
+        questId,
+        verifiedIds: verificationState.verifiedIds,
+        onProgress: (progress, message) => {
+          console.log(`Offload progress: ${progress.toFixed(0)}% - ${message}`);
+        }
+      });
+
+      Alert.alert(t('success'), t('offloadComplete'));
+      setShowOffloadDrawer(false);
+      onClose();
+      refetch();
+    } catch (error) {
+      console.error('Failed to offload quest:', error);
+      Alert.alert(t('error'), t('offloadError'));
+    } finally {
+      setIsOffloading(false);
+    }
+  };
+
+  return (
+    <>
+      <Drawer
+        open={isVisible}
+        onOpenChange={onClose}
+        snapPoints={['60%', '90%']}
+      >
+        <DrawerContent className="bg-background px-4 pb-8">
+          <DrawerHeader className="flex-row items-center justify-between">
+            <DrawerTitle>{t('questSettings')}</DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon">
+                <Icon as={XIcon} size={24} />
+              </Button>
+            </DrawerClose>
+          </DrawerHeader>
+
+          <View className="flex-1 gap-4">
+            <SwitchBox
+              title={t('visibility')}
+              description={
+                questData?.visible
+                  ? t('visibleQuestDescription')
+                  : t('invisibleQuestDescription')
+              }
+              value={questData?.visible ?? false}
+              onChange={() => handleToggleVisible()}
+              disabled={isSubmitting || isLoading || !isOwner}
+            />
+            <SwitchBox
+              title={t('active')}
+              description={
+                questData?.active
+                  ? t('activeQuestDescription')
+                  : t('inactiveQuestDescription')
+              }
+              value={questData?.active ?? false}
+              onChange={() => handleToggleActive()}
+              disabled={isSubmitting || isLoading || !isOwner}
+            />
+
+            {/* Offload Quest Button */}
+            {hasLocalData && isOwner && (
+              <View className="border-t border-border pt-4">
+                <Button
+                  variant="outline"
+                  onPress={handleStartOffload}
+                  disabled={isSubmitting || isLoading}
+                  className="border-destructive"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Icon
+                      as={CloudUpload}
+                      size={20}
+                      className="text-destructive"
+                    />
+                    <View className="flex-1">
+                      <Text className="font-semibold text-destructive">
+                        {t('offloadQuest')}
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {t('offloadQuestDescription')}
+                      </Text>
+                    </View>
+                  </View>
+                </Button>
+              </View>
+            )}
+          </View>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Offload Verification Drawer */}
+      <QuestOffloadVerificationDrawer
+        isOpen={showOffloadDrawer}
+        onOpenChange={setShowOffloadDrawer}
+        onContinue={handleContinueOffload}
+        verificationState={verificationState}
+      />
+    </>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  infoText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.text,
-    lineHeight: 20
-  }
-});
