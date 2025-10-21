@@ -3926,6 +3926,90 @@ export const localizations = {
     tok_pisin:
       'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
     indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
+  },
+  requests: {
+    english: 'Requests',
+    spanish: 'Solicitudes',
+    brazilian_portuguese: 'Solicitações',
+    tok_pisin: 'Ol askim',
+    indonesian: 'Permintaan'
+  },
+  noPendingRequests: {
+    english: 'No pending membership requests',
+    spanish: 'No hay solicitudes de membresía pendientes',
+    brazilian_portuguese: 'Sem solicitações de adesão pendentes',
+    tok_pisin: 'I no gat askim i stap',
+    indonesian: 'Tidak ada permintaan keanggotaan tertunda'
+  },
+  confirmApprove: {
+    english: 'Approve Request',
+    spanish: 'Aprobar Solicitud',
+    brazilian_portuguese: 'Aprovar Solicitação',
+    tok_pisin: 'Orait long askim',
+    indonesian: 'Setujui Permintaan'
+  },
+  confirmApproveMessage: {
+    english: 'Add {name} as a member of this project?',
+    spanish: '¿Agregar a {name} como miembro de este proyecto?',
+    brazilian_portuguese: 'Adicionar {name} como membro deste projeto?',
+    tok_pisin: 'Putim {name} i kamap memba bilong projek?',
+    indonesian: 'Tambahkan {name} sebagai anggota proyek ini?'
+  },
+  requestApproved: {
+    english: 'Request approved',
+    spanish: 'Solicitud aprobada',
+    brazilian_portuguese: 'Solicitação aprovada',
+    tok_pisin: 'Askim i orait',
+    indonesian: 'Permintaan disetujui'
+  },
+  confirmDeny: {
+    english: 'Deny Request',
+    spanish: 'Rechazar Solicitud',
+    brazilian_portuguese: 'Negar Solicitação',
+    tok_pisin: 'Tambu askim',
+    indonesian: 'Tolak Permintaan'
+  },
+  confirmDenyMessage: {
+    english: 'Deny membership request from {name}?',
+    spanish: '¿Rechazar solicitud de membresía de {name}?',
+    brazilian_portuguese: 'Negar solicitação de adesão de {name}?',
+    tok_pisin: 'Tambu askim bilong {name}?',
+    indonesian: 'Tolak permintaan keanggotaan dari {name}?'
+  },
+  requestDenied: {
+    english: 'Request denied',
+    spanish: 'Solicitud rechazada',
+    brazilian_portuguese: 'Solicitação negada',
+    tok_pisin: 'Askim i tambu',
+    indonesian: 'Permintaan ditolak'
+  },
+  failedToApproveRequest: {
+    english: 'Failed to approve request',
+    spanish: 'Error al aprobar solicitud',
+    brazilian_portuguese: 'Falha ao aprovar solicitação',
+    tok_pisin: 'Askim i no inap orait',
+    indonesian: 'Gagal menyetujui permintaan'
+  },
+  failedToDenyRequest: {
+    english: 'Failed to deny request',
+    spanish: 'Error al rechazar solicitud',
+    brazilian_portuguese: 'Falha ao negar solicitação',
+    tok_pisin: 'Askim i no inap tambu',
+    indonesian: 'Gagal menolak permintaan'
+  },
+  downloadQuestToView: {
+    english: 'This quest must be downloaded before you can view it.',
+    spanish: 'Este quest debe descargarse antes de poder verlo.',
+    brazilian_portuguese: 'Esta quest deve ser baixada antes de visualizá-la.',
+    tok_pisin: 'Yu mas daunim dispela quest pastaim long lukim.',
+    indonesian: 'Quest ini harus diunduh sebelum Anda dapat melihatnya.'
+  },
+  downloadNow: {
+    english: 'Download Now',
+    spanish: 'Descargar Ahora',
+    brazilian_portuguese: 'Baixar Agora',
+    tok_pisin: 'Daunim nau',
+    indonesian: 'Unduh Sekarang'
   }
 } as const;
 

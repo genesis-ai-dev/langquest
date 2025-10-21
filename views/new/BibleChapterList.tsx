@@ -20,7 +20,7 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { HardDriveIcon, PlusIcon } from 'lucide-react-native';
+import { HardDriveIcon, PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 import { useItemDownloadStatus } from './useHybridData';
@@ -43,7 +43,7 @@ const ChapterSkeleton = () => (
 // Helper component to handle individual chapter download state
 function ChapterButton({
   chapterNum,
-  verseCount,
+  verseCount: _verseCount,
   existingChapter,
   isCreatingThis,
   onPress,
@@ -157,7 +157,7 @@ function ChapterButton({
       {/* Add plus icon for createable chapters */}
       {!exists && canCreateNew && (
         <Icon
-          as={PlusIcon}
+          as={PlusCircleIcon}
           size={12}
           className="absolute -right-1 -top-1 text-primary"
         />
@@ -231,7 +231,10 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({
     mutationFn: async () => {
-      if (!currentUser?.id || !discoveryState.discoveredIds) {
+      if (
+        !currentUser?.id ||
+        discoveryState.discoveredIds.questIds.length === 0
+      ) {
         throw new Error('Missing user or discovered IDs');
       }
 
@@ -330,7 +333,24 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     );
 
     if (existingChapter) {
-      // Chapter exists, just navigate to it
+      // Check if chapter is downloaded before allowing navigation
+      const isDownloaded = existingChapter.download_profiles?.includes(
+        currentUser?.id || ''
+      );
+      const isCloudQuest = existingChapter.source === 'cloud';
+
+      if (isCloudQuest && !isDownloaded) {
+        Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('downloadNow'),
+            onPress: () => handleDownloadClick(existingChapter.id)
+          }
+        ]);
+        return;
+      }
+
+      // Chapter exists and is downloaded (or local), navigate to it
       console.log(`📖 Opening existing chapter: ${existingChapter.id}`);
       goToQuest({
         id: existingChapter.id,

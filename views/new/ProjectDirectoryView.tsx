@@ -1,4 +1,5 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -92,6 +93,7 @@ export default function ProjectDirectoryView() {
       ? currentProjectTemplate
       : project?.template;
   const projectName = currentProjectName || project?.name;
+  const isPrivateProject = project?.private ?? false;
 
   // Bible navigation state
   const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
@@ -140,7 +142,10 @@ export default function ProjectDirectoryView() {
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({
     mutationFn: async () => {
-      if (!currentUser?.id || !discoveryState.discoveredIds) {
+      if (
+        !currentUser?.id ||
+        discoveryState.discoveredIds.questIds.length === 0
+      ) {
         throw new Error('Missing user or discovered IDs');
       }
 
@@ -447,12 +452,20 @@ export default function ProjectDirectoryView() {
             </View>
             <Text variant="h4">{projectName}</Text>
           </View>
-          <BibleBookList
-            projectId={currentProjectId!}
-            onBookSelect={handleBookSelect}
-            existingBookIds={existingBookIds}
-            canCreateNew={isMember}
-          />
+          <PrivateAccessGate
+            projectId={currentProjectId || ''}
+            projectName={projectName || ''}
+            isPrivate={isPrivateProject}
+            action="contribute"
+            inline={true}
+          >
+            <BibleBookList
+              projectId={currentProjectId!}
+              onBookSelect={handleBookSelect}
+              existingBookIds={existingBookIds}
+              canCreateNew={isMember}
+            />
+          </PrivateAccessGate>
         </View>
       );
     }
@@ -471,12 +484,20 @@ export default function ProjectDirectoryView() {
           <Icon as={ArrowLeftIcon} />
           <Text>Back</Text>
         </Button>
-        <View className="w-full flex-1">
-          <BibleChapterList
-            projectId={currentProjectId!}
-            bookId={selectedBook}
-          />
-        </View>
+        <PrivateAccessGate
+          projectId={currentProjectId || ''}
+          projectName={projectName || ''}
+          isPrivate={isPrivateProject}
+          action="contribute"
+          inline={true}
+        >
+          <View className="w-full flex-1">
+            <BibleChapterList
+              projectId={currentProjectId!}
+              bookId={selectedBook}
+            />
+          </View>
+        </PrivateAccessGate>
       </View>
     );
   }
@@ -496,30 +517,38 @@ export default function ProjectDirectoryView() {
       >
         <View className="flex-1 flex-col gap-4 p-4">
           <Text variant="h4">{t('projectDirectory')}</Text>
-          <View className="pb-safe flex flex-1 flex-col gap-2">
-            {roots.length === 0 ? (
-              <View>
-                <Text className="text-center text-muted-foreground">
-                  {t('noQuestsFound')}
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                className="gap-1"
-                showsVerticalScrollIndicator={false}
+          <PrivateAccessGate
+            projectId={currentProjectId || ''}
+            projectName={projectName || ''}
+            isPrivate={isPrivateProject}
+            action="contribute"
+            inline={true}
+          >
+            <View className="pb-safe flex flex-1 flex-col gap-2">
+              {roots.length === 0 ? (
+                <View>
+                  <Text className="text-center text-muted-foreground">
+                    {t('noQuestsFound')}
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView
+                  className="gap-1"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {renderTree(roots, 0)}
+                </ScrollView>
+              )}
+              <Button
+                onPress={() => openCreateForParent(null)}
+                variant="outline"
+                size="sm"
+                disabled={!isMember}
               >
-                {renderTree(roots, 0)}
-              </ScrollView>
-            )}
-            <Button
-              onPress={() => openCreateForParent(null)}
-              variant="outline"
-              size="sm"
-              disabled={!isMember}
-            >
-              <Text>{t('createObject')}</Text>
-            </Button>
-          </View>
+                <Text>{t('createObject')}</Text>
+              </Button>
+            </View>
+          </PrivateAccessGate>
         </View>
 
         <View style={{ bottom: 24, right: 24 }} className="absolute">

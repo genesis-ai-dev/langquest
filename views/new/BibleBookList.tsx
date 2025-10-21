@@ -3,11 +3,10 @@ import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
-import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
-import { PlusIcon } from 'lucide-react-native';
+import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Dimensions, Image, View } from 'react-native';
 
@@ -26,7 +25,6 @@ export function BibleBookList({
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
-  const { t } = useLocalization();
   // Responsive: calculate how many fit per row
   const screenWidth = Dimensions.get('window').width;
   const buttonWidth = 110;
@@ -89,7 +87,7 @@ export function BibleBookList({
         {/* Add plus icon for createable books */}
         {!bookExists && canCreateNew && (
           <Icon
-            as={PlusIcon}
+            as={PlusCircleIcon}
             size={14}
             className="absolute -right-1 -top-1 text-primary"
           />
