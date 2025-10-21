@@ -500,13 +500,15 @@ const RecordingViewSimplified = ({
         }
 
         // Generate name immediately and reserve it to prevent duplicates
-        // Use total count (existing + pending) for simple sequential naming
-        const nextNumber =
-          assets.length + pendingAssetNamesRef.current.size + 1;
+        // In VAD mode: Use the VAD counter which is already incremented per segment
+        // In manual mode: Use total count (existing + pending) for simple sequential naming
+        const nextNumber = isVADLocked
+          ? targetOrder + 1 // VAD: use order_index + 1 for naming (order is 0-based, names are 1-based)
+          : assets.length + pendingAssetNamesRef.current.size + 1;
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
         console.log(
-          `🏷️ Reserved name: ${assetName} (asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size})`
+          `🏷️ Reserved name: ${assetName} (${isVADLocked ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
         );
 
         // Save audio file locally
@@ -560,7 +562,8 @@ const RecordingViewSimplified = ({
       currentProject,
       currentUser,
       queryClient,
-      isVADLocked
+      isVADLocked,
+      assets
     ]
   );
 
