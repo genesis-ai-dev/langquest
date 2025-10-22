@@ -37,7 +37,7 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
       {
         onResult: (results: QueryResult) => {
           const newStates = new Map<string, AttachmentRecord>();
-          const currentPreviousStates = previousStatesRef.current;
+          // const currentPreviousStates = previousStatesRef.current;
 
           // Check if results and rows exist before accessing _array
           if (results.rows?._array) {
@@ -45,30 +45,30 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
               const record = row as unknown as AttachmentRecord;
               newStates.set(record.id, record);
 
-              // Only log significant state changes
-              const previousState = currentPreviousStates.get(record.id)?.state;
-              if (
-                previousState !== undefined &&
-                previousState !== record.state
-              ) {
-                if (record.state === AttachmentState.SYNCED) {
-                  console.log(
-                    `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
-                  );
-                } else if (record.state === AttachmentState.QUEUED_SYNC) {
-                  console.log(
-                    `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
-                  );
-                } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
-                  console.log(
-                    `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
-                  );
-                } else {
-                  console.log(
-                    `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
-                  );
-                }
-              }
+              // // Only log significant state changes
+              // const previousState = currentPreviousStates.get(record.id)?.state;
+              // if (
+              //   previousState !== undefined &&
+              //   previousState !== record.state
+              // ) {
+              //   if (record.state === AttachmentState.SYNCED) {
+              //     console.log(
+              //       `💾 [ATTACHMENT] ✅ SYNCED: ${record.id} (was: ${previousState})`
+              //     );
+              //   } else if (record.state === AttachmentState.QUEUED_SYNC) {
+              //     console.log(
+              //       `⏳ [ATTACHMENT] 🔄 QUEUED FOR DOWNLOAD: ${record.id} (was: ${previousState})`
+              //     );
+              //   } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+              //     console.log(
+              //       `⬇️ [ATTACHMENT] 📥 DOWNLOADING: ${record.id} (was: ${previousState})`
+              //     );
+              //   } else {
+              //     console.log(
+              //       `🔄 [ATTACHMENT] State changed: ${record.id} (${previousState} → ${record.state})`
+              //     );
+              //   }
+              // }
             });
           }
 
