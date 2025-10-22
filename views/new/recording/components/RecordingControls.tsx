@@ -16,6 +16,7 @@ import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface RecordingControlsProps {
   isRecording: boolean;
@@ -53,6 +54,7 @@ export const RecordingControls = React.memo(
   }: RecordingControlsProps) {
     const { t } = useLocalization();
     const [hasPermission, setHasPermission] = useState<boolean>(true);
+    const insets = useSafeAreaInsets();
 
     // Check permissions after render
     useEffect(() => {
@@ -71,6 +73,7 @@ export const RecordingControls = React.memo(
       return (
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+          style={{ paddingBottom: insets.bottom }}
           onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
         >
           <View className="flex w-full items-center justify-center py-6">
@@ -94,6 +97,7 @@ export const RecordingControls = React.memo(
     return (
       <View
         className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+        style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
         {/* Waveform visualization above controls */}

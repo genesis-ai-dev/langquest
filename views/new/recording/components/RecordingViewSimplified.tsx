@@ -29,6 +29,7 @@ import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
 import { Alert, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useVADRecording } from '../hooks/useVADRecording';
@@ -69,6 +70,7 @@ const RecordingViewSimplified = ({
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
+  const insets = useSafeAreaInsets();
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -1384,7 +1386,7 @@ const RecordingViewSimplified = ({
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0">
         {isSelectionMode ? (
-          <View className="px-4">
+          <View className="px-4" style={{ paddingBottom: insets.bottom }}>
             <SelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
