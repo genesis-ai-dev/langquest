@@ -20,6 +20,7 @@ export interface NavigationStackItem {
   projectId?: string;
   projectName?: string;
   projectTemplate?: string | null;
+  bookId?: string; // For Bible projects - which book is being viewed
   questId?: string;
   questName?: string;
   assetId?: string;
@@ -78,11 +79,11 @@ export interface LocalState {
 
   // Authentication view state
   authView:
-    | 'sign-in'
-    | 'register'
-    | 'forgot-password'
-    | 'reset-password'
-    | null;
+  | 'sign-in'
+  | 'register'
+  | 'forgot-password'
+  | 'reset-password'
+  | null;
   setAuthView: (
     view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
   ) => void;

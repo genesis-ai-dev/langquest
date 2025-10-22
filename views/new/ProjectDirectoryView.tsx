@@ -39,7 +39,10 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -73,8 +76,13 @@ import { BibleChapterList } from './BibleChapterList';
 import { QuestListView } from './QuestListView';
 
 export default function ProjectDirectoryView() {
-  const { currentProjectId, currentProjectName, currentProjectTemplate } =
-    useCurrentNavigation();
+  const {
+    currentProjectId,
+    currentProjectName,
+    currentProjectTemplate,
+    currentBookId
+  } = useCurrentNavigation();
+  const { navigate, goBack } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -94,8 +102,7 @@ export default function ProjectDirectoryView() {
   const projectName = currentProjectName || project?.name;
   const isPrivateProject = project?.private ?? false;
 
-  // Bible navigation state
-  const [selectedBook, setSelectedBook] = React.useState<string | null>(null);
+  // Modal states
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -232,7 +239,14 @@ export default function ProjectDirectoryView() {
       // Allow navigation if book exists (anyone can view)
       // OR if user is member (can create)
       if (bookExists || isMember) {
-        setSelectedBook(bookId);
+        // Navigate to quests view with bookId to show chapter list
+        navigate({
+          view: 'quests',
+          projectId: currentProjectId,
+          projectName: currentProjectName,
+          projectTemplate: currentProjectTemplate,
+          bookId
+        });
 
         // Find/create book quest in background if user is a member
         // This ensures the book quest exists for other operations
@@ -248,7 +262,17 @@ export default function ProjectDirectoryView() {
         Alert.alert(t('error'), t('membersOnlyCreate'));
       }
     },
-    [existingBookIds, isMember, template, currentProjectId, findOrCreateBook, t]
+    [
+      existingBookIds,
+      isMember,
+      navigate,
+      currentProjectId,
+      currentProjectName,
+      currentProjectTemplate,
+      template,
+      findOrCreateBook,
+      t
+    ]
   );
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -330,7 +354,11 @@ export default function ProjectDirectoryView() {
 
   // Show loading skeleton for project metadata only
   if (isProjectLoading) {
-    return <ProjectListSkeleton />;
+    return (
+      <View className="flex-1 p-4">
+        <ProjectListSkeleton />
+      </View>
+    );
   }
 
   // Render content based on project type
@@ -338,7 +366,7 @@ export default function ProjectDirectoryView() {
     // Bible project routing
     if (template === 'bible') {
       // Show book list if no book selected
-      if (!selectedBook) {
+      if (!currentBookId) {
         return (
           <View className="align-start flex-1">
             <View className="flex-row items-center justify-start gap-3 p-4">
@@ -361,20 +389,14 @@ export default function ProjectDirectoryView() {
       // Show chapter list
       return (
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => {
-              setSelectedBook(null);
-            }}
-          >
+          <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
             <Text>Back</Text>
           </Button>
           <View className="w-full flex-1">
             <BibleChapterList
               projectId={currentProjectId!}
-              bookId={selectedBook}
+              bookId={currentBookId}
             />
           </View>
         </View>
