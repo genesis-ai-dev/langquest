@@ -1,6 +1,6 @@
 import { cn } from '@/utils/styleUtils';
 import type { LucideIcon } from 'lucide-react-native';
-import { MenuIcon, XIcon } from 'lucide-react-native';
+import { EllipsisVerticalIcon, XIcon } from 'lucide-react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import * as React from 'react';
 import type { ViewProps } from 'react-native';
@@ -66,7 +66,7 @@ interface TriggerProps extends ButtonProps {
 }
 
 function SpeedDialTrigger({
-  iconClosed = MenuIcon,
+  iconClosed = EllipsisVerticalIcon,
   iconOpen = XIcon,
   className,
   ...props
