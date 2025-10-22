@@ -35,7 +35,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { quest } from '@/db/drizzleSchema';
+import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/db/useReports';
@@ -184,7 +184,7 @@ export default function ProjectDirectoryView() {
     }
   });
 
-  type Quest = typeof quest.$inferSelect;
+  type _Quest = typeof quest.$inferSelect;
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
@@ -212,7 +212,7 @@ export default function ProjectDirectoryView() {
     currentUser!.id
   );
 
-  const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+  const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [] } = useBibleBooks(

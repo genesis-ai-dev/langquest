@@ -145,6 +145,12 @@ export function BibleBookListSkeleton() {
 
   return (
     <View className="flex-1">
+      {/* Header skeleton matching actual book list header */}
+      <View className="flex-row items-center justify-start gap-3 p-4">
+        <Skeleton className="rounded-lg" style={{ width: 48, height: 48 }} />
+        <Skeleton className="rounded-lg" style={{ width: 200, height: 32 }} />
+      </View>
+
       <LegendList
         data={skeletonBooks}
         keyExtractor={(item) => item.id}
@@ -162,21 +168,6 @@ export function BibleBookListSkeleton() {
             style={{ width: buttonWidth, height: 140 }}
           />
         )}
-        ListHeaderComponent={
-          <View style={{ width: availableWidth, paddingVertical: 16 }}>
-            <Skeleton style={{ width: 200, height: 24 }} />
-          </View>
-        }
-        // renderSectionHeader={(index) => {
-        //   if (index === 39) {
-        //     return (
-        //       <View style={{ width: availableWidth, paddingVertical: 32 }}>
-        //         <Skeleton style={{ width: 200, height: 24 }} />
-        //       </View>
-        //     );
-        //   }
-        //   return null;
-        // }}
       />
     </View>
   );
