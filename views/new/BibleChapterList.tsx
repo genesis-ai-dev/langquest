@@ -20,7 +20,7 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { HardDriveIcon } from 'lucide-react-native';
+import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
 import { useItemDownloadStatus } from './useHybridData';
@@ -322,7 +322,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     );
   }
 
-  const handleChapterPress = async (chapterNum: number) => {
+  const handleChapterPress = (chapterNum: number) => {
     // Prevent any action while loading or creating
     if (isLoadingChapters || isCreating || creatingChapter === chapterNum) {
       return;
@@ -373,35 +373,39 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       },
       {
         text: t('confirm'),
-        onPress: async () => {
-          setCreatingChapter(chapterNum);
+        onPress: () => {
+          void (async () => {
+            setCreatingChapter(chapterNum);
 
-          try {
-            console.log(`📖 Creating new chapter: ${book.name} ${chapterNum}`);
+            try {
+              console.log(
+                `📖 Creating new chapter: ${book.name} ${chapterNum}`
+              );
 
-            const result = await createChapter({
-              projectId,
-              bookId,
-              chapter: chapterNum,
-              targetLanguageId: project.target_language_id
-            });
+              const result = await createChapter({
+                projectId,
+                bookId,
+                chapter: chapterNum,
+                targetLanguageId: project.target_language_id
+              });
 
-            console.log(
-              `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
-            );
+              console.log(
+                `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
+              );
 
-            // Navigate to assets view
-            goToQuest({
-              id: result.questId,
-              project_id: projectId,
-              name: result.questName
-            });
-          } catch (error) {
-            console.error('Failed to create chapter:', error);
-            // TODO: Show error toast or something to user
-          } finally {
-            setCreatingChapter(null);
-          }
+              // Navigate to assets view
+              goToQuest({
+                id: result.questId,
+                project_id: projectId,
+                name: result.questName
+              });
+            } catch (error) {
+              console.error('Failed to create chapter:', error);
+              // TODO: Show error toast or something to user
+            } finally {
+              setCreatingChapter(null);
+            }
+          })();
         }
       }
     ]);
@@ -425,6 +429,10 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     };
   });
 
+  // Check if we should show empty state
+  const hasNoChapters = existingChapters.length === 0;
+  const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
+
   return (
     <View className="flex-1">
       <View className="flex-1 flex-col gap-6">
@@ -447,8 +455,24 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           </View>
         </View>
 
-        {/* Chapter Grid */}
-        {isLoadingChapters ? (
+        {/* Empty State */}
+        {showEmptyState ? (
+          <View className="flex-1 items-center justify-center gap-4 px-6">
+            <Icon
+              as={BookOpenIcon}
+              size={48}
+              className="text-muted-foreground"
+            />
+            <View className="flex-col items-center gap-2">
+              <Text variant="h4" className="text-center">
+                {t('noQuestsAvailable')}
+              </Text>
+              <Text className="text-center text-muted-foreground">
+                {t('noContentAvailable')}
+              </Text>
+            </View>
+          </View>
+        ) : isLoadingChapters ? (
           <LegendList
             data={chapters.slice(0, 32)}
             keyExtractor={(item) => item.id.toString()}
