@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -79,6 +79,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
+
+  // Resolve the local tables for updates (PowerSync requires local table updates)
+  const requestLocal = useMemo(
+    () => resolveTable('request', { localOverride: true }),
+    []
+  );
 
   // Query for existing membership request using useHybridData
   const { data: existingRequests } = useHybridData({
@@ -212,16 +218,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       if (existingRequest) {
         // Update existing request
         await db
-          .update(request)
+          .update(requestLocal)
           .set({
             status: 'pending',
             count: (existingRequest.count || 0) + 1,
             last_updated: new Date().toISOString()
           })
-          .where(eq(request.id, existingRequest.id));
+          .where(eq(requestLocal.id, existingRequest.id));
       } else {
         // Create new request
-        await db.insert(resolveTable('request')).values({
+        await db.insert(requestLocal).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',
@@ -254,12 +260,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             setIsSubmitting(true);
             try {
               await db
-                .update(request)
+                .update(requestLocal)
                 .set({
                   status: 'withdrawn',
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request.id, existingRequest.id));
+                .where(eq(requestLocal.id, existingRequest.id));
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);

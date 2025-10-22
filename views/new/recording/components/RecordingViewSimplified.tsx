@@ -37,6 +37,7 @@ import { AssetCard } from './AssetCard';
 import { RecordingControls } from './RecordingControls';
 import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
+import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
 const USE_INSERTION_WHEEL = true;
@@ -74,8 +75,9 @@ const RecordingViewSimplified = ({
   const [isVADLocked, setIsVADLocked] = React.useState(false);
 
   // VAD settings
-  const [vadThreshold, _setVadThreshold] = React.useState(0.06);
-  const [vadSilenceDuration, _setVadSilenceDuration] = React.useState(1000);
+  const [vadThreshold, setVadThreshold] = React.useState(0.06);
+  const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1000);
+  const [showVADSettings, setShowVADSettings] = React.useState(false);
 
   // Track current recording order index
   const currentRecordingOrderRef = React.useRef<number>(0);
@@ -675,22 +677,22 @@ const RecordingViewSimplified = ({
 
   // Load segment counts and durations in background without blocking initial render
   React.useEffect(() => {
+    // Early exit if no assets to load (prevents effect from running constantly)
+    const assetsToLoad = assetMetadata.filter(
+      (id) => !loadedAssetIdsRef.current.has(id)
+    );
+
+    if (assetsToLoad.length === 0) {
+      // Nothing new to load - don't even start the async work
+      return;
+    }
+
     const controller = new AbortController();
 
     void (async () => {
       try {
         // Dynamically import Audio only when needed
         const { Audio } = await import('expo-av');
-
-        // Find assets that need loading
-        const assetsToLoad = assetMetadata.filter(
-          (id) => !loadedAssetIdsRef.current.has(id)
-        );
-
-        if (assetsToLoad.length === 0) {
-          console.log('📊 No assets need loading (all cached)');
-          return; // Nothing new to load
-        }
 
         console.log(
           `📊 Loading segment counts for ${assetsToLoad.length} asset(s)`
@@ -700,6 +702,7 @@ const RecordingViewSimplified = ({
         const newDurations = new Map<string, number>();
 
         for (const assetId of assetsToLoad) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (controller.signal.aborted) break;
 
           try {
@@ -869,7 +872,10 @@ const RecordingViewSimplified = ({
     })();
 
     return () => controller.abort();
-  }, [assetMetadata]); // Depend on assetMetadata array (changes when assets change)
+    // Depend on assetIds string (only changes when asset IDs change, not on every render)
+    // This prevents the effect from running hundreds of times when array reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetIds]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)
@@ -1396,6 +1402,7 @@ const RecordingViewSimplified = ({
             onLayout={setFooterHeight}
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}
+            onSettingsPress={() => setShowVADSettings(true)}
             currentEnergy={currentEnergy}
             vadThreshold={vadThreshold}
           />
@@ -1408,6 +1415,17 @@ const RecordingViewSimplified = ({
         currentName={renameAssetName}
         onClose={() => setShowRenameModal(false)}
         onSave={handleSaveRename}
+      />
+
+      {/* VAD Settings Drawer */}
+      <VADSettingsDrawer
+        isOpen={showVADSettings}
+        onOpenChange={setShowVADSettings}
+        threshold={vadThreshold}
+        onThresholdChange={setVadThreshold}
+        silenceDuration={vadSilenceDuration}
+        onSilenceDurationChange={setVadSilenceDuration}
+        isVADLocked={isVADLocked}
       />
     </View>
   );

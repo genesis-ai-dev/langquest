@@ -13,10 +13,12 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
-import { Slider } from '@/components/ui/slider';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { Minus, Plus } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
@@ -90,10 +92,27 @@ export function VADSettingsDrawer({
     { label: 'Loud', value: 0.06 }
   ];
 
-  // Scale functions to convert between 0.005-0.1 range and 5-100 range
-  // This avoids precision loss with very small decimals in the native slider
-  const thresholdToSlider = (threshold: number) => threshold * 1000;
-  const sliderToThreshold = (sliderValue: number) => sliderValue / 1000;
+  // Increment/decrement handlers for threshold
+  const incrementThreshold = () => {
+    const newValue = Math.min(0.1, threshold + 0.005);
+    onThresholdChange(Number(newValue.toFixed(3)));
+  };
+
+  const decrementThreshold = () => {
+    const newValue = Math.max(0.005, threshold - 0.005);
+    onThresholdChange(Number(newValue.toFixed(3)));
+  };
+
+  // Increment/decrement handlers for silence duration
+  const incrementSilence = () => {
+    const newValue = Math.min(3000, silenceDuration + 100);
+    onSilenceDurationChange(newValue);
+  };
+
+  const decrementSilence = () => {
+    const newValue = Math.max(500, silenceDuration - 100);
+    onSilenceDurationChange(newValue);
+  };
 
   // Animated pulse when above threshold
   const pulseScale = useSharedValue(1);
@@ -127,7 +146,9 @@ export function VADSettingsDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <View className="flex-1 gap-6 px-4">
+        <BottomSheetScrollView
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 24 }}
+        >
           {/* Live Energy Visualization */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
@@ -167,19 +188,46 @@ export function VADSettingsDrawer({
           {/* Threshold Adjustment */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
-              Recording Threshold: {(threshold * 100).toFixed(1)}%
+              Recording Threshold
             </Text>
 
-            <Slider
-              value={thresholdToSlider(threshold)}
-              onValueChange={(value) =>
-                onThresholdChange(sliderToThreshold(value[0]!))
-              }
-              min={5}
-              max={100}
-              step={1}
-              className="h-10 w-full"
-            />
+            {/* Increment/Decrement Controls */}
+            <View className="flex-row items-center gap-3">
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={decrementThreshold}
+                disabled={threshold <= 0.005}
+                className="size-14"
+              >
+                <Icon as={Minus} size={24} />
+              </Button>
+
+              <View className="flex-1 items-center rounded-lg border border-border bg-muted p-3">
+                <Text className="text-2xl font-bold text-foreground">
+                  {(threshold * 100).toFixed(1)}%
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {threshold <= 0.015
+                    ? 'Very Sensitive'
+                    : threshold <= 0.035
+                      ? 'Normal'
+                      : threshold <= 0.07
+                        ? 'Loud Only'
+                        : 'Very Loud'}
+                </Text>
+              </View>
+
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={incrementThreshold}
+                disabled={threshold >= 0.1}
+                className="size-14"
+              >
+                <Icon as={Plus} size={24} />
+              </Button>
+            </View>
 
             {/* Preset buttons */}
             <View className="flex-row justify-between gap-2">
@@ -208,17 +256,44 @@ export function VADSettingsDrawer({
           {/* Silence Duration Control */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
-              Silence Duration: {(silenceDuration / 1000).toFixed(1)}s
+              Silence Duration
             </Text>
 
-            <Slider
-              value={silenceDuration}
-              onValueChange={(value) => onSilenceDurationChange(value[0]!)}
-              min={500}
-              max={3000}
-              step={100}
-              className="h-10 w-full"
-            />
+            {/* Increment/Decrement Controls */}
+            <View className="flex-row items-center gap-3">
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={decrementSilence}
+                disabled={silenceDuration <= 500}
+                className="size-14"
+              >
+                <Icon as={Minus} size={24} />
+              </Button>
+
+              <View className="flex-1 items-center rounded-lg border border-border bg-muted p-3">
+                <Text className="text-2xl font-bold text-foreground">
+                  {(silenceDuration / 1000).toFixed(1)}s
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {silenceDuration < 1000
+                    ? 'Quick Segments'
+                    : silenceDuration <= 1500
+                      ? 'Balanced'
+                      : 'Complete Thoughts'}
+                </Text>
+              </View>
+
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={incrementSilence}
+                disabled={silenceDuration >= 3000}
+                className="size-14"
+              >
+                <Icon as={Plus} size={24} />
+              </Button>
+            </View>
 
             <Text className="text-xs text-muted-foreground">
               How long to wait in silence before stopping the recording
@@ -242,7 +317,7 @@ export function VADSettingsDrawer({
               Longer silence = complete thoughts (may include pauses)
             </Text>
           </View>
-        </View>
+        </BottomSheetScrollView>
 
         <DrawerFooter>
           <DrawerClose>

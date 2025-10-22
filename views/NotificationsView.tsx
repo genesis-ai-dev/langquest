@@ -30,7 +30,7 @@ import {
   WifiIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert as RNAlert,
@@ -65,6 +65,20 @@ export default function NotificationsView() {
   const isConnected = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   // const [refreshKey, setRefreshKey] = useState(0);
+
+  // Resolve the local tables for updates (PowerSync requires local table updates)
+  const inviteLocal = useMemo(
+    () => resolveTable('invite', { localOverride: true }),
+    []
+  );
+  const requestLocal = useMemo(
+    () => resolveTable('request', { localOverride: true }),
+    []
+  );
+  const profileProjectLinkLocal = useMemo(
+    () => resolveTable('profile_project_link', { localOverride: true }),
+    []
+  );
 
   // Use user memberships from local DB instead of session cache
   const { userMemberships } = useUserMemberships();
@@ -302,48 +316,108 @@ export default function NotificationsView() {
       if (type === 'invite') {
         console.log('[handleAccept] Updating invite to accepted...');
 
-        // First check if the record exists
+        // First check if the record exists in the merged view
         const existingRecord = await system.db
           .select()
           .from(invite)
           .where(eq(invite.id, notificationId));
         console.log('[handleAccept] Existing invite record:', existingRecord);
 
-        const updateResult = await system.db
-          .update(invite)
-          .set({
-            status: 'accepted',
-            count: 1, // Reset count to 1 on successful acceptance - fresh start for future invites
-            last_updated: new Date().toISOString()
-          })
-          .where(eq(invite.id, notificationId));
-        console.log('[handleAccept] Invite update result:', updateResult);
+        if (existingRecord.length > 0 && existingRecord[0]) {
+          const record = existingRecord[0];
 
-        // Verify the update worked by querying the record
-        const [updatedRecord] = await system.db
-          .select()
-          .from(invite)
-          .where(eq(invite.id, notificationId))
-          .limit(1);
-        console.log('[handleAccept] Updated invite record:', updatedRecord);
+          // Check if record exists in local table
+          const localRecord = await system.db
+            .select()
+            .from(inviteLocal)
+            .where(eq(inviteLocal.id, notificationId))
+            .limit(1);
 
-        if (updatedRecord?.receiver_profile_id) {
-          await system.db
-            .update(request)
-            .set({
+          console.log(
+            '[handleAccept] Local invite record exists:',
+            localRecord.length > 0
+          );
+
+          if (localRecord.length > 0) {
+            // Update existing local record
+            const updateResult = await system.db
+              .update(inviteLocal)
+              .set({
+                status: 'accepted',
+                count: 1,
+                receiver_profile_id:
+                  record.receiver_profile_id || currentUser!.id,
+                last_updated: new Date().toISOString()
+              })
+              .where(eq(inviteLocal.id, notificationId));
+            console.log('[handleAccept] Invite update result:', updateResult);
+          } else {
+            // Insert new local record (this creates a CRUD operation for PowerSync to sync)
+            const insertResult = await system.db.insert(inviteLocal).values({
+              id: record.id,
+              sender_profile_id: record.sender_profile_id,
+              receiver_profile_id:
+                record.receiver_profile_id || currentUser!.id,
+              project_id: record.project_id,
+              email: record.email,
+              as_owner: record.as_owner,
               status: 'accepted',
-              count: 1, // Reset count to 1 on successful acceptance - fresh start for future requests
-              last_updated: new Date().toISOString()
-            })
-            .where(
-              and(
-                eq(
-                  request.sender_profile_id,
-                  updatedRecord.receiver_profile_id
-                ),
-                eq(request.project_id, updatedRecord.project_id)
+              count: 1,
+              last_updated: new Date().toISOString(),
+              created_at: record.created_at,
+              active: record.active
+            });
+            console.log('[handleAccept] Invite insert result:', insertResult);
+          }
+
+          // Also update any corresponding request from this user
+          if (record.receiver_profile_id) {
+            // Find the corresponding request
+            const correspondingRequest = await system.db
+              .select()
+              .from(request)
+              .where(
+                and(
+                  eq(request.sender_profile_id, record.receiver_profile_id),
+                  eq(request.project_id, record.project_id),
+                  eq(request.active, true)
+                )
               )
-            );
+              .limit(1);
+
+            if (correspondingRequest.length > 0 && correspondingRequest[0]) {
+              const req = correspondingRequest[0];
+
+              // Check if exists in local
+              const localReq = await system.db
+                .select()
+                .from(requestLocal)
+                .where(eq(requestLocal.id, req.id))
+                .limit(1);
+
+              if (localReq.length > 0) {
+                await system.db
+                  .update(requestLocal)
+                  .set({
+                    status: 'accepted',
+                    count: 1,
+                    last_updated: new Date().toISOString()
+                  })
+                  .where(eq(requestLocal.id, req.id));
+              } else {
+                await system.db.insert(requestLocal).values({
+                  id: req.id,
+                  sender_profile_id: req.sender_profile_id,
+                  project_id: req.project_id,
+                  status: 'accepted',
+                  count: 1,
+                  last_updated: new Date().toISOString(),
+                  created_at: req.created_at,
+                  active: req.active
+                });
+              }
+            }
+          }
         }
 
         const existingLink = await system.db
@@ -359,7 +433,7 @@ export default function NotificationsView() {
         if (existingLink.length > 0) {
           // Update existing link
           await system.db
-            .update(profile_project_link)
+            .update(profileProjectLinkLocal)
             .set({
               active: true,
               membership: asOwner ? 'owner' : 'member',
@@ -367,8 +441,8 @@ export default function NotificationsView() {
             })
             .where(
               and(
-                eq(profile_project_link.profile_id, currentUser!.id),
-                eq(profile_project_link.project_id, projectId)
+                eq(profileProjectLinkLocal.profile_id, currentUser!.id),
+                eq(profileProjectLinkLocal.project_id, projectId)
               )
             );
         } else {
@@ -383,7 +457,7 @@ export default function NotificationsView() {
           console.log('[handleAccept] New link data:', newLinkData);
 
           const insertResult = await system.db
-            .insert(profile_project_link)
+            .insert(profileProjectLinkLocal)
             .values(newLinkData);
           console.log('[handleAccept] Insert result:', insertResult);
         }
@@ -401,43 +475,99 @@ export default function NotificationsView() {
           existingRequestRecord
         );
 
-        const updateResult = await system.db
-          .update(request)
-          .set({
-            status: 'accepted',
-            count: 1, // Reset count to 1 on successful acceptance - fresh start for future requests
-            last_updated: new Date().toISOString()
-          })
-          .where(eq(request.id, notificationId));
+        if (existingRequestRecord.length > 0 && existingRequestRecord[0]) {
+          const req = existingRequestRecord[0];
 
-        console.log('[handleAccept] Request update result:', updateResult);
+          // Check if exists in local
+          const localReq = await system.db
+            .select()
+            .from(requestLocal)
+            .where(eq(requestLocal.id, notificationId))
+            .limit(1);
 
-        // For requests, we need to get the sender_profile_id from the request
-        const requestRecord = await system.db
-          .select()
-          .from(request)
-          .where(eq(request.id, notificationId));
+          console.log(
+            '[handleAccept] Local request record exists:',
+            localReq.length > 0
+          );
 
-        if (requestRecord.length > 0 && requestRecord[0]) {
-          const senderProfileId = requestRecord[0].sender_profile_id;
+          if (localReq.length > 0) {
+            const updateResult = await system.db
+              .update(requestLocal)
+              .set({
+                status: 'accepted',
+                count: 1,
+                last_updated: new Date().toISOString()
+              })
+              .where(eq(requestLocal.id, notificationId));
+            console.log('[handleAccept] Request update result:', updateResult);
+          } else {
+            const insertResult = await system.db.insert(requestLocal).values({
+              id: req.id,
+              sender_profile_id: req.sender_profile_id,
+              project_id: req.project_id,
+              status: 'accepted',
+              count: 1,
+              last_updated: new Date().toISOString(),
+              created_at: req.created_at,
+              active: req.active
+            });
+            console.log('[handleAccept] Request insert result:', insertResult);
+          }
+
+          const senderProfileId = req.sender_profile_id;
 
           console.log('[handleAccept] Updating invite for request:', {
             senderProfileId,
             projectId
           });
 
-          await system.db
-            .update(invite)
-            .set({
-              count: 1, // Reset count to 1 on successful acceptance (for invite as well) - fresh start for future invites
-              last_updated: new Date().toISOString()
-            })
+          // Also update any corresponding invite
+          const correspondingInvite = await system.db
+            .select()
+            .from(invite)
             .where(
               and(
                 eq(invite.receiver_profile_id, senderProfileId),
-                eq(invite.project_id, projectId)
+                eq(invite.project_id, projectId),
+                eq(invite.active, true)
               )
-            );
+            )
+            .limit(1);
+
+          if (correspondingInvite.length > 0 && correspondingInvite[0]) {
+            const inv = correspondingInvite[0];
+
+            // Check if exists in local
+            const localInv = await system.db
+              .select()
+              .from(inviteLocal)
+              .where(eq(inviteLocal.id, inv.id))
+              .limit(1);
+
+            if (localInv.length > 0) {
+              await system.db
+                .update(inviteLocal)
+                .set({
+                  count: 1,
+                  last_updated: new Date().toISOString()
+                })
+                .where(eq(inviteLocal.id, inv.id));
+            } else {
+              await system.db.insert(inviteLocal).values({
+                id: inv.id,
+                sender_profile_id: inv.sender_profile_id,
+                receiver_profile_id: inv.receiver_profile_id,
+                project_id: inv.project_id,
+                email: inv.email,
+                as_owner: inv.as_owner,
+                status: inv.status,
+                count: 1,
+                last_updated: new Date().toISOString(),
+                created_at: inv.created_at,
+                active: inv.active
+              });
+            }
+          }
 
           // Create or update profile_project_link for the requester
           const existingLink = await system.db
@@ -453,7 +583,7 @@ export default function NotificationsView() {
           if (existingLink.length > 0) {
             // Update existing link
             await system.db
-              .update(profile_project_link)
+              .update(profileProjectLinkLocal)
               .set({
                 active: true,
                 membership: asOwner ? 'owner' : 'member',
@@ -461,21 +591,19 @@ export default function NotificationsView() {
               })
               .where(
                 and(
-                  eq(profile_project_link.profile_id, senderProfileId),
-                  eq(profile_project_link.project_id, projectId)
+                  eq(profileProjectLinkLocal.profile_id, senderProfileId),
+                  eq(profileProjectLinkLocal.project_id, projectId)
                 )
               );
           } else {
             // Create new link
-            await system.db
-              .insert(resolveTable('profile_project_link'))
-              .values({
-                id: `${senderProfileId}_${projectId}`,
-                profile_id: senderProfileId,
-                project_id: projectId,
-                membership: asOwner ? 'owner' : 'member',
-                active: true
-              });
+            await system.db.insert(profileProjectLinkLocal).values({
+              id: `${senderProfileId}_${projectId}`,
+              profile_id: senderProfileId,
+              project_id: projectId,
+              membership: asOwner ? 'owner' : 'member',
+              active: true
+            });
           }
         }
       }
@@ -510,13 +638,46 @@ export default function NotificationsView() {
     try {
       // Update the appropriate table based on type
       if (type === 'invite') {
-        await system.db
-          .update(invite)
-          .set({
-            status: 'declined',
-            last_updated: new Date().toISOString()
-          })
+        // Get the existing record
+        const existingInvite = await system.db
+          .select()
+          .from(invite)
           .where(eq(invite.id, notificationId));
+
+        if (existingInvite.length > 0 && existingInvite[0]) {
+          const inv = existingInvite[0];
+
+          // Check if exists in local
+          const localInv = await system.db
+            .select()
+            .from(inviteLocal)
+            .where(eq(inviteLocal.id, notificationId))
+            .limit(1);
+
+          if (localInv.length > 0) {
+            await system.db
+              .update(inviteLocal)
+              .set({
+                status: 'declined',
+                last_updated: new Date().toISOString()
+              })
+              .where(eq(inviteLocal.id, notificationId));
+          } else {
+            await system.db.insert(inviteLocal).values({
+              id: inv.id,
+              sender_profile_id: inv.sender_profile_id,
+              receiver_profile_id: inv.receiver_profile_id,
+              project_id: inv.project_id,
+              email: inv.email,
+              as_owner: inv.as_owner,
+              status: 'declined',
+              count: inv.count,
+              last_updated: new Date().toISOString(),
+              created_at: inv.created_at,
+              active: inv.active
+            });
+          }
+        }
       } else {
         // type === 'request'
         // First get the existing request to check current status
@@ -535,14 +696,34 @@ export default function NotificationsView() {
               ? (currentRequest.count || 0) + 1
               : currentRequest.count || 0;
 
-          await system.db
-            .update(request)
-            .set({
+          // Check if exists in local
+          const localReq = await system.db
+            .select()
+            .from(requestLocal)
+            .where(eq(requestLocal.id, notificationId))
+            .limit(1);
+
+          if (localReq.length > 0) {
+            await system.db
+              .update(requestLocal)
+              .set({
+                status: 'declined',
+                count: newCount,
+                last_updated: new Date().toISOString()
+              })
+              .where(eq(requestLocal.id, notificationId));
+          } else {
+            await system.db.insert(requestLocal).values({
+              id: currentRequest.id,
+              sender_profile_id: currentRequest.sender_profile_id,
+              project_id: currentRequest.project_id,
               status: 'declined',
               count: newCount,
-              last_updated: new Date().toISOString()
-            })
-            .where(eq(request.id, notificationId));
+              last_updated: new Date().toISOString(),
+              created_at: currentRequest.created_at,
+              active: currentRequest.active
+            });
+          }
         }
       }
 

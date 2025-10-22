@@ -23,7 +23,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -104,6 +104,20 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Resolve the local tables for updates (PowerSync requires local table updates)
+  const inviteLocal = useMemo(
+    () => resolveTable('invite', { localOverride: true }),
+    []
+  );
+  const requestLocal = useMemo(
+    () => resolveTable('request', { localOverride: true }),
+    []
+  );
+  const profileProjectLinkLocal = useMemo(
+    () => resolveTable('profile_project_link', { localOverride: true }),
+    []
+  );
 
   // Guard clause: Don't render if currentUser is null
   if (!currentUser) {
@@ -465,22 +479,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const invitation = invitations.find((i) => i.id === inviteId);
 
       await db
-        .update(invite)
+        .update(inviteLocal)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite.id, inviteId));
+        .where(eq(inviteLocal.id, inviteId));
 
       // Also deactivate any profile_project_link if exists
       if (invitation?.receiver_profile_id) {
         await db
-          .update(profile_project_link)
+          .update(profileProjectLinkLocal)
           .set({ active: false, last_updated: new Date().toISOString() })
           .where(
             and(
               eq(
-                profile_project_link.profile_id,
+                profileProjectLinkLocal.profile_id,
                 invitation.receiver_profile_id
               ),
-              eq(profile_project_link.project_id, projectId)
+              eq(profileProjectLinkLocal.project_id, projectId)
             )
           );
       }
@@ -501,14 +515,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
         // Update existing invitation to pending and increment count
         await db
-          .update(invite)
+          .update(inviteLocal)
           .set({
             status: 'pending',
             count: (invitation.count || 0) + 1,
             last_updated: new Date().toISOString(),
             sender_profile_id: currentUser.id // Update sender in case it's different
           })
-          .where(eq(invite.id, inviteId));
+          .where(eq(inviteLocal.id, inviteId));
 
         // void refetchInvitations(); // Removed refetch
         Alert.alert(t('success'), t('invitationResent'));
@@ -539,12 +553,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               try {
                 // Update request status to accepted
                 await db
-                  .update(request)
+                  .update(requestLocal)
                   .set({
                     status: 'accepted',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request.id, requestId));
+                  .where(eq(requestLocal.id, requestId));
 
                 // Create or update profile_project_link
                 const existingLink = await db
@@ -559,7 +573,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
                 if (existingLink.length > 0) {
                   await db
-                    .update(profile_project_link)
+                    .update(profileProjectLinkLocal)
                     .set({
                       active: true,
                       membership: 'member',
@@ -567,12 +581,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     })
                     .where(
                       and(
-                        eq(profile_project_link.profile_id, senderId),
-                        eq(profile_project_link.project_id, projectId)
+                        eq(profileProjectLinkLocal.profile_id, senderId),
+                        eq(profileProjectLinkLocal.project_id, projectId)
                       )
                     );
                 } else {
-                  await db.insert(resolveTable('profile_project_link')).values({
+                  await db.insert(profileProjectLinkLocal).values({
                     id: `${senderId}_${projectId}`,
                     profile_id: senderId,
                     project_id: projectId,
@@ -609,12 +623,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               setIsSubmitting(true);
               try {
                 await db
-                  .update(request)
+                  .update(requestLocal)
                   .set({
                     status: 'declined',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request.id, requestId));
+                  .where(eq(requestLocal.id, requestId));
 
                 Alert.alert(t('success'), t('requestDenied'));
               } catch (error) {
@@ -699,7 +713,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 : existingInvite.count || 0;
 
             await db
-              .update(invite)
+              .update(inviteLocal)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
@@ -707,7 +721,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 last_updated: new Date().toISOString(),
                 sender_profile_id: currentUser.id // Update sender in case it's different
               })
-              .where(eq(invite.id, existingInvite.id));
+              .where(eq(inviteLocal.id, existingInvite.id));
 
             setInviteEmail('');
             setInviteAsOwner(false);
@@ -728,7 +742,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(resolveTable('invite')).values({
+      await db.insert(inviteLocal).values({
         sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,
