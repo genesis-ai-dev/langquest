@@ -13,6 +13,8 @@ import { reasonOptions, statusOptions } from './constants';
 // see the official PowerSync documentation for the correct column types:
 // https://docs.powersync.com/usage/sync-rules/types#types
 
+export const APP_SCHEMA_VERSION = '1.0';
+
 const uuidDefault = sql`(lower(hex(randomblob(16))))`;
 const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 

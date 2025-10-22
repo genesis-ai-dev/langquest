@@ -310,6 +310,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     try {
       for (const op of transaction.crud) {
         lastOp = op;
+        // Default metadata if none was stamped (covers any raw SQL writes)
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { getDefaultOpMetadata } = require('../powersync/opMetadata') as {
+          getDefaultOpMetadata: () => string;
+        };
+        const metadata = (op as any).metadata ?? getDefaultOpMetadata();
+        console.log('metadata: ', metadata);
         let result: PostgrestSingleResponse<unknown> | null = null;
         let record;
 

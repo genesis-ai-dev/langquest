@@ -81,8 +81,21 @@ export class System {
       ...tablesOnly
     } = drizzleSchema;
 
+    const drizzleSchemaWithOptions = Object.fromEntries(
+      Object.entries(tablesOnly).map(([key, table]) => [
+        key,
+        {
+          tableDefinition: table as any,
+          options: {
+            trackMetadata: true,
+            ignoreEmptyUpdates: true
+          }
+        }
+      ])
+    );
+
     const schema = new Schema([
-      ...new DrizzleAppSchema(tablesOnly).tables,
+      ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables,
       new AttachmentTable({
         additionalColumns: [
           new Column({ name: 'storage_type', type: ColumnType.TEXT })
@@ -116,9 +129,63 @@ export class System {
       });
     }
 
-    this.db = wrapPowerSyncWithDrizzle(this.powersync, {
+    const rawDb = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: drizzleSchema
     });
+
+    function stamp(val: unknown) {
+      // Lazy import to avoid cycles
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { getDefaultOpMetadata } = require('./opMetadata') as {
+        getDefaultOpMetadata: () => string;
+      };
+      const tag = getDefaultOpMetadata();
+      if (Array.isArray(val)) {
+        return val.map((v) =>
+          v && typeof v === 'object' && (v as any)._metadata === undefined
+            ? { ...(v as any), _metadata: tag }
+            : v
+        );
+      }
+      if (val && typeof val === 'object' && (val as any)._metadata === undefined) {
+        return { ...(val as any), _metadata: tag };
+      }
+      return val;
+    }
+
+    const dbWithMetadata = new Proxy(rawDb as any, {
+      get(target, prop, receiver) {
+        if (prop === 'insert') {
+          return (table: any) => {
+            const builder = target.insert(table);
+            return new Proxy(builder, {
+              get(b, m) {
+                if (m === 'values') {
+                  return (v: any) => b.values(stamp(v));
+                }
+                return Reflect.get(b, m);
+              }
+            });
+          };
+        }
+        if (prop === 'update') {
+          return (table: any) => {
+            const builder = target.update(table);
+            return new Proxy(builder, {
+              get(b, m) {
+                if (m === 'set') {
+                  return (v: any) => b.set(stamp(v));
+                }
+                return Reflect.get(b, m);
+              }
+            });
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      }
+    }) as typeof rawDb;
+
+    this.db = dbWithMetadata;
 
     if (AppConfig.supabaseBucket) {
       this.permAttachmentQueue = new PermAttachmentQueue({
