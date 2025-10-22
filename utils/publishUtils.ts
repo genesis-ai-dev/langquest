@@ -263,7 +263,6 @@ export async function publishQuest(questId: string, projectId: string) {
 
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
       const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) SELECT ${questAssetLinkColumns} FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;
-      console.log('questAssetLinkQuery', questAssetLinkQuery);
       await tx.run(sql.raw(questAssetLinkQuery));
 
       const assetContentLinkColumns = getTableColumns(

@@ -46,8 +46,6 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
-  console.log('quest', quest);
-
   const handleQuestPress = () => {
     // Check if quest is downloaded before allowing navigation
     const questWithDownload = quest as Quest & {

@@ -1,21 +1,12 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
-import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { quest } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useProjectById } from '@/hooks/db/useProjects';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
-import type { WithSource } from '@/utils/dbUtils';
-import { resolveTable } from '@/utils/dbUtils';
-// import { LegendList } from '@legendapp/list';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Drawer,
   DrawerClose,
@@ -41,19 +32,27 @@ import {
   SpeedDialItems,
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
+import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { quest } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useHasUserReported } from '@/hooks/db/useReports';
+import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import {
   useBibleBookCreation,
   useBibleBooks
 } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import type { WithSource } from '@/utils/dbUtils';
+import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq, or } from 'drizzle-orm';
 import {
@@ -69,13 +68,12 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
 import { QuestTreeRow } from './QuestTreeRow';
-import { useHybridData } from './useHybridData';
+import { useHybridInfiniteData } from './useHybridData';
 
 export default function ProjectDirectoryView() {
   const { currentProjectId, currentProjectName, currentProjectTemplate } =
@@ -256,11 +254,16 @@ export default function ProjectDirectoryView() {
   // Only fetch quests for non-Bible projects
   const shouldFetchQuests = template !== 'bible';
 
-  const { data: rawQuests, isLoading } = useHybridData({
+  // Use infinite query for paginated loading of quests
+  const PAGE_SIZE = 50; // Load 50 quests at a time
+
+  const questsInfiniteQuery = useHybridInfiniteData({
     dataType: 'quests',
     queryKeyParams: ['for-project', currentProjectId],
-    offlineQuery: toCompilableQuery(
-      system.db.query.quest.findMany({
+    pageSize: PAGE_SIZE,
+    offlineQueryFn: async ({ pageParam, pageSize }) => {
+      const offset = pageParam * pageSize;
+      const results = await system.db.query.quest.findMany({
         columns: {
           id: true,
           name: true,
@@ -275,25 +278,37 @@ export default function ProjectDirectoryView() {
             !showHiddenContent ? eq(quest.visible, true) : undefined,
             eq(quest.creator_id, currentUser!.id)
           )
-        )
-      })
-    ),
-    cloudQueryFn: async () => {
+        ),
+        limit: pageSize,
+        offset: offset
+      });
+      return results;
+    },
+    cloudQueryFn: async ({ pageParam, pageSize }) => {
+      const offset = pageParam * pageSize;
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('id, name, description, parent_id, visible')
         .eq('project_id', currentProjectId)
+        .range(offset, offset + pageSize - 1)
         .overrideTypes<
           { id: string; name: string; description: string; parent_id: string }[]
         >();
       if (error) throw error;
       return data;
     },
-    enabled: !!currentProjectId && shouldFetchQuests,
     enableCloudQuery: project?.source !== 'local',
-    lazyLoadCloud: true, // Show local data first, then fetch cloud in background
-    getItemId: (item) => item.id
+    offlineQueryOptions: {
+      enabled: !!currentProjectId && shouldFetchQuests
+    }
   });
+
+  // Flatten all pages into single array for tree building
+  const rawQuests = React.useMemo(() => {
+    return questsInfiniteQuery.data.pages.flatMap((page) => page.data);
+  }, [questsInfiniteQuery.data.pages]);
+
+  const isLoading = questsInfiniteQuery.isLoading;
 
   const { childrenOf, roots } = React.useMemo(() => {
     const items = rawQuests;
@@ -499,16 +514,56 @@ export default function ProjectDirectoryView() {
       <View className="flex-1 flex-col gap-4 p-4">
         <Text variant="h4">{t('projectDirectory')}</Text>
         <View className="pb-safe flex flex-1 flex-col gap-2">
-          {roots.length === 0 ? (
+          {roots.length === 0 && !isLoading ? (
             <View>
               <Text className="text-center text-muted-foreground">
                 {t('noQuestsFound')}
               </Text>
             </View>
           ) : (
-            <ScrollView className="gap-1" showsVerticalScrollIndicator={false}>
-              {renderTree(roots, 0)}
-            </ScrollView>
+            <LegendList
+              data={roots}
+              keyExtractor={(item) => item.id}
+              estimatedItemSize={60}
+              renderItem={({ item: q }) => {
+                const id = q.id;
+                const hasChildren = (childrenOf.get(id) || []).length > 0;
+                const isOpen = expanded.has(id);
+                return (
+                  <View key={id}>
+                    <QuestTreeRow
+                      quest={q}
+                      depth={0}
+                      hasChildren={hasChildren}
+                      isOpen={isOpen}
+                      canCreateNew={isMember}
+                      onToggleExpand={() => toggleExpanded(id)}
+                      onAddChild={(parentId) => openCreateForParent(parentId)}
+                      onDownloadClick={handleDownloadClick}
+                    />
+                    {hasChildren && isOpen && (
+                      <View>{renderTree(childrenOf.get(id) || [], 1)}</View>
+                    )}
+                  </View>
+                );
+              }}
+              onEndReached={() => {
+                if (
+                  questsInfiniteQuery.hasNextPage &&
+                  !questsInfiniteQuery.isFetchingNextPage
+                ) {
+                  questsInfiniteQuery.fetchNextPage();
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={
+                questsInfiniteQuery.isFetchingNextPage ? (
+                  <View className="p-4">
+                    <ActivityIndicator size="small" />
+                  </View>
+                ) : null
+              }
+            />
           )}
           <Button
             onPress={() => openCreateForParent(null)}
