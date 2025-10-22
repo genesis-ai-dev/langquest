@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { quest } from '@/db/drizzleSchema';
@@ -22,6 +23,16 @@ interface QuestListViewProps {
 }
 
 type Quest = typeof quest.$inferSelect;
+
+// Lightweight skeleton for quest rows during loading
+function QuestRowSkeleton() {
+  return (
+    <View className="flex-row items-center gap-2 border-b border-border py-2">
+      <Skeleton style={{ width: 20, height: 20, borderRadius: 4 }} />
+      <Skeleton style={{ width: 200, height: 16, borderRadius: 4 }} />
+    </View>
+  );
+}
 
 export function QuestListView({
   projectId,
@@ -178,15 +189,19 @@ export function QuestListView({
     ]
   );
 
+  // Show skeleton rows during initial loading
   if (questsInfiniteQuery.isLoading) {
     return (
-      <View className="flex-1 items-center justify-center p-4">
-        <ActivityIndicator size="large" />
+      <View className="flex-1">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <QuestRowSkeleton key={i} />
+        ))}
       </View>
     );
   }
 
-  if (roots.length === 0) {
+  // Show empty state only when NOT loading and no results
+  if (roots.length === 0 && !questsInfiniteQuery.isLoading) {
     return (
       <View className="flex-1 items-center justify-center p-4">
         <Text className="text-center text-muted-foreground">
