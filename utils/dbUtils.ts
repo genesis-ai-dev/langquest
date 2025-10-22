@@ -1,7 +1,6 @@
 import * as drizzleSchema from '@/db/drizzleSchema';
 import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
 import * as drizzleSchemaSynced from '@/db/drizzleSchemaSynced';
-import { system } from '@/db/powersync/system';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import type { AnyColumn, GetColumnData, SQL, Table } from 'drizzle-orm';
 import { and, eq, getOrderByOperators, is } from 'drizzle-orm';
@@ -62,11 +61,11 @@ export function resolveTable<T extends TablesOnlyKeys>(
 ) {
   return options.localOverride
     ? (drizzleSchemaLocal[
-        `${table}_local` as LocalKeyFor<T>
-      ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
+      `${table}_local` as LocalKeyFor<T>
+    ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
     : (drizzleSchemaSynced[
-        `${table}_synced` as SyncedKeyFor<T>
-      ] as (typeof drizzleSchemaSynced)[SyncedKeyFor<T>]);
+      `${table}_synced` as SyncedKeyFor<T>
+    ] as (typeof drizzleSchemaSynced)[SyncedKeyFor<T>]);
 }
 
 export type WithSource<T> = T extends readonly unknown[]
@@ -85,6 +84,8 @@ export function sortingHelper<
 }
 
 export function blockedContentQuery(profileId: string, contentTable: string) {
+  // Lazy import to avoid circular dependency
+  const { system } = require('@/db/powersync/system') as typeof import('@/db/powersync/system');
   return system.db
     .select({ content_id: drizzleSchema.blocked_content.content_id })
     .from(drizzleSchema.blocked_content)
@@ -97,6 +98,8 @@ export function blockedContentQuery(profileId: string, contentTable: string) {
 }
 
 export function blockedUsersQuery(profileId: string) {
+  // Lazy import to avoid circular dependency
+  const { system } = require('@/db/powersync/system') as typeof import('@/db/powersync/system');
   return system.db
     .select({ blocked_id: drizzleSchema.blocked_users.blocked_id })
     .from(drizzleSchema.blocked_users)
@@ -117,6 +120,9 @@ export function toColumns(array: string[]) {
 
 export const resetDatabase = async () => {
   try {
+    // Lazy import to avoid circular dependency
+    const { system } = require('@/db/powersync/system') as typeof import('@/db/powersync/system');
+
     // Get table names from drizzleSchemaLocal using the same pattern as system.ts
     const tableNames = Object.entries(drizzleSchemaLocal)
       .filter(([_name, obj]) => is(obj as unknown, SQLiteTable))

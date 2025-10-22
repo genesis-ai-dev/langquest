@@ -1,3 +1,4 @@
+"use no memo"
 import '@azure/core-asynciterator-polyfill';
 import type {
   DrizzleTableWithPowerSyncOptions,
@@ -237,6 +238,7 @@ export class System {
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
+        supabaseConnector: this.supabaseConnector,
         attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
         // eslint-disable-next-line
@@ -1071,8 +1073,46 @@ export function getSystem(): System {
 
 // Create a proxy that provides helpful error messages if accessed too early
 export const system = new Proxy({} as System, {
+
   get(_target, prop, _receiver) {
+    // Silently handle React internal properties and common inspection properties
+    // React Compiler and DevTools will check these
+    const inspectionProps = new Set([
+      '$$typeof',           // React element type marker
+      '_reactInternals',    // React internals
+      'toJSON',            // JSON serialization
+      'then',              // Promise detection
+      'constructor',       // Constructor inspection
+      Symbol.toStringTag,  // Object.prototype.toString
+      Symbol.iterator      // Iterator protocol
+    ]);
+
+    if (inspectionProps.has(prop)) {
+      return undefined;
+    }
+
+    // Allow checking initialization state without throwing
+    if (prop === 'isInitialized' || prop === 'isPowerSyncInitialized' ||
+      prop === 'areAttachmentQueuesReady' || prop === 'init') {
+      const instance = getSystem();
+      const value = instance[prop as keyof System];
+      if (typeof value === 'function') {
+        return value.bind(instance);
+      }
+      return value;
+    }
+
     const instance = getSystem();
+
+    // Check if we're trying to access a critical property before initialization
+    if (!instance.isPowerSyncInitialized() &&
+      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')) {
+      console.warn(
+        `[System] Attempted to access '${String(prop)}' before PowerSync initialization. ` +
+        `This may cause undefined errors. Call await system.init() first.`
+      );
+    }
+
     const value = instance[prop as keyof System];
     if (typeof value === 'function') {
       return value.bind(instance);

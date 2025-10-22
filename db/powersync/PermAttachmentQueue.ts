@@ -1,4 +1,3 @@
-import { system } from '@/db/powersync/system';
 import {
   getFileInfo,
   getFileName,
@@ -18,6 +17,7 @@ import {
   asset_synced
 } from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
+import type { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -28,14 +28,17 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   //   asset_id: string;
   //   active: boolean;
   // }[] = [];
+  private supabaseConnector: SupabaseConnector;
 
   constructor(
     options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      supabaseConnector: SupabaseConnector;
     }
   ) {
     super(options);
     // this.db = options.db;
+    this.supabaseConnector = options.supabaseConnector;
   }
 
   getLocalUri(filePath: string) {
@@ -44,7 +47,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async getCurrentUserId() {
     // Get user from Supabase auth session
-    const session = await system.supabaseConnector.client.auth.getSession();
+    const session = await this.supabaseConnector.client.auth.getSession();
     return session.data.session?.user.id || null;
   }
 
