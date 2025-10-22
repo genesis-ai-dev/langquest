@@ -23,7 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { getLocalUri } from '@/utils/fileUtils';
+import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -249,7 +249,7 @@ export default function NextGenAssetDetailView() {
         .map((audioValue) => {
           // Handle direct local URIs (from recording view before publish)
           if (audioValue.startsWith('local/')) {
-            const fullUri = getLocalUri(audioValue);
+            const fullUri = getLocalAttachmentUriWithOPFS(audioValue);
             console.log(
               `[AUDIO] Direct local URI ${audioValue.slice(0, 20)} -> ${fullUri.slice(0, 80)}`
             );
