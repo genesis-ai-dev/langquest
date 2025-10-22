@@ -409,7 +409,11 @@ export default function NextGenAssetsView() {
     // Pass existing assets as initial data for instant rendering
     return (
       <RecordingViewSimplified
-        onBack={() => setShowRecording(false)}
+        onBack={() => {
+          setShowRecording(false);
+          // Refetch to show newly recorded assets
+          void refetch();
+        }}
         initialAssets={assets}
       />
     );

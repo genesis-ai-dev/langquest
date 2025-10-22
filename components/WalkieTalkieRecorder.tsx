@@ -594,13 +594,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                       size="sm"
                       className="mt-0.5 h-auto p-0"
                       onPress={() => {
-                        console.log('🔓 Canceling VAD mode');
+                        console.log(
+                          '🔓 Canceling VAD mode - immediate response'
+                        );
+                        // Trigger haptic feedback for instant tactile response
+                        void mediumHaptic();
+                        // Call immediately without any delay for instant UI response
                         onVADLockChange?.(false);
                       }}
                     >
                       <Icon
                         as={X}
-                        size={24}
+                        size={32}
                         className="text-primary-foreground"
                       />
                     </Button>
