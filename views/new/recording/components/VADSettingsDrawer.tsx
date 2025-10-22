@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Minus, Plus } from 'lucide-react-native';
+import { HelpCircle, Minus, Plus } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
@@ -49,6 +49,8 @@ export function VADSettingsDrawer({
 }: VADSettingsDrawerProps) {
   const { isActive, energyResult, startEnergyDetection, stopEnergyDetection } =
     useMicrophoneEnergy();
+  const { t } = useLocalization();
+  const [showHelp, setShowHelp] = React.useState(false);
 
   const currentEnergy = energyResult?.energy ?? 0;
 
@@ -83,13 +85,11 @@ export function VADSettingsDrawer({
     stopEnergyDetection
   ]);
 
-  const { t } = useLocalization();
-
-  // Preset thresholds
+  // Preset thresholds with localized labels
   const presets = [
-    { label: 'Sensitive', value: 0.01 },
-    { label: 'Normal', value: 0.03 },
-    { label: 'Loud', value: 0.06 }
+    { label: t('vadSensitive'), value: 0.01 },
+    { label: t('vadNormal'), value: 0.03 },
+    { label: t('vadLoud'), value: 0.06 }
   ];
 
   // Increment/decrement handlers for threshold
@@ -136,23 +136,53 @@ export function VADSettingsDrawer({
     <Drawer
       open={isOpen}
       onOpenChange={onOpenChange}
-      snapPoints={['50%', '75%']}
+      snapPoints={['65%', '90%']}
     >
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Voice Activity Detection</DrawerTitle>
-          <DrawerDescription>
-            Adjust the sensitivity for automatic recording
-          </DrawerDescription>
+      <DrawerContent className="max-h-[90%]">
+        <DrawerHeader className="flex-row items-start justify-between">
+          <View className="flex-1">
+            <DrawerTitle>{t('vadTitle')}</DrawerTitle>
+            <DrawerDescription>{t('vadDescription')}</DrawerDescription>
+          </View>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={() => setShowHelp(!showHelp)}
+            className="mt-0"
+          >
+            <Icon as={HelpCircle} size={20} />
+          </Button>
         </DrawerHeader>
 
         <BottomSheetScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 24 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+            gap: 20
+          }}
         >
+          {/* Help Section - Collapsible */}
+          {showHelp && (
+            <View className="gap-2 rounded-lg border border-border bg-muted/50 p-4">
+              <Text className="text-sm font-semibold text-foreground">
+                {t('vadHelpTitle')}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                {t('vadHelpAutomatic')}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                {t('vadHelpSensitivity')}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                {t('vadHelpPause')}
+              </Text>
+            </View>
+          )}
+
           {/* Live Energy Visualization */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
-              Current Level: {currentDb.toFixed(1)} dB
+              {t('vadCurrentLevel')}: {currentDb.toFixed(1)} dB
             </Text>
 
             {/* Energy Bar */}
@@ -180,15 +210,15 @@ export function VADSettingsDrawer({
 
             <Text className="text-xs text-muted-foreground">
               {currentEnergy > threshold
-                ? '🎤 Would be recording'
-                : '💤 Silent - waiting for speech'}
+                ? `🎤 ${t('vadRecordingNow')}`
+                : `💤 ${t('vadWaiting')}`}
             </Text>
           </View>
 
           {/* Threshold Adjustment */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
-              Recording Threshold
+              {t('vadThreshold')}
             </Text>
 
             {/* Increment/Decrement Controls */}
@@ -209,12 +239,12 @@ export function VADSettingsDrawer({
                 </Text>
                 <Text className="text-xs text-muted-foreground">
                   {threshold <= 0.015
-                    ? 'Very Sensitive'
+                    ? t('vadVerySensitive')
                     : threshold <= 0.035
-                      ? 'Normal'
+                      ? t('vadNormal')
                       : threshold <= 0.07
-                        ? 'Loud Only'
-                        : 'Very Loud'}
+                        ? t('vadLoudOnly')
+                        : t('vadVeryLoud')}
                 </Text>
               </View>
 
@@ -256,7 +286,7 @@ export function VADSettingsDrawer({
           {/* Silence Duration Control */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
-              Silence Duration
+              {t('vadSilenceDuration')}
             </Text>
 
             {/* Increment/Decrement Controls */}
@@ -277,10 +307,10 @@ export function VADSettingsDrawer({
                 </Text>
                 <Text className="text-xs text-muted-foreground">
                   {silenceDuration < 1000
-                    ? 'Quick Segments'
+                    ? t('vadQuickSegments')
                     : silenceDuration <= 1500
-                      ? 'Balanced'
-                      : 'Complete Thoughts'}
+                      ? t('vadBalanced')
+                      : t('vadCompleteThoughts')}
                 </Text>
               </View>
 
@@ -296,25 +326,7 @@ export function VADSettingsDrawer({
             </View>
 
             <Text className="text-xs text-muted-foreground">
-              How long to wait in silence before stopping the recording
-            </Text>
-          </View>
-
-          {/* Info text */}
-          <View className="gap-2 rounded-lg bg-muted p-3">
-            <Text className="text-xs text-muted-foreground">
-              💡 When VAD mode is active (lock icon enabled), recording will
-              automatically start when your voice crosses the threshold and stop
-              after the silence duration.
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              Lower threshold = more sensitive (picks up quiet speech)
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              Shorter silence = faster segments (may cut off speech)
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              Longer silence = complete thoughts (may include pauses)
+              {t('vadSilenceDescription')}
             </Text>
           </View>
         </BottomSheetScrollView>

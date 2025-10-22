@@ -4171,6 +4171,153 @@ export const localizations = {
     brazilian_portuguese: 'Baixar Agora',
     tok_pisin: 'Daunim nau',
     indonesian: 'Unduh Sekarang'
+  },
+  vadTitle: {
+    english: 'Voice Activity',
+    spanish: 'Actividad de Voz',
+    brazilian_portuguese: 'Atividade de Voz',
+    tok_pisin: 'Wok bilong vois',
+    indonesian: 'Aktivitas Suara'
+  },
+  vadDescription: {
+    english: 'Records automatically when you speak',
+    spanish: 'Graba automáticamente cuando hablas',
+    brazilian_portuguese: 'Grava automaticamente quando você fala',
+    tok_pisin: 'Em i save record pastaim taim yu toktok',
+    indonesian: 'Merekam otomatis saat Anda berbicara'
+  },
+  vadCurrentLevel: {
+    english: 'Current Level',
+    spanish: 'Nivel Actual',
+    brazilian_portuguese: 'Nível Atual',
+    tok_pisin: 'Level nau',
+    indonesian: 'Level Saat Ini'
+  },
+  vadRecordingNow: {
+    english: 'Recording',
+    spanish: 'Grabando',
+    brazilian_portuguese: 'Gravando',
+    tok_pisin: 'I save nau',
+    indonesian: 'Merekam'
+  },
+  vadWaiting: {
+    english: 'Waiting',
+    spanish: 'Esperando',
+    brazilian_portuguese: 'Aguardando',
+    tok_pisin: 'Wetim',
+    indonesian: 'Menunggu'
+  },
+  vadThreshold: {
+    english: 'Sensitivity',
+    spanish: 'Sensibilidad',
+    brazilian_portuguese: 'Sensibilidade',
+    tok_pisin: 'Strong bilong harim',
+    indonesian: 'Sensitivitas'
+  },
+  vadSilenceDuration: {
+    english: 'Pause Length',
+    spanish: 'Duración de Pausa',
+    brazilian_portuguese: 'Duração da Pausa',
+    tok_pisin: 'Taim bilong pas',
+    indonesian: 'Durasi Jeda'
+  },
+  vadSilenceDescription: {
+    english: 'How long to wait before stopping',
+    spanish: 'Tiempo de espera antes de detener',
+    brazilian_portuguese: 'Quanto tempo esperar antes de parar',
+    tok_pisin: 'Hamas taim bipo em i stop',
+    indonesian: 'Berapa lama menunggu sebelum berhenti'
+  },
+  vadSensitive: {
+    english: 'Sensitive',
+    spanish: 'Sensible',
+    brazilian_portuguese: 'Sensível',
+    tok_pisin: 'I harim gut',
+    indonesian: 'Sensitif'
+  },
+  vadNormal: {
+    english: 'Normal',
+    spanish: 'Normal',
+    brazilian_portuguese: 'Normal',
+    tok_pisin: 'Nambawan',
+    indonesian: 'Normal'
+  },
+  vadLoud: {
+    english: 'Loud',
+    spanish: 'Alto',
+    brazilian_portuguese: 'Alto',
+    tok_pisin: 'Bikpela nois',
+    indonesian: 'Keras'
+  },
+  vadVerySensitive: {
+    english: 'Very Sensitive',
+    spanish: 'Muy Sensible',
+    brazilian_portuguese: 'Muito Sensível',
+    tok_pisin: 'I harim tumas',
+    indonesian: 'Sangat Sensitif'
+  },
+  vadLoudOnly: {
+    english: 'Loud Only',
+    spanish: 'Solo Alto',
+    brazilian_portuguese: 'Apenas Alto',
+    tok_pisin: 'Bikpela nois tasol',
+    indonesian: 'Keras Saja'
+  },
+  vadVeryLoud: {
+    english: 'Very Loud',
+    spanish: 'Muy Alto',
+    brazilian_portuguese: 'Muito Alto',
+    tok_pisin: 'Bikpela nois tumas',
+    indonesian: 'Sangat Keras'
+  },
+  vadQuickSegments: {
+    english: 'Quick',
+    spanish: 'Rápido',
+    brazilian_portuguese: 'Rápido',
+    tok_pisin: 'Kwik',
+    indonesian: 'Cepat'
+  },
+  vadBalanced: {
+    english: 'Balanced',
+    spanish: 'Equilibrado',
+    brazilian_portuguese: 'Equilibrado',
+    tok_pisin: 'Naispela',
+    indonesian: 'Seimbang'
+  },
+  vadCompleteThoughts: {
+    english: 'Complete',
+    spanish: 'Completo',
+    brazilian_portuguese: 'Completo',
+    tok_pisin: 'Olgeta',
+    indonesian: 'Lengkap'
+  },
+  vadHelpTitle: {
+    english: 'How It Works',
+    spanish: 'Cómo Funciona',
+    brazilian_portuguese: 'Como Funciona',
+    tok_pisin: 'Olsem wanem em i wok',
+    indonesian: 'Cara Kerja'
+  },
+  vadHelpAutomatic: {
+    english: 'Starts when you speak. Stops when you pause.',
+    spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
+    brazilian_portuguese: 'Inicia quando você fala. Para quando você faz uma pausa.',
+    tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
+    indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
+  },
+  vadHelpSensitivity: {
+    english: 'Lower sensitivity picks up quiet speech.',
+    spanish: 'Menor sensibilidad capta el habla tranquila.',
+    brazilian_portuguese: 'Menor sensibilidade capta fala baixa.',
+    tok_pisin: 'Liklik strong i harim smol toktok.',
+    indonesian: 'Sensitivitas rendah menangkap suara pelan.'
+  },
+  vadHelpPause: {
+    english: 'Shorter pause splits faster. Longer captures everything.',
+    spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
+    brazilian_portuguese: 'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
+    tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
+    indonesian: 'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
   }
 } as const;
 

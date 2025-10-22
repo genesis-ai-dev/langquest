@@ -16,6 +16,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   getLocalAttachmentUriWithOPFS,
@@ -76,9 +77,15 @@ const RecordingViewSimplified = ({
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVADLocked, setIsVADLocked] = React.useState(false);
 
-  // VAD settings
-  const [vadThreshold, setVadThreshold] = React.useState(0.06);
-  const [vadSilenceDuration, setVadSilenceDuration] = React.useState(1000);
+  // VAD settings - persisted in local store for consistent UX
+  // These settings are automatically saved to AsyncStorage and restored on app restart
+  // Default: threshold=0.03 (normal sensitivity), silenceDuration=1000ms (1 second pause)
+  const vadThreshold = useLocalStore((state) => state.vadThreshold);
+  const setVadThreshold = useLocalStore((state) => state.setVadThreshold);
+  const vadSilenceDuration = useLocalStore((state) => state.vadSilenceDuration);
+  const setVadSilenceDuration = useLocalStore(
+    (state) => state.setVadSilenceDuration
+  );
   const [showVADSettings, setShowVADSettings] = React.useState(false);
 
   // Track current recording order index

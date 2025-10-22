@@ -77,6 +77,14 @@ export interface LocalState {
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
 
+  // VAD (Voice Activity Detection) settings
+  // vadThreshold: 0.005-0.1 (lower = more sensitive, picks up quiet speech)
+  // vadSilenceDuration: 500-3000ms (how long to wait before stopping recording)
+  vadThreshold: number;
+  setVadThreshold: (threshold: number) => void;
+  vadSilenceDuration: number;
+  setVadSilenceDuration: (duration: number) => void;
+
   // Authentication view state
   authView:
   | 'sign-in'
@@ -163,6 +171,10 @@ export const useLocalStore = create<LocalState>()(
       debugMode: false,
       showHiddenContent: false,
 
+      // VAD settings (defaults)
+      vadThreshold: 0.03, // Normal sensitivity
+      vadSilenceDuration: 1000, // 1 second pause
+
       // Authentication view state
       authView: null,
       setAuthView: (view) => set({ authView: view }),
@@ -212,6 +224,11 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
+
+      // VAD settings setters
+      setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
+      setVadSilenceDuration: (duration) =>
+        set({ vadSilenceDuration: duration }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>
