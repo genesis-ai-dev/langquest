@@ -2,6 +2,7 @@ import eslint from '@eslint/js';
 import drizzlePlugin from 'eslint-plugin-drizzle';
 import importPlugin from 'eslint-plugin-import';
 import reactPlugin from 'eslint-plugin-react';
+import reactCompilerPlugin from 'eslint-plugin-react-compiler';
 import hooksPlugin from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
@@ -13,6 +14,7 @@ export default tseslint.config(
     plugins: {
       import: importPlugin,
       react: reactPlugin,
+      'react-compiler': reactCompilerPlugin,
       hooks: hooksPlugin,
       drizzle: drizzlePlugin
     },
@@ -44,7 +46,8 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-      ...reactPlugin.configs['jsx-runtime'].rules
+      ...reactPlugin.configs['jsx-runtime'].rules,
+      'react-compiler/react-compiler': 'error'
     }
   },
   {

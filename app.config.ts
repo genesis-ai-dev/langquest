@@ -84,7 +84,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         ['testflight-dev-deploy', { enabled: profile === 'development' }]
       ],
       experiments: {
-        typedRoutes: true
+        typedRoutes: true,
+        reactCompiler: true
       },
       extra: {
         supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
