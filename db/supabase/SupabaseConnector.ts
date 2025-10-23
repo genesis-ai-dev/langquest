@@ -422,8 +422,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             result = await this.client.rpc('apply_table_mutation', {
               p_op: 'put',
               p_table_name: op.table,
-              p_record: record
+              p_record: record,
+              p_client_meta: { metadata }
             });
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
+            }
             break;
           }
 
@@ -438,8 +442,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             result = await this.client.rpc('apply_table_mutation', {
               p_op: 'patch',
               p_table_name: op.table,
-              p_record: recordForPatch
+              p_record: recordForPatch,
+              p_client_meta: { metadata }
             });
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
+            }
             break;
           }
 
@@ -451,9 +459,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             result = await this.client.rpc('apply_table_mutation', {
               p_op: 'delete',
               p_table_name: op.table,
-              p_record: recordForDelete
+              p_record: recordForDelete,
+              p_client_meta: { metadata }
             });
             console.log('delete result', result);
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
+            }
             break;
           }
         }
