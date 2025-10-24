@@ -20,6 +20,7 @@
 
 import type { DrizzleDB } from '@powersync/drizzle-driver';
 import { sql } from 'drizzle-orm';
+import { migration_1_0_to_1_1 } from './1.0-to-1.1';
 import { updateMetadataVersion } from './utils';
 
 // ============================================================================
@@ -59,7 +60,7 @@ export interface MigrationResult {
  */
 export const migrations: Migration[] = [
     // Example: Import and add migrations like:
-    // migration_1_0_to_1_1,
+    migration_1_0_to_1_1,
     // migration_1_1_to_1_2,
 ];
 
@@ -186,8 +187,8 @@ export async function checkNeedsMigration(
     const minVersion = await getMinimumSchemaVersion(db);
 
     if (minVersion === '0.0') {
-        console.log('[Migration] No existing data found or no _metadata - migration needed as app may be on version 0.0');
-        return true;
+        console.log('[Migration] No existing data found - no migration needed (empty database)');
+        return false;
     }
 
     const needsMigration = compareVersions(minVersion, targetVersion) < 0;
