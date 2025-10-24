@@ -1,36 +1,37 @@
 import { relations, sql } from 'drizzle-orm';
 // import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sqliteView, text } from 'drizzle-orm/sqlite-core';
+import { APP_SCHEMA_VERSION } from './constants';
 import {
-  createAssetContentLinkTable,
-  createAssetTable,
-  createAssetTagLinkTable,
-  createBlockedContentTable,
-  createBlockedUsersTable,
-  createInviteTable,
-  createLanguageTable,
-  createNotificationTable,
-  createProfileProjectLinkTable,
-  createProfileTable,
-  createProjectClosureTable,
-  createProjectLanguageLinkTable,
-  createProjectTable,
-  createQuestAssetLinkTable,
-  createQuestClosureTable,
-  createQuestTable,
-  createQuestTagLinkTable,
-  createReportsTable,
-  createRequestTable,
-  createSubscriptionTable,
-  createTagTable,
-  createVoteTable
+    createAssetContentLinkTable,
+    createAssetTable,
+    createAssetTagLinkTable,
+    createBlockedContentTable,
+    createBlockedUsersTable,
+    createInviteTable,
+    createLanguageTable,
+    createNotificationTable,
+    createProfileProjectLinkTable,
+    createProfileTable,
+    createProjectClosureTable,
+    createProjectLanguageLinkTable,
+    createProjectTable,
+    createQuestAssetLinkTable,
+    createQuestClosureTable,
+    createQuestTable,
+    createQuestTagLinkTable,
+    createReportsTable,
+    createRequestTable,
+    createSubscriptionTable,
+    createTagTable,
+    createVoteTable
 } from './drizzleSchemaColumns';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
 // see the official PowerSync documentation for the correct column types:
 // https://docs.powersync.com/usage/sync-rules/types#types
 
-export const APP_SCHEMA_VERSION = '1.0';
+export { APP_SCHEMA_VERSION };
 
 export const profile = createProfileTable('merged');
 

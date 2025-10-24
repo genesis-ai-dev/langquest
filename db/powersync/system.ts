@@ -44,6 +44,7 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
+import { getDefaultOpMetadata } from './opMetadata';
 
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
@@ -242,11 +243,6 @@ export class System {
     });
 
     function stamp(val: unknown) {
-      // Lazy import to avoid cycles
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getDefaultOpMetadata } = require('./opMetadata') as {
-        getDefaultOpMetadata: () => { schema_version: string };
-      };
       const tag = getDefaultOpMetadata();
       if (Array.isArray(val)) {
         return val.map((v) =>

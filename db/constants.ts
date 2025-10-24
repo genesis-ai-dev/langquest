@@ -1,3 +1,7 @@
+// Schema version tracking for migrations
+// This file has no dependencies to avoid circular imports
+export const APP_SCHEMA_VERSION = '1.0';
+
 export const reasonOptions = [
   'inappropriate_content',
   'spam',

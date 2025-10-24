@@ -111,8 +111,7 @@ const localColumns = {
   ...baseColumns,
   source: text({ enum: sourceOptions }).default('local').notNull(),
   // We need to manually add the metadata for the local columns because you cannot simply track metadata on non-syncing tables using PowerSync.
-  // ? do we need to require() the opMetadata function here to avoid circular dependency?
-  _metadata: text({ mode: 'json' }).$type<OpMetadata>().default(getDefaultOpMetadata()),
+  _metadata: text({ mode: 'json' }).$type<OpMetadata>().$defaultFn(() => getDefaultOpMetadata()),
   // draft: int({ mode: 'boolean' }).notNull().default(true)
 };
 

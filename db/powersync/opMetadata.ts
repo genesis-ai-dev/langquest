@@ -1,4 +1,4 @@
-import { APP_SCHEMA_VERSION } from '../drizzleSchema';
+import { APP_SCHEMA_VERSION } from '../constants';
 
 export interface OpMetadata {
   schema_version: string;
@@ -9,6 +9,7 @@ export interface OpMetadata {
 }
 
 export function getDefaultOpMetadata(): OpMetadata {
+  console.log('getDefaultOpMetadata', APP_SCHEMA_VERSION);
   return {
     schema_version: APP_SCHEMA_VERSION
   };
