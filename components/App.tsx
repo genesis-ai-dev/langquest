@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LoadingView from '@/components/LoadingView';
+import { MigrationScreen } from '@/components/MigrationScreen';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
@@ -26,7 +27,13 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isLoading, isAuthenticated, sessionType, isSystemReady } = useAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    sessionType,
+    isSystemReady,
+    migrationNeeded
+  } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const router = useRouter();
 
@@ -66,6 +73,15 @@ export default function App() {
     return (
       <AppWrapper>
         <AuthNavigator />
+      </AppWrapper>
+    );
+  }
+
+  // CRITICAL: Migration required - block everything until migration completes
+  if (migrationNeeded) {
+    return (
+      <AppWrapper>
+        <MigrationScreen />
       </AppWrapper>
     );
   }

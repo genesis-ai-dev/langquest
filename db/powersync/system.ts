@@ -86,6 +86,10 @@ export class System {
   private attachmentQueuesInitialized = false;
   private attachmentQueueInitPromise: Promise<void> | null = null;
 
+  // Migration state
+  public migrationNeeded = false;
+  private migratingNow = false;
+
   constructor() {
     // Prevent multiple instantiation
     if (System.instance) {
@@ -249,9 +253,9 @@ export class System {
 
     function stamp(val: unknown) {
       // Lazy import to avoid cycles
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getDefaultOpMetadata } = require('./opMetadata') as {
-        getDefaultOpMetadata: () => string;
+        getDefaultOpMetadata: () => { schema_version: string };
       };
       const tag = getDefaultOpMetadata();
       if (Array.isArray(val)) {
@@ -428,8 +432,28 @@ export class System {
       if (!this.initialized) {
         console.log('Initializing PowerSync...');
         await this.powersync.init();
-        // Freeze the object to prevent further modifications
-        // Object.freeze(this);
+
+        // CRITICAL: Check if migrations are needed BEFORE creating union views
+        // This prevents app from trying to use outdated schema
+        console.log('[System] Checking for schema migrations...');
+        const { checkNeedsMigration, MigrationNeededError } = await import(
+          '../migrations/index'
+        );
+        const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+        const needsMigration = await checkNeedsMigration(
+          this.db,
+          APP_SCHEMA_VERSION
+        );
+
+        if (needsMigration) {
+          console.log('[System] ⚠️  Migration needed - blocking initialization');
+          this.migrationNeeded = true;
+          // Throw specific error to signal UI needs to show migration screen
+          throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
+        }
+
+        console.log('[System] ✓ Schema is up to date');
         // After initializing the DB schema, create union views on top of
         // <table>_synced and <table>_local for all app tables
         await this.createUnionViews();
@@ -1122,6 +1146,84 @@ export class System {
       console.error('Error during system cleanup:', error);
     }
   }
+
+  /**
+   * Run schema migrations with progress callback
+   * Called from MigrationScreen when user needs to migrate data
+   * 
+   * @param onProgress - Callback for progress updates (current, total, step)
+   */
+  async runMigrations(
+    onProgress?: (current: number, total: number, step: string) => void
+  ): Promise<void> {
+    if (this.migratingNow) {
+      console.warn('[System] Migration already in progress');
+      return;
+    }
+
+    try {
+      this.migratingNow = true;
+      console.log('[System] Starting migration process...');
+
+      // Dynamic import to avoid circular dependencies
+      const { runMigrations, checkNeedsMigration } = await import(
+        '../migrations/index'
+      );
+      const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+      // Double-check that migration is still needed
+      const stillNeeded = await checkNeedsMigration(
+        this.db,
+        APP_SCHEMA_VERSION
+      );
+
+      if (!stillNeeded) {
+        console.log('[System] No migration needed (already at current version)');
+        this.migrationNeeded = false;
+        return;
+      }
+
+      // Get current version from database
+      // For simplicity, assume we need to go from any old version to current
+      // The migration system will figure out the path
+      const result = await runMigrations(
+        this.db,
+        '1.0', // Minimum supported version
+        APP_SCHEMA_VERSION,
+        onProgress
+      );
+
+      if (!result.success) {
+        throw new Error(
+          `Migration failed: ${result.errors.join(', ')}`
+        );
+      }
+
+      console.log('[System] ✓ Migration completed successfully');
+      this.migrationNeeded = false;
+    } catch (error) {
+      console.error('[System] Migration failed:', error);
+      throw error;
+    } finally {
+      this.migratingNow = false;
+    }
+  }
+
+  /**
+   * Reset system state after migration completes
+   * Allows re-initialization with new schema
+   */
+  resetForMigration(): void {
+    console.log('[System] Resetting for migration...');
+    this.migrationNeeded = false;
+    this.initialized = false;
+    this.connecting = false;
+    this.connectionPromise = null;
+
+    // This will cause useAuth to re-run system.init()
+    // which will now pass the migration check
+    useLocalStore.getState().setSystemReady(false);
+  }
 }
 
 // Create and export the system singleton safely
@@ -1161,7 +1263,9 @@ export const system = new Proxy({} as System, {
 
     // Allow checking initialization state without throwing
     if (prop === 'isInitialized' || prop === 'isPowerSyncInitialized' ||
-      prop === 'areAttachmentQueuesReady' || prop === 'init') {
+      prop === 'areAttachmentQueuesReady' || prop === 'init' ||
+      prop === 'migrationNeeded' || prop === 'runMigrations' ||
+      prop === 'resetForMigration') {
       const instance = getSystem();
       const value = instance[prop as keyof System];
       if (typeof value === 'function') {
