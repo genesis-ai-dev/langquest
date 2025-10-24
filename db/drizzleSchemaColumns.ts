@@ -39,6 +39,8 @@ import type {
   quest_synced,
   tag_synced
 } from './drizzleSchemaSynced';
+import type { OpMetadata } from './powersync/opMetadata';
+import { getDefaultOpMetadata } from './powersync/opMetadata';
 
 // good types:
 // export const pgBaseTable = <
@@ -107,7 +109,10 @@ const syncedColumns = {
 
 const localColumns = {
   ...baseColumns,
-  source: text({ enum: sourceOptions }).default('local').notNull()
+  source: text({ enum: sourceOptions }).default('local').notNull(),
+  // We need to manually add the metadata for the local columns because you cannot simply track metadata on non-syncing tables using PowerSync.
+  // ? do we need to require() the opMetadata function here to avoid circular dependency?
+  _metadata: text({ mode: 'json' }).$type<OpMetadata>().default(getDefaultOpMetadata()),
   // draft: int({ mode: 'boolean' }).notNull().default(true)
 };
 
@@ -116,22 +121,22 @@ export function getBaseColumns<T extends TableSource>(
 ): T extends 'local'
   ? typeof localColumns
   : T extends 'merged'
-    ? typeof syncedColumns & typeof localColumns
-    : typeof syncedColumns {
+  ? typeof syncedColumns & typeof localColumns
+  : typeof syncedColumns {
   return (
     source === 'local'
       ? localColumns
       : source === 'merged'
         ? {
-            ...syncedColumns,
-            ...localColumns
-          }
+          ...syncedColumns,
+          ...localColumns
+        }
         : syncedColumns
   ) as T extends 'local'
     ? typeof localColumns
     : T extends 'merged'
-      ? typeof syncedColumns & typeof localColumns
-      : typeof syncedColumns;
+    ? typeof syncedColumns & typeof localColumns
+    : typeof syncedColumns;
 }
 
 export function getTableColumns<T extends TableSource>(source: T) {

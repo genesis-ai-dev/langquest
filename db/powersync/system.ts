@@ -188,7 +188,6 @@ export class System {
               tableDefinition: localTable,
               options: {
                 localOnly: true,
-                trackMetadata: true,
                 ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
