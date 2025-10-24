@@ -8,8 +8,11 @@
  * - Data transformations
  */
 
-import type { DrizzleDB } from '@powersync/drizzle-driver';
 import { sql } from 'drizzle-orm';
+import type { DrizzleDB } from './index';
+
+// Re-export for convenience in migration files
+export type { DrizzleDB };
 
 // ============================================================================
 // SCHEMA MANIPULATION
@@ -31,7 +34,7 @@ export async function addColumn(
     console.log(`[Migration] Adding column to ${table}: ${columnDef}`);
 
     try {
-        await db.execute(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`));
+        await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`));
         console.log(`[Migration] ✓ Column added to ${table}`);
     } catch (error) {
         // Column might already exist - check if that's the case
@@ -65,7 +68,7 @@ export async function renameColumn(
 
     try {
         // Try direct rename (SQLite 3.25.0+)
-        await db.execute(
+        await db.run(
             sql.raw(`ALTER TABLE ${table} RENAME COLUMN ${oldName} TO ${newName}`)
         );
         console.log(`[Migration] ✓ Column renamed in ${table}`);
@@ -95,7 +98,7 @@ export async function dropColumn(
     console.log(`[Migration] Dropping column from ${table}: ${columnName}`);
 
     try {
-        await db.execute(sql.raw(`ALTER TABLE ${table} DROP COLUMN ${columnName}`));
+        await db.run(sql.raw(`ALTER TABLE ${table} DROP COLUMN ${columnName}`));
         console.log(`[Migration] ✓ Column dropped from ${table}`);
     } catch (error) {
         console.error(`[Migration] Failed to drop column:`, error);
@@ -133,7 +136,7 @@ export async function transformColumn(
 
     try {
         const query = `UPDATE ${table} SET ${column} = ${transform}${where}`;
-        await db.execute(sql.raw(query));
+        await db.run(sql.raw(query));
         console.log(`[Migration] ✓ Column transformed`);
     } catch (error) {
         console.error(`[Migration] Failed to transform column:`, error);
@@ -162,7 +165,7 @@ export async function copyColumn(
     console.log(`[Migration] Copying ${table}.${fromColumn} → ${toColumn}${where}`);
 
     try {
-        await db.execute(
+        await db.run(
             sql.raw(`UPDATE ${table} SET ${toColumn} = ${fromColumn}${where}`)
         );
         console.log(`[Migration] ✓ Column copied`);
@@ -193,9 +196,10 @@ export async function updateMetadataVersion(
     db: DrizzleDB,
     version: string
 ): Promise<void> {
-    console.log(`[Migration] Updating all *_local table _metadata to version ${version}...`);
+    console.log(`[Migration] Updating all *_local view _metadata to version ${version}...`);
 
-    // ONLY local tables - synced tables are handled by server
+    // ONLY local views - synced tables are handled by server
+    // Query through views (they expose _metadata column from Drizzle schema)
     const tables = [
         'profile_local',
         'language_local',
@@ -224,18 +228,19 @@ export async function updateMetadataVersion(
 
     for (const table of tables) {
         try {
-            // Check if table exists
-            const tableExists = await db.get<{ count: number }>(
-                sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=${table}`
-            );
+            // Check if view exists
+            const viewExists = (await db.get(
+                sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='view' AND name=${table}`
+            )) as { count: number } | undefined;
 
-            if (!tableExists || tableExists.count === 0) {
+            if (!viewExists || viewExists.count === 0) {
                 continue;
             }
 
             // Update _metadata for records that don't already have this version
-            // Handle both old string format and new object format
-            const result = await db.execute(sql.raw(`
+            // Query through the view - it exposes _metadata column
+            // Use .run() for Drizzle-wrapped database
+            const result = await db.run(sql.raw(`
         UPDATE ${table}
         SET _metadata = json_object('schema_version', '${version}')
         WHERE _metadata IS NULL 
@@ -251,7 +256,7 @@ export async function updateMetadataVersion(
                 totalRecordsUpdated += changes;
             }
         } catch (error) {
-            // Table might not exist or have _metadata column - skip it
+            // View might not exist - skip it
             console.log(`[Migration]   - Skipping ${table}: ${error}`);
         }
     }
@@ -276,12 +281,12 @@ export async function getOutdatedRecordCount(
     currentVersion: string
 ): Promise<number> {
     try {
-        const result = await db.get<{ count: number }>(sql.raw(`
+        const result = (await db.get(sql.raw(`
       SELECT COUNT(*) as count FROM ${table}
       WHERE _metadata IS NULL
          OR json_extract(_metadata, '$.schema_version') IS NULL
          OR json_extract(_metadata, '$.schema_version') < '${currentVersion}'
-    `));
+    `))) as { count: number } | undefined;
 
         return result?.count || 0;
     } catch (error) {
@@ -316,9 +321,9 @@ export async function updateInBatches(
     console.log(`[Migration] Batch updating ${table}...`);
 
     // Get total count
-    const countResult = await db.get<{ count: number }>(
+    const countResult = (await db.get(
         sql.raw(`SELECT COUNT(*) as count FROM ${table} WHERE ${whereClause}`)
-    );
+    )) as { count: number } | undefined;
     const total = countResult?.count || 0;
 
     if (total === 0) {
@@ -331,7 +336,7 @@ export async function updateInBatches(
     let updated = 0;
 
     while (updated < total) {
-        await db.execute(
+        await db.run(
             sql.raw(`${updateSql} WHERE ${whereClause} LIMIT ${batchSize}`)
         );
 

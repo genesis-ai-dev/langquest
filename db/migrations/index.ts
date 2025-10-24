@@ -18,10 +18,14 @@
  * 4. System automatically detects and runs on next app start
  */
 
-import type { DrizzleDB } from '@powersync/drizzle-driver';
 import { sql } from 'drizzle-orm';
-import { migration_1_0_to_1_1 } from './1.0-to-1.1';
+import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { updateMetadataVersion } from './utils';
+
+// Type alias for database with common query methods
+// Works with both raw PowerSync and Drizzle-wrapped instances
+// Using 'any' for flexibility since we're duck-typing the database interface
+export type DrizzleDB = any;
 
 // ============================================================================
 // TYPES
@@ -59,8 +63,10 @@ export interface MigrationResult {
  * Migrations will be run sequentially from oldest to newest
  */
 export const migrations: Migration[] = [
-    // Example: Import and add migrations like:
-    migration_1_0_to_1_1,
+    // Start with 0.0 to 1.0 to handle existing unversioned data
+    migration_0_0_to_1_0,
+    // Add future migrations here:
+    // migration_1_0_to_1_1,
     // migration_1_1_to_1_2,
 ];
 
@@ -90,21 +96,26 @@ function compareVersions(a: string, b: string): number {
 
 /**
  * Get the minimum version found in any _metadata field across LOCAL-ONLY tables
- * Returns null if no records found or all records have null _metadata
+ * Returns null if no records found (empty database)
+ * Returns '0.0' if records exist but have no schema_version (unversioned legacy data)
+ * Returns minimum version string if all records have versions
  * 
  * CRITICAL: This checks ALL records, not just one per table, because:
  * - Tables can have mixed versions (e.g., 99 records at v1.1, 1 at v1.0)
  * - We need to find the OLDEST version to determine if migration is needed
  * - Missing even one outdated record would leave data un-migrated
+ * - Records with NULL or missing _metadata.schema_version are treated as version 0.0
  * 
  * NOTE: We only check *_local tables because:
  * - Synced tables are migrated server-side via RPC
  * - Local tables contain data that has never been uploaded
  * - This is the only data that needs client-side migration
  */
-async function getMinimumSchemaVersion(db: DrizzleDB): Promise<string> {
+export async function getMinimumSchemaVersion(db: DrizzleDB): Promise<string | null> {
     try {
-        // Query ONLY *_local tables - synced tables are handled by server
+        // Query through union VIEWS (not raw PowerSync tables)
+        // Views expose _metadata column from Drizzle schema
+        // The views filter to show only local (non-synced) records
         const tables = [
             'profile_local',
             'language_local',
@@ -129,26 +140,56 @@ async function getMinimumSchemaVersion(db: DrizzleDB): Promise<string> {
         ];
 
         let minVersion: string | null = null;
+        let foundAnyData = false; // Track if we found any records at all
 
         for (const table of tables) {
             try {
-                // Check if table exists first
-                const tableExists = await db.get<{ count: number }>(
-                    sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=${table}`
-                );
+                // Check if view exists first (views are created before migration check)
+                const viewExists = (await db.get(
+                    sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='view' AND name=${table}`
+                )) as { count: number } | undefined;
 
-                if (!tableExists || tableExists.count === 0) {
+                if (!viewExists || viewExists.count === 0) {
+                    console.log(`[Migration] View ${table} does not exist, skipping`);
                     continue;
                 }
 
-                // CRITICAL: Find the MINIMUM version across ALL records in this table
-                // Using MIN() with json_extract to find the oldest version efficiently
-                const result = await db.get<{ min_version: string | null }>(
+                // Check if this view has any data at all
+                const rowCount = (await db.get(
+                    sql`SELECT COUNT(*) as count FROM ${sql.raw(table)}`
+                )) as { count: number } | undefined;
+
+                console.log(`[Migration] View ${table}: ${rowCount?.count || 0} records`);
+
+                if (!rowCount || rowCount.count === 0) {
+                    continue;
+                }
+
+                foundAnyData = true; // We found at least some data
+
+                // CRITICAL: First check if ANY records lack a schema_version
+                // These records are from version 0.0 and MUST be migrated
+                const unversionedCount = (await db.get(
+                    sql`SELECT COUNT(*) as count 
+              FROM ${sql.raw(table)} 
+              WHERE _metadata IS NULL 
+                 OR json_extract(_metadata, '$.schema_version') IS NULL`
+                )) as { count: number } | undefined;
+
+                if (unversionedCount && unversionedCount.count > 0) {
+                    console.log(`[Migration] Found ${unversionedCount.count} records without schema_version in ${table} - needs migration from 0.0`);
+                    minVersion = '0.0';
+                    // Don't break - we want to log all tables with unversioned data
+                    continue;
+                }
+
+                // Only if all records have versions, find the minimum version
+                const result = (await db.get(
                     sql`SELECT MIN(json_extract(_metadata, '$.schema_version')) as min_version 
               FROM ${sql.raw(table)} 
               WHERE _metadata IS NOT NULL 
                 AND json_extract(_metadata, '$.schema_version') IS NOT NULL`
-                );
+                )) as { min_version: string | null } | undefined;
 
                 if (result?.min_version) {
                     const version = result.min_version;
@@ -163,7 +204,14 @@ async function getMinimumSchemaVersion(db: DrizzleDB): Promise<string> {
             }
         }
 
-        return minVersion || '0.0';
+        // Return results:
+        // - If no data found at all: return null (caller will treat as "no migration needed")
+        // - If data found but no versions: return '0.0' (needs migration)
+        // - If data found with versions: return the minimum version
+        if (!foundAnyData) {
+            return null; // Signal: empty database, no migration needed
+        }
+        return minVersion || '0.0'; // Data exists, return version (or 0.0 if unversioned)
     } catch (error) {
         console.error('[Migration] Error getting minimum schema version:', error);
         return '0.0';
@@ -186,11 +234,19 @@ export async function checkNeedsMigration(
 
     const minVersion = await getMinimumSchemaVersion(db);
 
-    if (minVersion === '0.0') {
+    // If null, database is empty - no migration needed
+    if (minVersion === null) {
         console.log('[Migration] No existing data found - no migration needed (empty database)');
         return false;
     }
 
+    // If we found data with version 0.0 (unversioned), migration IS needed
+    if (minVersion === '0.0') {
+        console.log('[Migration] Found unversioned data (NULL or missing schema_version) - migration needed from 0.0');
+        return true;
+    }
+
+    // Compare versions to see if migration needed
     const needsMigration = compareVersions(minVersion, targetVersion) < 0;
 
     if (needsMigration) {

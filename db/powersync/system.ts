@@ -419,14 +419,20 @@ export class System {
         console.log('Initializing PowerSync...');
         await this.powersync.init();
 
-        // CRITICAL: Check if migrations are needed BEFORE creating union views
-        // This prevents app from trying to use outdated schema
+        // Create union views FIRST - they expose _metadata column from Drizzle schema
+        // This allows migrations to query and update _metadata through the views
+        console.log('[System] Creating union views...');
+        await this.createUnionViews();
+
+        // CRITICAL: Check if migrations are needed AFTER creating union views
+        // Now we can query _metadata through the views (will be NULL for old records)
         console.log('[System] Checking for schema migrations...');
         const { checkNeedsMigration, MigrationNeededError } = await import(
           '../migrations/index'
         );
         const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
+        // Use Drizzle-wrapped db to query through views (not raw PowerSync)
         const needsMigration = await checkNeedsMigration(
           this.db,
           APP_SCHEMA_VERSION
@@ -440,9 +446,6 @@ export class System {
         }
 
         console.log('[System] ✓ Schema is up to date');
-        // After initializing the DB schema, create union views on top of
-        // <table>_synced and <table>_local for all app tables
-        await this.createUnionViews();
       }
 
       // If we're already connected, check if we need to reconnect
@@ -1152,12 +1155,13 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, checkNeedsMigration } = await import(
+      const { runMigrations, checkNeedsMigration, getMinimumSchemaVersion } = await import(
         '../migrations/index'
       );
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Double-check that migration is still needed
+      // Use Drizzle-wrapped db to query through views
       const stillNeeded = await checkNeedsMigration(
         this.db,
         APP_SCHEMA_VERSION
@@ -1169,12 +1173,15 @@ export class System {
         return;
       }
 
-      // Get current version from database
-      // For simplicity, assume we need to go from any old version to current
-      // The migration system will figure out the path
+      // Get the actual current version from database
+      // This will return '0.0' for unversioned data, or the actual minimum version found
+      const currentVersion = await getMinimumSchemaVersion(this.db) || '0.0';
+      console.log(`[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`);
+
+      // Use Drizzle-wrapped db for migration operations (queries through views)
       const result = await runMigrations(
         this.db,
-        '1.0', // Minimum supported version
+        currentVersion, // Start from actual current version
         APP_SCHEMA_VERSION,
         onProgress
       );

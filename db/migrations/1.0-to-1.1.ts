@@ -34,14 +34,15 @@ export const migration_1_0_to_1_1: Migration = {
         // Synced tables are migrated server-side via RPC (ps_transform_v1_to_v2)
         // When local data is uploaded, the server transforms it automatically
 
-        // Example 1: Add a new column to LOCAL table only
+        // Example 1: Add a new column to LOCAL view only
         // ================================================
-        if (onProgress) onProgress(1, 3, 'Adding new column to local tables');
+        if (onProgress) onProgress(1, 3, 'Adding new column to local views');
 
+        // Query through views - they expose schema columns
         await addColumn(db, 'asset_local', 'example_field TEXT DEFAULT NULL');
-        // DO NOT add to 'asset' (synced table) - server handles this
+        // DO NOT add to synced tables - server handles this
 
-        // Example 2: Transform existing data in LOCAL table only
+        // Example 2: Transform existing data in LOCAL view only
         // =======================================================
         if (onProgress) onProgress(2, 3, 'Transforming existing data');
 
@@ -52,22 +53,23 @@ export const migration_1_0_to_1_1: Migration = {
             "COALESCE(name || ' (processed)', 'default')",
             'example_field IS NULL'
         );
-        // DO NOT transform 'asset' table - server handles this
+        // DO NOT transform synced tables - server handles this
 
         // Example 3: Copy data between columns (if needed)
         // =================================================
         // await copyColumn(db, 'asset_local', 'old_field', 'new_field');
 
-        // Example 4: Raw SQL for complex operations on LOCAL tables
+        // Example 4: Raw SQL for complex operations on LOCAL views
         // ==========================================================
         if (onProgress) onProgress(3, 3, 'Running custom transformations');
 
-        await db.execute(sql`
+        // Query through views (use .run() for Drizzle-wrapped db)
+        await db.run(sql.raw(`
       UPDATE asset_local
       SET last_updated = CURRENT_TIMESTAMP
       WHERE example_field IS NOT NULL
-    `);
-        // DO NOT update 'asset' table - server handles this
+    `));
+        // DO NOT update synced tables - server handles this
 
         console.log('[Migration 1.0→1.1] ✓ Migration complete');
 
