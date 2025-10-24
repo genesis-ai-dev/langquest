@@ -806,7 +806,7 @@ export function useQuestOffloadVerification(questId: string): VerificationState 
 
                             try {
                                 // Check if file exists in Supabase Storage
-                                const { data, error } = await system.storage.client
+                                const { data, error } = await system.supabaseConnector.client.storage
                                     .from('attachments')
                                     .list('', {
                                         limit: 1,
