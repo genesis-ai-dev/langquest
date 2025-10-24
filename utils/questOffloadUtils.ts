@@ -57,7 +57,7 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
                 // Parse composite keys
                 const assetTagPairs = verifiedIds.assetTagLinkIds.map((id) => {
                     const [assetId, tagId] = id.split('|');
-                    return { assetId, tagId };
+                    return { assetId: assetId!, tagId: tagId! };
                 });
 
                 // Delete each link (composite key requires multiple conditions)
@@ -76,7 +76,7 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
                 // Parse composite keys
                 const questTagPairs = verifiedIds.questTagLinkIds.map((id) => {
                     const [questId, tagId] = id.split('|');
-                    return { questId, tagId };
+                    return { questId: questId!, tagId: tagId! };
                 });
 
                 // Delete each link
@@ -134,7 +134,7 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
                 // Parse composite keys
                 const questAssetPairs = verifiedIds.questAssetLinkIds.map((id) => {
                     const [questId, assetId] = id.split('|');
-                    return { questId, assetId };
+                    return { questId: questId!, assetId: assetId! };
                 });
 
                 // Delete each link

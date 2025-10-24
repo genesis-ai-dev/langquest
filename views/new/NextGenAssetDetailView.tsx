@@ -12,6 +12,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import {
   asset,
+  asset_content_link,
   language as languageTable,
   project,
   project as projectCloud
@@ -244,9 +245,9 @@ export default function NextGenAssetDetailView() {
 
       return content.audio
         .filter(
-          (audioValue): audioValue is string => typeof audioValue === 'string'
+          (audioValue: unknown): audioValue is string => typeof audioValue === 'string'
         )
-        .map((audioValue) => {
+        .map((audioValue: string) => {
           // Handle direct local URIs (from recording view before publish)
           if (audioValue.startsWith('local/')) {
             const fullUri = getLocalAttachmentUriWithOPFS(audioValue);
@@ -277,7 +278,7 @@ export default function NextGenAssetDetailView() {
           );
           return null;
         })
-        .filter((uri): uri is string => uri !== null);
+        .filter((uri: string | null): uri is string => uri !== null);
     },
     [attachmentStates]
   );
