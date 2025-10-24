@@ -134,7 +134,9 @@ export class System {
             acc[key] = {
               tableDefinition: table,
               options: {
-                viewName: `${key}_synced`
+                viewName: `${key}_synced`,
+                trackMetadata: true,
+                ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
             return acc;
@@ -181,7 +183,9 @@ export class System {
             acc[key] = {
               tableDefinition: localTable,
               options: {
-                localOnly: true
+                localOnly: true,
+                trackMetadata: true,
+                ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
           }
@@ -190,19 +194,6 @@ export class System {
         {} as Record<string, DrizzleTableWithPowerSyncOptions>
       )
     };
-
-    const drizzleSchemaWithOptions = Object.fromEntries(
-      Object.entries(tablesOnly).map(([key, table]) => [
-        key,
-        {
-          tableDefinition: table as any,
-          options: {
-            trackMetadata: true,
-            ignoreEmptyUpdates: true
-          }
-        }
-      ])
-    );
 
     const schema = new Schema([
       ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables,
