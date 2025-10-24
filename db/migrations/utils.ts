@@ -2,10 +2,33 @@
  * Migration Utility Functions
  *
  * Helper functions for common migration tasks like:
- * - Adding columns
- * - Renaming columns
- * - Updating _metadata version on all records
- * - Data transformations
+ * - Adding columns (schema changes)
+ * - Renaming columns (schema changes)
+ * - Updating _metadata version on all records (data changes)
+ * - Data transformations (data changes)
+ *
+ * CRITICAL ARCHITECTURE NOTE:
+ * ============================
+ * 
+ * There are TWO types of migrations with different database access patterns:
+ *
+ * 1. **SCHEMA MIGRATIONS** (ALTER TABLE operations):
+ *    - Add/rename/drop columns
+ *    - Modify table structure
+ *    - CANNOT work on views (views are virtual tables)
+ *    - MUST access raw PowerSync tables: `ps_data_local__table_name`
+ *    - Use: `rawPowerSync.execute()` on underlying tables
+ *
+ * 2. **DATA MIGRATIONS** (UPDATE/INSERT operations):
+ *    - Update existing data
+ *    - Transform values
+ *    - Update _metadata
+ *    - CAN work through views (SQLite redirects to underlying tables)
+ *    - Use: `db.run()` through Drizzle views
+ *
+ * The functions in this file handle both cases automatically:
+ * - Schema functions (addColumn, renameColumn, dropColumn) access raw PowerSync
+ * - Data functions (transformColumn, copyColumn, updateMetadataVersion) use views
  */
 
 import { sql } from 'drizzle-orm';
@@ -22,8 +45,11 @@ export type { DrizzleDB };
  * Add a new column to a table
  * SQLite only supports limited ALTER TABLE operations
  *
- * @param db - Drizzle database instance
- * @param table - Table name (e.g., 'asset_local')
+ * CRITICAL: This modifies the underlying PowerSync table, not the view!
+ * Views cannot be altered. We need to access the raw PowerSync table.
+ *
+ * @param db - Drizzle database instance (contains .powersync for raw access)
+ * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
  * @param columnDef - Full column definition (e.g., 'new_field TEXT DEFAULT NULL')
  */
 export async function addColumn(
@@ -33,13 +59,24 @@ export async function addColumn(
 ): Promise<void> {
     console.log(`[Migration] Adding column to ${table}: ${columnDef}`);
 
+    // Convert view name to PowerSync table name
+    // 'asset_local' -> 'ps_data_local__asset_local'
+    const psTableName = `ps_data_local__${table}`;
+
     try {
-        await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`));
-        console.log(`[Migration] ✓ Column added to ${table}`);
+        // Use raw PowerSync to alter the underlying table
+        // Access via db.rawPowerSync (exposed by system.ts proxy)
+        const rawPowerSync = (db as any)?.rawPowerSync;
+        if (!rawPowerSync || !rawPowerSync.execute) {
+            throw new Error('Cannot access raw PowerSync instance for schema modification');
+        }
+
+        await rawPowerSync.execute(`ALTER TABLE ${psTableName} ADD COLUMN ${columnDef}`);
+        console.log(`[Migration] ✓ Column added to ${psTableName}`);
     } catch (error) {
         // Column might already exist - check if that's the case
         if (String(error).includes('duplicate column name')) {
-            console.log(`[Migration] Column already exists in ${table}, skipping`);
+            console.log(`[Migration] Column already exists in ${psTableName}, skipping`);
             return;
         }
         throw error;
@@ -53,8 +90,10 @@ export async function addColumn(
  * 2. Copy data
  * 3. Drop old column (if possible)
  *
- * @param db - Drizzle database instance
- * @param table - Table name
+ * CRITICAL: This modifies the underlying PowerSync table, not the view!
+ *
+ * @param db - Drizzle database instance (contains .powersync for raw access)
+ * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
  * @param oldName - Current column name
  * @param newName - New column name
  */
@@ -66,16 +105,25 @@ export async function renameColumn(
 ): Promise<void> {
     console.log(`[Migration] Renaming column in ${table}: ${oldName} → ${newName}`);
 
+    // Convert view name to PowerSync table name
+    const psTableName = `ps_data_local__${table}`;
+
     try {
+        // Use raw PowerSync to alter the underlying table
+        const rawPowerSync = (db as any)?.rawPowerSync;
+        if (!rawPowerSync || !rawPowerSync.execute) {
+            throw new Error('Cannot access raw PowerSync instance for schema modification');
+        }
+
         // Try direct rename (SQLite 3.25.0+)
-        await db.run(
-            sql.raw(`ALTER TABLE ${table} RENAME COLUMN ${oldName} TO ${newName}`)
+        await rawPowerSync.execute(
+            `ALTER TABLE ${psTableName} RENAME COLUMN ${oldName} TO ${newName}`
         );
-        console.log(`[Migration] ✓ Column renamed in ${table}`);
+        console.log(`[Migration] ✓ Column renamed in ${psTableName}`);
     } catch (error) {
         console.error(`[Migration] Failed to rename column:`, error);
         throw new Error(
-            `Could not rename column ${oldName} to ${newName} in ${table}. ` +
+            `Could not rename column ${oldName} to ${newName} in ${psTableName}. ` +
             `You may need to manually create a new column and copy data.`
         );
     }
@@ -86,8 +134,10 @@ export async function renameColumn(
  * Note: SQLite only supports DROP COLUMN in 3.35.0+
  * For older SQLite versions, this will fail
  *
- * @param db - Drizzle database instance
- * @param table - Table name
+ * CRITICAL: This modifies the underlying PowerSync table, not the view!
+ *
+ * @param db - Drizzle database instance (contains .powersync for raw access)
+ * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
  * @param columnName - Column to drop
  */
 export async function dropColumn(
@@ -97,13 +147,22 @@ export async function dropColumn(
 ): Promise<void> {
     console.log(`[Migration] Dropping column from ${table}: ${columnName}`);
 
+    // Convert view name to PowerSync table name
+    const psTableName = `ps_data_local__${table}`;
+
     try {
-        await db.run(sql.raw(`ALTER TABLE ${table} DROP COLUMN ${columnName}`));
-        console.log(`[Migration] ✓ Column dropped from ${table}`);
+        // Use raw PowerSync to alter the underlying table
+        const rawPowerSync = (db as any)?.rawPowerSync;
+        if (!rawPowerSync || !rawPowerSync.execute) {
+            throw new Error('Cannot access raw PowerSync instance for schema modification');
+        }
+
+        await rawPowerSync.execute(`ALTER TABLE ${psTableName} DROP COLUMN ${columnName}`);
+        console.log(`[Migration] ✓ Column dropped from ${psTableName}`);
     } catch (error) {
         console.error(`[Migration] Failed to drop column:`, error);
         throw new Error(
-            `Could not drop column ${columnName} from ${table}. ` +
+            `Could not drop column ${columnName} from ${psTableName}. ` +
             `Your SQLite version may not support DROP COLUMN. ` +
             `Consider leaving the column and ignoring it in the schema.`
         );
@@ -350,6 +409,59 @@ export async function updateInBatches(
     }
 
     console.log(`[Migration] ✓ Batch update complete`);
+}
+
+/**
+ * TESTING UTILITY: Reset all metadata to a specific version
+ * Use this to force migrations to re-run during development/testing
+ * 
+ * @param db - Database instance
+ * @param version - Version to reset to (e.g., '1.0' or '0.0')
+ */
+export async function resetMetadataVersionForTesting(
+    db: DrizzleDB,
+    version: string
+): Promise<void> {
+    console.log(`[Migration] ⚠️  TESTING: Resetting all *_local metadata to version ${version}...`);
+
+    const tables = [
+        'profile_local',
+        'language_local',
+        'project_local',
+        'quest_local',
+        'asset_local',
+        'tag_local',
+        'quest_asset_link_local',
+        'quest_tag_link_local',
+        'asset_tag_link_local',
+        'asset_content_link_local',
+        'vote_local',
+        'reports_local',
+        'invite_local',
+        'request_local',
+        'notification_local',
+        'profile_project_link_local',
+        'project_language_link_local',
+        'subscription_local',
+        'blocked_users_local',
+        'blocked_content_local'
+    ];
+
+    for (const table of tables) {
+        try {
+            const result = await db.run(sql.raw(`
+                UPDATE ${table}
+                SET _metadata = json_object('schema_version', '${version}')
+                WHERE _metadata IS NOT NULL
+            `));
+
+            console.log(`[Migration]   - Reset ${table}: ${result?.changes || 0} records`);
+        } catch (error) {
+            console.log(`[Migration]   - Skipping ${table}: ${error}`);
+        }
+    }
+
+    console.log(`[Migration] ✓ Metadata reset complete`);
 }
 
 

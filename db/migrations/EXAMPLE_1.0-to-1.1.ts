@@ -13,65 +13,59 @@
  * 3. Implement the migrate() function
  * 4. Register the migration in db/migrations/index.ts
  * 5. Bump APP_SCHEMA_VERSION in db/drizzleSchema.ts
+ *
+ * CRITICAL: Understanding Database Access
+ * ========================================
+ * - addColumn/renameColumn/dropColumn: Access raw PowerSync tables (ps_data_local__*)
+ * - transformColumn/copyColumn/UPDATE queries: Work through views
+ * - The helper functions handle this automatically, just pass view names
  */
 
 import { sql } from 'drizzle-orm';
 import type { Migration } from './index';
 import {
-    addColumn,
-    transformColumn
+    addColumn
 } from './utils';
+
+throw new Error('This is an example migration file - do not use it!');
 
 export const migration_1_0_to_1_1: Migration = {
     fromVersion: '1.0',
     toVersion: '1.1',
-    description: 'Example migration: Add example_field to assets',
+    description: 'TEST MIGRATION: Add notes field to assets (will be reverted)',
 
     async migrate(db, onProgress) {
-        console.log('[Migration 1.0→1.1] Starting migration...');
+        console.log('[Migration 1.0→1.1] Starting TEST migration...');
+        console.log('[Migration 1.0→1.1] This is a TEST - will be reverted after validation');
 
         // IMPORTANT: Only migrate *_local tables!
         // Synced tables are migrated server-side via RPC (ps_transform_v1_to_v2)
         // When local data is uploaded, the server transforms it automatically
 
-        // Example 1: Add a new column to LOCAL view only
+        // Step 1: Add a notes column to asset_local
         // ================================================
-        if (onProgress) onProgress(1, 3, 'Adding new column to local views');
+        if (onProgress) onProgress(1, 2, 'Adding notes column to asset_local');
 
-        // Query through views - they expose schema columns
-        await addColumn(db, 'asset_local', 'example_field TEXT DEFAULT NULL');
-        // DO NOT add to synced tables - server handles this
+        console.log('[Migration 1.0→1.1] Adding notes column...');
+        // Helper will convert 'asset_local' view name -> 'ps_data_local__asset_local' table
+        await addColumn(db, 'asset_local', 'notes TEXT DEFAULT NULL');
+        console.log('[Migration 1.0→1.1] ✓ Notes column added');
 
-        // Example 2: Transform existing data in LOCAL view only
-        // =======================================================
-        if (onProgress) onProgress(2, 3, 'Transforming existing data');
+        // Step 2: Initialize notes for existing records (optional data transformation test)
+        // ==================================================================================
+        if (onProgress) onProgress(2, 2, 'Initializing notes for existing assets');
 
-        await transformColumn(
-            db,
-            'asset_local',
-            'example_field',
-            "COALESCE(name || ' (processed)', 'default')",
-            'example_field IS NULL'
-        );
-        // DO NOT transform synced tables - server handles this
-
-        // Example 3: Copy data between columns (if needed)
-        // =================================================
-        // await copyColumn(db, 'asset_local', 'old_field', 'new_field');
-
-        // Example 4: Raw SQL for complex operations on LOCAL views
-        // ==========================================================
-        if (onProgress) onProgress(3, 3, 'Running custom transformations');
-
-        // Query through views (use .run() for Drizzle-wrapped db)
+        console.log('[Migration 1.0→1.1] Setting default notes...');
+        // Query through the view - it exposes all columns including new 'notes'
         await db.run(sql.raw(`
-      UPDATE asset_local
-      SET last_updated = CURRENT_TIMESTAMP
-      WHERE example_field IS NOT NULL
-    `));
-        // DO NOT update synced tables - server handles this
+            UPDATE asset_local
+            SET notes = 'Migration test: Added in schema v1.1'
+            WHERE notes IS NULL AND active = 1
+        `));
+        console.log('[Migration 1.0→1.1] ✓ Default notes set');
 
-        console.log('[Migration 1.0→1.1] ✓ Migration complete');
+        console.log('[Migration 1.0→1.1] ✓ TEST Migration complete');
+        console.log('[Migration 1.0→1.1] Remember to revert this migration after testing!');
 
         // Note: updateMetadataVersion() is called automatically by the migration system
         // You don't need to call it here (and it only updates *_local tables)

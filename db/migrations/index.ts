@@ -65,8 +65,8 @@ export interface MigrationResult {
 export const migrations: Migration[] = [
     // Start with 0.0 to 1.0 to handle existing unversioned data
     migration_0_0_to_1_0,
-    // Add future migrations here:
     // migration_1_0_to_1_1,
+    // Add future migrations here:
     // migration_1_1_to_1_2,
 ];
 

@@ -257,8 +257,15 @@ export class System {
       return val;
     }
 
+    // Capture PowerSync instance for migrations
+    const powersyncInstance = this.powersync;
+    
     const dbWithMetadata = new Proxy(rawDb as any, {
-      get(target, prop, receiver) {
+      get(target: any, prop: any, receiver: any) {
+        // Expose raw PowerSync for migrations that need to alter tables
+        if (prop === 'rawPowerSync') {
+          return powersyncInstance;
+        }
         if (prop === 'insert') {
           return (table: any) => {
             const builder = target.insert(table);
@@ -427,6 +434,14 @@ export class System {
         // CRITICAL: Check if migrations are needed AFTER creating union views
         // Now we can query _metadata through the views (will be NULL for old records)
         console.log('[System] Checking for schema migrations...');
+        
+        // TEMPORARY: Reset metadata for testing migration
+        // TODO: REMOVE THIS AFTER TESTING
+        // console.log('[System] ⚠️  TESTING: Resetting metadata to 1.0 to force migration...');
+        // const { resetMetadataVersionForTesting } = await import('../migrations/utils');
+        // await resetMetadataVersionForTesting(this.db, '1.0');
+        // console.log('[System] ✓ Metadata reset complete');
+        
         const { checkNeedsMigration, MigrationNeededError } = await import(
           '../migrations/index'
         );
