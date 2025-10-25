@@ -20,6 +20,12 @@ interface AuthContextType {
   // System state
   isSystemReady: boolean;
   migrationNeeded: boolean;
+  appUpgradeNeeded: boolean;
+  upgradeError: {
+    localVersion: string;
+    serverVersion: string;
+    reason: string;
+  } | null;
 
   // Auth methods
   signIn: (email: string, password: string) => Promise<AuthResponse>;
@@ -75,6 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [isSystemReady, setIsSystemReady] = useState(false);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [appUpgradeNeeded, setAppUpgradeNeeded] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<{
+    localVersion: string;
+    serverVersion: string;
+    reason: string;
+  } | null>(null);
 
   // Initialize system when we have an authenticated session
   const initializeSystem = async () => {
@@ -82,14 +94,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Initializing system...');
       setIsSystemReady(false);
       setMigrationNeeded(false);
+      setAppUpgradeNeeded(false);
+      setUpgradeError(null);
       await system.init();
       setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {
       console.error('[AuthContext] System init failed:', error);
 
-      // Check if this is a migration needed error
+      // Check if this is an app upgrade needed error
       if (error && typeof error === 'object' && 'name' in error) {
+        if ((error as { name: string }).name === 'AppUpgradeNeededError') {
+          console.log(
+            '[AuthContext] App upgrade needed - showing upgrade screen'
+          );
+          const upgradeErr = error as unknown as {
+            localVersion: string;
+            serverVersion: string;
+            reason: 'server_ahead' | 'server_behind';
+          };
+          setAppUpgradeNeeded(true);
+          setUpgradeError(upgradeErr);
+          setIsSystemReady(false);
+          return; // Don't show error alert for app upgrade
+        }
+
+        // Check if this is a migration needed error
         if ((error as { name: string }).name === 'MigrationNeededError') {
           console.log(
             '[AuthContext] Migration needed - showing migration screen'
@@ -102,6 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setIsSystemReady(false);
       setMigrationNeeded(false);
+      setAppUpgradeNeeded(false);
+      setUpgradeError(null);
       // Show error to user for other errors
       Alert.alert(
         'Initialization Error',
@@ -280,6 +312,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUser: session?.user || null,
     isSystemReady,
     migrationNeeded,
+    appUpgradeNeeded,
+    upgradeError,
     signIn,
     signUp,
     signOut,

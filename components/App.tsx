@@ -5,6 +5,7 @@ import { initializeNetwork } from '@/store/networkStore';
 import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppUpgradeScreen } from '@/components/AppUpgradeScreen';
 import LoadingView from '@/components/LoadingView';
 import { MigrationScreen } from '@/components/MigrationScreen';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
@@ -32,7 +33,9 @@ export default function App() {
     isAuthenticated,
     sessionType,
     isSystemReady,
-    migrationNeeded
+    migrationNeeded,
+    appUpgradeNeeded,
+    upgradeError
   } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const router = useRouter();
@@ -73,6 +76,20 @@ export default function App() {
     return (
       <AppWrapper>
         <AuthNavigator />
+      </AppWrapper>
+    );
+  }
+
+  // CRITICAL: App upgrade required - block everything until user upgrades
+  // This takes precedence over migration since the app version is incompatible
+  if (appUpgradeNeeded && upgradeError) {
+    return (
+      <AppWrapper>
+        <AppUpgradeScreen
+          localVersion={upgradeError.localVersion}
+          serverVersion={upgradeError.serverVersion}
+          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+        />
       </AppWrapper>
     );
   }

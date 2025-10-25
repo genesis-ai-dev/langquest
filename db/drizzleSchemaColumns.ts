@@ -339,7 +339,6 @@ export function createAssetTable<
     {
       ...getTableColumns(source),
       name: text(),
-      notes: text(), // TEST FIELD - Added in v1.1, will be reverted after migration test
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
