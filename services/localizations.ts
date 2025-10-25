@@ -4318,6 +4318,62 @@ export const localizations = {
     brazilian_portuguese: 'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
     tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
     indonesian: 'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+  },
+  appUpgradeRequired: {
+    english: 'App Upgrade Required',
+    spanish: 'Actualización de App Requerida',
+    brazilian_portuguese: 'Atualização do App Necessária',
+    tok_pisin: 'Yu mas upgreidim app',
+    indonesian: 'Pembaruan Aplikasi Diperlukan'
+  },
+  appUpgradeServerAhead: {
+    english: 'A new version of the app is required to access the latest features. Please update to continue.',
+    spanish: 'Se requiere una nueva versión de la aplicación para acceder a las últimas funciones. Por favor actualice para continuar.',
+    brazilian_portuguese: 'Uma nova versão do aplicativo é necessária para acessar os recursos mais recentes. Por favor, atualize para continuar.',
+    tok_pisin: 'Yu mas kisim nupela version bilong app long usim ol nupela samting. Plis upgreidim long go het.',
+    indonesian: 'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.'
+  },
+  appUpgradeServerBehind: {
+    english: 'Your app version is newer than the server. Please contact support or wait for the server to be updated.',
+    spanish: 'Su versión de la aplicación es más nueva que el servidor. Por favor contacte al soporte o espere a que se actualice el servidor.',
+    brazilian_portuguese: 'Sua versão do aplicativo é mais recente que o servidor. Por favor, entre em contato com o suporte ou aguarde a atualização do servidor.',
+    tok_pisin: 'Version bilong app bilong yu i nupela moa long server. Plis contactim support o wetim server i upgreidim.',
+    indonesian: 'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.'
+  },
+  upgradeToVersion: {
+    english: 'Please upgrade to version {version}',
+    spanish: 'Por favor actualice a la versión {version}',
+    brazilian_portuguese: 'Por favor atualize para a versão {version}',
+    tok_pisin: 'Plis upgreidim long version {version}',
+    indonesian: 'Silakan perbarui ke versi {version}'
+  },
+  currentVersion: {
+    english: 'Current Version',
+    spanish: 'Versión Actual',
+    brazilian_portuguese: 'Versão Atual',
+    tok_pisin: 'Version nau',
+    indonesian: 'Versi Saat Ini'
+  },
+  requiredVersion: {
+    english: 'Required Version',
+    spanish: 'Versión Requerida',
+    brazilian_portuguese: 'Versão Necessária',
+    tok_pisin: 'Version yu mas gat',
+    indonesian: 'Versi yang Diperlukan'
+  },
+  upgradeApp: {
+    english: 'Upgrade App',
+    spanish: 'Actualizar App',
+    brazilian_portuguese: 'Atualizar App',
+    tok_pisin: 'Upgreidim App',
+    indonesian: 'Perbarui Aplikasi'
+  },
+  checkingSchemaVersion: {
+    english: 'Checking schema compatibility...',
+    spanish: 'Verificando compatibilidad del esquema...',
+    brazilian_portuguese: 'Verificando compatibilidade do esquema...',
+    tok_pisin: 'Checkim schema compatibility...',
+    indonesian: 'Memeriksa kompatibilitas skema...'
   }
 } as const;
 
