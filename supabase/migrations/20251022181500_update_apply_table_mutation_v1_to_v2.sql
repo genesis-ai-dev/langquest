@@ -34,7 +34,7 @@ begin
 end;
 $$;
 
-create or replace function public.v1_to_v2(p_ops public.mutation_op[], p_meta jsonb)
+create or replace function public.v0_to_v1(p_ops public.mutation_op[], p_meta jsonb)
 returns public.mutation_op[]
 language plpgsql
 security invoker
@@ -45,14 +45,14 @@ declare
   op public.mutation_op;
   new_ops public.mutation_op[] := '{}';
   v_meta text := coalesce(p_meta->>'metadata', '');
-  v_version_is_v1 boolean := (v_meta = '1') or (v_meta like '1.%');
+  v_version_is_v0 boolean := (v_meta = '0') or (v_meta like '0.%');
   v_id uuid;
   v_parent_id uuid;
   v_acl_id uuid;
   v_active bool;
 begin
   foreach op in array p_ops loop
-    if v_version_is_v1 and lower(op.table_name) = 'translation' then
+    if v_version_is_v0 and lower(op.table_name) = 'translation' then
       begin v_id := (op.record->>'id')::uuid; exception when others then v_id := gen_random_uuid(); end;
       begin v_parent_id := (op.record->>'asset_id')::uuid; exception when others then v_parent_id := null; end;
       v_acl_id := gen_random_uuid();
@@ -96,6 +96,33 @@ begin
 
       out_ops := out_ops || new_ops;
       new_ops := '{}';
+    elsif v_version_is_v0 and lower(op.table_name) = 'vote' then
+      -- Legacy vote -> asset_vote
+      -- Resolve target asset via translation (variant asset by translation.id preferred, else parent translation.asset_id)
+      begin v_id := (op.record->>'id')::uuid; exception when others then v_id := gen_random_uuid(); end;
+      -- Compute asset_id via SELECTs
+      new_ops := new_ops || (
+        with
+        t as (
+          select id, asset_id from public.translation where id = (op.record->>'translation_id')::uuid
+        ),
+        a_variant as (
+          select a.id from public.asset a join t on a.id = t.id
+        )
+        select (row(
+          'asset_vote',
+          case when lower(op.op) = 'delete' then 'delete' else 'put' end,
+          (
+            op.record
+            || jsonb_build_object(
+                 'asset_id', coalesce((select id from a_variant), (select asset_id from t))::text
+               )
+            - 'translation_id'
+          )
+        ))::public.mutation_op
+      );
+      out_ops := out_ops || new_ops;
+      new_ops := '{}';
     else
       out_ops := out_ops || op;
     end if;
@@ -120,7 +147,7 @@ declare
   target_schema_name text := 'public';
   v_logs text := '';
   v_meta text := coalesce(p_client_meta->>'metadata', '');
-  v_version_is_v1 boolean := (v_meta = '1') or (v_meta like '1.%');
+  v_version_is_v0 boolean := (v_meta = '0') or (v_meta like '0.%');
   ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
   final_ops public.mutation_op[];
   t text; o text; r jsonb;
@@ -134,12 +161,12 @@ begin
 
   -- Log input
   v_logs := v_logs || format('[input] op=%s table=%s meta=%s record=%s\n', p_op, p_table_name, v_meta, p_record::text);
-  v_logs := v_logs || format('[debug] v_is_v1=%s lower(table)=%s\n', case when v_version_is_v1 then 'true' else 'false' end, lower(p_table_name));
+  v_logs := v_logs || format('[debug] v_is_v0=%s lower(table)=%s\n', case when v_version_is_v0 then 'true' else 'false' end, lower(p_table_name));
 
   -- Chain transforms based on client version
-  if v_version_is_v1 then
-    ops := public.v1_to_v2(ops, p_client_meta);
-    v_logs := v_logs || '[transform] v1_to_v2 applied\n';
+  if v_version_is_v0 then
+    ops := public.v0_to_v1(ops, p_client_meta);
+    v_logs := v_logs || '[transform] v0_to_v1 applied\n';
   end if;
 
   final_ops := ops;
