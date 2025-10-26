@@ -99,9 +99,8 @@ $$;
 
 -- 5) Migrate data from legacy vote table to asset_vote
 -- Assumptions:
--- - Legacy public.vote has translation_id referencing public.translation(id)
--- - New variant assets may exist with id = translation.id; if not, fall back to translation.asset_id
--- - If neither mapping yields a valid asset, row will be skipped to preserve referential integrity
+-- - Legacy public.vote now directly references assets via asset_id (was translation_id pre-migration)
+-- - All fields are migrated directly; referential integrity is preserved via asset_id foreign key
 
 insert into public.asset_vote (
   id,
@@ -119,7 +118,7 @@ select
   v.id,
   coalesce(v.created_at, now()),
   coalesce(v.last_updated, now()),
-  coalesce(a_variant.id, t.asset_id) as asset_id,
+  v.asset_id,
   v.polarity,
   v.comment,
   v.creator_id,
@@ -127,9 +126,7 @@ select
   v.download_profiles,
   v.ingest_batch_id
 from public.vote v
-left join public.translation t on t.id = v.translation_id
-left join public.asset a_variant on a_variant.id = t.id
-where coalesce(a_variant.id, t.asset_id) is not null
+where v.asset_id is not null
 on conflict (id) do nothing;
 
 -- 6) Add to PowerSync publication
